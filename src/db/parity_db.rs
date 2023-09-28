@@ -102,6 +102,13 @@ impl ParityDb {
         })
     }
 
+    pub fn wrap(db: parity_db::Db, stats: bool) -> Self {
+        Self {
+            db,
+            statistics_enabled: stats,
+        }
+    }
+
     /// Returns an appropriate column variant based on the information
     /// in the Cid.
     fn choose_column(cid: &Cid) -> DbColumn {
@@ -266,13 +273,32 @@ const TX_BATCH_SIZE: usize = 10_000;
 type Op = (u8, Operation<Vec<u8>, Vec<u8>>);
 
 impl ParityDb {
-    fn dereference_operation(key: &Cid) -> Op {
+    /// Removes a record.
+    ///
+    /// # Arguments
+    /// * `key` - record identifier
+    pub fn dereference_operation(key: &Cid) -> Op {
         let column = Self::choose_column(key);
         (column as u8, Operation::Dereference(key.to_bytes()))
     }
 
-    fn commit_changes(&self, txn: &mut Vec<Op>) -> anyhow::Result<()> {
-        let mut txn_new = Vec::with_capacity(TX_BATCH_SIZE);
+    /// Updates/inserts a record.
+    ///
+    /// # Arguments
+    /// * `key` - record identifier
+    /// * `value` - record contents
+    pub fn set_operation(key: Cid, value: Vec<u8>) -> Op {
+        let column = Self::choose_column(&key);
+        (column as u8, Operation::Set(key.to_bytes(), value))
+    }
+
+    /// Commits changes and re-initializes operations vector with the same capacity for further
+    /// usage.
+    ///
+    /// # Arguments
+    /// * `txn` - a vector of operations to be performed on the database
+    pub fn commit_changes(&self, txn: &mut Vec<Op>) -> anyhow::Result<()> {
+        let mut txn_new = Vec::with_capacity(txn.len());
         mem::swap(&mut txn_new, txn);
         self.db.commit_changes(txn_new).context("commit error")
     }

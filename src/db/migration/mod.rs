@@ -4,5 +4,6 @@
 mod db_migration;
 mod migration_map;
 mod v0_12_1;
+mod v0_13_0;
 
 pub use db_migration::DbMigration;
