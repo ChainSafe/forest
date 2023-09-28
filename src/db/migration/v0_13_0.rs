@@ -20,7 +20,7 @@ use tracing::info;
 use super::migration_map::MigrationOperation;
 
 #[derive(Default)]
-pub(super) struct Migration0_13_0_0_13_1;
+pub(super) struct Migration1_13_0_0_13_1;
 
 /// Temporary database path for the migration.
 const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_13_0_to_0_13_1";
@@ -30,7 +30,7 @@ const TX_BATCH_SIZE: usize = 10_000;
 
 /// Migrates the database from version 0.13.0 to 0.13.1
 /// This migration merges the two databases represented by RollingDB into one.
-impl MigrationOperation for Migration0_13_0_0_13_1 {
+impl MigrationOperation for Migration1_13_0_0_13_1 {
     fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
         Ok(())
     }

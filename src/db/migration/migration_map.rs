@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::db::migration::v0_13_0::Migration1_13_0_0_13_1;
 use anyhow::bail;
 use itertools::Itertools;
 use multimap::MultiMap;
@@ -43,13 +44,22 @@ type Migrator = Arc<dyn MigrationOperation + Send + Sync>;
 type MigrationsMap = MultiMap<Version, (Version, Migrator)>;
 pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
     MigrationsMap::from_iter(
-        [(
-            Version::new(0, 12, 1),
+        [
+            (
+                Version::new(0, 12, 1),
+                (
+                    Version::new(0, 13, 0),
+                    Arc::new(Migration0_12_1_0_13_0) as _,
+                ),
+            ),
             (
                 Version::new(0, 13, 0),
-                Arc::new(Migration0_12_1_0_13_0) as _,
+                (
+                    Version::new(0, 13, 1),
+                    Arc::new(Migration1_13_0_0_13_1) as _,
+                ),
             ),
-        )]
+        ]
         .iter()
         .cloned(),
     )
