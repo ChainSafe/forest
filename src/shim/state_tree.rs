@@ -308,9 +308,14 @@ where
 /// let fvm3_actor_state = fvm3::state_tree::ActorState::new(Cid::default(), Cid::default(),
 /// fvm_shared3::econ::TokenAmount::from_atto(42), 0, None);
 ///
+/// // Create a correspndoning FVM4 ActorState
+/// let fvm4_actor_state = fvm4::state_tree::ActorState::new(Cid::default(), Cid::default(),
+/// fvm_shared4::econ::TokenAmount::from_atto(42), 0, None);
+///
 /// // Create a shim out of fvm2 state, ensure conversions are correct
 /// let state_shim = ActorState::from(fvm2_actor_state.clone());
-/// assert_eq!(fvm3_actor_state, *state_shim);
+/// assert_eq!(fvm4_actor_state, *state_shim);
+/// assert_eq!(fvm3_actor_state, state_shim.clone().into());
 /// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]

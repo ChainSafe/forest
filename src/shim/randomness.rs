@@ -22,9 +22,13 @@ use serde::{Deserialize, Serialize};
 /// // Create a correspndoning FVM3 Randomness
 /// let fvm3_rand = fvm_shared3::randomness::Randomness(vec![]);
 ///
+/// // Create a correspndoning FVM4 Randomness
+/// let fvm4_rand = fvm_shared4::randomness::Randomness(vec![]);
+///
 /// // Create a shim Randomness, ensure conversions are correct
 /// let rand_shim = Randomness::new(vec![]);
-/// assert_eq!(fvm3_rand, *rand_shim);
+/// assert_eq!(fvm4_rand, *rand_shim);
+/// assert_eq!(fvm3_rand, rand_shim.clone().into());
 /// assert_eq!(fvm2_rand, rand_shim.into());
 /// ```
 #[derive(PartialEq, Eq, Default, Clone, Debug, Deserialize, Serialize)]

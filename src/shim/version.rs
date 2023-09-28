@@ -15,8 +15,11 @@ use serde::{Deserialize, Serialize};
 /// # use forest_filecoin::doctest_private::NetworkVersion;
 /// let v0 = NetworkVersion::V0;
 ///
-/// // dereference to convert to FVM3
-/// assert_eq!(fvm_shared3::version::NetworkVersion::V0, *v0);
+/// // dereference to convert to FVM4
+/// assert_eq!(fvm_shared4::version::NetworkVersion::V0, *v0);
+///
+/// // use `.into()` when FVM3 has to be specified.
+/// assert_eq!(fvm_shared3::version::NetworkVersion::V0, v0.into());
 ///
 /// // use `.into()` when FVM2 has to be specified.
 /// assert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());
