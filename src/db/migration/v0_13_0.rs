@@ -84,6 +84,7 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
                 } else {
                     while let Some((key, value)) = db.db.iter(col as u8)?.next()? {
                         vec.push(Db::set_operation(col as u8, key, value));
+                        records += 1;
                         if vec.len() == TX_BATCH_SIZE {
                             new_db.commit_changes(&mut vec)?;
                             info!("migrated {} records in {} column", records, col);
