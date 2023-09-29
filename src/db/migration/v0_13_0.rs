@@ -8,6 +8,7 @@
 
 use crate::db::db_engine::Db;
 use crate::db::migration::v0_13_0::paritydb_0_13_0::{DbColumn, ParityDb};
+use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
@@ -23,9 +24,6 @@ pub(super) struct Migration0_13_0_0_13_1;
 
 /// Temporary database path for the migration.
 const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_13_0_to_0_13_1";
-
-/// Transaction batch size.
-const TX_BATCH_SIZE: usize = 10_000;
 
 /// Migrates the database from version 0.13.0 to 0.13.1
 /// This migration merges the two databases represented by RollingDB into one.
@@ -57,45 +55,39 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
         // because of the rolling db, we have to do the migration for each sub-database...
         for sub_db in &db_paths {
             info!("migrating RollingDB partition {:?}", sub_db);
-            let mut vec = Vec::with_capacity(TX_BATCH_SIZE);
             let db = ParityDb::open(&sub_db)?;
 
             for col in DbColumn::iter() {
                 info!("migrating column {}", col);
                 let mut res = anyhow::Ok(());
-                let mut records = 0;
                 if col == DbColumn::GraphDagCborBlake2b256 {
                     db.db.iter_column_while(col as u8, |val| {
                         let hash = Blake2b256.digest(&val.value);
                         let cid = Cid::new_v1(DAG_CBOR, hash);
+                        res = new_db
+                            .db
+                            .commit_changes([Db::set_operation(
+                                col as u8,
+                                cid.to_bytes(),
+                                val.value,
+                            )])
+                            .context("failed to commit");
 
-                        vec.push(Db::set_operation(col as u8, cid.to_bytes(), val.value));
-                        records += 1;
-                        if vec.len() == TX_BATCH_SIZE {
-                            res = new_db.commit_changes(&mut vec);
-                            if res.is_err() {
-                                return false;
-                            }
-                            info!("migrated {} records in {} column", records, col);
+                        if res.is_err() {
+                            return false;
                         }
+
                         true
                     })?;
                     res?;
                 } else {
                     let mut iter = db.db.iter(col as u8)?;
                     while let Some((key, value)) = iter.next()? {
-                        vec.push(Db::set_operation(col as u8, key, value));
-                        records += 1;
-                        if vec.len() == TX_BATCH_SIZE {
-                            new_db.commit_changes(&mut vec)?;
-                            info!("migrated {} records in {} column", records, col);
-                        }
+                        new_db
+                            .db
+                            .commit_changes([Db::set_operation(col as u8, key, value)])
+                            .context("failed to commit")?;
                     }
-                }
-                // Commit the leftovers.
-                if vec.len() > 0 {
-                    new_db.commit_changes(&mut vec)?;
-                    info!("migrated {} records in {} column", records, col);
                 }
             }
         }

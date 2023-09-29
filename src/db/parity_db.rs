@@ -300,7 +300,7 @@ impl ParityDb {
     pub fn commit_changes(&self, txn: &mut Vec<Op>) -> anyhow::Result<()> {
         let mut txn_new = Vec::with_capacity(txn.len());
         mem::swap(&mut txn_new, txn);
-        self.db.commit_changes(txn).context("commit error")
+        self.db.commit_changes(txn_new).context("commit error")
     }
 }
 
