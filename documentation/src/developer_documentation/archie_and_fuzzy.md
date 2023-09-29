@@ -1,7 +1,7 @@
 # What and How?
 
 Fuzzy and Archie are two servers hosted in the ChainSafe office. Both belong to
-the Forest team.
+the Forest team and are running a Ubuntu variant.
 
 Archie and Fuzzy are accessible through a CloudFlare tunnel. Add this to your
 SSH config (`~/.ssh/config`):
