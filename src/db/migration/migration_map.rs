@@ -3,6 +3,7 @@
 
 use std::{
     path::{Path, PathBuf},
+    str::FromStr,
     sync::Arc,
 };
 
@@ -41,19 +42,32 @@ pub(super) trait MigrationOperation {
 // This would allow us to skip migrations in case of bugs or just for performance reasons.
 type Migrator = Arc<dyn MigrationOperation + Send + Sync>;
 type MigrationsMap = MultiMap<Version, (Version, Migrator)>;
+
+/// A utility macro to make the migrations easier to declare.
+/// The usage is:
+/// `<FROM version> -> <TO version> @ <Migrator object>`
+macro_rules! create_migrations {
+    ($($from:literal -> $to:literal @ $migration:path),* $(,)?) => {
 pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
     MigrationsMap::from_iter(
-        [(
-            Version::new(0, 12, 1),
+        [
+            ($(
+            Version::from_str($from).unwrap(),
             (
-                Version::new(0, 13, 0),
-                Arc::new(Migration0_12_1_0_13_0) as _,
-            ),
-        )]
+                Version::from_str($to).unwrap(),
+                Arc::new($migration) as _,
+            )
+            )*)
+        ]
         .iter()
         .cloned(),
     )
 });
+}}
+
+create_migrations!(
+    "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
+);
 
 pub struct Migration {
     from: Version,
