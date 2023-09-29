@@ -274,7 +274,7 @@ mod tests {
         let db = MemoryDB::default();
 
         let account_state = AccountState {
-            address: *Address::new_id(0xdeadbeef),
+            address: Address::new_id(0xdeadbeef).into(),
         };
         let mut state = mk_account_v10(&db, &account_state);
         state.code = Cid::default(); // Use an unknown actor CID to force parsing to fail.

@@ -3,8 +3,8 @@
 
 use std::ops::{Deref, DerefMut};
 
-use fvm_shared3::bigint::bigint_ser;
-pub use fvm_shared3::bigint::bigint_ser::{BigIntDe, BigIntSer};
+use super::fvm_shared_latest::bigint::bigint_ser;
+pub use super::fvm_shared_latest::bigint::bigint_ser::{BigIntDe, BigIntSer};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

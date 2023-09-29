@@ -8,6 +8,7 @@ use crate::shim::{
 };
 use fvm2::trace::ExecutionEvent as E2;
 use fvm3::trace::ExecutionEvent as E3;
+use fvm4::trace::ExecutionEvent as E4;
 use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
 use itertools::Either;
 
@@ -19,7 +20,7 @@ pub enum ExecutionEvent {
     CallAbort(ShimExitCode),
     CallError(ShimSyscallError),
     Log(String),
-    Unknown(Either<E2, E3>),
+    Unknown(Either<E3, Either<E4, E2>>),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -66,7 +67,7 @@ impl From<E2> for ExecutionEvent {
             E2::CallAbort(ab) => EShim::CallAbort(ab.into()),
             E2::CallError(err) => EShim::CallError(err.into()),
             E2::Log(s) => EShim::Log(s),
-            e => EShim::Unknown(Either::Left(e)),
+            e => EShim::Unknown(Either::Right(Either::Right(e))),
         }
     }
 }
@@ -97,7 +98,38 @@ impl From<E3> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E3::CallError(err) => EShim::CallError(err.into()),
-            e => EShim::Unknown(Either::Right(e)),
+            e => EShim::Unknown(Either::Left(e)),
+        }
+    }
+}
+
+impl From<E4> for ExecutionEvent {
+    fn from(value: E4) -> Self {
+        match value {
+            E4::GasCharge(gc) => EShim::GasCharge(gc.into()),
+            E4::Call {
+                from,
+                to,
+                method,
+                params,
+                value,
+                gas_limit,
+                read_only,
+            } => EShim::Call(Call {
+                from,
+                to: to.into(),
+                method_num: method,
+                params: Either::Right(params),
+                value: value.into(),
+                gas_limit: Some(gas_limit),
+                read_only: Some(read_only),
+            }),
+            E4::CallReturn(exit_code, data) => EShim::CallReturn(CallReturn {
+                exit_code: Some(exit_code.into()),
+                data: Either::Right(data),
+            }),
+            E4::CallError(err) => EShim::CallError(err.into()),
+            e => EShim::Unknown(Either::Right(Either::Left(e))),
         }
     }
 }

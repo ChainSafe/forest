@@ -72,7 +72,7 @@ where
 
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<Address>> {
-        if addr.protocol() == fvm_shared3::address::Protocol::ID {
+        if addr.protocol() == fvm_shared4::address::Protocol::ID {
             return Ok(Some(*addr));
         }
         anyhow::bail!("StateTreeV0::lookup_id is only defined for ID addresses")

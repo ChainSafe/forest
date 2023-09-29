@@ -3,12 +3,14 @@
 
 use fvm2::machine::MultiEngine as MultiEngine_v2;
 use fvm3::engine::MultiEngine as MultiEngine_v3;
+use fvm4::engine::MultiEngine as MultiEngine_v4;
 mod manifest;
 pub use manifest::*;
 
 pub struct MultiEngine {
     pub v2: MultiEngine_v2,
     pub v3: MultiEngine_v3,
+    pub v4: MultiEngine_v4,
 }
 
 impl Default for MultiEngine {
@@ -19,9 +21,11 @@ impl Default for MultiEngine {
 
 impl MultiEngine {
     pub fn new(concurrency: Result<u32, std::io::Error>) -> MultiEngine {
+        let concurrency = concurrency.ok();
         MultiEngine {
-            v2: MultiEngine_v2::new(),
-            v3: MultiEngine_v3::new(concurrency.unwrap_or(1)), // `1` is default concurrency value in `fvm3`
+            v2: Default::default(),
+            v3: concurrency.map_or_else(Default::default, MultiEngine_v3::new),
+            v4: concurrency.map_or_else(Default::default, MultiEngine_v4::new),
         }
     }
 }

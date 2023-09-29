@@ -9,12 +9,15 @@ use anyhow::{anyhow, bail, Context};
 use cid::Cid;
 pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};
+pub use fvm4::state_tree::{ActorState as ActorStateV4, StateTree as StateTreeV4};
+pub use fvm4::state_tree::{ActorState as ActorState_latest, StateTree as StateTree_latest};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
 pub use fvm_shared3::state::StateRoot;
 use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
 pub use fvm_shared3::ActorID;
+use fvm_shared4::state::StateTreeVersion as StateTreeVersionV4;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
@@ -34,15 +37,28 @@ pub enum StateTreeVersion {
     V5,
 }
 
+impl From<StateTreeVersionV4> for StateTreeVersion {
+    fn from(value: StateTreeVersionV4) -> Self {
+        match value {
+            StateTreeVersionV4::V0 => Self::V0,
+            StateTreeVersionV4::V1 => Self::V1,
+            StateTreeVersionV4::V2 => Self::V2,
+            StateTreeVersionV4::V3 => Self::V3,
+            StateTreeVersionV4::V4 => Self::V4,
+            StateTreeVersionV4::V5 => Self::V5,
+        }
+    }
+}
+
 impl From<StateTreeVersionV3> for StateTreeVersion {
     fn from(value: StateTreeVersionV3) -> Self {
         match value {
-            StateTreeVersionV3::V0 => StateTreeVersion::V0,
-            StateTreeVersionV3::V1 => StateTreeVersion::V1,
-            StateTreeVersionV3::V2 => StateTreeVersion::V2,
-            StateTreeVersionV3::V3 => StateTreeVersion::V3,
-            StateTreeVersionV3::V4 => StateTreeVersion::V4,
-            StateTreeVersionV3::V5 => StateTreeVersion::V5,
+            StateTreeVersionV3::V0 => Self::V0,
+            StateTreeVersionV3::V1 => Self::V1,
+            StateTreeVersionV3::V2 => Self::V2,
+            StateTreeVersionV3::V3 => Self::V3,
+            StateTreeVersionV3::V4 => Self::V4,
+            StateTreeVersionV3::V5 => Self::V5,
         }
     }
 }
@@ -63,11 +79,11 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV2 {
 
     fn try_from(value: StateTreeVersion) -> anyhow::Result<Self> {
         Ok(match value {
-            StateTreeVersion::V0 => StateTreeVersionV2::V0,
-            StateTreeVersion::V1 => StateTreeVersionV2::V1,
-            StateTreeVersion::V2 => StateTreeVersionV2::V2,
-            StateTreeVersion::V3 => StateTreeVersionV2::V3,
-            StateTreeVersion::V4 => StateTreeVersionV2::V4,
+            StateTreeVersion::V0 => Self::V0,
+            StateTreeVersion::V1 => Self::V1,
+            StateTreeVersion::V2 => Self::V2,
+            StateTreeVersion::V3 => Self::V3,
+            StateTreeVersion::V4 => Self::V4,
             StateTreeVersion::V5 => bail!("Impossible conversion"),
         })
     }
@@ -78,12 +94,27 @@ impl TryFrom<StateTreeVersion> for StateTreeVersionV3 {
 
     fn try_from(value: StateTreeVersion) -> anyhow::Result<Self> {
         Ok(match value {
-            StateTreeVersion::V0 => StateTreeVersionV3::V0,
-            StateTreeVersion::V1 => StateTreeVersionV3::V1,
-            StateTreeVersion::V2 => StateTreeVersionV3::V2,
-            StateTreeVersion::V3 => StateTreeVersionV3::V3,
-            StateTreeVersion::V4 => StateTreeVersionV3::V4,
-            StateTreeVersion::V5 => StateTreeVersionV3::V5,
+            StateTreeVersion::V0 => Self::V0,
+            StateTreeVersion::V1 => Self::V1,
+            StateTreeVersion::V2 => Self::V2,
+            StateTreeVersion::V3 => Self::V3,
+            StateTreeVersion::V4 => Self::V4,
+            StateTreeVersion::V5 => Self::V5,
+        })
+    }
+}
+
+impl TryFrom<StateTreeVersion> for StateTreeVersionV4 {
+    type Error = anyhow::Error;
+
+    fn try_from(value: StateTreeVersion) -> anyhow::Result<Self> {
+        Ok(match value {
+            StateTreeVersion::V0 => Self::V0,
+            StateTreeVersion::V1 => Self::V1,
+            StateTreeVersion::V2 => Self::V2,
+            StateTreeVersion::V3 => Self::V3,
+            StateTreeVersion::V4 => Self::V4,
+            StateTreeVersion::V5 => Self::V5,
         })
     }
 }
@@ -102,6 +133,8 @@ pub enum StateTree<S> {
     FvmV2(StateTreeV2<Arc<S>>),
     // fvm-3 support state tree versions 5.
     FvmV3(StateTreeV3<Arc<S>>),
+    // fvm-4 support state tree versions *.
+    FvmV4(StateTreeV4<Arc<S>>),
 }
 
 impl<S> StateTree<S>
@@ -110,7 +143,9 @@ where
 {
     /// Constructor for a HAMT state tree given an IPLD store
     pub fn new(store: Arc<S>, version: StateTreeVersion) -> anyhow::Result<Self> {
-        if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
+        if let Ok(st) = StateTreeV4::new(store.clone(), version.try_into()?) {
+            Ok(StateTree::FvmV4(st))
+        } else if let Ok(st) = StateTreeV3::new(store.clone(), version.try_into()?) {
             Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new(store, version.try_into()?) {
             Ok(StateTree::FvmV2(st))
@@ -120,7 +155,9 @@ where
     }
 
     pub fn new_from_root(store: Arc<S>, c: &Cid) -> anyhow::Result<Self> {
-        if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
+        if let Ok(st) = StateTreeV4::new_from_root(store.clone(), c) {
+            Ok(StateTree::FvmV4(st))
+        } else if let Ok(st) = StateTreeV3::new_from_root(store.clone(), c) {
             Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
             Ok(StateTree::FvmV2(st))
@@ -139,6 +176,17 @@ where
                 .map_err(|e| anyhow!("{e}"))?
                 .map(Into::into)),
             StateTree::FvmV3(st) => {
+                let id = st.lookup_id(&addr.into())?;
+                if let Some(id) = id {
+                    Ok(st
+                        .get_actor(id)
+                        .map_err(|e| anyhow!("{e}"))?
+                        .map(Into::into))
+                } else {
+                    Ok(None)
+                }
+            }
+            StateTree::FvmV4(st) => {
                 let id = st.lookup_id(addr)?;
                 if let Some(id) = id {
                     Ok(st
@@ -168,6 +216,7 @@ where
         match self {
             StateTree::FvmV2(st) => st.store(),
             StateTree::FvmV3(st) => st.store(),
+            StateTree::FvmV4(st) => st.store(),
             StateTree::V0(st) => st.store(),
         }
     }
@@ -177,7 +226,8 @@ where
         match self {
             StateTree::FvmV2(st) => st.lookup_id(&addr.into()).map_err(|e| anyhow!("{e}")),
             StateTree::FvmV3(st) => Ok(st.lookup_id(&addr.into())?),
-            _ => bail!("StateTree::lookup_id not supported on old state trees"),
+            StateTree::FvmV4(st) => Ok(st.lookup_id(&addr.into())?),
+            StateTree::V0(_) => bail!("StateTree::lookup_id not supported on old state trees"),
         }
     }
 
@@ -198,7 +248,13 @@ where
                 };
                 st.for_each(inner)
             }
-            _ => bail!("StateTree::for_each not supported on old state trees"),
+            StateTree::FvmV4(st) => {
+                let inner = |address: fvm_shared4::address::Address, actor_state: &ActorStateV4| {
+                    f(address.into(), &actor_state.into())
+                };
+                st.for_each(inner)
+            }
+            StateTree::V0(_) => bail!("StateTree::for_each not supported on old state trees"),
         }
     }
 
@@ -207,7 +263,8 @@ where
         match self {
             StateTree::FvmV2(st) => st.flush().map_err(|e| anyhow!("{e}")),
             StateTree::FvmV3(st) => Ok(st.flush()?),
-            _ => bail!("StateTree::flush not supported on old state trees"),
+            StateTree::FvmV4(st) => Ok(st.flush()?),
+            StateTree::V0(_) => bail!("StateTree::flush not supported on old state trees"),
         }
     }
 
@@ -224,7 +281,14 @@ where
                 st.set_actor(id, actor.into());
                 Ok(())
             }
-            _ => bail!("StateTree::set_actor not supported on old state trees"),
+            StateTree::FvmV4(st) => {
+                let id = st
+                    .lookup_id(&addr.into())?
+                    .context("couldn't find actor id")?;
+                st.set_actor(id, actor.into());
+                Ok(())
+            }
+            StateTree::V0(_) => bail!("StateTree::set_actor not supported on old state trees"),
         }
     }
 }
@@ -244,15 +308,20 @@ where
 /// let fvm3_actor_state = fvm3::state_tree::ActorState::new(Cid::default(), Cid::default(),
 /// fvm_shared3::econ::TokenAmount::from_atto(42), 0, None);
 ///
+/// // Create a correspndoning FVM4 ActorState
+/// let fvm4_actor_state = fvm4::state_tree::ActorState::new(Cid::default(), Cid::default(),
+/// fvm_shared4::econ::TokenAmount::from_atto(42), 0, None);
+///
 /// // Create a shim out of fvm2 state, ensure conversions are correct
 /// let state_shim = ActorState::from(fvm2_actor_state.clone());
-/// assert_eq!(fvm3_actor_state, *state_shim);
+/// assert_eq!(fvm4_actor_state, *state_shim);
+/// assert_eq!(fvm3_actor_state, state_shim.clone().into());
 /// assert_eq!(fvm2_actor_state, state_shim.into());
 /// ```
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct ActorState(ActorStateV3);
+pub struct ActorState(ActorState_latest);
 
 impl ActorState {
     pub fn new(
@@ -262,7 +331,7 @@ impl ActorState {
         sequence: u64,
         address: Option<Address>,
     ) -> Self {
-        Self(ActorStateV3::new(
+        Self(ActorState_latest::new(
             code,
             state,
             balance.into(),
@@ -272,7 +341,7 @@ impl ActorState {
     }
     /// Construct a new empty actor with the specified code.
     pub fn new_empty(code: Cid, delegated_address: Option<Address>) -> Self {
-        Self(ActorStateV3::new_empty(
+        Self(ActorState_latest::new_empty(
             code,
             delegated_address.map(Into::into),
         ))
@@ -280,7 +349,7 @@ impl ActorState {
 }
 
 impl Deref for ActorState {
-    type Target = ActorStateV3;
+    type Target = ActorState_latest;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -293,33 +362,9 @@ impl DerefMut for ActorState {
     }
 }
 
-impl From<ActorStateV3> for ActorState {
-    fn from(value: ActorStateV3) -> Self {
-        ActorState(value)
-    }
-}
-
-impl From<&ActorStateV3> for ActorState {
-    fn from(value: &ActorStateV3) -> Self {
-        ActorState(value.clone())
-    }
-}
-
-impl From<ActorStateV2> for ActorState {
-    fn from(value: ActorStateV2) -> Self {
-        ActorState(ActorStateV3 {
-            code: value.code,
-            state: value.state,
-            sequence: value.sequence,
-            balance: TokenAmount::from(value.balance).into(),
-            delegated_address: None,
-        })
-    }
-}
-
 impl From<&ActorStateV2> for ActorState {
     fn from(value: &ActorStateV2) -> Self {
-        ActorState(ActorStateV3 {
+        Self(ActorState_latest {
             code: value.code,
             state: value.state,
             sequence: value.sequence,
@@ -329,15 +374,47 @@ impl From<&ActorStateV2> for ActorState {
     }
 }
 
-impl From<ActorState> for ActorStateV3 {
-    fn from(other: ActorState) -> Self {
-        other.0
+impl From<ActorStateV2> for ActorState {
+    fn from(value: ActorStateV2) -> Self {
+        (&value).into()
+    }
+}
+
+impl From<ActorStateV3> for ActorState {
+    fn from(value: ActorStateV3) -> Self {
+        Self(ActorState_latest {
+            code: value.code,
+            state: value.state,
+            sequence: value.sequence,
+            balance: TokenAmount::from(value.balance).into(),
+            delegated_address: value
+                .delegated_address
+                .map(|addr| Address::from(addr).into()),
+        })
+    }
+}
+
+impl From<&ActorStateV3> for ActorState {
+    fn from(value: &ActorStateV3) -> Self {
+        value.clone().into()
+    }
+}
+
+impl From<ActorStateV4> for ActorState {
+    fn from(value: ActorStateV4) -> Self {
+        ActorState(value)
+    }
+}
+
+impl From<&ActorStateV4> for ActorState {
+    fn from(value: &ActorStateV4) -> Self {
+        value.clone().into()
     }
 }
 
 impl From<ActorState> for ActorStateV2 {
     fn from(other: ActorState) -> ActorStateV2 {
-        ActorStateV2 {
+        Self {
             code: other.code,
             state: other.state,
             sequence: other.sequence,
@@ -348,12 +425,32 @@ impl From<ActorState> for ActorStateV2 {
 
 impl From<&ActorState> for ActorStateV2 {
     fn from(other: &ActorState) -> ActorStateV2 {
-        ActorStateV2 {
+        Self {
             code: other.code,
             state: other.state,
             sequence: other.sequence,
             balance: TokenAmount::from(&other.balance).into(),
         }
+    }
+}
+
+impl From<ActorState> for ActorStateV3 {
+    fn from(other: ActorState) -> Self {
+        Self {
+            code: other.code,
+            state: other.state,
+            sequence: other.sequence,
+            balance: TokenAmount::from(&other.balance).into(),
+            delegated_address: other
+                .delegated_address
+                .map(|addr| Address::from(addr).into()),
+        }
+    }
+}
+
+impl From<ActorState> for ActorStateV4 {
+    fn from(other: ActorState) -> Self {
+        other.0
     }
 }
 

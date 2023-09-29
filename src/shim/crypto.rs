@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::borrow::Cow;
 
+use super::fvm_shared_latest::{self, commcid::Commitment};
+pub use super::fvm_shared_latest::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
 use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
@@ -9,8 +11,6 @@ use fvm_ipld_encoding::{
     repr::{Deserialize_repr, Serialize_repr},
     ser, strict_bytes,
 };
-use fvm_shared2::commcid::Commitment;
-pub use fvm_shared2::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 
@@ -88,7 +88,9 @@ impl Signature {
 
     /// Checks if a signature is valid given data and address.
     pub fn verify(&self, data: &[u8], addr: &crate::shim::address::Address) -> Result<(), String> {
-        use fvm_shared3::crypto::signature::ops::{verify_bls_sig, verify_secp256k1_sig};
+        use super::fvm_shared_latest::crypto::signature::ops::{
+            verify_bls_sig, verify_secp256k1_sig,
+        };
         match self.sig_type {
             SignatureType::Bls => verify_bls_sig(&self.bytes, data, addr),
             SignatureType::Secp256k1 => verify_secp256k1_sig(&self.bytes, data, addr),
@@ -155,14 +157,14 @@ pub fn verify_bls_sig(
     data: &[u8],
     addr: &crate::shim::address::Address,
 ) -> Result<(), String> {
-    fvm_shared3::crypto::signature::ops::verify_bls_sig(signature, data, &addr.into())
+    fvm_shared_latest::crypto::signature::ops::verify_bls_sig(signature, data, &addr.into())
 }
 
 /// Extracts the raw replica commitment from a CID
 /// assuming that it has the correct hashing function and
 /// serialization types
 pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str> {
-    fvm_shared2::commcid::cid_to_replica_commitment_v1(c)
+    fvm_shared_latest::commcid::cid_to_replica_commitment_v1(c)
 }
 
 /// Signature variants for Filecoin signatures.

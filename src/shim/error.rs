@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use fvm_shared2::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
+use fvm_shared4::error::ExitCode as ExitCodeV4;
 use serde::{Deserialize, Serialize};
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
@@ -37,6 +38,12 @@ impl From<u32> for ExitCode {
     }
 }
 
+impl From<ExitCodeV4> for ExitCode {
+    fn from(value: ExitCodeV4) -> Self {
+        value.value().into()
+    }
+}
+
 impl From<ExitCodeV3> for ExitCode {
     fn from(value: ExitCodeV3) -> Self {
         Self(value)
@@ -45,7 +52,7 @@ impl From<ExitCodeV3> for ExitCode {
 
 impl From<ExitCodeV2> for ExitCode {
     fn from(value: ExitCodeV2) -> Self {
-        Self::from(value.value())
+        value.value().into()
     }
 }
 
@@ -58,5 +65,11 @@ impl From<ExitCode> for ExitCodeV2 {
 impl From<ExitCode> for ExitCodeV3 {
     fn from(value: ExitCode) -> Self {
         value.0
+    }
+}
+
+impl From<ExitCode> for ExitCodeV4 {
+    fn from(value: ExitCode) -> Self {
+        Self::new(value.0.value())
     }
 }
