@@ -82,7 +82,8 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
                     })?;
                     res?;
                 } else {
-                    while let Some((key, value)) = db.db.iter(col as u8)?.next()? {
+                    let mut iter = db.db.iter(col as u8)?;
+                    while let Some((key, value)) = iter.next()? {
                         vec.push(Db::set_operation(col as u8, key, value));
                         records += 1;
                         if vec.len() == TX_BATCH_SIZE {
