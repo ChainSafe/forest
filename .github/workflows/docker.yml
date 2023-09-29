@@ -22,7 +22,8 @@ jobs:
     # This is done to limit the runner cost.
     if: github.event.pull_request.draft == false
     name: Build images and push to GHCR
-    runs-on: buildjet-8vcpu-ubuntu-2204
+    # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
+    runs-on: fuzzy
     timeout-minutes: 30
     steps:
       - name: List cached docker images

@@ -11,7 +11,9 @@ use data_encoding::Encoding;
 use data_encoding_macro::new_encoding;
 use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
-pub use fvm_shared3::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+use fvm_shared4::address::Address as Address_v4;
+use fvm_shared4::address::Address as Address_latest;
+pub use fvm_shared4::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
 use integer_encoding::VarInt;
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
@@ -108,7 +110,7 @@ impl Drop for NetworkGuard {
 )]
 #[serde(transparent)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-pub struct Address(Address_v3);
+pub struct Address(Address_latest);
 
 impl Address {
     pub const SYSTEM_ACTOR: Address = Address::new_id(0);
@@ -125,23 +127,23 @@ impl Address {
     pub const BURNT_FUNDS_ACTOR: Address = Address::new_id(99);
 
     pub const fn new_id(id: u64) -> Self {
-        Address(Address_v3::new_id(id))
+        Address(Address_latest::new_id(id))
     }
 
     pub fn new_actor(data: &[u8]) -> Self {
-        Address(Address_v3::new_actor(data))
+        Address(Address_latest::new_actor(data))
     }
 
     pub fn new_bls(pubkey: &[u8]) -> Result<Self, Error> {
-        Address_v3::new_bls(pubkey).map(Address::from)
+        Address_latest::new_bls(pubkey).map(Address::from)
     }
 
     pub fn new_secp256k1(pubkey: &[u8]) -> Result<Self, Error> {
-        Address_v3::new_secp256k1(pubkey).map(Address::from)
+        Address_latest::new_secp256k1(pubkey).map(Address::from)
     }
 
     pub fn new_delegated(ns: u64, subaddress: &[u8]) -> Result<Self, Error> {
-        Ok(Self(Address_v3::new_delegated(ns, subaddress)?))
+        Ok(Self(Address_latest::new_delegated(ns, subaddress)?))
     }
 
     pub fn protocol(&self) -> Protocol {
@@ -153,12 +155,12 @@ impl Address {
     }
 
     pub fn from_bytes(bz: &[u8]) -> Result<Self, Error> {
-        Address_v3::from_bytes(bz).map(Address)
+        Address_latest::from_bytes(bz).map(Address)
     }
 }
 
 impl FromStr for Address {
-    type Err = <Address_v3 as FromStr>::Err;
+    type Err = <Address_latest as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Network::Testnet
@@ -176,7 +178,7 @@ const ADDRESS_ENCODER: Encoding = new_encoding! {
 
 impl Display for Address {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use fvm_shared3::address::CHECKSUM_HASH_LEN;
+        use fvm_shared4::address::CHECKSUM_HASH_LEN;
         const MAINNET_PREFIX: &str = "f";
         const TESTNET_PREFIX: &str = "t";
 
@@ -233,7 +235,7 @@ impl Display for Address {
 }
 
 impl Deref for Address {
-    type Target = Address_v3;
+    type Target = Address_latest;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -265,7 +267,7 @@ impl Display for StrictAddress {
 }
 
 impl FromStr for StrictAddress {
-    type Err = <Address_v3 as FromStr>::Err;
+    type Err = <Address_latest as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let fvm_addr = CurrentNetwork::get().parse_address(s)?;
@@ -296,9 +298,47 @@ impl From<StrictAddress> for Address_v3 {
     }
 }
 
+impl From<StrictAddress> for Address_v4 {
+    fn from(other: StrictAddress) -> Self {
+        other.0.into()
+    }
+}
+
+impl From<Address_v4> for Address {
+    fn from(other: Address_v4) -> Self {
+        Address(other)
+    }
+}
+
+impl From<&Address_v4> for Address {
+    fn from(other: &Address_v4) -> Self {
+        Address(*other)
+    }
+}
+
+impl From<&Address_v3> for Address {
+    fn from(other: &Address_v3) -> Self {
+        Address::from(
+            Address_v4::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+                panic!("Couldn't convert from FVM3 address to FVM4 address: {other}, {e}")
+            }),
+        )
+    }
+}
+
 impl From<Address_v3> for Address {
     fn from(other: Address_v3) -> Self {
-        Address(other)
+        (&other).into()
+    }
+}
+
+impl From<&Address_v2> for Address {
+    fn from(other: &Address_v2) -> Self {
+        Address::from(
+            Address_v4::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+                panic!("Couldn't convert from FVM2 address to FVM4 address: {other}, {e}")
+            }),
+        )
     }
 }
 
@@ -308,32 +348,22 @@ impl From<Address_v2> for Address {
     }
 }
 
-impl From<&Address_v2> for Address {
-    fn from(other: &Address_v2) -> Self {
-        Address::from(
-            Address_v3::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
-                panic!("Couldn't convert from FVM2 address to FVM3 address: {other}, {e}")
-            }),
-        )
+impl From<Address> for Address_v4 {
+    fn from(other: Address) -> Address_v4 {
+        other.0
     }
 }
 
-impl From<&Address_v3> for Address {
-    fn from(other: &Address_v3) -> Self {
-        Address(*other)
-    }
-}
-
-impl From<Address> for Address_v2 {
-    fn from(other: Address) -> Address_v2 {
-        (&other).into()
-    }
-}
-
-impl From<&Address> for Address_v2 {
+impl From<&Address> for Address_v4 {
     fn from(other: &Address) -> Self {
-        Address_v2::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
-            panic!("Couldn't convert from FVM3 address to FVM2 address: {other}, {e}")
+        other.0
+    }
+}
+
+impl From<&Address> for Address_v3 {
+    fn from(other: &Address) -> Self {
+        Address_v3::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+            panic!("Couldn't convert from FVM4 address to FVM3 address: {other}, {e}")
         })
     }
 }
@@ -344,9 +374,17 @@ impl From<Address> for Address_v3 {
     }
 }
 
-impl From<&Address> for Address_v3 {
+impl From<&Address> for Address_v2 {
     fn from(other: &Address) -> Self {
-        other.0
+        Address_v2::from_bytes(&other.to_bytes()).unwrap_or_else(|e| {
+            panic!("Couldn't convert from FVM4 address to FVM2 address: {other}, {e}")
+        })
+    }
+}
+
+impl From<Address> for Address_v2 {
+    fn from(other: Address) -> Address_v2 {
+        (&other).into()
     }
 }
 

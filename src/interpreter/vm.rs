@@ -7,7 +7,10 @@ use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
-use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
+use crate::interpreter::{
+    fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3,
+    fvm4::ForestExterns as ForestExternsV4,
+};
 use crate::message::ChainMessage;
 use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -39,6 +42,13 @@ use fvm3::{
         NetworkConfig as NetworkConfig_v3,
     },
 };
+use fvm4::{
+    executor::{DefaultExecutor as DefaultExecutor_v4, Executor as Executor_v4},
+    machine::{
+        DefaultMachine as DefaultMachine_v4, Machine as Machine_v4,
+        NetworkConfig as NetworkConfig_v4,
+    },
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::clock::ChainEpoch;
@@ -48,13 +58,19 @@ pub(in crate::interpreter) type ForestMachineV2<DB> =
     DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
 pub(in crate::interpreter) type ForestMachineV3<DB> =
     DefaultMachine_v3<Arc<DB>, ForestExternsV3<DB>>;
+pub(in crate::interpreter) type ForestMachineV4<DB> =
+    DefaultMachine_v4<Arc<DB>, ForestExternsV4<DB>>;
 
 type ForestKernelV2<DB> =
     fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachineV2<DB>>>;
 type ForestKernelV3<DB> =
     fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
+type ForestKernelV4<DB> =
+    fvm4::DefaultKernel<fvm4::call_manager::DefaultCallManager<ForestMachineV4<DB>>>;
+
 type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
+type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -119,6 +135,7 @@ impl BlockMessages {
 pub enum VM<DB: Blockstore + Send + Sync + 'static> {
     VM2(ForestExecutorV2<DB>),
     VM3(ForestExecutorV3<DB>),
+    VM4(ForestExecutorV4<DB>),
 }
 
 pub struct ExecutionContext<DB> {
@@ -164,7 +181,35 @@ where
         enable_tracing: VMTrace,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
-        if network_version >= NetworkVersion::V18 {
+        if network_version >= NetworkVersion::V21 {
+            let mut config = NetworkConfig_v4::new(network_version.into());
+            // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
+            config.chain_id((chain_config.eth_chain_id as u64).into());
+            if let NetworkChain::Devnet(_) = chain_config.network {
+                config.enable_actor_debugging();
+            }
+
+            let engine = multi_engine.v4.get(&config)?;
+            let mut context = config.for_epoch(epoch, timestamp, state_tree_root);
+            context.set_base_fee(base_fee.into());
+            context.set_circulating_supply(circ_supply.into());
+            context.tracing = enable_tracing.is_traced();
+
+            let fvm: ForestMachineV4<DB> = ForestMachineV4::new(
+                &context,
+                Arc::clone(&chain_index.db),
+                ForestExternsV4::new(
+                    RandWrapper::from(rand),
+                    heaviest_tipset,
+                    epoch,
+                    state_tree_root,
+                    chain_index,
+                    chain_config,
+                ),
+            )?;
+            let exec: ForestExecutorV4<DB> = DefaultExecutor_v4::new(engine, fvm)?;
+            Ok(VM::VM4(exec))
+        } else if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
             config.chain_id((chain_config.eth_chain_id as u64).into());
@@ -223,6 +268,7 @@ where
         match self {
             VM::VM2(fvm_executor) => Ok(fvm_executor.flush()?),
             VM::VM3(fvm_executor) => Ok(fvm_executor.flush()?),
+            VM::VM4(fvm_executor) => Ok(fvm_executor.flush()?),
         }
     }
 
@@ -234,6 +280,16 @@ where
                 .get_actor(&addr.into())?
                 .map(ActorState::from)),
             VM::VM3(fvm_executor) => {
+                if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
+                    Ok(fvm_executor
+                        .state_tree()
+                        .get_actor(id)?
+                        .map(ActorState::from))
+                } else {
+                    Ok(None)
+                }
+            }
+            VM::VM4(fvm_executor) => {
                 if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
                     Ok(fvm_executor
                         .state_tree()
@@ -392,6 +448,14 @@ where
                 )?;
                 Ok(ret.into())
             }
+            VM::VM4(fvm_executor) => {
+                let ret = fvm_executor.execute_message(
+                    msg.into(),
+                    fvm4::executor::ApplyKind::Implicit,
+                    raw_length,
+                )?;
+                Ok(ret.into())
+            }
         }
     }
 
@@ -422,6 +486,19 @@ where
                 let ret = fvm_executor.execute_message(
                     unsigned.into(),
                     fvm3::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?;
+
+                if fvm_executor.externs().bail() {
+                    bail!("encountered a database lookup error");
+                }
+
+                ret.into()
+            }
+            VM::VM4(fvm_executor) => {
+                let ret = fvm_executor.execute_message(
+                    unsigned.into(),
+                    fvm4::executor::ApplyKind::Explicit,
                     raw_length,
                 )?;
 
