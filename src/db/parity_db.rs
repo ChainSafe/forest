@@ -285,11 +285,11 @@ impl ParityDb {
     /// Updates/inserts a record.
     ///
     /// # Arguments
+    /// * `column` - column identifier
     /// * `key` - record identifier
     /// * `value` - record contents
-    pub fn set_operation(key: Cid, value: Vec<u8>) -> Op {
-        let column = Self::choose_column(&key);
-        (column as u8, Operation::Set(key.to_bytes(), value))
+    pub fn set_operation(column: u8, key: Vec<u8>, value: Vec<u8>) -> Op {
+        (column, Operation::Set(key, value))
     }
 
     /// Commits changes and re-initializes operations vector with the same capacity for further

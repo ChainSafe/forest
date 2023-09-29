@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::db::migration::v0_13_0::Migration1_13_0_0_13_1;
+use crate::db::migration::v0_13_0::Migration0_13_0_0_13_1;
 use anyhow::bail;
 use itertools::Itertools;
 use multimap::MultiMap;
@@ -56,7 +56,7 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
                 Version::new(0, 13, 0),
                 (
                     Version::new(0, 13, 1),
-                    Arc::new(Migration1_13_0_0_13_1) as _,
+                    Arc::new(Migration0_13_0_0_13_1) as _,
                 ),
             ),
         ]

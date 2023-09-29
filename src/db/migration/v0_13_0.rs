@@ -11,7 +11,6 @@ use crate::db::migration::v0_13_0::paritydb_0_13_0::{DbColumn, ParityDb};
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
-use fs_extra::dir::CopyOptions;
 use fvm_ipld_encoding::DAG_CBOR;
 use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
@@ -20,7 +19,7 @@ use tracing::info;
 use super::migration_map::MigrationOperation;
 
 #[derive(Default)]
-pub(super) struct Migration1_13_0_0_13_1;
+pub(super) struct Migration0_13_0_0_13_1;
 
 /// Temporary database path for the migration.
 const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_13_0_to_0_13_1";
@@ -30,7 +29,7 @@ const TX_BATCH_SIZE: usize = 10_000;
 
 /// Migrates the database from version 0.13.0 to 0.13.1
 /// This migration merges the two databases represented by RollingDB into one.
-impl MigrationOperation for Migration1_13_0_0_13_1 {
+impl MigrationOperation for Migration0_13_0_0_13_1 {
     fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
         Ok(())
     }
@@ -38,6 +37,11 @@ impl MigrationOperation for Migration1_13_0_0_13_1 {
     fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
         let source_db = chain_data_path.join("0.13.0");
 
+        let db_paths: Vec<PathBuf> = source_db
+            .read_dir()?
+            .filter_map(|entry| Some(entry.ok()?.path()))
+            .filter(|entry| entry.is_dir())
+            .collect();
         let temp_db_path = chain_data_path.join(MIGRATION_DB_0_13_0_0_13_1);
         if temp_db_path.exists() {
             info!(
@@ -47,29 +51,11 @@ impl MigrationOperation for Migration1_13_0_0_13_1 {
             std::fs::remove_dir_all(&temp_db_path)?;
         }
 
-        // copy the old database to a new directory
-        info!(
-            "copying old database from {source_db} to {temp_db_path}",
-            source_db = source_db.display(),
-            temp_db_path = temp_db_path.display()
-        );
-        fs_extra::copy_items(
-            &[source_db.as_path()],
-            temp_db_path.clone(),
-            &CopyOptions::default().copy_inside(true),
-        )?;
-
-        let db_paths: Vec<PathBuf> = temp_db_path
-            .read_dir()?
-            .filter_map(|entry| Some(entry.ok()?.path()))
-            .filter(|entry| entry.is_dir())
-            .collect();
-
         // open the new database to migrate data from the old one.
         let new_db = ParityDb::open(temp_db_path.join("0.13.1"))?;
 
         // because of the rolling db, we have to do the migration for each sub-database...
-        for sub_db in db_paths.clone() {
+        for sub_db in &db_paths {
             info!("migrating RollingDB partition {:?}", sub_db);
             let mut vec = Vec::with_capacity(TX_BATCH_SIZE);
             let db = ParityDb::open(&sub_db)?;
@@ -83,7 +69,7 @@ impl MigrationOperation for Migration1_13_0_0_13_1 {
                         let hash = Blake2b256.digest(&val.value);
                         let cid = Cid::new_v1(DAG_CBOR, hash);
 
-                        vec.push(Db::set_operation(cid, val.value));
+                        vec.push(Db::set_operation(col as u8, cid.to_bytes(), val.value));
                         records += 1;
                         if vec.len() == TX_BATCH_SIZE {
                             res = new_db.commit_changes(&mut vec);
@@ -97,8 +83,7 @@ impl MigrationOperation for Migration1_13_0_0_13_1 {
                     res?;
                 } else {
                     while let Some((key, value)) = db.db.iter(col as u8)?.next()? {
-                        let cid = Cid::try_from(key)?;
-                        vec.push(Db::set_operation(cid, value));
+                        vec.push(Db::set_operation(col as u8, key, value));
                         if vec.len() == TX_BATCH_SIZE {
                             new_db.commit_changes(&mut vec)?;
                             info!("migrated {} records in {} column", records, col);
@@ -111,10 +96,6 @@ impl MigrationOperation for Migration1_13_0_0_13_1 {
                     info!("migrated {} records in {} column", records, col);
                 }
             }
-        }
-
-        for dir in db_paths {
-            std::fs::remove_dir(dir)?;
         }
 
         Ok(temp_db_path)
