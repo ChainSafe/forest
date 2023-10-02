@@ -14,6 +14,7 @@ use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
+use tracing::info;
 
 // The average block time is set to a slightly bigger value on purpose, to save some cycles.
 const AVERAGE_BLOCK_TIME: Duration = Duration::from_secs(35);
@@ -106,8 +107,9 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             match manual {
                 true => {
                     let msg = self.gc_receiver.recv_async().await?;
+                    info!("Running manual gc");
                     let res = self.gc_workflow(manual).await;
-                    msg.send(res)?
+                    msg.send_async(res).await?
                 }
                 false => {
                     self.gc_workflow(manual).await?;
