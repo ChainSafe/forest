@@ -107,9 +107,10 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             match manual {
                 true => {
                     let msg = self.gc_receiver.recv_async().await?;
-                    info!("Running manual gc");
+                    info!("running manual gc");
                     let res = self.gc_workflow(manual).await;
-                    msg.send_async(res).await?
+                    msg.send_async(res).await?;
+                    info!("finished manual gc run");
                 }
                 false => {
                     self.gc_workflow(manual).await?;
