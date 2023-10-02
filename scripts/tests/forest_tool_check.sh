@@ -7,4 +7,5 @@ set -euxo pipefail
 
 FOREST_TOOL_PATH="forest-tool"
 
+# This should be a unit tests but it takes longer than 30 seconds.
 "$FOREST_TOOL_PATH" state-migration actor-bundle
