@@ -50,7 +50,7 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
         }
 
         // open the new database to migrate data from the old one.
-        let new_db = ParityDb::open(temp_db_path.join("0.13.1"))?;
+        let new_db = ParityDb::open(&temp_db_path)?;
 
         // because of the rolling db, we have to do the migration for each sub-database...
         for sub_db in &db_paths {
