@@ -1,10 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for 0.13.0 -> 0.13.1 versions.
-//! We are getting rid of RollingDB in favour of mark-and-sweep GC. Therefore the two databases
+//! Migration logic for 0.13.0 to 0.13.1 version.
+//! We are getting rid of rolling db in favor of mark-and-sweep GC. Therefore the two databases
 //! previously representing node state have to be merged into a new one and removed.
-//! TODO: Make sure we don't want the progress bar for GC anymore and drop estimated number of records.
 
 use crate::db::db_engine::Db;
 use crate::db::migration::v0_13_0::paritydb_0_13_0::{DbColumn, ParityDb};
@@ -26,7 +25,7 @@ pub(super) struct Migration0_13_0_0_13_1;
 const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_13_0_to_0_13_1";
 
 /// Migrates the database from version 0.13.0 to 0.13.1
-/// This migration merges the two databases represented by RollingDB into one.
+/// This migration merges the two databases represented by rolling db into one.
 impl MigrationOperation for Migration0_13_0_0_13_1 {
     fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
         Ok(())
@@ -83,6 +82,10 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
                 } else {
                     let mut iter = db.db.iter(col as u8)?;
                     while let Some((key, value)) = iter.next()? {
+                        // We don't need this anymore as the old GC has been deprecated.
+                        if key.eq(b"estimated_reachable_records") {
+                            continue;
+                        }
                         new_db
                             .db
                             .commit_changes([Db::set_operation(col as u8, key, value)])
