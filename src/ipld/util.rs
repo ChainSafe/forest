@@ -1,11 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{
-    collections::VecDeque,
-    future::Future,
-    sync::{atomic::AtomicU64, Arc},
-};
+use std::{collections::VecDeque, future::Future, sync::Arc};
 
 use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
@@ -18,7 +14,6 @@ use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
 use kanal::{Receiver, Sender};
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
@@ -103,11 +98,6 @@ where
 
     Ok(())
 }
-
-pub type ProgressBarCurrentTotalPair = Arc<(AtomicU64, AtomicU64)>;
-
-pub static WALK_SNAPSHOT_PROGRESS_DB_GC: Lazy<ProgressBarCurrentTotalPair> =
-    Lazy::new(Default::default);
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.

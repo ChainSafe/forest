@@ -70,12 +70,14 @@ impl ProgressBar {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_total(&self, i: u64) {
         if self.display {
             self.inner.lock().total = i;
         }
     }
 
+    #[allow(dead_code)]
     pub fn set(&self, i: u64) -> u64 {
         if self.display {
             self.inner.lock().set(i)
@@ -84,6 +86,7 @@ impl ProgressBar {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_finish(&self) -> bool {
         self.inner.lock().is_finish
     }

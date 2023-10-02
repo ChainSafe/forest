@@ -4,8 +4,7 @@
 use std::sync::Arc;
 
 use crate::cli_shared::cli::Config;
-use crate::rpc_api::progress_api::GetProgressType;
-use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
+use crate::rpc_client::db_ops::db_gc;
 use crate::utils::io::ProgressBar;
 use chrono::Utc;
 use clap::Subcommand;
@@ -39,27 +38,6 @@ impl DBCommands {
                     bar.message("Running database garbage collection | blocks ");
                     bar
                 }));
-                tokio::spawn({
-                    let bar = bar.clone();
-                    async move {
-                        let mut interval =
-                            tokio::time::interval(tokio::time::Duration::from_secs(1));
-                        loop {
-                            interval.tick().await;
-                            if let Ok((progress, total)) =
-                                get_progress((GetProgressType::DatabaseGarbageCollection,), &None)
-                                    .await
-                            {
-                                let bar = bar.lock().await;
-                                if bar.is_finish() {
-                                    break;
-                                }
-                                bar.set_total(total);
-                                bar.set(progress);
-                            }
-                        }
-                    }
-                });
 
                 db_gc((), &config.client.rpc_token)
                     .await

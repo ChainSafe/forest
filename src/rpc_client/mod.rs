@@ -8,7 +8,6 @@ pub mod db_ops;
 pub mod mpool_ops;
 pub mod net_ops;
 pub mod node_ops;
-pub mod progress_ops;
 pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
