@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
 use tracing::info;
+use tracing::log::log;
 
 // The average block time is set to a slightly bigger value on purpose, to save some cycles.
 const AVERAGE_BLOCK_TIME: Duration = Duration::from_secs(35);
@@ -68,7 +69,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
 
     // Filter out the initial set, leaving only the entries that need to be removed.
     // NOTE: One concern here is that this is going to consume a lot of CPU.
-    fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
+    async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
         let mut stream = unordered_stream_graph(
             self.db.clone(),
@@ -76,10 +77,13 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             depth,
         );
 
-        while let Some(block) = futures::executor::block_on(stream.next()) {
+        while let Some(block) = stream.next().await {
+            info!("filtering");
             let block = block?;
             self.marked.remove(&truncated_hash(block.cid.hash()));
         }
+
+        stream.join_workers().await?;
 
         anyhow::Ok(())
     }
@@ -154,7 +158,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             return anyhow::Ok(());
         } else {
             info!("filter keys for GC");
-            self.filter(tipset, depth)?;
+            self.filter(tipset, depth).await?;
 
             info!("GC sweep");
             self.sweep()?;
