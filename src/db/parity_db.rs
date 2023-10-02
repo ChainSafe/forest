@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::{HashSet, HashSetExt};
-use std::mem;
 use std::path::PathBuf;
 
 use super::SettingsStore;
@@ -266,10 +265,6 @@ impl DBStatistics for ParityDb {
     }
 }
 
-// Make sure we don't keep too many operations in memory.
-// NOTE: Might need some tuning based on the performance benchmarks.
-const TX_BATCH_SIZE: usize = 10_000;
-
 type Op = (u8, Operation<Vec<u8>, Vec<u8>>);
 
 impl ParityDb {
@@ -290,17 +285,6 @@ impl ParityDb {
     /// * `value` - record contents
     pub fn set_operation(column: u8, key: Vec<u8>, value: Vec<u8>) -> Op {
         (column, Operation::Set(key, value))
-    }
-
-    /// Commits changes and re-initializes operations vector with the same capacity for further
-    /// usage.
-    ///
-    /// # Arguments
-    /// * `txn` - a vector of operations to be performed on the database
-    pub fn commit_changes(&self, txn: &mut Vec<Op>) -> anyhow::Result<()> {
-        let mut txn_new = Vec::with_capacity(txn.len());
-        mem::swap(&mut txn_new, txn);
-        self.db.commit_changes(txn_new).context("commit error")
     }
 }
 
@@ -327,12 +311,13 @@ impl GarbageCollectable for ParityDb {
 
     fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
-        let mut txn = Vec::with_capacity(TX_BATCH_SIZE);
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
 
-            if keys.contains(&truncated_hash(cid.hash())) && txn.len() == TX_BATCH_SIZE {
-                self.commit_changes(&mut txn).context("error bulk remove")?
+            if keys.contains(&truncated_hash(cid.hash())) {
+                self.db
+                    .commit_changes([Self::dereference_operation(&cid)])
+                    .context("error remove")?
             }
         }
 
@@ -344,22 +329,20 @@ impl GarbageCollectable for ParityDb {
                 let hash = Blake2b256.digest(&val.value);
                 if keys.contains(&truncated_hash(&hash)) {
                     let cid = Cid::new_v1(DAG_CBOR, hash);
-                    txn.push(Self::dereference_operation(&cid));
+                    let res = self
+                        .db
+                        .commit_changes([Self::dereference_operation(&cid)])
+                        .context("error remove");
 
-                    if txn.len() == TX_BATCH_SIZE {
-                        let res = self.commit_changes(&mut txn).context("error bulk remove");
-                        if res.is_err() {
-                            result = res;
-                            return false;
-                        }
+                    if res.is_err() {
+                        result = res;
+                        return false;
                     }
                 }
                 true
             })?;
 
-        result?;
-
-        self.db.commit_changes(txn).context("error bulk remove")
+        result
     }
 }
 
