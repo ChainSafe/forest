@@ -2849,6 +2849,7 @@ dependencies = [
  "http",
  "human-repr",
  "humantime",
+ "hyper",
  "indexmap 2.0.1",
  "indicatif",
  "integer-encoding",

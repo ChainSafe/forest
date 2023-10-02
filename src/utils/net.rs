@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::io::WithProgress;
+use crate::utils::reqwest_resume;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
 use std::{io::ErrorKind, path::Path};
@@ -68,8 +69,8 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
     let (stream, content_length) = match Url::parse(location) {
         Ok(url) => {
             info!("Downloading file: {}", url);
-            let resp = reqwest::get(url).await?.error_for_status()?;
-            let content_length = resp.content_length().unwrap_or_default();
+            let resp = reqwest_resume::get(url).await?;
+            let content_length = resp.response.content_length().unwrap_or_default();
             let stream = resp
                 .bytes_stream()
                 .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
