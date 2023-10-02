@@ -131,10 +131,9 @@ impl Stream for Decoder {
                     let builder = builder.headers(headers.into());
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
                     // https://github.com/sdroege/gst-plugin-rs/blob/dcb36832329fde0113a41b80ebdb5efd28ead68d/gst-plugin-http/src/httpsrc.rs
-
-                    let s = Box::pin(sleep(Duration::from_secs(1)));
                     self.decoder = Box::pin(
-                        s.then(|()| builder.send())
+                        Box::pin(sleep(Duration::from_secs(1)))
+                            .then(|()| builder.send())
                             .map_ok(|resp| reqwest::Response::bytes_stream(resp))
                             .try_flatten_stream(),
                     );
