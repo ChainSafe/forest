@@ -52,13 +52,13 @@ macro_rules! create_migrations {
 pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
     MigrationsMap::from_iter(
         [
-            ($(
+            $((
             Version::from_str($from).unwrap(),
             (
                 Version::from_str($to).unwrap(),
                 Arc::new($migration) as _,
-            )
-            )*)
+            )),
+            )*
         ]
         .iter()
         .cloned(),
