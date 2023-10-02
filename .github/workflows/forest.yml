@@ -36,7 +36,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
@@ -56,7 +56,7 @@ jobs:
         run: curl ifconfig.me
         continue-on-error: true
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
@@ -99,7 +99,7 @@ jobs:
       # To help investigate transient test failures
       - run: lscpu
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -112,6 +112,29 @@ jobs:
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
 
+  # tool-specific tests
+  forest-tool-check:
+    needs:
+      - build-ubuntu
+    name: Forest TOOL checks
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: forest-tool check
+        run: ./scripts/tests/forest_tool_check.sh
+
   # miscallenous tests done on calibnet
   calibnet-check:
     needs:
@@ -122,7 +145,7 @@ jobs:
       # To help investigate transient test failures
       - run: lscpu
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -149,7 +172,7 @@ jobs:
       # To help investigate transient test failures
       - run: lscpu
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -172,7 +195,7 @@ jobs:
       # To help investigate transient test failures
       - run: lscpu
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -197,7 +220,7 @@ jobs:
       # To help investigate transient test failures
       - run: lscpu
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -216,7 +239,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}
@@ -236,7 +259,7 @@ jobs:
       - build-ubuntu
     steps:
       - name: Checkout Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - uses: actions/download-artifact@v3
         with:
           name: forest-${{ runner.os }}

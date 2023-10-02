@@ -11,6 +11,7 @@ pub mod error;
 pub mod executor;
 pub mod externs;
 pub mod gas;
+pub mod kernel;
 pub mod machine;
 pub mod message;
 pub mod piece;
@@ -18,4 +19,12 @@ pub mod randomness;
 pub mod sector;
 pub mod state_tree;
 pub mod state_tree_v0;
+pub mod trace;
 pub mod version;
+
+pub mod fvm_shared_latest {
+    pub use fvm_shared4::*;
+}
+pub mod fvm_latest {
+    pub use fvm4::*;
+}

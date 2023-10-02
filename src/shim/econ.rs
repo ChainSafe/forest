@@ -3,33 +3,34 @@
 
 use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
 
+use super::fvm_shared_latest::econ::TokenAmount as TokenAmount_latest;
 use fvm_shared2::econ::TokenAmount as TokenAmount_v2;
 use fvm_shared3::econ::TokenAmount as TokenAmount_v3;
 pub use fvm_shared3::{BLOCK_GAS_LIMIT, TOTAL_FILECOIN_BASE};
-use lazy_static::lazy_static;
+use fvm_shared4::econ::TokenAmount as TokenAmount_v4;
 use num_bigint::BigInt;
 use num_traits::Zero;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
 
 const_assert_eq!(BLOCK_GAS_LIMIT, fvm_shared2::BLOCK_GAS_LIMIT as u64);
 const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
 
-lazy_static! {
-    /// Total Filecoin available to the network.
-    pub static ref TOTAL_FILECOIN: TokenAmount = TokenAmount::from_whole(TOTAL_FILECOIN_BASE);
-}
+/// Total Filecoin available to the network.
+pub static TOTAL_FILECOIN: Lazy<TokenAmount> =
+    Lazy::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
 
 // FIXME: Transparent Debug trait impl
 // FIXME: Consider 'type TokenAmount = TokenAmount_v3'
 #[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Debug, Default)]
 #[serde(transparent)]
-pub struct TokenAmount(TokenAmount_v3);
+pub struct TokenAmount(TokenAmount_latest);
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for TokenAmount {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        use fvm_shared3::bigint::MAX_BIGINT_SIZE;
+        use fvm_shared4::bigint::MAX_BIGINT_SIZE;
         use num::BigUint;
         // During serialization/deserialization, permissible length of the byte
         // representation (plus a leading positive sign byte for non-zero
@@ -47,7 +48,7 @@ impl quickcheck::Arbitrary for TokenAmount {
 
 impl Zero for TokenAmount {
     fn zero() -> Self {
-        TokenAmount(TokenAmount_v3::zero())
+        TokenAmount(TokenAmount_latest::zero())
     }
     fn is_zero(&self) -> bool {
         self.0.is_zero()
@@ -55,7 +56,7 @@ impl Zero for TokenAmount {
 }
 
 impl Deref for TokenAmount {
-    type Target = TokenAmount_v3;
+    type Target = TokenAmount_latest;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -77,10 +78,10 @@ impl std::fmt::Display for TokenAmount {
 
 impl TokenAmount {
     /// The logical number of decimal places of a token unit.
-    pub const DECIMALS: usize = TokenAmount_v3::DECIMALS;
+    pub const DECIMALS: usize = TokenAmount_latest::DECIMALS;
 
     /// The logical precision of a token unit.
-    pub const PRECISION: u64 = TokenAmount_v3::PRECISION;
+    pub const PRECISION: u64 = TokenAmount_latest::PRECISION;
 
     /// Returns the quantity of indivisible units.
     pub fn atto(&self) -> &BigInt {
@@ -116,51 +117,75 @@ impl TokenAmount {
     }
 }
 
-impl From<TokenAmount_v3> for TokenAmount {
-    fn from(other: TokenAmount_v3) -> Self {
-        TokenAmount(other)
-    }
-}
-
 impl From<TokenAmount_v2> for TokenAmount {
     fn from(other: TokenAmount_v2) -> Self {
-        TokenAmount::from(TokenAmount_v3::from_atto(other.atto().clone()))
+        (&other).into()
     }
 }
 
 impl From<&TokenAmount_v2> for TokenAmount {
     fn from(other: &TokenAmount_v2) -> Self {
-        TokenAmount::from(TokenAmount_v3::from_atto(other.atto().clone()))
+        Self(TokenAmount_latest::from_atto(other.atto().clone()))
     }
 }
 
 impl From<&TokenAmount_v3> for TokenAmount {
     fn from(other: &TokenAmount_v3) -> Self {
-        TokenAmount(other.clone())
+        Self(TokenAmount_latest::from_atto(other.atto().clone()))
+    }
+}
+
+impl From<TokenAmount_v3> for TokenAmount {
+    fn from(other: TokenAmount_v3) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<TokenAmount_v4> for TokenAmount {
+    fn from(other: TokenAmount_v4) -> Self {
+        TokenAmount(other)
+    }
+}
+
+impl From<&TokenAmount_v4> for TokenAmount {
+    fn from(other: &TokenAmount_v4) -> Self {
+        other.clone().into()
+    }
+}
+
+impl From<TokenAmount> for TokenAmount_v2 {
+    fn from(other: TokenAmount) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&TokenAmount> for TokenAmount_v2 {
+    fn from(other: &TokenAmount) -> Self {
+        Self::from_atto(other.atto().clone())
     }
 }
 
 impl From<TokenAmount> for TokenAmount_v3 {
     fn from(other: TokenAmount) -> Self {
-        other.0
+        (&other).into()
     }
 }
 
 impl From<&TokenAmount> for TokenAmount_v3 {
-    fn from(other: &TokenAmount) -> TokenAmount_v3 {
+    fn from(other: &TokenAmount) -> Self {
+        Self::from_atto(other.atto().clone())
+    }
+}
+
+impl From<TokenAmount> for TokenAmount_v4 {
+    fn from(other: TokenAmount) -> Self {
+        other.0
+    }
+}
+
+impl From<&TokenAmount> for TokenAmount_v4 {
+    fn from(other: &TokenAmount) -> Self {
         other.0.clone()
-    }
-}
-
-impl From<TokenAmount> for TokenAmount_v2 {
-    fn from(other: TokenAmount) -> TokenAmount_v2 {
-        TokenAmount_v2::from_atto(other.atto().clone())
-    }
-}
-
-impl From<&TokenAmount> for TokenAmount_v2 {
-    fn from(other: &TokenAmount) -> TokenAmount_v2 {
-        TokenAmount_v2::from_atto(other.atto().clone())
     }
 }
 

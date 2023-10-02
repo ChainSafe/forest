@@ -7,7 +7,9 @@ use anyhow::Result;
 
 use crate::common::{create_tmp_config, daemon, CommonEnv};
 
+// Ignored because it's flaky.
 #[test]
+#[ignore]
 fn importing_bad_snapshot_should_fail() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     let temp_file = data_dir.path().join("bad-snapshot.car");

@@ -13,8 +13,8 @@ use fvm_ipld_encoding::CborStore;
 
 use super::state_tree::StateTreeVersion;
 use crate::shim::address::Address;
+use fil_actors_shared::fvm_ipld_hamt::Hamtv0 as Hamt;
 pub use fvm2::state_tree::ActorState as ActorStateV2;
-use fvm_ipld_hamt::Hamtv0 as Hamt;
 pub use fvm_shared3::state::StateRoot;
 
 const HAMTV0_BIT_WIDTH: u32 = 5;
@@ -72,7 +72,7 @@ where
 
     /// Get an ID address from any Address
     pub fn lookup_id(&self, addr: &Address) -> anyhow::Result<Option<Address>> {
-        if addr.protocol() == fvm_shared3::address::Protocol::ID {
+        if addr.protocol() == fvm_shared4::address::Protocol::ID {
             return Ok(Some(*addr));
         }
         anyhow::bail!("StateTreeV0::lookup_id is only defined for ID addresses")

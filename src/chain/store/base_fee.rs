@@ -99,7 +99,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::blocks::{BlockHeader, Tipset};
+    use crate::db::MemoryDB;
     use crate::networks::{ChainConfig, Height};
+    use crate::shim::address::Address;
 
     use super::*;
 
@@ -159,5 +162,17 @@ mod tests {
             );
             assert_eq!(TokenAmount::from_atto(case.4), output);
         }
+    }
+
+    #[test]
+    fn compute_base_fee_shouldnt_panic_on_bad_input() {
+        let blockstore = MemoryDB::default();
+        let h0 = BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap();
+        let ts = Tipset::from(h0);
+        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
+        assert!(compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }
 }

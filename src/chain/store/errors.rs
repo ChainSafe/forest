@@ -5,7 +5,7 @@ use std::fmt::Debug;
 
 use crate::blocks::Error as BlkErr;
 use cid::Error as CidErr;
-use fvm_ipld_amt::Error as AmtErr;
+use fil_actors_shared::fvm_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
 use thiserror::Error;
 

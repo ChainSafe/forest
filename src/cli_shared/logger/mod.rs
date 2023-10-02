@@ -5,6 +5,7 @@ use tracing_chrome::{ChromeLayerBuilder, FlushGuard};
 use tracing_subscriber::{filter::LevelFilter, prelude::*, EnvFilter};
 
 use crate::cli_shared::cli::CliOpts;
+use crate::utils::misc::LoggingColor;
 
 pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Option<FlushGuard>) {
     let mut loki_task = None;
@@ -46,7 +47,7 @@ pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Op
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(false)
                 .with_writer(file_appender)
-                .with_filter(get_env_filter()),
+                .with_filter(get_env_filter(default_env_filter())),
         )
     } else {
         None
@@ -71,26 +72,38 @@ pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Op
         .with(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(opts.color.coloring_enabled())
-                .with_filter(get_env_filter()),
+                .with_filter(get_env_filter(default_env_filter())),
         )
         .init();
     (loki_task, flush_guard)
 }
 
+// Log warnings to stderr
+pub fn setup_minimal_logger() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::Layer::new()
+                .with_ansi(LoggingColor::Auto.coloring_enabled())
+                .with_writer(std::io::stderr)
+                .with_filter(get_env_filter(default_tool_filter())),
+        )
+        .init();
+}
+
 /// Returns an [`EnvFilter`] according to the `RUST_LOG` environment variable, or a default
-/// - see [`default_env_filter`]
+/// - see [`default_env_filter`] and [`default_tool_filter`]
 ///
 /// Note that [`tracing_subscriber::filter::Builder`] only allows a single default directive,
 /// whereas we want to provide multiple.
 /// See also <https://github.com/tokio-rs/tracing/blob/27f688efb72316a26f3ec1f952c82626692c08ff/tracing-subscriber/src/filter/env/builder.rs#L189-L194>
-fn get_env_filter() -> EnvFilter {
+fn get_env_filter(def: EnvFilter) -> EnvFilter {
     use std::env::{
         self,
         VarError::{NotPresent, NotUnicode},
     };
     match env::var(tracing_subscriber::EnvFilter::DEFAULT_ENV) {
         Ok(s) => EnvFilter::new(s),
-        Err(NotPresent) => default_env_filter(),
+        Err(NotPresent) => def,
         Err(NotUnicode(_)) => EnvFilter::default(),
     }
 }
@@ -106,6 +119,17 @@ fn default_env_filter() -> EnvFilter {
         "libp2p_kad=error",
         "rpc=error",
         "storage_proofs_core=warn",
+        "tracing_loki=off",
+    ];
+    EnvFilter::try_new(default_directives.join(",")).unwrap()
+}
+
+fn default_tool_filter() -> EnvFilter {
+    let default_directives = [
+        "warn",
+        "forest::snapshot=info",
+        "forest::progress=info",
+        "libp2p_bitswap=off",
         "tracing_loki=off",
     ];
     EnvFilter::try_new(default_directives.join(",")).unwrap()

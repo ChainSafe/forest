@@ -1,23 +1,27 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use async_compression::tokio::bufread::ZstdDecoder;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
 };
-use futures::{Stream, StreamExt};
+use futures::ready;
+use futures::{sink::Sink, Stream, StreamExt};
+use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
-use std::io::{self, Cursor, SeekFrom};
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncSeek, AsyncSeekExt};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncWrite};
+use tokio_util::codec::Encoder;
 use tokio_util::codec::FramedRead;
 use tokio_util::either::Either;
+use unsigned_varint::codec::UviBytes;
 
-use crate::utils::encoding::{from_slice_with_fallback, uvibytes::UviBytes};
+use crate::utils::encoding::from_slice_with_fallback;
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
@@ -25,15 +29,15 @@ pub struct CarHeader {
     pub version: u64,
 }
 
-#[derive(Debug, Clone)]
-pub struct Block {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct CarBlock {
     pub cid: Cid,
     pub data: Vec<u8>,
 }
 
-impl Block {
+impl CarBlock {
     // Write a varint frame containing the cid and the data
-    pub fn write(&self, mut writer: &mut impl std::io::Write) -> io::Result<()> {
+    pub fn write(&self, mut writer: &mut impl io::Write) -> io::Result<()> {
         let frame_length = self.cid.encoded_len() + self.data.len();
         writer.write_all(&frame_length.encode_var_vec())?;
         self.cid
@@ -43,13 +47,13 @@ impl Block {
         Ok(())
     }
 
-    pub fn from_bytes(bytes: Bytes) -> Option<Block> {
-        let mut cursor = Cursor::new(bytes);
-        let cid = Cid::read_bytes(&mut cursor).ok()?;
-        let data_offset = cursor.position();
-        let mut bytes = cursor.into_inner();
-        bytes.advance(data_offset as usize);
-        Some(Block {
+    pub fn from_bytes(bytes: impl Into<Bytes>) -> io::Result<CarBlock> {
+        let bytes: Bytes = bytes.into();
+        let mut cursor = bytes.reader();
+        let cid = Cid::read_bytes(&mut cursor)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let bytes = cursor.into_inner();
+        Ok(CarBlock {
             cid,
             data: bytes.to_vec(),
         })
@@ -72,105 +76,137 @@ pin_project! {
         #[pin]
         reader: FramedRead<Either<ReaderT, ZstdDecoder<ReaderT>>, UviBytes>,
         pub header: CarHeader,
+        first_block: Option<CarBlock>,
     }
 }
 
-impl<ReaderT: AsyncSeek + AsyncBufRead + Unpin> CarStream<ReaderT> {
+// This method checks the header in order to see whether or not we are operating on a zstd
+// archive. The zstd header has a maximum size of 18 bytes:
+// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames.
+fn is_zstd(buf: &[u8]) -> bool {
+    zstd::zstd_safe::get_frame_content_size(buf).is_ok()
+}
+
+impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
     pub async fn new(mut reader: ReaderT) -> io::Result<Self> {
-        let start_position = reader.stream_position().await?;
-        if let Some(header) = read_header(&mut reader).await {
-            reader.seek(SeekFrom::Start(start_position)).await?;
-            let mut framed_reader = FramedRead::new(Either::Left(reader), UviBytes::default());
-            let _ = framed_reader.next().await;
-            Ok(CarStream {
-                reader: framed_reader,
-                header,
-            })
-        } else {
-            reader.seek(SeekFrom::Start(start_position)).await?;
+        let is_compressed = is_zstd(reader.fill_buf().await?);
+        let mut reader = if is_compressed {
             let mut zstd = ZstdDecoder::new(reader);
             zstd.multiple_members(true);
-            if let Some(header) = read_header(&mut zstd).await {
-                let mut reader = zstd.into_inner();
+            FramedRead::new(Either::Right(zstd), UviBytes::default())
+        } else {
+            FramedRead::new(Either::Left(reader), UviBytes::default())
+        };
+        let header = read_header(&mut reader).await.ok_or(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid header block",
+        ))?;
 
-                reset_bufread(&mut reader).await?;
-
-                reader.seek(SeekFrom::Start(start_position)).await?;
-                let mut zstd = ZstdDecoder::new(reader);
-                zstd.multiple_members(true);
-                let mut framed_reader = FramedRead::new(Either::Right(zstd), UviBytes::default());
-                let _ = framed_reader.next().await;
-                Ok(CarStream {
-                    reader: framed_reader,
-                    header,
-                })
-            } else {
-                Err(io::Error::new(
+        // Read the first block and check if it is valid. This check helps to
+        // catch invalid CAR files as soon as we open.
+        if let Some(first_entry) = reader.next().await.transpose()? {
+            let block = CarBlock::from_bytes(first_entry)?;
+            if !block.valid() {
+                return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
-                    "CAR data not recognized",
-                ))
+                    "invalid first block",
+                ));
             }
+            Ok(CarStream {
+                reader,
+                header,
+                first_block: Some(block),
+            })
+        } else {
+            Ok(CarStream {
+                reader,
+                header,
+                first_block: None,
+            })
         }
     }
 }
 
 impl<ReaderT: AsyncBufRead> Stream for CarStream<ReaderT> {
-    type Item = io::Result<Block>;
+    type Item = io::Result<CarBlock>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
+        if let Some(block) = this.first_block.take() {
+            return Poll::Ready(Some(Ok(block)));
+        }
         let item = futures::ready!(this.reader.poll_next(cx));
-        Poll::Ready(item.map(|ret| {
-            ret.and_then(|bytes| {
-                let mut cursor = Cursor::new(bytes);
-                let cid = Cid::read_bytes(&mut cursor)
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-                let data_offset = cursor.position();
-                let mut bytes = cursor.into_inner();
-                bytes.advance(data_offset as usize);
-                Ok(Block {
-                    cid,
-                    data: bytes.to_vec(),
-                })
-            })
-        }))
+        Poll::Ready(item.map(|ret| ret.and_then(CarBlock::from_bytes)))
     }
 }
 
-async fn read_header<ReaderT: AsyncRead + Unpin>(reader: &mut ReaderT) -> Option<CarHeader> {
-    let mut framed_reader = FramedRead::new(reader, UviBytes::default());
+pin_project! {
+    pub struct CarWriter<W> {
+        #[pin]
+        inner: W,
+        buffer: BytesMut,
+    }
+}
+
+impl<W: AsyncWrite> CarWriter<W> {
+    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> io::Result<Self> {
+        let car_header = CarHeader { roots, version: 1 };
+
+        let mut header_uvi_frame = BytesMut::new();
+        UviBytes::default().encode(Bytes::from(to_vec(&car_header)?), &mut header_uvi_frame)?;
+
+        Ok(Self {
+            inner: writer,
+            buffer: header_uvi_frame,
+        })
+    }
+}
+
+impl<W: AsyncWrite> Sink<CarBlock> for CarWriter<W> {
+    type Error = io::Error;
+
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        let mut this = self.as_mut().project();
+
+        while !this.buffer.is_empty() {
+            this = self.as_mut().project();
+            let bytes_written = ready!(this.inner.poll_write(cx, this.buffer))?;
+            this.buffer.advance(bytes_written);
+        }
+        Poll::Ready(Ok(()))
+    }
+    fn start_send(self: Pin<&mut Self>, item: CarBlock) -> Result<(), Self::Error> {
+        item.write(&mut self.project().buffer.writer())
+    }
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_ready(cx))?;
+        self.project().inner.poll_flush(cx)
+    }
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        ready!(self.as_mut().poll_ready(cx))?;
+        self.project().inner.poll_shutdown(cx)
+    }
+}
+
+async fn read_header<ReaderT: AsyncRead + Unpin>(
+    framed_reader: &mut FramedRead<ReaderT, UviBytes>,
+) -> Option<CarHeader> {
     let header = from_slice_with_fallback::<CarHeader>(&framed_reader.next().await?.ok()?).ok()?;
     if header.version != 1 {
         return None;
     }
-    let first_block = Block::from_bytes(framed_reader.next().await?.ok()?)?;
-    if !first_block.valid() {
-        return None;
-    }
-
     Some(header)
-}
-
-// Seeking fails after we've used the Reader for zstd decoding. Flushing the
-// buffer "fixes" the problem.
-async fn reset_bufread<ReaderT: AsyncBufRead + Unpin>(mut reader: &mut ReaderT) -> io::Result<()> {
-    let size = futures::future::poll_fn(|cx| {
-        let buf = futures::ready!(Pin::new(&mut reader).poll_fill_buf(cx))?;
-        Poll::Ready(Ok::<usize, io::Error>(buf.len()))
-    })
-    .await?;
-    Pin::new(&mut reader).consume(size);
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::networks::{calibnet, mainnet};
+    use futures::TryStreamExt;
     use quickcheck::{Arbitrary, Gen};
-    // use quickcheck_macros::quickcheck;
 
-    impl Arbitrary for Block {
-        fn arbitrary(g: &mut Gen) -> Block {
+    impl Arbitrary for CarBlock {
+        fn arbitrary(g: &mut Gen) -> CarBlock {
             let data = Vec::<u8>::arbitrary(g);
             let encoding = g
                 .choose(&[
@@ -181,7 +217,27 @@ mod tests {
                 .unwrap();
             let code = g.choose(&[Code::Blake2b256, Code::Sha2_256]).unwrap();
             let cid = Cid::new_v1(*encoding, code.digest(&data));
-            Block { cid, data }
+            CarBlock { cid, data }
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_calibnet_genesis() {
+        let stream = CarStream::new(calibnet::DEFAULT_GENESIS).await.unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1207);
+        for block in blocks {
+            assert!(block.valid());
+        }
+    }
+
+    #[tokio::test]
+    async fn stream_mainnet_genesis() {
+        let stream = CarStream::new(mainnet::DEFAULT_GENESIS).await.unwrap();
+        let blocks: Vec<CarBlock> = stream.try_collect().await.unwrap();
+        assert_eq!(blocks.len(), 1222);
+        for block in blocks {
+            assert!(block.valid());
         }
     }
 }

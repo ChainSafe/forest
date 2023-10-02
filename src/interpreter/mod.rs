@@ -4,6 +4,7 @@
 mod errors;
 mod fvm2;
 pub mod fvm3;
+mod fvm4;
 mod vm;
 
 use crate::shim::{

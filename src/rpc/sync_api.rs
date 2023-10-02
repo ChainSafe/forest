@@ -113,7 +113,7 @@ mod tests {
                 .set_heaviest_tipset(Arc::new(ts.clone()))
                 .unwrap();
 
-            for i in tsk.cids.into_iter() {
+            for i in tsk.cids.clone().into_iter() {
                 let bz2 = bz.clone();
                 db.put_keyed(&i, &bz2).unwrap();
             }
@@ -130,7 +130,6 @@ mod tests {
             )
             .unwrap()
         };
-        let (new_mined_block_tx, _) = flume::bounded(5);
         let start_time = chrono::Utc::now();
         let (gc_event_tx, _) = flume::unbounded();
 
@@ -145,7 +144,6 @@ mod tests {
             start_time,
             chain_store: cs_for_chain.clone(),
             beacon,
-            new_mined_block_tx,
             gc_event_tx,
         });
         (state, network_rx)

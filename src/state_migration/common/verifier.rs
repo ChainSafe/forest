@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::ipld::CidHashMap;
+use crate::cid_collections::CidHashMap;
 use crate::shim::state_tree::StateTree;
 
 use super::Migrator;

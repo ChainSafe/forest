@@ -40,8 +40,8 @@ use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
-use lazy_static::lazy_static;
-use raw_sync::events::{Event, EventInit as _, EventState};
+use once_cell::sync::Lazy;
+use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
 use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
@@ -56,13 +56,13 @@ use tokio::{
 };
 use tracing::{debug, info, warn};
 
-lazy_static! {
-    static ref IPC_PATH: TempPath = Builder::new()
+static IPC_PATH: Lazy<TempPath> = Lazy::new(|| {
+    Builder::new()
         .prefix("forest-ipc")
         .tempfile()
         .expect("tempfile must succeed")
-        .into_temp_path();
-}
+        .into_temp_path()
+});
 
 // The parent process and the daemonized child communicate through an Event in
 // shared memory. The identity of the shared memory object is written to a
@@ -317,7 +317,6 @@ pub(super) async fn start(
     let mpool = Arc::new(mpool);
 
     // Initialize ChainMuxer
-    let chain_muxer_tipset_sink = tipset_sink.clone();
     let chain_muxer = ChainMuxer::new(
         Arc::clone(&state_manager),
         peer_manager,
@@ -325,7 +324,7 @@ pub(super) async fn start(
         network_send.clone(),
         network_rx,
         Arc::new(Tipset::from(genesis_header)),
-        chain_muxer_tipset_sink,
+        tipset_sink,
         tipset_stream,
         config.sync.clone(),
     )?;
@@ -367,7 +366,6 @@ pub(super) async fn start(
                     // TODO: the RPCState can fetch this itself from the StateManager
                     beacon,
                     chain_store: rpc_chain_store,
-                    new_mined_block_tx: tipset_sink,
                     gc_event_tx,
                 }),
                 rpc_listen,
@@ -488,15 +486,17 @@ async fn set_snapshot_path_if_needed(
         (false, _, _) => {}   // noop - don't need a snapshot
         (true, true, _) => {} // noop - we need a snapshot, and we have one
         (true, false, true) => {
-            let (_len, url) = crate::cli_shared::snapshot::peek(vendor, chain).await?;
+            let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
             config.client.snapshot_path = Some(url.to_string().into());
             config.client.snapshot = true;
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let (num_bytes, url) = crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
-                .await
-                .context("couldn't get snapshot size")?;
+            let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
+            let (num_bytes, _path) =
+                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
+                    .await
+                    .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
@@ -529,7 +529,11 @@ async fn set_snapshot_path_if_needed(
 fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> anyhow::Result<()> {
     let ki = keystore.get(JWT_IDENTIFIER)?;
     let token_exp = config.client.token_exp;
-    let token = create_token(ADMIN.to_owned(), ki.private_key(), token_exp)?;
+    let token = create_token(
+        ADMIN.iter().map(ToString::to_string).collect(),
+        ki.private_key(),
+        token_exp,
+    )?;
     info!("Admin token: {token}");
     if let Some(path) = opts.save_token.as_ref() {
         std::fs::write(path, token)?;
@@ -643,7 +647,7 @@ where
 /// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
 ///
 /// This code makes blocking syscalls.
-fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Result<KeyStore> {
+fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Result<KeyStore> {
     let keystore = RefCell::new(None);
     let term = Term::stderr();
 
@@ -654,7 +658,8 @@ fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Resu
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotConnected,
             "cannot read password from non-terminal",
-        ));
+        )
+        .into());
     }
 
     dialoguer::Password::new()
@@ -677,7 +682,7 @@ fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> std::io::Resu
 /// Loops until the user provides two matching passwords.
 ///
 /// This code makes blocking syscalls
-fn create_password(prompt: &str) -> std::io::Result<String> {
+fn create_password(prompt: &str) -> dialoguer::Result<String> {
     let term = Term::stderr();
 
     // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
@@ -687,7 +692,8 @@ fn create_password(prompt: &str) -> std::io::Result<String> {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotConnected,
             "cannot read password from non-terminal",
-        ));
+        )
+        .into());
     }
     dialoguer::Password::new()
         .with_prompt(prompt)

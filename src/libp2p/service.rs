@@ -49,10 +49,10 @@ use crate::libp2p::{
 };
 
 pub(in crate::libp2p) mod metrics {
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
-    lazy_static! {
-        pub static ref NETWORK_CONTAINER_CAPACITIES: Box<GenericGaugeVec<AtomicU64>> = {
+    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Box<GenericGaugeVec<AtomicU64>>> = {
+        Lazy::new(|| {
             let network_container_capacities = Box::new(
                 GenericGaugeVec::<AtomicU64>::new(
                     Opts::new(
@@ -64,11 +64,11 @@ pub(in crate::libp2p) mod metrics {
                 .expect("Defining the network_container_capacities metric must succeed"),
             );
             prometheus::default_registry().register(network_container_capacities.clone()).expect(
-                "Registering the network_container_capacities metric with the metrics registry must succeed"
-            );
+            "Registering the network_container_capacities metric with the metrics registry must succeed"
+        );
             network_container_capacities
-        };
-    }
+        })
+    };
 
     pub mod values {
         pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
@@ -213,6 +213,7 @@ where
         )
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .per_connection_event_buffer_size(64)
+        .idle_connection_timeout(Duration::from_secs(60 * 10))
         .build();
 
         // Subscribe to gossipsub topics with the network name suffix
@@ -795,7 +796,6 @@ async fn handle_forest_behaviour_event<DB>(
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
         ForestBehaviourEvent::Identify(_) => {}
-        ForestBehaviourEvent::KeepAlive(_) => {}
         ForestBehaviourEvent::ConnectionLimits(_) => {}
         ForestBehaviourEvent::BlockedPeers(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {

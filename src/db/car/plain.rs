@@ -6,7 +6,7 @@
 //! CARs are made of concatenations of _varint frames_. Each varint frame is a concatenation of the
 //! _body length_ as an
 //! [varint](https://docs.rs/integer-encoding/4.0.0/integer_encoding/trait.VarInt.html), and the
-//! _frame body_ itself. [`crate::utils::encoding::uvibytes::UviBytes`] can be used to read frames
+//! _frame body_ itself. [`unsigned_varint::codec::UviBytes`] can be used to read frames
 //! piecewise into memory.
 //!
 //! ```text
@@ -60,15 +60,15 @@
 //! - CARv2 support
 //! - A wrapper that abstracts over car formats for reading.
 
-use crate::ipld::{CidHashMap, CidHashMapEntry};
+use crate::cid_collections::{hash_map::Entry as CidHashMapEntry, CidHashMap};
 use crate::{
     blocks::{Tipset, TipsetKeys},
     utils::encoding::from_slice_with_fallback,
 };
 
+use crate::utils::db::car_stream::CarHeader;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::CarHeader;
 use integer_encoding::VarIntReader;
 
 use parking_lot::RwLock;
@@ -156,7 +156,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::from(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::from_iter(self.roots()))
     }
 
     /// In an arbitrary order
@@ -196,10 +196,10 @@ where
 {
     #[tracing::instrument(level = "trace", skip(self))]
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        match (self.index.read().get(*k), self.write_cache.read().get(*k)) {
+        match (self.index.read().get(k), self.write_cache.read().get(k)) {
             (Some(_location), Some(_cached)) => {
                 trace!("evicting from write cache");
-                Ok(self.write_cache.write().remove(*k))
+                Ok(self.write_cache.write().remove(k))
             }
             (Some(UncompressedBlockDataLocation { offset, length }), None) => {
                 trace!("fetching from disk");
@@ -258,7 +258,7 @@ fn handle_write_cache(
     k: &Cid,
     block: &[u8],
 ) -> anyhow::Result<()> {
-    match (index.get(*k), write_cache.entry(*k)) {
+    match (index.get(k), write_cache.entry(*k)) {
         (None, Occupied(already)) => match already.get() == block {
             true => {
                 trace!("already in cache");
@@ -408,17 +408,16 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use super::PlainCar;
-
+    use crate::utils::db::car_util::load_car;
     use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
-    use fvm_ipld_car::{Block, CarReader};
+    use tokio::io::AsyncBufRead;
 
     #[test]
     fn test_uncompressed() {
         let car = chain4_car();
-        let reference = reference(futures::io::Cursor::new(car));
+        let reference = reference(car);
         let car_backed = PlainCar::new(car).unwrap();
 
         assert_eq!(car_backed.cids().len(), 1222);
@@ -431,15 +430,10 @@ mod tests {
         }
     }
 
-    fn reference(reader: impl futures::AsyncRead + Send + Unpin) -> MemoryBlockstore {
-        block_on(async {
-            let blockstore = MemoryBlockstore::new();
-            let mut blocks = CarReader::new(reader).await.unwrap();
-            while let Some(Block { cid, data }) = blocks.next_block().await.unwrap() {
-                blockstore.put_keyed(&cid, &data).unwrap()
-            }
-            blockstore
-        })
+    fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
+        let blockstore = MemoryBlockstore::new();
+        block_on(load_car(&blockstore, reader)).unwrap();
+        blockstore
     }
 
     fn chain4_car() -> &'static [u8] {

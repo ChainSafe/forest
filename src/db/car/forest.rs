@@ -50,9 +50,8 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
-use crate::utils::db::car_stream::{Block, CarHeader};
+use crate::utils::db::car_stream::{CarBlock, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
-use crate::utils::encoding::uvibytes::UviBytes;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use ahash::{HashMap, HashMapExt};
 use bytes::{buf::Writer, BufMut as _, Bytes, BytesMut};
@@ -72,6 +71,7 @@ use std::{
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
+use unsigned_varint::codec::UviBytes;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
@@ -123,7 +123,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?;
-        let block_frame = UviBytes::default()
+        let block_frame = UviBytes::<Bytes>::default()
             .decode(&mut header_zstd_frame)?
             .ok_or(invalid_data("malformed uvibytes"))?;
         let header = from_slice_with_fallback::<CarHeader>(&block_frame)
@@ -137,7 +137,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::from(self.roots()))
+        Tipset::load_required(self, &TipsetKeys::from_iter(self.roots()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
@@ -198,12 +198,11 @@ where
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = HashMap::new();
-                    while let Some(block_frame) = UviBytes::default().decode_eof(&mut zstd_frame)? {
-                        if let Some(Block { cid, data }) = Block::from_bytes(block_frame) {
-                            block_map.insert(cid, data);
-                        } else {
-                            return Err(invalid_data("corrupted key-value block"))?;
-                        }
+                    while let Some(block_frame) =
+                        UviBytes::<Bytes>::default().decode_eof(&mut zstd_frame)?
+                    {
+                        let CarBlock { cid, data } = CarBlock::from_bytes(block_frame)?;
+                        block_map.insert(cid, data);
                     }
                     let get_result = block_map.get(k).cloned();
                     self.frame_cache
@@ -222,7 +221,7 @@ where
 
     #[tracing::instrument(level = "trace", skip(self, block))]
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        debug_assert!(Block {
+        debug_assert!(CarBlock {
             cid: *k,
             data: block.to_vec()
         }
@@ -292,7 +291,7 @@ impl Encoder {
 
     /// `compress_stream` with [`DEFAULT_FOREST_CAR_FRAME_SIZE`] as default frame size and [`DEFAULT_FOREST_CAR_COMPRESSION_LEVEL`] as default compression level.
     pub fn compress_stream_default(
-        stream: impl TryStream<Ok = Block, Error = anyhow::Error>,
+        stream: impl TryStream<Ok = CarBlock, Error = anyhow::Error>,
     ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
         Self::compress_stream(
             DEFAULT_FOREST_CAR_FRAME_SIZE,
@@ -306,7 +305,7 @@ impl Encoder {
     pub fn compress_stream(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
-        stream: impl TryStream<Ok = Block, Error = anyhow::Error>,
+        stream: impl TryStream<Ok = CarBlock, Error = anyhow::Error>,
     ) -> impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> {
         let mut encoder_store = new_encoder(zstd_compression_level);
         let mut frame_cids = vec![];
@@ -425,7 +424,7 @@ mod tests {
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         roots: Vec<Cid>,
-        block: Vec<Block>,
+        block: Vec<CarBlock>,
     ) -> Vec<u8> {
         block_on(async {
             let frame_stream = Encoder::compress_stream(
@@ -442,7 +441,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn forest_car_create_basic(head: Block, mut tail: Vec<Block>, roots: Vec<Cid>) {
+    fn forest_car_create_basic(head: CarBlock, mut tail: Vec<CarBlock>, roots: Vec<Cid>) {
         tail.push(head);
         let forest_car =
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone())).unwrap();
@@ -454,8 +453,8 @@ mod tests {
 
     #[quickcheck]
     fn forest_car_create_options(
-        head: Block,
-        mut tail: Vec<Block>,
+        head: CarBlock,
+        mut tail: Vec<CarBlock>,
         roots: Vec<Cid>,
         frame_size: usize,
         mut compression_level: u16,

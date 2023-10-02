@@ -365,7 +365,7 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
-                let tipset_keys = TipsetKeys::from(request.heaviest_tip_set);
+                let tipset_keys = TipsetKeys::from_iter(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
@@ -521,7 +521,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
-        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let evaluator = async move {
             let mut tipsets = vec![];
@@ -638,7 +638,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv_async().await {
@@ -729,7 +729,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -915,65 +915,5 @@ where
                 },
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::convert::TryFrom;
-
-    use crate::blocks::{BlockHeader, Tipset};
-    use crate::db::MemoryDB;
-    use crate::message::SignedMessage;
-    use crate::networks::{ChainConfig, Height};
-    use crate::shim::{address::Address, message::Message};
-    use crate::test_utils::construct_messages;
-    use crate::utils::encoding::from_slice_with_fallback;
-    use base64::{prelude::BASE64_STANDARD, Engine};
-    use cid::Cid;
-
-    use crate::chain_sync::validation::TipsetValidator;
-
-    #[test]
-    fn compute_msg_meta_given_msgs_test() {
-        let blockstore = MemoryDB::default();
-
-        let (bls, secp) = construct_messages();
-
-        let expected_root =
-            Cid::try_from("bafy2bzaceasssikoiintnok7f3sgnekfifarzobyr3r4f25sgxmn23q4c35ic")
-                .unwrap();
-
-        let root = TipsetValidator::compute_msg_root(&blockstore, &[bls], &[secp])
-            .expect("Computing message root should succeed");
-        assert_eq!(root, expected_root);
-    }
-
-    #[test]
-    fn empty_msg_meta_vector() {
-        let blockstore = MemoryDB::default();
-        let usm: Vec<Message> =
-            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
-        let sm: Vec<SignedMessage> =
-            from_slice_with_fallback(&BASE64_STANDARD.decode("gA==").unwrap()).unwrap();
-
-        assert_eq!(
-            TipsetValidator::compute_msg_root(&blockstore, &usm, &sm)
-                .expect("Computing message root should succeed")
-                .to_string(),
-            "bafy2bzacecmda75ovposbdateg7eyhwij65zklgyijgcjwynlklmqazpwlhba"
-        );
-    }
-
-    #[test]
-    fn compute_base_fee_shouldnt_panic_on_bad_input() {
-        let blockstore = MemoryDB::default();
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
-        let ts = Tipset::from(h0);
-        let smoke_height = ChainConfig::default().epoch(Height::Smoke);
-        assert!(crate::chain::compute_base_fee(&blockstore, &ts, smoke_height).is_err());
     }
 }

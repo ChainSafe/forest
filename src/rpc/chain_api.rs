@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::blocks::{BlockHeader, Tipset};
 use crate::chain::index::ResolveNullTipset;
-use crate::ipld::CidHashSet;
+use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{
     chain_api::*,
@@ -19,6 +19,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use once_cell::sync::Lazy;
 use sha2::Sha256;
 use tokio::sync::Mutex;
 
@@ -52,9 +53,7 @@ pub(in crate::rpc) async fn chain_export<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    lazy_static::lazy_static! {
-        static ref LOCK: Mutex<()> = Mutex::new(());
-    }
+    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
     let _locked = LOCK.try_lock();
     if _locked.is_err() {
@@ -242,7 +241,7 @@ where
     let new_head = data.state_manager.chain_store().tipset_from_keys(&params)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
-        for cid in &current.key().cids {
+        for cid in current.key().cids.clone() {
             data.state_manager
                 .chain_store()
                 .unmark_block_as_validated(&cid);

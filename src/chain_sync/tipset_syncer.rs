@@ -32,8 +32,7 @@ use futures::stream::TryStreamExt as _;
 use futures::{stream, stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nonempty::NonEmpty;
-use num::BigInt;
+use nonempty::{nonempty, NonEmpty};
 use thiserror::Error;
 use tracing::{debug, error, info, trace, warn};
 
@@ -50,8 +49,6 @@ pub enum TipsetProcessorError {
     RangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset stream closed")]
     StreamClosed,
-    #[error("Tipset has already been synced")]
-    AlreadySynced,
 }
 
 #[derive(Debug, Error)]
@@ -135,7 +132,7 @@ impl TipsetRangeSyncerError {
 }
 
 struct TipsetGroup {
-    tipsets: Vec<Arc<Tipset>>,
+    tipsets: NonEmpty<Arc<Tipset>>,
     epoch: ChainEpoch,
     parents: TipsetKeys,
 }
@@ -145,7 +142,7 @@ impl TipsetGroup {
         let epoch = tipset.epoch();
         let parents = tipset.parents().clone();
         Self {
-            tipsets: vec![tipset],
+            tipsets: nonempty![tipset],
             epoch,
             parents,
         }
@@ -158,6 +155,7 @@ impl TipsetGroup {
     fn parents(&self) -> TipsetKeys {
         self.parents.clone()
     }
+
     // Attempts to add a tipset to the group
     // If the tipset is added, the method returns `None`
     // If the tipset is discarded, the method return `Some(tipset)`
@@ -175,32 +173,21 @@ impl TipsetGroup {
         None
     }
 
-    fn take_heaviest_tipset(&mut self) -> Option<Arc<Tipset>> {
-        let (index, _) = self.heaviest_weight();
-        Some(self.tipsets.swap_remove(index))
-    }
+    fn heaviest_tipset(&self) -> Arc<Tipset> {
+        let max = self.tipsets.maximum_by_key(|ts| ts.weight()).weight();
 
-    fn heaviest_weight(&self) -> (usize, &BigInt) {
-        // Unwrapping is safe because we initialize the struct with at least one tipset
-        let max = self.tipsets.iter().map(|ts| ts.weight()).max().unwrap();
+        let ties = self.tipsets.iter().filter(|ts| ts.weight() == max);
 
-        let ties = self
-            .tipsets
-            .iter()
-            .enumerate()
-            .filter(|(_, ts)| ts.weight() == max);
-
-        let (index, ts) = ties
-            .reduce(|(i, ts), (j, other)| {
-                // break the tie
-                if ts.break_weight_tie(other) {
-                    (i, ts)
-                } else {
-                    (j, other)
-                }
-            })
-            .unwrap();
-        (index, ts.weight())
+        ties.reduce(|ts, other| {
+            // break the tie
+            if ts.break_weight_tie(other) {
+                ts
+            } else {
+                other
+            }
+        })
+        .unwrap_or_else(|| self.tipsets.first())
+        .clone()
     }
 
     fn merge(&mut self, other: Self) {
@@ -218,11 +205,11 @@ impl TipsetGroup {
     }
 
     fn weight_cmp(&self, other: &Self) -> Ordering {
-        let (i, weight) = self.heaviest_weight();
-        let (j, otherw) = other.heaviest_weight();
-        match weight.cmp(otherw) {
+        let self_ts = self.heaviest_tipset();
+        let other_ts = other.heaviest_tipset();
+        match self_ts.weight().cmp(other_ts.weight()) {
             Ordering::Equal => {
-                if self.tipsets[i].break_weight_tie(&other.tipsets[j]) {
+                if self_ts.break_weight_tie(&other_ts) {
                     Ordering::Greater
                 } else {
                     Ordering::Equal
@@ -233,7 +220,7 @@ impl TipsetGroup {
     }
 
     fn tipsets(self) -> Vec<Arc<Tipset>> {
-        self.tipsets
+        self.tipsets.into()
     }
 }
 
@@ -280,52 +267,44 @@ where
         }
     }
 
-    fn find_range(
-        &self,
-        mut tipset_group: TipsetGroup,
-    ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError> {
+    fn find_range(&self, tipset_group: TipsetGroup) -> Option<TipsetRangeSyncer<DB>> {
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
         let network = self.network.clone();
         let bad_block_cache = self.bad_block_cache.clone();
         let tracker = self.tracker.clone();
         let genesis = self.genesis.clone();
-        Box::pin(async move {
-            // Define the low end of the range
-            // Unwrapping is safe here because the store always has at least one tipset
-            let current_head = chain_store.heaviest_tipset();
-            // Unwrapping is safe here because we assume that the
-            // tipset group contains at least one tipset
-            let proposed_head = tipset_group.take_heaviest_tipset().unwrap();
 
-            if current_head.key().eq(proposed_head.key()) {
-                return Err(TipsetProcessorError::AlreadySynced);
-            }
+        // Define the low end of the range
+        let current_head = chain_store.heaviest_tipset();
+        let proposed_head = tipset_group.heaviest_tipset();
 
-            let mut tipset_range_syncer = TipsetRangeSyncer::new(
-                tracker,
-                proposed_head,
-                current_head,
-                state_manager,
-                network,
-                chain_store,
-                bad_block_cache,
-                genesis,
-            )?;
-            for tipset in tipset_group.tipsets() {
-                tipset_range_syncer.add_tipset(tipset)?;
-            }
-            Ok(tipset_range_syncer)
-        })
+        if current_head.key().eq(proposed_head.key()) {
+            return None;
+        }
+
+        let mut tipset_range_syncer = TipsetRangeSyncer::new(
+            tracker,
+            proposed_head,
+            current_head,
+            state_manager,
+            network,
+            chain_store,
+            bad_block_cache,
+            genesis,
+        )
+        .ok()?;
+        for tipset in tipset_group.tipsets() {
+            tipset_range_syncer.add_tipset(tipset).ok()?;
+        }
+        Some(tipset_range_syncer)
     }
 }
-
-type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 enum TipsetProcessorState<DB> {
     Idle,
     FindRange {
-        range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError>,
+        range_finder: Option<TipsetRangeSyncer<DB>>,
         epoch: i64,
         parents: TipsetKeys,
         current_sync: Option<TipsetGroup>,
@@ -518,8 +497,8 @@ where
                     ref mut current_sync,
                     ref mut next_sync,
                     ..
-                } => match range_finder.as_mut().poll(cx) {
-                    Poll::Ready(Ok(mut range_syncer)) => {
+                } => match range_finder.take() {
+                    Some(mut range_syncer) => {
                         debug!(
                             "Determined epoch range for next sync: [{}, {}]",
                             range_syncer.current_head.epoch(),
@@ -539,21 +518,9 @@ where
                             next_sync: next_sync.take(),
                         };
                     }
-                    Poll::Ready(Err(why)) => {
-                        match why {
-                            // Do not log for these errors since they are expected to occur
-                            // throughout the syncing process
-                            TipsetProcessorError::AlreadySynced
-                            | TipsetProcessorError::RangeSyncer(
-                                TipsetRangeSyncerError::InvalidTipsetRangeLength,
-                            ) => (),
-                            why => {
-                                error!("Finding tipset range for sync failed: {}", why);
-                            }
-                        };
+                    None => {
                         self.state = TipsetProcessorState::Idle;
                     }
-                    Poll::Pending => return Poll::Pending,
                 },
                 TipsetProcessorState::SyncRange {
                     ref mut range_syncer,
@@ -1073,7 +1040,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
     // Stream through the tipsets from lowest epoch to highest epoch
     stream::iter(tipsets.into_iter().rev())
         // Chunk tipsets in batches (default batch size is 8)
-        .chunks(request_window)
+        .chunks(request_window as usize)
         // Request batches from the p2p network
         .map(|batch| fetch_batch(batch, &network, db))
         // run 64 batches concurrently
@@ -1561,7 +1528,7 @@ fn validate_tipset_against_cache(
     tipset: &TipsetKeys,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError> {
-    for cid in &tipset.cids {
+    for cid in tipset.cids.clone() {
         if let Some(reason) = bad_block_cache.get(&cid) {
             for block_cid in descendant_blocks {
                 bad_block_cache.put(*block_cid, format!("chain contained {cid}"));
@@ -1617,14 +1584,14 @@ mod test {
         let ts2 = Tipset::from(b2);
 
         let b3 = mock_block(1234562, 10, 1);
-        let ts3 = Tipset::from(b3);
+        let ts3 = Arc::new(Tipset::from(b3));
 
         let mut tsg = TipsetGroup::new(Arc::new(ts1));
         assert!(tsg.try_add_tipset(Arc::new(ts2)).is_none());
-        assert!(tsg.try_add_tipset(Arc::new(ts3)).is_none());
+        assert!(tsg.try_add_tipset(ts3.clone()).is_none());
 
-        let (index, weight) = tsg.heaviest_weight();
-        assert_eq!(index, 2);
-        assert_eq!(weight, &BigInt::from(10));
+        let ts = tsg.heaviest_tipset();
+        assert_eq!(ts, ts3);
+        assert_eq!(ts.weight(), &BigInt::from(10));
     }
 }

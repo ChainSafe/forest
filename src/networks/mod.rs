@@ -35,6 +35,7 @@ const DEFAULT_REQUEST_WINDOW: usize = 8;
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {
     Mainnet,
@@ -65,8 +66,26 @@ impl Display for NetworkChain {
 }
 
 impl NetworkChain {
-    pub fn is_devnet(&self) -> bool {
-        matches!(self, NetworkChain::Devnet(_))
+    /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
+    /// is the hard-coded genesis CID for either of those networks.
+    pub fn from_genesis(cid: &Cid) -> Option<Self> {
+        match (
+            *calibnet::GENESIS_CID == *cid,
+            *mainnet::GENESIS_CID == *cid,
+        ) {
+            (true, true) => unreachable!(),
+            (true, false) => Some(Self::Calibnet),
+            (false, true) => Some(Self::Mainnet),
+            (false, false) => None,
+        }
+    }
+
+    /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
+    /// is the hard-coded genesis CID for either of those networks.
+    ///
+    /// Else returns a [`NetworkChain::Devnet`] with a placeholder name.
+    pub fn from_genesis_or_devnet_placeholder(cid: &Cid) -> Self {
+        Self::from_genesis(cid).unwrap_or(Self::Devnet(String::from("devnet")))
     }
 
     pub fn is_testnet(&self) -> bool {
@@ -76,6 +95,7 @@ impl NetworkChain {
 
 /// Defines the meaningful heights of the protocol.
 #[derive(Debug, Display, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub enum Height {
     Breeze,
     Smoke,
@@ -135,6 +155,7 @@ impl From<Height> for NetworkVersion {
 }
 
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
     pub height: Height,
     pub epoch: ChainEpoch,
@@ -154,22 +175,31 @@ struct DrandPoint<'a> {
 }
 
 /// Defines all network configuration parameters.
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
+    #[cfg_attr(test, arbitrary(gen(
+        |g: &mut quickcheck::Gen| {
+            let addr = std::net::Ipv4Addr::arbitrary(&mut *g);
+            let n = u8::arbitrary(g) as usize;
+            vec![addr.into(); n]
+        }
+    )))]
     pub bootstrap_peers: Vec<Multiaddr>,
-    pub block_delay_secs: u64,
-    pub propagation_delay_secs: u64,
+    pub block_delay_secs: u32,
+    pub propagation_delay_secs: u32,
     pub height_infos: Vec<HeightInfo>,
+    #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
     #[serde(default = "default_policy")]
     pub policy: Policy,
-    pub eth_chain_id: u64,
+    pub eth_chain_id: u32,
     /// Number of default recent state roots to keep in memory and include in
     /// the exported snapshot.
     pub recent_state_roots: i64,
-    pub request_window: usize,
+    pub request_window: u32,
 }
 
 impl ChainConfig {
@@ -179,13 +209,13 @@ impl ChainConfig {
             network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -195,13 +225,13 @@ impl ChainConfig {
             network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
-            block_delay_secs: EPOCH_DURATION_SECONDS as u64,
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -233,9 +263,9 @@ impl ChainConfig {
             propagation_delay_secs: 1,
             height_infos: HEIGHT_INFOS.to_vec(),
             policy,
-            eth_chain_id: ETH_CHAIN_ID,
+            eth_chain_id: ETH_CHAIN_ID as u32,
             recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW,
+            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -274,7 +304,7 @@ impl ChainConfig {
                     height: dc.height,
                     beacon: Box::new(DrandBeacon::new(
                         genesis_ts,
-                        self.block_delay_secs,
+                        self.block_delay_secs as u64,
                         dc.config,
                     )),
                 })
@@ -330,47 +360,35 @@ pub struct ActorBundleInfo {
     pub url: Url,
 }
 
-pub static ACTOR_BUNDLES: Lazy<[ActorBundleInfo; 9]> = Lazy::new(|| {
-    [
-        // calibnet
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap(),
-        },
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0-rc.1/builtin-actors-calibrationnet.car").unwrap(),
-        },
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0-rc2/builtin-actors-calibrationnet.car").unwrap(),
-        },
-        // devnet 
-        ActorBundleInfo {
-            manifest: Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-devnet.car").unwrap(),
-        },
-        // devnet
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-devnet.car").unwrap(),
-        },
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-devnet.car").unwrap(),
-        },
-        // mainnet
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-mainnet.car").unwrap(),
-        },
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v10.0.0/builtin-actors-mainnet.car").unwrap(),
-        },
-        ActorBundleInfo{
-            manifest: Cid::try_from("bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo").unwrap(),
-            url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v11.0.0/builtin-actors-mainnet.car").unwrap(),
-        },
-    ]
+macro_rules! actor_bundle_info {
+    ($($cid:literal @ $version:literal for $network:literal),* $(,)?) => {
+        [
+            $(
+                ActorBundleInfo {
+                    manifest: $cid.parse().unwrap(),
+                    url: concat!(
+                            "https://github.com/filecoin-project/builtin-actors/releases/download/",
+                            $version,
+                            "/builtin-actors-",
+                            $network,
+                            ".car"
+                        ).parse().unwrap()
+                },
+            )*
+        ]
+    }
+}
+
+pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
+    Box::new(actor_bundle_info![
+        "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy" @ "v9.0.3" for "calibrationnet",
+        "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo" @ "v10.0.0-rc.1" for "calibrationnet",
+        "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco" @ "v11.0.0-rc2" for "calibrationnet",
+        "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
+        "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts" @ "v10.0.0" for "devnet",
+        "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i" @ "v11.0.0" for "devnet",
+        "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i" @ "v9.0.3" for "mainnet",
+        "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos" @ "v10.0.0" for "mainnet",
+        "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",
+    ])
 });

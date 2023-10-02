@@ -12,12 +12,15 @@ mkdir -p "${DATA_DIR}"
 chmod -R 777 "${DATA_DIR}"
 
 # Run Forest 0.12.1 with mounted db so that we can re-use it later.
+# NOTE: We aren't using '--auto-download-snapshot', because of a bug in
+# forest-0.12.1 that's related to `Content-Disposition` parsing.
 docker run --init --rm --name forest-0.12.1 \
   --volume "${DATA_DIR}":/home/forest/.local/share/forest \
   ghcr.io/chainsafe/forest:v0.12.1 \
   --chain calibnet \
   --encrypt-keystore false \
-  --auto-download-snapshot --halt-after-import
+  --import-snapshot=https://forest-archive.chainsafe.dev/latest/calibnet/ \
+  --halt-after-import
 
 # Assert the database is looking as expected.
 if [ ! -d "${DATA_DIR}/calibnet/paritydb" ]; then
@@ -43,7 +46,10 @@ echo "data_dir = \"${TMP_DIR}/data_dir\"" >> "${CONFIG_FILE}"
 echo 'encrypt_keystore = false' >> "${CONFIG_FILE}"
 
 # Run the current Forest with the old database. This should trigger a migration (or several ones).
-forest --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss --config "${CONFIG_FILE}"
+forest --chain calibnet --log-dir "$LOG_DIRECTORY" --halt-after-import --track-peak-rss --config "${CONFIG_FILE}"
+
+# Sync to HEAD. This might reveal migrations errors not caught above.
+forest --chain calibnet --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss --config "${CONFIG_FILE}"
 
 ADMIN_TOKEN=$(cat admin_token)
 FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"

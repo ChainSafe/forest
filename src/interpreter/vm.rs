@@ -7,6 +7,10 @@ use crate::blocks::Tipset;
 use crate::chain::block_messages;
 use crate::chain::index::ChainIndex;
 use crate::chain::store::Error;
+use crate::interpreter::{
+    fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3,
+    fvm4::ForestExterns as ForestExternsV4,
+};
 use crate::message::ChainMessage;
 use crate::message::Message as MessageTrait;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -38,24 +42,38 @@ use fvm3::{
         NetworkConfig as NetworkConfig_v3,
     },
 };
+use fvm4::{
+    executor::{DefaultExecutor as DefaultExecutor_v4, Executor as Executor_v4},
+    machine::{
+        DefaultMachine as DefaultMachine_v4, Machine as Machine_v4,
+        NetworkConfig as NetworkConfig_v4,
+    },
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
-use fvm_shared2::{clock::ChainEpoch, BLOCK_GAS_LIMIT};
+use fvm_shared2::clock::ChainEpoch;
 use num::Zero;
-
-use crate::interpreter::{fvm2::ForestExternsV2, fvm3::ForestExterns as ForestExternsV3};
 
 pub(in crate::interpreter) type ForestMachineV2<DB> =
     DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
 pub(in crate::interpreter) type ForestMachineV3<DB> =
     DefaultMachine_v3<Arc<DB>, ForestExternsV3<DB>>;
+pub(in crate::interpreter) type ForestMachineV4<DB> =
+    DefaultMachine_v4<Arc<DB>, ForestExternsV4<DB>>;
 
 type ForestKernelV2<DB> =
     fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachineV2<DB>>>;
 type ForestKernelV3<DB> =
     fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
+type ForestKernelV4<DB> =
+    fvm4::DefaultKernel<fvm4::call_manager::DefaultCallManager<ForestMachineV4<DB>>>;
+
 type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
+type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
+
+/// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
+const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.
@@ -117,6 +135,7 @@ impl BlockMessages {
 pub enum VM<DB: Blockstore + Send + Sync + 'static> {
     VM2(ForestExecutorV2<DB>),
     VM3(ForestExecutorV3<DB>),
+    VM4(ForestExecutorV4<DB>),
 }
 
 pub struct ExecutionContext<DB> {
@@ -159,12 +178,41 @@ where
             timestamp,
         }: ExecutionContext<DB>,
         multi_engine: &MultiEngine,
+        enable_tracing: VMTrace,
     ) -> Result<Self, anyhow::Error> {
         let network_version = chain_config.network_version(epoch);
-        if network_version >= NetworkVersion::V18 {
+        if network_version >= NetworkVersion::V21 {
+            let mut config = NetworkConfig_v4::new(network_version.into());
+            // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
+            config.chain_id((chain_config.eth_chain_id as u64).into());
+            if let NetworkChain::Devnet(_) = chain_config.network {
+                config.enable_actor_debugging();
+            }
+
+            let engine = multi_engine.v4.get(&config)?;
+            let mut context = config.for_epoch(epoch, timestamp, state_tree_root);
+            context.set_base_fee(base_fee.into());
+            context.set_circulating_supply(circ_supply.into());
+            context.tracing = enable_tracing.is_traced();
+
+            let fvm: ForestMachineV4<DB> = ForestMachineV4::new(
+                &context,
+                Arc::clone(&chain_index.db),
+                ForestExternsV4::new(
+                    RandWrapper::from(rand),
+                    heaviest_tipset,
+                    epoch,
+                    state_tree_root,
+                    chain_index,
+                    chain_config,
+                ),
+            )?;
+            let exec: ForestExecutorV4<DB> = DefaultExecutor_v4::new(engine, fvm)?;
+            Ok(VM::VM4(exec))
+        } else if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
             // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
-            config.chain_id(chain_config.eth_chain_id.into());
+            config.chain_id((chain_config.eth_chain_id as u64).into());
             if let NetworkChain::Devnet(_) = chain_config.network {
                 config.enable_actor_debugging();
             }
@@ -173,6 +221,8 @@ where
             let mut context = config.for_epoch(epoch, timestamp, state_tree_root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
+            context.tracing = enable_tracing.is_traced();
+
             let fvm: ForestMachineV3<DB> = ForestMachineV3::new(
                 &context,
                 Arc::clone(&chain_index.db),
@@ -193,6 +243,8 @@ where
             let mut context = config.for_epoch(epoch, state_tree_root);
             context.set_base_fee(base_fee.into());
             context.set_circulating_supply(circ_supply.into());
+            context.tracing = enable_tracing.is_traced();
+
             let fvm: ForestMachineV2<DB> = ForestMachineV2::new(
                 &engine,
                 &context,
@@ -216,6 +268,7 @@ where
         match self {
             VM::VM2(fvm_executor) => Ok(fvm_executor.flush()?),
             VM::VM3(fvm_executor) => Ok(fvm_executor.flush()?),
+            VM::VM4(fvm_executor) => Ok(fvm_executor.flush()?),
         }
     }
 
@@ -236,23 +289,31 @@ where
                     Ok(None)
                 }
             }
+            VM::VM4(fvm_executor) => {
+                if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
+                    Ok(fvm_executor
+                        .state_tree()
+                        .get_actor(id)?
+                        .map(ActorState::from))
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 
     pub fn run_cron(
         &mut self,
         epoch: ChainEpoch,
-        callback: Option<
-            &mut impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
-        >,
-    ) -> Result<(), anyhow::Error> {
+        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+    ) -> anyhow::Result<()> {
         let cron_msg: Message = Message_v3 {
             from: Address::SYSTEM_ACTOR.into(),
             to: Address::CRON_ACTOR.into(),
             // Epoch as sequence is intentional
             sequence: epoch as u64,
             // Arbitrarily large gas limit for cron (matching Lotus value)
-            gas_limit: BLOCK_GAS_LIMIT as u64 * 10000,
+            gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
             method_num: cron::Method::EpochTick as u64,
             params: Default::default(),
             value: Default::default(),
@@ -267,8 +328,13 @@ where
             anyhow::bail!("failed to apply block cron message: {}", err);
         }
 
-        if let Some(callback) = callback {
-            callback(&(cron_msg.cid()?), &ChainMessage::Unsigned(cron_msg), &ret)?;
+        if let Some(mut callback) = callback {
+            callback(&MessageCallbackCtx {
+                cid: cron_msg.cid()?,
+                message: &ChainMessage::Unsigned(cron_msg),
+                apply_ret: &ret,
+                at: CalledAt::Cron,
+            })?;
         }
         Ok(())
     }
@@ -279,9 +345,9 @@ where
         &mut self,
         messages: &[BlockMessages],
         epoch: ChainEpoch,
-        mut callback: Option<
-            impl FnMut(&Cid, &ChainMessage, &ApplyRet) -> Result<(), anyhow::Error>,
-        >,
+        // note: we take &MessageCallbackCtx rather than MessageCallbackCtx<'_>
+        //       because I'm not smart enough to make the second one work
+        mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
     ) -> Result<Vec<Receipt>, anyhow::Error> {
         let mut receipts = Vec::new();
         let mut processed = HashSet::<Cid>::default();
@@ -290,22 +356,28 @@ where
             let mut penalty = TokenAmount::zero();
             let mut gas_reward = TokenAmount::zero();
 
-            let mut process_msg = |msg: &ChainMessage| -> Result<(), anyhow::Error> {
-                let cid = msg.cid()?;
+            let mut process_msg = |message: &ChainMessage| -> Result<(), anyhow::Error> {
+                let cid = message.cid()?;
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
                     return Ok(());
                 }
-                let ret = self.apply_message(msg)?;
+                let ret = self.apply_message(message)?;
 
                 if let Some(cb) = &mut callback {
-                    cb(&cid, msg, &ret)?;
+                    cb(&MessageCallbackCtx {
+                        cid,
+                        message,
+                        apply_ret: &ret,
+                        at: CalledAt::Applied,
+                    })?;
                 }
 
                 // Update totals
                 gas_reward += ret.miner_tip();
                 penalty += ret.penalty();
-                receipts.push(ret.msg_receipt());
+                let msg_receipt = ret.msg_receipt();
+                receipts.push(msg_receipt.clone());
 
                 // Add processed Cid to set of processed messages
                 processed.insert(cid);
@@ -335,8 +407,14 @@ where
                         ret.msg_receipt().exit_code()
                     );
                 }
+
                 if let Some(callback) = &mut callback {
-                    callback(&(rew_msg.cid()?), &ChainMessage::Unsigned(rew_msg), &ret)?;
+                    callback(&MessageCallbackCtx {
+                        cid: rew_msg.cid()?,
+                        message: &ChainMessage::Unsigned(rew_msg),
+                        apply_ret: &ret,
+                        at: CalledAt::Reward,
+                    })?
                 }
             }
         }
@@ -344,11 +422,12 @@ where
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
             tracing::error!("End of epoch cron failed to run: {}", e);
         }
+
         Ok(receipts)
     }
 
     /// Applies single message through VM and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &Message) -> Result<ApplyRet, anyhow::Error> {
+    pub fn apply_implicit_message(&mut self, msg: &Message) -> anyhow::Result<ApplyRet> {
         // raw_length is not used for Implicit messages.
         let raw_length = to_vec(msg).expect("encoding error").len();
 
@@ -369,13 +448,21 @@ where
                 )?;
                 Ok(ret.into())
             }
+            VM::VM4(fvm_executor) => {
+                let ret = fvm_executor.execute_message(
+                    msg.into(),
+                    fvm4::executor::ApplyKind::Implicit,
+                    raw_length,
+                )?;
+                Ok(ret.into())
+            }
         }
     }
 
     /// Applies the state transition for a single message.
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
-    pub fn apply_message(&mut self, msg: &ChainMessage) -> Result<ApplyRet, anyhow::Error> {
+    pub fn apply_message(&mut self, msg: &ChainMessage) -> anyhow::Result<ApplyRet> {
         // Basic validity check
         msg.message().check()?;
 
@@ -399,6 +486,19 @@ where
                 let ret = fvm_executor.execute_message(
                     unsigned.into(),
                     fvm3::executor::ApplyKind::Explicit,
+                    raw_length,
+                )?;
+
+                if fvm_executor.externs().bail() {
+                    bail!("encountered a database lookup error");
+                }
+
+                ret.into()
+            }
+            VM::VM4(fvm_executor) => {
+                let ret = fvm_executor.execute_message(
+                    unsigned.into(),
+                    fvm4::executor::ApplyKind::Explicit,
                     raw_length,
                 )?;
 
@@ -440,12 +540,56 @@ where
             params,
             // Epoch as sequence is intentional
             sequence: epoch as u64,
-            gas_limit: 1 << 30,
+            gas_limit: IMPLICIT_MESSAGE_GAS_LIMIT as u64,
             value: Default::default(),
             version: Default::default(),
             gas_fee_cap: Default::default(),
             gas_premium: Default::default(),
         };
         Ok(Some(rew_msg.into()))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MessageCallbackCtx<'a> {
+    pub cid: Cid,
+    pub message: &'a ChainMessage,
+    pub apply_ret: &'a ApplyRet,
+    pub at: CalledAt,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CalledAt {
+    Applied,
+    Reward,
+    Cron,
+}
+
+impl CalledAt {
+    /// Was [`VM::apply_message`] or [`VM::apply_implicit_message`] called?
+    pub fn apply_kind(&self) -> fvm3::executor::ApplyKind {
+        use fvm3::executor::ApplyKind;
+        match self {
+            CalledAt::Applied => ApplyKind::Explicit,
+            CalledAt::Reward | CalledAt::Cron => ApplyKind::Implicit,
+        }
+    }
+}
+
+/// Tracing a Filecoin VM has a performance penalty.
+/// This controls whether a VM should be traced or not when it is created.
+#[derive(Default, Clone, Copy)]
+pub enum VMTrace {
+    /// Collect trace for the given operation
+    Traced,
+    /// Do not collect trace
+    #[default]
+    NotTraced,
+}
+
+impl VMTrace {
+    /// Should tracing be collected?
+    pub fn is_traced(&self) -> bool {
+        matches!(self, VMTrace::Traced)
     }
 }

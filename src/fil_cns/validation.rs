@@ -198,7 +198,7 @@ fn block_timestamp_checks(
     // Timestamp checks
     let block_delay = chain_config.block_delay_secs;
     let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
-    let target_timestamp = base_tipset.min_timestamp() + block_delay * (nulls + 1);
+    let target_timestamp = base_tipset.min_timestamp() + block_delay as u64 * (nulls + 1);
     if target_timestamp != header.timestamp() {
         return Err(FilecoinConsensusError::UnequalBlockTimestamps(
             header.timestamp(),

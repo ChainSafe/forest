@@ -215,19 +215,15 @@ mod test {
                     }
                     Ipld::Map(map) => map.values_mut().for_each(|val| cleanup_ipld(val, g)),
                     Ipld::List(vec) => vec.iter_mut().for_each(|val| cleanup_ipld(val, g)),
-                    // Cleaning up Integer in order to avoid parser mistakes that result
-                    // in tag detection and a subsequent Cid decoding failure.
-                    // Otherwise the `serde_ipld_dagcbor` library incorrectly treats some of those
-                    // values as [`cbor4ii::core::major::TAG`] and tries to deserialize a [`Cid`]
-                    // from it.
-                    // See https://github.com/ipld/serde_ipld_dagcbor/blob/37f6f00408331b76c6dac8ec4dc08a85d7764cec/src/de.rs#L178 and
-                    // https://github.com/ipld/serde_ipld_dagcbor/blob/37f6f00408331b76c6dac8ec4dc08a85d7764cec/src/de.rs#L119.
+                    // Cleaning up Integer and Float to avoid unwrap panics on error. We could get
+                    // away with `let Ok(blob)..`, but it is going to disable a big amount of test
+                    // scenarios.
                     //
                     // Note that we don't actually care about what integer or float contain for
                     // these tests, because our deserializer ignores those as it only cares about
                     // maps, lists and [`Cid`]s.
+                    // See https://github.com/ipld/serde_ipld_dagcbor/commit/94777d325a4a2bd37e8941f3fa47eba321776f65#diff-02292e8d776b8c5c924b5e32f227e772514cb68b37f3f7b384f02cdb6717a181R305-R321.
                     Ipld::Integer(int) => *int = 0,
-                    // Cleaning up Float to avoid `unwrap()` panics.
                     // See https://github.com/ipld/serde_ipld_dagcbor/blob/379581691d82a68a774f87deb9462091ec3c8cb6/src/ser.rs#L138.
                     Ipld::Float(float) => *float = 0.0,
                     _ => (),

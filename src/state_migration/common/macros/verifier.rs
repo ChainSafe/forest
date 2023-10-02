@@ -8,7 +8,7 @@
 macro_rules! impl_verifier {
     () => {
         pub(super) mod verifier {
-            use $crate::ipld::CidHashMap;
+            use $crate::cid_collections::CidHashMap;
             use fvm_ipld_blockstore::Blockstore;
             use fvm_ipld_encoding::CborStore;
             use $crate::shim::{address::Address, machine::Manifest, state_tree::StateTree};

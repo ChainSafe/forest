@@ -13,16 +13,19 @@ use crate::shim::{econ::TokenAmount, sector::StoragePower};
 use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_hamt::BytesKey;
 use num_traits::Zero;
+use once_cell::sync::Lazy;
+use std::ops::Deref;
 
 use super::util::hamt_addr_key_to_key;
 
 const DATA_CAP_GRANULARITY: u64 = TokenAmount::PRECISION;
-lazy_static::lazy_static! {
-    static ref INFINITE_ALLOWANCE: StoragePower = StoragePower::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE") * TokenAmount::PRECISION;
-}
+static INFINITE_ALLOWANCE: Lazy<StoragePower> = Lazy::new(|| {
+    StoragePower::from_str("1000000000000000000000").expect("Failed to parse INFINITE_ALLOWANCE")
+        * TokenAmount::PRECISION
+});
 
 pub(super) struct DataCapPostMigrator {
     pub(super) new_code_cid: Cid,
@@ -48,7 +51,7 @@ impl<BS: Blockstore> PostMigrator<BS> for DataCapPostMigrator {
 
         verified_clients.for_each(|addr_key, value| {
             let key = hamt_addr_key_to_key(addr_key)?;
-            let token_amount = value.inner() * DATA_CAP_GRANULARITY;
+            let token_amount = value.deref() * DATA_CAP_GRANULARITY;
             token_supply = &token_supply + &token_amount;
             balances_map.set(key.clone(), token_amount.into())?;
 
