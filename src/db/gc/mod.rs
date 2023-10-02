@@ -138,6 +138,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             time::sleep(AVERAGE_BLOCK_TIME * epochs_since_gc as u32).await;
             return anyhow::Ok(());
         } else {
+            info!("populate keys for GC");
             self.populate()?;
         }
 
@@ -152,7 +153,10 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             time::sleep(AVERAGE_BLOCK_TIME * epoch_since_marked as u32).await;
             return anyhow::Ok(());
         } else {
+            info!("filter keys for GC");
             self.filter(tipset, depth)?;
+
+            info!("GC sweep");
             self.sweep()?;
             self.epoch_sweeped = current_epoch;
         }
