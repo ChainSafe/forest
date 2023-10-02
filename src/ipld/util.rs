@@ -371,6 +371,10 @@ impl<DB, T> UnorderedChainStream<DB, T> {
             Err(v) => v.lock().clone(),
         }
     }
+
+    pub async fn join_workers(self) -> anyhow::Result<()> {
+        self.worker_handle.await?
+    }
 }
 
 /// Stream all blocks that are reachable before the `stateroot_limit` epoch in an unordered fashion.
