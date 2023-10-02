@@ -21,3 +21,13 @@ fn export_empty_archive() {
             "Error: input not recognized as any kind of CAR data (.car, .car.zst, .forest.car)\n",
         ));
 }
+
+// Running `forest-tool state-migration actor-bundle` may not fail.
+#[test]
+fn state_migration_actor_bundle_runs() {
+    tool()
+        .arg("state-migration")
+        .arg("actor-bundle")
+        .assert()
+        .success();
+}
