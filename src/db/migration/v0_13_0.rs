@@ -55,7 +55,7 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
         // because of the rolling db, we have to do the migration for each sub-database...
         for sub_db in &db_paths {
             info!("migrating RollingDB partition {:?}", sub_db);
-            let db = ParityDb::open(&sub_db)?;
+            let db = ParityDb::open(sub_db)?;
 
             for col in DbColumn::iter() {
                 info!("migrating column {}", col);
