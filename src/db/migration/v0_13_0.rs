@@ -92,6 +92,7 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
             }
         }
 
+        drop(new_db);
         Ok(temp_db_path)
     }
 
