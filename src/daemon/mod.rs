@@ -358,6 +358,7 @@ pub(super) async fn start(
                 beacon,
                 chain_store: rpc_chain_store,
                 gc_event_tx: gc_sender,
+                manual_gc: opts.no_gc,
             });
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.

@@ -43,6 +43,7 @@ where
     pub start_time: chrono::DateTime<Utc>,
     pub beacon: Arc<BeaconSchedule>,
     pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
+    pub manual_gc: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
