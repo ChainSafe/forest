@@ -5,7 +5,7 @@ use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::db::db_engine::Db;
 
 use crate::db::{truncated_hash, GarbageCollectable};
-use crate::ipld::unordered_stream_graph;
+use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
 use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
@@ -70,7 +70,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = unordered_stream_graph(
+        let mut stream = stream_graph(
             self.db.clone(),
             (*tipset).clone().chain(self.db.clone()),
             depth,
@@ -80,8 +80,6 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             let block = block?;
             self.marked.remove(&truncated_hash(block.cid.hash()));
         }
-
-        stream.join_workers().await?;
 
         anyhow::Ok(())
     }
