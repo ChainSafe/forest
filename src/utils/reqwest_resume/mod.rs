@@ -1,5 +1,6 @@
 use bytes::Bytes;
 use futures::{ready, FutureExt, Stream, TryFutureExt};
+use hyper::header::{HeaderMap, HeaderValue};
 use std::{
     future::Future,
     pin::Pin,
@@ -61,15 +62,18 @@ impl RequestBuilder {
                     x => break x?,
                 }
             };
-            let headers = response.headers();
-            // TODO: correctly init accept_byte_ranges
-            let accept_byte_ranges = true;
+            let accept_byte_ranges =
+                if let Some(value) = response.headers().get(hyper::header::ACCEPT_RANGES) {
+                    value.as_bytes() == "bytes".as_bytes()
+                } else {
+                    false
+                };
             let resp = Response {
                 client,
                 method,
                 url,
                 response,
-                accept_byte_ranges: true,
+                accept_byte_ranges,
                 pos: 0,
             };
             Ok(resp)
@@ -126,15 +130,17 @@ impl Stream for Decoder {
                         break Poll::Ready(Some(Err(err)));
                     }
                     let builder = self.client.request(self.method.clone(), self.url.clone());
-                    let mut headers = hyper::header::HeaderMap::new();
-                    // TODO: correctly set range
+                    let mut headers = HeaderMap::new();
+                    let value = HeaderValue::from_str(&std::format!("{}-", self.pos))
+                        .expect("invalid ASCII string");
+                    headers.insert(hyper::header::RANGE, value);
                     let builder = builder.headers(headers.into());
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
                     // https://github.com/sdroege/gst-plugin-rs/blob/dcb36832329fde0113a41b80ebdb5efd28ead68d/gst-plugin-http/src/httpsrc.rs
                     self.decoder = Box::pin(
                         Box::pin(sleep(Duration::from_secs(1)))
                             .then(|()| builder.send())
-                            .map_ok(|resp| reqwest::Response::bytes_stream(resp))
+                            .map_ok(reqwest::Response::bytes_stream)
                             .try_flatten_stream(),
                     );
                 }
