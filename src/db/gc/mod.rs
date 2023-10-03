@@ -15,7 +15,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
 use tracing::info;
-use tracing::log::log;
 
 // The average block time is set to a slightly bigger value on purpose, to save some cycles.
 const AVERAGE_BLOCK_TIME: Duration = Duration::from_secs(35);
