@@ -146,7 +146,7 @@ impl Stream for Decoder {
                     let value = HeaderValue::from_str(&std::format!("{}-", self.pos))
                         .expect("invalid ASCII string");
                     headers.insert(hyper::header::RANGE, value);
-                    let builder = builder.headers(headers.into());
+                    let builder = builder.headers(headers);
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
                     // https://github.com/sdroege/gst-plugin-rs/blob/dcb36832329fde0113a41b80ebdb5efd28ead68d/gst-plugin-http/src/httpsrc.rs
                     self.decoder = Box::pin(
