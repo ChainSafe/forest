@@ -77,11 +77,13 @@ async fn generate_actor_bundle(output: PathBuf) -> anyhow::Result<()> {
         .forward(CarWriter::new_carv1(
             roots.into_iter().collect(),
             ZstdEncoder::with_quality(
-                File::create(output).await?,
+                File::create(&output).await?,
                 async_compression::Level::Precise(17),
             ),
         )?)
         .await?;
+
+    println!("Wrote the actors bundle to {}", output.display());
 
     Ok(())
 }
