@@ -10,10 +10,10 @@ use crate::shim::{
     machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{StateTree, StateTreeVersion},
 };
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::CborStore as _;
 
 use super::super::common::{
     migrators::{nil_migrator, DeferredMigrator},
@@ -68,14 +68,14 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         let (pending_verified_deals, pending_verified_deal_size) =
             get_pending_verified_deals_and_total_size(&store, &market_state_v8)?;
 
-        for (name, code) in current_manifest.builtin_actors() {
-            match name {
+        for (actor, cid) in current_manifest.builtin_actors() {
+            match actor {
                 BuiltinActor::Market | BuiltinActor::VerifiedRegistry => {
-                    self.add_migrator(code, Arc::new(DeferredMigrator))
+                    self.add_migrator(cid, Arc::new(DeferredMigrator))
                 }
                 _ => {
-                    let new_code = new_manifest.get(name)?;
-                    self.add_migrator(code, nil_migrator(new_code))
+                    let new_code = new_manifest.get(actor)?;
+                    self.add_migrator(cid, nil_migrator(new_code))
                 }
             }
         }

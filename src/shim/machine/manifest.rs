@@ -10,7 +10,7 @@ use ahash::HashMap;
 use anyhow::{anyhow, ensure, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::CborStore as _;
 use itertools::Itertools as _;
 
 /// This should be the latest enumeration of all builtin actors

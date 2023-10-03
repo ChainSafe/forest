@@ -13,7 +13,7 @@ use crate::shim::{
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::CborStore as _;
 
 use super::{
     eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system, verifier::Verifier,
@@ -40,9 +40,9 @@ impl<BS: Blockstore> StateMigration<BS> {
 
         let new_manifest = BuiltinActorManifest::load_manifest(&store, new_manifest)?;
 
-        for (name, code) in current_manifest.builtin_actors() {
-            let new_code = new_manifest.get(name)?;
-            self.add_migrator(code, nil_migrator(new_code));
+        for (actor, cid) in current_manifest.builtin_actors() {
+            let new_cid = new_manifest.get(actor)?;
+            self.add_migrator(cid, nil_migrator(new_cid));
         }
 
         self.add_migrator(
