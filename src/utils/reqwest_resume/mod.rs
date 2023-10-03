@@ -12,7 +12,7 @@
 
 use bytes::Bytes;
 use futures::{ready, FutureExt, Stream, TryFutureExt};
-use hyper::header::{HeaderMap, HeaderValue};
+use hyper::header::{self, HeaderMap, HeaderValue};
 use std::{
     future::Future,
     pin::Pin,
@@ -75,7 +75,7 @@ impl RequestBuilder {
                 }
             };
             let accept_byte_ranges =
-                if let Some(value) = response.headers().get(hyper::header::ACCEPT_RANGES) {
+                if let Some(value) = response.headers().get(header::ACCEPT_RANGES) {
                     value.as_bytes() == "bytes".as_bytes()
                 } else {
                     false
@@ -145,7 +145,7 @@ impl Stream for Decoder {
                     let mut headers = HeaderMap::new();
                     let value = HeaderValue::from_str(&std::format!("{}-", self.pos))
                         .expect("invalid ASCII string");
-                    headers.insert(hyper::header::RANGE, value);
+                    headers.insert(header::RANGE, value);
                     let builder = builder.headers(headers);
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
                     // https://github.com/sdroege/gst-plugin-rs/blob/dcb36832329fde0113a41b80ebdb5efd28ead68d/gst-plugin-http/src/httpsrc.rs
