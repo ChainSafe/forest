@@ -63,7 +63,7 @@ fil_actor_system_state = "6.1"
 fil_actor_verifreg_state = "6.1"
 fil_actors_shared = "6.1"
 filecoin-proofs-api = { version = "16.0", default-features = false }
-flume = { version = "0.11" , features = ["async"]}
+flume = { version = "0.11", features = ["async"] }
 fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
