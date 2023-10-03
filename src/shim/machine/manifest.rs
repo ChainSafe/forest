@@ -3,11 +3,94 @@
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::collections::BTreeMap;
+
 use ahash::HashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, ensure, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use itertools::Itertools as _;
+
+/// This should be the latest enumeration of all builtin actors
+pub use fil_actors_shared::v11::runtime::builtins::Type as Builtin;
+
+/// A list of [`Builtin`] actors to their CIDs
+// Theoretically, this struct could just have fields for all the actors,
+// acting as a kind of perfect hash map, but performance will be fine as-is
+pub struct Manifest2 {
+    builtin2cid: BTreeMap<Builtin, Cid>,
+    /// The CID that this manifest was built from
+    actor_list_cid: Cid,
+}
+
+// Manifest2.builtin2cid must be a BTreeMap
+static_assertions::assert_not_impl_all!(Builtin: std::hash::Hash);
+
+impl Manifest2 {
+    const MANDATORY_BUILTINS: &[Builtin] = &[Builtin::Init, Builtin::System];
+    pub fn load_from_manifest(b: impl Blockstore, cid: &Cid) -> anyhow::Result<Self> {
+        let (manifest_version, actor_list_cid) = b
+            .get_cbor::<(u32, Cid)>(cid)?
+            .context("failed to load manifest")?;
+        ensure!(
+            manifest_version == 1,
+            "unsupported manifest version {}",
+            manifest_version
+        );
+        Self::load_from_actor_list(b, &actor_list_cid)
+    }
+    pub fn load_from_actor_list(b: impl Blockstore, actor_list_cid: &Cid) -> anyhow::Result<Self> {
+        let mut actor_list = b
+            .get_cbor::<Vec<(String, Cid)>>(actor_list_cid)?
+            .context("failed to load actor list")?;
+        actor_list.sort();
+        ensure!(
+            actor_list.iter().map(|(name, _cid)| name).all_unique(),
+            "duplicate actor name in actor list"
+        );
+        let mut name2cid = BTreeMap::from_iter(actor_list);
+        let mut builtin2cid = BTreeMap::new();
+        for builtin in ALL_BUILTINS {
+            if let Some(cid) = name2cid.remove(builtin.name()) {
+                builtin2cid.insert(*builtin, cid);
+            }
+        }
+        for mandatory_builtin in Self::MANDATORY_BUILTINS {
+            ensure!(
+                builtin2cid.contains_key(mandatory_builtin),
+                "actor list does not contain mandatory actor {}",
+                mandatory_builtin.name()
+            )
+        }
+        if !name2cid.is_empty() {
+            tracing::warn!("unknown actors in list: [{}]", name2cid.keys().join(", "))
+        }
+        Ok(Self {
+            builtin2cid,
+            actor_list_cid: *actor_list_cid,
+        })
+    }
+    pub fn get(&self, builtin: &Builtin) -> Option<Cid> {
+        self.builtin2cid.get(builtin).copied()
+    }
+    pub fn get_system(&self) -> Cid {
+        assert!(Self::MANDATORY_BUILTINS.contains(&Builtin::System));
+        self.get(&Builtin::System).unwrap()
+    }
+    pub fn get_init(&self) -> Cid {
+        assert!(Self::MANDATORY_BUILTINS.contains(&Builtin::Init));
+        self.get(&Builtin::Init).unwrap()
+    }
+    /// The CID that this manifest was built from, also known as the `actors CID`
+    #[doc(alias = "actors_cid")]
+    pub fn source_cid(&self) -> Cid {
+        self.actor_list_cid
+    }
+    pub fn builtin_actors(&self) -> impl ExactSizeIterator<Item = (Builtin, Cid)> + '_ {
+        self.builtin2cid.iter().map(|(k, v)| (*k, *v)) // std::iter::Copied doesn't play well with the tuple here
+    }
+}
 
 // For details on actor name and version, see <https://github.com/filecoin-project/go-state-types/blob/1e6cf0d47cdda75383ef036fc2725d1cf51dbde8/manifest/manifest.go#L36>
 
@@ -41,10 +124,10 @@ name!(
 );
 
 /// Manifest is serialized as a tuple of version and manifest actors CID
-pub type ManifestCbor = (u32, Cid);
+type ManifestCbor = (u32, Cid);
 
 /// Manifest data is serialized as a vector of name-to-actor-CID pair
-pub type ManifestActorsCbor = Vec<(String, Cid)>;
+type ManifestActorsCbor = Vec<(String, Cid)>;
 
 /// A mapping of builtin actor CIDs to their respective types.
 pub struct Manifest {
@@ -132,4 +215,42 @@ impl Manifest {
     pub fn system_code(&self) -> &Cid {
         &self.system_code
     }
+}
+
+// https://github.com/ChainSafe/fil-actor-states/issues/171
+macro_rules! exhaustive {
+    ($vis:vis const $ident:ident: &[$ty:ty] = &[$($variant:path),* $(,)?];) => {
+        $vis const $ident: &[$ty] = &[$($variant,)*];
+        const _: () = {
+            fn check_exhaustive(it: $ty) {
+                match it {
+                    $(
+                        $variant => {},
+                    )*
+                }
+            }
+        };
+
+    }
+}
+
+exhaustive! {
+    const ALL_BUILTINS: &[Builtin] = &[
+        Builtin::System,
+        Builtin::Init,
+        Builtin::Cron,
+        Builtin::Account,
+        Builtin::Power,
+        Builtin::Miner,
+        Builtin::Market,
+        Builtin::PaymentChannel,
+        Builtin::Multisig,
+        Builtin::Reward,
+        Builtin::VerifiedRegistry,
+        Builtin::DataCap,
+        Builtin::Placeholder,
+        Builtin::EVM,
+        Builtin::EAM,
+        Builtin::EthAccount,
+    ];
 }
