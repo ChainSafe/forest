@@ -78,11 +78,17 @@ impl BuiltinActorManifest {
             .with_context(|| format!("builtin actor {} is not in the manifest", builtin.name()))
     }
     pub fn get_system(&self) -> Cid {
-        assert!(Self::MANDATORY_BUILTINS.contains(&BuiltinActor::System));
+        static_assert_contains_matching!(
+            BuiltinActorManifest::MANDATORY_BUILTINS,
+            BuiltinActor::System
+        );
         self.get(BuiltinActor::System).unwrap()
     }
     pub fn get_init(&self) -> Cid {
-        assert!(Self::MANDATORY_BUILTINS.contains(&BuiltinActor::Init));
+        static_assert_contains_matching!(
+            BuiltinActorManifest::MANDATORY_BUILTINS,
+            BuiltinActor::Init
+        );
         self.get(BuiltinActor::Init).unwrap()
     }
     /// The CID that this manifest was built from, also known as the `actors CID`
@@ -132,3 +138,23 @@ exhaustive! {
         BuiltinActor::EthAccount,
     ];
 }
+
+macro_rules! static_assert_contains_matching {
+    ($slice:expr, $must_match:pat) => {
+        const _: () = {
+            let slice = $slice;
+            let mut cur_ix = slice.len();
+            'ok: {
+                while let Some(new_ix) = cur_ix.checked_sub(1) {
+                    cur_ix = new_ix;
+                    match slice[cur_ix] {
+                        $must_match => break 'ok,
+                        _ => continue,
+                    }
+                }
+                panic!("slice did not contain a match")
+            }
+        };
+    };
+}
+pub(crate) use static_assert_contains_matching;
