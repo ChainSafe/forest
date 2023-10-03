@@ -35,11 +35,11 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
     ) -> anyhow::Result<()> {
         let system_actor = actors_in
             .get_actor(&Address::new_id(0))?
-            .context("system actor not found")?;
+            .ok_or_else(|| anyhow!("system actor not found"))?;
 
         let system_actor_state: SystemStateOld = store
             .get_cbor(&system_actor.state)?
-            .context("system actor state not found")?;
+            .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest_data = system_actor_state.builtin_actors;
 
         let current_manifest =
@@ -86,7 +86,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             system::system_migrator(new_manifest),
         );
 
-        let miner_v8_actor_code = current_manifest.get(BuiltinActor::Miner)?; // TODO(aatifsyed): can Miner is a v8 actor - can we guarantee it's always there?
+        let miner_v8_actor_code = current_manifest.get(BuiltinActor::Miner)?;
         let miner_v9_actor_code = new_manifest.get(BuiltinActor::Miner)?;
 
         self.add_migrator(
