@@ -19,7 +19,7 @@ fn failing_migration_should_not_fail_daemon() -> Result<()> {
 
     let bad_db_path = data_dir.path().join("calibnet").join("0.12.1");
     std::fs::create_dir_all(&bad_db_path)?;
-    daemon()?
+    daemon()
         .common_env()
         .common_args()
         .arg("--config")

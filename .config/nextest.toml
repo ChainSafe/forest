@@ -1,2 +1,6 @@
 [profile.default]
 slow-timeout = { period = "10s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+filter = 'test(state_migration_actor_bundle_runs)'
+slow-timeout = { period = "120s", terminate-after = 3 }
