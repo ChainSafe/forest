@@ -58,9 +58,9 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => print_rpc_res_pretty(
-                chain_get_block((cid.into(),), &config.client.rpc_token).await,
-            ),
+            Self::Block { cid } => {
+                print_rpc_res_pretty(chain_get_block((cid.into(),), &config.client.rpc_token).await)
+            }
             Self::Genesis => {
                 print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
             }
