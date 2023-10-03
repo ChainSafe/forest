@@ -13,7 +13,6 @@ use anyhow::Context as AnyhowContext;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
