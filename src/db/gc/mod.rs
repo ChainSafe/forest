@@ -77,7 +77,6 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         );
 
         while let Some(block) = stream.next().await {
-            info!("filtering");
             let block = block?;
             self.marked.remove(&truncated_hash(block.cid.hash()));
         }

@@ -145,6 +145,7 @@ mod tests {
             chain_store: cs_for_chain.clone(),
             beacon,
             gc_event_tx,
+            manual_gc: false,
         });
         (state, network_rx)
     }
