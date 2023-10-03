@@ -6,7 +6,7 @@
 //! Wrapper that uses the `Range` HTTP header to resume get requests.
 //!
 //! Most of the code can be attributed to Alec Mocatta and comes from the crate
-//! https://crates.io/crates/reqwest_resume/
+//! <https://crates.io/crates/reqwest_resume/>
 //! Some modifications have been done to update the code regarding `tokio` and
 //! a change in dependency moving from `hyperx` to `hyper`.
 
