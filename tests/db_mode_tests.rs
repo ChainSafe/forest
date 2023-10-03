@@ -7,7 +7,7 @@ use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
 
 #[test]
 fn current_mode_should_create_current_version_if_no_migrations() -> anyhow::Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+    let (config_file, data_dir) = create_tmp_config();
 
     daemon()
         .common_env()
@@ -33,7 +33,7 @@ fn current_mode_should_create_current_version_if_no_migrations() -> anyhow::Resu
 
 #[test]
 fn development_mode_should_create_named_db() -> anyhow::Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+    let (config_file, data_dir) = create_tmp_config();
 
     daemon()
         .common_env()

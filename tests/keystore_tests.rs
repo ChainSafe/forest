@@ -13,7 +13,7 @@ use crate::common::{create_tmp_config, daemon, CommonArgs};
 // https://github.com/ChainSafe/forest/issues/2499
 #[test]
 fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> anyhow::Result<()> {
-    let (config_file, _data_dir) = create_tmp_config()?;
+    let (config_file, _data_dir) = create_tmp_config();
     daemon()
         .common_args()
         .arg("--config")
@@ -26,7 +26,7 @@ fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> anyhow::Resul
 
 #[test]
 fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> anyhow::Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+    let (config_file, data_dir) = create_tmp_config();
     daemon()
         .common_args()
         .arg("--config")
@@ -43,7 +43,7 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> anyhow::Result<(
 
 #[test]
 fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> anyhow::Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+    let (config_file, data_dir) = create_tmp_config();
     daemon()
         .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
         .common_args()
@@ -58,7 +58,7 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> anyhow::
 
 #[test]
 fn should_create_jwt_admin_token() -> anyhow::Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+    let (config_file, data_dir) = create_tmp_config();
     let token_path = data_dir.path().join("admin-token");
     daemon()
         .common_args()

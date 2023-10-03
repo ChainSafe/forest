@@ -9,7 +9,7 @@ use crate::common::{create_tmp_config, daemon, CommonEnv};
 #[test]
 #[ignore]
 fn importing_bad_snapshot_should_fail() -> anyhow::Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+    let (config_file, data_dir) = create_tmp_config();
     let temp_file = data_dir.path().join("bad-snapshot.car");
     std::fs::write(&temp_file, "bad-snapshot")?;
     daemon()
