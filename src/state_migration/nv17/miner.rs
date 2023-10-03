@@ -366,7 +366,7 @@ mod tests {
     use crate::shim::bigint::BigInt;
     use crate::shim::{
         econ::TokenAmount,
-        machine::{Builtin, Manifest2},
+        machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
     use anyhow::*;
@@ -478,7 +478,7 @@ mod tests {
         )?;
 
         // base stuff to create miners
-        let miner_cid_old = manifest_old.get(Builtin::Miner)?;
+        let miner_cid_old = manifest_old.get(BuiltinActor::Miner)?;
         ensure!(miner_cid_old.to_string() == "bafkqaetgnfwc6obpon2g64tbm5sw22lomvza");
         let base_miner_state = make_base_miner_state(&store, &base_addr, &base_worker_addr)?;
 
@@ -606,7 +606,7 @@ mod tests {
         let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
         let addr = Address::new_id(10000);
         let worker_addr = Address::new_id(20000);
-        let miner_cid_old = manifest_old.get(Builtin::Miner)?;
+        let miner_cid_old = manifest_old.get(BuiltinActor::Miner)?;
         let miner_state = make_base_miner_state(&store, &addr, &worker_addr)?;
         let miner_state_cid = store.put_cbor_default(&miner_state)?;
         ensure!(
@@ -632,11 +632,13 @@ mod tests {
         Ok(())
     }
 
-    fn make_input_tree<BS: Blockstore>(store: &Arc<BS>) -> Result<(StateTree<BS>, Manifest2)> {
+    fn make_input_tree<BS: Blockstore>(
+        store: &Arc<BS>,
+    ) -> Result<(StateTree<BS>, BuiltinActorManifest)> {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
 
         let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
-        let account_cid = manifest.get(Builtin::Account)?;
+        let account_cid = manifest.get(BuiltinActor::Account)?;
         // fmt.Printf("accountCid: %s\n", accountCid)
         ensure!(account_cid.to_string() == "bafkqadlgnfwc6obpmfrwg33vnz2a");
         let system_cid = manifest.get_system();
@@ -675,7 +677,7 @@ mod tests {
             Zero::zero(),
         )?;
 
-        let reward_cid = manifest.get(Builtin::Reward)?;
+        let reward_cid = manifest.get(BuiltinActor::Reward)?;
         ensure!(reward_cid.to_string() == "bafkqaddgnfwc6obpojsxoylsmq");
         let reward_state = fil_actor_reward_state::v8::State::new(Default::default());
         let reward_state_cid = store.put_cbor_default(&reward_state)?;
@@ -691,7 +693,7 @@ mod tests {
             TokenAmount::from_whole(1_100_000_000),
         )?;
 
-        let cron_cid = manifest.get(Builtin::Cron)?;
+        let cron_cid = manifest.get(BuiltinActor::Cron)?;
         ensure!(cron_cid.to_string() == "bafkqactgnfwc6obpmnzg63q");
         let cron_state = fil_actor_cron_state::v8::State {
             entries: vec![
@@ -718,7 +720,7 @@ mod tests {
             Zero::zero(),
         )?;
 
-        let power_cid = manifest.get(Builtin::Power)?;
+        let power_cid = manifest.get(BuiltinActor::Power)?;
         ensure!(power_cid.to_string() == "bafkqaetgnfwc6obpon2g64tbm5sxa33xmvza");
         let power_state = fil_actor_power_state::v8::State::new(&store)?;
         let power_state_cid = store.put_cbor_default(&power_state)?;
@@ -734,7 +736,7 @@ mod tests {
             Zero::zero(),
         )?;
 
-        let market_cid = manifest.get(Builtin::Market)?;
+        let market_cid = manifest.get(BuiltinActor::Market)?;
         ensure!(market_cid.to_string() == "bafkqae3gnfwc6obpon2g64tbm5sw2ylsnnsxi");
         let market_state = fil_actor_market_state::v8::State::new(&store)?;
         let market_state_cid = store.put_cbor_default(&market_state)?;
@@ -768,7 +770,7 @@ mod tests {
             Zero::zero(),
         )?;
 
-        let verifreg_cid = manifest.get(Builtin::VerifiedRegistry)?;
+        let verifreg_cid = manifest.get(BuiltinActor::VerifiedRegistry)?;
         ensure!(verifreg_cid.to_string() == "bafkqaftgnfwc6obpozsxe2lgnfswi4tfm5uxg5dspe");
         let mut verifreg_state =
             fil_actor_verifreg_state::v8::State::new(&store, verifreg_root.into())?;
@@ -845,7 +847,10 @@ mod tests {
         Ok(())
     }
 
-    fn make_test_manifest<BS: Blockstore>(store: &BS, prefix: &str) -> Result<(Cid, Manifest2)> {
+    fn make_test_manifest<BS: Blockstore>(
+        store: &BS,
+        prefix: &str,
+    ) -> Result<(Cid, BuiltinActorManifest)> {
         let mut manifest_data = vec![];
         for name in [
             "account",
@@ -867,7 +872,7 @@ mod tests {
         }
 
         let manifest_cid = store.put_cbor_default(&(1, store.put_cbor_default(&manifest_data)?))?;
-        let manifest = Manifest2::load_from_manifest(store, &manifest_cid)?;
+        let manifest = BuiltinActorManifest::load_manifest(store, &manifest_cid)?;
 
         Ok((manifest_cid, manifest))
     }

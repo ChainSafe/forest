@@ -14,37 +14,34 @@ use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 
 /// This should be the latest enumeration of all builtin actors
-pub use fil_actors_shared::v11::runtime::builtins::Type as Builtin;
+pub use fil_actors_shared::v11::runtime::builtins::Type as BuiltinActor;
 
-/// A list of [`Builtin`] actors to their CIDs
+/// A list of [`BuiltinActor`]s to their CIDs
 // Theoretically, this struct could just have fields for all the actors,
 // acting as a kind of perfect hash map, but performance will be fine as-is
-pub struct Manifest2 {
-    builtin2cid: BTreeMap<Builtin, Cid>,
+pub struct BuiltinActorManifest {
+    builtin2cid: BTreeMap<BuiltinActor, Cid>,
     /// The CID that this manifest was built from
     actor_list_cid: Cid,
 }
 
 // Manifest2.builtin2cid must be a BTreeMap
-static_assertions::assert_not_impl_all!(Builtin: std::hash::Hash);
+static_assertions::assert_not_impl_all!(BuiltinActor: std::hash::Hash);
 
-impl Manifest2 {
-    const MANDATORY_BUILTINS: &[Builtin] = &[Builtin::Init, Builtin::System];
-    pub fn load_from_manifest(b: impl Blockstore, cid: &Cid) -> anyhow::Result<Self> {
+impl BuiltinActorManifest {
+    const MANDATORY_BUILTINS: &[BuiltinActor] = &[BuiltinActor::Init, BuiltinActor::System];
+    pub fn load_manifest(b: impl Blockstore, manifest_cid: &Cid) -> anyhow::Result<Self> {
         let (manifest_version, actor_list_cid) = b
-            .get_cbor::<(u32, Cid)>(cid)?
+            .get_cbor::<(u32, Cid)>(manifest_cid)?
             .context("failed to load manifest")?;
         ensure!(
             manifest_version == 1,
             "unsupported manifest version {}",
             manifest_version
         );
-        Self::load_from_v1_actor_list(b, &actor_list_cid)
+        Self::load_v1_actor_list(b, &actor_list_cid)
     }
-    pub fn load_from_v1_actor_list(
-        b: impl Blockstore,
-        actor_list_cid: &Cid,
-    ) -> anyhow::Result<Self> {
+    pub fn load_v1_actor_list(b: impl Blockstore, actor_list_cid: &Cid) -> anyhow::Result<Self> {
         let mut actor_list = b
             .get_cbor::<Vec<(String, Cid)>>(actor_list_cid)?
             .context("failed to load actor list")?;
@@ -76,26 +73,26 @@ impl Manifest2 {
         })
     }
     // Return anyhow::Result instead of Option because we know our users are all at the root of an error chain
-    pub fn get(&self, builtin: Builtin) -> anyhow::Result<Cid> {
+    pub fn get(&self, builtin: BuiltinActor) -> anyhow::Result<Cid> {
         self.builtin2cid
             .get(&builtin)
             .copied()
             .with_context(|| format!("builtin actor {} is not in the manifest", builtin.name()))
     }
     pub fn get_system(&self) -> Cid {
-        assert!(Self::MANDATORY_BUILTINS.contains(&Builtin::System));
-        self.get(Builtin::System).unwrap()
+        assert!(Self::MANDATORY_BUILTINS.contains(&BuiltinActor::System));
+        self.get(BuiltinActor::System).unwrap()
     }
     pub fn get_init(&self) -> Cid {
-        assert!(Self::MANDATORY_BUILTINS.contains(&Builtin::Init));
-        self.get(Builtin::Init).unwrap()
+        assert!(Self::MANDATORY_BUILTINS.contains(&BuiltinActor::Init));
+        self.get(BuiltinActor::Init).unwrap()
     }
     /// The CID that this manifest was built from, also known as the `actors CID`
     #[doc(alias = "actors_cid")]
     pub fn source_cid(&self) -> Cid {
         self.actor_list_cid
     }
-    pub fn builtin_actors(&self) -> impl ExactSizeIterator<Item = (Builtin, Cid)> + '_ {
+    pub fn builtin_actors(&self) -> impl ExactSizeIterator<Item = (BuiltinActor, Cid)> + '_ {
         self.builtin2cid.iter().map(|(k, v)| (*k, *v)) // std::iter::Copied doesn't play well with the tuple here
     }
 }
@@ -244,22 +241,22 @@ macro_rules! exhaustive {
 }
 
 exhaustive! {
-    const ALL_BUILTINS: &[Builtin] = &[
-        Builtin::System,
-        Builtin::Init,
-        Builtin::Cron,
-        Builtin::Account,
-        Builtin::Power,
-        Builtin::Miner,
-        Builtin::Market,
-        Builtin::PaymentChannel,
-        Builtin::Multisig,
-        Builtin::Reward,
-        Builtin::VerifiedRegistry,
-        Builtin::DataCap,
-        Builtin::Placeholder,
-        Builtin::EVM,
-        Builtin::EAM,
-        Builtin::EthAccount,
+    const ALL_BUILTINS: &[BuiltinActor] = &[
+        BuiltinActor::System,
+        BuiltinActor::Init,
+        BuiltinActor::Cron,
+        BuiltinActor::Account,
+        BuiltinActor::Power,
+        BuiltinActor::Miner,
+        BuiltinActor::Market,
+        BuiltinActor::PaymentChannel,
+        BuiltinActor::Multisig,
+        BuiltinActor::Reward,
+        BuiltinActor::VerifiedRegistry,
+        BuiltinActor::DataCap,
+        BuiltinActor::Placeholder,
+        BuiltinActor::EVM,
+        BuiltinActor::EAM,
+        BuiltinActor::EthAccount,
     ];
 }

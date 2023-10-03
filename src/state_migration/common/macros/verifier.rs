@@ -11,7 +11,7 @@ macro_rules! impl_verifier {
             use $crate::cid_collections::CidHashMap;
             use fvm_ipld_blockstore::Blockstore;
             use fvm_ipld_encoding::CborStore;
-            use $crate::shim::{address::Address, machine::Manifest2, state_tree::StateTree};
+            use $crate::shim::{address::Address, machine::BuiltinActorManifest, state_tree::StateTree};
             use $crate::state_migration::common::{verifier::ActorMigrationVerifier, Migrator};
 
             use super::*;
@@ -34,7 +34,7 @@ macro_rules! impl_verifier {
                         .get_cbor::<SystemStateOld>(&system_actor.state)?
                         .ok_or_else(|| anyhow::anyhow!("system actor state not found"))?;
                     let manifest =
-                        Manifest2::load_from_v1_actor_list(&store, &system_actor_state.builtin_actors)?;
+                        BuiltinActorManifest::load_v1_actor_list(&store, &system_actor_state.builtin_actors)?;
                     let manifest_actors_count = manifest.builtin_actors().len();
                     if manifest_actors_count == migrations.len() {
                         tracing::debug!("Migration spec is correct.");

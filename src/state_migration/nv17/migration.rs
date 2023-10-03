@@ -7,7 +7,7 @@ use crate::networks::{ChainConfig, Height};
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::{Builtin, Manifest2},
+    machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::{anyhow, Context};
@@ -29,7 +29,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         &mut self,
         store: &Arc<BS>,
         actors_in: &mut StateTree<BS>,
-        new_manifest: &Manifest2,
+        new_manifest: &BuiltinActorManifest,
         prior_epoch: ChainEpoch,
         chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
@@ -42,7 +42,8 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             .context("system actor state not found")?;
         let current_manifest_data = system_actor_state.builtin_actors;
 
-        let current_manifest = Manifest2::load_from_v1_actor_list(store, &current_manifest_data)?;
+        let current_manifest =
+            BuiltinActorManifest::load_v1_actor_list(store, &current_manifest_data)?;
 
         let verifreg_actor_v8 = actors_in
             .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
@@ -69,7 +70,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
 
         for (name, code) in current_manifest.builtin_actors() {
             match name {
-                Builtin::Market | Builtin::VerifiedRegistry => {
+                BuiltinActor::Market | BuiltinActor::VerifiedRegistry => {
                     self.add_migrator(code, Arc::new(DeferredMigrator))
                 }
                 _ => {
@@ -85,8 +86,8 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             system::system_migrator(new_manifest),
         );
 
-        let miner_v8_actor_code = current_manifest.get(Builtin::Miner)?; // TODO(aatifsyed): can Miner is a v8 actor - can we guarantee it's always there?
-        let miner_v9_actor_code = new_manifest.get(Builtin::Miner)?;
+        let miner_v8_actor_code = current_manifest.get(BuiltinActor::Miner)?; // TODO(aatifsyed): can Miner is a v8 actor - can we guarantee it's always there?
+        let miner_v9_actor_code = new_manifest.get(BuiltinActor::Miner)?;
 
         self.add_migrator(
             miner_v8_actor_code,
@@ -102,8 +103,8 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
             .get_cbor(&verifreg_state_v8_cid)?
             .context("Failed to load verifreg state v8")?;
-        let verifreg_code = new_manifest.get(Builtin::VerifiedRegistry)?;
-        let market_code = new_manifest.get(Builtin::Market)?;
+        let verifreg_code = new_manifest.get(BuiltinActor::VerifiedRegistry)?;
+        let market_code = new_manifest.get(BuiltinActor::Market)?;
 
         self.add_post_migrator(Arc::new(VerifregMarketPostMigrator {
             prior_epoch,
@@ -121,7 +122,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         // by setting up an empty actor to migrate from with a migrator,
         // while forest uses a post migrator to simplify the logic.
         self.add_post_migrator(Arc::new(datacap::DataCapPostMigrator {
-            new_code_cid: new_manifest.get(Builtin::DataCap)?,
+            new_code_cid: new_manifest.get(BuiltinActor::DataCap)?,
             verifreg_state: store
                 .get_cbor(&verifreg_state_v8_cid)?
                 .context("Failed to load verifreg state v8")?,
@@ -157,7 +158,7 @@ where
         )
     })?;
 
-    let new_manifest = Manifest2::load_from_manifest(blockstore, new_manifest_cid)?;
+    let new_manifest = BuiltinActorManifest::load_manifest(blockstore, new_manifest_cid)?;
 
     let mut actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
 
