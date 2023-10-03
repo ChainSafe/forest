@@ -35,7 +35,7 @@ cfg-if = "1"
 cfg-vis = "0.3.0"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
 convert_case = "0.6.0"
