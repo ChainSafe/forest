@@ -4,10 +4,9 @@
 pub mod common;
 
 use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
-use anyhow::Result;
 
 #[test]
-fn failing_migration_should_not_fail_daemon() -> Result<()> {
+fn failing_migration_should_not_fail_daemon() -> anyhow::Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
 
     // Create an invalid, versioned database in the data directory.

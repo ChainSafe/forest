@@ -7,7 +7,7 @@ use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use anyhow::Context;
+use anyhow::Context as _;
 use futures::TryStreamExt;
 use std::ffi::OsStr;
 use std::fs;

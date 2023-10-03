@@ -436,7 +436,7 @@ fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
 
 #[cfg(test)]
 mod test {
-    use anyhow::*;
+    use anyhow::ensure;
     use base64::{prelude::BASE64_STANDARD, Engine};
 
     use super::*;
@@ -458,7 +458,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypt_message() -> Result<()> {
+    fn test_encrypt_message() -> anyhow::Result<()> {
         let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None)?;
         let message = "foo is coming";
         let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
@@ -471,7 +471,7 @@ mod test {
     }
 
     #[test]
-    fn test_decrypt_message() -> Result<()> {
+    fn test_decrypt_message() -> anyhow::Result<()> {
         let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None)?;
         let message = "foo is coming";
         let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
@@ -481,7 +481,7 @@ mod test {
     }
 
     #[test]
-    fn test_read_old_encrypted_keystore() -> Result<()> {
+    fn test_read_old_encrypted_keystore() -> anyhow::Result<()> {
         let dir: PathBuf = "src/key_management/tests/keystore_encrypted_old".into();
         ensure!(dir.exists());
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(dir, PASSPHRASE.to_string()))?;
@@ -490,7 +490,7 @@ mod test {
     }
 
     #[test]
-    fn test_read_write_encrypted_keystore() -> Result<()> {
+    fn test_read_write_encrypted_keystore() -> anyhow::Result<()> {
         let keystore_location = tempfile::tempdir()?.into_path();
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(
             keystore_location.clone(),
@@ -509,7 +509,7 @@ mod test {
     }
 
     #[test]
-    fn test_read_write_keystore() -> Result<()> {
+    fn test_read_write_keystore() -> anyhow::Result<()> {
         let keystore_location = tempfile::tempdir()?.into_path();
         let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone()))?;
 

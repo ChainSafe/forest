@@ -3,7 +3,6 @@
 
 pub mod common;
 
-use anyhow::Result;
 use forest_filecoin::{verify_token, JWT_IDENTIFIER};
 use forest_filecoin::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
@@ -13,7 +12,7 @@ use crate::common::{create_tmp_config, daemon, CommonArgs};
 
 // https://github.com/ChainSafe/forest/issues/2499
 #[test]
-fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> Result<()> {
+fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> anyhow::Result<()> {
     let (config_file, _data_dir) = create_tmp_config()?;
     daemon()
         .common_args()
@@ -26,7 +25,7 @@ fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> Result<()> {
 }
 
 #[test]
-fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
+fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> anyhow::Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     daemon()
         .common_args()
@@ -43,7 +42,7 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
 }
 
 #[test]
-fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<()> {
+fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> anyhow::Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     daemon()
         .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
@@ -58,7 +57,7 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<(
 }
 
 #[test]
-fn should_create_jwt_admin_token() -> Result<()> {
+fn should_create_jwt_admin_token() -> anyhow::Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     let token_path = data_dir.path().join("admin-token");
     daemon()

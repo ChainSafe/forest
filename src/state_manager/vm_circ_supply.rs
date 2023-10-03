@@ -11,7 +11,7 @@ use crate::shim::{
     econ::TokenAmount,
     state_tree::{ActorState, StateTree},
 };
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_interface::{market, power, reward};
 use fvm_ipld_blockstore::Blockstore;

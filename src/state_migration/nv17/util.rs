@@ -67,7 +67,7 @@ pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesK
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::*;
+    use anyhow::ensure;
     use cid::multihash::{Multihash, MultihashDigest};
     use fvm_shared2::{
         bigint::Zero,
@@ -140,7 +140,7 @@ mod tests {
     // }
     // ```
     #[test]
-    fn test_get_pending_verified_deals_and_total_size() -> Result<()> {
+    fn test_get_pending_verified_deals_and_total_size() -> anyhow::Result<()> {
         let store = crate::db::MemoryDB::default();
         let mut market_state = fil_actor_market_state::v8::State::new(&store)?;
 
@@ -206,7 +206,7 @@ mod tests {
         Ok(())
     }
 
-    fn make_piece_cid(data: &[u8]) -> Result<Cid> {
+    fn make_piece_cid(data: &[u8]) -> anyhow::Result<Cid> {
         let hash = cid::multihash::Code::Sha2_256.digest(data);
         let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest())?;
         Ok(Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash))

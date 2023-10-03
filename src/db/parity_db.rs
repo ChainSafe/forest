@@ -8,7 +8,7 @@ use super::SettingsStore;
 use crate::db::{parity_db_config::ParityDbConfig, DBStatistics};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context as _};
 use cid::multihash::Code::Blake2b256;
 
 use cid::Cid;

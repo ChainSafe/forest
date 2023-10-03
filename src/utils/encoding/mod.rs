@@ -105,7 +105,7 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::{ensure, Result};
+    use anyhow::ensure;
     use itertools::Itertools;
     use libipld::Ipld;
     use rand::Rng;
@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn cannot_serialize_byte_array_overflow() -> Result<()> {
+    fn cannot_serialize_byte_array_overflow() -> anyhow::Result<()> {
         let bytes = ByteArray {
             inner: vec![0; BYTE_ARRAY_MAX_LEN + 1],
         };
@@ -170,7 +170,7 @@ mod tests {
     }
 
     #[test]
-    fn cannot_deserialize_byte_array_overflow() -> Result<()> {
+    fn cannot_deserialize_byte_array_overflow() -> anyhow::Result<()> {
         let max_length_bytes = ByteArray {
             inner: vec![0; BYTE_ARRAY_MAX_LEN],
         };

@@ -21,12 +21,12 @@ mod tests {
     use std::path::Path;
 
     use crate::utils::db::file_backed_obj::FileBacked;
-    use anyhow::*;
+    use anyhow::ensure;
 
     use super::*;
 
     #[test]
-    fn tipset_keys_round_trip() -> Result<()> {
+    fn tipset_keys_round_trip() -> anyhow::Result<()> {
         let path = Path::new("src/blocks/tests/calibnet/HEAD");
         let obj1: FileBacked<TipsetKeys> =
             FileBacked::load_from_file_or_create(path.into(), Default::default)?;

@@ -3,7 +3,6 @@
 
 use std::path::PathBuf;
 
-use anyhow::Result;
 use assert_cmd::Command;
 use tempfile::TempDir;
 
@@ -45,7 +44,7 @@ impl CommonEnv for Command {
     }
 }
 
-pub fn create_tmp_config() -> Result<(PathBuf, TempDir)> {
+pub fn create_tmp_config() -> anyhow::Result<(PathBuf, TempDir)> {
     let temp_dir = tempfile::tempdir()?;
 
     let config = format!(

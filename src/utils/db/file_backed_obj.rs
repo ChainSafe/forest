@@ -113,15 +113,14 @@ impl FileBackedObject for ChainMeta {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::*;
+    use super::*;
+    use anyhow::ensure;
     use cid::multihash::{self, MultihashDigest};
     use rand::Rng;
     use tempfile::TempDir;
 
-    use super::*;
-
     #[test]
-    fn cid_round_trip() -> Result<()> {
+    fn cid_round_trip() -> anyhow::Result<()> {
         let mut bytes = [0; 1024];
         rand::rngs::OsRng.fill(&mut bytes);
         let cid = Cid::new_v0(multihash::Code::Sha2_256.digest(bytes.as_slice()))?;
@@ -137,6 +136,6 @@ mod tests {
             FileBacked::load_from_file_or_create(file_path, Default::default)?;
         ensure!(obj1.inner() == obj2.inner());
 
-        Ok(())
+        anyhow::Ok(())
     }
 }

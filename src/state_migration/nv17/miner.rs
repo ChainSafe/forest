@@ -10,7 +10,7 @@ use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::{address::Address, piece::PieceInfo};
 use crate::utils::db::CborStoreExt;
 use ahash::HashMap;
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::{multibase::Base, Cid};
 use fil_actor_miner_state::{
     v8::State as MinerStateOld,
@@ -369,7 +369,7 @@ mod tests {
         machine::{BuiltinActor, BuiltinActorManifest},
         state_tree::{ActorState, StateRoot, StateTree, StateTreeVersion},
     };
-    use anyhow::*;
+    use anyhow::ensure;
     use cid::multihash::{Multihash, MultihashDigest};
     use fil_actor_interface::BURNT_FUNDS_ACTOR_ADDR;
     use fil_actors_shared::fvm_ipld_hamt::BytesKey;
@@ -384,7 +384,7 @@ mod tests {
     };
 
     #[test]
-    fn test_nv17_miner_migration() -> Result<()> {
+    fn test_nv17_miner_migration() -> anyhow::Result<()> {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
         let system_actor_old = state_tree_old
@@ -601,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fip0029_miner_migration() -> Result<()> {
+    fn test_fip0029_miner_migration() -> anyhow::Result<()> {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store)?;
         let addr = Address::new_id(10000);
@@ -634,7 +634,7 @@ mod tests {
 
     fn make_input_tree<BS: Blockstore>(
         store: &Arc<BS>,
-    ) -> Result<(StateTree<BS>, BuiltinActorManifest)> {
+    ) -> anyhow::Result<(StateTree<BS>, BuiltinActorManifest)> {
         let mut tree = StateTree::new(store.clone(), StateTreeVersion::V4)?;
 
         let (_manifest_cid, manifest) = make_test_manifest(&store, "fil/8/")?;
@@ -840,7 +840,7 @@ mod tests {
         code: Cid,
         addr: &Address,
         balance: TokenAmount,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         let actor = ActorState::new(code, state, balance, 0, None);
         tree.set_actor(addr, actor)?;
 
@@ -850,7 +850,7 @@ mod tests {
     fn make_test_manifest<BS: Blockstore>(
         store: &BS,
         prefix: &str,
-    ) -> Result<(Cid, BuiltinActorManifest)> {
+    ) -> anyhow::Result<(Cid, BuiltinActorManifest)> {
         let mut manifest_data = vec![];
         for name in [
             "account",
@@ -881,7 +881,7 @@ mod tests {
         store: &BS,
         base_addr: &Address,
         base_worker_addr: &Address,
-    ) -> Result<fil_actor_miner_state::v8::State> {
+    ) -> anyhow::Result<fil_actor_miner_state::v8::State> {
         let empty_miner_info = fil_actor_miner_state::v8::MinerInfo {
             owner: base_addr.into(),
             worker: base_worker_addr.into(),
@@ -909,13 +909,13 @@ mod tests {
         Ok(empty_miner_state)
     }
 
-    fn make_piece_cid(data: &[u8]) -> Result<Cid> {
+    fn make_piece_cid(data: &[u8]) -> anyhow::Result<Cid> {
         let hash = cid::multihash::Code::Sha2_256.digest(data);
         let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest())?;
         Ok(Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash))
     }
 
-    fn make_sealed_cid(data: &[u8]) -> Result<Cid> {
+    fn make_sealed_cid(data: &[u8]) -> anyhow::Result<Cid> {
         let hash = cid::multihash::Code::Sha2_256.digest(data);
         let hash = Multihash::wrap(POSEIDON_BLS12_381_A1_FC1, hash.digest())?;
         Ok(Cid::new_v1(FIL_COMMITMENT_SEALED, hash))

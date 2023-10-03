@@ -15,7 +15,7 @@ use crate::shim::{
     econ::TokenAmount,
 };
 use crate::utils::io::read_file_to_string;
-use anyhow::Context;
+use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
 use dialoguer::{theme::ColorfulTheme, Password};

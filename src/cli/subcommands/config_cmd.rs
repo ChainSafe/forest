@@ -3,7 +3,7 @@
 
 use std::io::Write;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use clap::Subcommand;
 
 use crate::cli::subcommands::Config;

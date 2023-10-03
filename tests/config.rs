@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
-use anyhow::*;
+use anyhow::{ensure, Context as _};
 use assert_cmd::Command;
 use forest_filecoin::{Client, Config};
 use rand::Rng;
@@ -95,7 +95,7 @@ fn test_reading_configuration_from_file() {
 }
 
 #[test]
-fn test_config_env_var() -> Result<()> {
+fn test_config_env_var() -> anyhow::Result<()> {
     let expected_config = Config {
         client: Client {
             rpc_token: Some("some_rpc_token".into()),

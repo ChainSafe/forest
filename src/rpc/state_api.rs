@@ -14,7 +14,7 @@ use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
-use anyhow::Context;
+use anyhow::Context as _;
 use fil_actor_interface::market;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;

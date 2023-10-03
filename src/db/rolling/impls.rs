@@ -273,7 +273,7 @@ fn delete_db(db_path: &Path) {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    use anyhow::*;
+    use anyhow::ensure;
     use cid::{multihash::MultihashDigest, Cid};
     use fvm_ipld_blockstore::Blockstore;
     use pretty_assertions::assert_eq;
@@ -285,7 +285,7 @@ mod tests {
     use crate::libp2p_bitswap::BitswapStoreRead;
 
     #[quickcheck]
-    fn ensure_settings_are_transferred(keys: Vec<String>) -> Result<()> {
+    fn ensure_settings_are_transferred(keys: Vec<String>) -> anyhow::Result<()> {
         let db_root = TempDir::new()?;
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
         // Write settings
@@ -307,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn rolling_db_behaviour_tests() -> Result<()> {
+    fn rolling_db_behaviour_tests() -> anyhow::Result<()> {
         let db_root = TempDir::new()?;
         let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
         println!("Generating random blocks");
