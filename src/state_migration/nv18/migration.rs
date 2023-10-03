@@ -4,10 +4,10 @@
 use std::sync::Arc;
 
 use crate::networks::{ChainConfig, Height};
+use crate::shim::machine::Manifest2;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::Manifest,
     state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::anyhow;
@@ -36,22 +36,22 @@ impl<BS: Blockstore> StateMigration<BS> {
             .get_cbor::<SystemStateOld>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest =
-            Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
+            Manifest2::load_from_v1_actor_list(&store, &system_actor_state.builtin_actors)?;
 
-        let new_manifest = Manifest::load(&store, new_manifest)?;
+        let new_manifest = Manifest2::load_from_manifest(&store, new_manifest)?;
 
         for (name, code) in current_manifest.builtin_actors() {
-            let new_code = new_manifest.code_by_name(name)?;
-            self.add_migrator(*code, nil_migrator(*new_code));
+            let new_code = new_manifest.get(name)?;
+            self.add_migrator(code, nil_migrator(new_code));
         }
 
         self.add_migrator(
-            *current_manifest.init_code(),
-            init::init_migrator(*new_manifest.init_code()),
+            current_manifest.get_init(),
+            init::init_migrator(new_manifest.get_init()),
         );
 
         self.add_migrator(
-            *current_manifest.system_code(),
+            current_manifest.get_system(),
             system::system_migrator(&new_manifest),
         );
 

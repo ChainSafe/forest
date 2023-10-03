@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
+#![allow(deprecated, dead_code)]
 
 use std::collections::BTreeMap;
 
@@ -38,9 +39,12 @@ impl Manifest2 {
             "unsupported manifest version {}",
             manifest_version
         );
-        Self::load_from_actor_list(b, &actor_list_cid)
+        Self::load_from_v1_actor_list(b, &actor_list_cid)
     }
-    pub fn load_from_actor_list(b: impl Blockstore, actor_list_cid: &Cid) -> anyhow::Result<Self> {
+    pub fn load_from_v1_actor_list(
+        b: impl Blockstore,
+        actor_list_cid: &Cid,
+    ) -> anyhow::Result<Self> {
         let mut actor_list = b
             .get_cbor::<Vec<(String, Cid)>>(actor_list_cid)?
             .context("failed to load actor list")?;
@@ -71,16 +75,20 @@ impl Manifest2 {
             actor_list_cid: *actor_list_cid,
         })
     }
-    pub fn get(&self, builtin: &Builtin) -> Option<Cid> {
-        self.builtin2cid.get(builtin).copied()
+    // Return anyhow::Result instead of Option because we know our users are all at the root of an error chain
+    pub fn get(&self, builtin: Builtin) -> anyhow::Result<Cid> {
+        self.builtin2cid
+            .get(&builtin)
+            .copied()
+            .with_context(|| format!("builtin actor {} is not in the manifest", builtin.name()))
     }
     pub fn get_system(&self) -> Cid {
         assert!(Self::MANDATORY_BUILTINS.contains(&Builtin::System));
-        self.get(&Builtin::System).unwrap()
+        self.get(Builtin::System).unwrap()
     }
     pub fn get_init(&self) -> Cid {
         assert!(Self::MANDATORY_BUILTINS.contains(&Builtin::Init));
-        self.get(&Builtin::Init).unwrap()
+        self.get(Builtin::Init).unwrap()
     }
     /// The CID that this manifest was built from, also known as the `actors CID`
     #[doc(alias = "actors_cid")]
@@ -130,6 +138,7 @@ type ManifestCbor = (u32, Cid);
 type ManifestActorsCbor = Vec<(String, Cid)>;
 
 /// A mapping of builtin actor CIDs to their respective types.
+#[deprecated]
 pub struct Manifest {
     by_name: HashMap<String, Cid>,
 
