@@ -288,7 +288,7 @@ where
 
         let mut assert_cid_exists = |cid: Cid| async move {
             let data = db.get(&cid)?;
-            data.ok_or_else(|| anyhow::anyhow!("Broken IPLD link at epoch: {height}"))
+            data.with_context(|| format!("Broken IPLD link at epoch: {height}"))
         };
 
         for h in tipset.blocks() {

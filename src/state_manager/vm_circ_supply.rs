@@ -115,7 +115,7 @@ fn get_actor_state<DB: Blockstore>(
 ) -> Result<ActorState, anyhow::Error> {
     state_tree
         .get_actor(addr)?
-        .ok_or_else(|| anyhow::anyhow!("Failed to get Actor for address {addr}"))
+        .with_context(|| format!("Failed to get Actor for address {addr}"))
 }
 
 fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {

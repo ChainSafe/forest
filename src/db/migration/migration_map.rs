@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::bail;
+use anyhow::Context as _;
 use itertools::Itertools;
 use multimap::MultiMap;
 use once_cell::sync::Lazy;
@@ -148,7 +149,7 @@ fn create_migration_chain_from_migrations(
         },
         |to| to == goal,
     )
-    .ok_or_else(|| anyhow::anyhow!("No migration path found from version {start} to {goal}"))?
+    .with_context(|| format!("No migration path found from version {start} to {goal}"))?
     .iter()
     .tuple_windows()
     .map(|(from, to)| {

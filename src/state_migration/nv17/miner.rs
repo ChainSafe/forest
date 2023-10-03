@@ -93,7 +93,7 @@ where
 
         let in_state: MinerStateOld = store
             .get_cbor(&input.head)?
-            .ok_or_else(|| anyhow::anyhow!("Init actor: could not read v9 state"))?;
+            .context("Init actor: could not read v9 state")?;
         let new_pre_committed_sectors =
             self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
         let new_sectors =

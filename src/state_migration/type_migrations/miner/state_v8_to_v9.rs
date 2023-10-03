@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::db::CborStoreExt;
+use anyhow::Context as _;
 use fil_actor_miner_state::{
     v8::{MinerInfo as MinerInfoV8, State as MinerStateV8},
     v9::{MinerInfo as MinerInfoV9, State as MinerStateV9},
@@ -15,7 +16,7 @@ impl TypeMigration<MinerStateV8, MinerStateV9> for TypeMigrator {
     fn migrate_type(from: MinerStateV8, store: &impl Blockstore) -> anyhow::Result<MinerStateV9> {
         let in_info: MinerInfoV8 = store
             .get_cbor(&from.info)?
-            .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v8 state"))?;
+            .context("Miner info: could not read v8 state")?;
 
         let out_info: MinerInfoV9 = TypeMigrator::migrate_type(in_info, store)?;
 

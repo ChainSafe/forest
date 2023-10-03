@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context as _;
 use semver::Version;
 
 use crate::utils::version::FOREST_VERSION;
@@ -59,7 +60,7 @@ pub fn choose_db(chain_data_path: &Path) -> anyhow::Result<PathBuf> {
                 let latest = versions
                     .iter()
                     .max()
-                    .ok_or_else(|| anyhow::anyhow!("Failed to find latest versioned database"))?; // This should never happen
+                    .context("Failed to find latest versioned database")?; // This should never happen
                 chain_data_path.join(latest.to_string())
             }
         }
