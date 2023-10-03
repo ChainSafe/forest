@@ -7,12 +7,16 @@ use anyhow::Result;
 use assert_cmd::Command;
 use tempfile::TempDir;
 
-pub fn cli() -> Result<Command> {
-    Ok(Command::cargo_bin("forest-cli")?)
+pub fn cli() -> Command {
+    Command::cargo_bin("forest-cli").unwrap()
 }
 
-pub fn daemon() -> Result<Command> {
-    Ok(Command::cargo_bin("forest")?)
+pub fn tool() -> Command {
+    Command::cargo_bin("forest-tool").unwrap()
+}
+
+pub fn daemon() -> Command {
+    Command::cargo_bin("forest").unwrap()
 }
 
 pub trait CommonArgs {

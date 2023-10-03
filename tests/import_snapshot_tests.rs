@@ -14,7 +14,7 @@ fn importing_bad_snapshot_should_fail() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     let temp_file = data_dir.path().join("bad-snapshot.car");
     std::fs::write(&temp_file, "bad-snapshot")?;
-    daemon()?
+    daemon()
         .common_env()
         .arg("--rpc-address")
         .arg("127.0.0.1:0")

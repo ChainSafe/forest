@@ -132,8 +132,6 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: forest-tool check
-        run: ./scripts/tests/forest_tool_check.sh
 
   # miscallenous tests done on calibnet
   calibnet-check:

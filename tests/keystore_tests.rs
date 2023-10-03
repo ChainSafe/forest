@@ -15,7 +15,7 @@ use crate::common::{create_tmp_config, daemon, CommonArgs};
 #[test]
 fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> Result<()> {
     let (config_file, _data_dir) = create_tmp_config()?;
-    daemon()?
+    daemon()
         .common_args()
         .arg("--config")
         .arg(config_file)
@@ -28,7 +28,7 @@ fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> Result<()> {
 #[test]
 fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
-    daemon()?
+    daemon()
         .common_args()
         .arg("--config")
         .arg(config_file)
@@ -45,7 +45,7 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
 #[test]
 fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
-    daemon()?
+    daemon()
         .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
         .common_args()
         .arg("--config")
@@ -61,7 +61,7 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<(
 fn should_create_jwt_admin_token() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
     let token_path = data_dir.path().join("admin-token");
-    daemon()?
+    daemon()
         .common_args()
         .arg("--config")
         .arg(config_file)

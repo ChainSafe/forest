@@ -10,7 +10,7 @@ use anyhow::Result;
 fn current_mode_should_create_current_version_if_no_migrations() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
 
-    daemon()?
+    daemon()
         .common_env()
         // In its absence, the default will be "current" anyway, but let's make it explicit.
         .env("FOREST_DB_DEV_MODE", "current")
@@ -36,7 +36,7 @@ fn current_mode_should_create_current_version_if_no_migrations() -> Result<()> {
 fn development_mode_should_create_named_db() -> Result<()> {
     let (config_file, data_dir) = create_tmp_config()?;
 
-    daemon()?
+    daemon()
         .common_env()
         .env("FOREST_DB_DEV_MODE", "azathoth")
         .common_args()
@@ -59,7 +59,7 @@ fn development_mode_should_create_named_db() -> Result<()> {
         "Rlyeh wgah nagl fhtagn",
     )?;
 
-    daemon()?
+    daemon()
         .common_env()
         .env("FOREST_DB_DEV_MODE", "azathoth")
         .common_args()

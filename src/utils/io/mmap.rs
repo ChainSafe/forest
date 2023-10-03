@@ -22,6 +22,10 @@ impl Mmap {
 impl ReadAt for Mmap {
     fn read_at(&self, pos: u64, buf: &mut [u8]) -> io::Result<usize> {
         let start = pos as usize;
+        if start >= self.0.len() {
+            // This matches the behaviour for seeking past the end of a file
+            return Ok(0);
+        }
         let end = start + buf.len();
         if end <= self.0.len() {
             buf.copy_from_slice(&self.0[start..end]);
@@ -106,5 +110,15 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn test_out_of_band_mmap_read() {
+        let temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
+        let mmap = Mmap::map(&fs::File::open(&temp_file).unwrap()).unwrap();
+
+        let mut buffer = [];
+        // This matches the behaviour for seeking past the end of a file
+        assert_eq!(mmap.read_at(u64::MAX, &mut buffer).unwrap(), 0);
     }
 }
