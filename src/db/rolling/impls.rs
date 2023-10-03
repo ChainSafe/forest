@@ -273,7 +273,6 @@ fn delete_db(db_path: &Path) {
 mod tests {
     use std::{thread::sleep, time::Duration};
 
-    use anyhow::ensure;
     use cid::{multihash::MultihashDigest, Cid};
     use fvm_ipld_blockstore::Blockstore;
     use pretty_assertions::assert_eq;
@@ -307,9 +306,10 @@ mod tests {
     }
 
     #[test]
-    fn rolling_db_behaviour_tests() -> anyhow::Result<()> {
-        let db_root = TempDir::new()?;
-        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+    fn rolling_db_behaviour_tests() {
+        let db_root = TempDir::new().unwrap();
+        let rolling_db =
+            RollingDB::load_or_create(db_root.path().into(), Default::default()).unwrap();
         println!("Generating random blocks");
         let pairs: Vec<_> = (0..1000)
             .map(|_| {
@@ -327,41 +327,41 @@ mod tests {
             if i == split_index {
                 sleep(Duration::from_millis(1));
                 println!("Creating a new current db");
-                rolling_db.next_current(0)?;
+                rolling_db.next_current(0).unwrap();
                 println!("Created a new current db");
             }
-            rolling_db.put_keyed(k, block)?;
+            rolling_db.put_keyed(k, block).unwrap();
         }
 
         for (i, (k, block)) in pairs.iter().enumerate() {
-            ensure!(rolling_db.contains(k)?, "{i}");
-            ensure!(
-                Blockstore::get(&rolling_db, k)?.unwrap().as_slice() == block,
+            assert!(rolling_db.contains(k).unwrap(), "{i}");
+            assert_eq!(
+                Blockstore::get(&rolling_db, k).unwrap().unwrap().as_slice(),
+                block,
                 "{i}"
             );
         }
 
-        rolling_db.next_current(0)?;
+        rolling_db.next_current(0).unwrap();
 
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
-                ensure!(!rolling_db.contains(k)?, "{i}");
+                assert!(!rolling_db.contains(k).unwrap(), "{i}");
             } else {
-                ensure!(rolling_db.contains(k)?, "{i}");
+                assert!(rolling_db.contains(k).unwrap(), "{i}");
             }
         }
 
         drop(rolling_db);
 
-        let rolling_db = RollingDB::load_or_create(db_root.path().into(), Default::default())?;
+        let rolling_db =
+            RollingDB::load_or_create(db_root.path().into(), Default::default()).unwrap();
         for (i, (k, _)) in pairs.iter().enumerate() {
             if i < split_index {
-                ensure!(!rolling_db.contains(k)?);
+                assert!(!rolling_db.contains(k).unwrap());
             } else {
-                ensure!(rolling_db.contains(k)?);
+                assert!(rolling_db.contains(k).unwrap());
             }
         }
-
-        Ok(())
     }
 }
