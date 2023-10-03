@@ -15,7 +15,7 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
+    pub fn run<W: Write + Unpin>(self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
         match self {
             Self::Dump => writeln!(
                 sink,

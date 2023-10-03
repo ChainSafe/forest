@@ -161,7 +161,7 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(&self, config: Config, _opts: &CliOpts) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config, _opts: &CliOpts) -> anyhow::Result<()> {
         let res = tokio::try_join!(
             node_status((), &config.client.rpc_token),
             chain_head(&config.client.rpc_token),

@@ -14,7 +14,7 @@ pub struct ShutdownCommand {
 }
 
 impl ShutdownCommand {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         println!("Shutting down Forest node");
         if !self.force && !prompt_confirm() {
             println!("Aborted.");
