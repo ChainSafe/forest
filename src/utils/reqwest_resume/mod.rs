@@ -76,7 +76,7 @@ impl RequestBuilder {
             };
             let accept_byte_ranges =
                 if let Some(value) = response.headers().get(header::ACCEPT_RANGES) {
-                    value.as_bytes() == "bytes".as_bytes()
+                    value.as_bytes() == b"bytes"
                 } else {
                     false
                 };
@@ -143,7 +143,7 @@ impl Stream for Decoder {
                     }
                     let builder = self.client.request(self.method.clone(), self.url.clone());
                     let mut headers = HeaderMap::new();
-                    let value = HeaderValue::from_str(&std::format!("{}-", self.pos))
+                    let value = HeaderValue::from_str(&std::format!("bytes={}-", self.pos))
                         .expect("invalid ASCII string");
                     headers.insert(header::RANGE, value);
                     let builder = builder.headers(headers);
