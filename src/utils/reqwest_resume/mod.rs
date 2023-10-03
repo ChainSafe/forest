@@ -1,3 +1,13 @@
+// Copyright 2018-2020 Alec Mocatta
+// SPDX-License-Identifier: Apache-2.0, MIT
+
+//! Wrapper that uses the `Range` HTTP header to resume get requests.
+//! 
+//! Most of the code can be attribute to Alec Mocatta and comes from the crate
+//! https://crates.io/crates/reqwest_resume/
+//! Some modifications have been done to update the code regarding `tokio` and
+//! a change in dependency moving from `hyperx` to `hyper`.
+
 use bytes::Bytes;
 use futures::{ready, FutureExt, Stream, TryFutureExt};
 use hyper::header::{HeaderMap, HeaderValue};
