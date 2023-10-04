@@ -470,12 +470,14 @@ mod structured {
             error::ExitCode,
             executor::ApplyRet,
             gas::GasCharge,
-            kernel::{ErrorNumber, SyscallError},
+            kernel::SyscallError,
             trace::{Call, CallReturn, ExecutionEvent},
         },
     };
     use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
     use itertools::Either;
+
+    use num_traits::FromPrimitive;
 
     pub fn json(
         state_root: Cid,
@@ -609,6 +611,7 @@ mod structured {
 
     impl CallTree {
         fn json(self) -> serde_json::Value {
+            use fvm_shared3::error::ErrorNumber;
             use fvm_shared3::error::ExitCode;
 
             let Self {
@@ -655,9 +658,11 @@ mod structured {
                 CallTreeReturn::Abort(exit_code) => (exit_code.value(), vec![], 0),
                 CallTreeReturn::Error(SyscallError { message: _, number }) => {
                     // Ported from: https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L440
-                    let code = match number {
-                        ErrorNumber::InsufficientFunds => ExitCode::SYS_INSUFFICIENT_FUNDS.value(),
-                        ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER.value(),
+                    let code = match FromPrimitive::from_u32(number) {
+                        Some(ErrorNumber::InsufficientFunds) => {
+                            ExitCode::SYS_INSUFFICIENT_FUNDS.value()
+                        }
+                        Some(ErrorNumber::NotFound) => ExitCode::SYS_INVALID_RECEIVER.value(),
                         _ => ExitCode::SYS_ASSERTION_FAILED.value(),
                     };
                     (code, vec![], 0)
