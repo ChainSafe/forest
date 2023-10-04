@@ -656,8 +656,10 @@ mod structured {
                 CallTreeReturn::Error(SyscallError { message: _, number }) => {
                     // Ported from: https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L440
                     let code = match number {
-                        ErrorNumber::InsufficientFunds => ExitCode::SYS_INSUFFICIENT_FUNDS.value(),
-                        ErrorNumber::NotFound => ExitCode::SYS_INVALID_RECEIVER.value(),
+                        ErrorNumber::InsufficientFunds(..) => {
+                            ExitCode::SYS_INSUFFICIENT_FUNDS.value()
+                        }
+                        ErrorNumber::NotFound(..) => ExitCode::SYS_INVALID_RECEIVER.value(),
                         _ => ExitCode::SYS_ASSERTION_FAILED.value(),
                     };
                     (code, vec![], 0)

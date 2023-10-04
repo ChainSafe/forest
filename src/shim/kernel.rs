@@ -9,6 +9,7 @@ use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
+use num_traits::FromPrimitive;
 use std::fmt;
 
 macro_rules! error_number {
@@ -16,7 +17,7 @@ macro_rules! error_number {
         #[derive(Debug, Clone)]
         #[non_exhaustive]
         pub enum ErrorNumber {
-            $($variant,)*
+            $($variant(u32),)*
             Unknown(u32),
         }
 
@@ -28,7 +29,7 @@ macro_rules! error_number {
         impl From<N2> for ErrorNumber {
             fn from(value: N2) -> Self {
                 match value {
-                    $(N2::$variant => Self::$variant,)*
+                    $(N2::$variant => Self::$variant(N2::$variant as u32),)*
                     u => Self::Unknown(u as u32),
                 }
             }
@@ -37,7 +38,7 @@ macro_rules! error_number {
         impl From<N3> for ErrorNumber {
             fn from(value: N3) -> Self {
                 match value {
-                    $(N3::$variant => Self::$variant,)*
+                    $(N3::$variant => Self::$variant(N3::$variant as u32),)*
                     u => Self::Unknown(u as u32),
                 }
             }
@@ -46,7 +47,7 @@ macro_rules! error_number {
         impl From<N4> for ErrorNumber {
             fn from(value: N4) -> Self {
                 match value {
-                    $(N4::$variant => Self::$variant,)*
+                    $(N4::$variant => Self::$variant(N4::$variant as u32),)*
                     u => Self::Unknown(u as u32),
                 }
             }
@@ -71,20 +72,26 @@ error_number! {
 
 impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::IllegalArgument => f.write_str("illegal argument"),
-            Self::IllegalOperation => f.write_str("illegal operation"),
-            Self::LimitExceeded => f.write_str("limit exceeded"),
-            Self::AssertionFailed => f.write_str("filecoin assertion failed"),
-            Self::InsufficientFunds => f.write_str("insufficient funds"),
-            Self::NotFound => f.write_str("resource not found"),
-            Self::InvalidHandle => f.write_str("invalid ipld block handle"),
-            Self::IllegalCid => f.write_str("illegal cid specification"),
-            Self::IllegalCodec => f.write_str("illegal ipld codec"),
-            Self::Serialization => f.write_str("serialization error"),
-            Self::Forbidden => f.write_str("operation forbidden"),
-            Self::BufferTooSmall => f.write_str("buffer too small"),
-            Self::Unknown(u) => write!(f, "{}", u),
+        let code = match self {
+            Self::IllegalArgument(u) => u,
+            Self::IllegalOperation(u) => u,
+            Self::LimitExceeded(u) => u,
+            Self::AssertionFailed(u) => u,
+            Self::InsufficientFunds(u) => u,
+            Self::NotFound(u) => u,
+            Self::InvalidHandle(u) => u,
+            Self::IllegalCid(u) => u,
+            Self::IllegalCodec(u) => u,
+            Self::Serialization(u) => u,
+            Self::Forbidden(u) => u,
+            Self::BufferTooSmall(u) => u,
+            Self::Unknown(u) => u,
+        };
+        let opt: Option<N4> = FromPrimitive::from_u32(*code);
+        if let Some(n4) = opt {
+            n4.fmt(f)
+        } else {
+            write!(f, "{}", code)
         }
     }
 }
@@ -123,5 +130,23 @@ impl From<E4> for EShim {
             message,
             number: number.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_fmt() {
+        let shim = SyscallError {
+            message: "cthulhu".into(),
+            number: ErrorNumber::IllegalArgument(1),
+        };
+
+        assert_eq!(
+            format!("{}", shim),
+            "syscall error: cthulhu (exit_code=illegal argument)"
+        );
     }
 }
