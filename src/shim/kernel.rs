@@ -22,6 +22,7 @@ macro_rules! error_number {
 
         $(
             static_assertions::const_assert_eq!(N2::$variant as u32, N3::$variant as u32);
+            static_assertions::const_assert_eq!(N3::$variant as u32, N4::$variant as u32);
         )*
 
         impl From<N2> for ErrorNumber {
