@@ -71,7 +71,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
             info!("Downloading file: {}", url);
             let resp = reqwest_resume::get(url)
                 .await?
-                .response
+                .response()
                 .error_for_status()?;
             let content_length = resp.content_length().unwrap_or_default();
             let stream = resp

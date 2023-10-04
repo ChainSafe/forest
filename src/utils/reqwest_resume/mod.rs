@@ -81,12 +81,12 @@ impl RequestBuilder {
                     false
                 };
             let resp = Response {
-                client,
-                method,
-                url,
-                response,
-                accept_byte_ranges,
-                pos: 0,
+                _client: client,
+                _method: method,
+                _url: url,
+                _response: response,
+                _accept_byte_ranges: accept_byte_ranges,
+                _pos: 0,
             };
             Ok(resp)
         }
@@ -98,27 +98,17 @@ impl RequestBuilder {
 /// See [`reqwest::Response`].
 #[derive(Debug)]
 pub struct Response {
-    client: reqwest::Client,
-    method: reqwest::Method,
-    url: reqwest::Url,
-    pub response: reqwest::Response,
-    accept_byte_ranges: bool,
-    pos: u64,
+    _client: reqwest::Client,
+    _method: reqwest::Method,
+    _url: reqwest::Url,
+    _response: reqwest::Response,
+    _accept_byte_ranges: bool,
+    _pos: u64,
 }
 
 impl Response {
-    /// Convert the response into a `Stream` of `Bytes` from the body.
-    ///
-    /// See [`reqwest::Response::bytes_stream()`].
-    pub fn bytes_stream(self) -> impl Stream<Item = reqwest::Result<Bytes>> + Send {
-        Decoder {
-            client: self.client,
-            method: self.method,
-            url: self.url,
-            decoder: Box::pin(self.response.bytes_stream()),
-            accept_byte_ranges: self.accept_byte_ranges,
-            pos: self.pos,
-        }
+    pub fn response(self) -> reqwest::Response {
+        self._response
     }
 }
 
