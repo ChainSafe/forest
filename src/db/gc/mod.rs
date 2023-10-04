@@ -86,8 +86,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
 
     // Remove marked keys from the database.
     fn sweep(&mut self) -> anyhow::Result<()> {
-        let mut marked = HashSet::new();
-        mem::swap(&mut marked, &mut self.marked);
+        let marked = mem::take(&mut self.marked);
         self.db.remove_keys(marked)
     }
 
