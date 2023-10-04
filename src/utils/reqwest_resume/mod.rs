@@ -128,7 +128,6 @@ impl Stream for Decoder {
             match ready!(self.decoder.as_mut().poll_next(cx)) {
                 Some(Err(err)) => {
                     if !self.accept_byte_ranges {
-                        // TODO: we could try, for those servers that don't output Accept-Ranges but work anyway
                         break Poll::Ready(Some(Err(err)));
                     }
                     let builder = self.client.request(self.method.clone(), self.url.clone());
