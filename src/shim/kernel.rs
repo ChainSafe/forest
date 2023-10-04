@@ -72,8 +72,19 @@ error_number! {
 impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::IllegalArgument => f.write_str("illegal argument"),
+            Self::IllegalOperation => f.write_str("illegal operation"),
+            Self::LimitExceeded => f.write_str("limit exceeded"),
+            Self::AssertionFailed => f.write_str("filecoin assertion failed"),
+            Self::InsufficientFunds => f.write_str("insufficient funds"),
+            Self::NotFound => f.write_str("resource not found"),
+            Self::InvalidHandle => f.write_str("invalid ipld block handle"),
+            Self::IllegalCid => f.write_str("illegal cid specification"),
+            Self::IllegalCodec => f.write_str("illegal ipld codec"),
+            Self::Serialization => f.write_str("serialization error"),
+            Self::Forbidden => f.write_str("operation forbidden"),
+            Self::BufferTooSmall => f.write_str("buffer too small"),
             Self::Unknown(u) => write!(f, "{}", u),
-            e => write!(f, "{}", e),
         }
     }
 }
