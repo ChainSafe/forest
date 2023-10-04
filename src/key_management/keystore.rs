@@ -436,7 +436,6 @@ fn map_err_to_anyhow<T: Display>(e: T) -> anyhow::Error {
 
 #[cfg(test)]
 mod test {
-    use anyhow::ensure;
     use base64::{prelude::BASE64_STANDARD, Engine};
 
     use super::*;
@@ -458,77 +457,76 @@ mod test {
     }
 
     #[test]
-    fn test_encrypt_message() -> anyhow::Result<()> {
-        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None)?;
+    fn test_encrypt_message() {
+        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
-        let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
-        let second_pass = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
-        ensure!(
-            ciphertext != second_pass,
+        let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        let second_pass = EncryptedKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        assert_ne!(
+            ciphertext, second_pass,
             "Ciphertexts use secure initialization vectors"
         );
-        Ok(())
     }
 
     #[test]
-    fn test_decrypt_message() -> anyhow::Result<()> {
-        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None)?;
+    fn test_decrypt_message() {
+        let (_, private_key) = EncryptedKeyStore::derive_key(PASSPHRASE, None).unwrap();
         let message = "foo is coming";
-        let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes())?;
-        let plaintext = EncryptedKeyStore::decrypt(&private_key, &ciphertext)?;
-        ensure!(plaintext == message.as_bytes());
-        Ok(())
+        let ciphertext = EncryptedKeyStore::encrypt(&private_key, message.as_bytes()).unwrap();
+        let plaintext = EncryptedKeyStore::decrypt(&private_key, &ciphertext).unwrap();
+        assert_eq!(plaintext, message.as_bytes());
     }
 
     #[test]
-    fn test_read_old_encrypted_keystore() -> anyhow::Result<()> {
+    fn test_read_old_encrypted_keystore() {
         let dir: PathBuf = "src/key_management/tests/keystore_encrypted_old".into();
-        ensure!(dir.exists());
-        let ks = KeyStore::new(KeyStoreConfig::Encrypted(dir, PASSPHRASE.to_string()))?;
-        ensure!(ks.persistence.is_some());
-        Ok(())
+        assert!(dir.exists());
+        let ks = KeyStore::new(KeyStoreConfig::Encrypted(dir, PASSPHRASE.to_string())).unwrap();
+        assert!(ks.persistence.is_some());
     }
 
     #[test]
-    fn test_read_write_encrypted_keystore() -> anyhow::Result<()> {
-        let keystore_location = tempfile::tempdir()?.into_path();
+    fn test_read_write_encrypted_keystore() {
+        let keystore_location = tempfile::tempdir().unwrap().into_path();
         let ks = KeyStore::new(KeyStoreConfig::Encrypted(
             keystore_location.clone(),
             PASSPHRASE.to_string(),
-        ))?;
-        ks.flush()?;
+        ))
+        .unwrap();
+        ks.flush().unwrap();
 
         let ks_read = KeyStore::new(KeyStoreConfig::Encrypted(
             keystore_location,
             PASSPHRASE.to_string(),
-        ))?;
+        ))
+        .unwrap();
 
-        ensure!(ks == ks_read);
-
-        Ok(())
+        assert_eq!(ks, ks_read);
     }
 
     #[test]
-    fn test_read_write_keystore() -> anyhow::Result<()> {
-        let keystore_location = tempfile::tempdir()?.into_path();
-        let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone()))?;
+    fn test_read_write_keystore() {
+        let keystore_location = tempfile::tempdir().unwrap().into_path();
+        let mut ks = KeyStore::new(KeyStoreConfig::Persistent(keystore_location.clone())).unwrap();
 
-        let key = wallet::generate_key(SignatureType::Bls)?;
+        let key = wallet::generate_key(SignatureType::Bls).unwrap();
 
         let addr = format!("wallet-{}", key.address);
-        ks.put(&addr, key.key_info)?;
+        ks.put(&addr, key.key_info).unwrap();
         ks.flush().unwrap();
 
         let default = ks.get(&addr).unwrap();
 
         // Manually parse keystore.json
         let keystore_file = keystore_location.join(KEYSTORE_NAME);
-        let reader = BufReader::new(File::open(keystore_file)?);
+        let reader = BufReader::new(File::open(keystore_file).unwrap());
         let persisted_keystore: HashMap<String, PersistentKeyInfo> =
-            serde_json::from_reader(reader)?;
+            serde_json::from_reader(reader).unwrap();
 
         let default_key_info = persisted_keystore.get(&addr).unwrap();
-        let actual = BASE64_STANDARD.decode(default_key_info.private_key.clone())?;
+        let actual = BASE64_STANDARD
+            .decode(default_key_info.private_key.clone())
+            .unwrap();
 
         assert_eq!(
             default.private_key, actual,
@@ -536,9 +534,7 @@ mod test {
         );
 
         // Read existing keystore.json
-        let ks_read = KeyStore::new(KeyStoreConfig::Persistent(keystore_location))?;
-        ensure!(ks == ks_read);
-
-        Ok(())
+        let ks_read = KeyStore::new(KeyStoreConfig::Persistent(keystore_location)).unwrap();
+        assert_eq!(ks, ks_read);
     }
 }

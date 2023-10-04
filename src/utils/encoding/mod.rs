@@ -105,7 +105,6 @@ pub fn prover_id_from_u64(id: u64) -> ProverId {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::ensure;
     use itertools::Itertools;
     use libipld::Ipld;
     use rand::Rng;
@@ -141,17 +140,15 @@ mod tests {
     }
 
     #[test]
-    fn cannot_serialize_byte_array_overflow() -> anyhow::Result<()> {
+    fn cannot_serialize_byte_array_overflow() {
         let bytes = ByteArray {
             inner: vec![0; BYTE_ARRAY_MAX_LEN + 1],
         };
 
-        ensure!(
+        assert!(
             format!("{}", serde_ipld_dagcbor::to_vec(&bytes).err().unwrap())
                 .contains("Array exceed max length")
         );
-
-        Ok(())
     }
 
     #[test]
@@ -170,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn cannot_deserialize_byte_array_overflow() -> anyhow::Result<()> {
+    fn cannot_deserialize_byte_array_overflow() {
         let max_length_bytes = ByteArray {
             inner: vec![0; BYTE_ARRAY_MAX_LEN],
         };
@@ -181,18 +178,17 @@ mod tests {
         overflow_encoding[encoding_len - BYTE_ARRAY_MAX_LEN - 1] = 1;
         overflow_encoding.push(0);
 
-        ensure!(format!(
+        assert!(format!(
             "{}",
             from_slice_with_fallback::<ByteArray>(&overflow_encoding)
                 .err()
                 .unwrap()
         )
         .contains("Array exceed max length"));
-        Ok(())
     }
 
     #[test]
-    fn parity_tests() -> anyhow::Result<()> {
+    fn parity_tests() {
         use cs_serde_bytes;
 
         #[derive(Deserialize, Serialize)]
@@ -207,9 +203,10 @@ mod tests {
         let a = A(array.to_vec());
         let b = B(array.to_vec());
 
-        ensure!(serde_json::to_string_pretty(&a)? == serde_json::to_string_pretty(&b)?);
-
-        Ok(())
+        assert_eq!(
+            serde_json::to_string_pretty(&a).unwrap(),
+            serde_json::to_string_pretty(&b).unwrap()
+        );
     }
 
     #[test]

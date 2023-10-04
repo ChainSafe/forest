@@ -331,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn import_export() -> anyhow::Result<()> {
+    fn import_export() {
         let key_vec = construct_priv_keys();
         let key = key_vec[0].clone();
         let keystore = KeyStore::new(KeyStoreConfig::Memory).unwrap();
@@ -357,7 +357,6 @@ mod tests {
         // make sure that error is thrown when attempted to re-import a duplicate
         // key_info
         assert!(matches!(duplicate_error, Error::KeyExists));
-        Ok(())
     }
 
     #[test]
