@@ -72,7 +72,7 @@ impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unknown(u) => write!(f, "{}", u),
-            e @ _ => write!(f, "{}", e),
+            e => write!(f, "{}", e),
         }
     }
 }
