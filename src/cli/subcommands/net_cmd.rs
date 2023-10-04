@@ -33,7 +33,7 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
                 let info = net_addrs_listen((), &config.client.rpc_token)

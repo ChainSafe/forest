@@ -355,7 +355,7 @@ impl AttachCommand {
         Ok(())
     }
 
-    pub fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub fn run(self, config: Config) -> anyhow::Result<()> {
         let mut context = Context::default();
         self.setup_context(&mut context, &config.client.rpc_token);
 
