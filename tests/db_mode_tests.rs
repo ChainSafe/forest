@@ -6,7 +6,7 @@ pub mod common;
 use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
 
 #[test]
-fn current_mode_should_create_current_version_if_no_migrations() -> anyhow::Result<()> {
+fn current_mode_should_create_current_version_if_no_migrations() {
     let (config_file, data_dir) = create_tmp_config();
 
     daemon()
@@ -27,12 +27,10 @@ fn current_mode_should_create_current_version_if_no_migrations() -> anyhow::Resu
         .join("calibnet")
         .join(forest_version)
         .exists());
-
-    Ok(())
 }
 
 #[test]
-fn development_mode_should_create_named_db() -> anyhow::Result<()> {
+fn development_mode_should_create_named_db() {
     let (config_file, data_dir) = create_tmp_config();
 
     daemon()
@@ -56,7 +54,8 @@ fn development_mode_should_create_named_db() -> anyhow::Result<()> {
             .join("azathoth")
             .join("chant"),
         "Rlyeh wgah nagl fhtagn",
-    )?;
+    )
+    .unwrap();
 
     daemon()
         .common_env()
@@ -76,9 +75,8 @@ fn development_mode_should_create_named_db() -> anyhow::Result<()> {
                 .join("calibnet")
                 .join("azathoth")
                 .join("chant")
-        )?,
+        )
+        .unwrap(),
         "Rlyeh wgah nagl fhtagn"
     );
-
-    Ok(())
 }
