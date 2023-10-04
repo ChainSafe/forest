@@ -81,7 +81,7 @@ hex = { version = "0.4", features = ["serde"] }
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"
-hyper = { version = "0.14", features = ["full"] }
+hyper = "0.14"
 indexmap = { version = "2.0", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
