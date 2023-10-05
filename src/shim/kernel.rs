@@ -17,7 +17,7 @@ macro_rules! error_number {
         #[derive(Debug, Clone)]
         #[non_exhaustive]
         pub enum ErrorNumber {
-            $($variant(u32),)*
+            $($variant,)*
             Unknown(u32),
         }
 
@@ -29,7 +29,7 @@ macro_rules! error_number {
         impl From<N2> for ErrorNumber {
             fn from(value: N2) -> Self {
                 match value {
-                    $(N2::$variant => Self::$variant(N2::$variant as u32),)*
+                    $(N2::$variant => Self::$variant,)*
                     u => Self::Unknown(u as u32),
                 }
             }
@@ -38,7 +38,7 @@ macro_rules! error_number {
         impl From<N3> for ErrorNumber {
             fn from(value: N3) -> Self {
                 match value {
-                    $(N3::$variant => Self::$variant(N3::$variant as u32),)*
+                    $(N3::$variant => Self::$variant,)*
                     u => Self::Unknown(u as u32),
                 }
             }
@@ -47,7 +47,7 @@ macro_rules! error_number {
         impl From<N4> for ErrorNumber {
             fn from(value: N4) -> Self {
                 match value {
-                    $(N4::$variant => Self::$variant(N4::$variant as u32),)*
+                    $(N4::$variant => Self::$variant,)*
                     u => Self::Unknown(u as u32),
                 }
             }
@@ -70,29 +70,30 @@ error_number! {
     BufferTooSmall,
 }
 
+impl From<&ErrorNumber> for u32 {
+    fn from(n: &ErrorNumber) -> Self {
+        match n {
+            ErrorNumber::IllegalArgument => 1,
+            ErrorNumber::IllegalOperation => 2,
+            ErrorNumber::LimitExceeded => 3,
+            ErrorNumber::AssertionFailed => 4,
+            ErrorNumber::InsufficientFunds => 5,
+            ErrorNumber::NotFound => 6,
+            ErrorNumber::InvalidHandle => 7,
+            ErrorNumber::IllegalCid => 8,
+            ErrorNumber::IllegalCodec => 9,
+            ErrorNumber::Serialization => 10,
+            ErrorNumber::Forbidden => 11,
+            ErrorNumber::BufferTooSmall => 12,
+            ErrorNumber::Unknown(n) => *n,
+        }
+    }
+}
+
 impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let code = match self {
-            Self::IllegalArgument(u) => u,
-            Self::IllegalOperation(u) => u,
-            Self::LimitExceeded(u) => u,
-            Self::AssertionFailed(u) => u,
-            Self::InsufficientFunds(u) => u,
-            Self::NotFound(u) => u,
-            Self::InvalidHandle(u) => u,
-            Self::IllegalCid(u) => u,
-            Self::IllegalCodec(u) => u,
-            Self::Serialization(u) => u,
-            Self::Forbidden(u) => u,
-            Self::BufferTooSmall(u) => u,
-            Self::Unknown(u) => u,
-        };
-        let opt: Option<N4> = FromPrimitive::from_u32(*code);
-        if let Some(n4) = opt {
-            n4.fmt(f)
-        } else {
-            write!(f, "{}", code)
-        }
+        let e4: N4 = FromPrimitive::from_u32(u32::from(self)).expect("cast should work");
+        e4.fmt(f)
     }
 }
 
@@ -141,7 +142,7 @@ mod tests {
     fn test_error_fmt() {
         let shim = SyscallError {
             message: "cthulhu".into(),
-            number: ErrorNumber::IllegalArgument(1),
+            number: ErrorNumber::IllegalArgument,
         };
 
         assert_eq!(
