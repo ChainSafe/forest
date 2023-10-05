@@ -9,7 +9,7 @@ use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
-use num_traits::FromPrimitive;
+use itertools::Either;
 use std::fmt;
 
 macro_rules! error_number {
@@ -52,6 +52,15 @@ macro_rules! error_number {
                 }
             }
         }
+
+        impl ErrorNumber {
+            fn as_unshimmed_or_u32(&self) -> Either<N4, u32> {
+                match self {
+                    $(Self::$variant => Either::Left(N4::$variant),)*
+                    Self::Unknown(u) => Either::Right(*u),
+                }
+            }
+        }
     };
 }
 
@@ -70,30 +79,12 @@ error_number! {
     BufferTooSmall,
 }
 
-impl From<&ErrorNumber> for u32 {
-    fn from(n: &ErrorNumber) -> Self {
-        match n {
-            ErrorNumber::IllegalArgument => 1,
-            ErrorNumber::IllegalOperation => 2,
-            ErrorNumber::LimitExceeded => 3,
-            ErrorNumber::AssertionFailed => 4,
-            ErrorNumber::InsufficientFunds => 5,
-            ErrorNumber::NotFound => 6,
-            ErrorNumber::InvalidHandle => 7,
-            ErrorNumber::IllegalCid => 8,
-            ErrorNumber::IllegalCodec => 9,
-            ErrorNumber::Serialization => 10,
-            ErrorNumber::Forbidden => 11,
-            ErrorNumber::BufferTooSmall => 12,
-            ErrorNumber::Unknown(n) => *n,
-        }
-    }
-}
-
 impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let e4: N4 = FromPrimitive::from_u32(u32::from(self)).expect("cast should work");
-        e4.fmt(f)
+        match self.as_unshimmed_or_u32() {
+            Either::Left(n4) => n4.fmt(f),
+            Either::Right(u) => write!(f, "{}", u),
+        }
     }
 }
 
