@@ -172,14 +172,14 @@ mod tests {
     use hyper::{Body, Request, Response, Server};
 
     async fn hello(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        let big_chunk = [b'a'; 9192 * 2];
+        let big_chunk = [b'a'; 4096 * 2];
 
         let (mut sender, body) = Body::channel();
         sender
-            .send_data(Bytes::copy_from_slice(&big_chunk))
+            .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
             .await
             .unwrap();
-        sleep(Duration::from_millis(2000)).await;
+        sleep(Duration::from_millis(10)).await;
         sender.abort();
 
         let mut response: Response<_> = Response::new(body);
