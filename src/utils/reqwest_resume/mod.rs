@@ -127,6 +127,7 @@ impl Stream for Decoder {
         loop {
             match ready!(self.decoder.as_mut().poll_next(cx)) {
                 Some(Err(err)) => {
+                    dbg!(&err);
                     if !self.accept_byte_ranges {
                         break Poll::Ready(Some(Err(err)));
                     }
@@ -160,4 +161,67 @@ impl Stream for Decoder {
 /// See [`reqwest::get`].
 pub fn get(url: reqwest::Url) -> impl Future<Output = reqwest::Result<Response>> + Send {
     Client::new().get(url).send()
+}
+
+mod tests {
+    use super::*;
+    use std::convert::Infallible;
+    use std::time::Duration;
+
+    use hyper::service::{make_service_fn, service_fn};
+    use hyper::{Body, Request, Response, Server};
+
+    async fn hello(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        let big_chunk = [b'a'; 9192 * 2];
+
+        let (mut sender, body) = Body::channel();
+        sender
+            .send_data(Bytes::copy_from_slice(&big_chunk))
+            .await
+            .unwrap();
+        sleep(Duration::from_millis(2000)).await;
+        sender.abort();
+
+        let mut response: Response<_> = Response::new(body);
+        response
+            .headers_mut()
+            .insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+        response.headers_mut().insert(
+            header::CONTENT_LENGTH,
+            HeaderValue::from_str(&big_chunk.len().to_string()).unwrap(),
+        );
+        Ok(response)
+    }
+
+    #[tokio::test]
+    pub async fn test_resume_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // For every connection, we must make a `Service` to handle all
+        // incoming HTTP requests on said connection.
+
+        let make_svc = make_service_fn(|_conn| {
+            // This is the `Service` that will handle the connection.
+            // `service_fn` is a helper to convert a function that
+            // returns a Response into a `Service`.
+            async { Ok::<_, Infallible>(service_fn(hello)) }
+        });
+
+        let addr = ([127, 0, 0, 1], 3000).into();
+
+        let server = Server::bind(&addr).serve(make_svc);
+
+        println!("Listening on http://{}", addr);
+
+        tokio::task::spawn(server);
+
+        let mut resp = get(reqwest::Url::parse("http://localhost:3000").unwrap())
+            .await?
+            .response();
+
+        dbg!(resp.headers());
+        while let Some(data) = resp.chunk().await? {
+            dbg!(format!("chunk len {}", data.len()));
+        }
+
+        Ok(())
+    }
 }
