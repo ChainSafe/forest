@@ -175,12 +175,14 @@ mod tests {
         let big_chunk = [b'a'; 4096 * 2];
 
         let (mut sender, body) = Body::channel();
-        sender
-            .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
-            .await
-            .unwrap();
-        sleep(Duration::from_millis(10)).await;
-        sender.abort();
+        let handle = tokio::task::spawn(async move {
+            sender
+                .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
+                .await
+                .unwrap();
+            sleep(Duration::from_millis(10)).await;
+            sender.abort();
+        });
 
         let mut response: Response<_> = Response::new(body);
         response
