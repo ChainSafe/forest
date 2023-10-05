@@ -159,6 +159,5 @@ impl Stream for Decoder {
 ///
 /// See [`reqwest::get`].
 pub fn get(url: reqwest::Url) -> impl Future<Output = reqwest::Result<Response>> + Send {
-    // <T: IntoUrl>
     Client::new().get(url).send()
 }
