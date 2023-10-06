@@ -128,14 +128,18 @@ mod tests {
 
     #[test]
     fn test_error_fmt() {
-        let shim = SyscallError {
-            message: "cthulhu".into(),
-            number: ErrorNumber::IllegalArgument,
-        };
+        let shim: EShim = E3::new(N3::IllegalArgument, "cthulhu").into();
 
         assert_eq!(
             format!("{}", shim),
             "syscall error: cthulhu (exit_code=illegal argument)"
         );
+    }
+
+    #[test]
+    fn test_unknown_error_fmt() {
+        let shim: EShim = E3::new(N3::ReadOnly, "dagon").into();
+
+        assert_eq!(format!("{}", shim), "syscall error: dagon (exit_code=13)");
     }
 }
