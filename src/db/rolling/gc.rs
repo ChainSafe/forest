@@ -67,19 +67,19 @@
 //! 2023-03-16T22:27:38.793717Z  INFO crate::db::rolling::impls: Deleted database under /root/.local/share/forest/mainnet/paritydb/14d0f80992374fb8b20e3b1bd70d5d7b, size: 139.01GB
 //! ```
 
-use std::{
-    sync::atomic::{self, AtomicU64, AtomicUsize},
-    time::Duration,
-};
-
 use crate::blocks::Tipset;
 use crate::db::setting_keys::ESTIMATED_RECORDS_KEY;
 use crate::db::SettingsStoreExt;
 use crate::ipld::util::*;
 use crate::utils::db::{BlockstoreBufferedWriteExt, DB_KEY_BYTES};
+use anyhow::Context as _;
 use chrono::Utc;
 use fvm_ipld_blockstore::Blockstore;
 use human_repr::HumanCount;
+use std::{
+    sync::atomic::{self, AtomicU64, AtomicUsize},
+    time::Duration,
+};
 use tokio::sync::Mutex;
 
 use super::*;
@@ -239,7 +239,7 @@ where
                 async move {
                     let block = db
                         .get(&cid)?
-                        .ok_or_else(|| anyhow::anyhow!("Cid {cid} not found in blockstore"))?;
+                        .with_context(|| format!("Cid {cid} not found in blockstore"))?;
 
                     let pair = (cid, block.clone());
                     if db.writer().has(&cid)? {

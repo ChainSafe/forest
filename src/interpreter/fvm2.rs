@@ -290,44 +290,39 @@ fn cal_gas_used_from_stats(
 mod tests {
     use std::{cell::RefCell, iter::repeat};
 
-    use anyhow::ensure;
-
     use super::*;
 
     #[test]
-    fn test_cal_gas_used_from_stats_1_read() -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_1_read() {
         test_cal_gas_used_from_stats_inner(1, &[])
     }
 
     #[test]
-    fn test_cal_gas_used_from_stats_1_write() -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_1_write() {
         test_cal_gas_used_from_stats_inner(0, &[100])
     }
 
     #[test]
-    fn test_cal_gas_used_from_stats_multi_read() -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_multi_read() {
         test_cal_gas_used_from_stats_inner(10, &[])
     }
 
     #[test]
-    fn test_cal_gas_used_from_stats_multi_write() -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_multi_write() {
         test_cal_gas_used_from_stats_inner(0, &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109])
     }
 
     #[test]
-    fn test_cal_gas_used_from_stats_1_read_1_write() -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_1_read_1_write() {
         test_cal_gas_used_from_stats_inner(1, &[100])
     }
 
     #[test]
-    fn test_cal_gas_used_from_stats_multi_read_multi_write() -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_multi_read_multi_write() {
         test_cal_gas_used_from_stats_inner(10, &[100, 101, 102, 103, 104, 105, 106, 107, 108, 109])
     }
 
-    fn test_cal_gas_used_from_stats_inner(
-        read_count: usize,
-        write_bytes: &[usize],
-    ) -> anyhow::Result<()> {
+    fn test_cal_gas_used_from_stats_inner(read_count: usize, write_bytes: &[usize]) {
         let network_version = NetworkVersion::V8;
         let stats = BSStats {
             r: read_count,
@@ -335,7 +330,8 @@ mod tests {
             br: 0, // Not used in current logic
             bw: write_bytes.iter().sum(),
         };
-        let result = cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version)?;
+        let result =
+            cal_gas_used_from_stats(RefCell::new(stats).borrow(), network_version).unwrap();
 
         // Simulates logic in old GasBlockStore
         let price_list = price_list_by_network_version(network_version);
@@ -348,12 +344,12 @@ mod tests {
         });
         for &bytes in write_bytes {
             tracker
-                .apply_charge(price_list.on_block_link(bytes).into())?
+                .apply_charge(price_list.on_block_link(bytes).into())
+                .unwrap()
                 .stop();
         }
         let expected = tracker.gas_used();
 
-        ensure!(result == expected.into());
-        Ok(())
+        assert_eq!(result, expected.into());
     }
 }

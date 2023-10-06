@@ -3,7 +3,6 @@
 
 pub mod common;
 
-use anyhow::Result;
 use forest_filecoin::{verify_token, JWT_IDENTIFIER};
 use forest_filecoin::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV, KEYSTORE_NAME,
@@ -13,21 +12,19 @@ use crate::common::{create_tmp_config, daemon, CommonArgs};
 
 // https://github.com/ChainSafe/forest/issues/2499
 #[test]
-fn forest_headless_encrypt_keystore_no_passphrase_should_fail() -> Result<()> {
-    let (config_file, _data_dir) = create_tmp_config()?;
+fn forest_headless_encrypt_keystore_no_passphrase_should_fail() {
+    let (config_file, _data_dir) = create_tmp_config();
     daemon()
         .common_args()
         .arg("--config")
         .arg(config_file)
         .assert()
         .failure();
-
-    Ok(())
 }
 
 #[test]
-fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+fn forest_headless_no_encrypt_no_passphrase_should_succeed() {
+    let (config_file, data_dir) = create_tmp_config();
     daemon()
         .common_args()
         .arg("--config")
@@ -38,13 +35,11 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() -> Result<()> {
         .success();
 
     assert!(data_dir.path().join(KEYSTORE_NAME).exists());
-
-    Ok(())
 }
 
 #[test]
-fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() {
+    let (config_file, data_dir) = create_tmp_config();
     daemon()
         .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
         .common_args()
@@ -54,12 +49,11 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() -> Result<(
         .success();
 
     assert!(data_dir.path().join(ENCRYPTED_KEYSTORE_NAME).exists());
-    Ok(())
 }
 
 #[test]
-fn should_create_jwt_admin_token() -> Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+fn should_create_jwt_admin_token() {
+    let (config_file, data_dir) = create_tmp_config();
     let token_path = data_dir.path().join("admin-token");
     daemon()
         .common_args()
@@ -73,15 +67,13 @@ fn should_create_jwt_admin_token() -> Result<()> {
         .success();
 
     // Grab the keystore and the private key
-    let keystore = KeyStore::new(KeyStoreConfig::Persistent(data_dir.path().to_owned()))?;
-    let key_info = keystore.get(JWT_IDENTIFIER)?;
+    let keystore = KeyStore::new(KeyStoreConfig::Persistent(data_dir.path().to_owned())).unwrap();
+    let key_info = keystore.get(JWT_IDENTIFIER).unwrap();
     let key = key_info.private_key();
 
     // Validate the token
     assert!(token_path.exists());
-    let token = std::fs::read_to_string(token_path)?;
-    let allow = verify_token(&token, key)?;
+    let token = std::fs::read_to_string(token_path).unwrap();
+    let allow = verify_token(&token, key).unwrap();
     assert!(allow.contains(&"admin".to_owned()));
-
-    Ok(())
 }

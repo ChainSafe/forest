@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{io::Write, net::SocketAddr, path::PathBuf, str::FromStr};
 
-use anyhow::*;
 use assert_cmd::Command;
 use forest_filecoin::{Client, Config};
 use rand::Rng;
@@ -95,7 +94,7 @@ fn test_reading_configuration_from_file() {
 }
 
 #[test]
-fn test_config_env_var() -> Result<()> {
+fn test_config_env_var() {
     let expected_config = Config {
         client: Client {
             rpc_token: Some("some_rpc_token".into()),
@@ -105,10 +104,10 @@ fn test_config_env_var() -> Result<()> {
         ..Config::default()
     };
 
-    let mut config_file = tempfile::Builder::new().tempfile()?;
+    let mut config_file = tempfile::Builder::new().tempfile().unwrap();
     config_file
-        .write_all(toml::to_string(&expected_config)?.as_bytes())
-        .context("Failed writing configuration!")?;
+        .write_all(toml::to_string(&expected_config).unwrap().as_bytes())
+        .unwrap();
 
     let cmd = Command::cargo_bin("forest-cli")
         .unwrap()
@@ -119,12 +118,9 @@ fn test_config_env_var() -> Result<()> {
         .success();
 
     let output = &cmd.get_output().stdout;
-    let actual_config =
-        toml::from_str::<Config>(std::str::from_utf8(output)?).context("Invalid configuration!")?;
+    let actual_config = toml::from_str::<Config>(std::str::from_utf8(output).unwrap()).unwrap();
 
-    ensure!(expected_config == actual_config);
-
-    Ok(())
+    assert_eq!(expected_config, actual_config);
 }
 
 #[test]

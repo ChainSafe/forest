@@ -4,17 +4,16 @@
 //! This module contains the migration logic for the `NV19` upgrade for the
 //! Miner actor.
 
-use std::sync::Arc;
-
-use crate::utils::db::CborStoreExt;
-use cid::Cid;
-use fil_actor_miner_state::{v10::State as MinerStateOld, v11::State as MinerStateNew};
-use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
 };
+use crate::utils::db::CborStoreExt;
+use anyhow::Context as _;
+use cid::Cid;
+use fil_actor_miner_state::{v10::State as MinerStateOld, v11::State as MinerStateNew};
+use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore as _;
+use std::sync::Arc;
 
 pub struct MinerMigrator(Cid);
 
@@ -32,7 +31,7 @@ impl<BS: Blockstore> ActorMigration<BS> for MinerMigrator {
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: MinerStateOld = store
             .get_cbor(&input.head)?
-            .ok_or_else(|| anyhow::anyhow!("Miner actor: could not read v10 state"))?;
+            .context("Miner actor: could not read v10 state")?;
 
         let out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
 

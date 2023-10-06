@@ -7,7 +7,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
 use ahash::HashMap;
-use anyhow::Context;
+use anyhow::Context as _;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, WriteBytesExt};

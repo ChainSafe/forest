@@ -19,7 +19,7 @@ use crate::shim::machine::MultiEngine;
 use crate::state_manager::apply_block_messages;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context as _};
 use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -111,7 +111,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Fetch {
                 directory,
@@ -233,7 +233,7 @@ async fn validate_with_blockstore<BlockstoreT>(
     check_links: u32,
     check_network: Option<NetworkChain>,
     check_stateroots: u32,
-) -> Result<()>
+) -> anyhow::Result<()>
 where
     BlockstoreT: Blockstore + Send + Sync + 'static,
 {
@@ -268,7 +268,7 @@ where
 // required to sync to the network and snapshot files usually disgard data after
 // 2000 epochs. Validity can be verified by ensuring there are no bad IPLD or
 // broken links in the N most recent epochs.
-async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> Result<()>
+async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync,
 {
@@ -288,7 +288,7 @@ where
 
         let mut assert_cid_exists = |cid: Cid| async move {
             let data = db.get(&cid)?;
-            data.ok_or_else(|| anyhow::anyhow!("Broken IPLD link at epoch: {height}"))
+            data.with_context(|| format!("Broken IPLD link at epoch: {height}"))
         };
 
         for h in tipset.blocks() {
@@ -306,12 +306,12 @@ where
 // Forest keeps a list of known tipsets for each network. Finding a known tipset
 // short-circuits the search for the genesis block. If no genesis block can be
 // found or if the genesis block is unrecognizable, an error is returned.
-fn query_network(ts: &Tipset, db: impl Blockstore) -> Result<NetworkChain> {
+fn query_network(ts: &Tipset, db: impl Blockstore) -> anyhow::Result<NetworkChain> {
     let pb = validation_spinner("Identifying genesis block:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("✅ found!".into()),
     );
 
-    fn match_genesis_block(block_cid: Cid) -> Result<NetworkChain> {
+    fn match_genesis_block(block_cid: Cid) -> anyhow::Result<NetworkChain> {
         if block_cid == *calibnet::GENESIS_CID {
             Ok(NetworkChain::Calibnet)
         } else if block_cid == *mainnet::GENESIS_CID {
@@ -341,7 +341,7 @@ async fn validate_stateroots<DB>(
     db: &Arc<DB>,
     network: NetworkChain,
     epochs: u32,
-) -> Result<()>
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

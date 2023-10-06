@@ -4,10 +4,10 @@
 //! This module contains the migration logic for the `NV19` upgrade for the
 //! Power actor.
 
-use std::sync::Arc;
-
 use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
+use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
 use crate::utils::db::CborStoreExt;
+use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_power_state::{
     v10::{Claim as ClaimV10, State as StateV10},
@@ -18,8 +18,7 @@ use fil_actors_shared::v11::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-
-use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
+use std::sync::Arc;
 
 pub struct PowerMigrator(Cid);
 
@@ -38,7 +37,7 @@ impl<BS: Blockstore> ActorMigration<BS> for PowerMigrator {
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: StateV10 = store
             .get_cbor(&input.head)?
-            .ok_or_else(|| anyhow::anyhow!("Power actor: could not read v10 state"))?;
+            .context("Power actor: could not read v10 state")?;
 
         let in_claims = make_map_with_root_and_bitwidth(&in_state.claims, &store, HAMT_BIT_WIDTH)?;
 

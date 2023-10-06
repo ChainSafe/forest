@@ -3,7 +3,6 @@
 
 use std::path::PathBuf;
 
-use anyhow::Result;
 use assert_cmd::Command;
 use tempfile::TempDir;
 
@@ -45,8 +44,8 @@ impl CommonEnv for Command {
     }
 }
 
-pub fn create_tmp_config() -> Result<(PathBuf, TempDir)> {
-    let temp_dir = tempfile::tempdir()?;
+pub fn create_tmp_config() -> (PathBuf, TempDir) {
+    let temp_dir = tempfile::tempdir().expect("couldn't create temp dir");
 
     let config = format!(
         r#"
@@ -60,7 +59,7 @@ type = "calibnet"
     );
 
     let config_file = temp_dir.path().join("config.toml");
-    std::fs::write(&config_file, config)?;
+    std::fs::write(&config_file, config).expect("couldn't write config");
 
-    Ok((config_file, temp_dir))
+    (config_file, temp_dir)
 }

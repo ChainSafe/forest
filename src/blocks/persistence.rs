@@ -21,20 +21,17 @@ mod tests {
     use std::path::Path;
 
     use crate::utils::db::file_backed_obj::FileBacked;
-    use anyhow::*;
 
     use super::*;
 
     #[test]
-    fn tipset_keys_round_trip() -> Result<()> {
+    fn tipset_keys_round_trip() {
         let path = Path::new("src/blocks/tests/calibnet/HEAD");
         let obj1: FileBacked<TipsetKeys> =
-            FileBacked::load_from_file_or_create(path.into(), Default::default)?;
-        let serialized = obj1.inner().serialize()?;
-        let deserialized = TipsetKeys::deserialize(&serialized)?;
+            FileBacked::load_from_file_or_create(path.into(), Default::default).unwrap();
+        let serialized = obj1.inner().serialize().unwrap();
+        let deserialized = TipsetKeys::deserialize(&serialized).unwrap();
 
-        ensure!(obj1.inner() == &deserialized);
-
-        Ok(())
+        assert_eq!(obj1.inner(), &deserialized);
     }
 }

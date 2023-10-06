@@ -67,7 +67,6 @@ pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesK
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::*;
     use cid::multihash::{Multihash, MultihashDigest};
     use fvm_shared2::{
         bigint::Zero,
@@ -140,9 +139,9 @@ mod tests {
     // }
     // ```
     #[test]
-    fn test_get_pending_verified_deals_and_total_size() -> Result<()> {
+    fn test_get_pending_verified_deals_and_total_size() {
         let store = crate::db::MemoryDB::default();
-        let mut market_state = fil_actor_market_state::v8::State::new(&store)?;
+        let mut market_state = fil_actor_market_state::v8::State::new(&store).unwrap();
 
         let mut pending_proposals = fil_actors_shared::v8::Set::new(&store);
         market_state.proposals = {
@@ -165,50 +164,52 @@ mod tests {
             };
             let deal0 = {
                 let mut deal = base_deal.clone();
-                deal.piece_cid = make_piece_cid("0".as_bytes())?;
+                deal.piece_cid = make_piece_cid("0".as_bytes());
                 deal
             };
             let deal1 = {
                 let mut deal = base_deal.clone();
-                deal.piece_cid = make_piece_cid("1".as_bytes())?;
+                deal.piece_cid = make_piece_cid("1".as_bytes());
                 deal
             };
             let deal2 = {
                 let mut deal = base_deal;
-                deal.piece_cid = make_piece_cid("2".as_bytes())?;
+                deal.piece_cid = make_piece_cid("2".as_bytes());
                 deal
             };
 
-            proposals.set(100, deal0)?;
-            pending_proposals.put(BytesKey(deal1.cid()?.to_bytes()))?;
-            proposals.set(101, deal1)?;
-            pending_proposals.put(BytesKey(deal2.cid()?.to_bytes()))?;
-            proposals.set(102, deal2)?;
+            proposals.set(100, deal0).unwrap();
+            pending_proposals
+                .put(BytesKey(deal1.cid().unwrap().to_bytes()))
+                .unwrap();
+            proposals.set(101, deal1).unwrap();
+            pending_proposals
+                .put(BytesKey(deal2.cid().unwrap().to_bytes()))
+                .unwrap();
+            proposals.set(102, deal2).unwrap();
 
-            proposals.flush()?
+            proposals.flush().unwrap()
         };
-        market_state.pending_proposals = pending_proposals.root()?;
-        ensure!(
-            market_state.pending_proposals.to_string()
-                == "bafy2bzaceaznfegva7wvkm3yd66r5ej7t7726pr6lwhnosxbslmmkuoymtvtw"
+        market_state.pending_proposals = pending_proposals.root().unwrap();
+        assert_eq!(
+            market_state.pending_proposals.to_string(),
+            "bafy2bzaceaznfegva7wvkm3yd66r5ej7t7726pr6lwhnosxbslmmkuoymtvtw"
         );
-        ensure!(
-            market_state.proposals.to_string()
-                == "bafy2bzaceck7at6aj7iy4s4gkndk5njvcba4yoveucxcdpfuwdeczaw3fcly2"
+        assert_eq!(
+            market_state.proposals.to_string(),
+            "bafy2bzaceck7at6aj7iy4s4gkndk5njvcba4yoveucxcdpfuwdeczaw3fcly2"
         );
 
         let (pending_verified_deals, pending_verified_deal_size) =
-            get_pending_verified_deals_and_total_size(&store, &market_state)?;
+            get_pending_verified_deals_and_total_size(&store, &market_state).unwrap();
 
-        ensure!(pending_verified_deal_size == 1024);
-        ensure!(pending_verified_deals == vec![101, 102]);
-
-        Ok(())
+        assert_eq!(pending_verified_deal_size, 1024);
+        assert_eq!(pending_verified_deals, vec![101, 102]);
     }
 
-    fn make_piece_cid(data: &[u8]) -> Result<Cid> {
+    fn make_piece_cid(data: &[u8]) -> Cid {
         let hash = cid::multihash::Code::Sha2_256.digest(data);
-        let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest())?;
-        Ok(Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash))
+        let hash = Multihash::wrap(SHA2_256_TRUNC254_PADDED, hash.digest()).unwrap();
+        Cid::new_v1(FIL_COMMITMENT_UNSEALED, hash)
     }
 }

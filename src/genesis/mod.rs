@@ -4,6 +4,7 @@
 use crate::blocks::BlockHeader;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
+use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use tokio::{fs::File, io::AsyncBufRead, io::BufReader};
 use tracing::{debug, info};
@@ -29,8 +30,7 @@ where
         }
         None => {
             debug!("No specified genesis in config. Using default genesis.");
-            let genesis_bytes =
-                genesis_bytes.ok_or_else(|| anyhow::anyhow!("No default genesis."))?;
+            let genesis_bytes = genesis_bytes.context("No default genesis.")?;
             process_car(genesis_bytes, db).await?
         }
     };
