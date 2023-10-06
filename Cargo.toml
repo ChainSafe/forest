@@ -256,7 +256,3 @@ required-features = ["benchmark-private"]
 name = "car-index"
 harness = false
 required-features = ["benchmark-private"]
-
-[[test]]
-name = "lint"
-harness = false

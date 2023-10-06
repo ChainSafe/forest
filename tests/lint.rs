@@ -18,12 +18,16 @@ use syn::visit::Visit;
 use tracing::{debug, info, trace};
 use tracing_subscriber::EnvFilter;
 
-fn main() {
+#[test]
+fn lint() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_writer(io::stderr)
         .init();
-    LintRunner::new().run::<lints::NoTestsWithReturn>().finish();
+    LintRunner::new()
+        .run::<lints::NoTestsWithReturn>()
+        .run::<lints::SpecializedAssertions>()
+        .finish();
 }
 
 #[must_use = "you must drive the runner to completion"]

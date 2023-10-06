@@ -4,8 +4,10 @@ use ariadne::Color;
 use proc_macro2::Span;
 use syn::{
     parse_quote,
+    punctuated::Punctuated,
     spanned::Spanned,
     visit::{self, Visit},
+    BinOp, Expr, ItemFn, Macro, ReturnType, Token,
 };
 
 /// A linting violation
@@ -50,14 +52,14 @@ pub trait Lint {
 
 #[derive(Default)]
 pub struct NoTestsWithReturn {
-    spans: Vec<Violation>,
+    violations: Vec<Violation>,
 }
 
 impl<'ast> Visit<'ast> for NoTestsWithReturn {
-    fn visit_item_fn(&mut self, i: &'ast syn::ItemFn) {
+    fn visit_item_fn(&mut self, i: &'ast ItemFn) {
         if i.attrs.iter().any(|attr| attr == &parse_quote!(#[test])) {
-            if let syn::ReturnType::Type(..) = i.sig.output {
-                self.spans.push(
+            if let ReturnType::Type(..) = i.sig.output {
+                self.violations.push(
                     Violation::new(&i.sig.output)
                         .with_message("not allowed to have a return type")
                         .with_color(Color::Red),
@@ -70,7 +72,7 @@ impl<'ast> Visit<'ast> for NoTestsWithReturn {
 
 impl Lint for NoTestsWithReturn {
     fn flush(&mut self) -> Vec<Violation> {
-        mem::take(&mut self.spans)
+        mem::take(&mut self.violations)
     }
 
     const DESCRIPTION: &'static str = "`#[test]` functions are not allowed to have a return type";
@@ -78,4 +80,43 @@ impl Lint for NoTestsWithReturn {
         Some("`assert`s and `unwrap`s provide better error messages in tests");
     const HELP: Option<&'static str> =
         Some("Remove the return type, and any `?` error propogations");
+}
+
+#[derive(Default)]
+pub struct SpecializedAssertions {
+    violations: Vec<Violation>,
+}
+
+impl<'ast> Visit<'ast> for SpecializedAssertions {
+    fn visit_macro(&mut self, i: &'ast Macro) {
+        if i.path.is_ident("assert") {
+            if let Ok(exprs) = i.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
+                if let Some(Expr::Binary(binary)) = exprs.first() {
+                    match binary.op {
+                        BinOp::Eq(_) => self.violations.push(
+                            Violation::new(i)
+                                .with_message("should be `assert_eq(..)`")
+                                .with_color(Color::Red),
+                        ),
+                        BinOp::Ne(_) => self.violations.push(
+                            Violation::new(i)
+                                .with_message("should be `assert_ne(..)`")
+                                .with_color(Color::Red),
+                        ),
+                        _ => {}
+                    }
+                }
+            }
+        }
+        visit::visit_macro(self, i)
+    }
+}
+
+impl Lint for SpecializedAssertions {
+    fn flush(&mut self) -> Vec<Violation> {
+        mem::take(&mut self.violations)
+    }
+
+    const DESCRIPTION: &'static str = "`assert!(..)` that should use a more specialized macro";
+    const NOTE: Option<&'static str> = Some("specialized macros provides better error messages ");
 }
