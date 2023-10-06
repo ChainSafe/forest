@@ -81,12 +81,12 @@ impl RequestBuilder {
                     false
                 };
             let resp = Response {
-                _client: client,
-                _method: method,
-                _url: url,
-                _response: response,
-                _accept_byte_ranges: accept_byte_ranges,
-                _pos: 0,
+                client: client,
+                method: method,
+                url: url,
+                response: response,
+                accept_byte_ranges: accept_byte_ranges,
+                pos: 0,
             };
             Ok(resp)
         }
@@ -98,17 +98,30 @@ impl RequestBuilder {
 /// See [`reqwest::Response`].
 #[derive(Debug)]
 pub struct Response {
-    _client: reqwest::Client,
-    _method: reqwest::Method,
-    _url: reqwest::Url,
-    _response: reqwest::Response,
-    _accept_byte_ranges: bool,
-    _pos: u64,
+    client: reqwest::Client,
+    method: reqwest::Method,
+    url: reqwest::Url,
+    response: reqwest::Response,
+    accept_byte_ranges: bool,
+    pos: u64,
 }
-
 impl Response {
+    /// Convert the response into a `Stream` of `Bytes` from the body.
+    ///
+    /// See [`reqwest::Response::bytes_stream()`].
+    pub fn bytes_stream(self) -> impl Stream<Item = reqwest::Result<Bytes>> + Send {
+        Decoder {
+            client: self.client,
+            method: self.method,
+            url: self.url,
+            decoder: Box::pin(self.response.bytes_stream()),
+            accept_byte_ranges: self.accept_byte_ranges,
+            pos: self.pos,
+        }
+    }
+
     pub fn response(self) -> reqwest::Response {
-        self._response
+        self.response
     }
 }
 
@@ -168,6 +181,7 @@ mod tests {
     use std::convert::Infallible;
     use std::time::Duration;
 
+    use futures::StreamExt;
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Request, Response, Server};
 
@@ -215,13 +229,14 @@ mod tests {
 
         tokio::task::spawn(server);
 
-        let mut resp = get(reqwest::Url::parse("http://localhost:3000").unwrap())
-            .await?
-            .response();
+        let resp = get(reqwest::Url::parse("http://localhost:3000").unwrap()).await?;
 
-        dbg!(resp.headers());
-        while let Some(data) = resp.chunk().await? {
-            dbg!(format!("chunk len {}", data.len()));
+        //dbg!(resp.headers());
+
+        let mut stream = resp.bytes_stream();
+
+        while let Some(item) = stream.next().await {
+            dbg!(format!("chunk len {}", item?.len()));
         }
 
         Ok(())
