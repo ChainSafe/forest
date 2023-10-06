@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::db::{car_stream::CarHeader, car_util::load_car};
-use anyhow::Context;
+use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 
 pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<CarHeader> {

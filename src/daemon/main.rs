@@ -9,7 +9,7 @@ use crate::cli_shared::{
 use crate::daemon::ipc_shmem_conf;
 use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
-use anyhow::Context;
+use anyhow::Context as _;
 use clap::Parser;
 use daemonize_me::{Daemon, Group, User};
 use raw_sync_2::{

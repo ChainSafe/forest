@@ -3,7 +3,6 @@
 
 use std::{fmt::Display, str::FromStr};
 
-use anyhow::Error;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
@@ -44,7 +43,7 @@ pub enum NetworkChain {
 }
 
 impl FromStr for NetworkChain {
-    type Err = Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {

@@ -7,6 +7,7 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
 };
 use anyhow::anyhow;
+use anyhow::Context as _;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
@@ -21,10 +22,10 @@ impl<BS: Blockstore> PostMigrator<BS> for EthAccountPostMigrator {
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()> {
         let init_actor = actors_out
             .get_actor(&Address::INIT_ACTOR)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get init actor state"))?;
+            .context("Couldn't get init actor state")?;
         let init_state: fil_actor_init_state::v10::State = store
             .get_cbor(&init_actor.state)?
-            .ok_or_else(|| anyhow::anyhow!("Couldn't get statev10"))?;
+            .context("Couldn't get statev10")?;
 
         let eth_zero_addr =
             Address::new_delegated(Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?, &[0; 20])?;

@@ -13,7 +13,7 @@ use crate::db::{MemoryDB, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::{Mutex, RwLock};
