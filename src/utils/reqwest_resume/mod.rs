@@ -146,7 +146,7 @@ impl Stream for Decoder {
                     let builder = self.client.request(self.method.clone(), self.url.clone());
                     let mut headers = HeaderMap::new();
                     let value = HeaderValue::from_str(&std::format!("bytes={}-", self.pos))
-                        .expect("invalid ASCII string");
+                        .expect("unreachable");
                     headers.insert(header::RANGE, value);
                     let builder = builder.headers(headers);
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
