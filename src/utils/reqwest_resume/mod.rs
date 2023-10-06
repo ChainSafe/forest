@@ -204,7 +204,7 @@ mod tests {
             let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
-            let handle = tokio::task::spawn(async move {
+            tokio::task::spawn(async move {
                 sender
                     .send_data(Bytes::copy_from_slice(&buffer[offset as usize..]))
                     .await
@@ -213,7 +213,7 @@ mod tests {
             body
         } else {
             let (mut sender, body) = Body::channel();
-            let handle = tokio::task::spawn(async move {
+            tokio::task::spawn(async move {
                 sender
                     .send_data(Bytes::copy_from_slice(&buffer[0..CHUNK_LEN]))
                     .await
