@@ -196,7 +196,7 @@ cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
-jsonrpc-client-http = "0.5.0"
+http-range-header = "0.4.0"
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"

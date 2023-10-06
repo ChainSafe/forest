@@ -183,19 +183,14 @@ mod tests {
     use std::time::Duration;
 
     use futures::StreamExt;
+    use http_range_header::parse_range_header;
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Request, Response, Server};
-    use jsonrpc_client_http::header::{ByteRangeSpec, Range};
-    use std::str::FromStr;
 
-    fn extract_all_from(s: &str) -> Option<u64> {
-        match Range::from_str(s).unwrap() {
-            Range::Bytes(v) => match v[0] {
-                ByteRangeSpec::AllFrom(x) => Some(x),
-                _ => None,
-            },
-            _ => None,
-        }
+    fn extract_all_from(s: &str, file_size_bytes: usize) -> u64 {
+        let parse_ranges = parse_range_header(s).unwrap();
+        let range = parse_ranges.validate(file_size_bytes as u64).unwrap();
+        *range[0].start()
     }
 
     async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
@@ -204,7 +199,7 @@ mod tests {
 
         let body = if let Some(range) = req.headers().get(header::RANGE) {
             let s = std::str::from_utf8(range.as_bytes()).unwrap();
-            let offset = extract_all_from(&s).unwrap();
+            let offset = extract_all_from(&s, big_chunk.len());
             let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
