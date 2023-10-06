@@ -81,10 +81,10 @@ impl RequestBuilder {
                     false
                 };
             let resp = Response {
-                client: client,
-                method: method,
-                url: url,
-                response: response,
+                client,
+                method,
+                url,
+                response,
                 accept_byte_ranges,
                 pos: 0,
             };
