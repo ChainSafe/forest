@@ -187,6 +187,7 @@ mod tests {
     use hyper::{Body, Request, Response, Server};
 
     const BUFFER_LEN: usize = 4096 * 2;
+    const CHUNK_LEN: usize = 4096;
 
     fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
         let s = std::str::from_utf8(value.as_bytes()).unwrap();
@@ -214,7 +215,7 @@ mod tests {
             let (mut sender, body) = Body::channel();
             let handle = tokio::task::spawn(async move {
                 sender
-                    .send_data(Bytes::copy_from_slice(&buffer[0..4096]))
+                    .send_data(Bytes::copy_from_slice(&buffer[0..CHUNK_LEN]))
                     .await
                     .unwrap();
                 sleep(Duration::from_millis(100)).await;
@@ -284,11 +285,14 @@ mod tests {
         let mut read_len = 0;
 
         while let Some(item) = stream.next().await {
-            if let Ok(item) = item {
-                read_len += item.len();
+            match item {
+                Ok(item) => read_len += item.len(),
+                Err(err) => {
+                    assert!(err.is_body());
+                }
             }
         }
-        assert!(read_len != BUFFER_LEN);
+        assert_eq!(read_len, CHUNK_LEN);
 
         Ok(())
     }
