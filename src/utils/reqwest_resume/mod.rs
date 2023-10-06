@@ -85,7 +85,7 @@ impl RequestBuilder {
                 method: method,
                 url: url,
                 response: response,
-                accept_byte_ranges: accept_byte_ranges,
+                accept_byte_ranges,
                 pos: 0,
             };
             Ok(resp)
