@@ -188,9 +188,10 @@ mod tests {
 
     const BUFFER_LEN: usize = 4096 * 2;
 
-    fn extract_all_from(s: &str, file_size_bytes: usize) -> u64 {
+    fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
+        let s = std::str::from_utf8(value.as_bytes()).unwrap();
         let parse_ranges = parse_range_header(s).unwrap();
-        let range = parse_ranges.validate(file_size_bytes as u64).unwrap();
+        let range = parse_ranges.validate(total_len as u64).unwrap();
         *range[0].start()
     }
 
@@ -198,8 +199,7 @@ mod tests {
         let buffer = [b'a'; BUFFER_LEN];
 
         let body = if let Some(range) = req.headers().get(header::RANGE) {
-            let s = std::str::from_utf8(range.as_bytes()).unwrap();
-            let offset = extract_all_from(&s, buffer.len());
+            let offset = extract_range_start(&range, buffer.len());
             let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
@@ -218,6 +218,8 @@ mod tests {
                     .await
                     .unwrap();
                 sleep(Duration::from_millis(100)).await;
+                // `abort` will close the connection with an error so we can test the
+                // resume functionality
                 sender.abort();
             });
             body
