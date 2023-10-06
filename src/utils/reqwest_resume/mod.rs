@@ -140,7 +140,6 @@ impl Stream for Decoder {
         loop {
             match ready!(self.decoder.as_mut().poll_next(cx)) {
                 Some(Err(err)) => {
-                    dbg!(&err);
                     if !self.accept_byte_ranges {
                         break Poll::Ready(Some(Err(err)));
                     }
@@ -187,6 +186,8 @@ mod tests {
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Request, Response, Server};
 
+    const BUFFER_LEN: usize = 4096 * 2;
+
     fn extract_all_from(s: &str, file_size_bytes: usize) -> u64 {
         let parse_ranges = parse_range_header(s).unwrap();
         let range = parse_ranges.validate(file_size_bytes as u64).unwrap();
@@ -194,18 +195,17 @@ mod tests {
     }
 
     async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        dbg!(&req);
-        let big_chunk = [b'a'; 4096 * 2];
+        let buffer = [b'a'; BUFFER_LEN];
 
         let body = if let Some(range) = req.headers().get(header::RANGE) {
             let s = std::str::from_utf8(range.as_bytes()).unwrap();
-            let offset = extract_all_from(&s, big_chunk.len());
+            let offset = extract_all_from(&s, buffer.len());
             let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
             let handle = tokio::task::spawn(async move {
                 sender
-                    .send_data(Bytes::copy_from_slice(&big_chunk[offset as usize..]))
+                    .send_data(Bytes::copy_from_slice(&buffer[offset as usize..]))
                     .await
                     .unwrap();
             });
@@ -214,7 +214,7 @@ mod tests {
             let (mut sender, body) = Body::channel();
             let handle = tokio::task::spawn(async move {
                 sender
-                    .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
+                    .send_data(Bytes::copy_from_slice(&buffer[0..4096]))
                     .await
                     .unwrap();
                 sleep(Duration::from_millis(100)).await;
@@ -252,13 +252,12 @@ mod tests {
 
         let resp = get(reqwest::Url::parse("http://localhost:3000").unwrap()).await?;
 
-        //dbg!(resp.headers());
-
         let mut stream = resp.bytes_stream();
-
+        let mut read_len = 0;
         while let Some(item) = stream.next().await {
-            dbg!(format!("chunk len {}", item?.len()));
+            read_len += item?.len();
         }
+        assert_eq!(read_len, BUFFER_LEN);
 
         Ok(())
     }
