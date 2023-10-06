@@ -232,8 +232,9 @@ mod tests {
         Ok(response)
     }
 
-    #[tokio::test]
-    pub async fn test_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    async fn create_flaky_server(
+        port: u16,
+    ) -> tokio::task::JoinHandle<std::result::Result<(), hyper::Error>> {
         // For every connection, we must make a `Service` to handle all
         // incoming HTTP requests on said connection.
 
@@ -244,15 +245,21 @@ mod tests {
             async { Ok::<_, Infallible>(service_fn(hello)) }
         });
 
-        let addr = ([127, 0, 0, 1], 3000).into();
+        let addr = ([127, 0, 0, 1], port).into();
 
         let server = Server::bind(&addr).serve(make_svc);
 
         println!("Listening on http://{}", addr);
 
-        tokio::task::spawn(server);
+        tokio::task::spawn(server)
+    }
 
-        let resp = get(reqwest::Url::parse("http://localhost:3000").unwrap()).await?;
+    #[tokio::test]
+    pub async fn test_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let port = 3000;
+        create_flaky_server(port).await;
+
+        let resp = get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap()).await?;
 
         let mut stream = resp.bytes_stream();
         let mut read_len = 0;
@@ -266,25 +273,12 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_non_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // For every connection, we must make a `Service` to handle all
-        // incoming HTTP requests on said connection.
+        let port = 3001;
+        create_flaky_server(port).await;
 
-        let make_svc = make_service_fn(|_conn| {
-            // This is the `Service` that will handle the connection.
-            // `service_fn` is a helper to convert a function that
-            // returns a Response into a `Service`.
-            async { Ok::<_, Infallible>(service_fn(hello)) }
-        });
-
-        let addr = ([127, 0, 0, 1], 3001).into();
-
-        let server = Server::bind(&addr).serve(make_svc);
-
-        println!("Listening on http://{}", addr);
-
-        tokio::task::spawn(server);
-
-        let resp = reqwest::get(reqwest::Url::parse("http://localhost:3001").unwrap()).await?;
+        let resp =
+            reqwest::get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap())
+                .await?;
 
         let mut stream = resp.bytes_stream();
         let mut read_len = 0;
