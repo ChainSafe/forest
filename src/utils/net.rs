@@ -69,17 +69,14 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
     let (stream, content_length) = match Url::parse(location) {
         Ok(url) => {
             info!("Downloading file: {}", url);
-            let resp = reqwest_resume::get(url)
-                .await?
-                .response()
-                .error_for_status()?;
-            let content_length = resp.content_length().unwrap_or_default();
-            let stream = resp
+            let resume_resp = reqwest_resume::get(url).await?;
+            let content_length = &resume_resp.response().content_length().unwrap_or_default();
+            let stream = resume_resp
                 .bytes_stream()
                 .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
                 .pipe(tokio_util::io::StreamReader::new);
 
-            (Left(stream), content_length)
+            (Left(stream), *content_length)
         }
         Err(_) => {
             info!("Reading file: {}", location);

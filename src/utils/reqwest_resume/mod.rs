@@ -120,8 +120,8 @@ impl Response {
         }
     }
 
-    pub fn response(self) -> reqwest::Response {
-        self.response
+    pub fn response(&self) -> &reqwest::Response {
+        &self.response
     }
 }
 
