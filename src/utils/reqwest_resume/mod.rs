@@ -186,6 +186,7 @@ mod tests {
     use hyper::{Body, Request, Response, Server};
 
     async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+        dbg!(&req);
         let big_chunk = [b'a'; 4096 * 2];
 
         let body = if let Some(range) = req.headers().get(header::RANGE) {
@@ -209,8 +210,8 @@ mod tests {
                     .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
                     .await
                     .unwrap();
-                sleep(Duration::from_millis(10)).await;
-                sender.abort();
+                // sleep(Duration::from_millis(100)).await;
+                // sender.abort();
             });
             body
         };
