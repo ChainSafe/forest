@@ -81,10 +81,7 @@ error_number! {
 
 impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.as_unshimmed_or_u32() {
-            Either::Left(n4) => n4.fmt(f),
-            Either::Right(u) => write!(f, "{}", u),
-        }
+        self.as_unshimmed_or_u32().fmt(f)
     }
 }
 
