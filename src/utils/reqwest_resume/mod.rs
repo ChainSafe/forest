@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn test_resume_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn test_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // For every connection, we must make a `Service` to handle all
         // incoming HTTP requests on said connection.
 
@@ -260,6 +260,41 @@ mod tests {
             read_len += item?.len();
         }
         assert_eq!(read_len, BUFFER_LEN);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    pub async fn test_non_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // For every connection, we must make a `Service` to handle all
+        // incoming HTTP requests on said connection.
+
+        let make_svc = make_service_fn(|_conn| {
+            // This is the `Service` that will handle the connection.
+            // `service_fn` is a helper to convert a function that
+            // returns a Response into a `Service`.
+            async { Ok::<_, Infallible>(service_fn(hello)) }
+        });
+
+        let addr = ([127, 0, 0, 1], 3000).into();
+
+        let server = Server::bind(&addr).serve(make_svc);
+
+        println!("Listening on http://{}", addr);
+
+        tokio::task::spawn(server);
+
+        let resp = reqwest::get(reqwest::Url::parse("http://localhost:3000").unwrap()).await?;
+
+        let mut stream = resp.bytes_stream();
+        let mut read_len = 0;
+
+        while let Some(item) = stream.next().await {
+            if let Ok(item) = item {
+                read_len += item.len();
+            }
+        }
+        assert!(read_len != BUFFER_LEN);
 
         Ok(())
     }
