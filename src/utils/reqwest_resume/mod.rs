@@ -185,18 +185,35 @@ mod tests {
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Request, Response, Server};
 
-    async fn hello(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let big_chunk = [b'a'; 4096 * 2];
 
-        let (mut sender, body) = Body::channel();
-        let handle = tokio::task::spawn(async move {
-            sender
-                .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
-                .await
-                .unwrap();
-            sleep(Duration::from_millis(10)).await;
-            sender.abort();
-        });
+        let body = if let Some(range) = req.headers().get(header::RANGE) {
+            let s = std::str::from_utf8(range.as_bytes()).unwrap();
+            // We get something like "bytes=ddddd-" we just extract the integer value for now
+            let offset = s[6..s.len() - 1].parse::<i32>().unwrap();
+            let (mut sender, body) = Body::channel();
+
+            // Send the rest of the buffer
+            let handle = tokio::task::spawn(async move {
+                sender
+                    .send_data(Bytes::copy_from_slice(&big_chunk[offset as usize..]))
+                    .await
+                    .unwrap();
+            });
+            body
+        } else {
+            let (mut sender, body) = Body::channel();
+            let handle = tokio::task::spawn(async move {
+                sender
+                    .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
+                    .await
+                    .unwrap();
+                sleep(Duration::from_millis(10)).await;
+                sender.abort();
+            });
+            body
+        };
 
         let mut response: Response<_> = Response::new(body);
         response
