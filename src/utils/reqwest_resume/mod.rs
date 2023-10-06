@@ -210,8 +210,8 @@ mod tests {
                     .send_data(Bytes::copy_from_slice(&big_chunk[0..4096]))
                     .await
                     .unwrap();
-                // sleep(Duration::from_millis(100)).await;
-                // sender.abort();
+                sleep(Duration::from_millis(100)).await;
+                sender.abort();
             });
             body
         };
@@ -220,10 +220,6 @@ mod tests {
         response
             .headers_mut()
             .insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
-        response.headers_mut().insert(
-            header::CONTENT_LENGTH,
-            HeaderValue::from_str(&big_chunk.len().to_string()).unwrap(),
-        );
         Ok(response)
     }
 
