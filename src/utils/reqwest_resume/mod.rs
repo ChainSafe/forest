@@ -176,6 +176,7 @@ pub fn get(url: reqwest::Url) -> impl Future<Output = reqwest::Result<Response>>
     Client::new().get(url).send()
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::convert::Infallible;
@@ -184,6 +185,18 @@ mod tests {
     use futures::StreamExt;
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Request, Response, Server};
+    use jsonrpc_client_http::header::{ByteRangeSpec, Range};
+    use std::str::FromStr;
+
+    fn extract_all_from(s: &str) -> Option<u64> {
+        match Range::from_str(s).unwrap() {
+            Range::Bytes(v) => match v[0] {
+                ByteRangeSpec::AllFrom(x) => Some(x),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
 
     async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         dbg!(&req);
@@ -191,8 +204,7 @@ mod tests {
 
         let body = if let Some(range) = req.headers().get(header::RANGE) {
             let s = std::str::from_utf8(range.as_bytes()).unwrap();
-            // We get something like "bytes=ddddd-" we just extract the integer value for now
-            let offset = s[6..s.len() - 1].parse::<i32>().unwrap();
+            let offset = extract_all_from(&s).unwrap();
             let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
