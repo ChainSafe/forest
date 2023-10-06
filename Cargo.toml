@@ -189,7 +189,9 @@ zstd = "0.12.3"
 termios = "0.3"
 
 [dev-dependencies]
+ariadne = "0.3.0"
 assert_cmd = "2"
+cargo_metadata = "0.18.0"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
@@ -198,8 +200,16 @@ fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = fal
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
+proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
+syn = { version = "2.0.38", default-features = false, features = [
+  "full",
+  "parsing",
+  "visit",
+  "printing",
+  "extra-traits",
+] }
 tokio-test = "0.4.2"
 
 [build-dependencies]
@@ -246,3 +256,7 @@ required-features = ["benchmark-private"]
 name = "car-index"
 harness = false
 required-features = ["benchmark-private"]
+
+[[test]]
+name = "lint"
+harness = false
