@@ -276,7 +276,7 @@ mod tests {
             async { Ok::<_, Infallible>(service_fn(hello)) }
         });
 
-        let addr = ([127, 0, 0, 1], 3000).into();
+        let addr = ([127, 0, 0, 1], 3001).into();
 
         let server = Server::bind(&addr).serve(make_svc);
 
@@ -284,7 +284,7 @@ mod tests {
 
         tokio::task::spawn(server);
 
-        let resp = reqwest::get(reqwest::Url::parse("http://localhost:3000").unwrap()).await?;
+        let resp = reqwest::get(reqwest::Url::parse("http://localhost:3001").unwrap()).await?;
 
         let mut stream = resp.bytes_stream();
         let mut read_len = 0;
