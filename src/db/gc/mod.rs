@@ -169,12 +169,12 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
                 true => {
                     let msg = self.gc_receiver.recv_async().await?;
                     info!("running manual gc");
-                    let res = self.gc_workflow(manual).await;
+                    let res = self.gc_workflow().await;
                     msg.send_async(res).await?;
                     info!("finished manual gc run");
                 }
                 false => {
-                    self.gc_workflow(manual).await?;
+                    self.gc_workflow().await?;
                     // Make sure we don't run the GC too often.
                     time::sleep(interval).await;
                 }
@@ -182,7 +182,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         }
     }
 
-    async fn gc_workflow(&mut self, manual: bool) -> anyhow::Result<()> {
+    async fn gc_workflow(&mut self) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = self.chain_store.heaviest_tipset();
         let current_epoch = tipset.epoch();
