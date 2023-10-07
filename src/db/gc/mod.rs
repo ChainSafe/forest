@@ -163,6 +163,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
+    /// TODO: Either remove manual GC altogether or modify the CLI to be `fire-and-forget`.
     pub async fn gc_loop(&mut self, interval: Duration, manual: bool) -> anyhow::Result<()> {
         loop {
             match manual {
