@@ -1,5 +1,67 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+//!
+//! The current implementation of the garbage collector is concurrent mark-and-sweep.
+//!
+//! ## Design goals
+//! A correct GC algorithm that is simple and efficient for forest scenarios.
+//!
+//! ## GC Algorithm
+//! The `mark-and-sweep` algorithm was chosen due to it's simplicity, efficiency and low memory
+//! footprint. We do have to generate keys from values for some of the iterated columns due to a
+//! ParityDB limitation. See <https://github.com/paritytech/parity-db/issues/187>.
+//! Previously the `semi-space` algorithm was used resulting in data duplication and up to 100%
+//! extra disk usage.
+//!
+//! ## GC Workflow
+//! 1. Mark: traverse all the relevant database columns, generating integer hash representations for
+//! each database key and storing those in a [`HashSet`].
+//! 2. Wait at least `chain finality` blocks.
+//! 3. Traverse reachable blocks starting from the current heaviest tipset and remove those from the
+//! marked `HashSet`, leaving only unreachable entries that are older than `chain finality` to avoid
+//! removing something that could later become reachable as a result of a fork.
+//! 4. Sweep, removing all the remaining marked entries from the database.
+//!
+//! ## Correctness
+//! This algorithm is traversing the reachable graph using the same tooling as the snapshot export.
+//! Therefore it ensures that we eliminate all the reachable from the set scheduled for removal.
+//! Additionally, it waits at least `chain finality` before filtering out and sweeping marked
+//! records, making sure nothing that could have become reachable in the meantime gets removed.
+//! A snapshot can be used to bootstrap the node from scratch, therefore the algorithm is considered
+//! correct when a valid snapshot can be exported using records available in the database after
+//! sweeping.
+//!
+//! ## Disk usage
+//! There's no additional disk space required to run this algorithm.
+//!
+//! ## Memory usage
+//! During the `mark` and up to the `sweep` stage the algorithm requires `4 bytes` of memory for
+//! each database record. Additionally, the seen cache while traversing the reachable graph
+//! executing the `filter` stage requires at least `32 bytes` of memory for each reachable block.
+//!
+//! ## Scheduling
+//! 1. GC is triggered automatically, there have to be at least `chain finality` epochs stored for
+//! the `mark` step.
+//! 2. The `filter` step is triggered after at least `chain finality` has passed since `mark` step.
+//! 3. Then the `sweep` step happens.
+//!
+//! ## Performance
+//! The GC Performance is calculated by benchmarking the three steps that have to be performed. The
+//! `filter` steps consists of two actions: walking the graph and filtering the `marked` set.
+//! 1. Traversing all the relevant database records and creating a set of keys. *To be benchmarked*
+//! 2. Walking the graph, this has already been benchmarked.
+//! `forest-tool benchmark graph-traversal`.
+//! WIP: fix and covert this to `unordered-graph-traversal`.
+//! 3. Filtering out the records found as a result of `step 2`.
+//! 4. Removing all the remaining `marked` records from the database *To be benchmarked*
+//!
+//! ### Look up performance
+//! There should not be any noticeable look up penalty.
+//!
+//! ### Write performance
+//! The only thing that could affect write performance is DB re-index, which should not be affected
+//! much by the GC.
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::db::db_engine::Db;
@@ -124,31 +186,20 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         let depth = self.depth;
         let tipset = self.chain_store.heaviest_tipset();
         let current_epoch = tipset.epoch();
-        // Don't run the GC if there aren't enough state-roots yet. Manual GC overrides that.
-        if !manual || depth > current_epoch {
+        // Don't run the GC if there aren't enough state-roots yet.
+        if depth > current_epoch {
             time::sleep(AVERAGE_BLOCK_TIME * (depth - current_epoch) as u32).await;
             return anyhow::Ok(());
         }
 
-        // Make sure we don't GC if we haven't advanced at least `depth` number of epochs since
-        // the last sweep. Manual GC overrides that.
-        let epochs_since_gc = current_epoch - self.epoch_sweeped;
-        if self.marked.is_empty() && !manual && epochs_since_gc < depth {
-            time::sleep(AVERAGE_BLOCK_TIME * epochs_since_gc as u32).await;
-            return anyhow::Ok(());
-        } else {
+        if self.marked.is_empty() {
             info!("populate keys for GC");
             self.populate()?;
         }
 
-        // Nothing to do.
-        if self.marked.is_empty() {
-            return anyhow::Ok(());
-        }
-
-        // Don't filter and sweep before we advance at least `depth`. Manual GC overrides that.
+        // Don't filter and sweep before we advance at least `depth`.
         let epoch_since_marked = current_epoch - self.epoch_marked;
-        if !manual && epoch_since_marked < depth {
+        if epoch_since_marked < depth {
             time::sleep(AVERAGE_BLOCK_TIME * epoch_since_marked as u32).await;
             return anyhow::Ok(());
         } else {
