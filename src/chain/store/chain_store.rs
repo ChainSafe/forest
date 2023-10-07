@@ -17,7 +17,6 @@ use crate::shim::{
 };
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
-use anyhow::Result;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
@@ -107,7 +106,7 @@ where
         settings: Arc<dyn SettingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: BlockHeader,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
 

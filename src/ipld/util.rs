@@ -9,7 +9,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
 use crate::{blocks::Tipset, utils::encoding::from_slice_with_fallback};
-use anyhow::Context as AnyhowContext;
+use anyhow::Context as _;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;

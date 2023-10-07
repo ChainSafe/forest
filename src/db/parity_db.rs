@@ -11,7 +11,7 @@ use crate::db::{
 };
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context as _};
 use cid::multihash::Code::Blake2b256;
 
 use cid::multihash::MultihashDigest;
@@ -358,7 +358,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn write_read_different_columns_test() -> anyhow::Result<()> {
+    fn write_read_different_columns_test() {
         let db = TempParityDB::new();
         let data = [
             b"h'nglui mglw'nafh".to_vec(),
@@ -378,12 +378,13 @@ mod test {
         ];
 
         for (_, cid, data) in cases {
-            db.put_keyed(&cid, data)?;
+            db.put_keyed(&cid, data).unwrap();
         }
 
         for (column, cid, data) in cases {
             let actual = db
-                .read_from_column(cid.to_bytes(), column)?
+                .read_from_column(cid.to_bytes(), column)
+                .unwrap()
                 .expect("data not found");
             assert_eq!(data, actual.as_bytes());
 
@@ -393,23 +394,24 @@ mod test {
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
             };
-            let actual = db.read_from_column(cid.to_bytes(), other_column)?;
+            let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());
 
             // Blockstore API usage should be transparent
-            let actual =
-                fvm_ipld_blockstore::Blockstore::get(db.as_ref(), &cid)?.expect("data not found");
+            let actual = fvm_ipld_blockstore::Blockstore::get(db.as_ref(), &cid)
+                .unwrap()
+                .expect("data not found");
             assert_eq!(data, actual.as_slice());
         }
 
         // Check non-IPLD column as well
-        db.write_to_column(b"dagon", b"bloop", DbColumn::Settings)?;
+        db.write_to_column(b"dagon", b"bloop", DbColumn::Settings)
+            .unwrap();
         let actual = db
-            .read_from_column(b"dagon", DbColumn::Settings)?
+            .read_from_column(b"dagon", DbColumn::Settings)
+            .unwrap()
             .expect("data not found");
         assert_eq!(b"bloop", actual.as_bytes());
-
-        Ok(())
     }
 
     #[test]

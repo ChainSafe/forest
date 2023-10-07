@@ -72,59 +72,57 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_get_or_create_keypair() -> anyhow::Result<()> {
-        let dir = tempdir()?;
+    fn test_get_or_create_keypair() {
+        let dir = tempdir().unwrap();
         let path_to_file = dir.path().join(KEYPAIR_FILE);
 
         // Test that a keypair is generated and saved to disk
-        let keypair = get_or_create_keypair(dir.path())?;
+        let keypair = get_or_create_keypair(dir.path()).unwrap();
         assert!(path_to_file.exists());
 
         // Test that the same keypair is returned if it already exists
-        let keypair2 = get_or_create_keypair(dir.path())?;
+        let keypair2 = get_or_create_keypair(dir.path()).unwrap();
         assert_eq!(keypair.public(), keypair2.public());
         assert_eq!(
-            keypair.clone().try_into_ed25519()?.to_bytes(),
-            keypair2.try_into_ed25519()?.to_bytes()
+            keypair.clone().try_into_ed25519().unwrap().to_bytes(),
+            keypair2.try_into_ed25519().unwrap().to_bytes()
         );
 
         // Test that a new keypair is generated if the file is deleted
-        remove_file(&path_to_file)?;
-        let keypair3 = get_or_create_keypair(dir.path())?;
+        remove_file(&path_to_file).unwrap();
+        let keypair3 = get_or_create_keypair(dir.path()).unwrap();
         assert_ne!(keypair.public(), keypair3.public());
         assert_ne!(
-            keypair.try_into_ed25519()?.to_bytes(),
-            keypair3.try_into_ed25519()?.to_bytes()
+            keypair.try_into_ed25519().unwrap().to_bytes(),
+            keypair3.try_into_ed25519().unwrap().to_bytes()
         );
-
-        Ok(())
     }
 
     #[test]
-    fn test_backup_keypair() -> anyhow::Result<()> {
-        let dir = tempdir()?;
+    fn test_backup_keypair() {
+        let dir = tempdir().unwrap();
         let path_to_file = dir.path().join(KEYPAIR_FILE);
 
         // Test that a keypair is generated and saved to disk
-        let keypair = create_and_save_keypair(dir.path())?;
+        let keypair = create_and_save_keypair(dir.path()).unwrap();
         assert!(path_to_file.exists());
 
         // corrupt the existing keypair file
         fs::write(
             &path_to_file,
             b"Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
-        )?;
+        )
+        .unwrap();
 
         // Test that a new keypair is generated if the file is corrupted
         // and the old file is backed up
-        let keypair2 = get_or_create_keypair(dir.path())?;
+        let keypair2 = get_or_create_keypair(dir.path()).unwrap();
         assert_ne!(keypair.public(), keypair2.public());
         assert_ne!(
-            keypair.try_into_ed25519()?.to_bytes(),
-            keypair2.try_into_ed25519()?.to_bytes()
+            keypair.try_into_ed25519().unwrap().to_bytes(),
+            keypair2.try_into_ed25519().unwrap().to_bytes()
         );
         assert!(path_to_file.exists());
         assert!(dir.path().join(format!("{}.bak", KEYPAIR_FILE)).exists());
-        Ok(())
     }
 }

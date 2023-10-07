@@ -7,7 +7,6 @@ mod tests {
 
     use crate::libp2p_bitswap::*;
     use ahash::HashMap;
-    use anyhow::Result;
     use futures::StreamExt;
     use libipld::{
         multihash::{self, MultihashDigest},
@@ -34,7 +33,7 @@ mod tests {
         request_manager_e2e_test_mpl().await.unwrap();
     }
 
-    async fn request_manager_e2e_test_mpl() -> Result<()> {
+    async fn request_manager_e2e_test_mpl() -> anyhow::Result<()> {
         let block_exist = new_random_block()?;
         let block_not_exist = new_random_block()?;
 
@@ -103,7 +102,7 @@ mod tests {
         Ok(())
     }
 
-    async fn create_swarm() -> Result<(Swarm<BitswapBehaviour>, PeerId, Multiaddr)> {
+    async fn create_swarm() -> anyhow::Result<(Swarm<BitswapBehaviour>, PeerId, Multiaddr)> {
         let id_keys = Keypair::generate_ed25519();
         let peer_id = PeerId::from(id_keys.public());
         let transport = tcp::tokio::Transport::default()
@@ -125,7 +124,10 @@ mod tests {
         Ok((swarm, peer_id, peer_addr))
     }
 
-    async fn run_swarm_loop(swarm: Swarm<BitswapBehaviour>, store: TestStore) -> Result<()> {
+    async fn run_swarm_loop(
+        swarm: Swarm<BitswapBehaviour>,
+        store: TestStore,
+    ) -> anyhow::Result<()> {
         let request_manager = swarm.behaviour().request_manager();
         let mut outbound_request_rx_stream = request_manager.outbound_request_rx().stream().fuse();
         let mut swarm_stream = swarm.fuse();
@@ -154,7 +156,7 @@ mod tests {
             SwarmEvent<BitswapBehaviourEvent, libp2p::swarm::THandlerErr<BitswapBehaviour>>,
         >,
         store: &impl BitswapStoreRead,
-    ) -> Result<()> {
+    ) -> anyhow::Result<()> {
         if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {
             let bitswap = &mut swarm.behaviour_mut();
             bitswap.handle_event(store, event)?;
@@ -163,7 +165,7 @@ mod tests {
         Ok(())
     }
 
-    fn new_random_block() -> Result<libipld::Block<libipld::DefaultParams>> {
+    fn new_random_block() -> anyhow::Result<libipld::Block<libipld::DefaultParams>> {
         // 100KB
         let mut data = vec![0; 100 * 1024];
         OsRng.fill(&mut data[..]);

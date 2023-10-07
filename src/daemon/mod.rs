@@ -35,7 +35,7 @@ use crate::utils::{
     monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
     version::FOREST_VERSION_STRING,
 };
-use anyhow::{bail, Context};
+use anyhow::{bail, Context as _};
 use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;

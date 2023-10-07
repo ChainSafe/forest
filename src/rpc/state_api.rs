@@ -14,7 +14,7 @@ use crate::shim::address::Address;
 use crate::state_manager::InvocResult;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
-use anyhow::Context;
+use anyhow::Context as _;
 use fil_actor_interface::market;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -306,7 +306,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
 
                         let new_ipld = db
                             .get_cbor::<Ipld>(&cid)?
-                            .ok_or_else(|| anyhow::anyhow!("Request failed: {cid}"))?;
+                            .with_context(|| format!("Request failed: {cid}"))?;
                         dfs_vec.lock().push(new_ipld);
                         if let Some(car_tx) = &car_tx {
                             car_tx.send(CarBlock {

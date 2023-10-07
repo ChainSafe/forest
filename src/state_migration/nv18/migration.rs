@@ -4,16 +4,16 @@
 use std::sync::Arc;
 
 use crate::networks::{ChainConfig, Height};
+use crate::shim::machine::BuiltinActorManifest;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
-    machine::Manifest,
     state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::CborStore as _;
 
 use super::{
     eam::EamPostMigrator, eth_account::EthAccountPostMigrator, init, system, verifier::Verifier,
@@ -36,22 +36,22 @@ impl<BS: Blockstore> StateMigration<BS> {
             .get_cbor::<SystemStateOld>(&system_actor.state)?
             .ok_or_else(|| anyhow!("system actor state not found"))?;
         let current_manifest =
-            Manifest::load_with_actors(&store, &system_actor_state.builtin_actors, 1)?;
+            BuiltinActorManifest::load_v1_actor_list(&store, &system_actor_state.builtin_actors)?;
 
-        let new_manifest = Manifest::load(&store, new_manifest)?;
+        let new_manifest = BuiltinActorManifest::load_manifest(&store, new_manifest)?;
 
-        for (name, code) in current_manifest.builtin_actors() {
-            let new_code = new_manifest.code_by_name(name)?;
-            self.add_migrator(*code, nil_migrator(*new_code));
+        for (actor, cid) in current_manifest.builtin_actors() {
+            let new_cid = new_manifest.get(actor)?;
+            self.add_migrator(cid, nil_migrator(new_cid));
         }
 
         self.add_migrator(
-            *current_manifest.init_code(),
-            init::init_migrator(*new_manifest.init_code()),
+            current_manifest.get_init(),
+            init::init_migrator(new_manifest.get_init()),
         );
 
         self.add_migrator(
-            *current_manifest.system_code(),
+            current_manifest.get_system(),
             system::system_migrator(&new_manifest),
         );
 

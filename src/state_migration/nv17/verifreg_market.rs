@@ -11,7 +11,7 @@ use crate::shim::{
 };
 use crate::utils::db::CborStoreExt;
 use ahash::HashMap;
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
 use fvm_ipld_blockstore::Blockstore;

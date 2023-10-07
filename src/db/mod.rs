@@ -13,6 +13,7 @@ mod db_mode;
 pub mod migration;
 
 use ahash::HashSet;
+use anyhow::Context as _;
 use cid::multihash;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -86,7 +87,7 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 
     fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V> {
         self.read_bin(key)?
-            .ok_or_else(|| anyhow::anyhow!("Key {key} not found"))
+            .with_context(|| format!("Key {key} not found"))
             .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
     }
 }

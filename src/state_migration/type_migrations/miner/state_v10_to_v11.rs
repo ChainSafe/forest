@@ -3,6 +3,7 @@
 
 use crate::shim::sector::convert_window_post_proof_v1_to_v1p1;
 use crate::utils::db::CborStoreExt;
+use anyhow::Context as _;
 use fil_actor_miner_state::{
     v10::{MinerInfo as MinerInfoV10, State as MinerStateV10},
     v11::{MinerInfo as MinerInfoV11, State as MinerStateV11},
@@ -16,7 +17,7 @@ impl TypeMigration<MinerStateV10, MinerStateV11> for TypeMigrator {
     fn migrate_type(from: MinerStateV10, store: &impl Blockstore) -> anyhow::Result<MinerStateV11> {
         let in_info: MinerInfoV10 = store
             .get_cbor(&from.info)?
-            .ok_or_else(|| anyhow::anyhow!("Miner info: could not read v10 state"))?;
+            .context("Miner info: could not read v10 state")?;
 
         let out_proof_type = convert_window_post_proof_v1_to_v1p1(in_info.window_post_proof_type)
             .map_err(|e| anyhow::anyhow!(e))?;

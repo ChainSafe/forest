@@ -8,7 +8,7 @@ use crate::db::car::forest;
 use crate::ipld::stream_chain;
 use crate::utils::io::{AsyncWriterWithChecksum, Checksum};
 use crate::utils::stream::par_buffer;
-use anyhow::{Context, Result};
+use anyhow::Context as _;
 use digest::Digest;
 use fvm_ipld_blockstore::Blockstore;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub async fn export<D: Digest>(
     writer: impl AsyncWrite + Unpin,
     seen: CidHashSet,
     skip_checksum: bool,
-) -> Result<Option<digest::Output<D>>, Error> {
+) -> anyhow::Result<Option<digest::Output<D>>, Error> {
     let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
     let roots = tipset.key().cids.clone().into_iter().collect();

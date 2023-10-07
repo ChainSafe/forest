@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{anyhow, bail, Context as _};
 use cid::Cid;
 pub use fvm2::state_tree::{ActorState as ActorStateV2, StateTree as StateTreeV2};
 pub use fvm3::state_tree::{ActorState as ActorStateV3, StateTree as StateTreeV3};

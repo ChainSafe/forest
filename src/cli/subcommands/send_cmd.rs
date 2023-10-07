@@ -32,7 +32,7 @@ pub struct SendCommand {
 }
 
 impl SendCommand {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         let from: Address = if let Some(from) = &self.from {
             StrictAddress::from_str(from)?.into()
         } else {

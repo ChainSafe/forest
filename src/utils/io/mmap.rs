@@ -92,11 +92,10 @@ mod tests {
     use std::fs;
 
     use super::*;
-    use anyhow::Result;
     use quickcheck_macros::quickcheck;
 
     #[quickcheck]
-    fn test_mmap_read_at_and_size(bytes: Vec<u8>) -> Result<()> {
+    fn test_mmap_read_at_and_size(bytes: Vec<u8>) -> anyhow::Result<()> {
         let tmp = tempfile::Builder::new().tempfile()?.into_temp_path();
         fs::write(&tmp, &bytes)?;
         let mmap = Mmap::map(&fs::File::open(&tmp)?)?;
