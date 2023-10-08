@@ -16,14 +16,15 @@ use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
 use tracing::{debug, info, trace};
-use tracing_subscriber::EnvFilter;
 
 #[test]
 fn lint() {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
+    use tracing_subscriber::{filter::LevelFilter, util::SubscriberInitExt as _};
+    let _guard = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_max_level(LevelFilter::DEBUG)
         .with_writer(io::stderr)
-        .init();
+        .set_default();
     LintRunner::new()
         .run::<lints::NoTestsWithReturn>()
         .run::<lints::SpecializedAssertions>()
