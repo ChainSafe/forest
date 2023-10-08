@@ -57,7 +57,10 @@ pub struct NoTestsWithReturn {
 
 impl<'ast> Visit<'ast> for NoTestsWithReturn {
     fn visit_item_fn(&mut self, i: &'ast ItemFn) {
-        if i.attrs.iter().any(|attr| attr == &parse_quote!(#[test])) {
+        if i.attrs
+            .iter()
+            .any(|attr| attr == &parse_quote!(#[test]) || attr == &parse_quote!(#[tokio::test]))
+        {
             if let ReturnType::Type(..) = i.sig.output {
                 self.violations.push(
                     Violation::new(&i.sig.output)
