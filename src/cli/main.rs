@@ -8,7 +8,7 @@ use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
 use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
-use crate::utils::{bail_moved_cmd, io::ProgressBar};
+use crate::utils::bail_moved_cmd;
 use crate::{
     cli::subcommands::{cli_error_and_die, Cli},
     rpc_client::state_network_name,
@@ -32,7 +32,6 @@ where
             match opts.to_config() {
                 Ok((mut config, _)) => {
                     logger::setup_logger(&opts);
-                    ProgressBar::set_progress_bars_visibility(config.client.show_progress_bars);
                     if opts.dry_run {
                         return Ok(());
                     }

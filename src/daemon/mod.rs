@@ -231,8 +231,6 @@ pub(super) async fn start(
         genesis_header.clone(),
     )?);
 
-    let (gc_sender, gc_receiver) = flume::bounded(1);
-
     let mut db_garbage_collector = {
         let chain_store = chain_store.clone();
         let depth = cmp::max(
@@ -240,11 +238,12 @@ pub(super) async fn start(
             config.chain.recent_state_roots,
         );
 
-        MarkAndSweep::new(db_writer, chain_store, depth, gc_receiver)
+        MarkAndSweep::new(db_writer, chain_store, depth)
     };
 
-    // The current approach is either to allow manual GC or automatic, not both.
-    services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL, opts.no_gc).await });
+    if !opts.no_gc {
+        services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
+    }
 
     let publisher = chain_store.publisher();
 
@@ -357,8 +356,6 @@ pub(super) async fn start(
                 // TODO: the RPCState can fetch this itself from the StateManager
                 beacon,
                 chain_store: rpc_chain_store,
-                gc_event_tx: gc_sender,
-                manual_gc: opts.no_gc,
             });
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.

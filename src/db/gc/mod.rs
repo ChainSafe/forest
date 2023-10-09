@@ -89,7 +89,6 @@ pub struct MarkAndSweep<BS> {
     epoch_marked: ChainEpoch,
     epoch_sweeped: ChainEpoch,
     depth: ChainEpochDelta,
-    gc_receiver: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
 }
 
 impl<BS: Blockstore> MarkAndSweep<BS> {
@@ -100,13 +99,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// * `db` - A reference to the database instance.
     /// * `chain_store` - A reference to chain store to fetch heaviest tipset.
     /// * `depth` - The number of state-roots to retain.
-    /// * `gc_receiver` - A channel for manually triggering the GC and sending the result back.
-    pub fn new(
-        db: Arc<Db>,
-        chain_store: Arc<ChainStore<BS>>,
-        depth: ChainEpochDelta,
-        gc_receiver: flume::Receiver<flume::Sender<anyhow::Result<()>>>,
-    ) -> Self {
+    pub fn new(db: Arc<Db>, chain_store: Arc<ChainStore<BS>>, depth: ChainEpochDelta) -> Self {
         Self {
             db,
             chain_store,
@@ -114,7 +107,6 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             marked: HashSet::new(),
             epoch_marked: 0,
             epoch_sweeped: 0,
-            gc_receiver,
         }
     }
     // Populate the initial set with all the available database keys.
@@ -154,27 +146,14 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// * `depth` - Specifies how far back the full history should be maintained. Cannot be less
     /// than chain finality.
     /// * `interval` - GC Interval to avoid constantly consuming node's resources.
-    /// * `manual` - Whether or not the GC has to be triggered manually or automatically.
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
-    /// TODO: Either remove manual GC altogether or modify the CLI to be `fire-and-forget`.
-    pub async fn gc_loop(&mut self, interval: Duration, manual: bool) -> anyhow::Result<()> {
+    pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         loop {
-            match manual {
-                true => {
-                    let msg = self.gc_receiver.recv_async().await?;
-                    info!("running manual gc");
-                    let res = self.gc_workflow().await;
-                    msg.send_async(res).await?;
-                    info!("finished manual gc run");
-                }
-                false => {
-                    self.gc_workflow().await?;
-                    // Make sure we don't run the GC too often.
-                    time::sleep(interval).await;
-                }
-            }
+            self.gc_workflow().await?;
+            // Make sure we don't run the GC too often.
+            time::sleep(interval).await;
         }
     }
 
