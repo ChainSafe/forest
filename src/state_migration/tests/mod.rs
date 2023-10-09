@@ -20,7 +20,7 @@ use std::{str::FromStr, sync::Arc};
 
 #[ignore = "flaky"]
 #[tokio::test]
-async fn test_nv17_state_migration_calibnet() -> anyhow::Result<()> {
+async fn test_nv17_state_migration_calibnet() {
     // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
     // Previous state: bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg,
     // new state: bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4.
@@ -29,15 +29,15 @@ async fn test_nv17_state_migration_calibnet() -> anyhow::Result<()> {
     test_state_migration(
         Height::Shark,
         NetworkChain::Calibnet,
-        Cid::from_str("bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg")?,
-        Cid::from_str("bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4")?,
+        Cid::from_str("bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg").unwrap(),
+        Cid::from_str("bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4").unwrap(),
     )
     .await
 }
 
 #[ignore = "flaky"]
 #[tokio::test]
-async fn test_nv18_state_migration_calibnet() -> anyhow::Result<()> {
+async fn test_nv18_state_migration_calibnet() {
     // State migration at height Hygge(epoch 322354) was successful,
     // Previous state: bafy2bzacedjqwdqxlkyyuohmtcfciekl5qh2s4yf67neiuuhkibbteqoucvsm,
     // new state: bafy2bzacedhhgkmr26rbr3yujounnz2ufiwrlvamogyabgfv6uvwq3rlv4t2i.
@@ -46,15 +46,15 @@ async fn test_nv18_state_migration_calibnet() -> anyhow::Result<()> {
     test_state_migration(
         Height::Hygge,
         NetworkChain::Calibnet,
-        Cid::from_str("bafy2bzacedjqwdqxlkyyuohmtcfciekl5qh2s4yf67neiuuhkibbteqoucvsm")?,
-        Cid::from_str("bafy2bzacedhhgkmr26rbr3yujounnz2ufiwrlvamogyabgfv6uvwq3rlv4t2i")?,
+        Cid::from_str("bafy2bzacedjqwdqxlkyyuohmtcfciekl5qh2s4yf67neiuuhkibbteqoucvsm").unwrap(),
+        Cid::from_str("bafy2bzacedhhgkmr26rbr3yujounnz2ufiwrlvamogyabgfv6uvwq3rlv4t2i").unwrap(),
     )
     .await
 }
 
 #[ignore = "flaky"]
 #[tokio::test]
-async fn test_nv19_state_migration_calibnet() -> anyhow::Result<()> {
+async fn test_nv19_state_migration_calibnet() {
     // State migration at height Lightning(epoch 489094) was successful,
     // Previous state: bafy2bzacedgamjgha75e7w2cgklfdgtmumsj7nadqppnpz3wexl2wl6dexsle,
     // new state: bafy2bzacebhjx4uqtg6c65km46wiiq45dbbeckqhs2oontwdzba335nxk6bia.
@@ -63,8 +63,8 @@ async fn test_nv19_state_migration_calibnet() -> anyhow::Result<()> {
     test_state_migration(
         Height::Lightning,
         NetworkChain::Calibnet,
-        Cid::from_str("bafy2bzacedgamjgha75e7w2cgklfdgtmumsj7nadqppnpz3wexl2wl6dexsle")?,
-        Cid::from_str("bafy2bzacebhjx4uqtg6c65km46wiiq45dbbeckqhs2oontwdzba335nxk6bia")?,
+        Cid::from_str("bafy2bzacedgamjgha75e7w2cgklfdgtmumsj7nadqppnpz3wexl2wl6dexsle").unwrap(),
+        Cid::from_str("bafy2bzacebhjx4uqtg6c65km46wiiq45dbbeckqhs2oontwdzba335nxk6bia").unwrap(),
     )
     .await
 }
@@ -74,12 +74,13 @@ async fn test_state_migration(
     network: NetworkChain,
     old_state: Cid,
     expected_new_state: Cid,
-) -> anyhow::Result<()> {
+) {
     // Car files are cached under data folder for Go test to pick up without network access
     let car_path = PathBuf::from(format!("./src/state_migration/tests/data/{old_state}.car"));
     if !car_path.is_file() {
-        let tmp: tempfile::TempPath =
-            tempfile::NamedTempFile::new_in(car_path.parent().unwrap())?.into_temp_path();
+        let tmp: tempfile::TempPath = tempfile::NamedTempFile::new_in(car_path.parent().unwrap())
+            .unwrap()
+            .into_temp_path();
         let timeout = Duration::from_secs(5);
         retry(
             RetryArgs {
@@ -90,37 +91,36 @@ async fn test_state_migration(
             || async {
                 let response = global_http_client().get(format!(
                     "https://forest-continuous-integration.fra1.digitaloceanspaces.com/state_migration/state/{old_state}.car"
-                )).timeout(timeout).send().await?;
+                )).timeout(timeout).send().await.unwrap();
                 let reader = response
                     .bytes_stream()
                     .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
                     .into_async_read();
-                let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
-                futures::io::copy(reader, &mut writer).await?;
-                writer.flush().await?;
-                writer.close().await?;
+                let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await.unwrap());
+                futures::io::copy(reader, &mut writer).await.unwrap();
+                writer.flush().await.unwrap();
+                writer.close().await.unwrap();
 
                 anyhow::Ok(())
             },
         )
-        .await?;
-        tmp.persist(&car_path)?;
+        .await.unwrap();
+        tmp.persist(&car_path).unwrap();
     }
 
-    let store = Arc::new(crate::db::car::plain::PlainCar::new(
-        RandomAccessFile::open(&car_path)?,
-    )?);
-    load_actor_bundles(&store).await?;
+    let store = Arc::new(
+        crate::db::car::plain::PlainCar::new(RandomAccessFile::open(&car_path).unwrap()).unwrap(),
+    );
+    load_actor_bundles(&store).await.unwrap();
 
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];
 
-    let state_root: StateRoot = store.get_cbor(&old_state)?.unwrap();
+    let state_root: StateRoot = store.get_cbor(&old_state).unwrap().unwrap();
     println!("Actor root (for Go test): {}", state_root.actors);
 
-    let new_state = run_state_migrations(height_info.epoch, &chain_config, &store, &old_state)?;
+    let new_state =
+        run_state_migrations(height_info.epoch, &chain_config, &store, &old_state).unwrap();
 
     assert_eq!(new_state, Some(expected_new_state));
-
-    Ok(())
 }
