@@ -20,9 +20,6 @@ pub async fn sync_mark_bad(
     call(SYNC_MARK_BAD, params, auth_token).await
 }
 
-pub async fn sync_status(
-    _: SyncStateParams,
-    auth_token: &Option<String>,
-) -> Result<SyncStateResult, JsonRpcError> {
+pub async fn sync_status(auth_token: &Option<String>) -> Result<SyncStateResult, JsonRpcError> {
     call(SYNC_STATE, (), auth_token).await
 }

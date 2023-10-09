@@ -185,7 +185,7 @@ where
 }
 
 macro_rules! bind_func {
-    ($context:expr, $token:expr, $func:ident) => {
+    ($context:expr, $token:expr, $func:expr) => {
         let js_func_name = stringify!($func).to_case(Case::Camel);
         let js_func = FunctionObjectBuilder::new($context, unsafe {
             NativeFunction::from_closure_with_captures(
@@ -202,6 +202,7 @@ macro_rules! bind_func {
                         };
                         // TODO: check if unwrap is safe here
                         let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        #[allow(clippy::redundant_closure_call)]
                         handle.block_on($func(args, token))
                     });
                     check_result(context, result)
@@ -258,7 +259,7 @@ async fn sleep_tipsets(
 ) -> Result<SleepTipsetsResult, jsonrpc_v2::Error> {
     let mut epoch = None;
     loop {
-        let state = sync_status(Default::default(), auth_token).await?;
+        let state = sync_status(auth_token).await?;
         if state.active_syncs[0].stage() == SyncStage::Complete {
             if let Some(prev) = epoch {
                 let curr = state.active_syncs[0].epoch();
@@ -310,7 +311,7 @@ impl AttachCommand {
         // Sync API
         bind_func!(context, token, sync_check_bad);
         bind_func!(context, token, sync_mark_bad);
-        bind_func!(context, token, sync_status);
+        bind_func!(context, token, |_, t| sync_status(t));
 
         // Wallet API
         // TODO: bind wallet_sign, wallet_verify

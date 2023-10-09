@@ -273,7 +273,6 @@ pub mod sync_api {
     pub type SyncMarkBadResult = ();
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
-    pub type SyncStateParams = super::EmptyParams;
     pub type SyncStateResult = RPCSyncState;
 }
 
