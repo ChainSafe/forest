@@ -345,7 +345,6 @@ pub mod state_api {
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
     pub type StateNetworkNameParams = ();
     pub type StateNetworkNameResult = String;
 
