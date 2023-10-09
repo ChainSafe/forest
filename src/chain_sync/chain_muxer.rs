@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
-    pin::Pin,
+    pin::{pin, Pin},
     sync::Arc,
     task::{Context, Poll},
     time::SystemTime,
@@ -22,13 +22,13 @@ use crate::state_manager::StateManager;
 use cid::Cid;
 use futures::{
     future::{try_join_all, Future},
-    stream::FuturesUnordered,
-    try_join, StreamExt,
+    try_join,
 };
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::task::{JoinError, JoinHandle, JoinSet};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
@@ -43,8 +43,6 @@ use crate::chain_sync::{
 };
 
 pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
-
-type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 #[derive(Debug, Error)]
 pub enum ChainMuxerError {
@@ -113,6 +111,347 @@ enum PubsubMessageProcessingStrategy {
     Process,
     /// Message _should not_ be added to the message pool
     DoNotProcess,
+}
+
+#[derive(Clone)]
+struct ChainMuxerWithoutFutureState<DB, M> {
+    worker_state: WorkerState,
+    state_manager: Arc<StateManager<DB>>,
+    network: SyncNetworkContext<DB>,
+    genesis: Arc<Tipset>,
+    bad_blocks: Arc<BadBlockCache>,
+    net_handler: flume::Receiver<NetworkEvent>,
+    mpool: Arc<MessagePool<M>>,
+    tipset_sender: flume::Sender<Arc<Tipset>>,
+    tipset_receiver: flume::Receiver<Arc<Tipset>>,
+    sync_config: SyncConfig,
+}
+
+impl<DB, M> From<&Pin<&ChainMuxer<DB, M>>> for ChainMuxerWithoutFutureState<DB, M> {
+    fn from(muxer: &Pin<&ChainMuxer<DB, M>>) -> Self {
+        Self {
+            worker_state: muxer.worker_state.clone(),
+            state_manager: muxer.state_manager.clone(),
+            network: muxer.network.clone(),
+            genesis: muxer.genesis.clone(),
+            bad_blocks: muxer.bad_blocks.clone(),
+            net_handler: muxer.net_handler.clone(),
+            mpool: muxer.mpool.clone(),
+            tipset_sender: muxer.tipset_sender.clone(),
+            tipset_receiver: muxer.tipset_receiver.clone(),
+            sync_config: muxer.sync_config.clone(),
+        }
+    }
+}
+
+impl<DB, M> ChainMuxerWithoutFutureState<DB, M>
+where
+    DB: Blockstore + Sync + Send + 'static,
+    M: Provider + Sync + Send + 'static,
+{
+    async fn bootstrap(
+        self,
+        network_head: FullTipset,
+        local_head: Arc<Tipset>,
+    ) -> Result<(), ChainMuxerError> {
+        // Instantiate a TipsetRangeSyncer
+        let trs_state_manager = self.state_manager.clone();
+        let trs_bad_block_cache = self.bad_blocks.clone();
+        let trs_chain_store = self.state_manager.chain_store().clone();
+        let trs_network = self.network.clone();
+        let trs_tracker = self.worker_state.clone();
+        let trs_genesis = self.genesis.clone();
+
+        let mut tasks = JoinSet::new();
+
+        tasks.spawn(async move {
+            let network_head_epoch = network_head.epoch();
+            let tipset_range_syncer = match TipsetRangeSyncer::new(
+                trs_tracker,
+                Arc::new(network_head.into_tipset()),
+                local_head,
+                trs_state_manager,
+                trs_network,
+                trs_chain_store,
+                trs_bad_block_cache,
+                trs_genesis,
+            ) {
+                Ok(tipset_range_syncer) => tipset_range_syncer,
+                Err(why) => {
+                    metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
+                    return Err(ChainMuxerError::TipsetRangeSyncer(why));
+                }
+            };
+
+            tipset_range_syncer
+                .await
+                .map_err(ChainMuxerError::TipsetRangeSyncer)?;
+
+            metrics::HEAD_EPOCH.set(network_head_epoch as u64);
+
+            Ok(())
+        });
+
+        // The stream processor _must_ only error if the stream ends
+        let p2p_messages = self.net_handler.clone();
+        let chain_store = self.state_manager.chain_store().clone();
+        let network = self.network.clone();
+        let genesis = self.genesis.clone();
+        let bad_block_cache = self.bad_blocks.clone();
+        let mem_pool = self.mpool.clone();
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        tasks.spawn(async move {
+            loop {
+                let event = match p2p_messages.recv_async().await {
+                    Ok(event) => event,
+                    Err(why) => {
+                        debug!("Receiving event from p2p event stream failed: {}", why);
+                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+                    }
+                };
+
+                let (_tipset, _) = match ChainMuxer::process_gossipsub_event(
+                    event,
+                    network.clone(),
+                    chain_store.clone(),
+                    bad_block_cache.clone(),
+                    mem_pool.clone(),
+                    genesis.clone(),
+                    PubsubMessageProcessingStrategy::DoNotProcess,
+                    block_delay,
+                )
+                .await
+                {
+                    Ok(Some((tipset, source))) => (tipset, source),
+                    Ok(None) => continue,
+                    Err(why) => {
+                        debug!("Processing GossipSub event failed: {:?}", why);
+                        continue;
+                    }
+                };
+
+                // Drop tipsets while we are bootstrapping
+            }
+        });
+
+        // The stream processor will not return unless the p2p event stream is closed.
+        // In this case it will return with an error. Only wait for one task
+        // to complete before returning to the caller
+        match tasks.join_next().await {
+            Some(Ok(Ok(_))) => Ok(()),
+            Some(Ok(Err(e))) => Err(e),
+            Some(Err(e)) => {
+                panic_on_join_error(e);
+                unreachable!()
+            }
+            // This arm is reliably unreachable because the FuturesUnordered
+            // has two futures and we only wait for one before returning
+            None => unreachable!(),
+        }
+    }
+
+    async fn follow(self, tipset_opt: Option<FullTipset>) -> Result<(), ChainMuxerError> {
+        // Instantiate a TipsetProcessor
+        let tp_state_manager = self.state_manager.clone();
+        let tp_network = self.network.clone();
+        let tp_chain_store = self.state_manager.chain_store().clone();
+        let tp_bad_block_cache = self.bad_blocks.clone();
+        let tp_tipset_receiver = self.tipset_receiver.clone();
+        let tp_tracker = self.worker_state.clone();
+        let tp_genesis = self.genesis.clone();
+        enum UnexpectedReturnKind {
+            TipsetProcessor,
+        }
+
+        let mut tasks = JoinSet::new();
+
+        tasks.spawn(async move {
+            TipsetProcessor::new(
+                tp_tracker,
+                Box::pin(tp_tipset_receiver.into_stream()),
+                tp_state_manager,
+                tp_network,
+                tp_chain_store,
+                tp_bad_block_cache,
+                tp_genesis,
+            )
+            .await
+            .map_err(ChainMuxerError::TipsetProcessor)?;
+
+            Ok(UnexpectedReturnKind::TipsetProcessor)
+        });
+
+        // The stream processor _must_ only error if the p2p event stream ends or if the
+        // tipset channel is unexpectedly closed
+        let p2p_messages = self.net_handler.clone();
+        let chain_store = self.state_manager.chain_store().clone();
+        let network = self.network.clone();
+        let genesis = self.genesis.clone();
+        let bad_block_cache = self.bad_blocks.clone();
+        let mem_pool = self.mpool.clone();
+        let tipset_sender = self.tipset_sender.clone();
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+
+        tasks.spawn(async move {
+                // If a tipset has been provided, pass it to the tipset processor
+                if let Some(tipset) = tipset_opt {
+                    if let Err(why) = tipset_sender
+                        .send_async(Arc::new(tipset.into_tipset()))
+                        .await
+                    {
+                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
+                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
+                    };
+                }
+                loop {
+                    let event = match p2p_messages.recv_async().await {
+                        Ok(event) => event,
+                        Err(why) => {
+                            debug!("Receiving event from p2p event stream failed: {}", why);
+                            return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+                        }
+                    };
+
+                    let (tipset, _) = match ChainMuxer::process_gossipsub_event(
+                        event,
+                        network.clone(),
+                        chain_store.clone(),
+                        bad_block_cache.clone(),
+                        mem_pool.clone(),
+                        genesis.clone(),
+                        PubsubMessageProcessingStrategy::Process,
+                        block_delay,
+                    )
+                    .await
+                    {
+                        Ok(Some((tipset, source))) => (tipset, source),
+                        Ok(None) => continue,
+                        Err(why) => {
+                            debug!("Processing GossipSub event failed: {:?}", why);
+                            continue;
+                        }
+                    };
+
+                    // Validate that the tipset is heavier that the heaviest
+                    // tipset in the store
+                    if tipset.weight() < chain_store.heaviest_tipset().weight() {
+                        // Only send heavier Tipsets to the TipsetProcessor
+                        trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
+                        continue;
+                    }
+
+                    if let Err(why) = tipset_sender
+                        .send_async(Arc::new(tipset.into_tipset()))
+                        .await
+                    {
+                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
+                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
+                    };
+                }
+            });
+
+        // Only wait for one of the tasks to complete before returning to the caller
+        match tasks.join_next().await {
+            // Either the TipsetProcessor or the StreamProcessor has returned.
+            // Both of these should be long running, so we have to return control
+            // back to caller in order to direct the next action.
+            Some(Ok(Ok(kind))) => {
+                // Log the expected return
+                match kind {
+                    UnexpectedReturnKind::TipsetProcessor => {
+                        Err(ChainMuxerError::NetworkFollowingFailure(String::from(
+                            "Tipset processor unexpectedly returned",
+                        )))
+                    }
+                }
+            }
+            Some(Ok(Err(e))) => {
+                error!("Following the network failed unexpectedly: {}", e);
+                Err(e)
+            }
+            Some(Err(e)) => {
+                panic_on_join_error(e);
+                unreachable!()
+            }
+            // This arm is reliably unreachable because the FuturesUnordered
+            // has two futures and we only resolve one before returning
+            None => unreachable!(),
+        }
+    }
+
+    async fn evaluate_network_head(self) -> Result<NetworkHeadEvaluation, ChainMuxerError> {
+        let p2p_messages = self.net_handler.clone();
+        let chain_store = self.state_manager.chain_store().clone();
+        let network = self.network.clone();
+        let genesis = self.genesis.clone();
+        let bad_block_cache = self.bad_blocks.clone();
+        let mem_pool = self.mpool.clone();
+        let tipset_sample_size = self.sync_config.tipset_sample_size;
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+
+        let mut tipsets = vec![];
+        loop {
+            let event = match p2p_messages.recv_async().await {
+                Ok(event) => event,
+                Err(why) => {
+                    debug!("Receiving event from p2p event stream failed: {}", why);
+                    return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+                }
+            };
+
+            let (tipset, _) = match ChainMuxer::process_gossipsub_event(
+                event,
+                network.clone(),
+                chain_store.clone(),
+                bad_block_cache.clone(),
+                mem_pool.clone(),
+                genesis.clone(),
+                PubsubMessageProcessingStrategy::Process,
+                block_delay,
+            )
+            .await
+            {
+                Ok(Some((tipset, source))) => (tipset, source),
+                Ok(None) => continue,
+                Err(why) => {
+                    debug!("Processing GossipSub event failed: {:?}", why);
+                    continue;
+                }
+            };
+
+            // Add to tipset sample
+            tipsets.push(tipset);
+            if tipsets.len() >= tipset_sample_size {
+                break;
+            }
+        }
+
+        // Find the heaviest tipset in the sample
+        // Unwrapping is safe because we ensure the sample size is not 0
+        let network_head = tipsets
+            .into_iter()
+            .max_by_key(|ts| ts.weight().clone())
+            .unwrap();
+
+        // Query the heaviest tipset in the store
+        // Unwrapping is fine because the store always has at least one tipset
+        let local_head = chain_store.heaviest_tipset();
+
+        // We are in sync if the local head weight is heavier or
+        // as heavy as the network head
+        if local_head.weight() >= network_head.weight() {
+            return Ok(NetworkHeadEvaluation::InSync);
+        }
+        // We are in range if the network epoch is only 1 ahead of the local epoch
+        if (network_head.epoch() - local_head.epoch()) == 1 {
+            return Ok(NetworkHeadEvaluation::InRange { network_head });
+        }
+        // Local node is behind the network and we need to do an initial sync
+        Ok(NetworkHeadEvaluation::Behind {
+            network_head,
+            local_head,
+        })
+    }
 }
 
 /// The `ChainMuxer` handles events from the P2P network and orchestrates the
@@ -512,321 +851,13 @@ where
 
         Ok(Some((tipset, source)))
     }
-
-    fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let tipset_sample_size = self.sync_config.tipset_sample_size;
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
-
-        let evaluator = async move {
-            let mut tipsets = vec![];
-            loop {
-                let event = match p2p_messages.recv_async().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
-
-                let (tipset, _) = match Self::process_gossipsub_event(
-                    event,
-                    network.clone(),
-                    chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
-                    PubsubMessageProcessingStrategy::Process,
-                    block_delay,
-                )
-                .await
-                {
-                    Ok(Some((tipset, source))) => (tipset, source),
-                    Ok(None) => continue,
-                    Err(why) => {
-                        debug!("Processing GossipSub event failed: {:?}", why);
-                        continue;
-                    }
-                };
-
-                // Add to tipset sample
-                tipsets.push(tipset);
-                if tipsets.len() >= tipset_sample_size {
-                    break;
-                }
-            }
-
-            // Find the heaviest tipset in the sample
-            // Unwrapping is safe because we ensure the sample size is not 0
-            let network_head = tipsets
-                .into_iter()
-                .max_by_key(|ts| ts.weight().clone())
-                .unwrap();
-
-            // Query the heaviest tipset in the store
-            // Unwrapping is fine because the store always has at least one tipset
-            let local_head = chain_store.heaviest_tipset();
-
-            // We are in sync if the local head weight is heavier or
-            // as heavy as the network head
-            if local_head.weight() >= network_head.weight() {
-                return Ok(NetworkHeadEvaluation::InSync);
-            }
-            // We are in range if the network epoch is only 1 ahead of the local epoch
-            if (network_head.epoch() - local_head.epoch()) == 1 {
-                return Ok(NetworkHeadEvaluation::InRange { network_head });
-            }
-            // Local node is behind the network and we need to do an initial sync
-            Ok(NetworkHeadEvaluation::Behind {
-                network_head,
-                local_head,
-            })
-        };
-
-        Box::pin(evaluator)
-    }
-
-    fn bootstrap(
-        &self,
-        network_head: FullTipset,
-        local_head: Arc<Tipset>,
-    ) -> ChainMuxerFuture<(), ChainMuxerError> {
-        // Instantiate a TipsetRangeSyncer
-        let trs_state_manager = self.state_manager.clone();
-        let trs_bad_block_cache = self.bad_blocks.clone();
-        let trs_chain_store = self.state_manager.chain_store().clone();
-        let trs_network = self.network.clone();
-        let trs_tracker = self.worker_state.clone();
-        let trs_genesis = self.genesis.clone();
-        let tipset_range_syncer: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
-            let network_head_epoch = network_head.epoch();
-            let tipset_range_syncer = match TipsetRangeSyncer::new(
-                trs_tracker,
-                Arc::new(network_head.into_tipset()),
-                local_head,
-                trs_state_manager,
-                trs_network,
-                trs_chain_store,
-                trs_bad_block_cache,
-                trs_genesis,
-            ) {
-                Ok(tipset_range_syncer) => tipset_range_syncer,
-                Err(why) => {
-                    metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
-                    return Err(ChainMuxerError::TipsetRangeSyncer(why));
-                }
-            };
-
-            tipset_range_syncer
-                .await
-                .map_err(ChainMuxerError::TipsetRangeSyncer)?;
-
-            metrics::HEAD_EPOCH.set(network_head_epoch as u64);
-
-            Ok(())
-        });
-
-        // The stream processor _must_ only error if the stream ends
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
-        let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
-            loop {
-                let event = match p2p_messages.recv_async().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
-
-                let (_tipset, _) = match Self::process_gossipsub_event(
-                    event,
-                    network.clone(),
-                    chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
-                    PubsubMessageProcessingStrategy::DoNotProcess,
-                    block_delay,
-                )
-                .await
-                {
-                    Ok(Some((tipset, source))) => (tipset, source),
-                    Ok(None) => continue,
-                    Err(why) => {
-                        debug!("Processing GossipSub event failed: {:?}", why);
-                        continue;
-                    }
-                };
-
-                // Drop tipsets while we are bootstrapping
-            }
-        });
-
-        let mut tasks = FuturesUnordered::new();
-        tasks.push(tipset_range_syncer);
-        tasks.push(stream_processor);
-
-        Box::pin(async move {
-            // The stream processor will not return unless the p2p event stream is closed.
-            // In this case it will return with an error. Only wait for one task
-            // to complete before returning to the caller
-            match tasks.next().await {
-                Some(Ok(_)) => Ok(()),
-                Some(Err(e)) => Err(e),
-                // This arm is reliably unreachable because the FuturesUnordered
-                // has two futures and we only wait for one before returning
-                None => unreachable!(),
-            }
-        })
-    }
-
-    fn follow(&self, tipset_opt: Option<FullTipset>) -> ChainMuxerFuture<(), ChainMuxerError> {
-        // Instantiate a TipsetProcessor
-        let tp_state_manager = self.state_manager.clone();
-        let tp_network = self.network.clone();
-        let tp_chain_store = self.state_manager.chain_store().clone();
-        let tp_bad_block_cache = self.bad_blocks.clone();
-        let tp_tipset_receiver = self.tipset_receiver.clone();
-        let tp_tracker = self.worker_state.clone();
-        let tp_genesis = self.genesis.clone();
-        enum UnexpectedReturnKind {
-            TipsetProcessor,
-        }
-        let tipset_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> =
-            Box::pin(async move {
-                TipsetProcessor::new(
-                    tp_tracker,
-                    Box::pin(tp_tipset_receiver.into_stream()),
-                    tp_state_manager,
-                    tp_network,
-                    tp_chain_store,
-                    tp_bad_block_cache,
-                    tp_genesis,
-                )
-                .await
-                .map_err(ChainMuxerError::TipsetProcessor)?;
-
-                Ok(UnexpectedReturnKind::TipsetProcessor)
-            });
-
-        // The stream processor _must_ only error if the p2p event stream ends or if the
-        // tipset channel is unexpectedly closed
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
-        let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
-            async move {
-                // If a tipset has been provided, pass it to the tipset processor
-                if let Some(tipset) = tipset_opt {
-                    if let Err(why) = tipset_sender
-                        .send_async(Arc::new(tipset.into_tipset()))
-                        .await
-                    {
-                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
-                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
-                    };
-                }
-                loop {
-                    let event = match p2p_messages.recv_async().await {
-                        Ok(event) => event,
-                        Err(why) => {
-                            debug!("Receiving event from p2p event stream failed: {}", why);
-                            return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                        }
-                    };
-
-                    let (tipset, _) = match Self::process_gossipsub_event(
-                        event,
-                        network.clone(),
-                        chain_store.clone(),
-                        bad_block_cache.clone(),
-                        mem_pool.clone(),
-                        genesis.clone(),
-                        PubsubMessageProcessingStrategy::Process,
-                        block_delay,
-                    )
-                    .await
-                    {
-                        Ok(Some((tipset, source))) => (tipset, source),
-                        Ok(None) => continue,
-                        Err(why) => {
-                            debug!("Processing GossipSub event failed: {:?}", why);
-                            continue;
-                        }
-                    };
-
-                    // Validate that the tipset is heavier that the heaviest
-                    // tipset in the store
-                    if tipset.weight() < chain_store.heaviest_tipset().weight() {
-                        // Only send heavier Tipsets to the TipsetProcessor
-                        trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
-                        continue;
-                    }
-
-                    if let Err(why) = tipset_sender
-                        .send_async(Arc::new(tipset.into_tipset()))
-                        .await
-                    {
-                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
-                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
-                    };
-                }
-            },
-        );
-
-        let mut tasks = FuturesUnordered::new();
-        tasks.push(tipset_processor);
-        tasks.push(stream_processor);
-
-        Box::pin(async move {
-            // Only wait for one of the tasks to complete before returning to the caller
-            match tasks.next().await {
-                // Either the TipsetProcessor or the StreamProcessor has returned.
-                // Both of these should be long running, so we have to return control
-                // back to caller in order to direct the next action.
-                Some(Ok(kind)) => {
-                    // Log the expected return
-                    match kind {
-                        UnexpectedReturnKind::TipsetProcessor => {
-                            Err(ChainMuxerError::NetworkFollowingFailure(String::from(
-                                "Tipset processor unexpectedly returned",
-                            )))
-                        }
-                    }
-                }
-                Some(Err(e)) => {
-                    error!("Following the network failed unexpectedly: {}", e);
-                    Err(e)
-                }
-                // This arm is reliably unreachable because the FuturesUnordered
-                // has two futures and we only resolve one before returning
-                None => unreachable!(),
-            }
-        })
-    }
 }
 
 enum ChainMuxerState {
     Idle,
-    Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>),
-    Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
-    Follow(ChainMuxerFuture<(), ChainMuxerError>),
+    Connect(JoinHandle<Result<NetworkHeadEvaluation, ChainMuxerError>>),
+    Bootstrap(JoinHandle<Result<(), ChainMuxerError>>),
+    Follow(JoinHandle<Result<(), ChainMuxerError>>),
 }
 
 impl<DB, M> Future for ChainMuxer<DB, M>
@@ -838,82 +869,105 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
+            let muxer = ChainMuxerWithoutFutureState::from(&self.as_ref());
             match self.state {
                 ChainMuxerState::Idle => {
                     if self.sync_config.tipset_sample_size == 0 {
                         // A standalone node might use this option to not be stuck waiting for P2P
                         // messages.
                         info!("Skip evaluating network head, assume in-sync.");
-                        self.state = ChainMuxerState::Follow(self.follow(None));
+                        self.state = ChainMuxerState::Follow(tokio::spawn(muxer.follow(None)));
                     } else {
                         // Create the connect future and set the state to connect
                         info!("Evaluating network head...");
-                        self.state = ChainMuxerState::Connect(self.evaluate_network_head());
+                        self.state =
+                            ChainMuxerState::Connect(tokio::spawn(muxer.evaluate_network_head()));
                     }
                 }
-                ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
-                    Poll::Ready(Ok(evaluation)) => match evaluation {
-                        NetworkHeadEvaluation::Behind {
-                            network_head,
-                            local_head,
-                        } => {
-                            info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
-                            self.state = ChainMuxerState::Bootstrap(
-                                self.bootstrap(network_head, local_head),
+                ChainMuxerState::Connect(ref mut connect) => {
+                    match std::task::ready!(pin!(connect).poll(cx)) {
+                        Ok(Ok(evaluation)) => match evaluation {
+                            NetworkHeadEvaluation::Behind {
+                                network_head,
+                                local_head,
+                            } => {
+                                info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
+                                self.state = ChainMuxerState::Bootstrap(tokio::spawn(
+                                    muxer.bootstrap(network_head, local_head),
+                                ));
+                            }
+                            NetworkHeadEvaluation::InRange { network_head } => {
+                                info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
+                                self.state = ChainMuxerState::Follow(tokio::spawn(
+                                    muxer.follow(Some(network_head)),
+                                ));
+                            }
+                            NetworkHeadEvaluation::InSync => {
+                                info!("Local node is in sync with the network");
+                                self.state =
+                                    ChainMuxerState::Follow(tokio::spawn(muxer.follow(None)));
+                            }
+                        },
+                        Ok(Err(why)) => {
+                            // TODO: Should we exponentially backoff before retrying?
+                            error!(
+                                "Evaluating the network head failed, retrying. Error = {:?}",
+                                why
                             );
-                        }
-                        NetworkHeadEvaluation::InRange { network_head } => {
-                            info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
-                            self.state = ChainMuxerState::Follow(self.follow(Some(network_head)));
-                        }
-                        NetworkHeadEvaluation::InSync => {
-                            info!("Local node is in sync with the network");
-                            self.state = ChainMuxerState::Follow(self.follow(None));
-                        }
-                    },
-                    Poll::Ready(Err(why)) => {
-                        // TODO: Should we exponentially backoff before retrying?
-                        error!(
-                            "Evaluating the network head failed, retrying. Error = {:?}",
-                            why
-                        );
-                        metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
-                        self.state = ChainMuxerState::Idle;
+                            metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
+                            self.state = ChainMuxerState::Idle;
 
-                        // By default bail on errors
-                        return Poll::Ready(why);
+                            // By default bail on errors
+                            return Poll::Ready(why);
+                        }
+                        Err(e) => {
+                            panic_on_join_error(e);
+                        }
                     }
-                    Poll::Pending => return Poll::Pending,
-                },
+                }
                 ChainMuxerState::Bootstrap(ref mut bootstrap) => {
-                    match bootstrap.as_mut().poll(cx) {
-                        Poll::Ready(Ok(_)) => {
+                    match std::task::ready!(pin!(bootstrap).poll(cx)) {
+                        Ok(Ok(_)) => {
                             info!("Bootstrap successfully completed, now evaluating the network head to ensure the node is in sync");
                             self.state = ChainMuxerState::Idle;
                         }
-                        Poll::Ready(Err(why)) => {
+                        Ok(Err(why)) => {
                             // TODO: Should we exponentially back off before retrying?
                             error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
                             metrics::BOOTSTRAP_ERRORS.inc();
                             self.state = ChainMuxerState::Idle;
                         }
-                        Poll::Pending => return Poll::Pending,
+                        Err(e) => {
+                            panic_on_join_error(e);
+                        }
                     }
                 }
-                ChainMuxerState::Follow(ref mut follow) => match follow.as_mut().poll(cx) {
-                    Poll::Ready(Ok(_)) => {
-                        error!("Following the network unexpectedly ended without an error; restarting the sync process.");
-                        metrics::FOLLOW_NETWORK_INTERRUPTIONS.inc();
-                        self.state = ChainMuxerState::Idle;
+                ChainMuxerState::Follow(ref mut follow) => {
+                    match std::task::ready!(pin!(follow).poll(cx)) {
+                        Ok(Ok(_)) => {
+                            error!("Following the network unexpectedly ended without an error; restarting the sync process.");
+                            metrics::FOLLOW_NETWORK_INTERRUPTIONS.inc();
+                            self.state = ChainMuxerState::Idle;
+                        }
+                        Ok(Err(why)) => {
+                            error!("Following the network failed, restarted. Error = {:?}", why);
+                            metrics::FOLLOW_NETWORK_ERRORS.inc();
+                            self.state = ChainMuxerState::Idle;
+                        }
+                        Err(e) => {
+                            panic_on_join_error(e);
+                        }
                     }
-                    Poll::Ready(Err(why)) => {
-                        error!("Following the network failed, restarted. Error = {:?}", why);
-                        metrics::FOLLOW_NETWORK_ERRORS.inc();
-                        self.state = ChainMuxerState::Idle;
-                    }
-                    Poll::Pending => return Poll::Pending,
-                },
+                }
             }
         }
+    }
+}
+
+fn panic_on_join_error(e: JoinError) {
+    if let Ok(p) = e.try_into_panic() {
+        std::panic::resume_unwind(p);
+    } else {
+        panic!("Internal error: Chain muxer task unexpectedly canceled");
     }
 }
