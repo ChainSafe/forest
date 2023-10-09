@@ -256,30 +256,31 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn test_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn test_resumable_get() {
         let port = 3000;
         create_flaky_server(port).await;
 
-        let resp = get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap()).await?;
+        let resp = get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap())
+            .await
+            .unwrap();
 
         let mut stream = resp.bytes_stream();
         let mut read_len = 0;
         while let Some(item) = stream.next().await {
-            read_len += item?.len();
+            read_len += item.unwrap().len();
         }
         assert_eq!(read_len, BUFFER_LEN);
-
-        Ok(())
     }
 
     #[tokio::test]
-    pub async fn test_non_resumable_get() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn test_non_resumable_get() {
         let port = 3001;
         create_flaky_server(port).await;
 
         let resp =
             reqwest::get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap())
-                .await?;
+                .await
+                .unwrap();
 
         let mut stream = resp.bytes_stream();
 
@@ -289,7 +290,5 @@ mod tests {
         let err = item.unwrap_err();
         assert!(err.is_body());
         assert!(stream.next().await.is_none());
-
-        Ok(())
     }
 }
