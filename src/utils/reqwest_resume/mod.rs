@@ -199,9 +199,10 @@ mod tests {
     async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let buffer = [b'a'; BUFFER_LEN];
 
+        let (mut sender, body) = Body::channel();
+
         let body = if let Some(range) = req.headers().get(header::RANGE) {
             let offset = extract_range_start(range, buffer.len());
-            let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
             tokio::task::spawn(async move {
@@ -212,7 +213,6 @@ mod tests {
             });
             body
         } else {
-            let (mut sender, body) = Body::channel();
             tokio::task::spawn(async move {
                 sender
                     .send_data(Bytes::copy_from_slice(&buffer[0..CHUNK_LEN]))
