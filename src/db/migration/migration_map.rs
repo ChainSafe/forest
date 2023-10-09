@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::bail;
+use anyhow::Context as _;
 use itertools::Itertools;
 use multimap::MultiMap;
 use once_cell::sync::Lazy;
@@ -148,7 +149,7 @@ fn create_migration_chain_from_migrations(
         },
         |to| to == goal,
     )
-    .ok_or_else(|| anyhow::anyhow!("No migration path found from version {start} to {goal}"))?
+    .with_context(|| format!("No migration path found from version {start} to {goal}"))?
     .iter()
     .tuple_windows()
     .map(|(from, to)| {
@@ -261,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn test_migration_should_use_shortest_path() -> anyhow::Result<()> {
+    fn test_migration_should_use_shortest_path() {
         let migrations = MigrationsMap::from_iter(
             [
                 (
@@ -285,18 +286,17 @@ mod tests {
             &Version::new(0, 1, 0),
             &Version::new(0, 3, 0),
             &migrations,
-        )?;
+        )
+        .unwrap();
 
         // The shortest path is 0.1.0 to 0.3.0 (without going through 0.2.0)
         assert_eq!(1, migrations.len());
         assert_eq!(Version::new(0, 1, 0), migrations[0].from);
         assert_eq!(Version::new(0, 3, 0), migrations[0].to);
-
-        Ok(())
     }
 
     #[test]
-    fn test_migration_complex_path() -> anyhow::Result<()> {
+    fn test_migration_complex_path() {
         let migrations = MigrationsMap::from_iter(
             [
                 (
@@ -324,7 +324,8 @@ mod tests {
             &Version::new(0, 1, 0),
             &Version::new(0, 3, 1),
             &migrations,
-        )?;
+        )
+        .unwrap();
 
         // The shortest path is 0.1.0 -> 0.3.0 -> 0.3.1
         assert_eq!(2, migrations.len());
@@ -332,12 +333,10 @@ mod tests {
         assert_eq!(Version::new(0, 3, 0), migrations[0].to);
         assert_eq!(Version::new(0, 3, 0), migrations[1].from);
         assert_eq!(Version::new(0, 3, 1), migrations[1].to);
-
-        Ok(())
     }
 
     #[test]
-    fn test_same_distance_paths_should_yield_any() -> anyhow::Result<()> {
+    fn test_same_distance_paths_should_yield_any() {
         let migrations = MigrationsMap::from_iter(
             [
                 (
@@ -365,7 +364,8 @@ mod tests {
             &Version::new(0, 1, 0),
             &Version::new(0, 4, 0),
             &migrations,
-        )?;
+        )
+        .unwrap();
 
         // there are two possible shortest paths:
         // 0.1.0 -> 0.2.0 -> 0.4.0
@@ -383,8 +383,6 @@ mod tests {
             assert_eq!(Version::new(0, 3, 0), migrations[1].from);
             assert_eq!(Version::new(0, 4, 0), migrations[1].to);
         }
-
-        Ok(())
     }
 
     struct SimpleMigration0_1_0_0_2_0;
@@ -399,7 +397,7 @@ mod tests {
         }
 
         fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-            fs::create_dir(chain_data_path.join("migration_0_1_0_0_2_0"))?;
+            fs::create_dir(chain_data_path.join("migration_0_1_0_0_2_0")).unwrap();
             Ok(chain_data_path.join("migration_0_1_0_0_2_0"))
         }
 
@@ -413,26 +411,24 @@ mod tests {
     }
 
     #[test]
-    fn test_migration_map_migration() -> anyhow::Result<()> {
+    fn test_migration_map_migration() {
         let migration = Migration {
             from: Version::new(0, 1, 0),
             to: Version::new(0, 2, 0),
             migrator: Arc::new(SimpleMigration0_1_0_0_2_0),
         };
 
-        let temp_dir = TempDir::new()?;
+        let temp_dir = TempDir::new().unwrap();
 
         assert!(migration.pre_checks(temp_dir.path()).is_err());
-        fs::create_dir(temp_dir.path().join("0.1.0"))?;
+        fs::create_dir(temp_dir.path().join("0.1.0")).unwrap();
         assert!(migration.pre_checks(temp_dir.path()).is_ok());
 
-        migration.migrate(temp_dir.path())?;
+        migration.migrate(temp_dir.path()).unwrap();
         assert!(temp_dir.path().join("0.2.0").exists());
 
         assert!(migration.post_checks(temp_dir.path()).is_err());
-        fs::create_dir(temp_dir.path().join("migration_0_1_0_0_2_0"))?;
+        fs::create_dir(temp_dir.path().join("migration_0_1_0_0_2_0")).unwrap();
         assert!(migration.post_checks(temp_dir.path()).is_ok());
-
-        Ok(())
     }
 }

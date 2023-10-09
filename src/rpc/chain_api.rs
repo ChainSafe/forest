@@ -14,7 +14,6 @@ use crate::rpc_api::{
 };
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;

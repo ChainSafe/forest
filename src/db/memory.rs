@@ -3,7 +3,6 @@
 
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use ahash::HashMap;
-use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
@@ -39,11 +38,11 @@ impl SettingsStore for MemoryDB {
 }
 
 impl Blockstore for MemoryDB {
-    fn get(&self, k: &Cid) -> Result<Option<Vec<u8>>> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Ok(self.blockchain_db.read().get(&k.to_bytes()).cloned())
     }
 
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> Result<()> {
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
         self.blockchain_db
             .write()
             .insert(k.to_bytes(), block.to_vec());
@@ -52,11 +51,11 @@ impl Blockstore for MemoryDB {
 }
 
 impl BitswapStoreRead for MemoryDB {
-    fn contains(&self, cid: &Cid) -> Result<bool> {
+    fn contains(&self, cid: &Cid) -> anyhow::Result<bool> {
         Ok(self.blockchain_db.read().contains_key(&cid.to_bytes()))
     }
 
-    fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>> {
+    fn get(&self, cid: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         Blockstore::get(self, cid)
     }
 }
@@ -64,7 +63,7 @@ impl BitswapStoreRead for MemoryDB {
 impl BitswapStoreReadWrite for MemoryDB {
     type Params = libipld::DefaultParams;
 
-    fn insert(&self, block: &libipld::Block<Self::Params>) -> Result<()> {
+    fn insert(&self, block: &libipld::Block<Self::Params>) -> anyhow::Result<()> {
         self.put_keyed(block.cid(), block.data())
     }
 }

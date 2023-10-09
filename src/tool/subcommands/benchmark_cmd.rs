@@ -12,7 +12,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
 use crate::utils::stream::par_buffer;
-use anyhow::{Context as _, Result};
+use anyhow::Context as _;
 use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
@@ -81,7 +81,7 @@ pub enum BenchmarkCommands {
 }
 
 impl BenchmarkCommands {
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::CarStreaming {
                 snapshot_files,
@@ -117,7 +117,7 @@ impl BenchmarkCommands {
 
 // Concatenate a set of CAR files and measure how quickly we can stream the
 // blocks.
-async fn benchmark_car_streaming(input: Vec<PathBuf>) -> Result<()> {
+async fn benchmark_car_streaming(input: Vec<PathBuf>) -> anyhow::Result<()> {
     let mut sink = indicatif_sink("traversed");
 
     let mut s = Box::pin(
@@ -136,7 +136,7 @@ async fn benchmark_car_streaming(input: Vec<PathBuf>) -> Result<()> {
 // Concatenate a set of CAR files and measure how quickly we can stream the
 // blocks, while inspecting them. This a benchmark we could use for setting
 // realistic expectations in terms of DFS graph travels, for example.
-async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
+async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> anyhow::Result<()> {
     let mut sink = indicatif_sink("traversed");
     let mut s = Box::pin(
         futures::stream::iter(input)
@@ -158,7 +158,7 @@ async fn benchmark_car_streaming_inspect(input: Vec<PathBuf>) -> Result<()> {
 
 // Open a set of CAR files as a block store and do a DFS traversal of all
 // reachable nodes.
-async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
+async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
     let store = open_store(input)?;
     let heaviest = store.heaviest_tipset()?;
 
@@ -174,7 +174,7 @@ async fn benchmark_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
 
 // Open a set of CAR files as a block store and do an unordered traversal of all
 // reachable nodes.
-async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> Result<()> {
+async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Result<()> {
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
 
@@ -193,7 +193,7 @@ async fn benchmark_forest_encoding(
     input: PathBuf,
     compression_level: u16,
     frame_size: usize,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let file = tokio::io::BufReader::new(File::open(&input).await?);
 
     let mut block_stream = CarStream::new(file).await?;
@@ -220,7 +220,7 @@ async fn benchmark_exporting(
     frame_size: usize,
     epoch: Option<ChainEpoch>,
     depth: ChainEpochDelta,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let store = Arc::new(open_store(input)?);
     let heaviest = store.heaviest_tipset()?;
     let idx = ChainIndex::new(&store);
@@ -275,7 +275,7 @@ fn indicatif_sink(task: &'static str) -> impl AsyncWrite {
 // Opening a block store may take a long time (CAR files have to be indexed,
 // CAR.zst files have to be decompressed). Show a progress indicator and clear
 // it when done.
-fn open_store(input: Vec<PathBuf>) -> Result<ManyCar> {
+fn open_store(input: Vec<PathBuf>) -> anyhow::Result<ManyCar> {
     let pb = indicatif::ProgressBar::new_spinner().with_style(
         indicatif::ProgressStyle::with_template("{spinner} opening block store")
             .expect("indicatif template must be valid"),

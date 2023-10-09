@@ -40,7 +40,7 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm } => {
                 let perm: String = perm.parse()?;

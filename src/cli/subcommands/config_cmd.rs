@@ -3,7 +3,7 @@
 
 use std::io::Write;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use clap::Subcommand;
 
 use crate::cli::subcommands::Config;
@@ -15,7 +15,7 @@ pub enum ConfigCommands {
 }
 
 impl ConfigCommands {
-    pub fn run<W: Write + Unpin>(&self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
+    pub fn run<W: Write + Unpin>(self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
         match self {
             Self::Dump => writeln!(
                 sink,

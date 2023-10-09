@@ -40,11 +40,9 @@ pub enum SyncCommands {
 }
 
 impl SyncCommands {
-    pub async fn run(&self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let watch = *watch;
-
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 

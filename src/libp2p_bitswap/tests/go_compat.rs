@@ -8,7 +8,7 @@ mod tests {
     use crate::libp2p_bitswap::{
         BitswapBehaviour, BitswapBehaviourEvent, BitswapMessage, BitswapRequest, BitswapResponse,
     };
-    use anyhow::{Context, Result};
+    use anyhow::Context as _;
     use libipld::{
         multihash::{self, MultihashDigest},
         Cid,
@@ -30,7 +30,7 @@ mod tests {
         bitswap_go_compat_test_impl().await.unwrap()
     }
 
-    async fn bitswap_go_compat_test_impl() -> Result<()> {
+    async fn bitswap_go_compat_test_impl() -> anyhow::Result<()> {
         let id_keys = identity::Keypair::generate_ed25519();
         let peer_id = PeerId::from(id_keys.public());
         let transport = tcp::tokio::Transport::default()
@@ -141,7 +141,7 @@ mod tests {
         Ok(())
     }
 
-    fn prepare_go_bitswap() -> Result<()> {
+    fn prepare_go_bitswap() -> anyhow::Result<()> {
         const ERROR_CONTEXT: &str = "Fail to compile `go-bitswap` test app, make sure you have `Go1.20.x` compiler installed and available in $PATH. For details refer to instructions at <https://go.dev/doc/install>";
         Command::new("go")
             .args(["mod", "vendor"])
@@ -157,7 +157,7 @@ mod tests {
         cancellation_rx: flume::Receiver<()>,
         addr: impl AsRef<str>,
         cid: impl AsRef<str>,
-    ) -> Result<bool> {
+    ) -> anyhow::Result<bool> {
         let mut app = Command::new("go")
             .args(["run", ".", "--addr", addr.as_ref(), "--cid", cid.as_ref()])
             .current_dir(GO_APP_DIR)
