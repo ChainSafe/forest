@@ -20,7 +20,7 @@ impl ShutdownCommand {
             println!("Aborted.");
             return Ok(());
         }
-        shutdown(Default::default(), &config.client.rpc_token)
+        shutdown(&config.client.rpc_token)
             .await
             .map_err(handle_rpc_err)?;
         Ok(())

@@ -163,11 +163,11 @@ impl NodeStatusInfo {
 impl InfoCommand {
     pub async fn run(self, config: Config, _opts: &CliOpts) -> anyhow::Result<()> {
         let res = tokio::try_join!(
-            node_status(Default::default(), &config.client.rpc_token),
+            node_status(&config.client.rpc_token),
             chain_head(&config.client.rpc_token),
-            state_network_name(Default::default(), &config.client.rpc_token),
+            state_network_name(&config.client.rpc_token),
             start_time(&config.client.rpc_token),
-            wallet_default_address(Default::default(), &config.client.rpc_token)
+            wallet_default_address(&config.client.rpc_token)
         );
 
         match res {

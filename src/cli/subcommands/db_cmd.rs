@@ -61,7 +61,7 @@ impl DBCommands {
                     }
                 });
 
-                db_gc(Default::default(), &config.client.rpc_token)
+                db_gc(&config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 

@@ -7,7 +7,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 pub(in crate::rpc) async fn db_gc<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(_): Params<DBGCParams>,
+    Params(_): Params<()>,
 ) -> Result<DBGCResult, JsonRpcError> {
     let (tx, rx) = flume::bounded(1);
     data.gc_event_tx.send_async(tx).await?;

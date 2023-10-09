@@ -6,6 +6,6 @@ use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
 
-pub async fn db_gc(_: DBGCParams, auth_token: &Option<String>) -> Result<DBGCResult, Error> {
+pub async fn db_gc(auth_token: &Option<String>) -> Result<DBGCResult, Error> {
     call(DB_GC, (), auth_token).await
 }

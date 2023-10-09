@@ -300,13 +300,13 @@ impl AttachCommand {
         set_module(context);
 
         // Net API
-        bind_func!(context, token, net_addrs_listen);
-        bind_func!(context, token, net_peers);
+        bind_func!(context, token, |_, t| net_addrs_listen(t));
+        bind_func!(context, token, |_, t| net_peers(t));
         bind_func!(context, token, net_disconnect);
         bind_func!(context, token, net_connect);
 
         // Node API
-        bind_func!(context, token, node_status);
+        bind_func!(context, token, |_, t| node_status(t));
 
         // Sync API
         bind_func!(context, token, sync_check_bad);
@@ -316,11 +316,11 @@ impl AttachCommand {
         // Wallet API
         // TODO: bind wallet_sign, wallet_verify
         bind_func!(context, token, wallet_new);
-        bind_func!(context, token, wallet_default_address);
+        bind_func!(context, token, |_, t| wallet_default_address(t));
         bind_func!(context, token, wallet_balance);
         bind_func!(context, token, wallet_export);
         bind_func!(context, token, wallet_import);
-        bind_func!(context, token, wallet_list);
+        bind_func!(context, token, |_, t| wallet_list(t));
         bind_func!(context, token, wallet_has);
         bind_func!(context, token, wallet_set_default);
 
@@ -328,8 +328,8 @@ impl AttachCommand {
         bind_func!(context, token, mpool_push_message);
 
         // Common API
-        bind_func!(context, token, version);
-        bind_func!(context, token, shutdown);
+        bind_func!(context, token, |_, t| version(t));
+        bind_func!(context, token, |_, t| shutdown(t));
 
         // Bind send_message, sleep, sleep_tipsets
         bind_func!(context, token, send_message);
