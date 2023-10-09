@@ -104,8 +104,6 @@ pub enum TipsetRangeSyncerError {
     TipsetParentNotFound(ChainStoreError),
     #[error("Consensus error: {0}")]
     ConsensusError(FilecoinConsensusError),
-    #[error("Other error: {0}")]
-    Other(String),
 }
 
 impl<T> From<flume::SendError<T>> for TipsetRangeSyncerError {
@@ -698,9 +696,7 @@ where
             match self.as_mut().tipset_tasks.poll_join_next(cx) {
                 Poll::Ready(Some(Ok(Ok(_)))) => continue,
                 Poll::Ready(Some(Ok(Err(e)))) => return Poll::Ready(Err(e)),
-                Poll::Ready(Some(Err(e))) => {
-                    return Poll::Ready(Err(TipsetRangeSyncerError::Other(e.to_string())))
-                }
+                Poll::Ready(Some(Err(e))) => panic!("{e}"),
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Pending => return Poll::Pending,
             }
