@@ -76,8 +76,6 @@ async fn create_flaky_server() -> (
     let server = Server::bind(&addr).serve(make_svc);
     let addr = server.local_addr();
 
-    println!("Listening on: {}", addr);
-
     (tokio::task::spawn(server), addr)
 }
 
