@@ -693,7 +693,7 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            match self.as_mut().tipset_tasks.poll_join_next(cx) {
+            match ready!(self.as_mut().tipset_tasks.poll_join_next(cx)) {
                 Poll::Ready(Some(Ok(Ok(_)))) => continue,
                 Poll::Ready(Some(Ok(Err(e)))) => return Poll::Ready(Err(e)),
                 Poll::Ready(Some(Err(e))) => {
