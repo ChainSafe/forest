@@ -200,7 +200,7 @@ mod tests {
         let buffer = [b'a'; BUFFER_LEN];
 
         let body = if let Some(range) = req.headers().get(header::RANGE) {
-            let offset = extract_range_start(&range, buffer.len());
+            let offset = extract_range_start(range, buffer.len());
             let (mut sender, body) = Body::channel();
 
             // Send the rest of the buffer
