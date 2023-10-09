@@ -192,9 +192,9 @@ impl LintRunner {
         // 5. Load all the source files, skipping non-existent or non-rust files
         let files = all_source_files
             .flat_map(|path| {
-                let text = std::fs::read_to_string(&path).ok()?;
-                let ast = syn::parse_file(&text).ok()?;
-                Some((path, (Source::from(text), ast)))
+                let plaintext = std::fs::read_to_string(&path).ok()?;
+                let all = SourceFile::try_from(plaintext).ok()?;
+                Some((path, all))
             })
             .collect::<Cache>();
 
@@ -213,7 +213,7 @@ impl LintRunner {
         info!("running {}", std::any::type_name::<T>());
         let mut linter = T::default();
         let mut all_violations = vec![];
-        for (path, (text, ast)) in self.files.map.iter() {
+        for (path, SourceFile { linewise, ast, .. }) in self.files.map.iter() {
             linter.visit_file(ast);
             for Violation {
                 span,
@@ -221,7 +221,7 @@ impl LintRunner {
                 color,
             } in linter.flush()
             {
-                let mut label = ariadne::Label::new((path, span2span(text, span)));
+                let mut label = ariadne::Label::new((path, span2span(linewise, span)));
                 if let Some(message) = message {
                     label = label.with_message(message)
                 }
@@ -277,9 +277,29 @@ impl LintRunner {
     }
 }
 
+struct SourceFile {
+    plaintext: String,
+    /// For formatting.
+    linewise: ariadne::Source,
+    /// Abstract syntax tree.
+    ast: syn::File,
+}
+
+impl TryFrom<String> for SourceFile {
+    type Error = syn::Error;
+
+    fn try_from(plaintext: String) -> Result<Self, Self::Error> {
+        Ok(Self {
+            linewise: ariadne::Source::from(&plaintext),
+            ast: syn::parse_file(&plaintext)?,
+            plaintext,
+        })
+    }
+}
+
 /// Stores all the files for repeated linting and formatting into pretty reports
 struct Cache {
-    map: ahash::HashMap<Utf8PathBuf, (Source, syn::File)>,
+    map: ahash::HashMap<Utf8PathBuf, SourceFile>,
 }
 
 impl<Id> ariadne::Cache<Id> for &Cache
@@ -289,7 +309,7 @@ where
     fn fetch(&mut self, id: &Id) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
         self.map
             .get(Utf8Path::new(&id))
-            .map(|(text, _ast)| text)
+            .map(|SourceFile { linewise, .. }| linewise)
             .ok_or(Box::new(format!("{} not in cache", id.as_ref())))
     }
 
@@ -298,8 +318,8 @@ where
     }
 }
 
-impl FromIterator<(Utf8PathBuf, (Source, syn::File))> for Cache {
-    fn from_iter<T: IntoIterator<Item = (Utf8PathBuf, (Source, syn::File))>>(iter: T) -> Self {
+impl FromIterator<(Utf8PathBuf, SourceFile)> for Cache {
+    fn from_iter<T: IntoIterator<Item = (Utf8PathBuf, SourceFile)>>(iter: T) -> Self {
         Self {
             map: iter.into_iter().collect(),
         }
