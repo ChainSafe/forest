@@ -10,6 +10,24 @@ use syn::{
     BinOp, Expr, ItemFn, Macro, ReturnType, Token,
 };
 
+/// A custom linter.
+///
+/// Names of linters should describe the codebase state that the lint "wants".
+/// e.g [`NoTestsWithReturn`]: "there are no tests with return values".
+pub trait Lint {
+    /// Finish linting a single file.
+    ///
+    /// The linter must not retain any [`Span`]s after this is called.
+    fn flush(&mut self) -> Vec<Violation>;
+
+    /// The top-level explanation of the lint, as a declaration.
+    const DESCRIPTION: &'static str;
+    /// Why this lint exists.
+    const NOTE: Option<&'static str> = None;
+    /// What code changes the user should make.
+    const HELP: Option<&'static str> = None;
+}
+
 /// A linting violation
 pub struct Violation {
     pub span: Span,
@@ -33,17 +51,6 @@ impl Violation {
         self.color = Some(color);
         self
     }
-}
-
-pub trait Lint {
-    /// Finish linting a single file.
-    ///
-    /// The linter must not retain any [`Span`]s after this is called.
-    fn flush(&mut self) -> Vec<Violation>;
-
-    const DESCRIPTION: &'static str;
-    const NOTE: Option<&'static str> = None;
-    const HELP: Option<&'static str> = None;
 }
 
 //////////
@@ -121,5 +128,5 @@ impl Lint for SpecializedAssertions {
     }
 
     const DESCRIPTION: &'static str = "`assert!(..)` that should use a more specialized macro";
-    const NOTE: Option<&'static str> = Some("specialized macros provides better error messages ");
+    const NOTE: Option<&'static str> = Some("specialized macros provides better error messages");
 }

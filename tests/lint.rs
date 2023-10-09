@@ -1,3 +1,38 @@
+//! # Custom lints
+//!
+//! A simple, syntactical custom linting framework for forest, to unconditionally
+//! forbid certain constructs.
+//!
+//! Excessive custom lints can be a codebase hazard, so careful consideration is
+//! required for what to lint.
+//!
+//! Out of scope for the current design:
+//! - Any conditionality.
+//!   We intentionally don't support any `#[allow(..)]`-type gating.
+//! - Resolved types, modules.
+//! - Cross-file scope.
+//!
+//! ## Alternative designs.
+//!
+//! [`clippy`](https://github.com/rust-lang/rust-clippy/) can handle all of the
+//! "out of scope" points above.
+//! But is a lot more heavyweight, as is the similar project [`dylint`](https://github.com/trailofbits/dylint).
+//!
+//! If we need more functionality, we should consider porting.
+//!
+//! ## Technical overview
+//!
+//! - We parse `rustc`'s Makefile-style dependency files to know which source files
+//!   to lint.
+//!   This means that new, e.g. `examples/...` artifacts don't need special handling.
+//! - We use [`syn`] to parse source files into an Abstract Syntax Tree.
+//!   These are inputs to the custom linters, which are run on each file.
+//!   Linters return [`proc_macro2::Span`]s to point to lint violations.
+//! - We use [`ariadne`] to format violations into pretty `rustc`-style error
+//!   messages.
+//!   This involves converting [`proc_macro2::Span`]s to utf-8 character offsets
+//!   into the file.
+
 mod lints;
 
 use std::{
