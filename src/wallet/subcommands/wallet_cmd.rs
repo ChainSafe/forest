@@ -125,7 +125,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Default => {
-                let response = wallet_default_address(&token)
+                let response = wallet_default_address((), &token)
                     .await
                     .map_err(handle_rpc_err)?
                     .unwrap_or_else(|| "No default wallet address set".to_string());
@@ -189,12 +189,12 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let response = wallet_list(&token)
+                let response = wallet_list((), &token)
                     .await
                     .map_err(handle_rpc_err)?
                     .into_inner();
 
-                let default = wallet_default_address(&token)
+                let default = wallet_default_address((), &token)
                     .await
                     .map_err(handle_rpc_err)?;
 

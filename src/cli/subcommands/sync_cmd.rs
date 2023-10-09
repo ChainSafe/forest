@@ -47,7 +47,7 @@ impl SyncCommands {
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = sync_status(&config.client.rpc_token)
+                    let response = sync_status((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
                     let state = &response.active_syncs[0];
@@ -94,7 +94,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let response = sync_status(&config.client.rpc_token)
+                let response = sync_status((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 

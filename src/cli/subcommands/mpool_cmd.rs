@@ -233,7 +233,7 @@ impl MpoolCommands {
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
-                    let response = wallet_list(&config.client.rpc_token)
+                    let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                         .into_inner();
@@ -279,7 +279,7 @@ impl MpoolCommands {
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
-                    let response = wallet_list(&config.client.rpc_token)
+                    let response = wallet_list((), &config.client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                         .into_inner();

@@ -269,6 +269,7 @@ pub mod sync_api {
     pub type SyncMarkBadResult = ();
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
+    pub type SyncStateParams = ();
     pub type SyncStateResult = RPCSyncState;
 }
 
@@ -284,6 +285,7 @@ pub mod wallet_api {
     pub type WalletBalanceResult = String;
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
+    pub type WalletDefaultAddressParams = ();
     pub type WalletDefaultAddressResult = Option<String>;
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
@@ -299,6 +301,7 @@ pub mod wallet_api {
     pub type WalletImportResult = String;
 
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
+    pub type WalletListParams = ();
     pub type WalletListResult = LotusJson<Vec<Address>>;
 
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
@@ -347,6 +350,7 @@ pub mod state_api {
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
+    pub type StateNetworkNameParams = ();
     pub type StateNetworkNameResult = String;
 
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
@@ -415,9 +419,11 @@ pub mod common_api {
     use super::data_types::APIVersion;
 
     pub const VERSION: &str = "Filecoin.Version";
+    pub type VersionParams = ();
     pub type VersionResult = APIVersion;
 
     pub const SHUTDOWN: &str = "Filecoin.Shutdown";
+    pub type ShutdownParams = ();
     pub type ShutdownResult = ();
 
     pub const START_TIME: &str = "Filecoin.StartTime";
@@ -433,12 +439,15 @@ pub mod net_api {
     use crate::rpc_api::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
+    pub type NetAddrsListenParams = ();
     pub type NetAddrsListenResult = AddrInfo;
 
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
+    pub type NetPeersParams = ();
     pub type NetPeersResult = Vec<AddrInfo>;
 
     pub const NET_INFO: &str = "Filecoin.NetInfo";
+    pub type NetInfoParams = ();
 
     #[derive(Debug, Default, Serialize, Deserialize)]
     pub struct NetInfoResult {
@@ -476,6 +485,7 @@ pub mod net_api {
 /// DB API
 pub mod db_api {
     pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
+    pub type DBGCParams = ();
     pub type DBGCResult = ();
 }
 
@@ -496,6 +506,7 @@ pub mod progress_api {
 /// Node API
 pub mod node_api {
     pub const NODE_STATUS: &str = "Filecoin.NodeStatus";
+    pub type NodeStatusParams = ();
     pub type NodeStatusResult = NodeStatus;
 
     use serde::{Deserialize, Serialize};

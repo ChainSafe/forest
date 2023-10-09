@@ -21,7 +21,7 @@ where
         .enable_all()
         .build()?
         .block_on(async {
-            let name = state_network_name(&opts.token)
+            let name = state_network_name((), &opts.token)
                 .await
                 .map_err(handle_rpc_err)?;
             let chain = NetworkChain::from_str(&name)?;

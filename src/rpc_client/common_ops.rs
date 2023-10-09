@@ -6,11 +6,17 @@ use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
 
-pub async fn version(auth_token: &Option<String>) -> Result<VersionResult, Error> {
+pub async fn version(
+    (): VersionParams,
+    auth_token: &Option<String>,
+) -> Result<VersionResult, Error> {
     call(VERSION, (), auth_token).await
 }
 
-pub async fn shutdown(auth_token: &Option<String>) -> Result<ShutdownResult, Error> {
+pub async fn shutdown(
+    (): ShutdownParams,
+    auth_token: &Option<String>,
+) -> Result<ShutdownResult, Error> {
     call(SHUTDOWN, (), auth_token).await
 }
 

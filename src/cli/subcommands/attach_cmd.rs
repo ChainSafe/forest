@@ -185,7 +185,7 @@ where
 }
 
 macro_rules! bind_func {
-    ($context:expr, $token:expr, $func:expr) => {
+    ($context:expr, $token:expr, $func:ident) => {
         let js_func_name = stringify!($func).to_case(Case::Camel);
         let js_func = FunctionObjectBuilder::new($context, unsafe {
             NativeFunction::from_closure_with_captures(
@@ -202,7 +202,6 @@ macro_rules! bind_func {
                         };
                         // TODO: check if unwrap is safe here
                         let args = serde_json::from_value(value.to_json(context).unwrap())?;
-                        #[allow(clippy::redundant_closure_call)]
                         handle.block_on($func(args, token))
                     });
                     check_result(context, result)
@@ -259,7 +258,7 @@ async fn sleep_tipsets(
 ) -> Result<SleepTipsetsResult, jsonrpc_v2::Error> {
     let mut epoch = None;
     loop {
-        let state = sync_status(auth_token).await?;
+        let state = sync_status((), auth_token).await?;
         if state.active_syncs[0].stage() == SyncStage::Complete {
             if let Some(prev) = epoch {
                 let curr = state.active_syncs[0].epoch();
@@ -300,27 +299,27 @@ impl AttachCommand {
         set_module(context);
 
         // Net API
-        bind_func!(context, token, |_, t| net_addrs_listen(t));
-        bind_func!(context, token, |_, t| net_peers(t));
+        bind_func!(context, token, net_addrs_listen);
+        bind_func!(context, token, net_peers);
         bind_func!(context, token, net_disconnect);
         bind_func!(context, token, net_connect);
 
         // Node API
-        bind_func!(context, token, |_, t| node_status(t));
+        bind_func!(context, token, node_status);
 
         // Sync API
         bind_func!(context, token, sync_check_bad);
         bind_func!(context, token, sync_mark_bad);
-        bind_func!(context, token, |_, t| sync_status(t));
+        bind_func!(context, token, sync_status);
 
         // Wallet API
         // TODO: bind wallet_sign, wallet_verify
         bind_func!(context, token, wallet_new);
-        bind_func!(context, token, |_, t| wallet_default_address(t));
+        bind_func!(context, token, wallet_default_address);
         bind_func!(context, token, wallet_balance);
         bind_func!(context, token, wallet_export);
         bind_func!(context, token, wallet_import);
-        bind_func!(context, token, |_, t| wallet_list(t));
+        bind_func!(context, token, wallet_list);
         bind_func!(context, token, wallet_has);
         bind_func!(context, token, wallet_set_default);
 
@@ -328,8 +327,8 @@ impl AttachCommand {
         bind_func!(context, token, mpool_push_message);
 
         // Common API
-        bind_func!(context, token, |_, t| version(t));
-        bind_func!(context, token, |_, t| shutdown(t));
+        bind_func!(context, token, version);
+        bind_func!(context, token, shutdown);
 
         // Bind send_message, sleep, sleep_tipsets
         bind_func!(context, token, send_message);

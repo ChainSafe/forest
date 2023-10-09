@@ -38,7 +38,7 @@ where
                     }
                     let opts = &opts;
                     if opts.chain.is_none() {
-                        if let Ok(name) = state_network_name(&config.client.rpc_token).await {
+                        if let Ok(name) = state_network_name((), &config.client.rpc_token).await {
                             let name = get_actual_chain_name(&name);
                             if name == "calibnet" {
                                 config.chain = Arc::new(ChainConfig::calibnet());

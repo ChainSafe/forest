@@ -14,6 +14,7 @@ pub async fn wallet_new(
 }
 
 pub async fn wallet_default_address(
+    (): WalletDefaultAddressParams,
     auth_token: &Option<String>,
 ) -> Result<WalletDefaultAddressResult, Error> {
     call(WALLET_DEFAULT_ADDRESS, (), auth_token).await
@@ -40,7 +41,10 @@ pub async fn wallet_import(
     call(WALLET_IMPORT, key, auth_token).await
 }
 
-pub async fn wallet_list(auth_token: &Option<String>) -> Result<WalletListResult, Error> {
+pub async fn wallet_list(
+    (): WalletListParams,
+    auth_token: &Option<String>,
+) -> Result<WalletListResult, Error> {
     call(WALLET_LIST, (), auth_token).await
 }
 

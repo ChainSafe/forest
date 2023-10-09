@@ -36,7 +36,7 @@ impl NetCommands {
     pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
-                let info = net_addrs_listen(&config.client.rpc_token)
+                let info = net_addrs_listen((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 let addresses: Vec<String> = info
@@ -48,7 +48,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Info => {
-                let info = net_info(&config.client.rpc_token)
+                let info = net_info((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("forest libp2p swarm info:");
@@ -61,7 +61,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Peers => {
-                let addrs = net_peers(&config.client.rpc_token)
+                let addrs = net_peers((), &config.client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 let output: Vec<String> = addrs
