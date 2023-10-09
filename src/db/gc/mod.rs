@@ -4,64 +4,59 @@
 //!
 //! The current implementation of the garbage collector is concurrent mark-and-sweep.
 //!
+//! ## Terminology
+//! `chain finality` - a number of epochs after which it becomes impossible to add or remove a block
+//! previously appended to the blockchain.
+//!
 //! ## Design goals
 //! A correct GC algorithm that is simple and efficient for forest scenarios.
 //!
 //! ## GC Algorithm
 //! The `mark-and-sweep` algorithm was chosen due to it's simplicity, efficiency and low memory
-//! footprint. We do have to generate keys from values for some of the iterated columns due to a
-//! ParityDB limitation. See <https://github.com/paritytech/parity-db/issues/187>.
-//! Previously the `semi-space` algorithm was used resulting in data duplication and up to 100%
-//! extra disk usage.
+//! footprint. Previously the `semi-space` algorithm was used resulting in data duplication and up
+//! to 100% extra disk usage.
 //!
 //! ## GC Workflow
 //! 1. Mark: traverse all the relevant database columns, generating integer hash representations for
-//! each database key and storing those in a [`HashSet`].
+//! each database key and storing those in a set.
 //! 2. Wait at least `chain finality` blocks.
-//! 3. Traverse reachable blocks starting from the current heaviest tipset and remove those from the
-//! marked `HashSet`, leaving only unreachable entries that are older than `chain finality` to avoid
+//! 3. Traverse reachable blocks starting at the current heaviest tipset and remove those from the
+//! marked set, leaving only unreachable entries that are older than `chain finality` to avoid
 //! removing something that could later become reachable as a result of a fork.
 //! 4. Sweep, removing all the remaining marked entries from the database.
 //!
 //! ## Correctness
+//! TODO: Define correctness better, keep `snapshot export`
 //! This algorithm is traversing the reachable graph using the same tooling as the snapshot export.
-//! Therefore it ensures that we eliminate all the reachable from the set scheduled for removal.
-//! Additionally, it waits at least `chain finality` before filtering out and sweeping marked
-//! records, making sure nothing that could have become reachable in the meantime gets removed.
-//! A snapshot can be used to bootstrap the node from scratch, therefore the algorithm is considered
-//! correct when a valid snapshot can be exported using records available in the database after
-//! sweeping.
+//! Therefore, it ensures that we eliminate all the reachable blocks from the set of keys scheduled
+//! for removal. Additionally, it waits for at least chain finality before filtering out and
+//! sweeping marked records, making sure nothing that could have become reachable in the meantime
+//! gets removed. A snapshot can be used to bootstrap the node from scratch, thus the algorithm is
+//! considered correct when a valid snapshot can be exported using records available in the database
+//! after sweeping.
 //!
 //! ## Disk usage
-//! There's no additional disk space required to run this algorithm.
+//! There's no additional disk space required to run this algorithm. However, removing the
+//! unreachable blocks from the database takes at least `chain finality`. The GC speed depends on
+//! the reachable graph size. Additionally, since a truncated 4-byte is used - there's a slight
+//! possibility of a collision, which might result in an unreachable block being retained in the
+//! database. Still, the impact on the total disk size is negligible.
 //!
 //! ## Memory usage
-//! During the `mark` and up to the `sweep` stage the algorithm requires `4 bytes` of memory for
+//! During the `mark` and up to the `sweep` stage, the algorithm requires `4 bytes` of memory for
 //! each database record. Additionally, the seen cache while traversing the reachable graph
 //! executing the `filter` stage requires at least `32 bytes` of memory for each reachable block.
 //!
 //! ## Scheduling
-//! 1. GC is triggered automatically, there have to be at least `chain finality` epochs stored for
-//! the `mark` step.
-//! 2. The `filter` step is triggered after at least `chain finality` has passed since `mark` step.
-//! 3. Then the `sweep` step happens.
+//! 1. GC is triggered automatically and there have to be at least `chain finality` epochs stored
+//! for the `mark` step.
+//! 2. The `filter` step is triggered after at least `chain finality` has passed since the `mark`
+//! step.
+//! 3. Then, the `sweep` step happens.
 //!
 //! ## Performance
-//! The GC Performance is calculated by benchmarking the three steps that have to be performed. The
-//! `filter` steps consists of two actions: walking the graph and filtering the `marked` set.
-//! 1. Traversing all the relevant database records and creating a set of keys. *To be benchmarked*
-//! 2. Walking the graph, this has already been benchmarked.
-//! `forest-tool benchmark graph-traversal`.
-//! WIP: fix and covert this to `unordered-graph-traversal`.
-//! 3. Filtering out the records found as a result of `step 2`.
-//! 4. Removing all the remaining `marked` records from the database *To be benchmarked*
-//!
-//! ### Look up performance
-//! There should not be any noticeable look up penalty.
-//!
-//! ### Write performance
-//! The only thing that could affect write performance is DB re-index, which should not be affected
-//! much by the GC.
+//! TODO: Measure the performance and potentially define it in terms of `snapshot export` or any
+//! other visible and comparable metric.
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
 use crate::db::db_engine::Db;
