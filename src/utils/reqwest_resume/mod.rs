@@ -282,17 +282,13 @@ mod tests {
                 .await?;
 
         let mut stream = resp.bytes_stream();
-        let mut read_len = 0;
 
-        while let Some(item) = stream.next().await {
-            match item {
-                Ok(item) => read_len += item.len(),
-                Err(err) => {
-                    assert!(err.is_body());
-                }
-            }
-        }
-        assert_eq!(read_len, CHUNK_LEN);
+        let item = stream.next().await.unwrap();
+        assert_eq!(item.unwrap().len(), CHUNK_LEN);
+        let item = stream.next().await.unwrap();
+        let err = item.unwrap_err();
+        assert!(err.is_body());
+        assert!(stream.next().await.is_none());
 
         Ok(())
     }
