@@ -693,18 +693,17 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            match ready!(self.as_mut().tipset_tasks.poll_join_next(cx)) {
-                Poll::Ready(Some(Ok(Ok(_)))) => continue,
-                Poll::Ready(Some(Ok(Err(e)))) => return Poll::Ready(Err(e)),
-                Poll::Ready(Some(Err(e))) => {
+            match std::task::ready!(self.as_mut().tipset_tasks.poll_join_next(cx)) {
+                Some(Ok(Ok(_))) => continue,
+                Some(Ok(Err(e))) => return Poll::Ready(Err(e)),
+                Some(Err(e)) => {
                     if let Ok(p) = e.try_into_panic() {
                         std::panic::resume_unwind(p);
                     } else {
                         panic!("Internal error: Tipset range syncer task unexpectedly canceled");
                     }
                 }
-                Poll::Ready(None) => return Poll::Ready(Ok(())),
-                Poll::Pending => return Poll::Pending,
+                None => return Poll::Ready(Ok(())),
             }
         }
     }
