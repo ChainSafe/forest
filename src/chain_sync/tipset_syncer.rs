@@ -697,12 +697,10 @@ where
                 Poll::Ready(Some(Ok(Ok(_)))) => continue,
                 Poll::Ready(Some(Ok(Err(e)))) => return Poll::Ready(Err(e)),
                 Poll::Ready(Some(Err(e))) => {
-                    if e.is_panic() {
-                        std::panic::resume_unwind(e.into_panic());
+                    if let Ok(p) = e.try_into_panic() {
+                        std::panic::resume_unwind(p);
                     } else {
-                        panic!(
-                            "Internal error: Tipset range syncer task unexpectedly canceled: {e}"
-                        );
+                        panic!("Internal error: Tipset range syncer task unexpectedly canceled");
                     }
                 }
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
