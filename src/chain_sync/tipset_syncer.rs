@@ -696,7 +696,15 @@ where
             match self.as_mut().tipset_tasks.poll_join_next(cx) {
                 Poll::Ready(Some(Ok(Ok(_)))) => continue,
                 Poll::Ready(Some(Ok(Err(e)))) => return Poll::Ready(Err(e)),
-                Poll::Ready(Some(Err(e))) => panic!("{e}"),
+                Poll::Ready(Some(Err(e))) => {
+                    _ = {
+                        if e.is_panic() {
+                            e.into_panic()
+                        } else {
+                            panic!("Internal error: Tipset range syncer task unexpectedly canceled: {e}");
+                        }
+                    }
+                }
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Pending => return Poll::Pending,
             }
