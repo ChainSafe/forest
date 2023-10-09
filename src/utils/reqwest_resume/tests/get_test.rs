@@ -56,9 +56,10 @@ async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     Ok(response)
 }
 
-async fn create_flaky_server(
-    port: u16,
-) -> tokio::task::JoinHandle<std::result::Result<(), hyper::Error>> {
+async fn create_flaky_server() -> (
+    tokio::task::JoinHandle<std::result::Result<(), hyper::Error>>,
+    std::net::SocketAddr,
+) {
     // For every connection, we must make a `Service` to handle all
     // incoming HTTP requests on said connection.
 
@@ -69,21 +70,22 @@ async fn create_flaky_server(
         async { Ok::<_, Infallible>(service_fn(hello)) }
     });
 
-    let addr = ([127, 0, 0, 1], port).into();
+    // A port number of 0 will request that the OS assigns a port.
+    let addr = ([127, 0, 0, 1], 0).into();
 
     let server = Server::bind(&addr).serve(make_svc);
+    let addr = server.local_addr();
 
-    println!("Listening on http://{}", addr);
+    println!("Listening on: {}", addr);
 
-    tokio::task::spawn(server)
+    (tokio::task::spawn(server), addr)
 }
 
 #[tokio::test]
 pub async fn test_resumable_get() {
-    let port = 3000;
-    create_flaky_server(port).await;
+    let (_, addr) = create_flaky_server().await;
 
-    let resp = get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap())
+    let resp = get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
         .await
         .unwrap();
 
@@ -97,10 +99,9 @@ pub async fn test_resumable_get() {
 
 #[tokio::test]
 pub async fn test_non_resumable_get() {
-    let port = 3001;
-    create_flaky_server(port).await;
+    let (_, addr) = create_flaky_server().await;
 
-    let resp = reqwest::get(reqwest::Url::parse(&format!("http://localhost:{}", port)).unwrap())
+    let resp = reqwest::get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
         .await
         .unwrap();
 
