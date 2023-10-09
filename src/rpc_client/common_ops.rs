@@ -7,17 +7,17 @@ use jsonrpc_v2::Error;
 use crate::rpc_client::call;
 
 pub async fn version(
-    params: VersionParams,
+    _: VersionParams,
     auth_token: &Option<String>,
 ) -> Result<VersionResult, Error> {
-    call(VERSION, params, auth_token).await
+    call(VERSION, (), auth_token).await
 }
 
 pub async fn shutdown(
-    params: ShutdownParams,
+    _: ShutdownParams,
     auth_token: &Option<String>,
 ) -> Result<ShutdownResult, Error> {
-    call(SHUTDOWN, params, auth_token).await
+    call(SHUTDOWN, (), auth_token).await
 }
 
 pub async fn start_time(auth_token: &Option<String>) -> Result<StartTimeResult, Error> {

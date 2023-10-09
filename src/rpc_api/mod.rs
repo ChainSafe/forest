@@ -11,6 +11,7 @@
 //! - Have an `RpcEndpoint` trait.
 use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 
 pub mod data_types;
 
@@ -21,6 +22,9 @@ pub enum Access {
     Write,
     Read,
 }
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct EmptyParams(());
 
 /// Access mapping between method names and access levels
 /// Checked against JWT claims on every request
@@ -269,7 +273,7 @@ pub mod sync_api {
     pub type SyncMarkBadResult = ();
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
-    pub type SyncStateParams = ();
+    pub type SyncStateParams = super::EmptyParams;
     pub type SyncStateResult = RPCSyncState;
 }
 
@@ -285,7 +289,7 @@ pub mod wallet_api {
     pub type WalletBalanceResult = String;
 
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-    pub type WalletDefaultAddressParams = ();
+    pub type WalletDefaultAddressParams = super::EmptyParams;
     pub type WalletDefaultAddressResult = Option<String>;
 
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
@@ -301,7 +305,7 @@ pub mod wallet_api {
     pub type WalletImportResult = String;
 
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
-    pub type WalletListParams = ();
+    pub type WalletListParams = super::EmptyParams;
     pub type WalletListResult = LotusJson<Vec<Address>>;
 
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
@@ -350,8 +354,7 @@ pub mod state_api {
     pub type StateReplayResult = InvocResult;
 
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
-    pub type StateNetworkNameParams = ();
+    pub type StateNetworkNameParams = super::EmptyParams;
     pub type StateNetworkNameResult = String;
 
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
@@ -420,11 +423,11 @@ pub mod common_api {
     use super::data_types::APIVersion;
 
     pub const VERSION: &str = "Filecoin.Version";
-    pub type VersionParams = ();
+    pub type VersionParams = super::EmptyParams;
     pub type VersionResult = APIVersion;
 
     pub const SHUTDOWN: &str = "Filecoin.Shutdown";
-    pub type ShutdownParams = ();
+    pub type ShutdownParams = super::EmptyParams;
     pub type ShutdownResult = ();
 
     pub const START_TIME: &str = "Filecoin.StartTime";
@@ -440,15 +443,15 @@ pub mod net_api {
     use crate::rpc_api::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-    pub type NetAddrsListenParams = ();
+    pub type NetAddrsListenParams = super::EmptyParams;
     pub type NetAddrsListenResult = AddrInfo;
 
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
-    pub type NetPeersParams = ();
+    pub type NetPeersParams = super::EmptyParams;
     pub type NetPeersResult = Vec<AddrInfo>;
 
     pub const NET_INFO: &str = "Filecoin.NetInfo";
-    pub type NetInfoParams = ();
+    pub type NetInfoParams = super::EmptyParams;
 
     #[derive(Debug, Default, Serialize, Deserialize)]
     pub struct NetInfoResult {
@@ -486,7 +489,7 @@ pub mod net_api {
 /// DB API
 pub mod db_api {
     pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
-    pub type DBGCParams = ();
+    pub type DBGCParams = super::EmptyParams;
     pub type DBGCResult = ();
 }
 
@@ -507,7 +510,7 @@ pub mod progress_api {
 /// Node API
 pub mod node_api {
     pub const NODE_STATUS: &str = "Filecoin.NodeStatus";
-    pub type NodeStatusParams = ();
+    pub type NodeStatusParams = super::EmptyParams;
     pub type NodeStatusResult = NodeStatus;
 
     use serde::{Deserialize, Serialize};

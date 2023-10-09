@@ -258,7 +258,7 @@ async fn sleep_tipsets(
 ) -> Result<SleepTipsetsResult, jsonrpc_v2::Error> {
     let mut epoch = None;
     loop {
-        let state = sync_status((), auth_token).await?;
+        let state = sync_status(Default::default(), auth_token).await?;
         if state.active_syncs[0].stage() == SyncStage::Complete {
             if let Some(prev) = epoch {
                 let curr = state.active_syncs[0].epoch();
