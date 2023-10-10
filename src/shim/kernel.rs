@@ -10,25 +10,8 @@ use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+use static_assertions::const_assert_eq;
 use std::fmt;
-
-impl From<N2> for ErrorNumber {
-    fn from(value: N2) -> Self {
-        FromPrimitive::from_u32(value as u32).expect("conversion from N2 must work")
-    }
-}
-
-impl From<N3> for ErrorNumber {
-    fn from(value: N3) -> Self {
-        FromPrimitive::from_u32(value as u32).expect("conversion from N3 must work")
-    }
-}
-
-impl From<N4> for ErrorNumber {
-    fn from(value: N4) -> Self {
-        FromPrimitive::from_u32(value as u32).expect("conversion from N4 must work")
-    }
-}
 
 #[repr(u32)]
 #[derive(Copy, Clone, Debug, FromPrimitive)]
@@ -46,6 +29,55 @@ pub enum ErrorNumber {
     Forbidden = 11,
     BufferTooSmall = 12,
     ReadOnly = 13,
+}
+
+// Check that we can safely convert all the error variants.
+
+macro_rules! check_all_version {
+    ($variant:ident) => {
+        const_assert_eq!(N2::$variant as u32, NShim::$variant as u32);
+        const_assert_eq!(N3::$variant as u32, NShim::$variant as u32);
+        const_assert_eq!(N4::$variant as u32, NShim::$variant as u32);
+    };
+}
+
+macro_rules! check_starting_n3 {
+    ($variant:ident) => {
+        const_assert_eq!(N3::$variant as u32, NShim::$variant as u32);
+        const_assert_eq!(N4::$variant as u32, NShim::$variant as u32);
+    };
+}
+
+check_all_version!(IllegalArgument);
+check_all_version!(IllegalOperation);
+check_all_version!(LimitExceeded);
+check_all_version!(AssertionFailed);
+check_all_version!(InsufficientFunds);
+check_all_version!(NotFound);
+check_all_version!(InvalidHandle);
+check_all_version!(IllegalCid);
+check_all_version!(IllegalCodec);
+check_all_version!(Serialization);
+check_all_version!(Forbidden);
+check_all_version!(BufferTooSmall);
+check_starting_n3!(ReadOnly);
+
+impl From<N2> for ErrorNumber {
+    fn from(value: N2) -> Self {
+        FromPrimitive::from_u32(value as u32).expect("conversion from N2 must work")
+    }
+}
+
+impl From<N3> for ErrorNumber {
+    fn from(value: N3) -> Self {
+        FromPrimitive::from_u32(value as u32).expect("conversion from N3 must work")
+    }
+}
+
+impl From<N4> for ErrorNumber {
+    fn from(value: N4) -> Self {
+        FromPrimitive::from_u32(value as u32).expect("conversion from N4 must work")
+    }
 }
 
 impl fmt::Display for ErrorNumber {
