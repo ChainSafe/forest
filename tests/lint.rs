@@ -289,7 +289,7 @@ impl LintRunner {
         use regex_automata::{meta::Regex, Anchored, Input};
         info!("linting comments");
         let mut all_violations = vec![];
-        let finder = Regex::new("(TODO)|(XXX)").unwrap();
+        let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();
         let checker =
             Regex::new(r"TODO\(\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
         for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
