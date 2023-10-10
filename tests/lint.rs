@@ -43,7 +43,7 @@ use std::{
     process::{self, Command},
 };
 
-use ariadne::{ReportKind, Source};
+use ariadne::{Color, ReportKind, Source};
 use cargo_metadata::{
     camino::{Utf8Path, Utf8PathBuf},
     Message, MetadataCommand,
@@ -65,6 +65,7 @@ fn lint() {
     LintRunner::new()
         .run::<lints::NoTestsWithReturn>()
         .run::<lints::SpecializedAssertions>()
+        .run_comment_linter()
         .finish();
 }
 
@@ -274,6 +275,78 @@ impl LintRunner {
                 process::exit(1)
             }
         }
+    }
+}
+
+impl LintRunner {
+    /// Special case comments because:
+    /// - They operate on a concrete syntax tree.
+    ///   (This is because `rustc`'s lexer diregards comments).
+    /// - We get byteoffset spans from [`rowan`](https://docs.rs/rowan/latest/rowan),
+    ///   not char-offset spans.
+    pub fn run_comment_linter(mut self) -> Self {
+        use ra_ap_syntax::{ast, AstNode as _, AstToken as _};
+        use regex_automata::{meta::Regex, Anchored, Input};
+        info!("linting comments");
+        let mut all_violations = vec![];
+        let finder = Regex::new("(TODO)|(XXX)").unwrap();
+        let checker =
+            Regex::new(r"TODO\(\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
+        for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
+            for comment in ra_ap_syntax::SourceFile::parse(plaintext)
+                .tree()
+                .syntax() // downcast from AST to untyped syntax tree
+                .descendants_with_tokens() // comments are tokens
+                .filter_map(|it| it.into_token().and_then(ast::Comment::cast))
+            {
+                let haystack = comment.text();
+                for found in finder.find_iter(haystack) {
+                    if !checker.is_match(
+                        Input::new(comment.text())
+                            .range(found.start()..)
+                            .anchored(Anchored::Yes),
+                    ) {
+                        let byte_offset_of_comment_in_file =
+                            usize::from(comment.syntax().text_range().start());
+                        let byte_offset_of_todo_in_comment = found.start();
+                        let byte_offset_needle =
+                            byte_offset_of_comment_in_file + byte_offset_of_todo_in_comment;
+                        let char_offset = plaintext
+                            .char_indices()
+                            .enumerate()
+                            .find_map(|(char_offset, (byte_offset_haystack, _char))| {
+                                (byte_offset_haystack == byte_offset_needle).then_some(char_offset)
+                            })
+                            .unwrap();
+                        all_violations.push(
+                            ariadne::Label::new((
+                                path,
+                                char_offset..char_offset + (haystack[found.range()].len()),
+                            ))
+                            .with_color(Color::Red),
+                        );
+                    }
+                }
+            }
+        }
+        let num_violations = all_violations.len();
+        let auto = Utf8PathBuf::new(); // ariadne figures out the file label if it doesn't have one
+        let builder = ariadne::Report::build(ReportKind::Error, &auto, 0)
+            .with_labels(all_violations)
+            .with_message("TODOs must have owners and tracking issues")
+            .with_help("Change these to be `TODO(<owner>): https://github.com/ChainSafe/forest/issues/<issue>");
+        match num_violations {
+            0 => {}
+            _ => {
+                builder
+                    .with_config(ariadne::Config::default().with_compact(true))
+                    .finish()
+                    .print(&self.files)
+                    .unwrap();
+            }
+        }
+        self.num_violations += num_violations;
+        self
     }
 }
 
