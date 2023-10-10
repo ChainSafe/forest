@@ -191,6 +191,7 @@ termios = "0.3"
 
 [dev-dependencies]
 assert_cmd = "2"
+const-random = "0.1.15"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"

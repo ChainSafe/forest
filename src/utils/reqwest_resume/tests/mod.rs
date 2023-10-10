@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::utils::reqwest_resume::get;
 use bytes::Bytes;
-use futures::StreamExt;
+use const_random::const_random;
+use futures::stream::StreamExt;
 use http_range_header::parse_range_header;
 use hyper::header::{self, HeaderValue};
 use hyper::service::{make_service_fn, service_fn};
@@ -11,7 +12,7 @@ use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::sleep;
 
-const BUFFER_LEN: usize = 4096 * 2;
+const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 const CHUNK_LEN: usize = 4096;
 
 fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
@@ -21,18 +22,16 @@ fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
     *range[0].start()
 }
 
-async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let buffer = [b'a'; BUFFER_LEN];
-
+async fn generate_error(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let (mut sender, body) = Body::channel();
 
     let body = if let Some(range) = req.headers().get(header::RANGE) {
-        let offset = extract_range_start(range, buffer.len());
+        let offset = extract_range_start(range, RANDOM_BYTES.len());
 
         // Send the rest of the buffer
         tokio::task::spawn(async move {
             sender
-                .send_data(Bytes::copy_from_slice(&buffer[offset as usize..]))
+                .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[offset as usize..]))
                 .await
                 .unwrap();
         });
@@ -40,7 +39,7 @@ async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     } else {
         tokio::task::spawn(async move {
             sender
-                .send_data(Bytes::copy_from_slice(&buffer[0..CHUNK_LEN]))
+                .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[0..CHUNK_LEN]))
                 .await
                 .unwrap();
             sleep(Duration::from_millis(100)).await;
@@ -62,7 +61,8 @@ async fn create_flaky_server() -> std::net::SocketAddr {
     // For every connection, we must make a `Service` to handle all
     // incoming HTTP requests on said connection.
 
-    let make_svc = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(hello)) });
+    let make_svc =
+        make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(generate_error)) });
 
     // A port number of 0 will request that the OS assigns a port.
     let addr = ([127, 0, 0, 1], 0).into();
@@ -82,12 +82,13 @@ pub async fn test_resumable_get() {
         .await
         .unwrap();
 
-    let mut stream = resp.bytes_stream();
-    let mut read_len = 0;
-    while let Some(item) = stream.next().await {
-        read_len += item.unwrap().len();
-    }
-    assert_eq!(read_len, BUFFER_LEN);
+    let data = resp
+        .bytes_stream()
+        .map(|item| item.unwrap())
+        .collect::<Vec<Bytes>>()
+        .await
+        .concat();
+    assert_eq!(Bytes::from_static(&RANDOM_BYTES), data);
 }
 
 #[tokio::test]
