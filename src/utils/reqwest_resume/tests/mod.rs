@@ -58,10 +58,7 @@ async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     Ok(response)
 }
 
-async fn create_flaky_server() -> (
-    tokio::task::JoinHandle<std::result::Result<(), hyper::Error>>,
-    std::net::SocketAddr,
-) {
+async fn create_flaky_server() -> std::net::SocketAddr {
     // For every connection, we must make a `Service` to handle all
     // incoming HTTP requests on said connection.
 
@@ -73,12 +70,13 @@ async fn create_flaky_server() -> (
     let server = Server::bind(&addr).serve(make_svc);
     let addr = server.local_addr();
 
-    (tokio::task::spawn(server), addr)
+    tokio::task::spawn(server);
+    addr
 }
 
 #[tokio::test]
 pub async fn test_resumable_get() {
-    let (_, addr) = create_flaky_server().await;
+    let addr = create_flaky_server().await;
 
     let resp = get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
         .await
@@ -94,7 +92,7 @@ pub async fn test_resumable_get() {
 
 #[tokio::test]
 pub async fn test_non_resumable_get() {
-    let (_, addr) = create_flaky_server().await;
+    let addr = create_flaky_server().await;
 
     let resp = reqwest::get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
         .await
