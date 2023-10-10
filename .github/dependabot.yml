@@ -15,6 +15,15 @@ updates:
       - dependency-name: "bls-signatures"
       - dependency-name: "fvm*"
       - dependency-name: "filecoin*"
+    # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups
+    groups:
+      patch-versions:
+        update-types:
+          - "patch"
+      fil-actors:
+        patterns:
+          - "fil_actor*"
+
   # https://docs.github.com/en/code-security/dependabot/working-with-dependabot/keeping-your-actions-up-to-date-with-dependabot#enabling-dependabot-version-updates-for-actions
   - package-ecosystem: "github-actions"
     directory: "/"
