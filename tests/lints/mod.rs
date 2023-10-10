@@ -55,6 +55,22 @@ impl Violation {
     }
 }
 
+#[cfg(test)]
+#[track_caller]
+fn should_lint<T: Default + for<'ast> Visit<'ast> + Lint>(file: syn::File) {
+    let mut linter = T::default();
+    linter.visit_file(&file);
+    assert!(!linter.flush().is_empty())
+}
+
+#[cfg(test)]
+#[track_caller]
+fn should_not_lint<T: Default + for<'ast> Visit<'ast> + Lint>(file: syn::File) {
+    let mut linter = T::default();
+    linter.visit_file(&file);
+    assert!(linter.flush().is_empty())
+}
+
 //////////
 // Linters
 //////////
@@ -94,6 +110,21 @@ impl Lint for NoTestsWithReturn {
         Some("Remove the return type, and any `?` error propogations");
 }
 
+#[test]
+fn no_tests_with_return() {
+    should_lint::<NoTestsWithReturn>(parse_quote! {
+        #[test]
+        fn foo() -> Bar {
+            todo!()
+        }
+    });
+    should_not_lint::<NoTestsWithReturn>(parse_quote! {
+        #[test]
+        fn foo() {}
+        fn bar() -> Bar {}
+    });
+}
+
 #[derive(Default)]
 pub struct SpecializedAssertions {
     violations: Vec<Violation>,
@@ -131,4 +162,20 @@ impl Lint for SpecializedAssertions {
 
     const DESCRIPTION: &'static str = "`assert!(..)` that should use a more specialized macro";
     const NOTE: Option<&'static str> = Some("specialized macros provides better error messages");
+}
+
+#[test]
+fn specialized_assertions() {
+    should_lint::<SpecializedAssertions>(parse_quote! {
+        assert!(1 != 2);
+    });
+    should_lint::<SpecializedAssertions>(parse_quote! {
+        assert!(1 == 1, "these should be equal");
+    });
+    should_not_lint::<SpecializedAssertions>(parse_quote! {
+        assert_ne!(1, 2);
+    });
+    should_not_lint::<SpecializedAssertions>(parse_quote! {
+        assert_eq!(1, 2, "these should be equal");
+    });
 }
