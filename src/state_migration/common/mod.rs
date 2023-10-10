@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
+use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -16,8 +17,38 @@ pub(in crate::state_migration) mod migrators;
 mod state_migration;
 pub(in crate::state_migration) mod verifier;
 
+use parking_lot::RwLock;
 pub(in crate::state_migration) use state_migration::StateMigration;
 pub(in crate::state_migration) type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
+
+/// Cache of existing CID to CID migrations for an actor.
+#[derive(Clone, Default)]
+pub(in crate::state_migration) struct MigrationCache {
+    cache: Arc<RwLock<HashMap<String, Cid>>>,
+}
+
+impl MigrationCache {
+    pub fn get(&self, key: &str) -> Option<Cid> {
+        self.cache.read().get(key).cloned()
+    }
+
+    pub fn get_or_insert_with<F>(&self, key: String, f: F) -> anyhow::Result<Cid>
+    where
+        F: FnOnce() -> anyhow::Result<Cid>,
+    {
+        if self.cache.read().contains_key(&key) {
+            Ok(self.cache.read().get(&key).cloned().unwrap())
+        } else {
+            let v = f()?;
+            self.cache.write().insert(key, v);
+            Ok(v)
+        }
+    }
+
+    pub fn insert(&self, key: String, value: Cid) {
+        self.cache.write().insert(key, value);
+    }
+}
 
 #[allow(dead_code)] // future migrations might need the fields.
 pub(in crate::state_migration) struct ActorMigrationInput {
@@ -29,6 +60,8 @@ pub(in crate::state_migration) struct ActorMigrationInput {
     pub head: Cid,
     /// Epoch of last state transition prior to migration
     pub prior_epoch: ChainEpoch,
+    /// Cache of existing CID to CID migrations for this actor
+    pub cache: MigrationCache,
 }
 
 /// Output of actor migration job.

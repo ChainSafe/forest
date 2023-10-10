@@ -181,6 +181,7 @@ pub(super) async fn start(
     )?)));
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
+    load_actor_bundles(&db).await?;
 
     let mut services = JoinSet::new();
 
@@ -284,8 +285,6 @@ pub(super) async fn start(
     }
 
     let epoch = chain_store.heaviest_tipset().epoch();
-
-    load_actor_bundles(&db).await?;
 
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());

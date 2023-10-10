@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod info_v8_to_v9;
+mod power_pair_v11_to_v12;
 mod power_pair_v8_to_v9;
+mod sector_onchain_info_v11_to_v12;
 mod sector_onchain_info_v8_to_v9;
 mod sector_precommit_info_v8_to_v9;
 mod sector_precommit_onchain_info_v8_to_v9;
