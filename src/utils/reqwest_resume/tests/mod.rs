@@ -12,8 +12,10 @@ use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::sleep;
 
-const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 const CHUNK_LEN: usize = 4096;
+// `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
+// The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
+const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 
 fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
     let s = std::str::from_utf8(value.as_bytes()).unwrap();
