@@ -176,6 +176,4 @@ pub fn get(url: reqwest::Url) -> impl Future<Output = reqwest::Result<Response>>
 }
 
 #[cfg(test)]
-mod tests {
-    mod get_test;
-}
+mod tests;
