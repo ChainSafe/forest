@@ -60,9 +60,6 @@ async fn generate_error(req: Request<Body>) -> Result<Response<Body>, Infallible
 }
 
 async fn create_flaky_server() -> std::net::SocketAddr {
-    // For every connection, we must make a `Service` to handle all
-    // incoming HTTP requests on said connection.
-
     let make_svc =
         make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(generate_error)) });
 
