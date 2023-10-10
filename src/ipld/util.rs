@@ -20,7 +20,7 @@ use crate::{
     blocks::{BlockHeader, Tipset},
     utils::encoding::from_slice_with_fallback,
 };
-use anyhow::Context as AnyhowContext;
+use anyhow::Context as _;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;

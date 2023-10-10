@@ -86,52 +86,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_migration_not_required_no_chain_path() -> anyhow::Result<()> {
-        let temp_dir = tempfile::tempdir()?;
+    fn test_migration_not_required_no_chain_path() {
+        let temp_dir = tempfile::tempdir().unwrap();
         let db_migration = DbMigration::new(temp_dir.path().join("azathoth"));
-        assert!(!db_migration.is_migration_required()?);
-        Ok(())
+        assert!(!db_migration.is_migration_required().unwrap());
     }
 
     #[test]
-    fn test_migration_not_required_no_databases() -> anyhow::Result<()> {
-        let temp_dir = tempfile::tempdir()?;
+    fn test_migration_not_required_no_databases() {
+        let temp_dir = tempfile::tempdir().unwrap();
         let db_migration = DbMigration::new(temp_dir.path().to_owned());
-        assert!(!db_migration.is_migration_required()?);
-        Ok(())
+        assert!(!db_migration.is_migration_required().unwrap());
     }
 
     #[test]
-    fn test_migration_not_required_under_non_current_mode() -> anyhow::Result<()> {
-        let temp_dir = tempfile::tempdir()?;
+    fn test_migration_not_required_under_non_current_mode() {
+        let temp_dir = tempfile::tempdir().unwrap();
 
         let db_dir = temp_dir.path().join("0.1.0");
-        std::fs::create_dir(&db_dir)?;
+        std::fs::create_dir(&db_dir).unwrap();
         let db_migration = DbMigration::new(temp_dir.path().to_owned());
 
         std::env::set_var(FOREST_DB_DEV_MODE, "latest");
-        assert!(!db_migration.is_migration_required()?);
+        assert!(!db_migration.is_migration_required().unwrap());
 
-        std::fs::remove_dir(db_dir)?;
-        std::fs::create_dir(temp_dir.path().join("cthulhu"))?;
+        std::fs::remove_dir(db_dir).unwrap();
+        std::fs::create_dir(temp_dir.path().join("cthulhu")).unwrap();
 
         std::env::set_var(FOREST_DB_DEV_MODE, "cthulhu");
-        assert!(!db_migration.is_migration_required()?);
-        Ok(())
+        assert!(!db_migration.is_migration_required().unwrap());
     }
 
     #[test]
-    fn test_migration_required_current_mode() -> anyhow::Result<()> {
-        let temp_dir = tempfile::tempdir()?;
+    fn test_migration_required_current_mode() {
+        let temp_dir = tempfile::tempdir().unwrap();
 
         let db_dir = temp_dir.path().join("0.1.0");
-        std::fs::create_dir(db_dir)?;
+        std::fs::create_dir(db_dir).unwrap();
         let db_migration = DbMigration::new(temp_dir.path().to_owned());
 
         std::env::set_var(FOREST_DB_DEV_MODE, "current");
-        assert!(db_migration.is_migration_required()?);
+        assert!(db_migration.is_migration_required().unwrap());
         std::env::remove_var(FOREST_DB_DEV_MODE);
-        assert!(db_migration.is_migration_required()?);
-        Ok(())
+        assert!(db_migration.is_migration_required().unwrap());
     }
 }

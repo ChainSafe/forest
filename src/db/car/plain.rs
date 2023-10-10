@@ -66,9 +66,9 @@ use crate::{
     utils::encoding::from_slice_with_fallback,
 };
 
+use crate::utils::db::car_stream::CarHeader;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_car::CarHeader;
 use integer_encoding::VarIntReader;
 
 use parking_lot::RwLock;
@@ -408,17 +408,16 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use super::PlainCar;
-
+    use crate::utils::db::car_util::load_car;
     use futures::executor::block_on;
     use fvm_ipld_blockstore::{Blockstore as _, MemoryBlockstore};
-    use fvm_ipld_car::{Block, CarReader};
+    use tokio::io::AsyncBufRead;
 
     #[test]
     fn test_uncompressed() {
         let car = chain4_car();
-        let reference = reference(futures::io::Cursor::new(car));
+        let reference = reference(car);
         let car_backed = PlainCar::new(car).unwrap();
 
         assert_eq!(car_backed.cids().len(), 1222);
@@ -431,15 +430,10 @@ mod tests {
         }
     }
 
-    fn reference(reader: impl futures::AsyncRead + Send + Unpin) -> MemoryBlockstore {
-        block_on(async {
-            let blockstore = MemoryBlockstore::new();
-            let mut blocks = CarReader::new(reader).await.unwrap();
-            while let Some(Block { cid, data }) = blocks.next_block().await.unwrap() {
-                blockstore.put_keyed(&cid, &data).unwrap()
-            }
-            blockstore
-        })
+    fn reference(reader: impl AsyncBufRead + Unpin) -> MemoryBlockstore {
+        let blockstore = MemoryBlockstore::new();
+        block_on(load_car(&blockstore, reader)).unwrap();
+        blockstore
     }
 
     fn chain4_car() -> &'static [u8] {

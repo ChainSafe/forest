@@ -113,30 +113,26 @@ impl FileBackedObject for ChainMeta {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::*;
+    use super::*;
     use cid::multihash::{self, MultihashDigest};
     use rand::Rng;
     use tempfile::TempDir;
 
-    use super::*;
-
     #[test]
-    fn cid_round_trip() -> Result<()> {
+    fn cid_round_trip() {
         let mut bytes = [0; 1024];
         rand::rngs::OsRng.fill(&mut bytes);
-        let cid = Cid::new_v0(multihash::Code::Sha2_256.digest(bytes.as_slice()))?;
-        let serialized = cid.serialize()?;
-        let deserialized = Cid::deserialize(&serialized)?;
-        ensure!(cid == deserialized);
+        let cid = Cid::new_v0(multihash::Code::Sha2_256.digest(bytes.as_slice())).unwrap();
+        let serialized = cid.serialize().unwrap();
+        let deserialized = Cid::deserialize(&serialized).unwrap();
+        assert_eq!(cid, deserialized);
 
-        let dir = TempDir::new()?;
+        let dir = TempDir::new().unwrap();
         let file_path = dir.path().join("CID");
         let obj1: FileBacked<Cid> =
-            FileBacked::load_from_file_or_create(file_path.clone(), || cid)?;
+            FileBacked::load_from_file_or_create(file_path.clone(), || cid).unwrap();
         let obj2: FileBacked<Cid> =
-            FileBacked::load_from_file_or_create(file_path, Default::default)?;
-        ensure!(obj1.inner() == obj2.inner());
-
-        Ok(())
+            FileBacked::load_from_file_or_create(file_path, Default::default).unwrap();
+        assert_eq!(obj1.inner(), obj2.inner());
     }
 }

@@ -10,7 +10,7 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::externs::Rand;
 use crate::utils::encoding::blake2b_256;
-use anyhow::{bail, Context};
+use anyhow::{bail, Context as _};
 use blake2b_simd::Params;
 use byteorder::{BigEndian, WriteBytesExt};
 use fvm_ipld_blockstore::Blockstore;

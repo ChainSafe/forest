@@ -13,7 +13,7 @@ use crate::db::car::{AnyCar, RandomAccessFileReader};
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
-use anyhow::{bail, Context as _, Result};
+use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -51,11 +51,11 @@ pub enum ArchiveCommands {
         #[arg(short, long, default_value_t = 2000)]
         depth: ChainEpochDelta,
         /// Do not include any values reachable from this epoch.
-        #[arg(short, long)]
+        #[arg(long)]
         diff: Option<ChainEpoch>,
         /// How many state-roots to include when computing the diff set. All
         /// state-roots are included if this flag is not set.
-        #[arg(short, long)]
+        #[arg(long)]
         diff_depth: Option<ChainEpochDelta>,
         /// Overwrite output file without prompting.
         #[arg(long, default_value_t = false)]
@@ -84,7 +84,7 @@ pub enum ArchiveCommands {
 }
 
 impl ArchiveCommands {
-    pub async fn run(self) -> Result<()> {
+    pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Info { snapshot } => {
                 println!(
@@ -151,14 +151,17 @@ impl std::fmt::Display for ArchiveInfo {
 impl ArchiveInfo {
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is rendered to stdout.
-    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> Result<Self> {
+    fn from_store(store: AnyCar<impl RandomAccessFileReader>) -> anyhow::Result<Self> {
         Self::from_store_with(store, true)
     }
 
     // Scan a CAR archive to identify which network it belongs to and how many
     // tipsets/messages are available. Progress is optionally rendered to
     // stdout.
-    fn from_store_with(store: AnyCar<impl RandomAccessFileReader>, progress: bool) -> Result<Self> {
+    fn from_store_with(
+        store: AnyCar<impl RandomAccessFileReader>,
+        progress: bool,
+    ) -> anyhow::Result<Self> {
         let root = store.heaviest_tipset()?;
         let root_epoch = root.epoch();
 
@@ -233,7 +236,7 @@ impl ArchiveInfo {
 
 // Print a mapping of epochs to block headers in yaml format. This mapping can
 // be used by Forest to quickly identify tipsets.
-fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> Result<()> {
+fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
     let store = ManyCar::try_from(snapshot_files).context("couldn't read input CAR file")?;
     let root = store.heaviest_tipset()?;
 
@@ -299,7 +302,7 @@ async fn do_export(
     diff: Option<ChainEpoch>,
     diff_depth: Option<ChainEpochDelta>,
     force: bool,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     let ts = Arc::new(root);
     let store = Arc::new(store);
 
@@ -393,7 +396,7 @@ async fn merge_snapshots(
     snapshot_files: Vec<PathBuf>,
     output_path: PathBuf,
     force: bool,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     use crate::db::car::forest;
 
     let store = ManyCar::try_from(snapshot_files)?;
@@ -441,11 +444,9 @@ async fn merge_snapshots(
 mod tests {
     use super::*;
     use crate::db::car::AnyCar;
-    use async_compression::tokio::bufread::ZstdDecoder;
-    use fvm_ipld_car::CarReader;
+    use crate::utils::db::car_stream::CarStream;
     use tempfile::TempDir;
     use tokio::io::BufReader;
-    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
@@ -478,10 +479,7 @@ mod tests {
         ))
         .await
         .unwrap();
-        let file = BufReader::new(file);
-        CarReader::new(ZstdDecoder::new(file).compat())
-            .await
-            .unwrap();
+        CarStream::new(BufReader::new(file)).await.unwrap();
     }
 
     #[test]

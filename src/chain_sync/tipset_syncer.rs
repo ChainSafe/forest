@@ -29,11 +29,12 @@ use crate::{
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::stream::TryStreamExt as _;
-use futures::{stream, stream::FuturesUnordered, Stream, StreamExt, TryFutureExt};
+use futures::{stream, stream::FuturesUnordered, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use nonempty::{nonempty, NonEmpty};
 use thiserror::Error;
+use tokio::task::JoinSet;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
@@ -49,8 +50,6 @@ pub enum TipsetProcessorError {
     RangeSyncer(#[from] TipsetRangeSyncerError),
     #[error("Tipset stream closed")]
     StreamClosed,
-    #[error("Tipset has already been synced")]
-    AlreadySynced,
 }
 
 #[derive(Debug, Error)]
@@ -269,49 +268,44 @@ where
         }
     }
 
-    fn find_range(
-        &self,
-        tipset_group: TipsetGroup,
-    ) -> TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError> {
+    fn find_range(&self, tipset_group: TipsetGroup) -> Option<TipsetRangeSyncer<DB>> {
         let state_manager = self.state_manager.clone();
         let chain_store = self.chain_store.clone();
         let network = self.network.clone();
         let bad_block_cache = self.bad_block_cache.clone();
         let tracker = self.tracker.clone();
         let genesis = self.genesis.clone();
-        Box::pin(async move {
-            // Define the low end of the range
-            let current_head = chain_store.heaviest_tipset();
-            let proposed_head = tipset_group.heaviest_tipset();
 
-            if current_head.key().eq(proposed_head.key()) {
-                return Err(TipsetProcessorError::AlreadySynced);
-            }
+        // Define the low end of the range
+        let current_head = chain_store.heaviest_tipset();
+        let proposed_head = tipset_group.heaviest_tipset();
 
-            let mut tipset_range_syncer = TipsetRangeSyncer::new(
-                tracker,
-                proposed_head,
-                current_head,
-                state_manager,
-                network,
-                chain_store,
-                bad_block_cache,
-                genesis,
-            )?;
-            for tipset in tipset_group.tipsets() {
-                tipset_range_syncer.add_tipset(tipset)?;
-            }
-            Ok(tipset_range_syncer)
-        })
+        if current_head.key().eq(proposed_head.key()) {
+            return None;
+        }
+
+        let mut tipset_range_syncer = TipsetRangeSyncer::new(
+            tracker,
+            proposed_head,
+            current_head,
+            state_manager,
+            network,
+            chain_store,
+            bad_block_cache,
+            genesis,
+        )
+        .ok()?;
+        for tipset in tipset_group.tipsets() {
+            tipset_range_syncer.add_tipset(tipset).ok()?;
+        }
+        Some(tipset_range_syncer)
     }
 }
-
-type TipsetProcessorFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
 
 enum TipsetProcessorState<DB> {
     Idle,
     FindRange {
-        range_finder: TipsetProcessorFuture<TipsetRangeSyncer<DB>, TipsetProcessorError>,
+        range_finder: Option<TipsetRangeSyncer<DB>>,
         epoch: i64,
         parents: TipsetKeys,
         current_sync: Option<TipsetGroup>,
@@ -504,8 +498,8 @@ where
                     ref mut current_sync,
                     ref mut next_sync,
                     ..
-                } => match range_finder.as_mut().poll(cx) {
-                    Poll::Ready(Ok(mut range_syncer)) => {
+                } => match range_finder.take() {
+                    Some(mut range_syncer) => {
                         debug!(
                             "Determined epoch range for next sync: [{}, {}]",
                             range_syncer.current_head.epoch(),
@@ -525,21 +519,9 @@ where
                             next_sync: next_sync.take(),
                         };
                     }
-                    Poll::Ready(Err(why)) => {
-                        match why {
-                            // Do not log for these errors since they are expected to occur
-                            // throughout the syncing process
-                            TipsetProcessorError::AlreadySynced
-                            | TipsetProcessorError::RangeSyncer(
-                                TipsetRangeSyncerError::InvalidTipsetRangeLength,
-                            ) => (),
-                            why => {
-                                error!("Finding tipset range for sync failed: {}", why);
-                            }
-                        };
+                    None => {
                         self.state = TipsetProcessorState::Idle;
                     }
-                    Poll::Pending => return Poll::Pending,
                 },
                 TipsetProcessorState::SyncRange {
                     ref mut range_syncer,
@@ -594,14 +576,11 @@ enum InvalidBlockStrategy {
     Forgiving,
 }
 
-type TipsetRangeSyncerFuture =
-    Pin<Box<dyn Future<Output = Result<(), TipsetRangeSyncerError>> + Send>>;
-
 pub(in crate::chain_sync) struct TipsetRangeSyncer<DB> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
     tipsets_included: HashSet<TipsetKeys>,
-    tipset_tasks: Pin<Box<FuturesUnordered<TipsetRangeSyncerFuture>>>,
+    tipset_tasks: JoinSet<Result<(), TipsetRangeSyncerError>>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
     chain_store: Arc<ChainStore<DB>>,
@@ -624,7 +603,7 @@ where
         bad_block_cache: Arc<BadBlockCache>,
         genesis: Arc<Tipset>,
     ) -> Result<Self, TipsetRangeSyncerError> {
-        let tipset_tasks = Box::pin(FuturesUnordered::new());
+        let mut tipset_tasks = JoinSet::new();
         let tipset_range_length = proposed_head.epoch() - current_head.epoch();
 
         // Ensure the difference in epochs between the proposed and current head is >= 0
@@ -632,7 +611,7 @@ where
             return Err(TipsetRangeSyncerError::InvalidTipsetRangeLength);
         }
 
-        tipset_tasks.push(sync_tipset_range(
+        tipset_tasks.spawn(sync_tipset_range(
             proposed_head.clone(),
             current_head.clone(),
             tracker,
@@ -686,7 +665,7 @@ where
         // Keep track of tipsets included
         self.tipsets_included.insert(new_key);
 
-        self.tipset_tasks.push(sync_tipset(
+        self.tipset_tasks.spawn(sync_tipset(
             additional_head,
             self.state_manager.clone(),
             self.chain_store.clone(),
@@ -714,11 +693,17 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            match self.as_mut().tipset_tasks.as_mut().poll_next(cx) {
-                Poll::Ready(Some(Ok(_))) => continue,
-                Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(e)),
-                Poll::Ready(None) => return Poll::Ready(Ok(())),
-                Poll::Pending => return Poll::Pending,
+            match std::task::ready!(self.as_mut().tipset_tasks.poll_join_next(cx)) {
+                Some(Ok(Ok(_))) => continue,
+                Some(Ok(Err(e))) => return Poll::Ready(Err(e)),
+                Some(Err(e)) => {
+                    if let Ok(p) = e.try_into_panic() {
+                        std::panic::resume_unwind(p);
+                    } else {
+                        panic!("Internal error: Tipset range syncer task unexpectedly canceled");
+                    }
+                }
+                None => return Poll::Ready(Ok(())),
             }
         }
     }
@@ -729,7 +714,7 @@ where
 /// messages going forward on the chain and validate each extension. Finally set
 /// the proposed head as the heaviest tipset.
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
+async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     proposed_head: Arc<Tipset>,
     current_head: Arc<Tipset>,
     tracker: crate::chain_sync::chain_muxer::WorkerState,
@@ -739,77 +724,75 @@ fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
-) -> TipsetRangeSyncerFuture {
-    Box::pin(async move {
-        tracker
-            .write()
-            .init(current_head.clone(), proposed_head.clone());
+) -> Result<(), TipsetRangeSyncerError> {
+    tracker
+        .write()
+        .init(current_head.clone(), proposed_head.clone());
 
-        let parent_tipsets = match sync_headers_in_reverse(
-            tracker.clone(),
-            tipset_range_length,
-            proposed_head.clone(),
-            &current_head,
-            &bad_block_cache,
-            &chain_store,
-            network.clone(),
-        )
-        .await
-        {
-            Ok(parent_tipsets) => parent_tipsets,
-            Err(why) => {
-                tracker.write().error(why.to_string());
-                return Err(why);
-            }
-        };
-
-        // Persist the blocks from the synced Tipsets into the store
-        tracker.write().set_stage(SyncStage::Headers);
-        let headers: Vec<&BlockHeader> = parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
-        if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
-            tracker.write().error(why.to_string());
-            return Err(why.into());
-        };
-
-        //  Sync and validate messages from the tipsets
-        tracker.write().set_stage(SyncStage::Messages);
-        if let Err(why) = sync_messages_check_state(
-            tracker.clone(),
-            state_manager,
-            network,
-            chain_store.clone(),
-            &bad_block_cache,
-            parent_tipsets,
-            &genesis,
-            InvalidBlockStrategy::Strict,
-        )
-        .await
-        {
-            error!("Sync messages check state failed for tipset range");
+    let parent_tipsets = match sync_headers_in_reverse(
+        tracker.clone(),
+        tipset_range_length,
+        proposed_head.clone(),
+        &current_head,
+        &bad_block_cache,
+        &chain_store,
+        network.clone(),
+    )
+    .await
+    {
+        Ok(parent_tipsets) => parent_tipsets,
+        Err(why) => {
             tracker.write().error(why.to_string());
             return Err(why);
-        };
-        tracker.write().set_stage(SyncStage::Complete);
+        }
+    };
 
-        // At this point the head is synced and it can be set in the store as the
-        // heaviest
-        debug!(
-            "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {:?}",
+    // Persist the blocks from the synced Tipsets into the store
+    tracker.write().set_stage(SyncStage::Headers);
+    let headers: Vec<&BlockHeader> = parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
+    if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
+        tracker.write().error(why.to_string());
+        return Err(why.into());
+    };
+
+    //  Sync and validate messages from the tipsets
+    tracker.write().set_stage(SyncStage::Messages);
+    if let Err(why) = sync_messages_check_state(
+        tracker.clone(),
+        state_manager,
+        network,
+        chain_store.clone(),
+        &bad_block_cache,
+        parent_tipsets,
+        &genesis,
+        InvalidBlockStrategy::Strict,
+    )
+    .await
+    {
+        error!("Sync messages check state failed for tipset range");
+        tracker.write().error(why.to_string());
+        return Err(why);
+    };
+    tracker.write().set_stage(SyncStage::Complete);
+
+    // At this point the head is synced and it can be set in the store as the
+    // heaviest
+    debug!(
+        "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {:?}",
+        proposed_head.epoch(),
+        current_head.epoch(),
+        proposed_head.key()
+    );
+    if let Err(why) = chain_store.put_tipset(&proposed_head) {
+        error!(
+            "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
             proposed_head.epoch(),
-            current_head.epoch(),
-            proposed_head.key()
+            proposed_head.key(),
+            why
         );
-        if let Err(why) = chain_store.put_tipset(&proposed_head) {
-            error!(
-                "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
-                proposed_head.epoch(),
-                proposed_head.key(),
-                why
-            );
-            return Err(why.into());
-        };
-        Ok(())
-    })
+        return Err(why.into());
+    };
+    Ok(())
 }
 
 /// Download headers between the proposed head and the current one available
@@ -932,51 +915,49 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
+async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     proposed_head: Arc<Tipset>,
     state_manager: Arc<StateManager<DB>>,
     chain_store: Arc<ChainStore<DB>>,
     network: SyncNetworkContext<DB>,
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
-) -> TipsetRangeSyncerFuture {
-    Box::pin(async move {
-        // Persist the blocks from the proposed tipsets into the store
-        let headers: Vec<&BlockHeader> = proposed_head.blocks().iter().collect();
-        persist_objects(chain_store.blockstore(), &headers)?;
+) -> Result<(), TipsetRangeSyncerError> {
+    // Persist the blocks from the proposed tipsets into the store
+    let headers: Vec<&BlockHeader> = proposed_head.blocks().iter().collect();
+    persist_objects(chain_store.blockstore(), &headers)?;
 
-        // Sync and validate messages from the tipsets
-        if let Err(e) = sync_messages_check_state(
-            // Include a dummy WorkerState
-            crate::chain_sync::chain_muxer::WorkerState::default(),
-            state_manager,
-            network,
-            chain_store.clone(),
-            &bad_block_cache,
-            vec![proposed_head.clone()],
-            &genesis,
-            InvalidBlockStrategy::Forgiving,
-        )
-        .await
-        {
-            warn!("Sync messages check state failed for single tipset");
-            return Err(e);
-        }
+    // Sync and validate messages from the tipsets
+    if let Err(e) = sync_messages_check_state(
+        // Include a dummy WorkerState
+        crate::chain_sync::chain_muxer::WorkerState::default(),
+        state_manager,
+        network,
+        chain_store.clone(),
+        &bad_block_cache,
+        vec![proposed_head.clone()],
+        &genesis,
+        InvalidBlockStrategy::Forgiving,
+    )
+    .await
+    {
+        warn!("Sync messages check state failed for single tipset");
+        return Err(e);
+    }
 
-        // Add the tipset to the store. The tipset will be expanded with other blocks
-        // with the same [epoch, parents] before updating the heaviest Tipset in
-        // the store.
-        if let Err(why) = chain_store.put_tipset(&proposed_head) {
-            error!(
-                "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
-                proposed_head.epoch(),
-                proposed_head.key(),
-                why
-            );
-            return Err(why.into());
-        };
-        Ok(())
-    })
+    // Add the tipset to the store. The tipset will be expanded with other blocks
+    // with the same [epoch, parents] before updating the heaviest Tipset in
+    // the store.
+    if let Err(why) = chain_store.put_tipset(&proposed_head) {
+        error!(
+            "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
+            proposed_head.epoch(),
+            proposed_head.key(),
+            why
+        );
+        return Err(why.into());
+    };
+    Ok(())
 }
 
 /// Ask peers for the [`Message`]s that these [`Tipset`]s should contain.

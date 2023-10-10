@@ -9,7 +9,7 @@ pub mod rolling;
 pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;
-
+use anyhow::Context as _;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
@@ -84,7 +84,7 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
 
     fn require_obj<V: DeserializeOwned>(&self, key: &str) -> anyhow::Result<V> {
         self.read_bin(key)?
-            .ok_or_else(|| anyhow::anyhow!("Key {key} not found"))
+            .with_context(|| format!("Key {key} not found"))
             .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
     }
 }

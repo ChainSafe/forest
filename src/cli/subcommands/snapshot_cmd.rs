@@ -8,7 +8,7 @@ use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::{chain_ops::*, state_network_name};
 use crate::utils::bail_moved_cmd;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context as _};
 use chrono::Utc;
 use clap::Subcommand;
 use human_repr::HumanCount;
@@ -75,7 +75,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, config: Config) -> Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -182,7 +182,7 @@ impl SnapshotCommands {
 
 /// Prints hex-encoded representation of SHA-256 checksum and saves it to a file
 /// with the same name but with a `.sha256sum` extension.
-async fn save_checksum(source: &Path, encoded_hash: String) -> Result<()> {
+async fn save_checksum(source: &Path, encoded_hash: String) -> anyhow::Result<()> {
     let checksum_file_content = format!(
         "{encoded_hash} {}\n",
         source

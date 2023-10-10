@@ -9,7 +9,6 @@ use crate::{
     shim::state_tree::StateRoot,
     state_migration::run_state_migrations,
 };
-use anyhow::*;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
 use fvm_ipld_encoding::CborStore;
@@ -21,7 +20,7 @@ use std::{str::FromStr, sync::Arc};
 
 #[ignore = "flaky"]
 #[tokio::test]
-async fn test_nv17_state_migration_calibnet() -> Result<()> {
+async fn test_nv17_state_migration_calibnet() -> anyhow::Result<()> {
     // forest_filecoin::state_migration: State migration at height Shark(epoch 16800) was successful,
     // Previous state: bafy2bzacedxtdhqjsrw2twioyaeomdk4z7umhgfv36vzrrotjb4woutphqgyg,
     // new state: bafy2bzacecrejypa2rqdh3geg2u3qdqdrejrfqvh2ykqcrnyhleehpiynh4k4.
@@ -38,7 +37,7 @@ async fn test_nv17_state_migration_calibnet() -> Result<()> {
 
 #[ignore = "flaky"]
 #[tokio::test]
-async fn test_nv18_state_migration_calibnet() -> Result<()> {
+async fn test_nv18_state_migration_calibnet() -> anyhow::Result<()> {
     // State migration at height Hygge(epoch 322354) was successful,
     // Previous state: bafy2bzacedjqwdqxlkyyuohmtcfciekl5qh2s4yf67neiuuhkibbteqoucvsm,
     // new state: bafy2bzacedhhgkmr26rbr3yujounnz2ufiwrlvamogyabgfv6uvwq3rlv4t2i.
@@ -55,7 +54,7 @@ async fn test_nv18_state_migration_calibnet() -> Result<()> {
 
 #[ignore = "flaky"]
 #[tokio::test]
-async fn test_nv19_state_migration_calibnet() -> Result<()> {
+async fn test_nv19_state_migration_calibnet() -> anyhow::Result<()> {
     // State migration at height Lightning(epoch 489094) was successful,
     // Previous state: bafy2bzacedgamjgha75e7w2cgklfdgtmumsj7nadqppnpz3wexl2wl6dexsle,
     // new state: bafy2bzacebhjx4uqtg6c65km46wiiq45dbbeckqhs2oontwdzba335nxk6bia.
@@ -75,7 +74,7 @@ async fn test_state_migration(
     network: NetworkChain,
     old_state: Cid,
     expected_new_state: Cid,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     // Car files are cached under data folder for Go test to pick up without network access
     let car_path = PathBuf::from(format!("./src/state_migration/tests/data/{old_state}.car"));
     if !car_path.is_file() {
@@ -101,7 +100,7 @@ async fn test_state_migration(
                 writer.flush().await?;
                 writer.close().await?;
 
-                Ok(())
+                anyhow::Ok(())
             },
         )
         .await?;

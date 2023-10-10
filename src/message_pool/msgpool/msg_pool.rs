@@ -23,7 +23,7 @@ use crate::shim::{
 };
 use crate::state_manager::is_valid_for_sending;
 use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;

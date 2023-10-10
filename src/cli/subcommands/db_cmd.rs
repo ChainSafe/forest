@@ -28,7 +28,7 @@ pub enum DBCommands {
 }
 
 impl DBCommands {
-    pub async fn run(&self, config: &Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: &Config) -> anyhow::Result<()> {
         match self {
             Self::Stats => bail_moved_cmd("db stats", "forest-tool db stats"),
             Self::GC => {

@@ -13,7 +13,7 @@ use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashSet};
-use anyhow::Context;
+use anyhow::Context as _;
 use cid::Cid;
 use flume::Sender;
 use futures::stream::StreamExt;
@@ -213,6 +213,7 @@ where
         )
         .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
         .per_connection_event_buffer_size(64)
+        .idle_connection_timeout(Duration::from_secs(60 * 10))
         .build();
 
         // Subscribe to gossipsub topics with the network name suffix
@@ -795,7 +796,6 @@ async fn handle_forest_behaviour_event<DB>(
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
         ForestBehaviourEvent::Identify(_) => {}
-        ForestBehaviourEvent::KeepAlive(_) => {}
         ForestBehaviourEvent::ConnectionLimits(_) => {}
         ForestBehaviourEvent::BlockedPeers(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {

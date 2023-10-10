@@ -4,13 +4,12 @@
 pub mod common;
 
 use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
-use anyhow::Result;
 
 #[test]
-fn current_mode_should_create_current_version_if_no_migrations() -> Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+fn current_mode_should_create_current_version_if_no_migrations() {
+    let (config_file, data_dir) = create_tmp_config();
 
-    daemon()?
+    daemon()
         .common_env()
         // In its absence, the default will be "current" anyway, but let's make it explicit.
         .env("FOREST_DB_DEV_MODE", "current")
@@ -28,15 +27,13 @@ fn current_mode_should_create_current_version_if_no_migrations() -> Result<()> {
         .join("calibnet")
         .join(forest_version)
         .exists());
-
-    Ok(())
 }
 
 #[test]
-fn development_mode_should_create_named_db() -> Result<()> {
-    let (config_file, data_dir) = create_tmp_config()?;
+fn development_mode_should_create_named_db() {
+    let (config_file, data_dir) = create_tmp_config();
 
-    daemon()?
+    daemon()
         .common_env()
         .env("FOREST_DB_DEV_MODE", "azathoth")
         .common_args()
@@ -57,9 +54,10 @@ fn development_mode_should_create_named_db() -> Result<()> {
             .join("azathoth")
             .join("chant"),
         "Rlyeh wgah nagl fhtagn",
-    )?;
+    )
+    .unwrap();
 
-    daemon()?
+    daemon()
         .common_env()
         .env("FOREST_DB_DEV_MODE", "azathoth")
         .common_args()
@@ -77,9 +75,8 @@ fn development_mode_should_create_named_db() -> Result<()> {
                 .join("calibnet")
                 .join("azathoth")
                 .join("chant")
-        )?,
+        )
+        .unwrap(),
         "Rlyeh wgah nagl fhtagn"
     );
-
-    Ok(())
 }

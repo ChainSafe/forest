@@ -35,7 +35,7 @@ cfg-if = "1"
 cfg-vis = "0.3.0"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.4", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.1", features = ["parking_lot"] }
 convert_case = "0.6.0"
@@ -47,7 +47,7 @@ data-encoding = "2.3"
 data-encoding-macro = "0.1"
 derive_builder = "0.12"
 derive_more = "0.99.17"
-dialoguer = "0.10.2"
+dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 fil_actor_account_state = "6.1"
@@ -68,11 +68,13 @@ fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.0.0-alpha.3", features = ["arb"] }
 fvm_ipld_blockstore = "0.2"
-fvm_ipld_car = "0.7"
 fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.0.0-alpha.3", features = ["testing", "proofs"] }
+
 gethostname = "0.4"
 git-version = "0.3"
 hex = { version = "0.4", features = ["serde"] }
@@ -108,7 +110,7 @@ libp2p = { version = "0.52.1", default-features = false, features = [
 ] }
 libsecp256k1 = "0.7"
 lru = "0.11"
-memmap2 = "0.7"
+memmap2 = "0.8"
 memory-stats = "1.1"
 mimalloc = { version = "0.1.39", optional = true, default-features = false }
 multimap = "0.9.0"
@@ -170,8 +172,8 @@ ticker = "0.1"
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-util = { version = "0.7.0", features = ["compat"] }
-toml = "0.7"
+tokio-util = { version = "0.7.9", features = ["compat"] }
+toml = "0.8"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7.1"
@@ -195,6 +197,7 @@ fvm3 = { package = "fvm", default-features = false, version = "~3.8", features =
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
+predicates = "3.0"
 quickcheck = "1"
 quickcheck_macros = "1"
 tokio-test = "0.4.2"

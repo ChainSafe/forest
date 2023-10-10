@@ -18,7 +18,7 @@ use crate::shim::{
 use crate::utils::encoding::from_slice_with_fallback;
 use anyhow::{bail, Context as _};
 use cid::Cid;
-use fvm3::{
+use fvm4::{
     externs::{Chain, Consensus, Externs, Rand},
     gas::{Gas, GasTracker},
 };
@@ -26,7 +26,7 @@ use fvm_ipld_blockstore::{
     tracking::{BSStats, TrackingBlockstore},
     Blockstore,
 };
-use fvm_shared3::{
+use fvm_shared4::{
     clock::ChainEpoch,
     consensus::{ConsensusFault, ConsensusFaultType},
 };
