@@ -73,6 +73,15 @@ use std::time::Duration;
 use tokio::time;
 use tracing::info;
 
+// This enum facilitates GC loop control flow. It allows for simpler workflow logic by avoiding
+// inner loops within the workflow itself.
+enum ControlFlow {
+    // Continue the GC workflow.
+    Continue,
+    // The GC workflow has finished, start another one.
+    Finished,
+}
+
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
 /// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
@@ -84,7 +93,6 @@ pub struct MarkAndSweep<BS> {
     chain_store: Arc<ChainStore<BS>>,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
-    epoch_sweeped: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
@@ -110,7 +118,6 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             depth,
             marked: HashSet::new(),
             epoch_marked: 0,
-            epoch_sweeped: 0,
             block_time,
         }
     }
@@ -156,20 +163,24 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
     pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         loop {
-            self.gc_workflow().await?;
-            // Make sure we don't run the GC too often.
-            time::sleep(interval).await;
+            match self.gc_workflow().await? {
+                ControlFlow::Continue => continue,
+                ControlFlow::Finished => {
+                    // Make sure we don't run the GC too often.
+                    time::sleep(interval).await;
+                }
+            }
         }
     }
 
-    async fn gc_workflow(&mut self) -> anyhow::Result<()> {
+    async fn gc_workflow(&mut self) -> anyhow::Result<ControlFlow> {
         let depth = self.depth;
         let tipset = self.chain_store.heaviest_tipset();
         let current_epoch = tipset.epoch();
         // Don't run the GC if there aren't enough state-roots yet.
         if depth > current_epoch {
             time::sleep(self.block_time * (depth - current_epoch) as u32).await;
-            return anyhow::Ok(());
+            return anyhow::Ok(ControlFlow::Continue);
         }
 
         if self.marked.is_empty() {
@@ -180,16 +191,19 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         let epochs_since_marked = current_epoch - self.epoch_marked;
         if epochs_since_marked < depth {
             time::sleep(self.block_time * (depth - epochs_since_marked) as u32).await;
-            return anyhow::Ok(());
-        } else {
-            info!("filter keys for GC");
-            self.filter(tipset, depth).await?;
-
-            info!("GC sweep");
-            self.sweep()?;
-            self.epoch_sweeped = current_epoch;
+            return anyhow::Ok(ControlFlow::Continue);
         }
 
-        anyhow::Ok(())
+        info!("filter keys for GC");
+        self.filter(tipset, depth).await?;
+
+        info!("GC sweep");
+        self.sweep()?;
+
+        anyhow::Ok(ControlFlow::Finished)
     }
+}
+#[cfg(test)]
+mod test {
+    // fn
 }
