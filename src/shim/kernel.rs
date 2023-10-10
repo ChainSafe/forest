@@ -9,79 +9,50 @@ use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
-use itertools::Either;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use std::fmt;
 
-macro_rules! error_number {
-    ($($variant:ident),* $(,)?) => {
-        #[derive(Debug, Clone)]
-        #[non_exhaustive]
-        pub enum ErrorNumber {
-            $($variant,)*
-            Unknown(u32),
-        }
-
-        $(
-            static_assertions::const_assert_eq!(N2::$variant as u32, N3::$variant as u32);
-            static_assertions::const_assert_eq!(N3::$variant as u32, N4::$variant as u32);
-        )*
-
-        impl From<N2> for ErrorNumber {
-            fn from(value: N2) -> Self {
-                match value {
-                    $(N2::$variant => Self::$variant,)*
-                    u => Self::Unknown(u as u32),
-                }
-            }
-        }
-
-        impl From<N3> for ErrorNumber {
-            fn from(value: N3) -> Self {
-                match value {
-                    $(N3::$variant => Self::$variant,)*
-                    u => Self::Unknown(u as u32),
-                }
-            }
-        }
-
-        impl From<N4> for ErrorNumber {
-            fn from(value: N4) -> Self {
-                match value {
-                    $(N4::$variant => Self::$variant,)*
-                    u => Self::Unknown(u as u32),
-                }
-            }
-        }
-
-        impl ErrorNumber {
-            fn as_unshimmed_or_u32(&self) -> Either<N4, u32> {
-                match self {
-                    $(Self::$variant => Either::Left(N4::$variant),)*
-                    Self::Unknown(u) => Either::Right(*u),
-                }
-            }
-        }
-    };
+impl From<N2> for ErrorNumber {
+    fn from(value: N2) -> Self {
+        FromPrimitive::from_u32(value as u32).expect("conversion from N2 must work")
+    }
 }
 
-error_number! {
-    IllegalArgument,
-    IllegalOperation,
-    LimitExceeded,
-    AssertionFailed,
-    InsufficientFunds,
-    NotFound,
-    InvalidHandle,
-    IllegalCid,
-    IllegalCodec,
-    Serialization,
-    Forbidden,
-    BufferTooSmall,
+impl From<N3> for ErrorNumber {
+    fn from(value: N3) -> Self {
+        FromPrimitive::from_u32(value as u32).expect("conversion from N3 must work")
+    }
+}
+
+impl From<N4> for ErrorNumber {
+    fn from(value: N4) -> Self {
+        FromPrimitive::from_u32(value as u32).expect("conversion from N4 must work")
+    }
+}
+
+#[repr(u32)]
+#[derive(Copy, Clone, Debug, FromPrimitive)]
+pub enum ErrorNumber {
+    IllegalArgument = 1,
+    IllegalOperation = 2,
+    LimitExceeded = 3,
+    AssertionFailed = 4,
+    InsufficientFunds = 5,
+    NotFound = 6,
+    InvalidHandle = 7,
+    IllegalCid = 8,
+    IllegalCodec = 9,
+    Serialization = 10,
+    Forbidden = 11,
+    BufferTooSmall = 12,
+    ReadOnly = 13,
 }
 
 impl fmt::Display for ErrorNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_unshimmed_or_u32().fmt(f)
+        let n4: N4 = FromPrimitive::from_u32(*self as u32).expect("conversion to N4 must work");
+        n4.fmt(f)
     }
 }
 
@@ -127,19 +98,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_fmt() {
-        let shim: EShim = E3::new(N3::IllegalArgument, "cthulhu").into();
+    fn test_n2_error_fmt() {
+        let shim: NShim = N2::IllegalArgument.into();
 
-        assert_eq!(
-            format!("{}", shim),
-            "syscall error: cthulhu (exit_code=illegal argument)"
-        );
+        assert_eq!(format!("{}", shim), "illegal argument");
     }
 
     #[test]
-    fn test_unknown_error_fmt() {
-        let shim: EShim = E3::new(N3::ReadOnly, "dagon").into();
+    fn test_n3_error_fmt() {
+        let shim: NShim = N3::ReadOnly.into();
 
-        assert_eq!(format!("{}", shim), "syscall error: dagon (exit_code=13)");
+        assert_eq!(format!("{}", shim), "execution context is read-only");
     }
 }
