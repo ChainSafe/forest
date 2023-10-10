@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //!
-//! The current implementation of the garbage collector is concurrent mark-and-sweep.
+//! The current implementation of the garbage collector is `concurrent mark-and-sweep`.
 //!
 //! ## Terminology
 //! `chain finality` - a number of epochs after which it becomes impossible to add or remove a block
@@ -14,7 +14,7 @@
 //! ## GC Algorithm
 //! The `mark-and-sweep` algorithm was chosen due to it's simplicity, efficiency and low memory
 //! footprint. Previously the `semi-space` algorithm was used resulting in data duplication and up
-//! to 100% extra disk usage.
+//! to a 100% extra disk usage.
 //!
 //! ## GC Workflow
 //! 1. Mark: traverse all the relevant database columns, generating integer hash representations for
@@ -26,21 +26,20 @@
 //! 4. Sweep, removing all the remaining marked entries from the database.
 //!
 //! ## Correctness
-//! TODO: Define correctness better, keep `snapshot export`
-//! This algorithm is traversing the reachable graph using the same tooling as the snapshot export.
-//! Therefore, it ensures that we eliminate all the reachable blocks from the set of keys scheduled
-//! for removal. Additionally, it waits for at least chain finality before filtering out and
-//! sweeping marked records, making sure nothing that could have become reachable in the meantime
-//! gets removed. A snapshot can be used to bootstrap the node from scratch, thus the algorithm is
-//! considered correct when a valid snapshot can be exported using records available in the database
-//! after sweeping.
+//! This algorithm considers all the blocks that are visited during the `snapshot export` task
+//! reachable, making sure they are kept in the database after the run. This is facilitated by
+//! waiting at least `chain finality` after the `mark` step before traversing the reachable graph
+//! and eliminating all the found blocks from the set marked for removal. A snapshot can be used to
+//! bootstrap the node from scratch, thus the algorithm is considered correct when a valid snapshot
+//! can be exported using records available in the database after sweeping.
 //!
 //! ## Disk usage
 //! There's no additional disk space required to run this algorithm. However, removing the
 //! unreachable blocks from the database takes at least `chain finality`. The GC speed depends on
-//! the reachable graph size. Additionally, since a truncated 4-byte is used - there's a slight
-//! possibility of a collision, which might result in an unreachable block being retained in the
-//! database. Still, the impact on the total disk size is negligible.
+//! the reachable graph size. Disk usage is also affected by the GC run interval. Additionally,
+//! since a truncated 4-byte hash is used - there's a slight possibility of a collision, which might
+//! result in an unreachable block being retained in the database. Still, the impact on the total
+//! disk size is negligible.
 //!
 //! ## Memory usage
 //! During the `mark` and up to the `sweep` stage, the algorithm requires `4 bytes` of memory for
@@ -53,6 +52,7 @@
 //! 2. The `filter` step is triggered after at least `chain finality` has passed since the `mark`
 //! step.
 //! 3. Then, the `sweep` step happens.
+//! 4. Finally, the algorithm waits for a configured amount of time to initiate the next run.
 //!
 //! ## Performance
 //! TODO: Measure the performance and potentially define it in terms of `snapshot export` or any
