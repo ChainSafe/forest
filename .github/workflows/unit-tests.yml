@@ -11,9 +11,6 @@ on:
   pull_request:
     branches:
       - main
-    # This needs to be declared explicitly so that the job is actually
-    # run when moved out of draft.
-    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
@@ -37,9 +34,6 @@ jobs:
   tests:
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
     runs-on: fuzzy
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
     timeout-minutes: 30
     steps:
       - name: Checkout Sources
@@ -66,9 +60,6 @@ jobs:
   tests-release:
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
     runs-on: fuzzy
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
     timeout-minutes: 30
     steps:
       # find the nearest S3 space for storing cache files

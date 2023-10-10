@@ -12,15 +12,10 @@ on:
       - "*"
   merge_group:
   pull_request:
-    # This needs to be declared explicitly so that the job is actually
-    # run when moved out of draft.
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
 
 jobs:
   build-and-push-docker-image:
-    # Run the job only if the PR is not a draft.
-    # This is done to limit the runner cost.
-    if: github.event.pull_request.draft == false
     name: Build images and push to GHCR
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
     runs-on: fuzzy
