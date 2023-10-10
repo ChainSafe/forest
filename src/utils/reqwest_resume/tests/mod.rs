@@ -101,8 +101,9 @@ pub async fn test_non_resumable_get() {
 
     let mut stream = resp.bytes_stream();
 
-    let item = stream.next().await.unwrap();
-    assert_eq!(item.unwrap().len(), CHUNK_LEN);
+    let data = stream.next().await.unwrap().unwrap();
+    assert!(data.len() <= CHUNK_LEN);
+    assert_eq!(Bytes::from_static(&RANDOM_BYTES[0..data.len()]), data);
     let item = stream.next().await.unwrap();
     let err = item.unwrap_err();
     assert!(err.is_body());
