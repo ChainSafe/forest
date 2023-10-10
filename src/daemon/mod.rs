@@ -238,7 +238,12 @@ pub(super) async fn start(
             config.chain.recent_state_roots,
         );
 
-        MarkAndSweep::new(db_writer, chain_store, depth)
+        MarkAndSweep::new(
+            db_writer,
+            chain_store,
+            depth,
+            Duration::from_secs(config.chain.block_delay_secs as u64),
+        )
     };
 
     if !opts.no_gc {

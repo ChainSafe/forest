@@ -73,9 +73,6 @@ use std::time::Duration;
 use tokio::time;
 use tracing::info;
 
-// The average block time is set to a slightly bigger value on purpose, to save some cycles.
-const AVERAGE_BLOCK_TIME: Duration = Duration::from_secs(35);
-
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
 /// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
@@ -89,6 +86,7 @@ pub struct MarkAndSweep<BS> {
     epoch_marked: ChainEpoch,
     epoch_sweeped: ChainEpoch,
     depth: ChainEpochDelta,
+    block_time: Duration,
 }
 
 impl<BS: Blockstore> MarkAndSweep<BS> {
@@ -99,7 +97,13 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// * `db` - A reference to the database instance.
     /// * `chain_store` - A reference to chain store to fetch heaviest tipset.
     /// * `depth` - The number of state-roots to retain.
-    pub fn new(db: Arc<Db>, chain_store: Arc<ChainStore<BS>>, depth: ChainEpochDelta) -> Self {
+    /// * `block_time` - An average block production time.
+    pub fn new(
+        db: Arc<Db>,
+        chain_store: Arc<ChainStore<BS>>,
+        depth: ChainEpochDelta,
+        block_time: Duration,
+    ) -> Self {
         Self {
             db,
             chain_store,
@@ -107,6 +111,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             marked: HashSet::new(),
             epoch_marked: 0,
             epoch_sweeped: 0,
+            block_time,
         }
     }
     // Populate the initial set with all the available database keys.
@@ -163,7 +168,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         let current_epoch = tipset.epoch();
         // Don't run the GC if there aren't enough state-roots yet.
         if depth > current_epoch {
-            time::sleep(AVERAGE_BLOCK_TIME * (depth - current_epoch) as u32).await;
+            time::sleep(self.block_time * (depth - current_epoch) as u32).await;
             return anyhow::Ok(());
         }
 
@@ -172,10 +177,9 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
             self.populate()?;
         }
 
-        // Don't filter and sweep before we advance at least `depth`.
-        let epoch_since_marked = current_epoch - self.epoch_marked;
-        if epoch_since_marked < depth {
-            time::sleep(AVERAGE_BLOCK_TIME * epoch_since_marked as u32).await;
+        let epochs_since_marked = current_epoch - self.epoch_marked;
+        if epochs_since_marked < depth {
+            time::sleep(self.block_time * (depth - epochs_since_marked) as u32).await;
             return anyhow::Ok(());
         } else {
             info!("filter keys for GC");

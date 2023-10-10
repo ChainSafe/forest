@@ -2889,7 +2889,6 @@ dependencies = [
  "parity-db",
  "parking_lot",
  "pathfinding",
- "pbr",
  "pin-project-lite",
  "positioned-io",
  "predicates",
@@ -5718,17 +5717,6 @@ dependencies = [
  "num-traits",
  "rustc-hash",
  "thiserror",
-]
-
-[[package]]
-name = "pbr"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5827dfa0d69b6c92493d6c38e633bbaa5937c153d0d7c28bf12313f8c6d514"
-dependencies = [
- "crossbeam-channel",
- "libc",
- "winapi",
 ]
 
 [[package]]
