@@ -154,55 +154,50 @@ where
         network_head: FullTipset,
         local_head: Arc<Tipset>,
     ) -> Result<(), ChainMuxerError> {
-        // Instantiate a TipsetRangeSyncer
-        let trs_state_manager = self.state_manager.clone();
-        let trs_bad_block_cache = self.bad_blocks.clone();
-        let trs_chain_store = self.state_manager.chain_store().clone();
-        let trs_network = self.network.clone();
-        let trs_tracker = self.worker_state.clone();
-        let trs_genesis = self.genesis.clone();
-
         let mut tasks = JoinSet::new();
 
-        tasks.spawn(async move {
-            let network_head_epoch = network_head.epoch();
-            let tipset_range_syncer = match TipsetRangeSyncer::new(
-                trs_tracker,
-                Arc::new(network_head.into_tipset()),
-                local_head,
-                trs_state_manager,
-                trs_network,
-                trs_chain_store,
-                trs_bad_block_cache,
-                trs_genesis,
-            ) {
-                Ok(tipset_range_syncer) => tipset_range_syncer,
-                Err(why) => {
-                    metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
-                    return Err(ChainMuxerError::TipsetRangeSyncer(why));
-                }
-            };
+        // Instantiate a TipsetRangeSyncer
+        tasks.spawn({
+            let tracker = self.worker_state.clone();
+            let state_manager = self.state_manager.clone();
+            let network = self.network.clone();
+            let chain_store = self.state_manager.chain_store().clone();
+            let bad_block_cache = self.bad_blocks.clone();
+            let genesis = self.genesis.clone();
+            async move {
+                let network_head_epoch = network_head.epoch();
+                let tipset_range_syncer = match TipsetRangeSyncer::new(
+                    tracker,
+                    Arc::new(network_head.into_tipset()),
+                    local_head,
+                    state_manager,
+                    network,
+                    chain_store,
+                    bad_block_cache,
+                    genesis,
+                ) {
+                    Ok(tipset_range_syncer) => tipset_range_syncer,
+                    Err(why) => {
+                        metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
+                        return Err(ChainMuxerError::TipsetRangeSyncer(why));
+                    }
+                };
 
-            tipset_range_syncer
-                .await
-                .map_err(ChainMuxerError::TipsetRangeSyncer)?;
+                tipset_range_syncer
+                    .await
+                    .map_err(ChainMuxerError::TipsetRangeSyncer)?;
 
-            metrics::HEAD_EPOCH.set(network_head_epoch as u64);
+                metrics::HEAD_EPOCH.set(network_head_epoch as u64);
 
-            Ok(())
+                Ok(())
+            }
         });
 
         // The stream processor _must_ only error if the stream ends
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
         tasks.spawn(async move {
+            let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
             loop {
-                let event = match p2p_messages.recv_async().await {
+                let event = match self.net_handler.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
                         debug!("Receiving event from p2p event stream failed: {}", why);
@@ -212,11 +207,11 @@ where
 
                 let (_tipset, _) = match ChainMuxer::process_gossipsub_event(
                     event,
-                    network.clone(),
-                    chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
+                    self.network.clone(),
+                    self.state_manager.chain_store().clone(),
+                    self.bad_blocks.clone(),
+                    self.mpool.clone(),
+                    self.genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
                     block_delay,
                 )
@@ -251,104 +246,100 @@ where
     }
 
     async fn follow(self, tipset_opt: Option<FullTipset>) -> Result<(), ChainMuxerError> {
-        // Instantiate a TipsetProcessor
-        let tp_state_manager = self.state_manager.clone();
-        let tp_network = self.network.clone();
-        let tp_chain_store = self.state_manager.chain_store().clone();
-        let tp_bad_block_cache = self.bad_blocks.clone();
-        let tp_tipset_receiver = self.tipset_receiver.clone();
-        let tp_tracker = self.worker_state.clone();
-        let tp_genesis = self.genesis.clone();
         enum UnexpectedReturnKind {
             TipsetProcessor,
         }
 
         let mut tasks = JoinSet::new();
 
-        tasks.spawn(async move {
-            TipsetProcessor::new(
-                tp_tracker,
-                Box::pin(tp_tipset_receiver.into_stream()),
-                tp_state_manager,
-                tp_network,
-                tp_chain_store,
-                tp_bad_block_cache,
-                tp_genesis,
-            )
-            .await
-            .map_err(ChainMuxerError::TipsetProcessor)?;
+        // Instantiate a TipsetProcessor
+        tasks.spawn({
+            let tracker = self.worker_state.clone();
+            let tipset_receiver = self.tipset_receiver.clone();
+            let state_manager = self.state_manager.clone();
+            let network = self.network.clone();
+            let chain_store = self.state_manager.chain_store().clone();
+            let bad_block_cache = self.bad_blocks.clone();
+            let genesis = self.genesis.clone();
+            async move {
+                TipsetProcessor::new(
+                    tracker,
+                    Box::pin(tipset_receiver.into_stream()),
+                    state_manager,
+                    network,
+                    chain_store,
+                    bad_block_cache,
+                    genesis,
+                )
+                .await
+                .map_err(ChainMuxerError::TipsetProcessor)?;
 
-            Ok(UnexpectedReturnKind::TipsetProcessor)
+                Ok(UnexpectedReturnKind::TipsetProcessor)
+            }
         });
 
         // The stream processor _must_ only error if the p2p event stream ends or if the
         // tipset channel is unexpectedly closed
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
-
         tasks.spawn(async move {
-                // If a tipset has been provided, pass it to the tipset processor
-                if let Some(tipset) = tipset_opt {
-                    if let Err(why) = tipset_sender
-                        .send_async(Arc::new(tipset.into_tipset()))
-                        .await
-                    {
-                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
-                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
-                    };
-                }
-                loop {
-                    let event = match p2p_messages.recv_async().await {
-                        Ok(event) => event,
-                        Err(why) => {
-                            debug!("Receiving event from p2p event stream failed: {}", why);
-                            return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                        }
-                    };
+            let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+            let chain_store = self.state_manager.chain_store();
 
-                    let (tipset, _) = match ChainMuxer::process_gossipsub_event(
-                        event,
-                        network.clone(),
-                        chain_store.clone(),
-                        bad_block_cache.clone(),
-                        mem_pool.clone(),
-                        genesis.clone(),
-                        PubsubMessageProcessingStrategy::Process,
-                        block_delay,
-                    )
+            // If a tipset has been provided, pass it to the tipset processor
+            if let Some(tipset) = tipset_opt {
+                if let Err(why) = self.tipset_sender
+                    .send_async(Arc::new(tipset.into_tipset()))
                     .await
-                    {
-                        Ok(Some((tipset, source))) => (tipset, source),
-                        Ok(None) => continue,
-                        Err(why) => {
-                            debug!("Processing GossipSub event failed: {:?}", why);
-                            continue;
-                        }
-                    };
+                {
+                    debug!("Sending tipset to TipsetProcessor failed: {}", why);
+                    return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
+                };
+            }
+            loop {
+                let event = match self.net_handler.recv_async().await {
+                    Ok(event) => event,
+                    Err(why) => {
+                        debug!("Receiving event from p2p event stream failed: {}", why);
+                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+                    }
+                };
 
-                    // Validate that the tipset is heavier that the heaviest
-                    // tipset in the store
-                    if tipset.weight() < chain_store.heaviest_tipset().weight() {
-                        // Only send heavier Tipsets to the TipsetProcessor
-                        trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
+                let (tipset, _) = match ChainMuxer::process_gossipsub_event(
+                    event,
+                    self. network.clone(),
+                    chain_store.clone(),
+                    self. bad_blocks.clone(),
+                    self. mpool.clone(),
+                    self.genesis.clone(),
+                    PubsubMessageProcessingStrategy::Process,
+                    block_delay,
+                )
+                .await
+                {
+                    Ok(Some((tipset, source))) => (tipset, source),
+                    Ok(None) => continue,
+                    Err(why) => {
+                        debug!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
+                };
 
-                    if let Err(why) = tipset_sender
-                        .send_async(Arc::new(tipset.into_tipset()))
-                        .await
-                    {
-                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
-                        return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
-                    };
+                // Validate that the tipset is heavier that the heaviest
+                // tipset in the store
+                if tipset.weight() < chain_store.heaviest_tipset().weight() {
+                    // Only send heavier Tipsets to the TipsetProcessor
+                    trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
+                    continue;
                 }
-            });
+
+                if let Err(why) = self.tipset_sender
+                    .send_async(Arc::new(tipset.into_tipset()))
+                    .await
+                {
+                    debug!("Sending tipset to TipsetProcessor failed: {}", why);
+                    return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
+                };
+            }
+        });
 
         // Only wait for one of the tasks to complete before returning to the caller
         match tasks.join_next().await {
@@ -380,18 +371,13 @@ where
     }
 
     async fn evaluate_network_head(self) -> Result<NetworkHeadEvaluation, ChainMuxerError> {
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
+        let chain_store = self.state_manager.chain_store();
         let tipset_sample_size = self.sync_config.tipset_sample_size;
         let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let mut tipsets = vec![];
         loop {
-            let event = match p2p_messages.recv_async().await {
+            let event = match self.net_handler.recv_async().await {
                 Ok(event) => event,
                 Err(why) => {
                     debug!("Receiving event from p2p event stream failed: {}", why);
@@ -401,11 +387,11 @@ where
 
             let (tipset, _) = match ChainMuxer::process_gossipsub_event(
                 event,
-                network.clone(),
+                self.network.clone(),
                 chain_store.clone(),
-                bad_block_cache.clone(),
-                mem_pool.clone(),
-                genesis.clone(),
+                self.bad_blocks.clone(),
+                self.mpool.clone(),
+                self.genesis.clone(),
                 PubsubMessageProcessingStrategy::Process,
                 block_delay,
             )
