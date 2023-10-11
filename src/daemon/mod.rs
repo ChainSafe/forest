@@ -330,7 +330,7 @@ pub(super) async fn start(
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
-    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+    services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.run().await)) });
 
     // Start services
     if config.client.enable_rpc {
