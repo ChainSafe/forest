@@ -15,7 +15,7 @@ use tokio::time::sleep;
 
 const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
-// The only constraint is that `CHUNK_LEN <= RANDOM_BYTES.len()`.
+// The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
 const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 
 fn try_get_range(value: &HeaderValue, total_len: usize) -> Option<Range<usize>> {
