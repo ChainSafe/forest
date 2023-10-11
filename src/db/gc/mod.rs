@@ -55,7 +55,7 @@
 //! 4. Finally, the algorithm waits for a configured amount of time to initiate the next run.
 //!
 //! ## Performance
-//! TODO: Measure the performance and potentially define it in terms of `snapshot export` or any
+//! Note: This needs to be measured and potentially defined in terms of `snapshot export` or any
 //! other visible and comparable metric.
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
