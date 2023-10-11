@@ -23,9 +23,9 @@ fn try_get_range(value: &HeaderValue, total_len: usize) -> Option<Range<usize>> 
     let parse_ranges = parse_range_header(s).unwrap();
     match parse_ranges.validate(total_len as u64) {
         Ok(range) => {
-            let range = *range[0].start() as usize..*range[0].end() as usize;
-            let end = (range.start + CHUNK_LEN).min(range.end + 1);
-            Some(range.start..end)
+            let start = *range[0].start() as usize;
+            let end = (start + CHUNK_LEN).min(*range[0].end() as usize + 1);
+            Some(start..end)
         }
         Err(err) => {
             assert_eq!(err, RangeUnsatisfiableError::RangeReversed);
