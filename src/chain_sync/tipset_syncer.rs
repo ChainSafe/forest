@@ -326,9 +326,9 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         trace!("Polling TipsetProcessor");
 
-        // TODO: Determine if polling the tipset stream before the state machine
-        //       introduces a DOS attack vector where peers send duplicate, valid
-        // tipsets over       GossipSub to divert resources away from syncing
+        // There may be a DoS attack vector here - polling the tipset stream
+        // before the state machine could create a window where peers send
+        // duplicate, valid tipsets over GossipSub to divert resources away from syncing
         // tipset ranges. First, gather the tipsets off of the channel. Reading
         // off the receiver will return immediately. Ensure that the task will
         // wake up when the stream has a new item by registering it for wakeup.
@@ -837,7 +837,6 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             continue;
         }
 
-        // TODO: Tweak request window when socket frame is tested
         let epoch_diff = oldest_parent.epoch() - current_head.epoch();
         let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
         let network_tipsets = network
@@ -1501,7 +1500,6 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerErro
 
 /// Check the clock drift.
 fn block_timestamp_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerError> {
-    // TODO: Time should come from a component we control, for testing.
     let time_now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Retrieved system time before UNIX epoch")

@@ -291,7 +291,7 @@ impl LintRunner {
         let mut all_violations = vec![];
         let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();
         let checker =
-            Regex::new(r"TODO\(\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
+            Regex::new(r"TODO\(.*\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
         for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
             for comment in ra_ap_syntax::SourceFile::parse(plaintext)
                 .tree()

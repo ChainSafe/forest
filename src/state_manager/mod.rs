@@ -888,9 +888,6 @@ where
         .fuse();
 
         // Await on first future to finish.
-        // TODO this should be a future race. I don't think the task is being cancelled
-        // here This seems like it will keep the other task running even though
-        // it's unneeded.
         loop {
             select! {
                 res = subscriber_poll => {

@@ -10,7 +10,7 @@ use crate::blocks::{errors::Error, BlockHeader};
 
 impl quickcheck::Arbitrary for BlockHeader {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        // XXX: More fields can be randomly generated.
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/3571
         let block_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
             .epoch(ChainEpoch::arbitrary(g))

@@ -165,7 +165,8 @@ where
 {
     match result {
         Ok(v) => {
-            // TODO: check if unwrap is safe here
+            // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
+            //                 Check if unwrap is safe here
             let value: JsonValue = serde_json::to_value(v).unwrap();
             JsValue::from_json(&value, context)
         }
@@ -200,7 +201,8 @@ macro_rules! bind_func {
                             let obj: JsObject = arr.into();
                             JsValue::from(obj)
                         };
-                        // TODO: check if unwrap is safe here
+                        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
+                        //                 Check if unwrap is safe here
                         let args = serde_json::from_value(value.to_json(context).unwrap())?;
                         handle.block_on($func(args, token))
                     });
@@ -313,7 +315,8 @@ impl AttachCommand {
         bind_func!(context, token, sync_status);
 
         // Wallet API
-        // TODO: bind wallet_sign, wallet_verify
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
+        //                 bind wallet_sign, wallet_verify
         bind_func!(context, token, wallet_new);
         bind_func!(context, token, wallet_default_address);
         bind_func!(context, token, wallet_balance);
