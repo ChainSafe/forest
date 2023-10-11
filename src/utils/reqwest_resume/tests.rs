@@ -14,9 +14,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
-const CHUNK_LEN: usize = 1024;
+const ABORT_COUNT: usize = 2;
+const CHUNK_LEN: usize = 4096;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
-// The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
+// The only constraint is that `(RANDOM_BYTES.len() - CHUNK_LEN * ABORT_COUNT) > 0`.
 const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 
 fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
@@ -29,19 +30,7 @@ fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
 async fn handle_request(req: Request<Body>, count: usize) -> Result<Response<Body>, Infallible> {
     let (mut sender, body) = Body::channel();
 
-    let body = if count == 2 {
-        let range = req.headers().get(header::RANGE);
-        let offset = extract_range_start(range.unwrap(), RANDOM_BYTES.len());
-
-        // Send the rest of the buffer
-        tokio::task::spawn(async move {
-            sender
-                .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[offset as usize..]))
-                .await
-                .unwrap();
-        });
-        body
-    } else {
+    let body = if count < ABORT_COUNT {
         let offset = count * CHUNK_LEN;
         tokio::task::spawn(async move {
             sender
@@ -54,6 +43,18 @@ async fn handle_request(req: Request<Body>, count: usize) -> Result<Response<Bod
             // `abort` will close the connection with an error so we can test the
             // resume functionality
             sender.abort();
+        });
+        body
+    } else {
+        let range = req.headers().get(header::RANGE);
+        let offset = extract_range_start(range.unwrap(), RANDOM_BYTES.len());
+
+        // Send the rest of the buffer
+        tokio::task::spawn(async move {
+            sender
+                .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[offset as usize..]))
+                .await
+                .unwrap();
         });
         body
     };
