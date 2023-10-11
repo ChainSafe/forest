@@ -28,7 +28,7 @@ boa_engine = "0.17.0"
 boa_interner = "0.17.0"
 boa_parser = "0.17.0"
 boa_runtime = "0.17.0"
-byteorder = "1.4.3"
+byteorder = "1.5.0"
 bytes = "1.2"
 cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }
 cfg-if = "1"
