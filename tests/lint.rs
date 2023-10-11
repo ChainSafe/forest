@@ -59,7 +59,7 @@ fn lint() {
     use tracing_subscriber::{filter::LevelFilter, util::SubscriberInitExt as _};
     let _guard = tracing_subscriber::fmt()
         .with_test_writer()
-        .with_max_level(LevelFilter::DEBUG)
+        .with_max_level(LevelFilter::INFO)
         .with_writer(io::stderr)
         .set_default();
     LintRunner::new()
@@ -80,6 +80,8 @@ impl LintRunner {
     /// # Panics
     /// - freely
     pub fn new() -> Self {
+        info!("collecting source files...");
+
         // 1. get the package ids (there is only one in this case)
         let metadata = MetadataCommand::new().no_deps().exec().unwrap();
         // note: we need
@@ -196,7 +198,7 @@ impl LintRunner {
             })
             .collect::<Cache>();
 
-        debug!(num_files = files.map.len());
+        info!(num_source_files = files.map.len());
 
         Self {
             files,
@@ -208,7 +210,7 @@ impl LintRunner {
     ///
     /// This prints out any messages, and updates the internal failure count.
     pub fn run<T: for<'a> Visit<'a> + Default + Lint>(mut self) -> Self {
-        info!(lint = std::any::type_name::<T>());
+        info!("running {}", std::any::type_name::<T>());
         let mut linter = T::default();
         let mut all_violations = vec![];
         for (path, (text, ast)) in self.files.map.iter() {
