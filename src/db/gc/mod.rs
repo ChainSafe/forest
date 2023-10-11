@@ -256,7 +256,7 @@ mod test {
 
         // test insufficient epochs
         assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
-        assert_eq!(gc.marked.is_empty(), true);
+        assert!(gc.marked.is_empty());
 
         // test marked
         run_to_epoch(db, cs, depth);
