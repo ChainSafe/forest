@@ -8,10 +8,12 @@ use crate::shim::{
     address::Address,
     clock::ChainEpoch,
     machine::{BuiltinActor, BuiltinActorManifest},
+    sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
     state_tree::{StateTree, StateTreeVersion},
 };
 use anyhow::anyhow;
 use cid::Cid;
+use fil_actors_shared::v11::runtime::ProofSet;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
@@ -55,24 +57,21 @@ impl<BS: Blockstore> StateMigration<BS> {
                 fil_actors_shared::v12::runtime::Policy::mainnet(),
             ),
             NetworkChain::Devnet(_) => {
-                // TODO: update this when we have a devnet policy
                 let mut policy_old = fil_actors_shared::v11::runtime::Policy::mainnet();
                 policy_old.minimum_consensus_power = 2048.into();
                 policy_old.minimum_verified_allocation_size = 256.into();
                 policy_old.pre_commit_challenge_delay = 10;
 
-                //#[allow(clippy::disallowed_types)]
-                //let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-                //    RegisteredSealProofV3::StackedDRG2KiBV1,
-                //    RegisteredSealProofV3::StackedDRG8MiBV1,
-                //]);
-                //policy.valid_pre_commit_proof_type = allowed_proof_types;
-                //#[allow(clippy::disallowed_types)]
-                //let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-                //    RegisteredPoStProofV3::StackedDRGWindow2KiBV1,
-                //    RegisteredPoStProofV3::StackedDRGWindow8MiBV1,
-                //]);
-                //policy.valid_post_proof_type = allowed_proof_types;
+                let mut proofs = ProofSet::default_seal_proofs();
+                proofs.insert(RegisteredSealProofV3::StackedDRG2KiBV1);
+                proofs.insert(RegisteredSealProofV3::StackedDRG8MiBV1);
+                policy_old.valid_pre_commit_proof_type = proofs;
+
+                let mut proofs = ProofSet::default_post_proofs();
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow2KiBV1);
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow8MiBV1);
+                policy_old.valid_post_proof_type = proofs;
+
                 (
                     policy_old,
                     fil_actors_shared::v12::runtime::Policy::devnet(),

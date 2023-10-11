@@ -2345,7 +2345,7 @@ checksum = "d0870c84016d4b481be5c9f323c24f65e31e901ae618f0e80f4308fb00de1d2d"
 [[package]]
 name = "fil_actor_account_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2360,7 +2360,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2374,7 +2374,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2391,7 +2391,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_shared_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding",
@@ -2405,7 +2405,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "cid",
  "fil_actor_evm_shared_state",
@@ -2422,7 +2422,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -2442,7 +2442,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -2476,7 +2476,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -2500,7 +2500,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
@@ -2529,7 +2529,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -2551,7 +2551,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -2573,7 +2573,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2588,7 +2588,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2602,7 +2602,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -2621,7 +2621,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#0374aedd1d02bb50c5bb7266c91bf46ef12e7930"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
 dependencies = [
  "anyhow",
  "cid",
@@ -4193,9 +4193,9 @@ checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
 name = "jobserver"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "936cfd212a0155903bcbc060e316fb6cc7cbf2e1907329391ebadc1fe0ce77c2"
+checksum = "8c37f63953c4c63420ed5fd3d6d398c719489b9f872b9fa683262f8edd363c7d"
 dependencies = [
  "libc",
 ]
