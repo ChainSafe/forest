@@ -24,7 +24,9 @@ fn try_get_range(value: &HeaderValue, total_len: usize) -> Option<Range<usize>> 
     match parse_ranges.validate(total_len as u64) {
         Ok(range) => {
             let start = *range[0].start() as usize;
-            let end = (start + CHUNK_LEN).min(*range[0].end() as usize + 1);
+            // We need to take the minimum value between chunk range end and buffer size
+            // to avoid out-of-bounds in case `CHUNK_LEN` is not a multiple of `RANDOM_BYTES.len()`.
+            let end = (start + CHUNK_LEN).min(RANDOM_BYTES.len());
             Some(start..end)
         }
         Err(err) => {
