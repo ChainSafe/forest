@@ -9,6 +9,7 @@ use hyper::header::{self, HeaderValue};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};
 use std::convert::Infallible;
+use std::ops::Range;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -17,11 +18,15 @@ const CHUNK_LEN: usize = 2048;
 // The only constraint is that `CHUNK_LEN <= RANDOM_BYTES.len()`.
 const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 
-fn extract_range_start(value: &HeaderValue, total_len: usize) -> Option<usize> {
+fn try_get_range(value: &HeaderValue, total_len: usize) -> Option<Range<usize>> {
     let s = std::str::from_utf8(value.as_bytes()).unwrap();
     let parse_ranges = parse_range_header(s).unwrap();
     match parse_ranges.validate(total_len as u64) {
-        Ok(range) => Some(*range[0].start() as usize),
+        Ok(range) => {
+            let range = *range[0].start() as usize..*range[0].end() as usize;
+            let end = (range.start + CHUNK_LEN).min(range.end + 1);
+            Some(range.start..end)
+        }
         Err(err) => {
             assert_eq!(err, RangeUnsatisfiableError::RangeReversed);
             None
@@ -32,18 +37,16 @@ fn extract_range_start(value: &HeaderValue, total_len: usize) -> Option<usize> {
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let (mut sender, body) = Body::channel();
 
-    let start = if let Some(range) = req.headers().get(header::RANGE) {
-        extract_range_start(range, RANDOM_BYTES.len())
+    let range = if let Some(range) = req.headers().get(header::RANGE) {
+        try_get_range(range, RANDOM_BYTES.len())
     } else {
-        Some(0)
+        Some(0..CHUNK_LEN)
     };
 
-    if let Some(offset) = start {
+    if let Some(range) = range {
         tokio::task::spawn(async move {
             sender
-                .send_data(Bytes::copy_from_slice(
-                    &RANDOM_BYTES[offset..(offset + CHUNK_LEN)],
-                ))
+                .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[range]))
                 .await
                 .unwrap();
             sleep(Duration::from_millis(100)).await;
