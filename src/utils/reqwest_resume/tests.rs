@@ -9,10 +9,12 @@ use hyper::header::{self, HeaderValue};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};
 use std::convert::Infallible;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
-const CHUNK_LEN: usize = 4096;
+const CHUNK_LEN: usize = 1024;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
 // The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
 const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
@@ -24,11 +26,12 @@ fn extract_range_start(value: &HeaderValue, total_len: usize) -> u64 {
     *range[0].start()
 }
 
-async fn generate_error(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+async fn handle_request(req: Request<Body>, count: usize) -> Result<Response<Body>, Infallible> {
     let (mut sender, body) = Body::channel();
 
-    let body = if let Some(range) = req.headers().get(header::RANGE) {
-        let offset = extract_range_start(range, RANDOM_BYTES.len());
+    let body = if count == 2 {
+        let range = req.headers().get(header::RANGE);
+        let offset = extract_range_start(range.unwrap(), RANDOM_BYTES.len());
 
         // Send the rest of the buffer
         tokio::task::spawn(async move {
@@ -39,9 +42,12 @@ async fn generate_error(req: Request<Body>) -> Result<Response<Body>, Infallible
         });
         body
     } else {
+        let offset = count * CHUNK_LEN;
         tokio::task::spawn(async move {
             sender
-                .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[0..CHUNK_LEN]))
+                .send_data(Bytes::copy_from_slice(
+                    &RANDOM_BYTES[offset..(offset + CHUNK_LEN)],
+                ))
                 .await
                 .unwrap();
             sleep(Duration::from_millis(100)).await;
@@ -60,8 +66,12 @@ async fn generate_error(req: Request<Body>) -> Result<Response<Body>, Infallible
 }
 
 async fn create_flaky_server() -> std::net::SocketAddr {
-    let make_svc =
-        make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(generate_error)) });
+    let counter = Arc::new(AtomicUsize::new(0));
+
+    let make_svc = make_service_fn(move |_conn| {
+        let count = counter.fetch_add(1, Ordering::AcqRel);
+        async move { Ok::<_, Infallible>(service_fn(move |req| handle_request(req, count))) }
+    });
 
     // A port number of 0 will request that the OS assigns a port.
     let addr = ([127, 0, 0, 1], 0).into();
