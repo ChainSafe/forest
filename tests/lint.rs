@@ -37,11 +37,7 @@
 
 mod lints;
 
-use std::{
-    io,
-    ops::Range,
-    process::{self, Command},
-};
+use std::{io, ops::Range, process::Command};
 
 use ariadne::{Color, ReportKind, Source};
 use cargo_metadata::{
@@ -259,20 +255,18 @@ impl LintRunner {
         self.num_violations += num_violations;
         self
     }
-    /// Exits the program with an appropriate error code.
-    pub fn finish(self) -> ! {
+    /// Panics with an appropriate error message on failure
+    pub fn finish(self) {
         match self.num_violations {
             0 => {
                 println!("no violations found in {} files", self.files.map.len());
-                process::exit(0)
             }
             nonzero => {
-                println!(
+                panic!(
                     "found {} violations in {} files",
                     nonzero,
                     self.files.map.len()
                 );
-                process::exit(1)
             }
         }
     }
@@ -407,4 +401,49 @@ fn coord2offset(text: &Source, coord: LineColumn) -> usize {
     let line = text.line(coord.line - 1).expect("line is past end of file");
     assert!(coord.column <= line.len(), "column is past end of line");
     line.offset() + coord.column
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    #[should_panic = "found 3 violations in 1 files"]
+    fn should_lint_bad_comments() {
+        LintRunner {
+            files: Cache::from_iter([(
+                Utf8PathBuf::from("test.rs"),
+                SourceFile::try_from(String::from(
+                    "
+                    // TODO
+                    const _: () = {};
+                    fn foo() {
+                        /* FIXME */
+                    }
+                    // XXX: a comment left by David
+                    mod bar;
+                    ",
+                ))
+                .unwrap(),
+            )]),
+            num_violations: 0,
+        }
+        .run_comment_linter()
+        .finish();
+    }
+
+    #[test]
+    fn should_not_lint_good_comments() {
+        LintRunner {
+            files: Cache::from_iter([(
+                Utf8PathBuf::from("test.rs"),
+                SourceFile::try_from(String::from(
+                    "// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/1234",
+                ))
+                .unwrap(),
+            )]),
+            num_violations: 0,
+        }
+        .run_comment_linter()
+        .finish();
+    }
 }
