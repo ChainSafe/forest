@@ -15,7 +15,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 const ABORT_COUNT: usize = 2;
-const CHUNK_LEN: usize = 4096;
+const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
 // The only constraint is that `(RANDOM_BYTES.len() - CHUNK_LEN * ABORT_COUNT) > 0`.
 const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
