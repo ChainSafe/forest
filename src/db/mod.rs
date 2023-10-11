@@ -109,7 +109,7 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
 ///
 /// NOTE: Since there is no real need for generics here right now - the 'key' type is specified to
 /// avoid wrapping it.
-pub(crate) trait GarbageCollectable {
+pub trait GarbageCollectable {
     /// Gets all the keys currently in the database.
     ///
     /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too

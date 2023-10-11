@@ -59,7 +59,6 @@
 //! other visible and comparable metric.
 use crate::blocks::Tipset;
 use crate::chain::{ChainEpochDelta, ChainStore};
-use crate::db::db_engine::Db;
 
 use crate::db::{truncated_hash, GarbageCollectable};
 use crate::ipld::stream_graph;
@@ -89,8 +88,8 @@ enum ControlFlow {
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
 /// taking care of the latter.
-pub struct MarkAndSweep<BS> {
-    db: Arc<Db>,
+pub struct MarkAndSweep<DB, BS> {
+    db: Arc<DB>,
     chain_store: Arc<ChainStore<BS>>,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
@@ -98,7 +97,7 @@ pub struct MarkAndSweep<BS> {
     block_time: Duration,
 }
 
-impl<BS: Blockstore> MarkAndSweep<BS> {
+impl<DB: Blockstore + GarbageCollectable, BS: Blockstore> MarkAndSweep<DB, BS> {
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -108,7 +107,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
     /// * `depth` - The number of state-roots to retain.
     /// * `block_time` - An average block production time.
     pub fn new(
-        db: Arc<Db>,
+        db: Arc<DB>,
         chain_store: Arc<ChainStore<BS>>,
         depth: ChainEpochDelta,
         block_time: Duration,
@@ -207,57 +206,29 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
 }
 #[cfg(test)]
 mod test {
-    use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+    use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::db::gc::ControlFlow;
-    use crate::db::parity_db::ParityDb;
-    use crate::db::parity_db_config::ParityDbConfig;
-    use crate::db::tests::db_utils::parity::TempParityDB;
-    use crate::db::{DBStatistics, GarbageCollectable, MarkAndSweep};
+
+    use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB};
     use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
     use crate::networks::ChainConfig;
-    use crate::shim::address::Address;
+
     use crate::utils::db::CborStoreExt;
-    use cid::multihash::Code::Identity;
-    use cid::multihash::MultihashDigest;
-    use cid::Cid;
+
     use core::time::Duration;
+
     use fvm_ipld_blockstore::Blockstore;
-    use fvm_ipld_encoding::{CborStore, DAG_CBOR};
     use std::sync::Arc;
-    use tempfile::TempDir;
 
-    struct Temp {
-        dir: TempDir,
-    }
-
-    impl Temp {
-        fn new() -> Self {
-            let dir = tempfile::tempdir().unwrap();
-            Self { dir }
-        }
-
-        fn open_db(&self) -> Arc<ParityDb> {
-            Arc::new(
-                ParityDb::open(
-                    self.dir.path(),
-                    &ParityDbConfig {
-                        enable_statistics: false,
-                    },
-                )
-                .unwrap(),
-            )
-        }
-    }
-
-    fn insert_unrechable(db: Arc<ParityDb>, quantity: u64) {
+    fn insert_unrechable(db: impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
             let block: BlockHeader = mock_block(1 + idx, 1 + quantity);
             db.put_cbor_default(&block).unwrap();
         }
     }
 
-    fn run_to_epoch(db: Arc<ParityDb>, cs: Arc<ChainStore<ParityDb>>, epoch: u64) {
+    fn run_to_epoch(db: impl Blockstore, cs: Arc<ChainStore<MemoryDB>>, epoch: u64) {
         let mut heaviest_tipset = cs.heaviest_tipset();
 
         for _ in heaviest_tipset.epoch() as u64..epoch {
@@ -272,8 +243,7 @@ mod test {
 
     #[tokio::test]
     async fn test_populate() {
-        let temp = Temp::new();
-        let db = temp.open_db();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block: BlockHeader = mock_block(1, 1);
         let depth = 1;
@@ -296,8 +266,7 @@ mod test {
 
     #[tokio::test]
     async fn test_filter_and_sweep() {
-        let temp = Temp::new();
-        let db = temp.open_db();
+        let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block: BlockHeader = mock_block(1, 1);
         let depth = 1;
@@ -322,7 +291,6 @@ mod test {
         run_to_epoch(db.clone(), cs.clone(), (depth * 2) as u64);
         reachable_cnt += depth as u64;
 
-        let db = temp.open_db();
         assert_eq!(
             db.get_keys().unwrap().len() as u64,
             unreachable_cnt + reachable_cnt
