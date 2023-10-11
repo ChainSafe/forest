@@ -218,6 +218,7 @@ mod test {
 
     use core::time::Duration;
 
+    use crate::shim::clock::ChainEpoch;
     use fvm_ipld_blockstore::Blockstore;
     use std::sync::Arc;
 
@@ -228,10 +229,10 @@ mod test {
         }
     }
 
-    fn run_to_epoch(db: impl Blockstore, cs: Arc<ChainStore<MemoryDB>>, epoch: u64) {
+    fn run_to_epoch(db: impl Blockstore, cs: Arc<ChainStore<MemoryDB>>, epoch: ChainEpoch) {
         let mut heaviest_tipset = cs.heaviest_tipset();
 
-        for _ in heaviest_tipset.epoch() as u64..epoch {
+        for _ in heaviest_tipset.epoch()..epoch {
             let block2 = mock_block_with_parents(heaviest_tipset.as_ref(), 1, 1);
             db.put_cbor_default(&block2).unwrap();
 
@@ -258,7 +259,7 @@ mod test {
         assert_eq!(gc.marked.is_empty(), true);
 
         // test marked
-        run_to_epoch(db, cs, depth as u64);
+        run_to_epoch(db, cs, depth);
         assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
         assert_eq!(gc.marked.len(), 2);
         assert_eq!(gc.epoch_marked, 1);
@@ -276,7 +277,7 @@ mod test {
         );
         let mut gc = MarkAndSweep::new(db.clone(), cs.clone(), depth, Duration::from_secs(0));
 
-        run_to_epoch(db.clone(), cs.clone(), depth as u64);
+        run_to_epoch(db.clone(), cs.clone(), depth);
 
         let mut reachable_cnt = (depth + 1) as u64;
 
@@ -288,7 +289,7 @@ mod test {
         assert_eq!(gc.epoch_marked, 1);
 
         // filter and sweep
-        run_to_epoch(db.clone(), cs.clone(), (depth * 2) as u64);
+        run_to_epoch(db.clone(), cs.clone(), depth * 2);
         reachable_cnt += depth as u64;
 
         assert_eq!(
