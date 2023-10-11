@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::marker::PhantomData;
 use std::{sync::Arc, time::SystemTime};
 
 use crate::blocks::{
@@ -806,107 +807,142 @@ where
                     panic!("Internal error: Chain muxer follow task unexpectedly canceled");
                 }
             }
-            // This arm is reliably unreachable because the FuturesUnordered
-            // has two futures and we only resolve one before returning
+            // This arm is reliably unreachable because the JoinSet
+            // has two tasks and we only resolve one before returning
             None => unreachable!(),
         }
     }
 
     pub async fn run(self) -> ChainMuxerError {
-        enum ChainMuxerState {
-            Idle,
-            Connect,
-            Bootstrap {
-                network_head: FullTipset,
-                local_head: Arc<Tipset>,
-            },
-            Follow {
-                tipset_opt: Option<FullTipset>,
-            },
-        }
+        ChainMuxerState::Idle.start_loop(&self).await
+    }
+}
 
-        let mut state = ChainMuxerState::Idle;
+enum ChainMuxerState<DB, M> {
+    Idle,
+    Connect,
+    Bootstrap {
+        network_head: FullTipset,
+        local_head: Arc<Tipset>,
+    },
+    Follow {
+        tipset_opt: Option<FullTipset>,
+    },
+    _Phantom {
+        _db: PhantomData<DB>,
+        _m: PhantomData<M>,
+    },
+}
 
+#[async_trait::async_trait]
+trait StateMachineState: Sized {
+    type Worker: Sync;
+    type Error;
+
+    async fn transition(self, worker: &Self::Worker) -> Result<Self, Self::Error>;
+
+    async fn start_loop(self, worker: &Self::Worker) -> Self::Error {
+        let mut state = self;
         loop {
-            match state {
-                ChainMuxerState::Idle => {
-                    if self.sync_config.tipset_sample_size == 0 {
-                        // A standalone node might use this option to not be stuck waiting for P2P
-                        // messages.
-                        info!("Skip evaluating network head, assume in-sync.");
-                        state = ChainMuxerState::Follow { tipset_opt: None };
-                    } else {
-                        // Create the connect future and set the state to connect
-                        info!("Evaluating network head...");
-                        state = ChainMuxerState::Connect;
-                    }
+            match state.transition(worker).await {
+                Ok(s) => state = s,
+                Err(e) => return e,
+            }
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl<DB, M> StateMachineState for ChainMuxerState<DB, M>
+where
+    DB: Blockstore + Sync + Send + 'static,
+    M: Provider + Sync + Send + 'static,
+{
+    type Worker = ChainMuxer<DB, M>;
+    type Error = ChainMuxerError;
+
+    async fn transition(self, muxer: &Self::Worker) -> Result<Self, Self::Error> {
+        match self {
+            Self::Idle => {
+                if muxer.sync_config.tipset_sample_size == 0 {
+                    // A standalone node might use this option to not be stuck waiting for P2P
+                    // messages.
+                    info!("Skip evaluating network head, assume in-sync.");
+                    Ok(Self::Follow { tipset_opt: None })
+                } else {
+                    // Create the connect future and set the state to connect
+                    info!("Evaluating network head...");
+                    Ok(Self::Connect)
                 }
-                ChainMuxerState::Connect => {
-                    match self.evaluate_network_head().await {
-                        Ok(evaluation) => match evaluation {
-                            NetworkHeadEvaluation::Behind {
+            }
+            Self::Connect => {
+                match muxer.evaluate_network_head().await {
+                    Ok(evaluation) => match evaluation {
+                        NetworkHeadEvaluation::Behind {
+                            network_head,
+                            local_head,
+                        } => {
+                            info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
+                            Ok(ChainMuxerState::Bootstrap {
                                 network_head,
                                 local_head,
-                            } => {
-                                info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
-                                state = ChainMuxerState::Bootstrap {
-                                    network_head,
-                                    local_head,
-                                };
-                            }
-                            NetworkHeadEvaluation::InRange { network_head } => {
-                                info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
-                                state = ChainMuxerState::Follow {
-                                    tipset_opt: Some(network_head),
-                                };
-                            }
-                            NetworkHeadEvaluation::InSync => {
-                                info!("Local node is in sync with the network");
-                                state = ChainMuxerState::Follow { tipset_opt: None };
-                            }
-                        },
-                        Err(why) => {
-                            // TODO: Should we exponentially backoff before retrying?
-                            error!(
-                                "Evaluating the network head failed, retrying. Error = {:?}",
-                                why
-                            );
-                            metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
+                            })
+                        }
+                        NetworkHeadEvaluation::InRange { network_head } => {
+                            info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
+                            Ok(ChainMuxerState::Follow {
+                                tipset_opt: Some(network_head),
+                            })
+                        }
+                        NetworkHeadEvaluation::InSync => {
+                            info!("Local node is in sync with the network");
+                            Ok(ChainMuxerState::Follow { tipset_opt: None })
+                        }
+                    },
+                    Err(why) => {
+                        // TODO: Should we exponentially backoff before retrying?
+                        error!(
+                            "Evaluating the network head failed, retrying. Error = {:?}",
+                            why
+                        );
+                        metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
 
-                            // By default bail on errors
-                            return why;
-                        }
+                        // By default bail on errors
+                        Err(why)
                     }
                 }
-                ChainMuxerState::Bootstrap {
-                    network_head,
-                    local_head,
-                } => {
-                    match self.bootstrap(network_head, local_head).await {
-                        Ok(_) => {
-                            info!("Bootstrap successfully completed, now evaluating the network head to ensure the node is in sync");
-                            state = ChainMuxerState::Idle;
-                        }
-                        Err(why) => {
-                            // TODO: Should we exponentially back off before retrying?
-                            error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
-                            metrics::BOOTSTRAP_ERRORS.inc();
-                            state = ChainMuxerState::Idle;
-                        }
-                    }
-                }
-                ChainMuxerState::Follow { tipset_opt } => match self.follow(tipset_opt).await {
+            }
+            Self::Bootstrap {
+                network_head,
+                local_head,
+            } => {
+                match muxer.bootstrap(network_head, local_head).await {
                     Ok(_) => {
-                        error!("Following the network unexpectedly ended without an error; restarting the sync process.");
-                        metrics::FOLLOW_NETWORK_INTERRUPTIONS.inc();
-                        state = ChainMuxerState::Idle;
+                        info!("Bootstrap successfully completed, now evaluating the network head to ensure the node is in sync");
+                        Ok(Self::Idle)
                     }
                     Err(why) => {
-                        error!("Following the network failed, restarted. Error = {:?}", why);
-                        metrics::FOLLOW_NETWORK_ERRORS.inc();
-                        state = ChainMuxerState::Idle;
+                        // TODO: Should we exponentially back off before retrying?
+                        error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
+                        metrics::BOOTSTRAP_ERRORS.inc();
+                        Ok(ChainMuxerState::Idle)
                     }
-                },
+                }
+            }
+            Self::Follow { tipset_opt } => match muxer.follow(tipset_opt).await {
+                Ok(_) => {
+                    error!("Following the network unexpectedly ended without an error; restarting the sync process.");
+                    metrics::FOLLOW_NETWORK_INTERRUPTIONS.inc();
+                    Ok(Self::Idle)
+                }
+                Err(why) => {
+                    error!("Following the network failed, restarted. Error = {:?}", why);
+                    metrics::FOLLOW_NETWORK_ERRORS.inc();
+                    Ok(Self::Idle)
+                }
+            },
+            Self::_Phantom { .. } => {
+                unreachable!()
             }
         }
     }
