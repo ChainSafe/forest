@@ -78,7 +78,7 @@ use tracing::info;
 enum ControlFlow {
     // Continue the GC workflow.
     Continue,
-    // The GC workflow has finished, start another one.
+    // The GC workflow has finished.
     Finished,
 }
 

@@ -415,6 +415,40 @@ mod test {
     }
 
     #[test]
+    fn garbage_collectable() {
+        let db = TempParityDB::new();
+        let data = [
+            b"h'nglui mglw'nafh".to_vec(),
+            b"Cthulhu".to_vec(),
+            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
+        ];
+        let cids = [
+            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
+            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
+            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
+        ];
+
+        let cases = [
+            (DbColumn::GraphDagCborBlake2b256, cids[0], &data[0]),
+            (DbColumn::GraphFull, cids[1], &data[1]),
+            (DbColumn::GraphFull, cids[2], &data[2]),
+        ];
+
+        for (_, cid, data) in cases {
+            db.put_keyed(&cid, data).unwrap();
+        }
+
+        let keys = db.get_keys().unwrap();
+        assert_eq!(keys.len(), cases.len());
+
+        db.remove_keys(keys).unwrap();
+
+        // Panics on this line: https://github.com/paritytech/parity-db/blob/ec686930169b84d21336bed6d6f05c787a17d61f/src/file.rs#L130
+        // let keys = db.get_keys().unwrap();
+        // assert_eq!(keys.len(), 0);
+    }
+
+    #[test]
     fn choose_column_test() {
         let data = [0u8; 32];
         let cases = [
