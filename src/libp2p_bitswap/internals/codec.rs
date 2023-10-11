@@ -92,8 +92,9 @@ impl request_response::Codec for BitswapRequestResponseCodec {
     {
         // TODO: Low priority, batch sending is not supported in `libp2p-bitswap` either
         // panic here means bug in public API of this crate::libp2p_bitswap
-        assert!(
-            messages.len() == 1,
+        assert_eq!(
+            messages.len(),
+            1,
             "It's only supported to send a single message"
         );
 
