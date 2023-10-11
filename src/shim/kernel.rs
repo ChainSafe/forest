@@ -10,80 +10,85 @@ use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use static_assertions::const_assert_eq;
 use std::fmt;
+use std::fmt::Debug;
 
-#[repr(u32)]
-#[derive(Copy, Clone, Debug, FromPrimitive)]
-pub enum ErrorNumber {
-    IllegalArgument = 1,
-    IllegalOperation = 2,
-    LimitExceeded = 3,
-    AssertionFailed = 4,
-    InsufficientFunds = 5,
-    NotFound = 6,
-    InvalidHandle = 7,
-    IllegalCid = 8,
-    IllegalCodec = 9,
-    Serialization = 10,
-    Forbidden = 11,
-    BufferTooSmall = 12,
-    ReadOnly = 13,
+macro_rules! error_number {
+    ($($variant:ident, $number:literal),* $(,)?) => {
+        #[derive(Debug, Clone)]
+        pub enum ErrorNumber {
+            $($variant,)*
+            Unknown(u32),
+        }
+
+        #[repr(u32)]
+        #[derive(Debug, Clone, FromPrimitive)]
+        enum KnownErrorNumber {
+            $($variant = $number,)*
+        }
+
+        impl From<KnownErrorNumber> for ErrorNumber {
+            fn from(error: KnownErrorNumber) -> Self {
+                match error {
+                    $(KnownErrorNumber::$variant => Self::$variant,)*
+                }
+            }
+        }
+
+        impl fmt::Display for ErrorNumber {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $(Self::$variant => KnownErrorNumber::$variant.fmt(f),)*
+                    Self::Unknown(u) => std::fmt::Debug::fmt(&u, f),
+                }
+            }
+        }
+    }
 }
 
-// Check that we can safely convert all the error variants.
-
-macro_rules! check_all_version {
-    ($variant:ident) => {
-        const_assert_eq!(N2::$variant as u32, NShim::$variant as u32);
-        const_assert_eq!(N3::$variant as u32, NShim::$variant as u32);
-        const_assert_eq!(N4::$variant as u32, NShim::$variant as u32);
-    };
+error_number! {
+    IllegalArgument, 1,
+    IllegalOperation, 2,
+    LimitExceeded, 3,
+    AssertionFailed, 4,
+    InsufficientFunds, 5,
+    NotFound, 6,
+    InvalidHandle, 7,
+    IllegalCid, 8,
+    IllegalCodec, 9,
+    Serialization, 10,
+    Forbidden, 11,
+    BufferTooSmall, 12,
+    ReadOnly, 13,
 }
-
-macro_rules! check_starting_n3 {
-    ($variant:ident) => {
-        const_assert_eq!(N3::$variant as u32, NShim::$variant as u32);
-        const_assert_eq!(N4::$variant as u32, NShim::$variant as u32);
-    };
-}
-
-check_all_version!(IllegalArgument);
-check_all_version!(IllegalOperation);
-check_all_version!(LimitExceeded);
-check_all_version!(AssertionFailed);
-check_all_version!(InsufficientFunds);
-check_all_version!(NotFound);
-check_all_version!(InvalidHandle);
-check_all_version!(IllegalCid);
-check_all_version!(IllegalCodec);
-check_all_version!(Serialization);
-check_all_version!(Forbidden);
-check_all_version!(BufferTooSmall);
-check_starting_n3!(ReadOnly);
 
 impl From<N2> for ErrorNumber {
     fn from(value: N2) -> Self {
-        FromPrimitive::from_u32(value as u32).expect("conversion from N2 must work")
+        let opt: Option<KnownErrorNumber> = FromPrimitive::from_u32(value as u32);
+        match opt {
+            Some(err) => err.into(),
+            None => Self::Unknown(value as u32),
+        }
     }
 }
 
 impl From<N3> for ErrorNumber {
     fn from(value: N3) -> Self {
-        FromPrimitive::from_u32(value as u32).expect("conversion from N3 must work")
+        let opt: Option<KnownErrorNumber> = FromPrimitive::from_u32(value as u32);
+        match opt {
+            Some(err) => err.into(),
+            None => Self::Unknown(value as u32),
+        }
     }
 }
 
 impl From<N4> for ErrorNumber {
     fn from(value: N4) -> Self {
-        FromPrimitive::from_u32(value as u32).expect("conversion from N4 must work")
-    }
-}
-
-impl fmt::Display for ErrorNumber {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let n4: N4 = FromPrimitive::from_u32(*self as u32).expect("conversion to N4 must work");
-        n4.fmt(f)
+        let opt: Option<KnownErrorNumber> = FromPrimitive::from_u32(value as u32);
+        match opt {
+            Some(err) => err.into(),
+            None => Self::Unknown(value as u32),
+        }
     }
 }
 
@@ -132,13 +137,13 @@ mod tests {
     fn test_n2_error_fmt() {
         let shim: NShim = N2::IllegalArgument.into();
 
-        assert_eq!(format!("{}", shim), "illegal argument");
+        assert_eq!(format!("{}", shim), "IllegalArgument");
     }
 
     #[test]
-    fn test_n3_error_fmt() {
-        let shim: NShim = N3::ReadOnly.into();
+    fn test_unknown_error_fmt() {
+        let shim: NShim = ErrorNumber::Unknown(23);
 
-        assert_eq!(format!("{}", shim), "execution context is read-only");
+        assert_eq!(format!("{}", shim), "23");
     }
 }
