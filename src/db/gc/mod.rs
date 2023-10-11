@@ -75,6 +75,7 @@ use tracing::info;
 
 // This enum facilitates GC loop control flow. It allows for simpler workflow logic by avoiding
 // inner loops within the workflow itself.
+#[derive(PartialEq, Debug)]
 enum ControlFlow {
     // Continue the GC workflow.
     Continue,
@@ -186,6 +187,7 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
         if self.marked.is_empty() {
             info!("populate keys for GC");
             self.populate()?;
+            self.epoch_marked = current_epoch;
         }
 
         let epochs_since_marked = current_epoch - self.epoch_marked;
@@ -205,5 +207,128 @@ impl<BS: Blockstore> MarkAndSweep<BS> {
 }
 #[cfg(test)]
 mod test {
-    // fn
+    use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+    use crate::chain::ChainStore;
+    use crate::db::gc::ControlFlow;
+    use crate::db::parity_db::ParityDb;
+    use crate::db::parity_db_config::ParityDbConfig;
+    use crate::db::tests::db_utils::parity::TempParityDB;
+    use crate::db::{DBStatistics, GarbageCollectable, MarkAndSweep};
+    use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
+    use crate::networks::ChainConfig;
+    use crate::shim::address::Address;
+    use crate::utils::db::CborStoreExt;
+    use cid::multihash::Code::Identity;
+    use cid::multihash::MultihashDigest;
+    use cid::Cid;
+    use core::time::Duration;
+    use fvm_ipld_blockstore::Blockstore;
+    use fvm_ipld_encoding::{CborStore, DAG_CBOR};
+    use std::sync::Arc;
+    use tempfile::TempDir;
+
+    struct Temp {
+        dir: TempDir,
+    }
+
+    impl Temp {
+        fn new() -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            Self { dir }
+        }
+
+        fn open_db(&self) -> Arc<ParityDb> {
+            Arc::new(
+                ParityDb::open(
+                    self.dir.path(),
+                    &ParityDbConfig {
+                        enable_statistics: false,
+                    },
+                )
+                .unwrap(),
+            )
+        }
+    }
+
+    fn insert_unrechable(db: Arc<ParityDb>, quantity: u64) {
+        for idx in 0..quantity {
+            let block: BlockHeader = mock_block(1 + idx, 1 + quantity);
+            db.put_cbor_default(&block).unwrap();
+        }
+    }
+
+    fn run_to_epoch(db: Arc<ParityDb>, cs: Arc<ChainStore<ParityDb>>, epoch: u64) {
+        let mut heaviest_tipset = cs.heaviest_tipset();
+
+        for _ in heaviest_tipset.epoch() as u64..epoch {
+            let block2 = mock_block_with_parents(heaviest_tipset.as_ref(), 1, 1);
+            db.put_cbor_default(&block2).unwrap();
+
+            let tipset = Arc::new(Tipset::from(&block2));
+            cs.set_heaviest_tipset(tipset).unwrap();
+            heaviest_tipset = cs.heaviest_tipset();
+        }
+    }
+
+    #[tokio::test]
+    async fn test_populate() {
+        let temp = Temp::new();
+        let db = temp.open_db();
+        let chain_config = Arc::new(ChainConfig::default());
+        let gen_block: BlockHeader = mock_block(1, 1);
+        let depth = 1;
+        db.put_cbor_default(&gen_block).unwrap();
+        let cs = Arc::new(
+            ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
+        );
+        let mut gc = MarkAndSweep::new(db.clone(), cs.clone(), depth, Duration::from_secs(0));
+
+        // test insufficient epochs
+        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        assert_eq!(gc.marked.is_empty(), true);
+
+        // test marked
+        run_to_epoch(db, cs, depth as u64);
+        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        assert_eq!(gc.marked.len(), 2);
+        assert_eq!(gc.epoch_marked, 1);
+    }
+
+    #[tokio::test]
+    async fn test_filter_and_sweep() {
+        let temp = Temp::new();
+        let db = temp.open_db();
+        let chain_config = Arc::new(ChainConfig::default());
+        let gen_block: BlockHeader = mock_block(1, 1);
+        let depth = 1;
+        db.put_cbor_default(&gen_block).unwrap();
+        let cs = Arc::new(
+            ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
+        );
+        let mut gc = MarkAndSweep::new(db.clone(), cs.clone(), depth, Duration::from_secs(0));
+
+        run_to_epoch(db.clone(), cs.clone(), depth as u64);
+
+        let mut reachable_cnt = (depth + 1) as u64;
+
+        let unreachable_cnt = 4;
+        // test insufficient epochs for filter step
+        insert_unrechable(db.clone(), unreachable_cnt);
+        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        assert_eq!(gc.marked.len() as u64, reachable_cnt + unreachable_cnt);
+        assert_eq!(gc.epoch_marked, 1);
+
+        // filter and sweep
+        run_to_epoch(db.clone(), cs.clone(), (depth * 2) as u64);
+        reachable_cnt += depth as u64;
+
+        let db = temp.open_db();
+        assert_eq!(
+            db.get_keys().unwrap().len() as u64,
+            unreachable_cnt + reachable_cnt
+        );
+        assert_eq!(ControlFlow::Finished, gc.gc_workflow().await.unwrap());
+        assert_eq!(gc.marked.len(), 0);
+        assert_eq!(db.get_keys().unwrap().len(), reachable_cnt as usize);
+    }
 }
