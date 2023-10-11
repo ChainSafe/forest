@@ -299,5 +299,9 @@ mod test {
         assert_eq!(ControlFlow::Finished, gc.gc_workflow().await.unwrap());
         assert_eq!(gc.marked.len(), 0);
         assert_eq!(db.get_keys().unwrap().len(), reachable_cnt as usize);
+
+        // try another run
+        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        assert_eq!(gc.marked.len(), db.get_keys().unwrap().len());
     }
 }
