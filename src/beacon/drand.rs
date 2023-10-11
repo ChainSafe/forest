@@ -213,7 +213,7 @@ pub struct DrandBeacon {
 impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
-        assert!(genesis_ts != 0, "Genesis timestamp cannot be 0");
+        assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
 
         let chain_info = &config.chain_info;
 

@@ -4,3 +4,8 @@ slow-timeout = { period = "10s", terminate-after = 3 }
 [[profile.default.overrides]]
 filter = 'test(state_migration_actor_bundle_runs)'
 slow-timeout = { period = "120s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+# lint runs `cargo check` for source file discovery, which can take a while
+filter = 'binary(lint)'
+slow-timeout = { period = "120s", terminate-after = 3 }

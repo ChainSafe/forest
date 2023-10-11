@@ -111,7 +111,6 @@ impl AsyncWrite for VoidAsyncWriter {
 
 #[cfg(test)]
 mod test {
-    use anyhow::ensure;
     use rand::{rngs::OsRng, RngCore};
     use sha2::{Sha256, Sha512};
     use tokio::io::{AsyncWriteExt, BufWriter};
@@ -119,37 +118,36 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn file_writer_fs_buf_writer() -> anyhow::Result<()> {
-        let temp_file_path = tempfile::Builder::new().tempfile()?;
-        let temp_file = tokio::fs::File::create(temp_file_path.path()).await?;
+    async fn file_writer_fs_buf_writer() {
+        let temp_file_path = tempfile::Builder::new().tempfile().unwrap();
+        let temp_file = tokio::fs::File::create(temp_file_path.path())
+            .await
+            .unwrap();
         let mut temp_file_writer =
             AsyncWriterWithChecksum::<Sha256, _>::new(BufWriter::new(temp_file), true);
         for _ in 0..1024 {
             let mut bytes = [0; 1024];
             OsRng.fill_bytes(&mut bytes);
-            temp_file_writer.write_all(&bytes).await?;
+            temp_file_writer.write_all(&bytes).await.unwrap();
         }
 
-        temp_file_writer.flush().await?;
-        temp_file_writer.shutdown().await?;
+        temp_file_writer.flush().await.unwrap();
+        temp_file_writer.shutdown().await.unwrap();
 
-        let checksum = temp_file_writer.finalize()?;
+        let checksum = temp_file_writer.finalize().unwrap();
 
         let file_hash = {
             let mut hasher = Sha256::default();
-            let bytes = std::fs::read(temp_file_path.path())?;
+            let bytes = std::fs::read(temp_file_path.path()).unwrap();
             hasher.update(&bytes);
             Some(hasher.finalize())
         };
 
-        ensure!(checksum == file_hash);
-
-        Ok(())
+        assert_eq!(checksum, file_hash);
     }
 
     #[tokio::test]
-    async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum(
-    ) -> anyhow::Result<()> {
+    async fn given_buffered_writer_and_sha256_digest_should_return_correct_checksum() {
         let buffer = Vec::new();
         let writer = BufWriter::new(buffer);
 
@@ -160,36 +158,32 @@ mod test {
         // Repeat to make sure the inner hasher can be properly reset
         for _ in 0..2 {
             for old_god in &data {
-                writer.write_all(old_god.as_bytes()).await?;
+                writer.write_all(old_god.as_bytes()).await.unwrap();
             }
 
             assert_eq!(
                 "3386191dc5c285074c3827452f4e3b685e3253f5b9ca7c4c2bb3f44d1263aef1",
-                format!("{:x}", writer.finalize()?.unwrap())
+                format!("{:x}", writer.finalize().unwrap().unwrap())
             );
         }
-
-        Ok(())
     }
 
     #[tokio::test]
-    async fn digest_of_nothing() -> anyhow::Result<()> {
+    async fn digest_of_nothing() {
         let buffer = Vec::new();
         let writer = BufWriter::new(buffer);
         let mut writer = AsyncWriterWithChecksum::<Sha512, _>::new(writer, true);
         assert_eq!(
             "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e",
-            format!("{:x}", writer.finalize()?.unwrap())
+            format!("{:x}", writer.finalize().unwrap().unwrap())
         );
-        Ok(())
     }
 
     #[tokio::test]
-    async fn no_checksum_of_nothing() -> anyhow::Result<()> {
+    async fn no_checksum_of_nothing() {
         let buffer = Vec::new();
         let writer = BufWriter::new(buffer);
         let mut writer = AsyncWriterWithChecksum::<Sha512, _>::new(writer, false);
-        ensure!(writer.finalize()?.is_none());
-        Ok(())
+        assert!(writer.finalize().unwrap().is_none());
     }
 }
