@@ -109,7 +109,7 @@ libp2p = { version = "0.52.1", default-features = false, features = [
   'macros',
 ] }
 libsecp256k1 = "0.7"
-lru = "0.11"
+lru = "0.12"
 memmap2 = "0.9"
 memory-stats = "1.1"
 mimalloc = { version = "0.1.39", optional = true, default-features = false }
