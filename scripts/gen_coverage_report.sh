@@ -12,7 +12,7 @@
 # llvm-cov can be installed by running: cargo install cargo-llvm-cov
 #
 
-set +e
+set +euxo pipefail
 
 TMP_DIR=$(mktemp --directory)
 TOKEN_PATH="$TMP_DIR/forest_admin_token"
