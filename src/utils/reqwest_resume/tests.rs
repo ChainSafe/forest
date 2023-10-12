@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::utils::reqwest_resume::get;
-use bytes::{Buf, BufMut, Bytes};
+use bytes::Bytes;
 use const_random::const_random;
 use futures::stream::StreamExt;
 use http_range_header::parse_range_header;
@@ -41,14 +41,10 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
         .headers()
         .get(header::RANGE)
         .map_or(0..CHUNK_LEN, get_range);
-
-    let rest: Bytes = RANDOM_BYTES[range.clone()].into();
-    let mut subset = rest.take(CHUNK_LEN);
-    let mut payload = vec![];
-    payload.put(&mut subset);
-
     tokio::task::spawn(async move {
-        sender.send_data(payload.into()).await.unwrap();
+        let mut subset: Bytes = RANDOM_BYTES[range.clone()].into();
+        subset.truncate(CHUNK_LEN);
+        sender.send_data(subset).await.unwrap();
         sleep(Duration::from_millis(100)).await;
         // Abort only if we don't have sent all the data. This will be signaled by an empty range.
         if !range.is_empty() {
