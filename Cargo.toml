@@ -191,7 +191,6 @@ zstd = "0.12.3"
 termios = "0.3"
 
 [dev-dependencies]
-
 ariadne = "0.3.0"
 assert_cmd = "2"
 cargo_metadata = "0.18.0"
