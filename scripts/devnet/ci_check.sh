@@ -13,7 +13,7 @@ source .env
 # Allow for 300 seconds of sync time.
 function get_sync_height {
   curl --silent -X POST -H "Content-Type: application/json" \
-       --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","params":"null"}' \
+       --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","param":"null"}' \
        "http://127.0.0.1:${FOREST_RPC_PORT}/rpc/v0" | jq '.result.Height'
 }
 
