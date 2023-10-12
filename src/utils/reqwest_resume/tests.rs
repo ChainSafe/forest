@@ -18,10 +18,10 @@ const CHUNK_LEN: usize = 2048;
 // The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
 const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 
-fn try_get_range(value: &HeaderValue, total_len: usize) -> Option<Range<usize>> {
+fn try_get_range(value: &HeaderValue) -> Option<Range<usize>> {
     let s = std::str::from_utf8(value.as_bytes()).unwrap();
     let parse_ranges = parse_range_header(s).unwrap();
-    match parse_ranges.validate(total_len as u64) {
+    match parse_ranges.validate(RANDOM_BYTES.len() as u64) {
         Ok(range) => {
             let start = *range[0].start() as usize;
             // We need to take the minimum value between chunk range end and buffer size
@@ -40,7 +40,7 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
     let (mut sender, body) = Body::channel();
 
     let range = if let Some(range) = req.headers().get(header::RANGE) {
-        try_get_range(range, RANDOM_BYTES.len())
+        try_get_range(range)
     } else {
         Some(0..CHUNK_LEN)
     };
