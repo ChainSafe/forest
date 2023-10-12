@@ -201,6 +201,58 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
             header: self.header,
         }
     }
+
+    pub fn iter(&self) -> Iter<'_, ReaderT> {
+        Iter {
+            cursor: Cursor::new_pos(&self.reader, self.buckets_offset),
+            num_buckets: self.header.buckets,
+            count: 0,
+        }
+    }
+}
+
+pub struct Iter<'a, ReaderT> {
+    cursor: Cursor<&'a ReaderT>,
+    num_buckets: u64,
+    count: u64,
+}
+
+impl<'a, ReaderT> IntoIterator for &'a CarIndex<ReaderT>
+where
+    ReaderT: ReadAt,
+{
+    type Item = io::Result<KeyValuePair>;
+
+    type IntoIter = Iter<'a, ReaderT>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, ReaderT> Iterator for Iter<'a, ReaderT>
+where
+    ReaderT: ReadAt,
+{
+    type Item = io::Result<KeyValuePair>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.count >= self.num_buckets {
+                return None;
+            }
+            match Bucket::read(&mut self.cursor) {
+                Ok(bucket) => {
+                    self.count += 1;
+                    match bucket {
+                        Bucket::Empty => continue,
+                        Bucket::Full(kvp) => return Some(Ok(kvp)),
+                    }
+                }
+                Err(e) => return Some(Err(e)),
+            }
+        }
+    }
 }
 
 #[cfg(test)]
