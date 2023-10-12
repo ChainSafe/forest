@@ -118,7 +118,7 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     /// compressed content-addressable archive.
     pub fn open(reader: ReaderT, offset: u64) -> Result<Self> {
         let header = IndexHeader::read(&reader, offset)?;
-        if header.magic_number != IndexHeader::MAGIC_NUMBER {
+        if header.magic_number.get() != IndexHeader::MAGIC_NUMBER {
             Err(Error::new(
                 ErrorKind::InvalidData,
                 format!(
@@ -150,9 +150,9 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     // Jump to bucket offset and scan downstream. All key-value pairs with the
     // right key are guaranteed to appear before we encounter an empty slot.
     fn lookup_internal(&self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
-        let mut limit = self.header.longest_distance;
+        let mut limit = self.header.longest_distance.get();
 
-        let offset = self.offset + hash.bucket(self.header.buckets) * Slot::SIZE as u64;
+        let offset = self.offset + hash.bucket(self.header.buckets.get()) * Slot::SIZE as u64;
         let mut cursor = Cursor::new_pos(&self.reader, offset);
         while let Slot::Full(entry) = Slot::read(&mut cursor)? {
             if entry.hash == hash {
