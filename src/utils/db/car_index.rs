@@ -105,7 +105,7 @@ use slot::Slot;
 use cid::Cid;
 use positioned_io::{Cursor, ReadAt};
 use smallvec::{smallvec, SmallVec};
-use std::io::{Error, ErrorKind, Result};
+use std::io;
 
 pub struct CarIndex<ReaderT> {
     pub reader: ReaderT,
@@ -116,11 +116,11 @@ pub struct CarIndex<ReaderT> {
 impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     /// `O(1)` Open a reader as a mapping from CIDs to frame positions in a
     /// compressed content-addressable archive.
-    pub fn open(reader: ReaderT, offset: u64) -> Result<Self> {
+    pub fn open(reader: ReaderT, offset: u64) -> io::Result<Self> {
         let header = IndexHeader::read(&reader, offset)?;
         if header.magic_number.get() != IndexHeader::MAGIC_NUMBER {
-            Err(Error::new(
-                ErrorKind::InvalidData,
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
                 format!(
                     "Invalid magic number: {:x}. Expected: {:x}",
                     header.magic_number,
@@ -138,18 +138,18 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
 
     /// `O(1)` Look up possible `BlockPosition`s for a `Cid`. Does not allocate
     /// unless 2 or more CIDs have collided.
-    pub fn lookup(&self, key: Cid) -> Result<SmallVec<[FrameOffset; 1]>> {
+    pub fn lookup(&self, key: Cid) -> io::Result<SmallVec<[FrameOffset; 1]>> {
         self.lookup_internal(Hash::from(key))
     }
 
     #[cfg(any(test, feature = "benchmark-private"))]
-    pub fn lookup_hash(&self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
+    pub fn lookup_hash(&self, hash: Hash) -> io::Result<SmallVec<[FrameOffset; 1]>> {
         self.lookup_internal(hash)
     }
 
     // Jump to bucket offset and scan downstream. All key-value pairs with the
     // right key are guaranteed to appear before we encounter an empty slot.
-    fn lookup_internal(&self, hash: Hash) -> Result<SmallVec<[FrameOffset; 1]>> {
+    fn lookup_internal(&self, hash: Hash) -> io::Result<SmallVec<[FrameOffset; 1]>> {
         let mut limit = self.header.longest_distance.get();
 
         let offset = self.offset + hash.bucket(self.header.buckets.get()) * Slot::SIZE as u64;
