@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use crate::utils::reqwest_resume::get;
-use bytes::Bytes;
+use bytes::{Buf, BufMut, Bytes};
 use const_random::const_random;
 use futures::stream::StreamExt;
 use http_range_header::parse_range_header;
@@ -21,12 +21,15 @@ const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
 fn get_range(value: &HeaderValue) -> Range<usize> {
     let s = std::str::from_utf8(value.as_bytes()).unwrap();
     let parse_ranges = parse_range_header(s).unwrap();
-    let range = parse_ranges.validate(RANDOM_BYTES.len() as u64).unwrap();
-    let start = *range[0].start() as usize;
-    // We need to take the minimum value between chunk range end and buffer size
-    // to avoid out-of-bounds reads in case `CHUNK_LEN` is not a multiple of `RANDOM_BYTES.len()`.
-    let end = (start + CHUNK_LEN).min(RANDOM_BYTES.len());
-    start..end
+    parse_ranges
+        .validate(RANDOM_BYTES.len() as u64)
+        .map_or(Range::default(), |range| {
+            let start = *range[0].start() as usize;
+            // The increment here is to convert into a `std::ops::Range`
+            // which has an exclusive upper bound.
+            let end = *range[0].end() as usize + 1;
+            start..end
+        })
 }
 
 // Sends a subset of `RANDOM_BYTES` data on each request. This function will introduce an error
@@ -39,14 +42,16 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
         .get(header::RANGE)
         .map_or(0..CHUNK_LEN, get_range);
 
+    let rest: Bytes = RANDOM_BYTES[range.clone()].into();
+    let mut subset = rest.take(CHUNK_LEN);
+    let mut payload = vec![];
+    payload.put(&mut subset);
+
     tokio::task::spawn(async move {
-        sender
-            .send_data(Bytes::copy_from_slice(&RANDOM_BYTES[range.clone()]))
-            .await
-            .unwrap();
+        sender.send_data(payload.into()).await.unwrap();
         sleep(Duration::from_millis(100)).await;
-        // Abort only if we don't have sent all the data.
-        if range.end != RANDOM_BYTES.len() {
+        // Abort only if we don't have sent all the data. This will be signaled by an empty range.
+        if !range.is_empty() {
             // `abort` will close the connection with an error so we can test the
             // resume functionality.
             sender.abort();
