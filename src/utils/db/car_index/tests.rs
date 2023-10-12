@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::str::FromStr as _;
+
 use super::*;
 use crate::{
     db::car::{forest::tests::mk_encoded_car, ForestCar},
@@ -9,6 +11,7 @@ use crate::{
 use ahash::{AHashMap, AHashSet};
 use itertools::Itertools;
 use pretty_assertions::assert_eq;
+use quickcheck::Arbitrary;
 use quickcheck_macros::quickcheck;
 
 fn query(table: &CarIndex<impl ReadAt>, key: Hash) -> Vec<FrameOffset> {
@@ -100,22 +103,14 @@ fn lookup_clash_many(mut entries: Vec<(Hash, FrameOffset)>) {
 
 #[quickcheck]
 fn doit(blocks: Vec<CarBlock>) {
-    use tracing_subscriber::{
-        filter::{filter_fn, LevelFilter},
-        fmt::format::FmtSpan,
-        layer::SubscriberExt as _,
-        util::SubscriberInitExt as _,
-    };
-    let _guard = tracing_subscriber::fmt()
-        .with_span_events(FmtSpan::FULL)
-        .with_test_writer()
-        .with_max_level(LevelFilter::TRACE)
-        .finish()
-        .with(filter_fn(|_metadata| true))
-        .set_default();
+    println!("start test");
+    for CarBlock { cid, .. } in &blocks {
+        println!("\t{}", cid);
+    }
     let expected = blocks
         .iter()
         .map(|it| Hash::from(it.cid))
+        .unique()
         .sorted()
         .collect::<Vec<_>>();
     let car = mk_encoded_car(1024 * 4, 3, vec![], blocks);
@@ -129,6 +124,46 @@ fn doit(blocks: Vec<CarBlock>) {
         .collect::<Vec<_>>();
 
     assert_eq!(expected, actual);
+    println!("end test");
+}
+
+// Not very hard to find collisions
+// baeaqqbhiisf72 bafnfgblucgbmnly
+// bafyh4azejvfa baffukavz24
+// bafhr2aji baf6c4azbblaa
+// baf3goa2ssmcq bae3smb7prd3s4jpmti
+// baelxsbulpqaenwvb bafjt2bh3nnfvy
+// bafhxsbclkdkas bafdhabuo2btuxodj
+// bafuw6byggkvhwd2lre bafcugazsw37q
+// bafodsazgxsxa baf2bcbacasl62
+// baeiukay3spca baejuoauxwu
+// baelqiaykjisa bae4cwb6p4kzooj6dni
+// bafwgcaor bae7tealp
+// bafigybrzposdopog baexrgame
+// bafevia5amyoa bafvhoal3
+// baezhub75hxwnooki3i baetw6aa
+// bafeeob5e3etqs6mbny bafsgwaa
+#[test]
+#[ignore]
+fn find_collision() {
+    let _ = quickcheck::QuickCheck::new()
+        .tests(1_000_000_000)
+        .quicktest(Test);
+    struct Test;
+    impl quickcheck::Testable for Test {
+        fn result(&self, g: &mut quickcheck::Gen) -> quickcheck::TestResult {
+            loop {
+                let left = Cid::arbitrary(g);
+                let right = Cid::arbitrary(g);
+                if left == right {
+                    continue;
+                }
+                if Hash::from(left) == Hash::from(right) {
+                    println!("{} {}", left, right)
+                }
+            }
+        }
+    }
 }
 
 #[test]
@@ -149,10 +184,34 @@ fn test() {
                 data: vec![],
             })),
         ),
+        (
+            "1-1.forest.car.zst",
+            vec![
+                CarBlock {
+                    cid: Cid::from_cbor_blake2b256(&1).unwrap(),
+                    data: vec![],
+                };
+                2
+            ],
+        ),
+        (
+            "bafwgcaor-bae7tealp.forest.car.zst",
+            vec![
+                CarBlock {
+                    cid: Cid::from_str("bafwgcaor").unwrap(),
+                    data: vec![],
+                },
+                CarBlock {
+                    cid: Cid::from_str("bae7tealp").unwrap(),
+                    data: vec![],
+                },
+            ],
+        ),
     ] {
         let expected_hashes = blocks
             .iter()
             .map(|it| Hash::from(it.cid))
+            .unique()
             .collect::<Vec<_>>();
         let bin = mk_encoded_car(1024 * 4, 3, vec![], blocks);
         let actual_hashes = ForestCar::new(bin.clone())
