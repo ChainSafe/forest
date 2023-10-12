@@ -178,7 +178,6 @@ pub struct MessagePool<T> {
     /// The minimum gas price needed for executing the transaction based on
     /// number of included blocks
     pub min_gas_price: BigInt,
-    // TODO
     pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
@@ -191,7 +190,6 @@ pub struct MessagePool<T> {
     /// Acts as a signal to republish messages from the republished set of
     /// messages
     pub repub_trigger: flume::Sender<()>,
-    // TODO look into adding a cap to `local_msgs`
     local_msgs: Arc<SyncRwLock<HashSet<SignedMessage>>>,
     /// Configurable parameters of the message pool
     pub config: MpoolConfig,

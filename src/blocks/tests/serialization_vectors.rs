@@ -62,7 +62,6 @@ fn signing_test() {
         signature,
     } in cases
     {
-        // TODO set up a private key based on sig type
         let priv_key = PrivateKey::from_bytes(&private_key).unwrap();
         let msg_sign_bz = unsigned.cid().unwrap().to_bytes();
         let bls_sig = priv_key.sign(&msg_sign_bz);
