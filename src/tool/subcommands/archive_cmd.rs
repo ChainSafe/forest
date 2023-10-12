@@ -81,6 +81,16 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
+    /// Show the difference between the canonical and computed state of a
+    /// tipset.
+    Diff {
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+        /// Selected epoch to validate.
+        #[arg(short, long)]
+        epoch: ChainEpoch,
+    },
 }
 
 impl ArchiveCommands {
@@ -124,6 +134,10 @@ impl ArchiveCommands {
                 output_path,
                 force,
             } => merge_snapshots(snapshot_files, output_path, force).await,
+            Self::Diff {
+                snapshot_files,
+                epoch,
+            } => show_tipset_diff(snapshot_files, epoch).await,
         }
     }
 }
@@ -437,6 +451,20 @@ async fn merge_snapshots(
     // Flush to ensure everything has been successfully written
     writer.flush().await.context("failed to flush")?;
 
+    Ok(())
+}
+
+async fn show_tipset_diff(snapshot_files: Vec<PathBuf>, epoch: ChainEpoch) -> anyhow::Result<()> {
+    let store = ManyCar::try_from(snapshot_files)?;
+
+    let heaviest_tipset = store.heaviest_tipset()?;
+    if heaviest_tipset.epoch() <= epoch {
+        anyhow::bail!("Highest epoch must be at least 1 greater than the target epoch. Highest epoch = {}, target epoch = {}.", heaviest_tipset.epoch(), epoch)
+    }
+
+    // if let Err(err) = print_state_diff(&blockstore, &pre, &post, depth) {
+    //     eprintln!("Failed to print state diff: {err}");
+    // }
     Ok(())
 }
 
