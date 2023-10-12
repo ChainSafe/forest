@@ -1,7 +1,14 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 use super::*;
+use crate::{
+    db::car::{forest::tests::mk_encoded_car, ForestCar},
+    utils::{cid::CidCborExt as _, db::car_stream::CarBlock},
+};
 use ahash::{AHashMap, AHashSet};
+use itertools::Itertools;
+use pretty_assertions::assert_eq;
 use quickcheck_macros::quickcheck;
 
 fn query(table: &CarIndex<impl ReadAt>, key: Hash) -> Vec<FrameOffset> {
@@ -88,5 +95,72 @@ fn lookup_clash_many(mut entries: Vec<(Hash, FrameOffset)>) {
     let table = mk_table(&entries);
     for (hash, _) in entries.into_iter() {
         assert_eq!(&AHashSet::from_iter(query(&table, hash)), &map[&hash]);
+    }
+}
+
+#[quickcheck]
+fn doit(blocks: Vec<CarBlock>) {
+    use tracing_subscriber::{
+        filter::{filter_fn, LevelFilter},
+        fmt::format::FmtSpan,
+        layer::SubscriberExt as _,
+        util::SubscriberInitExt as _,
+    };
+    let _guard = tracing_subscriber::fmt()
+        .with_span_events(FmtSpan::FULL)
+        .with_test_writer()
+        .with_max_level(LevelFilter::TRACE)
+        .finish()
+        .with(filter_fn(|_metadata| true))
+        .set_default();
+    let expected = blocks
+        .iter()
+        .map(|it| Hash::from(it.cid))
+        .sorted()
+        .collect::<Vec<_>>();
+    let car = mk_encoded_car(1024 * 4, 3, vec![], blocks);
+    let actual = ForestCar::new(car)
+        .unwrap()
+        .index()
+        .iter()
+        .map(Result::unwrap)
+        .map(|it| it.hash)
+        .sorted()
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn test() {
+    for (name, blocks) in [
+        (
+            "just-default-cid.forest.car.zst",
+            vec![CarBlock {
+                cid: Cid::default(),
+                data: vec![],
+            }],
+        ),
+        ("empty.forest.car.zst", vec![]),
+        (
+            "1-2-3.forest.car.zst",
+            Vec::from_iter((0..=3).map(|n| CarBlock {
+                cid: Cid::from_cbor_blake2b256(&n).unwrap(),
+                data: vec![],
+            })),
+        ),
+    ] {
+        let bin = mk_encoded_car(1024 * 4, 3, vec![], blocks);
+        let read = ForestCar::new(bin.clone())
+            .unwrap()
+            .index()
+            .iter()
+            .map(Result::unwrap)
+            .map(|it| it.hash)
+            .collect::<Vec<_>>();
+        println!("file: {}", name);
+        println!("hashes: {:?}", read);
+        println!("{}", pretty_hex::pretty_hex(&bin));
+        println!();
     }
 }

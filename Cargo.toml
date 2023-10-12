@@ -204,6 +204,7 @@ http-range-header = "0.4.0"
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
+pretty-hex = "0.3.0"
 proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"

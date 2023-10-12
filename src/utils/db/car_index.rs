@@ -206,7 +206,7 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
         Iter {
             cursor: Cursor::new_pos(&self.reader, self.buckets_offset),
             num_buckets: self.header.buckets,
-            count: 0,
+            current_ix: 0,
         }
     }
 }
@@ -214,7 +214,7 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
 pub struct Iter<'a, ReaderT> {
     cursor: Cursor<&'a ReaderT>,
     num_buckets: u64,
-    count: u64,
+    current_ix: u64,
 }
 
 impl<'a, ReaderT> IntoIterator for &'a CarIndex<ReaderT>
@@ -238,12 +238,12 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.count >= self.num_buckets {
+            if self.current_ix >= self.num_buckets {
                 return None;
             }
             match Bucket::read(&mut self.cursor) {
                 Ok(bucket) => {
-                    self.count += 1;
+                    self.current_ix += 1;
                     match bucket {
                         Bucket::Empty => continue,
                         Bucket::Full(kvp) => return Some(Ok(kvp)),

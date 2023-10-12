@@ -105,6 +105,11 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         })
     }
 
+    #[cfg(test)]
+    pub fn index(&self) -> &CarIndex<ReaderT> {
+        &self.indexed
+    }
+
     pub fn is_valid(reader: &ReaderT) -> bool {
         Self::validate_car(reader).is_ok()
     }
@@ -414,12 +419,12 @@ impl ForestCarFooter {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use futures::executor::block_on;
     use quickcheck_macros::quickcheck;
 
-    fn mk_encoded_car(
+    pub fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
         roots: Vec<Cid>,
