@@ -3,9 +3,9 @@
 
 //! # TL;DR
 //!
-//! [`CarIndex`] is equivalent to `HashMap<Cid, Vec<FrameOffset>>`. It can be
-//! built in `O(n)` time, loaded from a reader in `O(1)` time, has `O(1)`
-//! queries, and uses no caches by default.
+//! [`CarIndex`] is equivalent to `HashMap<Cid, Vec<FrameOffset>>`, stored
+//! on-disk. It can be built in `O(n)` time, loaded from a reader in `O(1)`
+//! time, uses positioned IO for `O(1)` queries, and uses no caches by default.
 //!
 //! # Context: Binary search
 //!
@@ -83,24 +83,37 @@
 //!
 //! ## Internal structures
 //!
-//! A [`Slot`] is a position in the table that may or may not be filled with a
+//! A [`Bucket`] is a position in the table that may or may not be filled with a
 //! [`KeyValuePair`]. [`struct@Hash`]es are key and are not required to be unique. The
 //! performance of the index depends entirely on the quality of the chosen hash
 //! function.
 //!
+//! ## On-disk layout
+//!
+//! ```text
+//! ┌───────────┬────┬───────────┬─────────────┬────┄
+//! │IndexHeader│Hash│FrameOffset│Hash::INVALID│Hash
+//! │           ├────┴───────────┼─────────────┼────┄
+//! │           │Bucket::Full    │Bucket::Empty│    
+//! └───────────┴────────────────┴─────────────┴────┄
+//!             ▲
+//!             │ buckets_offset (in file)
+//! ```
+//!
+//! Buckets are stored sorted from low to high [`struct@Hash`]. (citation?)
 
+mod bucket;
 mod car_index_builder;
 mod hash;
 mod index_header;
 mod key_value_pair;
-mod slot;
 
+use bucket::Bucket;
 pub use car_index_builder::CarIndexBuilder;
 pub use hash::Hash;
 use index_header::IndexHeader;
 pub use key_value_pair::FrameOffset;
 use key_value_pair::KeyValuePair;
-use slot::Slot;
 
 use cid::Cid;
 use positioned_io::{Cursor, ReadAt};
@@ -108,9 +121,9 @@ use smallvec::{smallvec, SmallVec};
 use std::io;
 
 pub struct CarIndex<ReaderT> {
-    pub reader: ReaderT,
-    pub offset: u64,
-    pub header: IndexHeader,
+    reader: ReaderT,
+    header: IndexHeader,
+    buckets_offset: u64,
 }
 
 impl<ReaderT: ReadAt> CarIndex<ReaderT> {
@@ -130,7 +143,7 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
         } else {
             Ok(CarIndex {
                 reader,
-                offset: offset + IndexHeader::SIZE as u64,
+                buckets_offset: offset + IndexHeader::SIZE as u64,
                 header,
             })
         }
@@ -151,17 +164,17 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     // right key are guaranteed to appear before we encounter an empty slot.
     fn lookup_internal(&self, hash: Hash) -> io::Result<SmallVec<[FrameOffset; 1]>> {
         let mut limit = self.header.longest_distance.get();
-
-        let offset = self.offset + hash.bucket(self.header.buckets.get()) * Slot::SIZE as u64;
+        let offset =
+            self.buckets_offset + hash.bucket(self.header.buckets.get()) * Bucket::SIZE as u64;
         let mut cursor = Cursor::new_pos(&self.reader, offset);
-        while let Slot::Full(entry) = Slot::read(&mut cursor)? {
+        while let Bucket::Full(entry) = Bucket::read(&mut cursor)? {
             if entry.hash == hash {
                 let mut ret = smallvec![entry.value];
                 // The entries are sorted. Once we've found a matching
                 // key, all duplicate hash keys will be right next to
                 // it. Note that it's extremely rare for hashes to
                 // collide.
-                while let Some(value) = Slot::read_with_hash(&mut cursor, hash)? {
+                while let Some(value) = Bucket::read_with_hash(&mut cursor, hash)? {
                     ret.push(value);
                 }
                 return Ok(ret);
@@ -184,7 +197,7 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     pub fn map_reader<V>(self, f: impl FnOnce(ReaderT) -> V) -> CarIndex<V> {
         CarIndex {
             reader: f(self.reader),
-            offset: self.offset,
+            buckets_offset: self.buckets_offset,
             header: self.header,
         }
     }

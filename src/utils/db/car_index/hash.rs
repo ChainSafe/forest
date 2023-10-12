@@ -3,13 +3,12 @@
 use cid::Cid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Hash(pub(super) u64);
+pub struct Hash(u64);
 
 impl Hash {
     pub const INVALID: Hash = Hash(u64::MAX);
 }
 
-#[cfg(test)]
 impl std::ops::Not for Hash {
     type Output = Hash;
     fn not(self) -> Hash {

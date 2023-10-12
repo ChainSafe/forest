@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-use super::{FrameOffset, Hash, IndexHeader, KeyValuePair, Slot};
+use super::{Bucket, FrameOffset, Hash, IndexHeader, KeyValuePair};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 use zerocopy::AsBytes as _;
 
 #[derive(Debug)]
 pub struct CarIndexBuilder {
-    table: Vec<Slot>,
+    table: Vec<Bucket>,
     pub longest_distance: u64,
     pub collisions: u64,
     capacity: usize,
@@ -29,7 +29,7 @@ impl CarIndexBuilder {
     pub fn new(values: impl ExactSizeIterator<Item = (Hash, FrameOffset)>) -> CarIndexBuilder {
         let size = Self::capacity_at(values.len());
         let mut vec = Vec::with_capacity(size);
-        vec.resize(size, Slot::Empty);
+        vec.resize(size, Bucket::Empty);
         let mut table = CarIndexBuilder {
             table: vec,
             collisions: 0,
@@ -48,7 +48,7 @@ impl CarIndexBuilder {
         let mut best_distance = u64::MAX;
         let mut best_hash = Hash::from(0_u64);
         for (nth, slot) in self.table.iter().enumerate() {
-            if let Slot::Full(entry) = slot {
+            if let Bucket::Full(entry) = slot {
                 let dist = entry.hash.distance(nth as u64, self.size());
                 if dist > self.size() {
                     continue;
@@ -73,12 +73,12 @@ impl CarIndexBuilder {
         let mut at = new.bucket(len);
         loop {
             match self.table[at as usize] {
-                Slot::Empty => {
+                Bucket::Empty => {
                     self.longest_distance = self.longest_distance.max(new.distance(at, len));
-                    self.table[at as usize] = Slot::Full(new);
+                    self.table[at as usize] = Bucket::Full(new);
                     break;
                 }
-                Slot::Full(found) => {
+                Bucket::Full(found) => {
                     if found.hash == new.hash {
                         self.collisions += 1;
                     }
@@ -87,7 +87,7 @@ impl CarIndexBuilder {
                     self.longest_distance = self.longest_distance.max(new_dist);
 
                     if found_dist < new_dist || (found_dist == new_dist && new.hash < found.hash) {
-                        self.table[at as usize] = Slot::Full(new);
+                        self.table[at as usize] = Bucket::Full(new);
                         new = found;
                     }
                     at = (at + 1) % len;
@@ -101,7 +101,7 @@ impl CarIndexBuilder {
             magic_number: IndexHeader::MAGIC_NUMBER.into(),
             longest_distance: self.longest_distance.into(),
             collisions: self.collisions.into(),
-            buckets: self.size().into(),
+            buckets: self.len().into(),
         }
     }
 
@@ -114,7 +114,7 @@ impl CarIndexBuilder {
         for i in 0..self.longest_distance {
             writer.write_all(&self.table[i as usize].to_le_bytes())?;
         }
-        writer.write_all(&Slot::Empty.to_le_bytes())?;
+        writer.write_all(&Bucket::Empty.to_le_bytes())?;
         Ok(())
     }
 
@@ -128,19 +128,19 @@ impl CarIndexBuilder {
                 .write_all(&self.table[i as usize].to_le_bytes())
                 .await?;
         }
-        writer.write_all(&Slot::Empty.to_le_bytes()).await?;
+        writer.write_all(&Bucket::Empty.to_le_bytes()).await?;
         Ok(())
     }
 
     pub fn encoded_len(&self) -> u32 {
         let mut len = 0;
         len += IndexHeader::SIZE;
-        len += Slot::SIZE * (self.table.len() + self.longest_distance as usize + 1);
+        len += Bucket::SIZE * (self.table.len() + self.longest_distance as usize + 1);
         len as u32
     }
 
-    // Name it `size` to get rid of `clippy::len-without-is-empty`
-    pub fn size(&self) -> u64 {
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> u64 {
         self.table.len() as u64
     }
 }
