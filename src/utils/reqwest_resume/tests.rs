@@ -34,11 +34,10 @@ fn get_range(value: &HeaderValue) -> Range<usize> {
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let (mut sender, body) = Body::channel();
 
-    let range = if let Some(range) = req.headers().get(header::RANGE) {
-        get_range(range)
-    } else {
-        0..CHUNK_LEN
-    };
+    let range = req
+        .headers()
+        .get(header::RANGE)
+        .map_or(0..CHUNK_LEN, get_range);
 
     tokio::task::spawn(async move {
         sender
