@@ -2994,6 +2994,7 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
+ "zerocopy",
  "zstd",
 ]
 
@@ -9213,6 +9214,27 @@ dependencies = [
  "quote",
  "syn 2.0.38",
  "synstructure 0.13.0",
+]
+
+[[package]]
+name = "zerocopy"
+version = "0.7.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2642e81a17a577a65f8ddd122b10b061212fe318c2a776bba17d2e838ac9e860"
+dependencies = [
+ "byteorder",
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.7.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aefc3198c66d1ec34c6543abd945f813298180870aea61ab295af0604b4cd881"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.37",
 ]
 
 [[package]]
