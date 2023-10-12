@@ -27,7 +27,7 @@ crypto
 daemon
 daemonize
 DB/S
-deserialized
+deserialize/D
 destructuring
 DNS
 enum
