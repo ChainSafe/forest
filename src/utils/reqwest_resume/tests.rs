@@ -36,6 +36,8 @@ fn try_get_range(value: &HeaderValue) -> Option<Range<usize>> {
     }
 }
 
+// Sends a subset of `RANDOM_BYTES` data on each request. This function will introduce an error
+// to simulate a flaky server by aborting the connection after sending the data.
 async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let (mut sender, body) = Body::channel();
 
