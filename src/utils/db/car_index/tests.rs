@@ -143,15 +143,19 @@ fn test() {
         ),
         ("empty.forest.car.zst", vec![]),
         (
-            "1-2-3.forest.car.zst",
+            "1-2-3-4.forest.car.zst",
             Vec::from_iter((0..=3).map(|n| CarBlock {
                 cid: Cid::from_cbor_blake2b256(&n).unwrap(),
                 data: vec![],
             })),
         ),
     ] {
+        let expected_hashes = blocks
+            .iter()
+            .map(|it| Hash::from(it.cid))
+            .collect::<Vec<_>>();
         let bin = mk_encoded_car(1024 * 4, 3, vec![], blocks);
-        let read = ForestCar::new(bin.clone())
+        let actual_hashes = ForestCar::new(bin.clone())
             .unwrap()
             .index()
             .iter()
@@ -159,7 +163,8 @@ fn test() {
             .map(|it| it.hash)
             .collect::<Vec<_>>();
         println!("file: {}", name);
-        println!("hashes: {:?}", read);
+        println!("expected-hashes: {:?}", expected_hashes);
+        println!("actual-hashes: {:?}", actual_hashes);
         println!("{}", pretty_hex::pretty_hex(&bin));
         println!();
     }

@@ -1,5 +1,6 @@
 file: just-default-cid.forest.car.zst
-hashes: [Hash(0)]
+expected-hashes: [Hash(0)]
+actual-hashes: [Hash(0)]
 Length: 132 (0x84) bytes
 0000:   28 b5 2f fd  00 58 91 00  00 11 a2 65  72 6f 6f 74   (./..X.....eroot
 0010:   73 80 67 76  65 72 73 69  6f 6e 01 28  b5 2f fd 00   s.gversion.(./..
@@ -18,7 +19,8 @@ Length: 132 (0x84) bytes
 0080:   00 00 00 00                                          ....
 
 file: empty.forest.car.zst
-hashes: []
+expected-hashes: []
+actual-hashes: []
 Length: 99 (0x63) bytes
 0000:   28 b5 2f fd  00 58 91 00  00 11 a2 65  72 6f 6f 74   (./..X.....eroot
 0010:   73 80 67 76  65 72 73 69  6f 6e 01 50  2a 4d 18 30   s.gversion.P*M.0
@@ -33,8 +35,9 @@ Length: 99 (0x63) bytes
 #       =======^ ^~sfstrt~~~^ ^~sflen~~~~^ ^~footer...
 0060:   00 00 00                                             ...
 
-file: 1-2-3.forest.car.zst
-hashes: [Hash(17546420805098663031), Hash(17973617103576251984), Hash(4076680514202507405), Hash(17170757617415027031)]
+file: 1-2-3-4.forest.car.zst
+expected-hashes: [Hash(17973617103576251984), Hash(4076680514202507405), Hash(17170757617415027031), Hash(17546420805098663031)]
+actual-hashes: [Hash(17546420805098663031), Hash(17973617103576251984), Hash(4076680514202507405), Hash(17170757617415027031)]
 Length: 388 (0x184) bytes
 0000:   28 b5 2f fd  00 58 91 00  00 11 a2 65  72 6f 6f 74   (./..X.....eroot
 0010:   73 80 67 76  65 72 73 69  6f 6e 01 28  b5 2f fd 00   s.gversion.(./..
