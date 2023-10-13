@@ -339,7 +339,8 @@ impl Default for ChainConfig {
     }
 }
 
-// XXX: Dummy default. Will be overwritten later. Wish we could get rid of this.
+/// Dummy default. Will be overwritten later.
+// Wish we could get rid of this
 fn default_policy() -> Policy {
     Policy::mainnet()
 }

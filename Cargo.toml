@@ -181,6 +181,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 walkdir = "2"
+zerocopy = { version = "0.7.9", features = ["derive"] }
 zstd = "0.12.3"
 
 [target.'cfg(unix)'.dependencies]
@@ -201,6 +202,8 @@ predicates = "3.0"
 proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
+ra_ap_syntax = "0.0.178"
+regex-automata = "0.3.9"
 syn = { version = "2.0.38", default-features = false, features = [
   "full",
   "parsing",

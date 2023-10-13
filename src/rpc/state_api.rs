@@ -25,9 +25,6 @@ use parking_lot::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
 
-// TODO handle using configurable verification implementation in RPC (all
-// defaulting to Full).
-
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,

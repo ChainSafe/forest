@@ -220,7 +220,6 @@ impl CliOpts {
         // (where to find these flags, should be easy to do with structops)
 
         // check and set syncing configurations
-        // TODO add MAX conditions
         if let Some(req_window) = &self.req_window {
             cfg.sync.req_window = req_window.to_owned();
         }

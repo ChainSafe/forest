@@ -344,28 +344,28 @@ pub(super) async fn start(
         let rpc_chain_store = Arc::clone(&chain_store);
 
         services.spawn(async move {
+            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
                     .get_beacon_schedule(chain_store.genesis().timestamp()),
             );
-            let rpc_state = Arc::new(RPCState {
-                state_manager: Arc::clone(&rpc_state_manager),
-                keystore: keystore_rpc,
-                mpool,
-                bad_blocks,
-                sync_state,
-                network_send,
-                network_name,
-                start_time,
-                // TODO: the RPCState can fetch this itself from the StateManager
-                beacon,
-                chain_store: rpc_chain_store,
-            });
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             // XXX: The JSON error message are a nightmare to print.
             start_rpc(
-                rpc_state,
+                Arc::new(RPCState {
+                    state_manager: Arc::clone(&rpc_state_manager),
+                    keystore: keystore_rpc,
+                    mpool,
+                    bad_blocks,
+                    sync_state,
+                    network_send,
+                    network_name,
+                    start_time,
+                    beacon,
+                    chain_store: rpc_chain_store,
+                    gc_event_tx,
+                }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
                 shutdown_send,

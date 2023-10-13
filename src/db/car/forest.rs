@@ -116,9 +116,8 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
         cursor.read_exact(&mut footer_buffer)?;
 
-        let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "Data not recognized as ForestCAR.zst",
+        let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(invalid_data(
+            format!("not recognizable as a `{}` file", FOREST_CAR_FILE_EXTENSION),
         ))?;
 
         let cursor = Cursor::new_pos(&reader, 0);
@@ -359,8 +358,8 @@ impl Encoder {
     }
 }
 
-fn invalid_data(msg: &'static str) -> io::Error {
-    io::Error::new(io::ErrorKind::InvalidData, msg)
+fn invalid_data(inner: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, inner)
 }
 
 fn compressed_len(encoder: &zstd::Encoder<'static, Writer<BytesMut>>) -> usize {
