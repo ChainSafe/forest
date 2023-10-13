@@ -17,6 +17,8 @@ pub enum DBCommands {
         #[arg(long)]
         force: bool,
     },
+    // This is a noop as the manual GC is no longer available.
+    GC,
 }
 
 impl DBCommands {
@@ -24,6 +26,7 @@ impl DBCommands {
         match self {
             Self::Stats => bail_moved_cmd("db stats", "forest-tool db stats"),
             Self::Clean { .. } => bail_moved_cmd("db clean", "forest-tool db destroy"),
+            Self::GC => anyhow::bail!("manual garbage collection has been deprecated"),
         }
     }
 }
