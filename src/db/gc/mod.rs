@@ -59,7 +59,7 @@
 //! Note: This needs to be measured and potentially defined in terms of `snapshot export` or any
 //! other visible and comparable metric.
 use crate::blocks::Tipset;
-use crate::chain::{ChainEpochDelta, ChainStore};
+use crate::chain::ChainEpochDelta;
 
 use crate::db::{truncated_hash, GarbageCollectable};
 use crate::ipld::stream_graph;
@@ -89,33 +89,33 @@ enum ControlFlow {
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
 /// taking care of the latter.
-pub struct MarkAndSweep<DB, BS> {
+pub struct MarkAndSweep<DB, GT> {
     db: Arc<DB>,
-    chain_store: Arc<ChainStore<BS>>,
+    get_heaviest_tipset: GT,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
 
-impl<DB: Blockstore + GarbageCollectable, BS: Blockstore> MarkAndSweep<DB, BS> {
+impl<DB: Blockstore + GarbageCollectable, GT: Fn() -> Arc<Tipset>> MarkAndSweep<DB, GT> {
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
     ///
     /// * `db` - A reference to the database instance.
-    /// * `chain_store` - A reference to chain store to fetch heaviest tipset.
+    /// * `get_heaviest_tipset` - A function that facilitates heaviest tipset retrieval.
     /// * `depth` - The number of state-roots to retain.
     /// * `block_time` - An average block production time.
     pub fn new(
         db: Arc<DB>,
-        chain_store: Arc<ChainStore<BS>>,
+        get_heaviest_tipset: GT,
         depth: ChainEpochDelta,
         block_time: Duration,
     ) -> Self {
         Self {
             db,
-            chain_store,
+            get_heaviest_tipset,
             depth,
             marked: HashSet::new(),
             epoch_marked: 0,
@@ -176,7 +176,7 @@ impl<DB: Blockstore + GarbageCollectable, BS: Blockstore> MarkAndSweep<DB, BS> {
 
     async fn gc_workflow(&mut self) -> anyhow::Result<ControlFlow> {
         let depth = self.depth;
-        let tipset = self.chain_store.heaviest_tipset();
+        let tipset = (self.get_heaviest_tipset)();
         let current_epoch = tipset.epoch();
         // Don't run the GC if there aren't enough state-roots yet.
         if depth > current_epoch {
@@ -253,7 +253,15 @@ mod test {
         let cs = Arc::new(
             ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
         );
-        let mut gc = MarkAndSweep::new(db.clone(), cs.clone(), depth, Duration::from_secs(0));
+
+        let cs_cloned = cs.clone();
+        let mut get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
+        let mut gc = MarkAndSweep::new(
+            db.clone(),
+            get_heaviest_tipset,
+            depth,
+            Duration::from_secs(0),
+        );
 
         // test insufficient epochs
         assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
@@ -276,7 +284,14 @@ mod test {
         let cs = Arc::new(
             ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
         );
-        let mut gc = MarkAndSweep::new(db.clone(), cs.clone(), depth, Duration::from_secs(0));
+        let cs_cloned = cs.clone();
+        let mut get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
+        let mut gc = MarkAndSweep::new(
+            db.clone(),
+            get_heaviest_tipset,
+            depth,
+            Duration::from_secs(0),
+        );
 
         run_to_epoch(db.clone(), cs.clone(), depth);
 

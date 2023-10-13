@@ -237,9 +237,11 @@ pub(super) async fn start(
             config.chain.recent_state_roots,
         );
 
+        let get_heaviest_tipset = move || chain_store.heaviest_tipset();
+
         MarkAndSweep::new(
             db_writer,
-            chain_store,
+            get_heaviest_tipset,
             depth,
             Duration::from_secs(config.chain.block_delay_secs as u64),
         )
@@ -363,7 +365,6 @@ pub(super) async fn start(
                     start_time,
                     beacon,
                     chain_store: rpc_chain_store,
-                    gc_event_tx,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
