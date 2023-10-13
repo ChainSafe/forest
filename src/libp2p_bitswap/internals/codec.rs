@@ -90,11 +90,10 @@ impl request_response::Codec for BitswapRequestResponseCodec {
     where
         T: AsyncWrite + Send + Unpin,
     {
-        // TODO: Low priority, batch sending is not supported in `libp2p-bitswap` either
-        // panic here means bug in public API of this crate::libp2p_bitswap
-        assert!(
-            messages.len() == 1,
-            "It's only supported to send a single message"
+        assert_eq!(
+            messages.len(),
+            1,
+            "It's only supported to send a single message" // libp2p-bitswap doesn't support batch sending
         );
 
         let bytes = messages[0].to_bytes()?;

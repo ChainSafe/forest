@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use super::{FrameOffset, Hash, IndexHeader, KeyValuePair, Slot};
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
+use zerocopy::AsBytes as _;
 
 #[derive(Debug)]
 pub struct CarIndexBuilder {
@@ -97,16 +98,16 @@ impl CarIndexBuilder {
 
     fn header(&self) -> IndexHeader {
         IndexHeader {
-            magic_number: IndexHeader::MAGIC_NUMBER,
-            longest_distance: self.longest_distance,
-            collisions: self.collisions,
-            buckets: self.size(),
+            magic_number: IndexHeader::MAGIC_NUMBER.into(),
+            longest_distance: self.longest_distance.into(),
+            collisions: self.collisions.into(),
+            buckets: self.size().into(),
         }
     }
 
     #[cfg(any(test, feature = "benchmark-private"))]
     pub fn write(&self, mut writer: impl std::io::Write) -> std::io::Result<()> {
-        writer.write_all(&self.header().to_le_bytes())?;
+        writer.write_all(self.header().as_bytes())?;
         for slot in self.table.iter() {
             writer.write_all(&slot.to_le_bytes())?;
         }
@@ -118,7 +119,7 @@ impl CarIndexBuilder {
     }
 
     pub async fn write_async(&self, writer: &mut (impl AsyncWrite + Unpin)) -> std::io::Result<()> {
-        writer.write_all(&self.header().to_le_bytes()).await?;
+        writer.write_all(self.header().as_bytes()).await?;
         for entry in self.table.iter() {
             writer.write_all(&entry.to_le_bytes()).await?;
         }
