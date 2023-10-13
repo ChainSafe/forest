@@ -265,10 +265,10 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_map = HashMap::new();
+        let mut cid_mapping = Vec::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
             for cid in cids {
-                cid_map.insert(Hash::from(cid), offset as FrameOffset);
+                cid_mapping.push((Hash::from(cid), offset as FrameOffset));
             }
             sink.write_all(&zstd_frame).await?;
             offset += zstd_frame.len();
@@ -276,7 +276,7 @@ impl Encoder {
 
         // Create index
         let index_offset = offset as u64 + 8;
-        let builder = CarIndexBuilder::new(cid_map.into_iter());
+        let builder = CarIndexBuilder::new(cid_mapping.into_iter());
         write_skip_frame_header_async(sink, builder.encoded_len()).await?;
         builder.write_async(sink).await?;
 
@@ -484,5 +484,28 @@ mod tests {
     fn forest_footer_roundtrip(footer: ForestCarFooter) {
         let footer_recoded = ForestCarFooter::try_from_le_bytes(footer.to_le_bytes());
         assert_eq!(footer_recoded, Some(footer));
+    }
+
+    #[test]
+    fn encode_hash_collisions() {
+        use std::str::FromStr;
+        // Two colliding hashes in separate zstd-frames should not affect each other.
+        let baf = Cid::from_str("bafwgcaor").unwrap();
+        let bae = Cid::from_str("bae7tealp").unwrap();
+        assert_eq!(Hash::from(baf), Hash::from(bae));
+        let blocks = vec![
+            CarBlock {
+                cid: baf,
+                data: Vec::from_iter(*b"bill and ben"),
+            },
+            CarBlock {
+                cid: bae,
+                data: Vec::from_iter(*b"the flowerpot men"),
+            },
+        ];
+        let forest_car = ForestCar::new(mk_encoded_car(1, 3, Vec::new(), blocks.clone())).unwrap();
+
+        assert_eq!(forest_car.get(&baf).unwrap().unwrap(), blocks[0].data);
+        assert_eq!(forest_car.get(&bae).unwrap().unwrap(), blocks[1].data);
     }
 }
