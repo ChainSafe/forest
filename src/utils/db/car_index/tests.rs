@@ -228,3 +228,54 @@ fn test() {
         println!();
     }
 }
+
+#[test]
+fn zstd_frame_count() {
+    fn count_frames(mut slice: &[u8]) -> usize {
+        let mut n = 0;
+        while !slice.is_empty() {
+            let mut decoder = zstd::Decoder::with_buffer(slice).unwrap().single_frame();
+            io::copy(&mut decoder, &mut io::sink()).unwrap();
+            n += 1;
+            slice = decoder.finish();
+        }
+        n
+    }
+    let empty = mk_encoded_car(10, 1, vec![], vec![]);
+    assert_eq!(
+        1 /* car header */ + 2, /* forest skip frames */
+        count_frames(&empty)
+    );
+    let one = mk_encoded_car(
+        10,
+        1,
+        vec![],
+        vec![CarBlock {
+            cid: Cid::default(),
+            data: vec![],
+        }],
+    );
+    assert_eq!(
+        1 /* car header */ + 1 /* cid */ + 2, /* forest skip frames */
+        count_frames(&one)
+    );
+    let two = mk_encoded_car(
+        10,
+        1,
+        vec![],
+        vec![
+            CarBlock {
+                cid: Cid::default(),
+                data: vec![],
+            },
+            CarBlock {
+                cid: Cid::default(),
+                data: vec![],
+            },
+        ],
+    );
+    assert_eq!(
+        1 /* car header */ + 1 /* cid */ + 1 /* cid */ + 2, /* forest skip frames */
+        count_frames(&two)
+    );
+}
