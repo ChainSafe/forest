@@ -71,7 +71,7 @@ impl<BS: Blockstore> ActorMigration<BS> for MinerMigrator {
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let in_state: MinerStateOld = store
             .get_cbor(&input.head)?
-            .ok_or_else(|| anyhow::anyhow!("Miner actor: could not read v11 state"))?;
+            .context("Miner actor: could not read v11 state")?;
 
         let new_sectors = self.migrate_sectors_with_cache(
             store,

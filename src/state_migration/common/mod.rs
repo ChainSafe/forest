@@ -101,3 +101,35 @@ pub(in crate::state_migration) trait TypeMigration<From, To> {
 /// using a single `struct` so that the compiler could catch duplicate
 /// implementations
 pub(in crate::state_migration) struct TypeMigrator;
+
+#[cfg(test)]
+mod tests {
+    use super::MigrationCache;
+    use crate::utils::cid::CidCborExt;
+    use cid::Cid;
+
+    #[test]
+    fn test_migration_cache() {
+        let cache = MigrationCache::default();
+        let cid = Cid::from_cbor_blake2b256(&42).unwrap();
+        cache.insert("Cthulhu".to_owned(), cid);
+        assert_eq!(cache.get("Cthulhu"), Some(cid));
+        assert_eq!(cache.get("Ao"), None);
+
+        let cid = Cid::from_cbor_blake2b256(&666).unwrap();
+        assert_eq!(cache.get("Azathoth"), None);
+
+        let value = cache
+            .get_or_insert_with("Azathoth".to_owned(), || Ok(cid))
+            .unwrap();
+        assert_eq!(value, cid);
+        assert_eq!(cache.get("Azathoth"), Some(cid));
+
+        // Tests that there is no deadlock when inserting a value while reading the cache.
+        let value = cache
+            .get_or_insert_with("Dagon".to_owned(), || Ok(cache.get("Azathoth").unwrap()))
+            .unwrap();
+        assert_eq!(value, cid);
+        assert_eq!(cache.get("Dagon"), Some(cid));
+    }
+}

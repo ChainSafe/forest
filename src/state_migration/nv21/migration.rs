@@ -11,7 +11,7 @@ use crate::shim::{
     sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
     state_tree::{StateTree, StateTreeVersion},
 };
-use anyhow::anyhow;
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_shared::v11::runtime::ProofSet;
 use fvm_ipld_blockstore::Blockstore;
@@ -31,11 +31,11 @@ impl<BS: Blockstore> StateMigration<BS> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree
             .get_actor(&Address::new_id(0))?
-            .ok_or_else(|| anyhow!("system actor not found"))?;
+            .context("failed to get system actor")?;
 
         let system_actor_state = store
             .get_cbor::<SystemStateOld>(&system_actor.state)?
-            .ok_or_else(|| anyhow!("system actor state not found"))?;
+            .context("system actor state not found")?;
 
         let current_manifest_data = system_actor_state.builtin_actors;
 
@@ -108,17 +108,14 @@ where
     let new_manifest_cid = chain_config
         .height_infos
         .get(Height::Watermelon as usize)
-        .ok_or_else(|| anyhow!("no height info for network version NV21"))?
+        .context("no height info for network version NV21")?
         .bundle
         .as_ref()
-        .ok_or_else(|| anyhow!("no bundle info for network version NV21"))?;
+        .context("no bundle for network version NV21")?;
 
-    blockstore.get(new_manifest_cid)?.ok_or_else(|| {
-        anyhow!(
-            "manifest for network version NV21 not found in blockstore: {}",
-            new_manifest_cid
-        )
-    })?;
+    blockstore.get(new_manifest_cid)?.context(format!(
+        "manifest for network version NV21 not found in blockstore: {new_manifest_cid}"
+    ))?;
 
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
