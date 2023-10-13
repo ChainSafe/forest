@@ -265,10 +265,10 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_map = HashMap::new();
+        let mut cid_mapping = Vec::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
             for cid in cids {
-                cid_map.insert(Hash::from(cid), offset as FrameOffset);
+                cid_mapping.push((Hash::from(cid), offset as FrameOffset));
             }
             sink.write_all(&zstd_frame).await?;
             offset += zstd_frame.len();
@@ -276,7 +276,7 @@ impl Encoder {
 
         // Create index
         let index_offset = offset as u64 + 8;
-        let builder = CarIndexBuilder::new(cid_map.into_iter());
+        let builder = CarIndexBuilder::new(cid_mapping.into_iter());
         write_skip_frame_header_async(sink, builder.encoded_len()).await?;
         builder.write_async(sink).await?;
 
@@ -484,5 +484,39 @@ mod tests {
     fn forest_footer_roundtrip(footer: ForestCarFooter) {
         let footer_recoded = ForestCarFooter::try_from_le_bytes(footer.to_le_bytes());
         assert_eq!(footer_recoded, Some(footer));
+    }
+
+    // Two colliding hashes in separate zstd-frames should not affect each other.
+    #[test]
+    fn encode_hash_collisions() {
+        use cid::multihash::{Code::Identity, MultihashDigest};
+
+        // Distinct CIDs may map to the same hash value
+        let cid_a = Cid::new_v1(0, Identity.digest(&[10]));
+        let cid_b = Cid::new_v1(0, Identity.digest(&[0]));
+        // A and B are _not_ the same...
+        assert_ne!(cid_a, cid_b);
+        // ... but they map to the same hash:
+        assert_eq!(Hash::from(cid_a), Hash::from(cid_b));
+
+        // For testing purposes, we ignore that the data doesn't map to the
+        // CIDs.
+        let blocks = vec![
+            CarBlock {
+                cid: cid_a,
+                data: Vec::from_iter(*b"bill and ben"),
+            },
+            CarBlock {
+                cid: cid_b,
+                data: Vec::from_iter(*b"the flowerpot men"),
+            },
+        ];
+
+        // Setting the desired frame size to 0 means each block will be put in a separate frame.
+        let forest_car = ForestCar::new(mk_encoded_car(0, 3, Vec::new(), blocks.clone())).unwrap();
+
+        // Even with colliding hashes, the CIDs can still be queried:
+        assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
+        assert_eq!(forest_car.get(&cid_b).unwrap().unwrap(), blocks[1].data);
     }
 }
