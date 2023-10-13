@@ -117,13 +117,6 @@ impl Progress {
         self.emit_log_if_required();
     }
 
-    #[allow(unused)]
-    fn set_total(&mut self, value: u64) {
-        self.total_items = value;
-
-        self.emit_log_if_required();
-    }
-
     fn emit_log_if_required(&mut self) {
         let now = Instant::now();
         if (now - self.last_logged) > UPDATE_FREQUENCY {
