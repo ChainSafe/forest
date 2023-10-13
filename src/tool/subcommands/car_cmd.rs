@@ -84,6 +84,9 @@ impl CarCommands {
 // - Each block CID is checked against the hash of the block.
 // - Each block CID is looked-up in the on-disk index.
 //
+// Invariants related to Filecoin are not checked. For those, see `forest-tool
+// snapshot validate`.
+//
 // We do not check for duplicate blocks. Whether duplicate blocks are allowed or
 // not is vague in the specification.
 async fn validate(
