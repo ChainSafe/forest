@@ -5,8 +5,6 @@ pub mod car_index;
 pub mod car_stream;
 pub mod car_util;
 
-use async_trait::async_trait;
-use chrono::Utc;
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -14,9 +12,8 @@ use cid::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use fvm_ipld_encoding::{to_vec, DAG_CBOR};
-use human_repr::HumanCount;
+
 use serde::ser::Serialize;
-use tracing::info;
 
 /// Extension methods for inserting and retrieving IPLD data with CIDs
 pub trait BlockstoreExt: Blockstore {
