@@ -28,9 +28,8 @@
 //!
 //! ## Correctness
 //! This algorithm considers all the blocks that are visited during the `snapshot export` task
-//! reachable, making sure they are kept in the database after the run. This is facilitated by
-//! waiting at least `chain finality` after the `mark` step before traversing the reachable graph
-//! and eliminating all the found blocks from the set marked for removal. A snapshot can be used to
+//! reachable, making sure they are kept in the database after the run. It makes sure to retain all
+//! the blocks for at least `chain finality` and the reachable graph. A snapshot can be used to
 //! bootstrap the node from scratch, thus the algorithm is considered correct when a valid snapshot
 //! can be exported using records available in the database after sweeping.
 //!
