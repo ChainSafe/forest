@@ -169,10 +169,8 @@ async fn fetch_verify_params(
 
     fetch_params(&path, &info).await?;
 
-    check_file(&path, &info).await.map_err(|e| {
-        // TODO remove invalid file
-        e.into()
-    })
+    check_file(&path, &info).await?;
+    Ok(())
 }
 
 async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {

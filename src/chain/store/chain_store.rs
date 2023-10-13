@@ -152,9 +152,6 @@ where
     /// Writes tipset block headers to data store and updates heaviest tipset
     /// with other compatible tracked headers.
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
-        // TODO: we could add the blocks of `ts` to the tipset tracker from here,
-        // making `add_to_tipset_tracker` redundant and decreasing the number of
-        // `blockstore` reads
         persist_objects(self.blockstore(), ts.blocks())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
@@ -214,7 +211,6 @@ where
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
-            // TODO potentially need to deal with re-orgs here
             info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
@@ -353,7 +349,6 @@ where
 }
 
 /// Returns a tuple of CIDs for both unsigned and signed messages
-// TODO cache these recent meta roots
 pub fn read_msg_cids<DB>(db: &DB, msg_cid: &Cid) -> Result<(Vec<Cid>, Vec<Cid>), Error>
 where
     DB: Blockstore,

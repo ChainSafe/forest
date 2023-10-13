@@ -91,8 +91,9 @@ impl BeaconSchedule {
             // return no beacon entries for this epoch.
             return Ok(vec![]);
         }
-        // TODO: this is a sketchy way to handle the genesis block not having a beacon
-        // entry
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/3572
+        //               this is a sketchy way to handle the genesis block not
+        //               having a entry
         let prev_round = if prev.round() == 0 {
             max_round - 1
         } else {
@@ -258,7 +259,7 @@ impl DrandBeacon {
 #[async_trait]
 impl Beacon for DrandBeacon {
     fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
-        // TODO: Handle Genesis better
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/3572
         if prev.round() == 0 {
             return Ok(true);
         }

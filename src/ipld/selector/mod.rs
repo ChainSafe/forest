@@ -181,9 +181,6 @@ impl SubAssign<u64> for RecursionLimit {
 ///   - in `Matcher`, to determine if a node is selected.
 ///   - in `ExploreRecursive`, to halt exploration.
 ///   - in `ExploreConditional`,
-// TODO -- Condition is very skeletal and incomplete.
-// TODO -- The place where Condition appears in other structures is correct;
-// TODO -- the rest of the details inside it are not final nor even completely drafted.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Condition {
     #[serde(rename = "hasField")]
@@ -275,8 +272,6 @@ impl Selector {
                 if let RecursionLimit::Depth(depth) = limit {
                     if depth < 2 {
                         // Replaces recursive edge with None on last iteration
-                        // TODO revisit, shouldn't need to replace, would be better to just
-                        // return none when edge is hit on final depth
                         return replace_recursive_edge(next, None);
                     }
                     limit -= 1;

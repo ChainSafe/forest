@@ -18,7 +18,6 @@ fn poiss_pdf(x: f64, mu: f64, cond: f64) -> f64 {
 /// Calculate the number of winners for each block number, up to [`MAX_BLOCKS`].
 // * This will be needed for optimal message selection
 #[cfg(test)]
-// TODO following two can be lazy_static
 fn no_winners_prob() -> Vec<f64> {
     (0..MAX_BLOCKS)
         .map(|i| poiss_pdf(i as f64, MU, MU))
