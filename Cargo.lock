@@ -198,9 +198,9 @@ dependencies = [
 
 [[package]]
 name = "arbitrary"
-version = "1.3.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2d098ff73c1ca148721f37baad5ea6a465a13f9573aba8641fbbbae8164a54e"
+checksum = "a2e1373abdaa212b704512ec2bd8b26bd0b7d5c3f70117411a5d9a451383c859"
 dependencies = [
  "derive_arbitrary",
 ]
@@ -340,7 +340,7 @@ dependencies = [
  "log",
  "parking",
  "polling",
- "rustix 0.37.24",
+ "rustix 0.37.25",
  "slab",
  "socket2 0.4.9",
  "waker-fn",
@@ -2312,7 +2312,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef033ed5e9bad94e55838ca0ca906db0e043f517adda0c8b79c7a8c66c93c1b5"
 dependencies = [
  "cfg-if",
- "rustix 0.38.18",
+ "rustix 0.38.19",
  "windows-sys 0.48.0",
 ]
 
@@ -2345,7 +2345,7 @@ checksum = "d0870c84016d4b481be5c9f323c24f65e31e901ae618f0e80f4308fb00de1d2d"
 [[package]]
 name = "fil_actor_account_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2360,7 +2360,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2374,7 +2374,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2391,7 +2391,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_shared_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "fil_actors_shared",
  "fvm_ipld_encoding",
@@ -2405,7 +2405,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "cid",
  "fil_actor_evm_shared_state",
@@ -2422,7 +2422,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2442,7 +2442,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2476,7 +2476,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2500,7 +2500,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "bitflags 2.4.0",
@@ -2529,7 +2529,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2551,7 +2551,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2573,7 +2573,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2588,7 +2588,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2602,7 +2602,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2621,7 +2621,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "6.1.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#b3c7987229adac5781c9b4121e5caed693ddc848"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=add-v12-support#535fd46fb98e903c248666a45b029ee9fb31718e"
 dependencies = [
  "anyhow",
  "cid",
@@ -4022,9 +4022,9 @@ dependencies = [
 
 [[package]]
 name = "if-watch"
-version = "3.0.1"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9465340214b296cd17a0009acdb890d6160010b8adf8f78a00d0d7ab270f79f"
+checksum = "bbb892e5777fe09e16f3d44de7802f4daa7267ecbe8c466f19d94e25bb0c303e"
 dependencies = [
  "async-io",
  "core-foundation",
@@ -4036,7 +4036,7 @@ dependencies = [
  "rtnetlink",
  "system-configuration",
  "tokio",
- "windows 0.34.0",
+ "windows 0.51.1",
 ]
 
 [[package]]
@@ -4154,7 +4154,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb0889898416213fab133e1d33a0e5858a48177452750691bde3666d0fdbaf8b"
 dependencies = [
  "hermit-abi",
- "rustix 0.38.18",
+ "rustix 0.38.19",
  "windows-sys 0.48.0",
 ]
 
@@ -5001,7 +5001,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2cffa4ad52c6f791f4f8b15f0c05f9824b2ced1160e88cc393d64fff9a8ac64"
 dependencies = [
- "rustix 0.38.18",
+ "rustix 0.38.19",
 ]
 
 [[package]]
@@ -5633,9 +5633,9 @@ dependencies = [
 
 [[package]]
 name = "parity-db"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab512a34b3c2c5e465731cc7668edf79208bbe520be03484eeb05e63ed221735"
+checksum = "59e9ab494af9e6e813c72170f0d3c1de1500990d62c97cc05cc7576f91aa402f"
 dependencies = [
  "blake2",
  "crc32fast",
@@ -6116,7 +6116,7 @@ dependencies = [
  "byteorder",
  "hex",
  "lazy_static",
- "rustix 0.36.15",
+ "rustix 0.36.16",
 ]
 
 [[package]]
@@ -6540,7 +6540,7 @@ dependencies = [
  "aho-corasick",
  "memchr",
  "regex-automata 0.4.1",
- "regex-syntax 0.8.0",
+ "regex-syntax 0.8.1",
 ]
 
 [[package]]
@@ -6560,7 +6560,7 @@ checksum = "465c6fc0621e4abc4187a2bda0937bfd4f722c2730b29562e19689ea796c9a4b"
 dependencies = [
  "aho-corasick",
  "memchr",
- "regex-syntax 0.8.0",
+ "regex-syntax 0.8.1",
 ]
 
 [[package]]
@@ -6571,9 +6571,9 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 
 [[package]]
 name = "regex-syntax"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3cbb081b9784b07cceb8824c8583f86db4814d172ab043f3c23f7dc600bf83d"
+checksum = "56d84fdd47036b038fc80dd333d10b6aab10d5d31f4a366e20014def75328d33"
 
 [[package]]
 name = "regress"
@@ -6746,9 +6746,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.36.15"
+version = "0.36.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c37f1bd5ef1b5422177b7646cba67430579cfe2ace80f284fee876bca52ad941"
+checksum = "6da3636faa25820d8648e0e31c5d519bbb01f72fdf57131f0f5f7da5fed36eab"
 dependencies = [
  "bitflags 1.3.2",
  "errno",
@@ -6760,9 +6760,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.37.24"
+version = "0.37.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4279d76516df406a8bd37e7dff53fd37d1a093f997a3c34a5c21658c126db06d"
+checksum = "d4eb579851244c2c03e7c24f501c3432bed80b8f720af1d6e5b0e0f01555a035"
 dependencies = [
  "bitflags 1.3.2",
  "errno",
@@ -6774,9 +6774,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.18"
+version = "0.38.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a74ee2d7c2581cd139b42447d7d9389b889bdaad3a73f1ebb16f2a3237bb19c"
+checksum = "745ecfa778e66b2b63c88a61cb36e0eea109e803b0b86bf9879fbc77c70e86ed"
 dependencies = [
  "bitflags 2.4.0",
  "errno",
@@ -6919,9 +6919,9 @@ checksum = "836fa6a3e1e547f9a2c4040802ec865b5d85f4014efe00555d7090a3dcaa1090"
 
 [[package]]
 name = "serde"
-version = "1.0.188"
+version = "1.0.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9e0fcba69a370eed61bcf2b728575f726b50b55cba78064753d708ddc7549e"
+checksum = "8e422a44e74ad4001bdc8eede9a4570ab52f71190e9c076d14369f38b9200537"
 dependencies = [
  "serde_derive",
 ]
@@ -6946,9 +6946,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.188"
+version = "1.0.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eca7ac642d82aa35b60049a6eccb4be6be75e599bd2e9adb5f875a737654af2"
+checksum = "1e48d1f918009ce3145511378cf68d613e3b3d9137d67272562080d68a2b32d5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7653,7 +7653,7 @@ dependencies = [
  "cfg-if",
  "fastrand 2.0.1",
  "redox_syscall 0.3.5",
- "rustix 0.38.18",
+ "rustix 0.38.19",
  "windows-sys 0.48.0",
 ]
 
@@ -8567,9 +8567,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.113.3"
+version = "0.114.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "286049849b5a5bd09a8773171be96824afabffc7cc3df6caaf33a38db6cd07ae"
+checksum = "8ef211410dcb08b037eb6d197b2398f8ef9d635c5dc5598d0dfda32094315ea3"
 dependencies = [
  "indexmap 2.0.2",
  "semver",
@@ -8577,12 +8577,12 @@ dependencies = [
 
 [[package]]
 name = "wasmprinter"
-version = "0.2.68"
+version = "0.2.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "537030718ce76e985896e91fe2cac77c1913c8dccd46eaf8ab1a4cd56d824cc3"
+checksum = "24a5101f7ff467823baca5e5b4c5ec9a23a3886070a4a278a4911647b2f2f3d8"
 dependencies = [
  "anyhow",
- "wasmparser 0.113.3",
+ "wasmparser 0.114.0",
 ]
 
 [[package]]
@@ -8699,7 +8699,7 @@ dependencies = [
  "log",
  "object 0.31.1",
  "rustc-demangle",
- "rustix 0.38.18",
+ "rustix 0.38.19",
  "serde",
  "target-lexicon",
  "wasmtime-environ",
@@ -8746,7 +8746,7 @@ dependencies = [
  "memoffset 0.9.0",
  "paste",
  "rand",
- "rustix 0.38.18",
+ "rustix 0.38.19",
  "sptr",
  "wasm-encoder 0.31.1",
  "wasmtime-asm-macros",
@@ -8804,7 +8804,7 @@ dependencies = [
  "either",
  "home",
  "once_cell",
- "rustix 0.38.18",
+ "rustix 0.38.19",
 ]
 
 [[package]]
@@ -8881,6 +8881,25 @@ name = "windows"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e686886bc078bc1b0b600cac0147aadb815089b6e4da64016cbd754b6342700f"
+dependencies = [
+ "windows-targets 0.48.5",
+]
+
+[[package]]
+name = "windows"
+version = "0.51.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca229916c5ee38c2f2bc1e9d8f04df975b4bd93f9955dc69fabb5d91270045c9"
+dependencies = [
+ "windows-core",
+ "windows-targets 0.48.5",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.51.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
 ]
@@ -9264,11 +9283,10 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "2.0.8+zstd.1.5.5"
+version = "2.0.9+zstd.1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5556e6ee25d32df2586c098bbfa278803692a20d0ab9565e049480d52707ec8c"
+checksum = "9e16efa8a874a0481a574084d34cc26fdb3b99627480f785888deb6386506656"
 dependencies = [
  "cc",
- "libc",
  "pkg-config",
 ]
