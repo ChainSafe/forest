@@ -18,10 +18,10 @@ function get_sync_height {
 }
 
 start_time=$(date +%s)
-timeout=$((start_time + 450))  # Set timeout to 15 minutes
+timeout=$((start_time + 300))  # Set timeout to 10 minutes
 
 # Target height set so that all migrations are applied.
-target_height=7
+target_height=10
 
 while true; do
   height=$(get_sync_height)
