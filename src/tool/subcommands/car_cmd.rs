@@ -71,9 +71,9 @@ impl CarCommands {
             }
             Self::Validate {
                 car_file,
-                ignore_block_validity: check_block_validity,
-                ignore_forest_index: check_forest_index,
-            } => validate(car_file, check_block_validity, check_forest_index).await?,
+                ignore_block_validity,
+                ignore_forest_index,
+            } => validate(car_file, ignore_block_validity, ignore_forest_index).await?,
         }
         Ok(())
     }
