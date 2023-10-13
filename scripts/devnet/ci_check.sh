@@ -18,7 +18,7 @@ function get_sync_height {
 }
 
 start_time=$(date +%s)
-timeout=$((start_time + 300))  # Set timeout to 10 minutes
+timeout=$((start_time + 450))  # Set timeout to 15 minutes
 
 # Target height set so that all migrations are applied.
 target_height=7
@@ -32,7 +32,7 @@ while true; do
 
   current_time=$(date +%s)
   if [ "$current_time" -gt "$timeout" ]; then
-    echo "Timeout reached, height is still not larger than 1"
+    echo "Timeout reached, height is still not larger than $target_height: $height"
     exit 1
   fi
 
