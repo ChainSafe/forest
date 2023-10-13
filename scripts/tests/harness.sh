@@ -44,7 +44,7 @@ function forest_query_format {
 
 function forest_run_node_detached {
   echo "Running forest in detached mode"
-  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --no-gc --detach --save-token ./admin_token --track-peak-rss
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
 }
 
 function forest_wait_for_sync {
