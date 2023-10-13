@@ -9,7 +9,9 @@
 //! previously appended to the blockchain.
 //!
 //! ## Design goals
-//! A correct GC algorithm that is simple and efficient for forest scenarios.
+//! A correct GC algorithm that is simple and efficient for forest scenarios. This algorithm removes
+//! unreachable blocks that are older than `chain finality`, making sure to avoid removing something
+//! that could later become reachable as a result of a fork.
 //!
 //! ## GC Algorithm
 //! The `mark-and-sweep` algorithm was chosen due to it's simplicity, efficiency and low memory
@@ -21,8 +23,7 @@
 //! each database key and storing those in a set.
 //! 2. Wait at least `chain finality` blocks.
 //! 3. Traverse reachable blocks starting at the current heaviest tipset and remove those from the
-//! marked set, leaving only unreachable entries that are older than `chain finality` to avoid
-//! removing something that could later become reachable as a result of a fork.
+//! marked set, leaving only unreachable entries that are older than `chain finality`.
 //! 4. Sweep, removing all the remaining marked entries from the database.
 //!
 //! ## Correctness
