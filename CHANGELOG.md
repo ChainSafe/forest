@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
+  support for calibration network.
+
 ### Changed
 
 ### Removed
