@@ -53,8 +53,8 @@ impl<BS: Blockstore> StateMigration<BS> {
                 fil_actors_shared::v12::runtime::Policy::mainnet(),
             ),
             NetworkChain::Calibnet => (
-                fil_actors_shared::v11::runtime::Policy::mainnet(),
-                fil_actors_shared::v12::runtime::Policy::mainnet(),
+                fil_actors_shared::v11::runtime::Policy::calibnet(),
+                fil_actors_shared::v12::runtime::Policy::calibnet(),
             ),
             NetworkChain::Devnet(_) => {
                 let mut policy_old = fil_actors_shared::v11::runtime::Policy::mainnet();
