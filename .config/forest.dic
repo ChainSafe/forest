@@ -100,5 +100,4 @@ WebAssembly
 WebSocket
 zstd
 ParityDB
-benchmarking
-benchmarked
+benchmark/GD
