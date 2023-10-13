@@ -9,6 +9,7 @@ use crate::{
     utils::{cid::CidCborExt as _, db::car_stream::CarBlock},
 };
 use ahash::{AHashMap, AHashSet};
+use fvm_ipld_blockstore::Blockstore as _;
 use itertools::Itertools;
 use pretty_assertions::assert_eq;
 use quickcheck::Arbitrary;
@@ -250,18 +251,21 @@ fn colliding_hashes_cross_zstd_frames() {
             },
         ],
     );
+    println!("{}", pretty_hex::pretty_hex(&has_collisions));
+
     assert_eq!(
         1 /* car header */ + 1 /* cid */ + 1 /* cid */ + 2, /* forest skip frames */
         count_frames(&has_collisions)
     );
-    let num_in_index = ForestCar::new(has_collisions.clone())
-        .unwrap()
-        .index()
-        .iter()
-        .map(Result::unwrap)
-        .count();
-    println!("{}", pretty_hex::pretty_hex(&has_collisions));
-    assert_eq!(2, num_in_index);
+
+    let bs = &ForestCar::new(has_collisions.clone()).unwrap();
+
+    assert!(bs.get(&bae).is_ok_and(|it| it.is_some()));
+    assert!(bs.get(&baf).is_ok_and(|it| it.is_some())); // this one is forgotten
+
+    let num_in_index = bs.index().iter().map(Result::unwrap).count();
+
+    assert_eq!(2, num_in_index); // this also fails
 }
 
 #[test]
