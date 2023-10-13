@@ -5,9 +5,15 @@ use std::path::PathBuf;
 
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
+use fvm_ipld_blockstore::Blockstore;
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use tokio::io::AsyncWriteExt;
+use tokio::{
+    fs::File,
+    io::{AsyncWriteExt, BufReader},
+};
 
+use crate::db::car::ForestCar;
 use crate::utils::db::{
     car_stream::CarStream,
     car_util::{dedup_block_stream, merge_car_streams},
@@ -15,6 +21,7 @@ use crate::utils::db::{
 
 #[derive(Debug, Subcommand)]
 pub enum CarCommands {
+    /// Concatenate two or more CAR files into a single archive
     Concat {
         /// A list of CAR file paths. A CAR file can be a plain CAR, a zstd compressed CAR
         /// or a `.forest.car.zst` file
@@ -22,6 +29,15 @@ pub enum CarCommands {
         /// The output `.forest.car.zst` file path
         #[arg(short, long)]
         output: PathBuf,
+    },
+    /// Check the validity of a CAR archive
+    Validate {
+        /// CAR archive. Supported extensions: `.car`, `.car.zst`, `.forest.car.zst`
+        car_file: PathBuf,
+        /// Verify that blocks are hashed correctly
+        check_block_validity: bool,
+        /// Verify integrity of the on-disk index
+        check_forest_index: bool,
     },
 }
 
@@ -50,7 +66,41 @@ impl CarCommands {
                 crate::db::car::forest::Encoder::write(&mut writer, all_roots, frames).await?;
                 writer.flush().await?;
             }
+            Self::Validate {
+                car_file,
+                check_block_validity,
+                check_forest_index,
+            } => validate(car_file, check_block_validity, check_forest_index).await?,
         }
         Ok(())
     }
+}
+
+async fn validate(
+    car_file: PathBuf,
+    check_block_validity: bool,
+    check_forest_index: bool,
+) -> anyhow::Result<()> {
+    let optional_db = if check_forest_index {
+        Some(ForestCar::try_from(car_file.as_path())?)
+    } else {
+        None
+    };
+
+    let file = File::open(car_file).await?;
+    let pb = ProgressBar::new(file.metadata().await?.len()).with_style(
+        ProgressStyle::with_template("{bar} {percent}%, eta: {eta}").expect("infallible"),
+    );
+    let file = BufReader::new(pb.wrap_async_read(file));
+
+    let mut stream = CarStream::new(file).await?;
+    while let Some(block) = stream.try_next().await? {
+        if check_block_validity && !block.valid() {
+            anyhow::ensure!(block.valid(), "CID/Block mismatch for block: {}", block.cid);
+        }
+        if let Some(ref db) = optional_db {
+            anyhow::ensure!(db.get(&block.cid).ok().flatten() == Some(block.data));
+        }
+    }
+    Ok(())
 }
