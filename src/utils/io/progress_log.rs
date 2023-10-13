@@ -76,10 +76,10 @@ impl<R: tokio::io::AsyncRead> tokio::io::AsyncRead for WithProgress<R> {
 }
 
 impl<S> WithProgress<S> {
-    pub fn wrap_async_read(message: &str, read: S, total_items: u64) -> WithProgress<S> {
+    pub fn wrap_async_read(message: &str, read: S, _total_items: u64) -> WithProgress<S> {
         WithProgress {
             inner: read,
-            progress: Progress::new(message, total_items),
+            progress: Progress::new(message),
         }
     }
 }
@@ -87,18 +87,16 @@ impl<S> WithProgress<S> {
 #[derive(Debug, Clone)]
 struct Progress {
     completed_items: u64,
-    total_items: u64,
     start: Instant,
     last_logged: Instant,
     message: String,
 }
 
 impl Progress {
-    fn new(message: &str, total_items: u64) -> Self {
+    fn new(message: &str) -> Self {
         let now = Instant::now();
         Self {
             completed_items: 0,
-            total_items,
             start: now,
             last_logged: now,
             message: message.into(),
@@ -140,11 +138,11 @@ pub struct WithProgressRaw {
 
 impl WithProgressRaw {
     #[deprecated]
-    pub fn new(message: &str, total_items: u64) -> Self {
+    pub fn new(message: &str, _total_items: u64) -> Self {
         WithProgressRaw {
             sync: Arc::new(Mutex::new(WithProgress {
                 inner: (),
-                progress: Progress::new(message, total_items),
+                progress: Progress::new(message),
             })),
         }
     }
