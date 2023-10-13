@@ -28,10 +28,11 @@
 //!
 //! ## Correctness
 //! This algorithm considers all the blocks that are visited during the `snapshot export` task
-//! reachable, making sure they are kept in the database after the run. It makes sure to retain all
-//! the blocks for at least `chain finality` and the reachable graph. A snapshot can be used to
-//! bootstrap the node from scratch, thus the algorithm is considered correct when a valid snapshot
-//! can be exported using records available in the database after sweeping.
+//! reachable, making sure they are kept in the database after the run. It makes sure to retain the
+//! reachable graph as well as all the blocks for at least `chain finality` to account for potential
+//! forks. A snapshot can be used to bootstrap the node from scratch, thus the algorithm is
+//! considered correct when a valid snapshot can be exported using records available in the database
+//! after the run.
 //!
 //! ## Disk usage
 //! There's no additional disk space required to run this algorithm. However, removing the
