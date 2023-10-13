@@ -30,14 +30,17 @@ pub enum CarCommands {
         #[arg(short, long)]
         output: PathBuf,
     },
-    /// Check the validity of a CAR archive
+    /// Check the validity of a CAR archive. For Filecoin-specific checks, see
+    /// `forest-tool snapshot validate`.
     Validate {
         /// CAR archive. Supported extensions: `.car`, `.car.zst`, `.forest.car.zst`
         car_file: PathBuf,
-        /// Verify that blocks are hashed correctly
-        check_block_validity: bool,
-        /// Verify integrity of the on-disk index
-        check_forest_index: bool,
+        /// Skip verifying that blocks are hashed correctly
+        #[arg(long)]
+        ignore_block_validity: bool,
+        /// Skip verifying the integrity of the on-disk index
+        #[arg(long)]
+        ignore_forest_index: bool,
     },
 }
 
@@ -68,8 +71,8 @@ impl CarCommands {
             }
             Self::Validate {
                 car_file,
-                check_block_validity,
-                check_forest_index,
+                ignore_block_validity: check_block_validity,
+                ignore_forest_index: check_forest_index,
             } => validate(car_file, check_block_validity, check_forest_index).await?,
         }
         Ok(())
@@ -78,10 +81,10 @@ impl CarCommands {
 
 async fn validate(
     car_file: PathBuf,
-    check_block_validity: bool,
-    check_forest_index: bool,
+    ignore_block_validity: bool,
+    ignore_forest_index: bool,
 ) -> anyhow::Result<()> {
-    let optional_db = if check_forest_index {
+    let optional_db = if !ignore_forest_index {
         Some(ForestCar::try_from(car_file.as_path())?)
     } else {
         None
@@ -95,7 +98,7 @@ async fn validate(
 
     let mut stream = CarStream::new(file).await?;
     while let Some(block) = stream.try_next().await? {
-        if check_block_validity && !block.valid() {
+        if !ignore_block_validity && !block.valid() {
             anyhow::ensure!(block.valid(), "CID/Block mismatch for block: {}", block.cid);
         }
         if let Some(ref db) = optional_db {
