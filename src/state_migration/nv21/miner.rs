@@ -321,7 +321,6 @@ mod tests {
         let addr_id = 10000;
         let addr = Address::new_id(addr_id);
         let worker_id = addr_id + 100;
-        // let base_worker_addr = Address::new_id(base_worker_id);
 
         // base stuff to create miners
         let miner_cid_old = manifest_old.get(BuiltinActor::Miner).unwrap();
