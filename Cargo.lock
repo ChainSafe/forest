@@ -2936,6 +2936,7 @@ dependencies = [
  "fvm_shared 4.0.0-alpha.4",
  "gethostname",
  "git-version",
+ "hashers",
  "hex",
  "http",
  "http-range-header",
@@ -3009,6 +3010,7 @@ dependencies = [
  "sha2 0.10.8",
  "shared_memory",
  "similar",
+ "siphasher",
  "slotmap",
  "smallvec",
  "smart-default",
@@ -3727,6 +3729,15 @@ checksum = "7dfda62a12f55daeae5015f81b0baea145391cb4520f86c248fc615d72640d12"
 dependencies = [
  "ahash",
  "allocator-api2",
+]
+
+[[package]]
+name = "hashers"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2bca93b15ea5a746f220e56587f71e73c6165eab783df9e26590069953e3c30"
+dependencies = [
+ "fxhash",
 ]
 
 [[package]]

@@ -200,6 +200,7 @@ cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
+hashers = "1.0.1"
 http-range-header = "0.4.0"
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
@@ -210,6 +211,7 @@ quickcheck = "1"
 quickcheck_macros = "1"
 ra_ap_syntax = "0.0.178"
 regex-automata = "0.3.9"
+siphasher = "0.3.11"
 syn = { version = "2.0.38", default-features = false, features = [
   "full",
   "parsing",

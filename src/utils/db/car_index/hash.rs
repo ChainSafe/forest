@@ -101,6 +101,7 @@ mod tests {
     use super::*;
     use crate::utils::cid::CidCborExt;
     use cid::multihash::{Code, MultihashDigest};
+    use itertools::Itertools;
     use quickcheck::{Arbitrary, Gen};
     use quickcheck_macros::quickcheck;
     use std::num::NonZeroUsize;
@@ -210,5 +211,110 @@ mod tests {
             )),
             Hash(578437695752307371)
         );
+    }
+
+    #[test]
+    fn collisions() {
+        quickcheck::quickcheck(Test);
+
+        use super::Hash as OurHash;
+        use ahash::AHasher;
+        use hashers::{
+            builtin::DefaultHasher,
+            fnv::{FNV1aHasher32, FNV1aHasher64},
+            fx_hash::{FxHasher32, FxHasher64},
+            jenkins::{spooky_hash::SpookyHasher, Lookup3Hasher, OAATHasher},
+            null::{NullHasher, PassThroughHasher},
+            oz::{DJB2Hasher, LoseLoseHasher, SDBMHasher},
+            pigeon::Bricolage,
+        };
+        use quickcheck::{Gen, TestResult, Testable};
+        use siphasher::sip::{SipHasher13, SipHasher24};
+        use std::{
+            collections::HashMap,
+            hash::{Hash, Hasher},
+        };
+        macro_rules! with_name {
+            ($($ident:ident),* $(,)?) => {
+                [$(
+                    (stringify!($ident), $ident),
+                )*]
+            }
+        }
+        struct Test;
+        impl Testable for Test {
+            fn result(&self, g: &mut Gen) -> TestResult {
+                // hasher -> hash -> count
+                let mut table = HashMap::new();
+                for n in 0.. {
+                    let cid = Cid::arbitrary(g);
+                    let ours = u64::from(OurHash::from(cid));
+                    let ahash = hash_once::<AHasher>(cid);
+                    let sip13 = hash_once::<SipHasher13>(cid);
+                    let sip24 = hash_once::<SipHasher24>(cid);
+                    let builtin = hash_once::<DefaultHasher>(cid);
+                    let fnv32 = hash_once::<FNV1aHasher32>(cid);
+                    let fvn64 = hash_once::<FNV1aHasher64>(cid);
+                    let fx32 = hash_once::<FxHasher32>(cid);
+                    let fx64 = hash_once::<FxHasher64>(cid);
+                    let spooky = hash_once::<SpookyHasher>(cid);
+                    let lookup3 = hash_once::<Lookup3Hasher>(cid);
+                    let oaat = hash_once::<OAATHasher>(cid);
+                    let null = hash_once::<NullHasher>(cid);
+                    let passthrough = hash_once::<PassThroughHasher>(cid);
+                    let djb2 = hash_once::<DJB2Hasher>(cid);
+                    let loselose = hash_once::<LoseLoseHasher>(cid);
+                    let sdbm = hash_once::<SDBMHasher>(cid);
+                    let bricolage = hash_once::<Bricolage>(cid);
+
+                    for (name, hash) in with_name![
+                        ours,
+                        ahash,
+                        sip13,
+                        sip24,
+                        builtin,
+                        fnv32,
+                        fvn64,
+                        fx32,
+                        fx64,
+                        spooky,
+                        lookup3,
+                        oaat,
+                        null,
+                        passthrough,
+                        djb2,
+                        loselose,
+                        sdbm,
+                        bricolage,
+                    ] {
+                        table
+                            .entry(name)
+                            .or_insert(HashMap::new())
+                            .entry(hash)
+                            .and_modify(|it| *it += 1)
+                            .or_insert(1);
+                    }
+
+                    if n % 10000 == 0 {
+                        println!("cids: {}", n);
+                        for (name, ncollisions) in table
+                            .iter()
+                            .map(|(name, seen)| {
+                                (name, seen.values().filter(|it| **it > 1).sum::<u32>())
+                            })
+                            .sorted_by_key(|(_, n)| *n)
+                        {
+                            println!("\t{:>12}: {:>10} collisions", name, ncollisions)
+                        }
+                    }
+                }
+                TestResult::discard()
+            }
+        }
+        fn hash_once<H: Hasher + Default>(t: impl Hash) -> u64 {
+            let mut hasher = H::default();
+            t.hash(&mut hasher);
+            hasher.finish()
+        }
     }
 }
