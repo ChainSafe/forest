@@ -486,26 +486,37 @@ mod tests {
         assert_eq!(footer_recoded, Some(footer));
     }
 
+    // Two colliding hashes in separate zstd-frames should not affect each other.
     #[test]
     fn encode_hash_collisions() {
-        use std::str::FromStr;
-        // Two colliding hashes in separate zstd-frames should not affect each other.
-        let baf = Cid::from_str("bafwgcaor").unwrap();
-        let bae = Cid::from_str("bae7tealp").unwrap();
-        assert_eq!(Hash::from(baf), Hash::from(bae));
+        use cid::multihash::{Code::Identity, MultihashDigest};
+
+        // Distinct CIDs may map to the same hash value
+        let cid_a = Cid::new_v1(0, Identity.digest(&[10]));
+        let cid_b = Cid::new_v1(0, Identity.digest(&[0]));
+        // A and B are _not_ the same...
+        assert_ne!(cid_a, cid_b);
+        // ... but they map to the same hash:
+        assert_eq!(Hash::from(cid_a), Hash::from(cid_b));
+
+        // For testing purposes, we ignore that the data doesn't map to the
+        // CIDs.
         let blocks = vec![
             CarBlock {
-                cid: baf,
+                cid: cid_a,
                 data: Vec::from_iter(*b"bill and ben"),
             },
             CarBlock {
-                cid: bae,
+                cid: cid_b,
                 data: Vec::from_iter(*b"the flowerpot men"),
             },
         ];
-        let forest_car = ForestCar::new(mk_encoded_car(1, 3, Vec::new(), blocks.clone())).unwrap();
 
-        assert_eq!(forest_car.get(&baf).unwrap().unwrap(), blocks[0].data);
-        assert_eq!(forest_car.get(&bae).unwrap().unwrap(), blocks[1].data);
+        // Setting the desired frame size to 0 means each block will be put in a separate frame.
+        let forest_car = ForestCar::new(mk_encoded_car(0, 3, Vec::new(), blocks.clone())).unwrap();
+
+        // Even with colliding hashes, the CIDs can still be queried:
+        assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
+        assert_eq!(forest_car.get(&cid_b).unwrap().unwrap(), blocks[1].data);
     }
 }
