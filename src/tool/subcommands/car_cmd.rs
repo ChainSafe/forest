@@ -79,6 +79,13 @@ impl CarCommands {
     }
 }
 
+// At present, three invariants are checked:
+// - The CAR file is syntactically valid and all blocks can be streamed.
+// - Each block CID is checked against the hash of the block.
+// - Each block CID is looked-up in the on-disk index.
+//
+// We do not check for duplicate blocks. Whether duplicate blocks are allowed or
+// not is vague in the specification.
 async fn validate(
     car_file: PathBuf,
     ignore_block_validity: bool,
