@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
@@ -73,7 +73,7 @@ impl CarCommands {
                 car_file,
                 ignore_block_validity,
                 ignore_forest_index,
-            } => validate(car_file, ignore_block_validity, ignore_forest_index).await?,
+            } => validate(&car_file, ignore_block_validity, ignore_forest_index).await?,
         }
         Ok(())
     }
@@ -90,12 +90,12 @@ impl CarCommands {
 // We do not check for duplicate blocks. Whether duplicate blocks are allowed or
 // not is vague in the specification.
 async fn validate(
-    car_file: PathBuf,
+    car_file: &Path,
     ignore_block_validity: bool,
     ignore_forest_index: bool,
 ) -> anyhow::Result<()> {
     let optional_db = if !ignore_forest_index {
-        Some(ForestCar::try_from(car_file.as_path())?)
+        Some(ForestCar::try_from(car_file)?)
     } else {
         None
     };
@@ -116,4 +116,18 @@ async fn validate(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate;
+    use tempfile::NamedTempFile;
+    use std::io::Write;
+
+    #[tokio::test]
+    async fn validate_junk_car() {
+        let mut temp_path = NamedTempFile::new_in(".").unwrap();
+        temp_path.write_all(&[0xde,0xad,0xbe,0xef]).unwrap();
+        assert!(validate(&temp_path.into_temp_path(), false, false).await.is_err());
+    }
 }
