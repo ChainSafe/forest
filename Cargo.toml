@@ -63,7 +63,7 @@ fil_actor_system_state = "6.1"
 fil_actor_verifreg_state = "6.1"
 fil_actors_shared = "6.1"
 filecoin-proofs-api = { version = "16.0", default-features = false }
-flume = { version = "0.11", features = ["async"] }
+flume = "0.11"
 fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
@@ -88,6 +88,7 @@ is-terminal = "0.4"
 itertools = "0.11.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "8.1"
+kanal = "0.1.0-pre8"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }

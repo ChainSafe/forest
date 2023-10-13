@@ -13,6 +13,8 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
+use kanal::{Receiver, Sender};
+
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
@@ -355,8 +357,8 @@ pin_project! {
         db: Arc<DB>,
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
-        block_receiver: flume::Receiver<anyhow::Result<CarBlock>>,
-        extract_sender: flume::Sender<Cid>,
+        block_receiver: kanal::Receiver<anyhow::Result<CarBlock>>,
+        extract_sender: kanal::Sender<Cid>,
         stateroot_limit: ChainEpoch,
         queue: Vec<Cid>,
         fail_on_dead_links: bool,
@@ -396,8 +398,8 @@ pub fn unordered_stream_chain<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
-    let (extract_sender, extract_receiver) = flume::unbounded();
+    let (sender, receiver) = kanal::bounded(BLOCK_CHANNEL_LIMIT);
+    let (extract_sender, extract_receiver) = kanal::unbounded();
     let fail_on_dead_links = true;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
     let handle = UnorderedChainStream::<DB, T>::start_workers(
@@ -431,8 +433,8 @@ pub fn unordered_stream_graph<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
-    let (extract_sender, extract_receiver) = flume::unbounded();
+    let (sender, receiver) = kanal::bounded(2048);
+    let (extract_sender, extract_receiver) = kanal::unbounded();
     let fail_on_dead_links = false;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
     let handle = UnorderedChainStream::<DB, T>::start_workers(
@@ -461,8 +463,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 {
     fn start_workers(
         db: Arc<DB>,
-        block_sender: flume::Sender<anyhow::Result<CarBlock>>,
-        extract_receiver: flume::Receiver<Cid>,
+        block_sender: Sender<anyhow::Result<CarBlock>>,
+        extract_receiver: Receiver<Cid>,
         seen: Arc<Mutex<CidHashSet>>,
         fail_on_dead_links: bool,
     ) -> JoinHandle<anyhow::Result<()>> {
@@ -471,11 +473,12 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
             for _ in 0..num_cpus::get() {
                 let seen = seen.clone();
-                let extract_receiver = extract_receiver.clone();
+                let extract_receiver: kanal::AsyncReceiver<Cid> =
+                    extract_receiver.clone().to_async();
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(cid) = extract_receiver.recv_async().await {
+                    while let Ok(cid) = extract_receiver.recv().await {
                         let mut cid_vec = vec![cid];
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
@@ -491,7 +494,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                     block_sender
                                         .send(Err(anyhow::anyhow!("missing key: {}", cid)))
                                         .expect("unreachable");
-                                    return anyhow::Ok(());
+                                    break;
                                 }
                             }
                         }
@@ -520,24 +523,22 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-
+        let receive_block = || {
+            if let Ok(item) = this.block_receiver.try_recv() {
+                return anyhow::Ok(item);
+            }
+            anyhow::Ok(None)
+        };
         loop {
             while let Some(cid) = this.queue.pop() {
                 if let Some(data) = this.db.get(&cid)? {
                     return Poll::Ready(Some(Ok(CarBlock { cid, data })));
                 } else if *this.fail_on_dead_links {
-                    // Let the workers go on error.
-                    this.extract_sender.downgrade();
                     return Poll::Ready(Some(Err(anyhow::anyhow!("missing key: {}", cid))));
                 }
             }
 
-            // We don't care if the channel is empty/closed - that's being checked below.
-            if let Ok(block) = this.block_receiver.try_recv() {
-                // Make sure we let the workers go when an error is encountered.
-                if block.is_err() {
-                    this.extract_sender.downgrade();
-                }
+            if let Some(block) = receive_block()? {
                 return Poll::Ready(Some(block));
             }
 
@@ -595,14 +596,13 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         }
                     }
                 }
-            } else if !this.block_receiver.is_disconnected() {
-                if let Ok(item) = this.block_receiver.try_recv() {
+            } else if let Ok(item) = this.block_receiver.try_recv() {
+                if let Some(item) = item {
                     return Poll::Ready(Some(item));
                 }
-                // Close the sender when it's empty, then we can exit in the next iteration or when
-                // the block_receiver is empty, in case there are some in-flight messages.
+                // Close the sender when it's empty, then we can exit in the next iteration.
                 if this.extract_sender.is_empty() && this.block_receiver.is_empty() {
-                    this.extract_sender.downgrade();
+                    this.extract_sender.close();
                 }
             } else {
                 // That's it, nothing else to do. End of stream.
