@@ -415,6 +415,11 @@ mod test {
     }
 
     #[test]
+    #[ignore]
+    // This needs to be reinstated once there is a reliable way to make sure that all the commits
+    // make it to the database and are visible when read through iterator.
+    // There seems to be a bug related to database reads.
+    // See https://github.com/paritytech/parity-db/issues/227.
     fn garbage_collectable() {
         let db = TempParityDB::new();
         let data = [
@@ -440,14 +445,15 @@ mod test {
 
         let keys = db.get_keys().unwrap();
 
-        // This is flaky.
-        // assert_eq!(keys.len(), cases.len());
+        // This is flaky, because iterating columns does not give visibility guarantees for the
+        // latest commits.
+        assert_eq!(keys.len(), cases.len());
 
         db.remove_keys(keys).unwrap();
 
         // Panics on this line: https://github.com/paritytech/parity-db/blob/ec686930169b84d21336bed6d6f05c787a17d61f/src/file.rs#L130
-        // let keys = db.get_keys().unwrap();
-        // assert_eq!(keys.len(), 0);
+        let keys = db.get_keys().unwrap();
+        assert_eq!(keys.len(), 0);
     }
 
     #[test]
