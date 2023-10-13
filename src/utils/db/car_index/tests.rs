@@ -230,17 +230,42 @@ fn test() {
 }
 
 #[test]
+fn colliding_hashes_cross_zstd_frames() {
+    let baf = Cid::from_str("bafwgcaor").unwrap();
+    let bae = Cid::from_str("bae7tealp").unwrap();
+    assert_eq!(Hash::from(baf), Hash::from(bae));
+    println!("{:?}", Hash::from(baf));
+    let has_collisions = mk_encoded_car(
+        10,
+        1,
+        vec![],
+        vec![
+            CarBlock {
+                cid: baf,
+                data: Vec::from_iter(*b"bill and ben"),
+            },
+            CarBlock {
+                cid: bae,
+                data: Vec::from_iter(*b"the flowerpot men"),
+            },
+        ],
+    );
+    assert_eq!(
+        1 /* car header */ + 1 /* cid */ + 1 /* cid */ + 2, /* forest skip frames */
+        count_frames(&has_collisions)
+    );
+    let num_in_index = ForestCar::new(has_collisions.clone())
+        .unwrap()
+        .index()
+        .iter()
+        .map(Result::unwrap)
+        .count();
+    println!("{}", pretty_hex::pretty_hex(&has_collisions));
+    assert_eq!(2, num_in_index);
+}
+
+#[test]
 fn zstd_frame_count() {
-    fn count_frames(mut slice: &[u8]) -> usize {
-        let mut n = 0;
-        while !slice.is_empty() {
-            let mut decoder = zstd::Decoder::with_buffer(slice).unwrap().single_frame();
-            io::copy(&mut decoder, &mut io::sink()).unwrap();
-            n += 1;
-            slice = decoder.finish();
-        }
-        n
-    }
     let empty = mk_encoded_car(10, 1, vec![], vec![]);
     assert_eq!(
         1 /* car header */ + 2, /* forest skip frames */
@@ -278,4 +303,15 @@ fn zstd_frame_count() {
         1 /* car header */ + 1 /* cid */ + 1 /* cid */ + 2, /* forest skip frames */
         count_frames(&two)
     );
+}
+
+fn count_frames(mut slice: &[u8]) -> usize {
+    let mut n = 0;
+    while !slice.is_empty() {
+        let mut decoder = zstd::Decoder::with_buffer(slice).unwrap().single_frame();
+        io::copy(&mut decoder, &mut io::sink()).unwrap();
+        n += 1;
+        slice = decoder.finish();
+    }
+    n
 }

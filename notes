@@ -113,5 +113,25 @@ Length: 142 (0x8e) bytes
 0070:   ff ff ff ff  ff ff ff ff  ff ff ff ff  ff ff 50 2a   ..............P*
 0080:   4d 18 08 00  00 00 3e 00  00 00 00 00  00 00         M.....>.......
 
+# Colliding hashes cross zstd frames
+Length: 180 (0xb4) bytes
+0000:   28 b5 2f fd  00 58 91 00  00 11 a2 65  72 6f 6f 74   (./..X.....eroot
+0010:   73 80 67 76  65 72 73 69  6f 6e 01 28  b5 2f fd 00   s.gversion.(./..
+0020:   48 90 00 00  11 01 6c 61  01 d1 62 69  6c 6c 20 61   H.....la..bill a
+0030:   6e 64 20 62  65 6e 01 00  00 28 b5 2f  fd 00 48 b8   nd ben...(./..H.
+0040:   00 00 16 01  3f 32 01 6f  74 68 65 20  66 6c 6f 77   ....?2.othe flow
+0050:   65 72 70 6f  74 20 6d 65  6e 01 00 00  50 2a 4d 18   erpot men...P*M.
+#                                              ^sfstrt~~~^
+0060:   40 00 00 00  f0 be ad de  00 00 00 00  00 00 00 00   @...............
+#       ^~sflen~~~^  ^~hdrmgk~~~~~~~~~~~~~~~^  ^~lngdst=0~
+0070:   00 00 00 00  00 00 00 00  00 00 00 00  01 00 00 00   ................
+#       ~~~~~~~~~~^  ^~ncolsns=0~~~~~~~~~~~~^  ^~nbuckets=1  !! BUG?
+0080:   00 00 00 00  0c 00 00 00  00 00 00 00  39 00 00 00   ............9...
+#       ~~~~~~~~~~^  ^=Hash(12)=============^  ^-Offset(..)
+0090:   00 00 00 00  ff ff ff ff  ff ff ff ff  ff ff ff ff   ................
+#       ..........^
+00a0:   ff ff ff ff  50 2a 4d 18  08 00 00 00  64 00 00 00   ....P*M.....d...
+00b0:   00 00 00 00                                          ....
+
 function hex2dec() { printf '%d\n' "0x$1"; }
 function dec2hex() { printf '%x\n' "$1" | fold -2 | xargs echo ; }
