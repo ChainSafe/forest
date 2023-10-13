@@ -255,7 +255,7 @@ mod test {
         );
 
         let cs_cloned = cs.clone();
-        let mut get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
+        let get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
         let mut gc = MarkAndSweep::new(
             db.clone(),
             get_heaviest_tipset,
@@ -285,7 +285,7 @@ mod test {
             ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
         );
         let cs_cloned = cs.clone();
-        let mut get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
+        let get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
         let mut gc = MarkAndSweep::new(
             db.clone(),
             get_heaviest_tipset,
