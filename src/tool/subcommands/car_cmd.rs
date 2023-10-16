@@ -128,12 +128,12 @@ mod tests {
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
     use std::io::Write;
-    use tempfile::{NamedTempFile, TempPath};
+    use tempfile::{TempPath, Builder};
     use tokio::io::AsyncWriteExt;
 
     #[tokio::test]
     async fn validate_junk_car() {
-        let mut temp_path = NamedTempFile::new_in(".").unwrap();
+        let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(&[0xde, 0xad, 0xbe, 0xef]).unwrap();
         assert!(validate(&temp_path.into_temp_path(), false, false)
             .await
@@ -142,7 +142,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_empty_car() {
-        let temp_path = NamedTempFile::new_in(".").unwrap();
+        let temp_path = Builder::new().tempfile().unwrap();
         assert!(validate(&temp_path.into_temp_path(), false, false)
             .await
             .is_err());
@@ -150,7 +150,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_mainnet_genesis() {
-        let mut temp_path = NamedTempFile::new_in(".").unwrap();
+        let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(mainnet::DEFAULT_GENESIS).unwrap();
         assert!(validate(&temp_path.into_temp_path(), false, true)
             .await
@@ -159,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_calibnet_genesis() {
-        let mut temp_path = NamedTempFile::new_in(".").unwrap();
+        let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(calibnet::DEFAULT_GENESIS).unwrap();
         assert!(validate(&temp_path.into_temp_path(), false, true)
             .await
@@ -167,7 +167,7 @@ mod tests {
     }
 
     async fn create_raw_car_file(car_blocks: Vec<CarBlock>, ignored_cids: Vec<Cid>) -> TempPath {
-        let temp_path = NamedTempFile::new_in(".").unwrap().into_temp_path();
+        let temp_path = Builder::new().tempfile().unwrap().into_temp_path();
         let mut writer = tokio::fs::File::create(&temp_path).await.unwrap();
 
         let frames = forest::Encoder::compress_stream_default(iter(car_blocks).map(Ok)).map_ok(
