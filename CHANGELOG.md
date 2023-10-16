@@ -31,6 +31,8 @@
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
+- [#3593](https://github.com/ChainSafe/forest/pull/3593): Add `--stateless` flag
+  to `forest`.
 
 ### Changed
 
