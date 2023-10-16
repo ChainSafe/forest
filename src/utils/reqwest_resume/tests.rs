@@ -11,6 +11,7 @@ use hyper::{Body, Request, Response, Server};
 use std::convert::Infallible;
 use std::ops::Range;
 use std::time::Duration;
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::time::sleep;
 
 const CHUNK_LEN: usize = 2048;
@@ -67,7 +68,7 @@ async fn create_flaky_server() -> std::net::SocketAddr {
         make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle_request)) });
 
     // A port number of 0 will request that the OS assigns a port.
-    let addr = ([127, 0, 0, 1], 0).into();
+    let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 0 /* OS-assigned */);
 
     let server = Server::bind(&addr).serve(make_svc);
     let addr = server.local_addr();
