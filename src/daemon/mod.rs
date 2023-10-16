@@ -326,6 +326,7 @@ pub(super) async fn start(
         tipset_sink,
         tipset_stream,
         config.sync.clone(),
+        opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();

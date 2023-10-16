@@ -47,6 +47,11 @@ function forest_run_node_detached {
   $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
 }
 
+function forest_run_node_stateless_detached {
+  echo "Running forest in stateless and detached mode"
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --stateless --no-gc --track-peak-rss
+}
+
 function forest_wait_for_sync {
   echo "Waiting for sync"
   timeout 30m $FOREST_CLI_PATH sync wait
@@ -67,6 +72,18 @@ function forest_init {
   forest_check_db_stats
 }
 
+function forest_init_stateless {
+  forest_run_node_stateless_detached
+
+  ADMIN_TOKEN=$(cat admin_token)
+  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
+
+  export ADMIN_TOKEN
+  export FULLNODE_API_INFO
+
+  wait_util_rpc_is_ready
+}
+
 function forest_print_logs_and_metrics {
   echo "Get and print metrics"
   wget -O metrics.log http://localhost:6116/metrics
@@ -78,6 +95,21 @@ function forest_print_logs_and_metrics {
   echo "Print forest log files"
   ls -hl "$LOG_DIRECTORY"
   cat "$LOG_DIRECTORY"/*
+}
+
+function wait_util_rpc_is_ready {
+  # Wait for Forest to be ready. We can assume that it is ready when the
+  # RPC server is up. This checks if Forest's RPC endpoint is up.
+  function call_forest_chain_head {
+    curl --silent -X POST -H "Content-Type: application/json" \
+          --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","params":"null"}' \
+          "http://127.0.0.1:2345/rpc/v0"
+  }
+
+  until call_forest_chain_head; do
+      echo "Forest is unavailable - sleeping for 1s"
+      sleep 1s
+  done
 }
 
 function forest_cleanup {

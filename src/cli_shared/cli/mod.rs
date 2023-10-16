@@ -144,6 +144,9 @@ pub struct CliOpts {
     /// Disable the automatic database garbage collection.
     #[arg(long)]
     pub no_gc: bool,
+    /// In stateless mode, forest connects to the P2P network but does not sync to HEAD.
+    #[arg(long)]
+    pub stateless: bool,
     /// Check your command-line options and configuration file if one is used
     #[arg(long)]
     pub dry_run: bool,

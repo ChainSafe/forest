@@ -5,7 +5,7 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
 use crate::blocks::{
@@ -29,6 +29,7 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::time::Sleep;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
@@ -170,12 +171,17 @@ where
         tipset_sender: flume::Sender<Arc<Tipset>>,
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
         cfg: SyncConfig,
+        stateless_mode: bool,
     ) -> Result<Self, ChainMuxerError> {
         let network =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
 
         Ok(Self {
-            state: ChainMuxerState::Idle,
+            state: if stateless_mode {
+                ChainMuxerState::Stateless(Box::pin(tokio::time::sleep(Duration::MAX)))
+            } else {
+                ChainMuxerState::Idle
+            },
             worker_state: Default::default(),
             network,
             genesis,
@@ -248,9 +254,10 @@ where
         genesis_block_cid: Cid,
     ) {
         // Query the heaviest TipSet from the store
-        let heaviest = chain_store.heaviest_tipset();
+
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
+            let heaviest = chain_store.heaviest_tipset();
             let request = HelloRequest {
                 heaviest_tip_set: heaviest.cids(),
                 heaviest_tipset_height: heaviest.epoch(),
@@ -826,6 +833,8 @@ enum ChainMuxerState {
     Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>),
     Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
     Follow(ChainMuxerFuture<(), ChainMuxerError>),
+    /// In stateless mode, forest still connects to the P2P swarm but does not sync to HEAD.
+    Stateless(Pin<Box<Sleep>>),
 }
 
 impl<DB, M> Future for ChainMuxer<DB, M>
@@ -849,6 +858,10 @@ where
                         info!("Evaluating network head...");
                         self.state = ChainMuxerState::Connect(self.evaluate_network_head());
                     }
+                }
+                ChainMuxerState::Stateless(ref mut sleep) => {
+                    std::task::ready!(sleep.as_mut().poll(cx));
+                    unreachable!("Infinite sleep should never end.");
                 }
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
                     Poll::Ready(Ok(evaluation)) => match evaluation {
