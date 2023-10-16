@@ -88,7 +88,6 @@ fn test_config_parameter() {
         .common_args()
         .arg("--config")
         .arg(config_file.path())
-        .arg("--exit-after-init")
         .assert()
         .success();
     assert!(tmp_dir.is_dir());
@@ -118,7 +117,6 @@ fn test_config_env_var() {
     daemon()
         .common_args()
         .env("FOREST_CONFIG_PATH", config_file.path())
-        .arg("--exit-after-init")
         .assert()
         .success();
     assert!(tmp_dir.is_dir());
