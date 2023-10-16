@@ -9,9 +9,9 @@ use hyper::header::{self, HeaderValue};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};
 use std::convert::Infallible;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::Range;
 use std::time::Duration;
-use std::net::{Ipv4Addr, SocketAddr};
 use tokio::time::sleep;
 
 const CHUNK_LEN: usize = 2048;
