@@ -45,9 +45,10 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
         let mut subset: Bytes = RANDOM_BYTES[range.clone()].into();
         subset.truncate(CHUNK_LEN);
         sender.send_data(subset).await.unwrap();
-        sleep(Duration::from_millis(100)).await;
         // Abort only if we don't have sent all the data. This will be signaled by an empty range.
         if !range.is_empty() {
+            // Sleep to ensure the data is sent before the connection is closed.
+            sleep(Duration::from_millis(100)).await;
             // `abort` will close the connection with an error so we can test the
             // resume functionality.
             sender.abort();
