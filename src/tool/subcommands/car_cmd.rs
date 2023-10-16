@@ -121,34 +121,42 @@ async fn validate(
 #[cfg(test)]
 mod tests {
     use super::validate;
-    use tempfile::NamedTempFile;
-    use std::io::Write;
     use crate::networks::{calibnet, mainnet};
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[tokio::test]
     async fn validate_junk_car() {
         let mut temp_path = NamedTempFile::new_in(".").unwrap();
-        temp_path.write_all(&[0xde,0xad,0xbe,0xef]).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, false).await.is_err());
+        temp_path.write_all(&[0xde, 0xad, 0xbe, 0xef]).unwrap();
+        assert!(validate(&temp_path.into_temp_path(), false, false)
+            .await
+            .is_err());
     }
 
     #[tokio::test]
     async fn validate_empty_car() {
         let temp_path = NamedTempFile::new_in(".").unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, false).await.is_err());
+        assert!(validate(&temp_path.into_temp_path(), false, false)
+            .await
+            .is_err());
     }
 
     #[tokio::test]
     async fn validate_mainnet_genesis() {
         let mut temp_path = NamedTempFile::new_in(".").unwrap();
         temp_path.write_all(mainnet::DEFAULT_GENESIS).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, true).await.is_ok());
+        assert!(validate(&temp_path.into_temp_path(), false, true)
+            .await
+            .is_ok());
     }
 
     #[tokio::test]
     async fn validate_calibnet_genesis() {
         let mut temp_path = NamedTempFile::new_in(".").unwrap();
         temp_path.write_all(calibnet::DEFAULT_GENESIS).unwrap();
-        assert!(validate(&temp_path.into_temp_path(), false, true).await.is_ok());
+        assert!(validate(&temp_path.into_temp_path(), false, true)
+            .await
+            .is_ok());
     }
 }
