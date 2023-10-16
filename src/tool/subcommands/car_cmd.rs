@@ -79,16 +79,16 @@ impl CarCommands {
     }
 }
 
-// At present, three invariants are checked:
-// - The CAR file is syntactically valid and all blocks can be streamed.
-// - Each block CID is checked against the hash of the block.
-// - Each block CID is looked-up in the on-disk index.
-//
-// Invariants related to Filecoin are not checked. For those, see `forest-tool
-// snapshot validate`.
-//
-// We do not check for duplicate blocks. Whether duplicate blocks are allowed or
-// not is vague in the specification.
+/// At present, three properties are checked:
+/// - The CAR file is syntactically valid and all blocks can be streamed.
+/// - Each block CID is checked against the hash of the block.
+/// - Each block CID is looked-up in the on-disk index.
+///
+/// Properties related to Filecoin are not checked. For those, see `forest-tool
+/// snapshot validate`.
+///
+/// We do not check for duplicate blocks. Whether duplicate blocks are allowed or
+/// not is vague in the specification.
 async fn validate(
     car_file: &Path,
     ignore_block_validity: bool,
