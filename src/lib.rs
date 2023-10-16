@@ -1,6 +1,84 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! We here document two fundamental logical components of Filecoin:
+//! 1. The blockchain
+//! 2. The state
+//!
+//! Filecoin implementations must store these as the `ChainStore` and the `StateStore`
+//! as referenced [in the filecoin spec](https://github.com/filecoin-project/specs/blob/936f07f9a444036fe86442c919940ea0e4fb0a0b/content/systems/filecoin_nodes/repository/ipldstore/_index.md?plain=1#L43-L50).
+//!
+//! # The Filecoin blockchain
+//!
+//! Filecoin consists of a blockchain of messages.
+//! These are the core objects for the blockchain.
+//! Each one can be addressed by a [`Cid`](cid::Cid).
+//!
+//! - [`Message`](shim::message::Message)s are statements of interactions between
+//!   a small number[^1] of actors on the blockchain.
+//!   They describe and (equivalently) represent a change in _the blockchain state_.
+//!   See [`apply_block_messages`](state_manager::apply_block_messages) to learn
+//!   more.
+//!   Messages may be [signed](message::SignedMessage).
+//!   TODO(aatifsyed): by whom? what does that mean?
+//! - `Message`s are grouped into [`Block`](blocks::Block)s, with a single
+//!   [`BlockHeader`](blocks::BlockHeader).
+//!   These are what are mined by miners to get `FIL` (money).
+//!   They define an [_epoch_](blocks::BlockHeader::epoch) and a
+//!   [_parent tipset_](blocks::BlockHeader::parents).
+//!   The _epoch_ is a monotonically increasing number from `0` (genesis).
+//! - `Block`s are grouped into [`Tipset`](blocks::Tipset)s.
+//!   All blocks in a tipset share the same `epoch`.
+//!
+//! [^1]: We'll mostly concern ourselves with the [built-in actors](https://docs.filecoin.io/basics/the-blockchain/actors#built-in-actors).
+//!       They include e.g user accounts.
+//!
+//! ```text
+//!     ┌───────────────────────────────┐
+//!     │ BlockHeader { epoch:  0, .. } │ //  The genesis block/tipset
+//!   ┌●└───────────────────────────────┘
+//!   ~
+//!   └─┬───────────────────────────────┐
+//!     │ BlockHeader { epoch: 10, .. } │ // The epoch 10 tipset - one block with two messages
+//!   ┌●└┬──────────────────────────────┘
+//!   │  │
+//!   │  │ "I contain the following messages..."
+//!   │  │
+//!   │  ├──────────────────┐
+//!   │  │ ┌──────────────┐ │ ┌───────────────────┐
+//!   │  └►│ Message:     │ └►│ Message:          │
+//!   │    │  Afri -> Bob │   │  Charlie -> David │
+//!   │    └──────────────┘   └───────────────────┘
+//!   │
+//!   │ "my parent is..."
+//!   │
+//!   └─┬───────────────────────────────┐
+//!     │ BlockHeader { epoch: 11, .. } │ // The epoch 11 tipset - one block with one message
+//!   ┌●└┬──────────────────────────────┘
+//!   │  │ ┌────────────────┐
+//!   │  └►│ Message:       │
+//!   │    │  Eric -> Frank │
+//!   │    └────────────────┘
+//!   │
+//!   │ // the epoch 12 tipset - two blocks, with a total of 3 messages
+//!   │
+//!   ├───────────────────────────────────┐
+//!   └─┬───────────────────────────────┐ └─┬───────────────────────────────┐
+//!     │ BlockHeader { epoch: 12, .. } │   │ BlockHeader { epoch: 12, .. } │
+//!   ┌●└┬──────────────────────────────┘   └┬─────────────────────┬────────┘
+//!   ~  │ ┌───────────────────────┐         │ ┌─────────────────┐ │ ┌──────────────┐
+//!      └►│ Message:              │         └►│ Message:        │ └►│ Message:     │
+//!        │  Guillaume -> Hailong │           │  Hubert -> Ivan │   │  Josh -> Kai │
+//!        └───────────────────────┘           └─────────────────┘   └──────────────┘
+//! ```
+//!
+//! The [`ChainMuxer`](chain_sync::ChainMuxer) receives two kinds of [messages](libp2p::PubsubMessage)
+//! from peers:
+//! - [`GossipBlock`](blocks::GossipBlock)s are descriptions of a single block, with the `BlockHeader` and `Message` CIDs.
+//! - [`SignedMessage`](message::SignedMessage)s
+//!
+//! It assembles these messages into a chain to genesis.
+
 #![recursion_limit = "1024"]
 #![cfg_attr(not(test), deny(clippy::todo, clippy::dbg_macro))]
 #![cfg_attr(
