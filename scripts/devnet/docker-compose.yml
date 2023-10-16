@@ -11,7 +11,7 @@ services:
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
   # `docker compose up`.
   lotus_init:
-    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
+    image: ${LOTUS_IMAGE}
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
@@ -33,7 +33,7 @@ services:
   # The RPC and P2P listening ports are exposed so Forest does not necessarily need to be running inside Docker.
   # For development purposes it might be practical to comment out Forest part altogether and use a local build.
   lotus_node:
-    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
+    image: ${LOTUS_IMAGE}
     depends_on:
       lotus_init:
         condition: service_completed_successfully
@@ -64,7 +64,7 @@ services:
 
   # Lotus miner container. It communicates only with Lotus and not with Forest.
   lotus_miner:
-    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
+    image: ${LOTUS_IMAGE}
     depends_on:
       lotus_node:
         condition: service_healthy
@@ -99,7 +99,7 @@ services:
 
   # This container dumps relevant (for Forest) Lotus configuration to the shared volume.
   lotus_config:
-    image: ghcr.io/chainsafe/lotus-devnet:1.23.0
+    image: ${LOTUS_IMAGE}
     restart: on-failure # lotus node might not be ready. Even when healthy, it may be generating a genesis block.
     depends_on:
       lotus_node:

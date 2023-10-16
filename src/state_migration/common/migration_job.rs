@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::shim::{address::Address, clock::ChainEpoch, state_tree::ActorState};
 use fvm_ipld_blockstore::Blockstore;
 
-use super::{ActorMigration, ActorMigrationInput};
+use super::{ActorMigration, ActorMigrationInput, MigrationCache};
 
 /// Defines migration result for a single actor migration.
 #[derive(Debug)]
@@ -27,6 +27,7 @@ impl<BS: Blockstore> MigrationJob<BS> {
         &self,
         store: &Arc<BS>,
         prior_epoch: ChainEpoch,
+        cache: MigrationCache,
     ) -> anyhow::Result<Option<MigrationJobOutput>> {
         if let Some(result) = self
             .actor_migration
@@ -37,6 +38,7 @@ impl<BS: Blockstore> MigrationJob<BS> {
                     balance: self.actor_state.balance.clone().into(),
                     head: self.actor_state.state,
                     prior_epoch,
+                    cache,
                 },
             )
             .map_err(|e| {
