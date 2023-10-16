@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::io::Write;
 
-use assert_cmd::Command;
 use forest_filecoin::{Client, Config};
 use tempfile::TempDir;
 
+pub mod common;
+use crate::common::{cli, daemon, tool, CommonArgs};
+
 #[test]
 fn test_config_subcommand_produces_valid_toml_configuration_dump() {
-    let cmd = Command::cargo_bin("forest-cli")
-        .unwrap()
+    let cmd = cli()
         .arg("--token")
         .arg("Azazello")
         .arg("config")
@@ -25,8 +26,7 @@ fn test_config_subcommand_produces_valid_toml_configuration_dump() {
 fn test_download_location_of_proof_parameter_files_env() {
     let tmp_dir = TempDir::new().unwrap();
 
-    Command::cargo_bin("forest-tool")
-        .unwrap()
+    tool()
         .env("FIL_PROOFS_PARAMETER_CACHE", tmp_dir.path())
         .arg("fetch-params")
         .arg("--keys")
@@ -53,8 +53,7 @@ fn test_download_location_of_proof_parameter_files_default() {
         .write_all(toml::to_string(&config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    Command::cargo_bin("forest-tool")
-        .unwrap()
+    tool()
         .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("fetch-params")
         .arg("--keys")
@@ -85,8 +84,8 @@ fn test_config_parameter() {
         .write_all(toml::to_string(&config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    Command::cargo_bin("forest")
-        .unwrap()
+    daemon()
+        .common_args()
         .arg("--config")
         .arg(config_file.path())
         .arg("--exit-after-init")
@@ -116,8 +115,8 @@ fn test_config_env_var() {
         .write_all(toml::to_string(&config).unwrap().as_bytes())
         .expect("Failed writing configuration!");
 
-    Command::cargo_bin("forest")
-        .unwrap()
+    daemon()
+        .common_args()
         .env("FOREST_CONFIG_PATH", config_file.path())
         .arg("--exit-after-init")
         .assert()
