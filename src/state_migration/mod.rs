@@ -18,6 +18,7 @@ pub(in crate::state_migration) mod common;
 mod nv17;
 mod nv18;
 mod nv19;
+mod nv21;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -32,10 +33,11 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
-    let mappings: [(_, RunMigration<DB>); 3] = [
+    let mappings: [(_, RunMigration<DB>); 4] = [
         (Height::Shark, nv17::run_migration::<DB>),
         (Height::Hygge, nv18::run_migration::<DB>),
         (Height::Lightning, nv19::run_migration::<DB>),
+        (Height::Watermelon, nv21::run_migration::<DB>),
     ];
 
     // Make sure bundle is defined.
