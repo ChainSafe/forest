@@ -408,6 +408,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use super::PlainCar;
     use crate::utils::db::car_util::load_car;
     use futures::executor::block_on;
@@ -423,7 +425,9 @@ mod tests {
         assert_eq!(car_backed.cids().len(), 1222);
         assert_eq!(car_backed.roots().len(), 1);
 
+        let mut all = std::fs::File::create("chain4.car.cid-list").unwrap();
         for cid in car_backed.cids() {
+            all.write_fmt(format_args!("{}\n", cid)).unwrap();
             let expected = reference.get(&cid).unwrap().unwrap();
             let actual = car_backed.get(&cid).unwrap().unwrap();
             assert_eq!(expected, actual);

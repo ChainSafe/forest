@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use positioned_io::ReadAt;
-use std::{io::Result, mem::size_of};
+use std::io;
+use std::mem::size_of;
 use zerocopy::{little_endian::U64 as U64LE, AsBytes, FromBytes, FromZeroes};
 
 /// Layout of this struct is the same in-memory as on the wire, so it can be
@@ -29,7 +30,7 @@ impl IndexHeader {
     // 0xdeadbeef + 0 used a different hash algorithm
     pub const MAGIC_NUMBER: u64 = 0xdeadbeef + 1;
 
-    pub fn read(reader: impl ReadAt, offset: u64) -> Result<IndexHeader> {
+    pub fn read(reader: impl ReadAt, offset: u64) -> io::Result<IndexHeader> {
         let mut buffer = [0; Self::SIZE];
         reader.read_exact_at(offset, &mut buffer)?;
         Ok(IndexHeader::read_from(buffer.as_slice()).expect("`buffer` is the correct size"))

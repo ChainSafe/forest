@@ -205,7 +205,7 @@ impl<ReaderT: ReadAt> CarIndex<ReaderT> {
     pub fn iter(&self) -> Iter<'_, ReaderT> {
         Iter {
             cursor: Cursor::new_pos(&self.reader, self.buckets_offset),
-            num_buckets: self.header.buckets,
+            num_buckets: self.header.buckets.get(),
             current_ix: 0,
         }
     }
