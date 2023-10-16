@@ -121,9 +121,15 @@ async fn validate(
 #[cfg(test)]
 mod tests {
     use super::validate;
+    use crate::db::car::forest;
     use crate::networks::{calibnet, mainnet};
+    use crate::utils::db::car_stream::CarBlock;
+    use cid::multihash::{Code, MultihashDigest};
+    use cid::Cid;
+    use futures::{stream::iter, StreamExt, TryStreamExt};
     use std::io::Write;
-    use tempfile::NamedTempFile;
+    use tempfile::{NamedTempFile, TempPath};
+    use tokio::io::AsyncWriteExt;
 
     #[tokio::test]
     async fn validate_junk_car() {
@@ -158,5 +164,71 @@ mod tests {
         assert!(validate(&temp_path.into_temp_path(), false, true)
             .await
             .is_ok());
+    }
+
+    async fn create_raw_car_file(car_blocks: Vec<CarBlock>, ignored_cids: Vec<Cid>) -> TempPath {
+        let temp_path = NamedTempFile::new_in(".").unwrap().into_temp_path();
+        let mut writer = tokio::fs::File::create(&temp_path).await.unwrap();
+
+        let frames = forest::Encoder::compress_stream_default(iter(car_blocks).map(Ok)).map_ok(
+            |(cids, bytes)| {
+                (
+                    cids.into_iter()
+                        .filter(|cid| !ignored_cids.contains(cid))
+                        .collect(),
+                    bytes,
+                )
+            },
+        );
+
+        // Write zstd frames and include a skippable index
+        forest::Encoder::write(&mut writer, vec![], frames)
+            .await
+            .unwrap();
+
+        // Flush to ensure everything has been successfully written
+        writer.flush().await.unwrap();
+        writer.shutdown().await.unwrap();
+        temp_path
+    }
+
+    // Sanity check to verify that we can create valid forest.car.zst files
+    #[tokio::test]
+    async fn validate_valid_file() {
+        let data = "this data _does_ match the CID".as_bytes().to_vec();
+        let temp_path = create_raw_car_file(
+            vec![CarBlock {
+                cid: Cid::new_v1(0, Code::Blake2b256.digest(&data)),
+                data,
+            }],
+            vec![],
+        )
+        .await;
+
+        assert!(validate(&temp_path, false, false).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn validate_invalid_blocks() {
+        let temp_path = create_raw_car_file(
+            vec![CarBlock {
+                cid: Cid::new_v1(0, Code::Identity.digest(&[10])),
+                data: "this data doesn't match the CID".as_bytes().to_vec(),
+            }],
+            vec![],
+        )
+        .await;
+
+        assert!(validate(&temp_path, false, false).await.is_err());
+    }
+
+    // If a CarBlock exist that isn't referenced in the index, this is an error.
+    #[tokio::test]
+    async fn validate_invalid_index() {
+        let data = "this data _does_ match the CID".as_bytes().to_vec();
+        let cid = Cid::new_v1(0, Code::Blake2b256.digest(&data));
+        let temp_path = create_raw_car_file(vec![CarBlock { cid, data }], vec![cid]).await;
+
+        assert!(validate(&temp_path, false, false).await.is_err());
     }
 }
