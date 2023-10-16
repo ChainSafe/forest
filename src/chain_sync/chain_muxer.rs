@@ -253,10 +253,9 @@ where
         peer_id: PeerId,
         genesis_block_cid: Cid,
     ) {
-        // Query the heaviest TipSet from the store
-
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
+            // Query the heaviest TipSet from the store
             let heaviest = chain_store.heaviest_tipset();
             let request = HelloRequest {
                 heaviest_tip_set: heaviest.cids(),
