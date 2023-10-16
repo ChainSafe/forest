@@ -501,7 +501,6 @@ where
         }
 
         // Update the peer head
-        // TODO: Determine if this can be executed concurrently
         network
             .peer_manager()
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
@@ -872,7 +871,6 @@ where
                         }
                     },
                     Poll::Ready(Err(why)) => {
-                        // TODO: Should we exponentially backoff before retrying?
                         error!(
                             "Evaluating the network head failed, retrying. Error = {:?}",
                             why
@@ -892,7 +890,6 @@ where
                             self.state = ChainMuxerState::Idle;
                         }
                         Poll::Ready(Err(why)) => {
-                            // TODO: Should we exponentially back off before retrying?
                             error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
                             metrics::BOOTSTRAP_ERRORS.inc();
                             self.state = ChainMuxerState::Idle;

@@ -115,7 +115,6 @@ where
     }
 
     prices.sort_by(|a, b| b.price.cmp(&a.price));
-    // TODO: From lotus, account for how full blocks are
     let mut at = BLOCK_GAS_TARGET * blocks as u64 / 2;
     let mut prev = TokenAmount::zero();
     let mut premium = TokenAmount::zero();
@@ -201,8 +200,9 @@ where
             if rct.exit_code().value() != 0 {
                 return Ok(-1);
             }
-            // TODO: Figure out why we always under estimate the gas calculation so we dont
-            // need to add 200000 https://github.com/ChainSafe/forest/issues/901
+            // TODO(forest): https://github.com/ChainSafe/forest/issues/901
+            //               Figure out why we always under estimate the gas
+            //               calculation so we dont need to add 200000
             Ok(rct.gas_used() as i64 + 200000)
         }
         None => Ok(-1),
@@ -245,6 +245,8 @@ where
         let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
         msg.set_gas_fee_cap(gfp);
     }
-    // TODO: Cap Gas Fee https://github.com/ChainSafe/forest/issues/901
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/901
+    //               Figure out why we always under estimate the gas
+    //               calculation so we dont need to add 200000
     Ok(msg)
 }
