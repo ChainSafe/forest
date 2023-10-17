@@ -9,16 +9,16 @@
 //! coming from the rolling database and ParityDb.
 
 use fs_extra::dir::CopyOptions;
+use semver::Version;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-#[derive(Default)]
-pub(super) struct Migration0_12_1_0_13_0;
-
-/// Temporary database path for the migration.
-const MIGRATION_DB_0_12_1_0_13_0: &str = "migration_0_12_1_to_0_13_0";
+pub(super) struct Migration0_12_1_0_13_0 {
+    from: Version,
+    to: Version,
+}
 
 /// Migrates the database from version 0.12.1 to 0.13.0
 /// This migration is needed because the `Settings` column in the `ParityDb` table changed to
@@ -29,9 +29,9 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
     }
 
     fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-        let source_db = chain_data_path.join("0.12.1");
+        let source_db = chain_data_path.join(self.from.to_string());
 
-        let temp_db_path = chain_data_path.join(MIGRATION_DB_0_12_1_0_13_0);
+        let temp_db_path = chain_data_path.join(self.temporary_db_name());
         if temp_db_path.exists() {
             info!(
                 "removing old temporary database {temp_db_path}",
@@ -137,13 +137,25 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
     }
 
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        if !chain_data_path.join(MIGRATION_DB_0_12_1_0_13_0).exists() {
+        let temp_db_name = self.temporary_db_name();
+        if !chain_data_path.join(&temp_db_name).exists() {
             anyhow::bail!(
                 "migration database {} does not exist",
-                chain_data_path.join(MIGRATION_DB_0_12_1_0_13_0).display()
+                chain_data_path.join(temp_db_name).display()
             );
         }
         Ok(())
+    }
+
+    fn new(from: Version, to: Version) -> Self
+    where
+        Self: Sized,
+    {
+        Self { from, to }
+    }
+
+    fn temporary_db_name(&self) -> String {
+        format!("migration_{}_{}", self.from, self.to).replace('.', "_")
     }
 }
 

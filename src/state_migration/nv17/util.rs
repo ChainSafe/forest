@@ -57,9 +57,6 @@ pub(super) fn get_pending_verified_deals_and_total_size(
     Ok((pending_verified_deals, pending_size))
 }
 
-// TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3576
-//                   Switch to `fil_actors_shared::v9::util::hamt_addr_key_to_key`
-//                   once it's released: https://github.com/ChainSafe/fil-actor-states/pull/122
 pub(super) fn hamt_addr_key_to_key(addr_key: &BytesKey) -> anyhow::Result<BytesKey> {
     let addr = Address::from_bytes(addr_key)?;
     Ok(addr.payload_bytes().into())
