@@ -9,6 +9,7 @@ pub mod misc;
 pub mod monitoring;
 pub mod net;
 pub mod proofs_api;
+pub mod reqwest_resume;
 pub mod stream;
 pub mod version;
 

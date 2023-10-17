@@ -81,6 +81,7 @@ hex = { version = "0.4", features = ["serde"] }
 http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"
+hyper = "0.14"
 indexmap = { version = "2.0", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
@@ -193,11 +194,13 @@ termios = "0.3"
 ariadne = "0.3.0"
 assert_cmd = "2"
 cargo_metadata = "0.18.0"
+const-random = "0.1.15"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
+http-range-header = "0.4.0"
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
