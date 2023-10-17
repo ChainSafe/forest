@@ -17,10 +17,14 @@ use semver::Version;
 use tracing::info;
 
 use super::v0_12_1::Migration0_12_1_0_13_0;
+use super::void_migration::MigrationVoid;
 
 /// Migration trait. It is expected that the [`MigrationOperation::migrate`] method will pick up the relevant database
 /// existing under `chain_data_path` and create a new migration database in the same directory.
 pub(super) trait MigrationOperation {
+    fn new(from: Version, to: Version) -> Self
+    where
+        Self: Sized;
     /// Performs pre-migration checks. This is the place to check if the database is in a valid
     /// state and if the migration can be performed. Note that some of the higher-level checks
     /// (like checking if the database exists) are performed by the [`Migration`].
@@ -33,6 +37,8 @@ pub(super) trait MigrationOperation {
     /// Performs post-migration checks. This is the place to check if the migration database is
     /// ready to be used by Forest and renamed into a versioned database.
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()>;
+    /// Returns the name of the temporary database that will be created during the migration.
+    fn temporary_db_name(&self) -> String;
 }
 
 /// Migrations map. The key is the starting version and the value is the tuple of the target version
@@ -49,7 +55,7 @@ type MigrationsMap = MultiMap<Version, (Version, Migrator)>;
 /// The usage is:
 /// `<FROM version> -> <TO version> @ <Migrator object>`
 macro_rules! create_migrations {
-    ($($from:literal -> $to:literal @ $migration:path),* $(,)?) => {
+    ($($from:literal -> $to:literal @ $migration:tt),* $(,)?) => {
 pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
     MigrationsMap::from_iter(
         [
@@ -57,7 +63,10 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
             Version::from_str($from).unwrap(),
             (
                 Version::from_str($to).unwrap(),
-                Arc::new($migration) as _,
+                Arc::new($migration::new(
+                        $from.parse().expect("invalid <from> version"),
+                        $to.parse().expect("invalid <to> version")))
+                as _,
             )),
             )*
         ]
@@ -69,7 +78,8 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 
 create_migrations!(
     "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
-    "0.13.0" -> "0.13.1" @ Migration0_13_0_0_13_1,
+    "0.13.0" -> "0.14.0" @ MigrationVoid,
+    "0.14.0" -> "0.14.1" @ Migration0_13_0_0_13_1,
 );
 
 pub struct Migration {
@@ -261,6 +271,17 @@ mod tests {
         fn post_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
             Ok(())
         }
+
+        fn new(_from: Version, _to: Version) -> Self
+        where
+            Self: Sized,
+        {
+            Self {}
+        }
+
+        fn temporary_db_name(&self) -> String {
+            "".into()
+        }
     }
 
     #[test]
@@ -387,37 +408,54 @@ mod tests {
         }
     }
 
-    struct SimpleMigration0_1_0_0_2_0;
+    struct SimpleMigration0_1_0_0_2_0 {
+        from: Version,
+        to: Version,
+    }
 
     impl MigrationOperation for SimpleMigration0_1_0_0_2_0 {
         fn pre_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-            let path = chain_data_path.join("0.1.0");
+            let path = chain_data_path.join(self.from.to_string());
             if !path.exists() {
-                anyhow::bail!("0.1.0 does not exist");
+                anyhow::bail!("{} does not exist", self.from);
             }
             Ok(())
         }
 
         fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-            fs::create_dir(chain_data_path.join("migration_0_1_0_0_2_0")).unwrap();
-            Ok(chain_data_path.join("migration_0_1_0_0_2_0"))
+            let temp_db_path = chain_data_path.join(self.temporary_db_name());
+            fs::create_dir(&temp_db_path).unwrap();
+            Ok(temp_db_path)
         }
 
         fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-            let path = chain_data_path.join("migration_0_1_0_0_2_0");
+            let path = chain_data_path.join(self.temporary_db_name());
             if !path.exists() {
-                anyhow::bail!("migration_0_1_0_0_2_0 does not exist");
+                anyhow::bail!("{} does not exist", path.display());
             }
             Ok(())
+        }
+
+        fn new(from: Version, to: Version) -> Self
+        where
+            Self: Sized,
+        {
+            Self { from, to }
+        }
+
+        fn temporary_db_name(&self) -> String {
+            format!("migration_{}_{}", self.from, self.to).replace('.', "_")
         }
     }
 
     #[test]
     fn test_migration_map_migration() {
+        let from = Version::new(0, 1, 0);
+        let to = Version::new(0, 2, 0);
         let migration = Migration {
-            from: Version::new(0, 1, 0),
-            to: Version::new(0, 2, 0),
-            migrator: Arc::new(SimpleMigration0_1_0_0_2_0),
+            from: from.clone(),
+            to: to.clone(),
+            migrator: Arc::new(SimpleMigration0_1_0_0_2_0::new(from, to)),
         };
 
         let temp_dir = TempDir::new().unwrap();

@@ -125,12 +125,7 @@ pub fn is_valid_for_sending(network_version: NetworkVersion, actor: &ActorState)
     }
 
     // After nv18, we also support other kinds of senders.
-    if is_account_actor(&actor.code)
-        || is_eth_account_actor(&actor.code)
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3573
-        //                 Remove this once 'is_eth_account_actor' is fixed
-        || fil_actor_interface::ethaccount::is_v11_ethaccount_cid(&actor.code)
-    {
+    if is_account_actor(&actor.code) || is_eth_account_actor(&actor.code) {
         return true;
     }
 

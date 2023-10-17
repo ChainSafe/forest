@@ -29,6 +29,25 @@
 
 ### Added
 
+- [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
+  `forest-tool car validate` command for checking non-filecoin invariants in CAR
+  files.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.14.0 "Hakuna Matata"
+
+### Breaking
+
+### Added
+
+- [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
+  support for calibration network.
+
 ### Changed
 
 - [#3072](https://github.com/ChainSafe/forest/issues/3072) Implemented

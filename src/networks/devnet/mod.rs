@@ -10,7 +10,7 @@ use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
 pub const ETH_CHAIN_ID: u64 = 31415926;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -107,7 +107,7 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Hygge,
-            epoch: -1,
+            epoch: -21,
             bundle: Some(
                 Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts")
                     .unwrap(),
@@ -115,7 +115,7 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Lightning,
-            epoch: 30,
+            epoch: -22,
             bundle: Some(
                 Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i")
                     .unwrap(),
@@ -123,8 +123,16 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Thunder,
-            epoch: 1000,
+            epoch: -1,
             bundle: None,
+        },
+        HeightInfo {
+            height: Height::Watermelon,
+            epoch: 5,
+            bundle: Some(
+                Cid::try_from("bafy2bzacebk6yiirh4ennphzyka7b6g6jzn3lt4lr5ht7rjwulnrcthjihapo")
+                    .unwrap(),
+            ),
         },
     ]
 });
