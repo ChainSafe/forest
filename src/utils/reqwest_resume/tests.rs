@@ -94,7 +94,7 @@ async fn test_resumable_get() {
 }
 
 #[tokio::test]
-pub async fn test_non_resumable_get() {
+async fn test_non_resumable_get() {
     let addr = create_flaky_server().await;
 
     let resp = reqwest::get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
