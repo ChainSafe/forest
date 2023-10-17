@@ -8,6 +8,7 @@
 //! All in all, it gives us a good idea of how to do a migration and solves potential caveats
 //! coming from the rolling database and ParityDb.
 
+use crate::db::migration::db_migration::db_name;
 use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
@@ -155,7 +156,7 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
     }
 
     fn temporary_db_name(&self) -> String {
-        format!("migration_{}_{}", self.from, self.to).replace('.', "_")
+        db_name(&self.from, &self.to)
     }
 }
 

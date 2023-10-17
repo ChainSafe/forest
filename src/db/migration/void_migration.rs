@@ -3,6 +3,7 @@
 
 //! Migration logic from any version that requires no migration logic.
 
+use crate::db::migration::db_migration::db_name;
 use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
@@ -65,7 +66,7 @@ impl MigrationOperation for MigrationVoid {
     }
 
     fn temporary_db_name(&self) -> String {
-        format!("migration_{}_{}", self.from, self.to).replace('.', "_")
+        db_name(&self.from, &self.to)
     }
 }
 
