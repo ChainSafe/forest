@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
+  `forest-tool car validate` command for checking non-filecoin invariants in CAR
+  files.
+
 ### Changed
 
 ### Removed
