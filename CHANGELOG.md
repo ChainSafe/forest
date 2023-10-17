@@ -35,6 +35,10 @@
 
 ### Changed
 
+- [#3072](https://github.com/ChainSafe/forest/issues/3072) Implemented
+  mark-and-sweep GC, removing GC progress reports along with the corresponding
+  RPC endpoint.
+
 ### Removed
 
 ### Fixed
@@ -47,12 +51,6 @@
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
-
-### Changed
-
-- [#3072](https://github.com/ChainSafe/forest/issues/3072) Implemented
-  mark-and-sweep GC, removing GC progress reports along with the corresponding
-  RPC endpoint.
 
 ### Removed
 

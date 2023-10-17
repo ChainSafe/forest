@@ -1,32 +1,42 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for 0.13.0 to 0.13.1 version.
+//! Migration logic for 0.14.0 to 0.14.1 version.
 //! We are getting rid of rolling db in favor of mark-and-sweep GC. Therefore the two databases
 //! previously representing node state have to be merged into a new one and removed.
 
 use crate::db::db_engine::Db;
-use crate::db::migration::v0_13_0::paritydb_0_13_0::{DbColumn, ParityDb};
+use crate::db::migration::v0_14_0::paritydb_0_14_0::{DbColumn, ParityDb};
 use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
 use fvm_ipld_encoding::DAG_CBOR;
+use semver::Version;
 use std::path::{Path, PathBuf};
 use strum::IntoEnumIterator;
 use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-#[derive(Default)]
-pub(super) struct Migration0_13_0_0_13_1;
+pub(super) struct Migration0_14_0_0_14_1 {
+    from: Version,
+    to: Version,
+}
 
 /// Temporary database path for the migration.
-const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_13_0_to_0_13_1";
+const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_14_0_to_0_14_1";
 
-/// Migrates the database from version 0.13.0 to 0.13.1
+/// Migrates the database from version 0.14.0 to 0.14.1
 /// This migration merges the two databases represented by rolling db into one.
-impl MigrationOperation for Migration0_13_0_0_13_1 {
+impl MigrationOperation for Migration0_14_0_0_14_1 {
+    fn new(from: Version, to: Version) -> Self
+    where
+        Self: Sized,
+    {
+        Self { from, to }
+    }
+
     fn pre_checks(&self, _chain_data_path: &Path) -> anyhow::Result<()> {
         Ok(())
     }
@@ -39,7 +49,7 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
             .filter_map(|entry| Some(entry.ok()?.path()))
             .filter(|entry| entry.is_dir())
             .collect();
-        let temp_db_path = chain_data_path.join(MIGRATION_DB_0_13_0_0_13_1);
+        let temp_db_path = chain_data_path.join(self.temporary_db_name());
         if temp_db_path.exists() {
             info!(
                 "removing old temporary database {temp_db_path}",
@@ -108,10 +118,14 @@ impl MigrationOperation for Migration0_13_0_0_13_1 {
         }
         Ok(())
     }
+
+    fn temporary_db_name(&self) -> String {
+        format!("migration_{}_{}", self.from, self.to).replace('.', "_")
+    }
 }
 
-/// Database settings, Forest `v0.13.0`
-mod paritydb_0_13_0 {
+/// Database settings, Forest `v0.14.0`
+mod paritydb_0_14_0 {
     use crate::db;
     use parity_db::{CompressionType, Db, Options};
     use std::path::PathBuf;
