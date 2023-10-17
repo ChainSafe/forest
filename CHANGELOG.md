@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
+  `forest-tool car validate` command for checking non-filecoin invariants in CAR
+  files.
+
 ### Changed
 
 ### Removed
@@ -43,9 +47,6 @@
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
-- [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
-  `forest-tool car validate` command for checking non-filecoin invariants in CAR
-  files.
 
 ### Changed
 
