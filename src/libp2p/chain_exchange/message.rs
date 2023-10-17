@@ -38,6 +38,11 @@ impl ChainExchangeRequest {
     pub fn include_messages(&self) -> bool {
         self.options & MESSAGES > 0
     }
+
+    /// If the value of `options` is valid
+    pub fn is_options_valid(&self) -> bool {
+        self.include_blocks() || self.include_messages()
+    }
 }
 
 /// Status codes of a `chain_exchange` response.

@@ -21,78 +21,80 @@ pub fn make_chain_exchange_response<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
+    if !request.is_options_valid() {
+        return ChainExchangeResponse {
+            chain: Default::default(),
+            status: ChainExchangeResponseStatus::BadRequest,
+            message: format!("Invalid options {}", request.options),
+        };
+    }
 
-    let mut curr_tipset_cids = request.start.clone();
-
-    loop {
-        let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs.tipset_from_keys(&TipsetKeys::from_iter(curr_tipset_cids)) {
-            Ok(tipset) => tipset,
-            Err(err) => {
-                debug!("Failed to get tipset from keys: {err}");
-                if let crate::chain::store::Error::NotFound(_) = err {
-                    break;
-                }
+    let root = match cs.tipset_from_keys(&TipsetKeys::from_iter(request.start.clone())) {
+        Ok(tipset) => tipset,
+        Err(err) => {
+            debug!("Failed to get tipset from keys: {err}");
+            if let crate::chain::store::Error::NotFound(_) = err {
+                return ChainExchangeResponse {
+                    status: ChainExchangeResponseStatus::BlockNotFound,
+                    chain: Default::default(),
+                    message: "Start tipset was not found in the database".into(),
+                };
+            } else {
                 return ChainExchangeResponse {
                     chain: vec![],
                     status: ChainExchangeResponseStatus::InternalError,
                     message: err.to_string(),
                 };
             }
-        };
+        }
+    };
 
-        if request.include_messages() {
-            match compact_messages(cs.blockstore(), &tipset) {
-                Ok(compacted_messages) => tipset_bundle.messages = Some(compacted_messages),
-                Err(err) => {
-                    debug!("Cannot compact messages for tipset: {}", err);
-
-                    return ChainExchangeResponse {
-                        chain: vec![],
-                        status: ChainExchangeResponseStatus::InternalError,
-                        message: "Can not fulfil the request".into(),
-                    };
+    match cs
+        .chain_index
+        .chain(root)
+        .take(request.request_len as _)
+        .try_fold(
+            Vec::with_capacity(request.request_len as _),
+            |mut acc, tipset| {
+                let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
+                if request.include_messages() {
+                    match compact_messages(cs.blockstore(), &tipset) {
+                        Ok(compacted_messages) => tipset_bundle.messages = Some(compacted_messages),
+                        Err(e) => {
+                            debug!("Cannot compact messages for tipset: {e}");
+                            return Err(ChainExchangeResponse {
+                                chain: Default::default(),
+                                status: ChainExchangeResponseStatus::InternalError,
+                                message: e.to_string(),
+                            });
+                        }
+                    }
                 }
+
+                if request.include_blocks() {
+                    // Cloning blocks isn't ideal, this can maybe be switched to serialize this
+                    // data in the function. This may not be possible without overriding rpc in
+                    // libp2p
+                    tipset_bundle.blocks = tipset.blocks().to_vec();
+                }
+                acc.push(tipset_bundle);
+
+                Ok(acc)
+            },
+        ) {
+        Err(e) => e,
+        Ok(chain) => {
+            let status = if request.request_len > chain.len() as u64 {
+                ChainExchangeResponseStatus::PartialResponse
+            } else {
+                ChainExchangeResponseStatus::Success
+            };
+            ChainExchangeResponse {
+                chain,
+                status,
+                message: "Success".into(),
             }
         }
-
-        let tipset_epoch = tipset.epoch();
-
-        if request.include_blocks() {
-            // Cloning blocks isn't ideal, this can maybe be switched to serialize this
-            // data in the function. This may not be possible without overriding rpc in
-            // libp2p
-            tipset_bundle.blocks = tipset.blocks().to_vec();
-        }
-
-        response_chain.push(tipset_bundle);
-
-        if response_chain.len() as u64 >= request.request_len || tipset_epoch == 0 {
-            break;
-        }
-
-        curr_tipset_cids = tipset.parents().cids.clone().into_iter().collect();
-    }
-
-    let result_chain_length = response_chain.len() as u64;
-    let success = result_chain_length > 0;
-
-    ChainExchangeResponse {
-        chain: response_chain,
-        status: if !success {
-            ChainExchangeResponseStatus::BlockNotFound
-        } else if result_chain_length < request.request_len {
-            ChainExchangeResponseStatus::PartialResponse
-        } else {
-            ChainExchangeResponseStatus::Success
-        },
-        message: if success {
-            "Success"
-        } else {
-            "Start tipset was not found in the database"
-        }
-        .into(),
     }
 }
 
