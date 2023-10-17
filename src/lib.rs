@@ -151,6 +151,8 @@
 //! - ["HAMT"](fil_actors_shared::fvm_ipld_hamt), a map.
 //!
 //! Therefore, the Filecoin state is, indeed, a tree of IPLD data.
+//! It can be addressed by the root of the tree, so it is sometimes referred to
+//! as the _state root_.
 //!
 //! We will now introduce some new terminology given the above information.
 //!
@@ -168,6 +170,57 @@
 //!
 //! # Snapshots
 //!
+//! Recall that for each message execution, the state tree is mutated.
+//! Therefore, each epoch is associated with a state tree after execution,
+//! and a [_parent state tree_](blocks::BlockHeader::state_root).
+//!
+//! ```text
+//!                                         // state after execution of all
+//!                                         //   messages in that epoch
+//!      ┌───────────────────────────────┐
+//!      │ BlockHeader { epoch:  0, .. } │  state root ──► initial actor states...
+//!   ┌● └───────────────────────────────┘                                 ▲   ▲
+//!   ~                                      // links to redundant data ─● │   │
+//!   └──┬───────────────────────────────┐                                 │   │
+//!      │ BlockHeader { epoch: 11, .. } │  state root ─┬► actor state ─► AMT  │
+//!   ┌● └┬──────────────────────────────┘              ~                      │
+//!   │   │ ┌─────────┐                                 └► actor state ─► HAMT ┘
+//!   │   └►│ Message │                                                    │
+//!   │     └─────────┘                                                    ▼
+//!   ├──┬───────────────────────────────┐   // new data in this epoch ─● IPLD
+//!   │  │ BlockHeader { epoch: 12, .. } │
+//!   │  └┬─────────────┬────────────────┘
+//!   │   │ ┌─────────┐ │ ┌─────────┐
+//!   │   └►│ Message │ └►│ Message │
+//!   │     └─────────┘   └─────────┘                                      ~   ~
+//!   └──┬───────────────────────────────┐                                 │   │
+//!      │ BlockHeader { epoch: 12, .. } │  state root ─┬► actor state ─► AMT  │
+//!   ┌● └┬──────────────────────────────┘              ~                      │
+//!   ~   │ ┌─────────┐                                 └► actor state ─► HAMT ┘
+//!       └►│ Message │
+//!         └─────────┘
+//! ```
+//!
+//! We are now ready to define the different snapshot types for a given epoch N.
+//! - A _lite snapshot_ contains:
+//!   - All block headers from genesis to epoch N.
+//!   - For the last W (width) epochs:
+//!     - The _fully inhabited_ state trees.
+//!     - The messages.
+//!   - For epochs 0..N-W, the state trees will be dead or partially inhabited.
+//! - A _full snapshot_ contains:
+//!   - All block headers from genesis to epoch N.
+//!   - The fully inhabited state trees for epoch 0..N
+//! - A _diff snapshot_ contains:
+//!   - For epoch N-W..N:
+//!     - The block headers.
+//!     - The messages.
+//!     - New data in that epoch, which will be partially inhabited
+//!
+//! Successive diff snapshots may be concatenated:
+//! - From genesis, to produce a full snapshot.
+//! - From a lite snapshot, to produce a successive lite snapshot, plus some
+//!   orphaned data with respect to the latest epoch.
 
 #![recursion_limit = "1024"]
 #![cfg_attr(not(test), deny(clippy::todo, clippy::dbg_macro))]
