@@ -107,20 +107,9 @@
 //!
 //! It isn't feasible to create a new copy of actor states whenever they change.
 //! That is, starting with a [crontab](https://man7.org/linux/man-pages/man5/crontab.5.html)
-//! with 10 items:
+//! with 10 items, mutation of the state should _not_ simply duplicate the state:
 //! ```text
-//! Initial state
-//! ┌───────────────────────┐
-//! │Crontab                │
-//! │1. Get out of bed      │
-//! │2. Shower              │
-//! │...                    │
-//! │10. Take over the world│
-//! └───────────────────────┘
-//! ```
-//! Mutation of the state should _not_ simply duplicate the state:
-//! ```text
-//! Initial state              New state
+//! Previous state             Current state
 //! ┌───────────────────────┐  ┌───────────────────────┐
 //! │Crontab                │  │Crontab                │
 //! │1. Get out of bed      │  │1. Get out of bed      │
@@ -132,10 +121,22 @@
 //! ```
 //! But should instead be able to refer to the previous state:
 //! ```text
-//! Initial state              New state
+//! Previous state             Current state
 //! ┌───────────────────────┐  ┌─────────────────┐
-//! │Crontab                │◄─┤(See previous)   │
+//! │Crontab                │◄─┤(See CID...)     │
 //! │1. Get out of bed      │  ├─────────────────┤
+//! │2. Shower              │  │11. Throw a party│
+//! │...                    │  └─────────────────┘
+//! │10. Take over the world│
+//! └───────────────────────┘
+//! ```
+//! And removal of e.g the latest entry works similarly, _orphaning_ the removed
+//! item.
+//! ```text
+//! Previous state             Orphaned item        Current state
+//! ┌───────────────────────┐                       ┌────────────┐
+//! │Crontab                │◄──────────────────────┤(See CID...)│
+//! │1. Get out of bed      │  ┌─────────────────┐  └────────────┘
 //! │2. Shower              │  │11. Throw a party│
 //! │...                    │  └─────────────────┘
 //! │10. Take over the world│
@@ -150,6 +151,20 @@
 //! - ["HAMT"](fil_actors_shared::fvm_ipld_hamt), a map.
 //!
 //! Therefore, the Filecoin state is, indeed, a tree of IPLD data.
+//!
+//! We will now introduce some new terminology given the above information.
+//!
+//! With respect to a particular IPLD [`Blockstore`](fvm_ipld_blockstore::Blockstore):
+//! - An item such a list is _fully inhabited_ if all its recursive
+//!   [`Ipld::Link`](ipld::Ipld::Link)s exist in the blockstore.
+//! - Otherwise, an item is only _partially inhabited_.
+//!   The links are said to be "dead links".
+//!
+//! With respect to a particular `StateTree`:
+//! - An item is _orphaned_ if it is not reachable from the current state tree
+//!   through any links.
+//!
+//! TODO(reviewers): are there existing terminologies for this?
 //!
 //! # Snapshots
 //!
