@@ -14,7 +14,6 @@ use bytes::Bytes;
 use futures::{ready, FutureExt as _, Stream, TryFutureExt as _};
 use hyper::header::{self, HeaderMap, HeaderValue};
 use std::{
-    future::Future,
     pin::Pin,
     task::{Context, Poll},
     time::Duration,
@@ -61,34 +60,33 @@ impl RequestBuilder {
     /// Constructs the Request and sends it the target URL, returning a Response.
     ///
     /// See [`reqwest::RequestBuilder::send()`].
-    pub fn send(&mut self) -> impl Future<Output = reqwest::Result<Response>> + Send {
+    pub async fn send(&mut self) -> reqwest::Result<Response> {
         let (client, method, url) = (self.0.clone(), self.1.clone(), self.2.clone());
-        async move {
-            let response = loop {
-                let builder = client.request(method.clone(), url.clone());
-                match builder.send().await {
-                    Err(err) if !err.is_builder() && !err.is_redirect() && !err.is_status() => {
-                        sleep(Duration::from_secs(1)).await
-                    }
-                    x => break x?,
+
+        let response = loop {
+            let builder = client.request(method.clone(), url.clone());
+            match builder.send().await {
+                Err(err) if !err.is_builder() && !err.is_redirect() && !err.is_status() => {
+                    sleep(Duration::from_secs(1)).await
                 }
-            };
-            let accept_byte_ranges =
-                if let Some(value) = response.headers().get(header::ACCEPT_RANGES) {
-                    value.as_bytes() == b"bytes"
-                } else {
-                    false
-                };
-            let resp = Response {
-                client,
-                method,
-                url,
-                response,
-                accept_byte_ranges,
-                pos: 0,
-            };
-            Ok(resp)
-        }
+                x => break x?,
+            }
+        };
+        let accept_byte_ranges = if let Some(value) = response.headers().get(header::ACCEPT_RANGES)
+        {
+            value.as_bytes() == b"bytes"
+        } else {
+            false
+        };
+        let resp = Response {
+            client,
+            method,
+            url,
+            response,
+            accept_byte_ranges,
+            pos: 0,
+        };
+        Ok(resp)
     }
 }
 
@@ -169,8 +167,8 @@ impl Stream for Decoder {
 /// Shortcut method to quickly make a GET request.
 ///
 /// See [`reqwest::get`].
-pub fn get(url: reqwest::Url) -> impl Future<Output = reqwest::Result<Response>> + Send {
-    Client::new().get(url).send()
+pub async fn get(url: reqwest::Url) -> reqwest::Result<Response> {
+    Client::new().get(url).send().await
 }
 
 #[cfg(test)]
