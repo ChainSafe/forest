@@ -11,7 +11,7 @@
 //! replace the `hyperx` dependency with `hyper` and add two unit tests.
 
 use bytes::Bytes;
-use futures::{ready, FutureExt, Stream, TryFutureExt};
+use futures::{ready, FutureExt as _, Stream, TryFutureExt as _};
 use hyper::header::{self, HeaderMap, HeaderValue};
 use std::{
     future::Future,
