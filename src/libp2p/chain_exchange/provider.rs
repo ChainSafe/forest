@@ -98,7 +98,10 @@ where
 }
 
 // Builds CompactedMessages for given Tipset.
-fn compact_messages<DB>(db: &DB, tipset: &Tipset) -> Result<CompactedMessages, ChainError>
+pub(super) fn compact_messages<DB>(
+    db: &DB,
+    tipset: &Tipset,
+) -> Result<CompactedMessages, ChainError>
 where
     DB: Blockstore,
 {

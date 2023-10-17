@@ -714,6 +714,7 @@ async fn handle_chain_exchange_event<DB>(
                         match response.status {
                             ChainExchangeResponseStatus::InternalError
                             | ChainExchangeResponseStatus::BlockNotFound => {
+                                warn!("ChainExchange fallback logic phase 1");
                                 match SyncNetworkContext::<DB>::handle_chain_exchange_request(
                                     peer_manager,
                                     network_send,
@@ -726,12 +727,17 @@ async fn handle_chain_exchange_event<DB>(
                                 {
                                     Ok(tipset_bundles) => {
                                         tipset_bundles.into_iter().for_each(|b| {
-                                            if let Err(e) = b.save(db.blockstore()) {
+                                            if let Err(e) = b.persist(db.blockstore()) {
                                                 warn!("{e}");
                                             }
                                         });
+                                        warn!("ChainExchange fallback logic phase 2");
                                         // Reload to make sure downloaded tipset bundles are properly cached in database
                                         response = make_chain_exchange_response(&db, &request);
+                                        warn!(
+                                            "ChainExchange fallback logic phase 3: {:?}",
+                                            response.status
+                                        );
                                     }
                                     Err(e) => {
                                         warn!("{e}");

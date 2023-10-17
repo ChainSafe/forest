@@ -501,9 +501,7 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            crate::chain::persist_objects(&chain_store.db, &[block.header()])?;
-            crate::chain::persist_objects(&chain_store.db, block.bls_msgs())?;
-            crate::chain::persist_objects(&chain_store.db, block.secp_msgs())?;
+            block.persist(&chain_store.db)?;
         }
 
         // Update the peer head
