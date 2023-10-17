@@ -43,7 +43,7 @@ const MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS: usize = 2;
 /// Context used in chain sync to handle network requests.
 /// This contains the peer manager, P2P service interface, and [`Blockstore`]
 /// required to make network requests.
-pub(in crate::chain_sync) struct SyncNetworkContext<DB> {
+pub struct SyncNetworkContext<DB> {
     /// Channel to send network messages through P2P service
     network_send: flume::Sender<NetworkMessage>,
 
@@ -136,8 +136,18 @@ where
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
-            .await
+        Self::handle_chain_exchange_request(
+            self.peer_manager.clone(),
+            self.network_send.clone(),
+            peer_id,
+            tsk,
+            count,
+            HEADERS,
+        )
+        .await?
+        .into_iter()
+        .map(Arc::<Tipset>::try_from)
+        .collect()
     }
     /// Send a `chain_exchange` request for only messages (ignore block
     /// headers). If `peer_id` is `None`, requests will be sent to a set of
@@ -148,8 +158,18 @@ where
         tsk: &TipsetKeys,
         count: u64,
     ) -> Result<Vec<CompactedMessages>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, MESSAGES)
-            .await
+        Self::handle_chain_exchange_request(
+            self.peer_manager.clone(),
+            self.network_send.clone(),
+            peer_id,
+            tsk,
+            count,
+            MESSAGES,
+        )
+        .await?
+        .into_iter()
+        .map(CompactedMessages::try_from)
+        .collect()
     }
 
     /// Send a `chain_exchange` request for a single full tipset (includes
@@ -160,9 +180,18 @@ where
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
-        let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES)
-            .await?;
+        let mut fts: Vec<_> = Self::handle_chain_exchange_request(
+            self.peer_manager.clone(),
+            self.network_send.clone(),
+            peer_id,
+            tsk,
+            1,
+            HEADERS | MESSAGES,
+        )
+        .await?
+        .into_iter()
+        .map(FullTipset::try_from)
+        .collect();
 
         if fts.len() != 1 {
             return Err(format!(
@@ -170,7 +199,7 @@ where
                 fts.len()
             ));
         }
-        Ok(fts.remove(0))
+        fts.remove(0)
     }
 
     /// Requests that some content with a particular `Cid` get fetched over
@@ -214,16 +243,14 @@ where
 
     /// Helper function to handle the peer retrieval if no peer supplied as well
     /// as the logging and updating of the peer info in the `PeerManager`.
-    async fn handle_chain_exchange_request<T>(
-        &self,
+    pub async fn handle_chain_exchange_request(
+        peer_manager: Arc<PeerManager>,
+        network_send: flume::Sender<NetworkMessage>,
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
         request_len: u64,
         options: u64,
-    ) -> Result<Vec<T>, String>
-    where
-        T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
-    {
+    ) -> Result<Vec<TipsetBundle>, String> {
         let request = ChainExchangeRequest {
             start: tsk.cids.clone().into_iter().collect(),
             request_len,
@@ -236,8 +263,8 @@ where
         let chain_exchange_result = match peer_id {
             // Specific peer is given to send request, send specifically to that peer.
             Some(id) => Self::chain_exchange_request(
-                self.peer_manager.clone(),
-                self.network_send.clone(),
+                peer_manager.clone(),
+                network_send.clone(),
                 id,
                 request,
             )
@@ -246,12 +273,12 @@ where
             None => {
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
-                let peers = self.peer_manager.top_peers_shuffled().await;
+                let peers = peer_manager.top_peers_shuffled().await;
 
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
-                    let peer_manager = self.peer_manager.clone();
-                    let network_send = self.network_send.clone();
+                    let peer_manager = peer_manager.clone();
+                    let network_send = network_send.clone();
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
@@ -265,7 +292,7 @@ where
                         .await
                         {
                             Ok(chain_exchange_result) => {
-                                match chain_exchange_result.into_result::<T>() {
+                                match chain_exchange_result.into_result() {
                                     Ok(r) => Ok(r),
                                     Err(e) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
@@ -306,7 +333,7 @@ where
 
         // Log success for the global request with the latency from before sending.
         match SystemTime::now().duration_since(global_pre_time) {
-            Ok(t) => self.peer_manager.log_global_success(t).await,
+            Ok(t) => peer_manager.log_global_success(t).await,
             Err(e) => {
                 warn!("logged time less than before request: {}", e);
             }

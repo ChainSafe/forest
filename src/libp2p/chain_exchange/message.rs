@@ -6,7 +6,9 @@ use std::{convert::TryFrom, sync::Arc};
 use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
+use crate::utils::db::CborStoreExt;
 use cid::Cid;
+use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
@@ -115,19 +117,14 @@ pub struct ChainExchangeResponse {
 impl ChainExchangeResponse {
     /// Converts `chain_exchange` response into result.
     /// Returns an error if the response status is not `Ok`.
-    /// Tipset bundle is converted into generic return type with `TryFrom` trait
-    /// implementation.
-    pub fn into_result<T>(self) -> Result<Vec<T>, String>
-    where
-        T: TryFrom<TipsetBundle, Error = String>,
-    {
+    pub fn into_result(self) -> Result<Vec<TipsetBundle>, String> {
         if self.status != ChainExchangeResponseStatus::Success
             && self.status != ChainExchangeResponseStatus::PartialResponse
         {
             return Err(format!("Status {:?}: {}", self.status, self.message));
         }
 
-        self.chain.into_iter().map(T::try_from).collect()
+        Ok(self.chain)
     }
 }
 /// Contains all BLS and SECP messages and their indexes per block
@@ -153,6 +150,26 @@ pub struct TipsetBundle {
 
     /// Compressed messages format.
     pub messages: Option<CompactedMessages>,
+}
+
+impl TipsetBundle {
+    pub fn save(&self, store: &impl Blockstore) -> anyhow::Result<()> {
+        for b in &self.blocks {
+            store.put_cbor_default(b)?;
+        }
+
+        if let Some(messages) = &self.messages {
+            for m in &messages.bls_msgs {
+                store.put_cbor_default(m)?;
+            }
+
+            for m in &messages.secp_msgs {
+                store.put_cbor_default(m)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl TryFrom<TipsetBundle> for Tipset {

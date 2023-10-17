@@ -14,6 +14,7 @@ pub use self::{
     bad_block_cache::BadBlockCache,
     chain_muxer::{ChainMuxer, SyncConfig},
     consensus::{collect_errs, Consensus},
+    network_context::SyncNetworkContext,
     sync_state::{SyncStage, SyncState},
     validation::TipsetValidator,
 };

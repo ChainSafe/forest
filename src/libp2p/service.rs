@@ -6,12 +6,15 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use crate::libp2p_bitswap::{
-    request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
-};
-use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
+use crate::{chain_sync::SyncNetworkContext, message::SignedMessage};
+use crate::{
+    libp2p::chain_exchange::ChainExchangeResponseStatus,
+    libp2p_bitswap::{
+        request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
+    },
+};
 use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
@@ -287,6 +290,7 @@ where
                             &self.cs,
                             &self.genesis_cid,
                             &self.network_sender_out,
+                            &self.network_sender_in,
                             cx_response_tx.clone(),
                             &pubsub_block_str,
                             &pubsub_msg_str,).await;
@@ -674,54 +678,89 @@ async fn handle_chain_exchange_event<DB>(
     ce_event: request_response::Event<ChainExchangeRequest, ChainExchangeResponse>,
     db: &Arc<ChainStore<DB>>,
     network_sender_out: &Sender<NetworkEvent>,
+    network_sender_in: &Sender<NetworkMessage>,
     cx_response_tx: Sender<(
         RequestId,
         ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
+    peer_manager: &Arc<PeerManager>,
 ) where
     DB: Blockstore + Sync + Send + 'static,
 {
     match ce_event {
-        request_response::Event::Message { peer, message } => {
-            match message {
-                request_response::Message::Request {
-                    request,
-                    channel,
-                    request_id,
-                } => {
-                    trace!("Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",);
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::ChainExchangeRequestInbound { request_id },
-                    )
-                    .await;
+        request_response::Event::Message { peer, message } => match message {
+            request_response::Message::Request {
+                request,
+                channel,
+                request_id,
+            } => {
+                trace!(
+                    "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
+                );
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeRequestInbound { request_id },
+                )
+                .await;
+
+                tokio::task::spawn({
                     let db = db.clone();
-                    tokio::task::spawn(async move {
-                        if let Err(e) = cx_response_tx.send((
-                            request_id,
-                            channel,
-                            make_chain_exchange_response(&db, &request),
-                        )) {
+                    let network_send = network_sender_in.clone();
+                    let peer_manager = peer_manager.clone();
+                    async move {
+                        let mut response = make_chain_exchange_response(&db, &request);
+                        // Fallback to retrieving a single `request.start` block from the network.
+                        match response.status {
+                            ChainExchangeResponseStatus::InternalError
+                            | ChainExchangeResponseStatus::BlockNotFound => {
+                                match SyncNetworkContext::<DB>::handle_chain_exchange_request(
+                                    peer_manager,
+                                    network_send,
+                                    None,
+                                    &request.start.clone().into_iter().collect(),
+                                    1,
+                                    request.options,
+                                )
+                                .await
+                                {
+                                    Ok(tipset_bundles) => {
+                                        tipset_bundles.into_iter().for_each(|b| {
+                                            if let Err(e) = b.save(db.blockstore()) {
+                                                warn!("{e}");
+                                            }
+                                        });
+                                        // Reload to make sure downloaded tipset bundles are properly cached in database
+                                        response = make_chain_exchange_response(&db, &request);
+                                    }
+                                    Err(e) => {
+                                        warn!("{e}");
+                                    }
+                                }
+                            }
+                            _ => {}
+                        };
+
+                        if let Err(e) = cx_response_tx.send((request_id, channel, response)) {
                             debug!("Failed to send ChainExchangeResponse: {e:?}");
                         }
-                    });
-                }
-                request_response::Message::Response {
-                    request_id,
-                    response,
-                } => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::ChainExchangeResponseInbound { request_id },
-                    )
-                    .await;
-                    chain_exchange
-                        .handle_inbound_response(&request_id, response)
-                        .await;
-                }
+                    }
+                });
             }
-        }
+            request_response::Message::Response {
+                request_id,
+                response,
+            } => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeResponseInbound { request_id },
+                )
+                .await;
+                chain_exchange
+                    .handle_inbound_response(&request_id, response)
+                    .await;
+            }
+        },
         request_response::Event::OutboundFailure {
             peer: _,
             request_id,
@@ -758,6 +797,7 @@ async fn handle_forest_behaviour_event<DB>(
     db: &Arc<ChainStore<DB>>,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
+    network_sender_in: &Sender<NetworkMessage>,
     cx_response_tx: Sender<(
         RequestId,
         ResponseChannel<ChainExchangeResponse>,
@@ -804,7 +844,9 @@ async fn handle_forest_behaviour_event<DB>(
                 ce_event,
                 db,
                 network_sender_out,
+                network_sender_in,
                 cx_response_tx,
+                peer_manager,
             )
             .await
         }

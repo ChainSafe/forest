@@ -6,6 +6,7 @@ use crate::chain::{ChainStore, Error as ChainError};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use tracing::debug;
 
 use super::{
@@ -30,12 +31,14 @@ where
         let tipset = match cs.tipset_from_keys(&TipsetKeys::from_iter(curr_tipset_cids)) {
             Ok(tipset) => tipset,
             Err(err) => {
-                debug!("Cannot get tipset from keys: {}", err);
-
+                debug!("Failed to get tipset from keys: {err}");
+                if let crate::chain::store::Error::NotFound(_) = err {
+                    break;
+                }
                 return ChainExchangeResponse {
                     chain: vec![],
                     status: ChainExchangeResponseStatus::InternalError,
-                    message: "Tipset was not found in the database".into(),
+                    message: err.to_string(),
                 };
             }
         };
@@ -55,7 +58,6 @@ where
             }
         }
 
-        curr_tipset_cids = tipset.parents().cids.clone().into_iter().collect();
         let tipset_epoch = tipset.epoch();
 
         if request.include_blocks() {
@@ -70,18 +72,28 @@ where
         if response_chain.len() as u64 >= request.request_len || tipset_epoch == 0 {
             break;
         }
+
+        curr_tipset_cids = tipset.parents().cids.clone().into_iter().collect_vec();
     }
 
     let result_chain_length = response_chain.len() as u64;
+    let success = result_chain_length > 0;
 
     ChainExchangeResponse {
         chain: response_chain,
-        status: if result_chain_length < request.request_len {
+        status: if !success {
+            ChainExchangeResponseStatus::BlockNotFound
+        } else if result_chain_length < request.request_len {
             ChainExchangeResponseStatus::PartialResponse
         } else {
             ChainExchangeResponseStatus::Success
         },
-        message: "Success".into(),
+        message: if success {
+            "Success"
+        } else {
+            "Start tipset was not found in the database"
+        }
+        .into(),
     }
 }
 
