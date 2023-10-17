@@ -63,7 +63,7 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, Infallible
     Ok(response)
 }
 
-async fn create_flaky_server() -> std::net::SocketAddr {
+async fn create_flaky_server() -> SocketAddr {
     let make_svc =
         make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle_request)) });
 
