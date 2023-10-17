@@ -259,3 +259,7 @@ required-features = ["benchmark-private"]
 name = "car-index"
 harness = false
 required-features = ["benchmark-private"]
+
+[package.metadata.docs.rs]
+# See https://docs.rs/about/metadata
+rustdoc-args = ["--document-private-items"]
