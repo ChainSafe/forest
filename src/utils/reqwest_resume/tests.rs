@@ -67,7 +67,6 @@ async fn create_flaky_server() -> SocketAddr {
     let make_svc =
         make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle_request)) });
 
-    // A port number of 0 will request that the OS assigns a port.
     let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 0 /* OS-assigned */);
 
     let server = Server::bind(&addr).serve(make_svc);
