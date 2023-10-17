@@ -175,8 +175,8 @@
 //! and a [_parent state tree_](blocks::BlockHeader::state_root).
 //!
 //! ```text
-//!                                         // state after execution of all
-//!                                         //   messages in that epoch
+//!                                          // state after execution of
+//!                                          // all messages in that epoch
 //!      ┌───────────────────────────────┐
 //!      │ BlockHeader { epoch:  0, .. } │  state root ──► initial actor states...
 //!   ┌● └───────────────────────────────┘                                 ▲   ▲
