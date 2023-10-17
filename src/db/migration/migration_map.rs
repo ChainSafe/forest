@@ -195,6 +195,7 @@ fn create_migration_chain_from_migrations(
 mod tests {
     use std::fs;
 
+    use crate::db::migration::migration_map::db_name;
     use tempfile::TempDir;
 
     use super::*;
@@ -442,7 +443,7 @@ mod tests {
         }
 
         fn temporary_db_name(&self) -> String {
-            format!("migration_{}_{}", self.from, self.to).replace('.', "_")
+            db_name(&self.from, &self.to)
         }
     }
 
@@ -469,4 +470,8 @@ mod tests {
         fs::create_dir(temp_dir.path().join("migration_0_1_0_0_2_0")).unwrap();
         assert!(migration.post_checks(temp_dir.path()).is_ok());
     }
+}
+
+pub(crate) fn db_name(from: &Version, to: &Version) -> String {
+    format!("migration_{}_{}", from, to).replace('.', "_")
 }
