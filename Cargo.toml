@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -50,30 +50,30 @@ derive_more = "0.99.17"
 dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
-fil_actor_account_state = "6.1"
-fil_actor_cron_state = "6.1"
-fil_actor_datacap_state = "6.1"
-fil_actor_init_state = "6.1"
-fil_actor_interface = "6.1"
-fil_actor_market_state = "6.1"
-fil_actor_miner_state = "6.1"
-fil_actor_power_state = "6.1"
-fil_actor_reward_state = "6.1"
-fil_actor_system_state = "6.1"
-fil_actor_verifreg_state = "6.1"
-fil_actors_shared = "6.1"
+fil_actor_account_state = "7.0.0-rc.1"
+fil_actor_cron_state = "7.0.0-rc.1"
+fil_actor_datacap_state = "7.0.0-rc.1"
+fil_actor_init_state = "7.0.0-rc.1"
+fil_actor_interface = "7.0.0-rc.1"
+fil_actor_market_state = "7.0.0-rc.1"
+fil_actor_miner_state = "7.0.0-rc.1"
+fil_actor_power_state = "7.0.0-rc.1"
+fil_actor_reward_state = "7.0.0-rc.1"
+fil_actor_system_state = "7.0.0-rc.1"
+fil_actor_verifreg_state = "7.0.0-rc.1"
+fil_actors_shared = "7.0.0-rc.1"
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.0.0-alpha.3", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.0.0-alpha.4", features = ["arb"] }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.0.0-alpha.3", features = ["testing", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.0.0-alpha.4", features = ["testing", "proofs"] }
 
 gethostname = "0.4"
 git-version = "0.3"
@@ -204,6 +204,8 @@ predicates = "3.0"
 proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
+ra_ap_syntax = "0.0.178"
+regex-automata = "0.3.9"
 syn = { version = "2.0.38", default-features = false, features = [
   "full",
   "parsing",

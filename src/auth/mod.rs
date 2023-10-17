@@ -64,7 +64,7 @@ pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
 
 pub fn generate_priv_key() -> KeyInfo {
     let priv_key = rand::thread_rng().gen::<[u8; 32]>();
-    // TODO temp use of bls key as placeholder, need to update keyinfo to use string
+    // This is temporary use of bls key as placeholder, need to update keyinfo to use string
     // instead of keyinfo for key type
     KeyInfo::new(SignatureType::Bls, priv_key.to_vec())
 }

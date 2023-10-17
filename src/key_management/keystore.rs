@@ -35,8 +35,6 @@ pub const FOREST_KEYSTORE_PHRASE_ENV: &str = "FOREST_KEYSTORE_PHRASE";
 
 type SaltByteArray = [u8; RECOMMENDED_SALT_LEN];
 
-// TODO need to update keyinfo to not use SignatureType, use string instead to
-// save keys like jwt secret
 /// `KeyInfo` structure, this contains the type of key (stored as a string) and
 /// the private key. Note how the private key is stored as a byte vector
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]

@@ -181,6 +181,7 @@ pub(super) async fn start(
     )?)));
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
+    load_actor_bundles(&db).await?;
 
     let mut services = JoinSet::new();
 
@@ -285,8 +286,6 @@ pub(super) async fn start(
 
     let epoch = chain_store.heaviest_tipset().epoch();
 
-    load_actor_bundles(&db).await?;
-
     let peer_manager = Arc::new(PeerManager::default());
     services.spawn(peer_manager.clone().peer_operation_event_loop_task());
     let genesis_cid = *genesis_header.cid();
@@ -347,7 +346,6 @@ pub(super) async fn start(
         let gc_event_tx = db_garbage_collector.get_tx();
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            // XXX: The JSON error message are a nightmare to print.
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
@@ -363,7 +361,6 @@ pub(super) async fn start(
                     network_send,
                     network_name,
                     start_time,
-                    // TODO: the RPCState can fetch this itself from the StateManager
                     beacon,
                     chain_store: rpc_chain_store,
                     gc_event_tx,

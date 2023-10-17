@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::cid_collections::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::state_migration::common::MigrationCache;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -66,6 +67,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         // we need at least 3 threads for the migration to work
         let threads = num_cpus::get().max(3);
         let chan_size = threads / 2;
+        let cache = MigrationCache::default();
 
         tracing::info!("Using {threads} threads for migration and channel size of {chan_size}",);
 
@@ -93,6 +95,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
+                    let cache_clone = cache.clone();
                     scope.spawn(move |_| {
                         let job = MigrationJob {
                             address,
@@ -100,7 +103,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                             actor_migration: migrator,
                         };
 
-                        let job_output = job.run(store, prior_epoch).unwrap_or_else(|e| {
+                        let job_output = job.run(store, prior_epoch, cache_clone).unwrap_or_else(|e| {
                             panic!(
                                 "failed executing job for address: {address}, Reason: {e}"
                             )

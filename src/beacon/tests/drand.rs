@@ -8,7 +8,6 @@ fn new_beacon() -> DrandBeacon {
     DrandBeacon::new(
         15904451751,
         25,
-        // TODO this could maybe be referencing existing config
         &DrandConfig {
             server: "https://pl-us.incentinet.drand.sh",
             chain_info: ChainInfo {

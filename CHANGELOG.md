@@ -35,6 +35,24 @@
 
 ### Fixed
 
+## Forest v0.14.0 "Hakuna Matata"
+
+### Breaking
+
+### Added
+
+- [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
+  support for calibration network.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#3590](https://github.com/ChainSafe/forest/pull/3590) Fix bug in ForestCAR
+  encoder that would cause corrupted archives if a hash-collision happened.
+
 ## Forest v0.13.0 "Holocron"
 
 ### Breaking

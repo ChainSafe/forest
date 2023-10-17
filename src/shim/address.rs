@@ -20,10 +20,10 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU8, Ordering};
 
-// XXX: Copied from ref-fvm due to a bug in their definition.
 /// Zero address used to avoid allowing it to be used for verification.
 /// This is intentionally disallowed because it is an edge case with Filecoin's BLS
 /// signature verification.
+// Copied from ref-fvm due to a bug in their definition.
 pub static ZERO_ADDRESS: Lazy<Address> = Lazy::new(|| {
     Network::Mainnet
         .parse_address(

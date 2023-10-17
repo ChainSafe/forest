@@ -625,6 +625,8 @@ fn merge_and_trim(
 
 /// Like `head_change`, except it doesn't change the state of the `MessagePool`.
 /// It simulates a head change call.
+// This logic should probably be implemented in the ChainStore. It handles
+// reorgs.
 #[cfg(test)]
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
@@ -636,8 +638,6 @@ pub(in crate::message_pool) fn run_head_change<T>(
 where
     T: Provider,
 {
-    // TODO: This logic should probably be implemented in the ChainStore. It handles
-    // reorgs.
     let mut left = Arc::new(from);
     let mut right = Arc::new(to);
     let mut left_chain = Vec::new();

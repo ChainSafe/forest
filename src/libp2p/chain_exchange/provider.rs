@@ -59,7 +59,7 @@ where
         let tipset_epoch = tipset.epoch();
 
         if request.include_blocks() {
-            // TODO Cloning blocks isn't ideal, this can maybe be switched to serialize this
+            // Cloning blocks isn't ideal, this can maybe be switched to serialize this
             // data in the function. This may not be possible without overriding rpc in
             // libp2p
             tipset_bundle.blocks = tipset.blocks().to_vec();

@@ -117,6 +117,7 @@ pub enum Height {
     Hygge,
     Lightning,
     Thunder,
+    Watermelon,
 }
 
 impl Default for Height {
@@ -149,6 +150,7 @@ impl From<Height> for NetworkVersion {
             Height::Hygge => NetworkVersion::V18,
             Height::Lightning => NetworkVersion::V19,
             Height::Thunder => NetworkVersion::V20,
+            Height::Watermelon => NetworkVersion::V21,
         }
     }
 }
@@ -338,7 +340,8 @@ impl Default for ChainConfig {
     }
 }
 
-// XXX: Dummy default. Will be overwritten later. Wish we could get rid of this.
+/// Dummy default. Will be overwritten later.
+// Wish we could get rid of this
 fn default_policy() -> Policy {
     Policy::mainnet()
 }
@@ -383,9 +386,11 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy" @ "v9.0.3" for "calibrationnet",
         "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo" @ "v10.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco" @ "v11.0.0-rc2" for "calibrationnet",
+        "bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs" @ "v12.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
         "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts" @ "v10.0.0" for "devnet",
         "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i" @ "v11.0.0" for "devnet",
+        "bafy2bzacebk6yiirh4ennphzyka7b6g6jzn3lt4lr5ht7rjwulnrcthjihapo" @ "v12.0.0-rc.1" for "devnet",
         "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i" @ "v9.0.3" for "mainnet",
         "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos" @ "v10.0.0" for "mainnet",
         "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",

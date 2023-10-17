@@ -402,8 +402,8 @@ async fn do_export(
     Ok(())
 }
 
-// FIXME: Testing with diff snapshots can be significantly improved. Tracking
-// issue: https://github.com/ChainSafe/forest/issues/3347
+// TODO(lemmih): https://github.com/ChainSafe/forest/issues/3347
+//               Testing with diff snapshots can be significantly improved
 /// Merge a set of snapshots (diff snapshots or lite snapshots). The output
 /// snapshot links to the heaviest tipset in the input set.
 async fn merge_snapshots(

@@ -1,7 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign};
+use std::{
+    fmt,
+    ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign},
+};
 
 use super::fvm_shared_latest::econ::TokenAmount as TokenAmount_latest;
 use fvm_shared2::econ::TokenAmount as TokenAmount_v2;
@@ -21,11 +24,15 @@ const_assert_eq!(TOTAL_FILECOIN_BASE, fvm_shared2::TOTAL_FILECOIN_BASE);
 pub static TOTAL_FILECOIN: Lazy<TokenAmount> =
     Lazy::new(|| TokenAmount::from_whole(TOTAL_FILECOIN_BASE));
 
-// FIXME: Transparent Debug trait impl
-// FIXME: Consider 'type TokenAmount = TokenAmount_v3'
-#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default)]
 #[serde(transparent)]
 pub struct TokenAmount(TokenAmount_latest);
+
+impl fmt::Debug for TokenAmount {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.0, f)
+    }
+}
 
 #[cfg(test)]
 impl quickcheck::Arbitrary for TokenAmount {
