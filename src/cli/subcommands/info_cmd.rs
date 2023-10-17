@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::cli_shared::cli::CliOpts;
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::{
     chain_head, node_ops::node_status, start_time, state_network_name, wallet_balance,
@@ -161,7 +160,7 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(self, config: Config, _opts: &CliOpts) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config) -> anyhow::Result<()> {
         let res = tokio::try_join!(
             node_status((), &config.client.rpc_token),
             chain_head(&config.client.rpc_token),
