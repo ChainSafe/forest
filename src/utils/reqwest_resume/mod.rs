@@ -128,7 +128,7 @@ struct Decoder {
     client: reqwest::Client,
     method: reqwest::Method,
     url: reqwest::Url,
-    decoder: Pin<Box<dyn Stream<Item = reqwest::Result<Bytes>> + Send + Unpin>>,
+    decoder: Pin<Box<dyn Stream<Item = reqwest::Result<Bytes>> + Send>>,
     accept_byte_ranges: bool,
     pos: u64,
 }
@@ -149,9 +149,8 @@ impl Stream for Decoder {
                     headers.insert(header::RANGE, value);
                     let builder = builder.headers(headers);
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
-                    // https://github.com/sdroege/gst-plugin-rs/blob/dcb36832329fde0113a41b80ebdb5efd28ead68d/gst-plugin-http/src/httpsrc.rs
                     self.decoder = Box::pin(
-                        Box::pin(sleep(Duration::from_secs(1)))
+                        sleep(Duration::from_secs(1))
                             .then(|()| builder.send())
                             .map_ok(reqwest::Response::bytes_stream)
                             .try_flatten_stream(),
