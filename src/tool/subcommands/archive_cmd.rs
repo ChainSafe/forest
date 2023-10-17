@@ -462,6 +462,10 @@ async fn merge_snapshots(
     Ok(())
 }
 
+/// Compute the tree of actor states for a given epoch and compare it to the
+/// expected result (as encoded in the blockchain). Differences are printed
+/// using the diff format (red for the blockchain state, green for the computed
+/// state).
 async fn show_tipset_diff(
     snapshot_files: Vec<PathBuf>,
     epoch: ChainEpoch,
