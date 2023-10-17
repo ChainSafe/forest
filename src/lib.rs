@@ -1,21 +1,33 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! We here document two fundamental logical components of Filecoin:
-//! 1. The blockchain
-//! 2. The state
+//! # Actors
 //!
-//! Filecoin implementations must store these as the `ChainStore` and the `StateStore`
-//! as referenced [in the filecoin spec](https://github.com/filecoin-project/specs/blob/936f07f9a444036fe86442c919940ea0e4fb0a0b/content/systems/filecoin_nodes/repository/ipldstore/_index.md?plain=1#L43-L50).
+//! The Filecoin Virtual Machine (FVM) hosts a small[^1] number of _actors_.
+//! These are objects that maintain and mutate internal state, and communicate
+//! by passing messages.
+//!
+//! An example of an actor is the [`cron`](fil_actors_shared::v11::runtime::builtins::Type::Cron)
+//! actor.
+//! Its [internal state](fil_actor_cron_state::v11::State) is a to-do list of
+//! other actors to invoke every epoch.
+//!
+//! See [the Filecoin docs](https://docs.filecoin.io/basics/the-blockchain/actors)
+//! for more information about actors.
+//!
+//! [^1]: The number of [built-in actors](https://docs.filecoin.io/basics/the-blockchain/actors#built-in-actors)
+//!       is small.
+//!
+//! TODO(aatifsyed): where is my balance?
 //!
 //! # The Filecoin blockchain
 //!
 //! Filecoin consists of a blockchain of messages.
-//! These are the core objects for the blockchain.
+//! Listed below are the core objects for the blockchain.
 //! Each one can be addressed by a [`Cid`](cid::Cid).
 //!
-//! - [`Message`](shim::message::Message)s are statements of interactions between
-//!   a small number[^1] of actors on the blockchain.
+//! - [`Message`](shim::message::Message)s are statements of messages between
+//!   a the actors.
 //!   They describe and (equivalently) represent a change in _the blockchain state_.
 //!   See [`apply_block_messages`](state_manager::apply_block_messages) to learn
 //!   more.
@@ -30,46 +42,45 @@
 //! - `Block`s are grouped into [`Tipset`](blocks::Tipset)s.
 //!   All blocks in a tipset share the same `epoch`.
 //!
-//! [^1]: We'll mostly concern ourselves with the [built-in actors](https://docs.filecoin.io/basics/the-blockchain/actors#built-in-actors).
-//!       They include e.g user accounts.
+//! [^2]: <https://en.wikipedia.org/wiki/Actor_model>
 //!
 //! ```text
-//!     ┌───────────────────────────────┐
-//!     │ BlockHeader { epoch:  0, .. } │ //  The genesis block/tipset
-//!   ┌●└───────────────────────────────┘
+//!      ┌───────────────────────────────┐
+//!      │ BlockHeader { epoch:  0, .. } │ //  The genesis block/tipset
+//!   ┌● └───────────────────────────────┘
 //!   ~
-//!   └─┬───────────────────────────────┐
-//!     │ BlockHeader { epoch: 10, .. } │ // The epoch 10 tipset - one block with two messages
-//!   ┌●└┬──────────────────────────────┘
-//!   │  │
-//!   │  │ "I contain the following messages..."
-//!   │  │
-//!   │  ├──────────────────┐
-//!   │  │ ┌──────────────┐ │ ┌───────────────────┐
-//!   │  └►│ Message:     │ └►│ Message:          │
-//!   │    │  Afri -> Bob │   │  Charlie -> David │
-//!   │    └──────────────┘   └───────────────────┘
+//!   └──┬───────────────────────────────┐
+//!      │ BlockHeader { epoch: 10, .. } │ // The epoch 10 tipset - one block with two messages
+//!   ┌● └┬──────────────────────────────┘
+//!   │   │
+//!   │   │ "I contain the following messages..."
+//!   │   │
+//!   │   ├──────────────────┐
+//!   │   │ ┌──────────────┐ │ ┌───────────────────┐
+//!   │   └►│ Message:     │ └►│ Message:          │
+//!   │     │  Afri -> Bob │   │  Charlie -> David │
+//!   │     └──────────────┘   └───────────────────┘
 //!   │
 //!   │ "my parent is..."
 //!   │
-//!   └─┬───────────────────────────────┐
-//!     │ BlockHeader { epoch: 11, .. } │ // The epoch 11 tipset - one block with one message
-//!   ┌●└┬──────────────────────────────┘
-//!   │  │ ┌────────────────┐
-//!   │  └►│ Message:       │
-//!   │    │  Eric -> Frank │
-//!   │    └────────────────┘
+//!   └──┬───────────────────────────────┐
+//!      │ BlockHeader { epoch: 11, .. } │ // The epoch 11 tipset - one block with one message
+//!   ┌● └┬──────────────────────────────┘
+//!   │   │ ┌────────────────┐
+//!   │   └►│ Message:       │
+//!   │     │  Eric -> Frank │
+//!   │     └────────────────┘
 //!   │
 //!   │ // the epoch 12 tipset - two blocks, with a total of 3 messages
 //!   │
-//!   ├───────────────────────────────────┐
-//!   └─┬───────────────────────────────┐ └─┬───────────────────────────────┐
-//!     │ BlockHeader { epoch: 12, .. } │   │ BlockHeader { epoch: 12, .. } │
-//!   ┌●└┬──────────────────────────────┘   └┬─────────────────────┬────────┘
-//!   ~  │ ┌───────────────────────┐         │ ┌─────────────────┐ │ ┌──────────────┐
-//!      └►│ Message:              │         └►│ Message:        │ └►│ Message:     │
-//!        │  Guillaume -> Hailong │           │  Hubert -> Ivan │   │  Josh -> Kai │
-//!        └───────────────────────┘           └─────────────────┘   └──────────────┘
+//!   ├────────────────────────────────────┐
+//!   └──┬───────────────────────────────┐ └─┬───────────────────────────────┐
+//!      │ BlockHeader { epoch: 12, .. } │   │ BlockHeader { epoch: 12, .. } │
+//!   ┌● └┬──────────────────────────────┘   └┬─────────────────────┬────────┘
+//!   ~   │ ┌───────────────────────┐         │ ┌─────────────────┐ │ ┌──────────────┐
+//!       └►│ Message:              │         └►│ Message:        │ └►│ Message:     │
+//!         │  Guillaume -> Hailong │           │  Hubert -> Ivan │   │  Josh -> Kai │
+//!         └───────────────────────┘           └─────────────────┘   └──────────────┘
 //! ```
 //!
 //! The [`ChainMuxer`](chain_sync::ChainMuxer) receives two kinds of [messages](libp2p::PubsubMessage)
@@ -78,6 +89,70 @@
 //! - [`SignedMessage`](message::SignedMessage)s
 //!
 //! It assembles these messages into a chain to genesis.
+//!
+//! Filecoin implementations store all the above in the `ChainStore`, per
+//! [the spec](https://github.com/filecoin-project/specs/blob/936f07f9a444036fe86442c919940ea0e4fb0a0b/content/systems/filecoin_nodes/repository/ipldstore/_index.md?plain=1#L43-L50).
+//!
+//! # The Filecoin state tree
+//!
+//! `Message`s describe/represent mutations in the [`StateTree`](shim::state_tree::StateTree),
+//! which is a representation of all Filecoin state at a point in time.
+//! For each actor, the `StateTree` holds the CID for its state: [`ActorState.state`](fvm4::state_tree::ActorState::state).
+//!
+//! Actor state is serialized and stored as  [`Ipld`](ipld::Ipld).
+//! Think of this as "JSON with links ([`Cid`](cid::Cid)s)".
+//! So the `cron` actor's state mentioned above will be ultimately serialized into `Ipld`
+//! and stored in the `StateStore`, per
+//! [the spec](https://github.com/filecoin-project/specs/blob/936f07f9a444036fe86442c919940ea0e4fb0a0b/content/systems/filecoin_nodes/repository/ipldstore/_index.md?plain=1#L43-L50).
+//!
+//! It isn't feasible to create a new copy of actor states whenever they change.
+//! That is, starting with a [crontab](https://man7.org/linux/man-pages/man5/crontab.5.html)
+//! with 10 items:
+//! ```text
+//! Initial state
+//! ┌───────────────────────┐
+//! │Crontab                │
+//! │1. Get out of bed      │
+//! │2. Shower              │
+//! │...                    │
+//! │10. Take over the world│
+//! └───────────────────────┘
+//! ```
+//! Mutation of the state should _not_ simply duplicate the state:
+//! ```text
+//! Initial state              New state
+//! ┌───────────────────────┐  ┌───────────────────────┐
+//! │Crontab                │  │Crontab                │
+//! │1. Get out of bed      │  │1. Get out of bed      │
+//! │2. Shower              │  │2. Shower              │
+//! │...                    │  │...                    │
+//! │10. Take over the world│  │10. Take over the world│
+//! └───────────────────────┘  │11. Throw a party      │
+//!                            └───────────────────────┘
+//! ```
+//! But should instead be able to refer to the previous state:
+//! ```text
+//! Initial state              New state
+//! ┌───────────────────────┐  ┌─────────────────┐
+//! │Crontab                │◄─┤(See previous)   │
+//! │1. Get out of bed      │  ├─────────────────┤
+//! │2. Shower              │  │11. Throw a party│
+//! │...                    │  └─────────────────┘
+//! │10. Take over the world│
+//! └───────────────────────┘
+//! ```
+//!
+//! TODO(aatifsyed): I don't think the cron state actually mutates like that...
+//!                  What would be a better example. (Where are the wallets??)
+//!
+//! Data structures that reach into the past of the `StateStore` like this are:
+//! - ["AMT"](fil_actors_shared::fvm_ipld_amt), a list.
+//! - ["HAMT"](fil_actors_shared::fvm_ipld_hamt), a map.
+//!
+//! Therefore, the Filecoin state is, indeed, a tree of IPLD data.
+//!
+//! # Snapshots
+//!
 
 #![recursion_limit = "1024"]
 #![cfg_attr(not(test), deny(clippy::todo, clippy::dbg_macro))]
