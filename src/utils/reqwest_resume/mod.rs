@@ -72,12 +72,11 @@ impl RequestBuilder {
                 x => break x?,
             }
         };
-        let accept_byte_ranges = if let Some(value) = response.headers().get(header::ACCEPT_RANGES)
-        {
-            value.as_bytes() == b"bytes"
-        } else {
-            false
-        };
+        let accept_byte_ranges = response
+            .headers()
+            .get(header::ACCEPT_RANGES)
+            .map(HeaderValue::as_bytes)
+            == Some(b"bytes");
         let resp = Response {
             client,
             method,
