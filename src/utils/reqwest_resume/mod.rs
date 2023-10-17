@@ -48,7 +48,6 @@ impl Client {
     ///
     /// See [`reqwest::Client::get()`].
     pub fn get(&self, url: reqwest::Url) -> RequestBuilder {
-        // <U: reqwest::IntoUrl>
         RequestBuilder(self.0.clone(), reqwest::Method::GET, url)
     }
 }
