@@ -60,8 +60,8 @@ impl RequestBuilder {
     /// Constructs the Request and sends it the target URL, returning a Response.
     ///
     /// See [`reqwest::RequestBuilder::send()`].
-    pub async fn send(&mut self) -> reqwest::Result<Response> {
-        let (client, method, url) = (self.0.clone(), self.1.clone(), self.2.clone());
+    pub async fn send(self) -> reqwest::Result<Response> {
+        let RequestBuilder(client, method, url) = self;
 
         let response = loop {
             let builder = client.request(method.clone(), url.clone());
