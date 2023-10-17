@@ -175,28 +175,28 @@
 //! and a [_parent state tree_](blocks::BlockHeader::state_root).
 //!
 //! ```text
-//!                                          // state after execution of
-//!                                          // all messages in that epoch
-//!      ┌───────────────────────────────┐
-//!      │ BlockHeader { epoch:  0, .. } │  state root ──► initial actor states...
-//!   ┌● └───────────────────────────────┘                                 ▲   ▲
-//!   ~                                      // links to redundant data ─● │   │
-//!   └──┬───────────────────────────────┐                                 │   │
-//!      │ BlockHeader { epoch: 11, .. } │  state root ─┬► actor state ─► AMT  │
-//!   ┌● └┬──────────────────────────────┘              ~                      │
-//!   │   │ ┌─────────┐                                 └► actor state ─► HAMT ┘
-//!   │   └►│ Message │                                                    │
-//!   │     └─────────┘                                                    ▼
-//!   ├──┬───────────────────────────────┐   // new data in this epoch ─● IPLD
+//!                                            // state after execution of
+//!                                            // all messages in that epoch
+//!      ┌───────────────────────────────┐ ┌────────────┐
+//!      │ BlockHeader { epoch:  0, .. } │ │ state root ├──► initial actor states...
+//!   ┌● └───────────────────────────────┘ └────────────┘                    ▲   ▲
+//!   ~                                        // links to redundant data ─● │   │
+//!   └──┬───────────────────────────────┐ ┌────────────┐                    │   │
+//!      │ BlockHeader { epoch: 11, .. } │ │ state root ├─┬► actor state ─► AMT  │
+//!   ┌● └┬──────────────────────────────┘ └────────────┘ ~                      │
+//!   │   │ ┌─────────┐                                   └► actor state ─► HAMT ┘
+//!   │   └►│ Message │                                                      │
+//!   │     └─────────┘                                                      ▼
+//!   ├──┬───────────────────────────────┐     // new data in this epoch ─● IPLD
 //!   │  │ BlockHeader { epoch: 12, .. } │
 //!   │  └┬─────────────┬────────────────┘
 //!   │   │ ┌─────────┐ │ ┌─────────┐
 //!   │   └►│ Message │ └►│ Message │
-//!   │     └─────────┘   └─────────┘                                      ~   ~
-//!   └──┬───────────────────────────────┐                                 │   │
-//!      │ BlockHeader { epoch: 12, .. } │  state root ─┬► actor state ─► AMT  │
-//!   ┌● └┬──────────────────────────────┘              ~                      │
-//!   ~   │ ┌─────────┐                                 └► actor state ─► HAMT ┘
+//!   │     └─────────┘   └─────────┘                                        ~   ~
+//!   └──┬───────────────────────────────┐ ┌────────────┐                    │   │
+//!      │ BlockHeader { epoch: 12, .. } │ │ state root ├─┬► actor state ─► AMT  │
+//!   ┌● └┬──────────────────────────────┘ └────────────┘ ~                      │
+//!   ~   │ ┌─────────┐                                   └► actor state ─► HAMT ┘
 //!       └►│ Message │
 //!         └─────────┘
 //! ```
