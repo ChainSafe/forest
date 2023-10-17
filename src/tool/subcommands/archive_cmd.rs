@@ -93,8 +93,10 @@ pub enum ArchiveCommands {
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
         /// Selected epoch to validate.
-        #[arg(short, long)]
+        #[arg(long)]
         epoch: ChainEpoch,
+        #[arg(long)]
+        depth: Option<u64>,
     },
 }
 
@@ -142,7 +144,8 @@ impl ArchiveCommands {
             Self::Diff {
                 snapshot_files,
                 epoch,
-            } => show_tipset_diff(snapshot_files, epoch).await,
+                depth,
+            } => show_tipset_diff(snapshot_files, epoch, depth).await,
         }
     }
 }
@@ -459,14 +462,23 @@ async fn merge_snapshots(
     Ok(())
 }
 
-async fn show_tipset_diff(snapshot_files: Vec<PathBuf>, epoch: ChainEpoch) -> anyhow::Result<()> {
+async fn show_tipset_diff(
+    snapshot_files: Vec<PathBuf>,
+    epoch: ChainEpoch,
+    depth: Option<u64>,
+) -> anyhow::Result<()> {
     use colored::*;
 
     let store = Arc::new(ManyCar::try_from(snapshot_files)?);
 
     let heaviest_tipset = Arc::new(store.heaviest_tipset()?);
     if heaviest_tipset.epoch() <= epoch {
-        anyhow::bail!("Highest epoch must be at least 1 greater than the target epoch. Highest epoch = {}, target epoch = {}.", heaviest_tipset.epoch(), epoch)
+        anyhow::bail!(
+            "Highest epoch must be at least 1 greater than the target epoch. \
+             Highest epoch = {}, target epoch = {}.",
+            heaviest_tipset.epoch(),
+            epoch
+        )
     }
 
     let genesis = heaviest_tipset.genesis(&store)?;
@@ -516,7 +528,7 @@ async fn show_tipset_diff(snapshot_files: Vec<PathBuf>, epoch: ChainEpoch) -> an
             &store,
             &state_root,
             child_tipset.parent_state(),
-            Some(2),
+            depth,
         )?;
     } else {
         println!("Computed state matches expected state.");
