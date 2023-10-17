@@ -41,10 +41,10 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
-      - name: Link Checker (Repo)
+      - name: Link Checker (Repo Readme)
         uses: lycheeverse/lychee-action@v1.8.0
         with:
-          args: --verbose --no-progress --timeout 60 --max-retries 6 --retry-wait-time 10 --exclude twitter.com 'README.md'
+          args: 'README.md'
           # Fail action on broken links
           fail: true
       - uses: hanabi1224/cache-cargo-bin-action@v1.0.0
@@ -59,11 +59,10 @@ jobs:
         env:
           CC: "sccache clang"
           CXX: "sccache clang++"
-      - name: Link Checker (Docs)
+      - name: Link Checker (Library Documentation)
         uses: lycheeverse/lychee-action@v1.8.0
         with:
-          # Check all docs
-          args: --verbose --no-progress --timeout 60 --max-retries 6 --retry-wait-time 10 './target/doc/*/index.html'
+          args: './target/doc/forest_filecoin/**/index.html'
           # Fail action on broken links
           fail: true
       - name: Prepare rustdoc for publishing

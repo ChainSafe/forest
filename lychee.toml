@@ -1,0 +1,10 @@
+# This is the common config used by lychee, our dead html link checker
+# See the github actions workflows to see the inputs
+# https://github.com/lycheeverse/lychee/blob/2109470dc380eaf66944b6bcfa86230e0a58e58f/lychee-bin/src/options.rs#L152
+
+verbose = "debug"
+no_progress = true
+exclude = ["twitter.com"]
+timeout = 60
+max_retries = 6
+retry_wait_time = 10
