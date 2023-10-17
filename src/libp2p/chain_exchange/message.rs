@@ -384,12 +384,9 @@ mod tests {
         let store = MemoryDB::default();
         tsb.persist(&store).unwrap();
 
-        let ts: Tipset = Tipset::load(
-            &store,
-            &[b0.cid().clone(), b1.cid().clone()].into_iter().collect(),
-        )
-        .unwrap()
-        .unwrap();
+        let ts: Tipset = Tipset::load(&store, &[*b0.cid(), *b1.cid()].into_iter().collect())
+            .unwrap()
+            .unwrap();
 
         let fts = FullTipset::try_from(TipsetBundle {
             blocks: vec![b0.header().clone(), b1.header().clone()],
