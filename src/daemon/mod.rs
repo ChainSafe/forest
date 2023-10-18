@@ -23,7 +23,7 @@ use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pService, PeerId, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
@@ -264,21 +264,6 @@ pub(super) async fn start(
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
     let (tipset_sink, tipset_stream) = flume::bounded(20);
-
-    // if bootstrap peers are not set, set them
-    let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config.chain.bootstrap_peers.clone();
-
-        Config {
-            network: Libp2pConfig {
-                bootstrap_peers,
-                ..config.network
-            },
-            ..config
-        }
-    } else {
-        config
-    };
 
     if opts.exit_after_init {
         return Ok(());

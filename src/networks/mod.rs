@@ -182,14 +182,6 @@ struct DrandPoint<'a> {
 pub struct ChainConfig {
     pub network: NetworkChain,
     pub genesis_cid: Option<String>,
-    #[cfg_attr(test, arbitrary(gen(
-        |g: &mut quickcheck::Gen| {
-            let addr = std::net::Ipv4Addr::arbitrary(&mut *g);
-            let n = u8::arbitrary(g) as usize;
-            vec![addr.into(); n]
-        }
-    )))]
-    pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u32,
     pub propagation_delay_secs: u32,
     pub height_infos: Vec<HeightInfo>,
@@ -209,7 +201,6 @@ impl ChainConfig {
         Self {
             network: NetworkChain::Mainnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
-            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -225,7 +216,6 @@ impl ChainConfig {
         Self {
             network: NetworkChain::Calibnet,
             genesis_cid: Some(GENESIS_CID.to_string()),
-            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
             height_infos: HEIGHT_INFOS.to_vec(),
@@ -259,7 +249,6 @@ impl ChainConfig {
         Self {
             network: NetworkChain::Devnet("devnet".to_string()),
             genesis_cid: None,
-            bootstrap_peers: Vec::new(),
             block_delay_secs: 4,
             propagation_delay_secs: 1,
             height_infos: HEIGHT_INFOS.to_vec(),

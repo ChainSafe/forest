@@ -162,14 +162,18 @@ impl CliOpts {
             None => Config::default(),
         };
 
-        if let Some(chain) = &self.chain {
-            // override the chain configuration
-            cfg.chain = Arc::new(ChainConfig::from_chain(chain));
-        } else {
-            // override any custom changes to the chain configuration based on the used
-            // network.
-            cfg.chain = Arc::new(ChainConfig::from_chain(&cfg.chain.network));
-        }
+        // override chain specific configurations
+        let chain = self.chain.clone().unwrap_or(cfg.chain.network.clone());
+        cfg.chain = Arc::new(ChainConfig::from_chain(&chain));
+        match chain {
+            NetworkChain::Mainnet => {
+                cfg.network.bootstrap_peers = crate::networks::mainnet::DEFAULT_BOOTSTRAP.clone();
+            }
+            NetworkChain::Calibnet => {
+                cfg.network.bootstrap_peers = crate::networks::calibnet::DEFAULT_BOOTSTRAP.clone();
+            }
+            NetworkChain::Devnet(_) => {}
+        };
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());

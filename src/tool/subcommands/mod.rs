@@ -72,9 +72,17 @@ fn read_config(config: &Option<String>, chain: &Option<NetworkChain>) -> anyhow:
 
     // Override config with chain if some
     match chain {
-        Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
-        Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
-        Some(NetworkChain::Devnet(_)) => cfg.chain = Arc::new(ChainConfig::devnet()),
+        Some(NetworkChain::Mainnet) => {
+            cfg.chain = Arc::new(ChainConfig::mainnet());
+            cfg.network.bootstrap_peers = crate::networks::mainnet::DEFAULT_BOOTSTRAP.clone();
+        }
+        Some(NetworkChain::Calibnet) => {
+            cfg.chain = Arc::new(ChainConfig::calibnet());
+            cfg.network.bootstrap_peers = crate::networks::calibnet::DEFAULT_BOOTSTRAP.clone();
+        }
+        Some(NetworkChain::Devnet(_)) => {
+            cfg.chain = Arc::new(ChainConfig::devnet());
+        }
         None => (),
     }
 
