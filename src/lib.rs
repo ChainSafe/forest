@@ -3,7 +3,7 @@
 
 //! # Actors
 //!
-//! The Filecoin Virtual Machine (FVM) hosts a small[^1] number of _actors_.
+//! The Filecoin Virtual Machine (FVM) hosts a small [^1] number of _actors_.
 //! These are objects that maintain and mutate internal state, and communicate
 //! by passing messages.
 //!
@@ -15,10 +15,7 @@
 //! See [the Filecoin docs](https://docs.filecoin.io/basics/the-blockchain/actors)
 //! for more information about actors.
 //!
-//! [^1]: The number of [built-in actors](https://docs.filecoin.io/basics/the-blockchain/actors#built-in-actors)
-//!       is small.
-//!
-//! TODO(aatifsyed): where is my balance?
+//! [^1]: The number of _built-in_ actors is small.
 //!
 //! # The Filecoin blockchain
 //!
@@ -26,23 +23,20 @@
 //! Listed below are the core objects for the blockchain.
 //! Each one can be addressed by a [`Cid`](cid::Cid).
 //!
-//! - [`Message`](shim::message::Message)s are statements of messages between
-//!   a the actors.
-//!   They describe and (equivalently) represent a change in _the blockchain state_.
-//!   See [`apply_block_messages`](state_manager::apply_block_messages) to learn
+//! - [`Message`](crate::shim::message::Message)s are statements of messages between
+//!   the actors.
+//!   They describe and (equivalently) represent a change in _the state tree_ (see below).
+//!   See [`apply_block_messages`](crate::state_manager::apply_block_messages) to learn
 //!   more.
-//!   Messages may be [signed](message::SignedMessage).
-//!   TODO(aatifsyed): by whom? what does that mean?
-//! - `Message`s are grouped into [`Block`](blocks::Block)s, with a single
-//!   [`BlockHeader`](blocks::BlockHeader).
+//!   Messages may be [signed](crate::message::SignedMessage).
+//! - `Message`s are grouped into [`Block`](crate::blocks::Block)s, with a single
+//!   [`BlockHeader`](crate::blocks::BlockHeader).
 //!   These are what are mined by miners to get `FIL` (money).
-//!   They define an [_epoch_](blocks::BlockHeader::epoch) and a
-//!   [_parent tipset_](blocks::BlockHeader::parents).
+//!   They define an [_epoch_](crate::blocks::BlockHeader::epoch) and a
+//!   [_parent tipset_](crate::blocks::BlockHeader::parents).
 //!   The _epoch_ is a monotonically increasing number from `0` (genesis).
-//! - `Block`s are grouped into [`Tipset`](blocks::Tipset)s.
+//! - `Block`s are grouped into [`Tipset`](crate::blocks::Tipset)s.
 //!   All blocks in a tipset share the same `epoch`.
-//!
-//! [^2]: <https://en.wikipedia.org/wiki/Actor_model>
 //!
 //! ```text
 //!      ┌───────────────────────────────┐
@@ -83,10 +77,10 @@
 //!         └───────────────────────┘           └─────────────────┘   └──────────────┘
 //! ```
 //!
-//! The [`ChainMuxer`](chain_sync::ChainMuxer) receives two kinds of [messages](libp2p::PubsubMessage)
+//! The [`ChainMuxer`](crate::chain_sync::ChainMuxer) receives two kinds of [messages](crate::libp2p::PubsubMessage)
 //! from peers:
-//! - [`GossipBlock`](blocks::GossipBlock)s are descriptions of a single block, with the `BlockHeader` and `Message` CIDs.
-//! - [`SignedMessage`](message::SignedMessage)s
+//! - [`GossipBlock`](crate::blocks::GossipBlock)s are descriptions of a single block, with the `BlockHeader` and `Message` CIDs.
+//! - [`SignedMessage`](crate::message::SignedMessage)s
 //!
 //! It assembles these messages into a chain to genesis.
 //!
@@ -95,7 +89,7 @@
 //!
 //! # The Filecoin state tree
 //!
-//! `Message`s describe/represent mutations in the [`StateTree`](shim::state_tree::StateTree),
+//! `Message`s describe/represent mutations in the [`StateTree`](crate::shim::state_tree::StateTree),
 //! which is a representation of all Filecoin state at a point in time.
 //! For each actor, the `StateTree` holds the CID for its state: [`ActorState.state`](fvm4::state_tree::ActorState::state).
 //!
@@ -106,7 +100,7 @@
 //! [the spec](https://github.com/filecoin-project/specs/blob/936f07f9a444036fe86442c919940ea0e4fb0a0b/content/systems/filecoin_nodes/repository/ipldstore/_index.md?plain=1#L43-L50).
 //!
 //! It isn't feasible to create a new copy of actor states whenever they change.
-//! That is, starting with a [crontab](https://man7.org/linux/man-pages/man5/crontab.5.html)
+//! That is, in a fictional [^2] example of a `cron` actor, starting with a [`crontab`](https://man7.org/linux/man-pages/man5/crontab.5.html)
 //! with 10 items, mutation of the state should _not_ simply duplicate the state:
 //! ```text
 //! Previous state             Current state
@@ -143,16 +137,15 @@
 //! └───────────────────────┘
 //! ```
 //!
-//! TODO(aatifsyed): I don't think the cron state actually mutates like that...
-//!                  What would be a better example. (Where are the wallets??)
+//! [^2]: The real `cron` actor doesn't mutate state like this.
 //!
 //! Data structures that reach into the past of the `StateStore` like this are:
 //! - ["AMT"](fil_actors_shared::fvm_ipld_amt), a list.
 //! - ["HAMT"](fil_actors_shared::fvm_ipld_hamt), a map.
 //!
 //! Therefore, the Filecoin state is, indeed, a tree of IPLD data.
-//! It can be addressed by the root of the tree, so it is sometimes referred to
-//! as the _state root_.
+//! It can be addressed by the root of the tree, so it is often referred to as
+//! the _state root_.
 //!
 //! We will now introduce some new terminology given the above information.
 //!
@@ -166,13 +159,11 @@
 //! - An item is _orphaned_ if it is not reachable from the current state tree
 //!   through any links.
 //!
-//! TODO(reviewers): are there existing terminologies for this?
-//!
 //! # Snapshots
 //!
 //! Recall that for each message execution, the state tree is mutated.
 //! Therefore, each epoch is associated with a state tree after execution,
-//! and a [_parent state tree_](blocks::BlockHeader::state_root).
+//! and a [_parent state tree_](crate::blocks::BlockHeader::state_root).
 //!
 //! ```text
 //!                                            // state after execution of
