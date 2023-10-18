@@ -20,13 +20,92 @@
 //! - use [`std::hash::Hasher`]s instead of custom hashing
 //!   The current code says using e.g the default hasher
 
+use crate::cid_collections::CidHashMap;
+
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 #[cfg(test)]
 use quickcheck::quickcheck;
-use std::io::{self, Read, Write};
+use std::{
+    cmp,
+    io::{self, Read, Write},
+    num::NonZeroUsize,
+};
 
 mod hash;
+
+fn build_table(locations: CidHashMap<u64>, load_factor: f64) -> Box<[Slot]> {
+    assert!((0.0..=1.0).contains(&load_factor));
+    let table_width = cmp::max(
+        (locations.len() as f64 / load_factor) as usize,
+        locations.len(),
+    );
+    let Some(table_width) = NonZeroUsize::new(table_width) else {
+        return Box::new([]);
+    };
+    let mut table = vec![Slot::Empty; table_width.get()].into_boxed_slice();
+
+    for (cid, frame_offset) in locations {
+        let hash = hash::of(&cid);
+        let mut current_ix = hash::ideal_bucket_ix(hash, table_width);
+        loop {
+            // this is guaranteed to terminate because table_width >= locations.len()
+            match table[current_ix] {
+                Slot::Empty => {
+                    table[current_ix] = Slot::Occupied { hash, frame_offset };
+                    break;
+                }
+                Slot::Occupied { .. } => current_ix = (current_ix + 1) % table_width,
+            }
+        }
+    }
+    table
+}
+
+pub fn write(
+    locations: CidHashMap<u64>,
+    load_factor: f64,
+    mut writer: impl io::Write,
+) -> io::Result<()> {
+    let table = build_table(locations, load_factor);
+    Header {
+        magic_number: Header::V1_MAGIC,
+        longest_distance: u64::MAX,
+        collisions: u64::MAX,
+        buckets: u64::try_from(table.len()).unwrap(),
+    }
+    .write_to(&mut writer)?;
+    for slot in &*table {
+        slot.write_to(&mut writer)?
+    }
+    Slot::Empty.write_to(writer)
+}
+
+pub struct Index<ReaderT> {
+    reader: ReaderT,
+    header: Header,
+}
+
+impl<ReaderT> Index<ReaderT>
+where
+    ReaderT: positioned_io::ReadAt,
+{
+    pub fn new(mut reader: ReaderT) -> io::Result<Self> {
+        let mut cursor = positioned_io::Cursor::new(&mut reader);
+        let header = Header::read_from(&mut cursor)?;
+        for _ in 0..header.buckets {
+            Slot::read_from(&mut cursor)?;
+        }
+        let Slot::Empty = Slot::read_from(&mut cursor)? else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "index must be terminated with an empty slot",
+            ));
+        };
+        // we don't check that this is the end of the file...
+        Ok(Self { reader, header })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -48,7 +127,7 @@ impl Header {
     // const V2_MAGIC: u64 = 0xdeadbeef + 2;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 enum Slot {
     Empty,
@@ -65,15 +144,28 @@ struct RawSlot {
     frame_offset: u64,
 }
 
+impl RawSlot {
+    const EMPTY: Self = Self {
+        hash: u64::MAX,
+        frame_offset: u64::MAX,
+    };
+}
+
 impl Readable for Slot {
     fn read_from(reader: impl Read) -> io::Result<Self>
     where
         Self: Sized,
     {
-        let RawSlot { hash, frame_offset } = Readable::read_from(reader)?;
+        let raw @ RawSlot { hash, frame_offset } = Readable::read_from(reader)?;
         match NonMaximalU64::new(hash) {
             Some(hash) => Ok(Self::Occupied { hash, frame_offset }),
-            None => Ok(Slot::Empty),
+            None => match raw == RawSlot::EMPTY {
+                true => Ok(Self::Empty),
+                false => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "empty slots must have a frame offset of u64::MAX",
+                )),
+            },
         }
     }
 }
@@ -81,10 +173,7 @@ impl Readable for Slot {
 impl Writeable for Slot {
     fn write_to(&self, writer: impl Write) -> io::Result<()> {
         let raw = match *self {
-            Slot::Empty => RawSlot {
-                hash: u64::MAX,
-                frame_offset: u64::MAX, // could check this
-            },
+            Slot::Empty => RawSlot::EMPTY,
             Slot::Occupied { hash, frame_offset } => RawSlot {
                 hash: hash.get(),
                 frame_offset,
@@ -165,13 +254,14 @@ trait Readable {
 }
 
 trait Writeable {
+    /// Must only return [`Err(_)`] if the underlying io fails.
     fn write_to(&self, writer: impl Write) -> io::Result<()>;
 }
 
 // This lives in a module so its constructor is private
 mod util {
     /// Like [`std::num::NonZeroU64`], but is never [`u64::MAX`]
-    #[derive(Debug, Clone, Copy, PartialEq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub struct NonMaximalU64(u64);
 
     impl NonMaximalU64 {
