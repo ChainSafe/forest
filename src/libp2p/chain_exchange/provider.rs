@@ -6,6 +6,7 @@ use crate::chain::{ChainStore, Error as ChainError};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use tracing::debug;
 
 use super::{
@@ -45,29 +46,26 @@ where
             }
         };
 
-        let chain = cs
+        let chain: Vec<_> = cs
             .chain_index
             .chain(root)
             .take(request.request_len as _)
-            .try_fold(
-                Vec::with_capacity(request.request_len as _),
-                |mut acc, tipset| {
-                    let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-                    if request.include_messages() {
-                        tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
-                    }
+            .map(|tipset| {
+                let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
+                if request.include_messages() {
+                    tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
+                }
 
-                    if request.include_blocks() {
-                        // Cloning blocks isn't ideal, this can maybe be switched to serialize this
-                        // data in the function. This may not be possible without overriding rpc in
-                        // libp2p
-                        tipset_bundle.blocks = tipset.blocks().to_vec();
-                    }
-                    acc.push(tipset_bundle);
+                if request.include_blocks() {
+                    // Cloning blocks isn't ideal, this can maybe be switched to serialize this
+                    // data in the function. This may not be possible without overriding rpc in
+                    // libp2p
+                    tipset_bundle.blocks = tipset.blocks().to_vec();
+                }
 
-                    anyhow::Ok(acc)
-                },
-            )?;
+                anyhow::Ok(tipset_bundle)
+            })
+            .try_collect()?;
 
         anyhow::Ok(ChainExchangeResponse {
             status: if request.request_len > chain.len() as u64 {
