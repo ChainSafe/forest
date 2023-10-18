@@ -5,6 +5,7 @@ use super::*;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
+use crate::networks::ChainConfig;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::{chain_ops::*, state_network_name};
 use crate::utils::bail_moved_cmd;
@@ -75,7 +76,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, config: Config, chain_config: ChainConfig) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -112,18 +113,18 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: depth.unwrap_or(config.chain.recent_state_roots),
+                    recent_roots: depth.unwrap_or(chain_config.recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: chain_head.key().clone(),
                     skip_checksum,
                     dry_run,
                 };
 
-                let finality = config.chain.policy.chain_finality.min(epoch);
+                let finality = chain_config.policy.chain_finality.min(epoch);
                 if params.recent_roots < finality {
                     bail!(
                         "For {}, depth has to be at least {finality}.",
-                        config.chain.network
+                        chain_config.network
                     );
                 }
 

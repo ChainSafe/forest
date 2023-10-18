@@ -40,9 +40,10 @@ impl DBCommands {
             Self::Stats { config, chain } => {
                 use human_repr::HumanCount;
 
-                let config = read_config(config, chain)?;
+                let chain = chain.clone().unwrap_or_default();
+                let config = read_config(config)?;
 
-                let dir = db_root(&chain_path(&config))?;
+                let dir = db_root(&chain_path(&chain, &config))?;
                 println!("Database path: {}", dir.display());
                 let size = fs_extra::dir::get_size(dir).unwrap_or_default();
                 println!("Database size: {}", size.human_count_bytes());
@@ -53,9 +54,10 @@ impl DBCommands {
                 config,
                 chain,
             } => {
-                let config = read_config(config, chain)?;
+                let chain = chain.clone().unwrap_or_default();
+                let config = read_config(config)?;
 
-                let dir = chain_path(&config);
+                let dir = chain_path(&chain, &config);
                 if !dir.is_dir() {
                     println!(
                         "Aborted. Database path {} is not a valid directory",

@@ -5,6 +5,7 @@ use std::ffi::OsString;
 
 use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
+use crate::networks::ChainConfig;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::utils::bail_moved_cmd;
 use crate::{cli::subcommands::Cli, rpc_client::state_network_name};
@@ -26,6 +27,7 @@ where
         .block_on(async {
             let mut config = crate::Config::default();
             config.client.rpc_token = token;
+            let chain_config = ChainConfig::default();
             logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
             if let Ok(name) = state_network_name((), &config.client.rpc_token).await {
                 if get_actual_chain_name(&name) != "mainnet" {
@@ -48,7 +50,7 @@ where
                 Subcommand::Send(cmd) => cmd.run(config).await,
                 Subcommand::Info(cmd) => cmd.run(config).await,
                 Subcommand::DB(cmd) => cmd.run(&config).await,
-                Subcommand::Snapshot(cmd) => cmd.run(config).await,
+                Subcommand::Snapshot(cmd) => cmd.run(config, chain_config).await,
                 Subcommand::Archive(cmd) => cmd.run().await,
                 Subcommand::Attach(cmd) => cmd.run(config),
                 Subcommand::Shutdown(cmd) => cmd.run(config).await,

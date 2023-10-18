@@ -23,8 +23,9 @@ use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use crate::networks::ChainConfig;
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -107,12 +108,16 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 }
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
-pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
+pub async fn start_interruptable(
+    opts: CliOpts,
+    config: Config,
+    chain_config: ChainConfig,
+) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
 
     let result = tokio::select! {
-        ret = start(opts, config, shutdown_send) => ret,
+        ret = start(opts, config, chain_config, shutdown_send) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -134,9 +139,11 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
 pub(super) async fn start(
     opts: CliOpts,
     config: Config,
+    chain_config: ChainConfig,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    if config.chain.is_testnet() {
+    let chain_config = Arc::new(chain_config);
+    if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
 
@@ -165,7 +172,7 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
-    let chain_data_path = chain_path(&config);
+    let chain_data_path = chain_path(&chain_config.network, &config);
 
     // Try to migrate the database if needed. In case the migration fails, we fallback to creating a new database
     // to avoid breaking the node.
@@ -202,7 +209,8 @@ pub(super) async fn start(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory = crate::db::db_engine::db_root(&chain_path(&config))?;
+        let db_directory =
+            crate::db::db_engine::db_root(&chain_path(&chain_config.network, &config))?;
         let db = db.writer().clone();
         services.spawn(async {
             crate::metrics::init_prometheus(prometheus_listener, db_directory, db)
@@ -216,7 +224,7 @@ pub(super) async fn start(
     //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
+        chain_config.genesis_bytes(),
         &db,
     )
     .await?;
@@ -225,7 +233,7 @@ pub(super) async fn start(
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
         db.writer().clone(),
-        config.chain.clone(),
+        chain_config.clone(),
         genesis_header.clone(),
     )?);
 
@@ -235,8 +243,8 @@ pub(super) async fn start(
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
             db,
-            config.chain.policy.chain_finality,
-            config.chain.recent_state_roots,
+            chain_config.policy.chain_finality,
+            chain_config.recent_state_roots,
             get_tipset,
         ))
     };
@@ -255,7 +263,7 @@ pub(super) async fn start(
     let publisher = chain_store.publisher();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))?;
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&chain_config))?;
 
     let state_manager = Arc::new(sm);
 
@@ -264,6 +272,21 @@ pub(super) async fn start(
     info!("Using network :: {}", get_actual_chain_name(&network_name));
 
     let (tipset_sink, tipset_stream) = flume::bounded(20);
+
+    // if bootstrap peers are not set, set them
+    let config = if config.network.bootstrap_peers.is_empty() {
+        let bootstrap_peers = chain_config.bootstrap_peers.clone();
+
+        Config {
+            network: Libp2pConfig {
+                bootstrap_peers,
+                ..config.network
+            },
+            ..config
+        }
+    } else {
+        config
+    };
 
     if opts.exit_after_init {
         return Ok(());
@@ -376,6 +399,7 @@ pub(super) async fn start(
     if config.client.snapshot_path.is_none() {
         set_snapshot_path_if_needed(
             &mut config,
+            &chain_config,
             epoch,
             opts.auto_download_snapshot,
             &db_root_dir,
@@ -441,6 +465,7 @@ pub(super) async fn start(
 /// An [`Err`] should be considered fatal.
 async fn set_snapshot_path_if_needed(
     config: &mut Config,
+    chain_config: &ChainConfig,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
     download_directory: &Path,
@@ -453,10 +478,10 @@ async fn set_snapshot_path_if_needed(
     }
 
     let vendor = snapshot::TrustedVendor::default();
-    let chain = &config.chain.network;
+    let chain = &chain_config.network;
 
     // What height is our chain at right now, and what network version does that correspond to?
-    let network_version = config.chain.network_version(epoch);
+    let network_version = chain_config.network_version(epoch);
     let network_version_is_small = network_version < NetworkVersion::V16;
 
     // We don't support small network versions (we can't validate from e.g genesis).
@@ -476,7 +501,7 @@ async fn set_snapshot_path_if_needed(
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
             let (num_bytes, _path) =
-                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
+                crate::cli_shared::snapshot::peek(vendor, &chain_config.network)
                     .await
                     .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,

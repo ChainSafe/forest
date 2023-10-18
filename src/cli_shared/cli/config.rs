@@ -4,9 +4,8 @@
 use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
-use crate::networks::ChainConfig;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use super::client::Client;
 
@@ -45,7 +44,6 @@ pub struct Config {
     pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
-    pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
 }
 

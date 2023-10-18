@@ -7,6 +7,7 @@ use crate::cli_shared::{
     logger,
 };
 use crate::daemon::ipc_shmem_conf;
+use crate::networks::ChainConfig;
 use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context as _;
@@ -84,6 +85,7 @@ where
     let Cli { opts, cmd } = Cli::parse_from(args);
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
+    let chain_config = ChainConfig::from_chain(&opts.chain.clone().unwrap_or_default());
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the
     // subcommand.
@@ -103,7 +105,7 @@ where
         }
         check_for_unknown_keys(path.to_path_buf(), &cfg);
     } else {
-        info!("Using default {} config", cfg.chain.network);
+        info!("Using default {} config", chain_config.network);
     }
     if opts.dry_run {
         return Ok(());
@@ -132,7 +134,7 @@ where
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let ret = rt.block_on(super::start_interruptable(opts, cfg));
+            let ret = rt.block_on(super::start_interruptable(opts, cfg, chain_config));
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs_f32(0.5));
             info!("Forest finish shutdown");
