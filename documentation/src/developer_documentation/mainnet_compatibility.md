@@ -55,8 +55,17 @@ snapshots only contain stateroot data for the previous 2000 epochs. So, if you
 have a statediff at epoch X, download a snapshot for epoch X+100 and tell Forest
 to re-validate the snapshot from epoch X.
 
-For more detailed instructions, follow
-[this document](https://www.notion.so/chainsafe/Interop-debugging-6adabf9222d7449bbfeaacb1ec997cf8)
+Steps to print a state-diff:
+
+1. Note the epoch of the state-root mismatch. State-roots can only be checked
+   for the parents of a tipset so the failing epoch may be 1 higher than you
+   think.
+2. Download a recent snapshot dated _before_ the failing epoch.
+3. Import the snapshot into Lotus and sync to HEAD.
+4. Export a new snapshot 100 epochs _after_ the failing epoch.
+5. Convert the `.car.zst` file to `.forest.car.zst`.
+6. Use the `forest-tool` binary to print the state-diff:
+   `forest-tool archive diff {snapshot.forest.car.zst} --epoch {failing_epoch}`
 
 ## FVM Traces
 
@@ -67,3 +76,8 @@ mismatches.
 To confirm: the execution traces format is not uniform across implementations,
 so it takes a certain amount of elbow grease to find the differences. Lotus is
 capable of spitting this out in JSON for nice UX
+
+## Dated resources
+
+For more (but dated) information, see
+[this document.](https://www.notion.so/chainsafe/Interop-debugging-6adabf9222d7449bbfeaacb1ec997cf8)
