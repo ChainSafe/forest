@@ -95,6 +95,8 @@ pub enum ArchiveCommands {
         /// Selected epoch to validate.
         #[arg(long)]
         epoch: ChainEpoch,
+        // Depth of diffing. Differences in trees below this depth will just be
+        // shown as different branch IDs.
         #[arg(long)]
         depth: Option<u64>,
     },
