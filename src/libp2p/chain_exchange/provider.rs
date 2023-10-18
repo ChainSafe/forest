@@ -29,72 +29,64 @@ where
         };
     }
 
-    let root = match cs.tipset_from_keys(&TipsetKeys::from_iter(request.start.clone())) {
-        Ok(tipset) => tipset,
-        Err(err) => {
-            debug!("Failed to get tipset from keys: {err}");
-            if let crate::chain::store::Error::NotFound(_) = err {
-                return ChainExchangeResponse {
+    let inner = move || {
+        let root = match cs.tipset_from_keys(&TipsetKeys::from_iter(request.start.clone())) {
+            Ok(tipset) => tipset,
+            Err(crate::chain::store::Error::NotFound(_)) => {
+                return Ok(ChainExchangeResponse {
                     status: ChainExchangeResponseStatus::BlockNotFound,
                     chain: Default::default(),
                     message: "Start tipset was not found in the database".into(),
-                };
-            } else {
-                return ChainExchangeResponse {
-                    chain: vec![],
-                    status: ChainExchangeResponseStatus::InternalError,
-                    message: err.to_string(),
-                };
+                });
             }
-        }
-    };
+            Err(e) => {
+                debug!("Failed to get tipset from keys: {e}");
+                anyhow::bail!(e);
+            }
+        };
 
-    match cs
-        .chain_index
-        .chain(root)
-        .take(request.request_len as _)
-        .try_fold(
-            Vec::with_capacity(request.request_len as _),
-            |mut acc, tipset| {
-                let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-                if request.include_messages() {
-                    match compact_messages(cs.blockstore(), &tipset) {
-                        Ok(compacted_messages) => tipset_bundle.messages = Some(compacted_messages),
-                        Err(e) => {
-                            debug!("Cannot compact messages for tipset: {e}");
-                            return Err(ChainExchangeResponse {
-                                chain: Default::default(),
-                                status: ChainExchangeResponseStatus::InternalError,
-                                message: e.to_string(),
-                            });
-                        }
+        let chain = cs
+            .chain_index
+            .chain(root)
+            .take(request.request_len as _)
+            .try_fold(
+                Vec::with_capacity(request.request_len as _),
+                |mut acc, tipset| {
+                    let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
+                    if request.include_messages() {
+                        tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
                     }
-                }
 
-                if request.include_blocks() {
-                    // Cloning blocks isn't ideal, this can maybe be switched to serialize this
-                    // data in the function. This may not be possible without overriding rpc in
-                    // libp2p
-                    tipset_bundle.blocks = tipset.blocks().to_vec();
-                }
-                acc.push(tipset_bundle);
+                    if request.include_blocks() {
+                        // Cloning blocks isn't ideal, this can maybe be switched to serialize this
+                        // data in the function. This may not be possible without overriding rpc in
+                        // libp2p
+                        tipset_bundle.blocks = tipset.blocks().to_vec();
+                    }
+                    acc.push(tipset_bundle);
 
-                Ok(acc)
-            },
-        ) {
-        Err(e) => e,
-        Ok(chain) => {
-            let status = if request.request_len > chain.len() as u64 {
+                    anyhow::Ok(acc)
+                },
+            )?;
+
+        anyhow::Ok(ChainExchangeResponse {
+            status: if request.request_len > chain.len() as u64 {
                 ChainExchangeResponseStatus::PartialResponse
             } else {
                 ChainExchangeResponseStatus::Success
-            };
-            ChainExchangeResponse {
-                chain,
-                status,
-                message: "Success".into(),
-            }
-        }
+            },
+            chain,
+            message: "Success".into(),
+        })
+    };
+
+    match inner() {
+        Ok(r) => r,
+        Err(e) => ChainExchangeResponse {
+            chain: Default::default(),
+            status: ChainExchangeResponseStatus::InternalError,
+            message: e.to_string(),
+        },
     }
 }
 
