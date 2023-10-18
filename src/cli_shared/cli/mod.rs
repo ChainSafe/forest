@@ -163,7 +163,10 @@ impl CliOpts {
         };
 
         // override chain specific configurations
-        let chain = self.chain.clone().unwrap_or(cfg.chain.network.clone());
+        let chain = self
+            .chain
+            .clone()
+            .unwrap_or_else(|| cfg.chain.network.clone());
         cfg.chain = Arc::new(ChainConfig::from_chain(&chain));
         if cfg.network.bootstrap_peers.is_empty() {
             match chain {
