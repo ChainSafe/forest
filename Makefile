@@ -1,5 +1,3 @@
-VENDORED_DOCS_TOOLCHAIN := "nightly-2023-08-28"
-
 # Using https://github.com/tonistiigi/xx
 # Use in Docker images when cross-compiling.
 install-xx:
@@ -122,16 +120,10 @@ mdbook:
 mdbook-build:
 	mdbook build ./documentation
 
-
-# When you visit https://chainsafe.github.io/forest/rustdoc you get an index.html
-# listing all crates that are documented (which is then published in CI).
-# This isn't included by default, so we use a nightly toolchain, and the
-# (unstable) `--enable-index-page` option.
-# https://doc.rust-lang.org/nightly/rustdoc/unstable-features.html#--index-page-provide-a-top-level-landing-page-for-docs
-# We document private items to ensure internal documentation is up-to-date (i.e passes lints)
+# These are the docs that are hosted at https://chainsafe.github.io/forest/rustdoc/.
+# The root index.html simply redirects to the main `forest-filecoin` library documentation.
 vendored-docs:
-	rustup toolchain install $(VENDORED_DOCS_TOOLCHAIN)
-	RUSTDOCFLAGS="--deny=warnings --allow=rustdoc::private-intra-doc-links --document-private-items -Zunstable-options --enable-index-page" \
-		cargo +$(VENDORED_DOCS_TOOLCHAIN) doc --workspace --no-deps
+	cargo doc --document-private-items
+	cp ./build/vendored-docs-redirect.index.html target/doc/index.html
 
 .PHONY: $(MAKECMDGOALS)
