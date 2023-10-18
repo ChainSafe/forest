@@ -63,7 +63,8 @@ Steps to print a state-diff:
 2. Download a recent snapshot dated _before_ the failing epoch.
 3. Import the snapshot into Lotus and sync to HEAD.
 4. Export a new snapshot 100 epochs _after_ the failing epoch.
-5. Convert the `.car.zst` file to `.forest.car.zst`.
+5. Convert the `.car.zst` file to `.forest.car.zst` with:
+   `forest-tool snapshot compress {snapshot.car.zst}`
 6. Use the `forest-tool` binary to print the state-diff:
    `forest-tool archive diff {snapshot.forest.car.zst} --epoch {failing_epoch}`
 
