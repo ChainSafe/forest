@@ -55,7 +55,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         }
 
         let ts = Arc::new(
-            Tipset::load(&self.db, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?,
+            Tipset::load(&self.db, tsk)?.ok_or_else(|| Error::NotFound("Key for header".into()))?,
         );
         self.ts_cache.lock().put(tsk.clone(), ts.clone());
         metrics::LRU_CACHE_MISS

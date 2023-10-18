@@ -179,6 +179,8 @@ where
                 .require_obj::<TipsetKeys>(HEAD_KEY)
                 .expect("failed to load heaviest tipset"),
         )
+        .ok()
+        .flatten()
         .expect("failed to load heaviest tipset")
     }
 
@@ -194,11 +196,15 @@ where
 
     /// Returns Tipset from key-value store from provided CIDs
     #[tracing::instrument(skip_all)]
-    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Option<Arc<Tipset>>, Error> {
         if tsk.cids.is_empty() {
-            return Ok(self.heaviest_tipset());
+            return Ok(Some(self.heaviest_tipset()));
         }
-        self.chain_index.load_tipset(tsk)
+        match self.chain_index.load_tipset(tsk) {
+            Ok(ts) => Ok(Some(ts)),
+            Err(Error::NotFound(_)) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest

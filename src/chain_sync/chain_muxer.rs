@@ -207,7 +207,7 @@ where
         tipset_keys: TipsetKeys,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
-        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
+        if let Ok(Some(full_tipset)) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
             return Ok(full_tipset);
         }
         // Load from the network
@@ -220,25 +220,28 @@ where
     fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKeys,
-    ) -> Result<FullTipset, ChainMuxerError> {
+    ) -> Result<Option<FullTipset>, ChainMuxerError> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(&tipset_keys)?;
-        for header in ts.blocks() {
-            // Retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) =
-                crate::chain::block_messages(chain_store.blockstore(), header)?;
-            // Construct a full block
-            blocks.push(Block {
-                header: header.clone(),
-                bls_messages: bls_msgs,
-                secp_messages: secp_msgs,
-            });
-        }
+        if let Some(ts) = chain_store.tipset_from_keys(&tipset_keys)? {
+            for header in ts.blocks() {
+                // Retrieve bls and secp messages from specified BlockHeader
+                let (bls_msgs, secp_msgs) =
+                    crate::chain::block_messages(chain_store.blockstore(), header)?;
+                // Construct a full block
+                blocks.push(Block {
+                    header: header.clone(),
+                    bls_messages: bls_msgs,
+                    secp_messages: secp_msgs,
+                });
+            }
 
-        // Construct FullTipset
-        let fts = FullTipset::new(blocks)?;
-        Ok(fts)
+            // Construct FullTipset
+            let fts = FullTipset::new(blocks)?;
+            Ok(Some(fts))
+        } else {
+            Ok(None)
+        }
     }
 
     async fn handle_peer_connected_event(

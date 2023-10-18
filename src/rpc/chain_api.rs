@@ -69,7 +69,10 @@ where
         ))?;
     }
 
-    let head = data.chain_store.tipset_from_keys(&tsk)?;
+    let head = data
+        .chain_store
+        .tipset_from_keys(&tsk)?
+        .ok_or("Tipset not found")?;
     let start_ts =
         data.chain_store
             .chain_index
@@ -171,7 +174,11 @@ where
     DB: Blockstore,
 {
     let (height, tsk) = params;
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)?
+        .ok_or("Tipset not found")?;
     let tss = data
         .state_manager
         .chain_store()
@@ -223,7 +230,11 @@ pub(in crate::rpc) async fn chain_get_tipset<DB>(
 where
     DB: Blockstore,
 {
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)?
+        .ok_or("Tipset not found")?;
     Ok((*ts).clone().into())
 }
 
@@ -237,7 +248,11 @@ where
     DB: Blockstore,
 {
     let (params,) = params;
-    let new_head = data.state_manager.chain_store().tipset_from_keys(&params)?;
+    let new_head = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&params)?
+        .ok_or("Tipset not found")?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {
@@ -246,7 +261,11 @@ where
                 .unmark_block_as_validated(&cid);
         }
         let parents = current.blocks()[0].parents();
-        current = data.state_manager.chain_store().tipset_from_keys(parents)?;
+        current = data
+            .state_manager
+            .chain_store()
+            .tipset_from_keys(parents)?
+            .ok_or("Tipset not found")?;
     }
     data.state_manager
         .chain_store()
@@ -267,7 +286,11 @@ where
 
     for _ in 0..basefee_lookback {
         let parents = current.blocks()[0].parents();
-        current = data.state_manager.chain_store().tipset_from_keys(parents)?;
+        current = data
+            .state_manager
+            .chain_store()
+            .tipset_from_keys(parents)?
+            .ok_or("Tipset not found")?;
 
         min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee().to_owned());
     }

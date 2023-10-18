@@ -25,7 +25,11 @@ where
 {
     let (LotusJson(cid_vec),) = params;
     let tsk = TipsetKeys::from_iter(cid_vec);
-    let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let mut ts = data
+        .state_manager
+        .chain_store()
+        .tipset_from_keys(&tsk)?
+        .ok_or("Tipset not found")?;
 
     let (mut pending, mpts) = data.mpool.pending()?;
 
@@ -70,7 +74,8 @@ where
         ts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())?;
+            .tipset_from_keys(ts.parents())?
+            .ok_or("Tipset not found")?;
     }
     Ok(pending.into_iter().collect::<Vec<_>>().into())
 }

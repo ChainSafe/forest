@@ -100,8 +100,8 @@ pub enum TipsetRangeSyncerError {
     ResolvingAddressFromMessage(String),
     #[error("Generating Tipset from bundle failed: {0}")]
     GeneratingTipsetFromTipsetBundle(String),
-    #[error("Loading tipset parent from the store failed: {0}")]
-    TipsetParentNotFound(ChainStoreError),
+    #[error("Loading tipset parent from the store failed")]
+    TipsetParentNotFound,
     #[error("Consensus error: {0}")]
     ConsensusError(FilecoinConsensusError),
 }
@@ -831,7 +831,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             break;
         }
         // Attempt to load the parent tipset from local store
-        if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()) {
+        if let Ok(Some(tipset)) = chain_store.tipset_from_keys(oldest_parent.parents()) {
             parent_blocks.extend(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
@@ -870,7 +870,9 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
-        let mut potential_common_ancestor = chain_store.tipset_from_keys(current_head.parents())?;
+        let mut potential_common_ancestor = chain_store
+            .tipset_from_keys(current_head.parents())?
+            .ok_or(TipsetRangeSyncerError::TipsetParentNotFound)?;
         let mut i = 0;
         let mut fork_length = 1;
         while i < fork_tipsets.len() {
@@ -905,8 +907,9 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
                 if i == (fork_tipsets.len() - 1) {
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
                 }
-                potential_common_ancestor =
-                    chain_store.tipset_from_keys(potential_common_ancestor.parents())?;
+                potential_common_ancestor = chain_store
+                    .tipset_from_keys(potential_common_ancestor.parents())?
+                    .ok_or(TipsetRangeSyncerError::TipsetParentNotFound)?;
             }
         }
     }
@@ -1119,7 +1122,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
                 if let InvalidBlockStrategy::Strict = invalid_block_strategy {
                     match &why {
                         TipsetRangeSyncerError::TimeTravellingBlock(_, _)
-                        | TipsetRangeSyncerError::TipsetParentNotFound(_) => (),
+                        | TipsetRangeSyncerError::TipsetParentNotFound => (),
                         why => {
                             bad_block_cache.put(cid, why.to_string());
                         }
@@ -1186,12 +1189,8 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         // have been committed to the store. When validate_block is called from sync_tipset
         // this guarantee does not exist, so we create a specific error to inform the caller
         // not to add this block to the bad blocks cache.
-        .map_err(|why| {
-            (
-                *block_cid,
-                TipsetRangeSyncerError::TipsetParentNotFound(why),
-            )
-        })?;
+        .map_err(|e| (*block_cid, TipsetRangeSyncerError::ChainStore(e)))?
+        .ok_or((*block_cid, TipsetRangeSyncerError::TipsetParentNotFound))?;
 
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
