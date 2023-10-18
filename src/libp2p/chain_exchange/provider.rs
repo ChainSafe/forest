@@ -57,9 +57,6 @@ where
                 }
 
                 if request.include_blocks() {
-                    // Cloning blocks isn't ideal, this can maybe be switched to serialize this
-                    // data in the function. This may not be possible without overriding rpc in
-                    // libp2p
                     tipset_bundle.blocks = tipset.blocks().to_vec();
                 }
 
