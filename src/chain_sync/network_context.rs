@@ -10,7 +10,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::blocks::{FullTipset, Tipset, TipsetKeys};
 use crate::libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -19,6 +18,10 @@ use crate::libp2p::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
+};
+use crate::{
+    blocks::{FullTipset, Tipset, TipsetKeys},
+    libp2p::chain_exchange::ChainExchangeResponseStatus,
 };
 use anyhow::Context as _;
 use cid::Cid;
@@ -348,12 +351,19 @@ where
             .duration_since(req_pre_time)
             .unwrap_or_default();
         match res {
-            Ok(Ok(Ok(bs_res))) => {
-                // Successful response
-                peer_manager.log_success(peer_id, res_duration).await;
-                debug!("Succeeded: ChainExchange Request to {peer_id}");
-                Ok(bs_res)
-            }
+            Ok(Ok(Ok(bs_res))) => match bs_res.status {
+                ChainExchangeResponseStatus::Success
+                | ChainExchangeResponseStatus::PartialResponse => {
+                    peer_manager.log_success(peer_id, res_duration).await;
+                    debug!("Succeeded: ChainExchange Request to {peer_id}");
+                    Ok(bs_res)
+                }
+                _ => {
+                    peer_manager.log_failure(peer_id, res_duration).await;
+                    debug!("Failed: ChainExchange Request to {peer_id}");
+                    Err(format!("{:?}: {}", bs_res.status, bs_res.message))
+                }
+            },
             Ok(Ok(Err(e))) => {
                 // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
