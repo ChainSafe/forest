@@ -87,7 +87,7 @@ async fn get_actor_sequence(
     let address = message.from;
     let get_actor_result = state_get_actor(
         (address.to_owned().into(), tipset.key().to_owned().into()),
-        &rpc_token,
+        rpc_token,
     )
     .await;
 
