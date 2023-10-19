@@ -32,7 +32,7 @@ function cov {
 
 MODE=${1:-""}
 
-if [ "$MODE" != "quick" ]
+if [[ "$MODE" != "quick" ]]
 then
   cargo llvm-cov --workspace --no-report
 fi
