@@ -3,7 +3,6 @@
 
 use std::path::PathBuf;
 
-use crate::db::db_engine::{db_root, open_db};
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
