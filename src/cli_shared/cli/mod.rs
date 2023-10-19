@@ -49,9 +49,9 @@ pub struct CliOpts {
     /// Allow RPC to be active or not (default: true)
     #[arg(short, long)]
     pub rpc: Option<bool>,
-    /// Allow Metrics endpoint to be active or not (default: true)
+    /// Disable Metrics endpoint
     #[arg(short, long)]
-    pub metrics: Option<bool>,
+    pub no_metrics: bool,
     /// Client JWT token to use for JSON-RPC authentication
     #[arg(short, long)]
     pub token: Option<String>,
@@ -190,13 +190,13 @@ impl CliOpts {
             cfg.client.enable_rpc = false;
         }
 
-        if self.metrics.unwrap_or(cfg.client.enable_metrics_endpoint) {
+        if self.no_metrics {
+            cfg.client.enable_metrics_endpoint = false;
+        } else {
             cfg.client.enable_metrics_endpoint = true;
             if let Some(metrics_address) = self.metrics_address {
                 cfg.client.metrics_address = metrics_address;
             }
-        } else {
-            cfg.client.enable_metrics_endpoint = false;
         }
 
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
