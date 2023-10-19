@@ -148,10 +148,10 @@ services:
       - |
         set -euxo pipefail
         if [ ! -f ${FOREST_DATA_DIR}/forest_config.toml ]; then
-          export NETWORK_NAME=$$(grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json)
           cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
-          echo name = $$NETWORK_NAME >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
+        export NETWORK_NAME=$$(grep -o \"localnet.*\" ${LOTUS_DATA_DIR}/localnet.json)
+        echo "network name: ${NETWORK_NAME}"
         forest --genesis ${LOTUS_DATA_DIR}/devgen.car --chain "${NETWORK_NAME}" --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
