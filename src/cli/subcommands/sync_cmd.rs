@@ -7,12 +7,12 @@ use std::{
 };
 
 use crate::rpc_client::*;
+use crate::Client;
 use crate::{chain_sync::SyncStage, lotus_json::LotusJson};
 use cid::Cid;
 use clap::Subcommand;
 use ticker::Ticker;
 
-use super::Config;
 use crate::cli::subcommands::{format_vec_pretty, handle_rpc_err};
 
 #[derive(Debug, Subcommand)]
@@ -40,14 +40,14 @@ pub enum SyncCommands {
 }
 
 impl SyncCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, client: Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = sync_status((), &config.client.rpc_token)
+                    let response = sync_status((), &client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
                     let state = &response.active_syncs[0];
@@ -94,7 +94,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let response = sync_status((), &config.client.rpc_token)
+                let response = sync_status((), &client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
@@ -133,7 +133,7 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                let response = sync_check_bad((LotusJson(cid),), &config.client.rpc_token)
+                let response = sync_check_bad((LotusJson(cid),), &client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
@@ -146,7 +146,7 @@ impl SyncCommands {
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                sync_mark_bad((LotusJson(cid),), &config.client.rpc_token)
+                sync_mark_bad((LotusJson(cid),), &client.rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("OK");

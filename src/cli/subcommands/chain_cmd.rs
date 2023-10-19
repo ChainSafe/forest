@@ -4,6 +4,7 @@
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::chain_ops::*;
+use crate::Client;
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
@@ -56,20 +57,18 @@ pub enum ChainCommands {
 }
 
 impl ChainCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, client: Client) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => {
-                print_rpc_res_pretty(chain_get_block((cid.into(),), &config.client.rpc_token).await)
+                print_rpc_res_pretty(chain_get_block((cid.into(),), &client.rpc_token).await)
             }
-            Self::Genesis => {
-                print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
+            Self::Genesis => print_rpc_res_pretty(chain_get_genesis(&client.rpc_token).await),
+            Self::Head => print_rpc_res_cids(chain_head(&client.rpc_token).await),
+            Self::Message { cid } => {
+                print_rpc_res_pretty(chain_get_message((cid.into(),), &client.rpc_token).await)
             }
-            Self::Head => print_rpc_res_cids(chain_head(&config.client.rpc_token).await),
-            Self::Message { cid } => print_rpc_res_pretty(
-                chain_get_message((cid.into(),), &config.client.rpc_token).await,
-            ),
             Self::ReadObj { cid } => {
-                print_rpc_res(chain_read_obj((cid.into(),), &config.client.rpc_token).await)
+                print_rpc_res(chain_read_obj((cid.into(),), &client.rpc_token).await)
             }
             Self::SetHead {
                 cids,
@@ -78,12 +77,9 @@ impl ChainCommands {
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
-                tipset_by_epoch_or_offset(epoch, &config.client.rpc_token)
+                tipset_by_epoch_or_offset(epoch, &client.rpc_token)
                     .and_then(|tipset_json| {
-                        chain_set_head(
-                            (tipset_json.into_inner().key().clone(),),
-                            &config.client.rpc_token,
-                        )
+                        chain_set_head((tipset_json.into_inner().key().clone(),), &client.rpc_token)
                     })
                     .await
                     .map_err(handle_rpc_err)
@@ -94,12 +90,9 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                chain_set_head(
-                    (TipsetKeys::from_iter(cids.clone()),),
-                    &config.client.rpc_token,
-                )
-                .await
-                .map_err(handle_rpc_err)
+                chain_set_head((TipsetKeys::from_iter(cids.clone()),), &client.rpc_token)
+                    .await
+                    .map_err(handle_rpc_err)
             }
         }
     }

@@ -8,6 +8,7 @@ use crate::rpc_client::{
     wallet_default_address,
 };
 use crate::shim::econ::TokenAmount;
+use crate::Client;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
 
@@ -16,7 +17,6 @@ use humantime::format_duration;
 use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::Config;
 use crate::cli::humantoken::TokenAmountPretty;
 use crate::cli::subcommands::handle_rpc_err;
 
@@ -160,13 +160,13 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, client: Client) -> anyhow::Result<()> {
         let res = tokio::try_join!(
-            node_status((), &config.client.rpc_token),
-            chain_head(&config.client.rpc_token),
-            state_network_name((), &config.client.rpc_token),
-            start_time(&config.client.rpc_token),
-            wallet_default_address((), &config.client.rpc_token)
+            node_status((), &client.rpc_token),
+            chain_head(&client.rpc_token),
+            state_network_name((), &client.rpc_token),
+            start_time(&client.rpc_token),
+            wallet_default_address((), &client.rpc_token)
         );
 
         match res {
@@ -177,7 +177,7 @@ impl InfoCommand {
 
                 let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
                 {
-                    let balance = wallet_balance((def_addr.clone(),), &config.client.rpc_token)
+                    let balance = wallet_balance((def_addr.clone(),), &client.rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
                     Some(balance)

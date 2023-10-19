@@ -3,10 +3,10 @@
 
 use std::sync::Arc;
 
-use crate::cli_shared::cli::Config;
 use crate::rpc_api::progress_api::GetProgressType;
 use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
 use crate::utils::io::ProgressBar;
+use crate::Client;
 use chrono::Utc;
 use clap::Subcommand;
 
@@ -28,7 +28,7 @@ pub enum DBCommands {
 }
 
 impl DBCommands {
-    pub async fn run(self, config: &Config) -> anyhow::Result<()> {
+    pub async fn run(self, client: Client) -> anyhow::Result<()> {
         match self {
             Self::Stats => bail_moved_cmd("db stats", "forest-tool db stats"),
             Self::GC => {
@@ -61,9 +61,7 @@ impl DBCommands {
                     }
                 });
 
-                db_gc((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                db_gc((), &client.rpc_token).await.map_err(handle_rpc_err)?;
 
                 bar.lock().await.finish_println(&format!(
                     "Database garbage collection completed. took {}s",
