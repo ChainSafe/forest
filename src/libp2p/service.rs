@@ -33,7 +33,7 @@ use libp2p::{
     multiaddr::Protocol,
     noise, ping,
     request_response::{self, RequestId, ResponseChannel},
-    swarm::{SwarmBuilder, SwarmEvent},
+    swarm::{self, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
 use tokio_stream::wrappers::IntervalStream;
@@ -209,15 +209,15 @@ where
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
-        let mut swarm = SwarmBuilder::with_tokio_executor(
+        let mut swarm = Swarm::new(
             transport,
             ForestBehaviour::new(&net_keypair, &config, network_name)?,
             peer_id,
-        )
-        .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
-        .per_connection_event_buffer_size(64)
-        .idle_connection_timeout(Duration::from_secs(60 * 10))
-        .build();
+            swarm::Config::with_tokio_executor()
+                .with_notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
+                .with_per_connection_event_buffer_size(64)
+                .with_idle_connection_timeout(Duration::from_secs(60 * 10)),
+        );
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
@@ -873,7 +873,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 /// has all above protocols enabled.
 pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
     let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
-    let build_dns_tcp = || libp2p::dns::TokioDnsConfig::system(build_tcp());
+    let build_dns_tcp = || libp2p::dns::tokio::Transport::system(build_tcp());
     let transport = build_dns_tcp()?;
 
     let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;

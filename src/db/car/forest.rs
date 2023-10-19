@@ -116,15 +116,18 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         let mut footer_buffer = [0; ForestCarFooter::SIZE];
         cursor.read_exact(&mut footer_buffer)?;
 
-        let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or(invalid_data(
-            format!("not recognizable as a `{}` file", FOREST_CAR_FILE_EXTENSION),
-        ))?;
+        let footer = ForestCarFooter::try_from_le_bytes(footer_buffer).ok_or_else(|| {
+            invalid_data(format!(
+                "not recognizable as a `{}` file",
+                FOREST_CAR_FILE_EXTENSION
+            ))
+        })?;
 
         let cursor = Cursor::new_pos(&reader, 0);
         let mut header_zstd_frame = decode_zstd_single_frame(cursor)?;
         let block_frame = UviBytes::<Bytes>::default()
             .decode(&mut header_zstd_frame)?
-            .ok_or(invalid_data("malformed uvibytes"))?;
+            .ok_or_else(|| invalid_data("malformed uvibytes"))?;
         let header = from_slice_with_fallback::<CarHeader>(&block_frame)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
