@@ -152,7 +152,7 @@ services:
           cp /forest/forest_config.toml.tpl ${FOREST_DATA_DIR}/forest_config.toml
           echo name = $$NETWORK_NAME >> ${FOREST_DATA_DIR}/forest_config.toml
         fi
-        forest --genesis ${LOTUS_DATA_DIR}/devgen.car --chain devnet --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        forest --genesis ${LOTUS_DATA_DIR}/devgen.car --chain "${NETWORK_NAME}" --config ${FOREST_DATA_DIR}/forest_config.toml --save-token ${FOREST_DATA_DIR}/token.jwt --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
 
   # At the moment of writing, Forest was not able to connect to a devnet node using its config.
   # This is a workaround to force the connection.
