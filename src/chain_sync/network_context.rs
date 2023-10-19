@@ -380,7 +380,15 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 peer_manager.log_success(peer_id, res_duration).await;
-                debug!("Succeeded: ChainExchange Request to {peer_id}");
+                if matches!(
+                    bs_res.status,
+                    ChainExchangeResponseStatus::Success
+                        | ChainExchangeResponseStatus::PartialResponse
+                ) {
+                    debug!("Succeeded: got non-empty ChainExchange response from {peer_id}");
+                } else {
+                    debug!("Succeeded: got empty ChainExchange response from {peer_id}");
+                }
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {

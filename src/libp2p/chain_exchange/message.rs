@@ -24,7 +24,7 @@ pub const MESSAGES: u64 = 0b10;
 pub struct ChainExchangeRequest {
     /// The tipset [Cid] to start the request from.
     pub start: Vec<Cid>,
-    /// The amount of epochs to request.
+    /// The amount of tipsets to request.
     pub request_len: u64,
     /// 1 for Block only, 2 for Messages only, 3 for Blocks and Messages.
     pub options: u64,
@@ -40,6 +40,11 @@ impl ChainExchangeRequest {
     /// block.
     pub fn include_messages(&self) -> bool {
         self.options & MESSAGES > 0
+    }
+
+    /// If the value of `options` is valid
+    pub fn is_options_valid(&self) -> bool {
+        self.include_blocks() || self.include_messages()
     }
 }
 
