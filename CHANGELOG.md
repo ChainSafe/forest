@@ -32,6 +32,8 @@
 - [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
   `forest-tool car validate` command for checking non-filecoin invariants in CAR
   files.
+- [#3589](https://github.com/ChainSafe/forest/pull/3589) Add
+  `forest-tool archive diff` command for debugging state-root mismatches.
 
 ### Changed
 
@@ -40,6 +42,9 @@
   RPC endpoint.
 
 ### Removed
+
+- [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove
+  `forest-cli state diff` command. Replaced by `forest-tool archive diff`.
 
 ### Fixed
 

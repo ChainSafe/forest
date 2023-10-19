@@ -374,10 +374,14 @@ where
     Id: AsRef<str>,
 {
     fn fetch(&mut self, id: &Id) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
+        fn id_not_found_error(id: impl AsRef<str>) -> Box<dyn std::fmt::Debug> {
+            Box::new(format!("{} not in cache", id.as_ref()))
+        }
+
         self.map
             .get(Utf8Path::new(&id))
             .map(|SourceFile { linewise, .. }| linewise)
-            .ok_or(Box::new(format!("{} not in cache", id.as_ref())))
+            .ok_or_else(|| id_not_found_error(id))
     }
 
     fn display<'a>(&self, id: &'a Id) -> Option<Box<dyn std::fmt::Display + 'a>> {

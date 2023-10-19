@@ -91,8 +91,14 @@ fn try_print_actor_states<BS: Blockstore>(
             if &other != actor {
                 let comma = ",";
                 let expected_pp = pp_actor_state(bs, &other, depth)?;
-                let expected = expected_pp.split(comma).collect::<Vec<&str>>();
-                let calculated = calc_pp.split(comma).collect::<Vec<&str>>();
+                let expected = expected_pp
+                    .split(comma)
+                    .map(|s| s.trim_start_matches('\n'))
+                    .collect::<Vec<&str>>();
+                let calculated = calc_pp
+                    .split(comma)
+                    .map(|s| s.trim_start_matches('\n'))
+                    .collect::<Vec<&str>>();
                 let diffs = TextDiff::from_slices(&expected, &calculated);
                 let stdout = stdout();
                 let mut handle = stdout.lock();
@@ -199,7 +205,6 @@ pub fn print_state_diff<BS>(
 where
     BS: Blockstore,
 {
-    eprintln!("StateDiff:\n  Expected: {expected_root}\n  Root: {root}");
     if let Err(e) = try_print_actor_states(bs, root, expected_root, depth) {
         println!("Could not resolve actor states: {e}\nUsing default resolution:");
         let expected = resolve_cids_recursive(bs, expected_root, depth)?;
