@@ -42,7 +42,7 @@ impl MigrationOperation for Migration0_14_0_0_14_1 {
     }
 
     fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-        let source_db = chain_data_path.join("0.13.0");
+        let source_db = chain_data_path.join("0.14.0");
 
         let db_paths: Vec<PathBuf> = source_db
             .read_dir()?
