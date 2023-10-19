@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_client::shutdown;
-use crate::Client;
 
 use super::handle_rpc_err;
 use crate::cli::subcommands::prompt_confirm;
@@ -15,15 +14,13 @@ pub struct ShutdownCommand {
 }
 
 impl ShutdownCommand {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         println!("Shutting down Forest node");
         if !self.force && !prompt_confirm() {
             println!("Aborted.");
             return Ok(());
         }
-        shutdown((), &client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+        shutdown((), &rpc_token).await.map_err(handle_rpc_err)?;
         Ok(())
     }
 }

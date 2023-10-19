@@ -4,7 +4,6 @@
 use crate::auth::*;
 use crate::rpc_api::auth_api::AuthNewParams;
 use crate::rpc_client::{auth_new, API_INFO};
-use crate::Client;
 use chrono::Duration;
 use clap::Subcommand;
 use jsonrpc_v2::Error as JsonRpcError;
@@ -28,6 +27,9 @@ pub enum AuthCommands {
         /// permission to assign the token, one of: read, write, sign, admin
         #[arg(short, long)]
         perm: String,
+        /// Token is revoked after this duration
+        #[arg(long, default_value_t = humantime::Duration::from_str("2 months").expect("infallible"))]
+        expire_in: humantime::Duration,
     },
 }
 
@@ -45,24 +47,21 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         match self {
-            Self::CreateToken {
-                perm,
-                expire_in: expiration,
-            } => {
+            Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm).map_err(handle_rpc_err)?;
-                let token_exp = Duration::from_std(expiration.into())?;
+                let token_exp = Duration::from_std(expire_in.into())?;
                 let auth_params = AuthNewParams { perms, token_exp };
-                print_rpc_res_bytes(auth_new(auth_params, &client.rpc_token).await)
+                print_rpc_res_bytes(auth_new(auth_params, &rpc_token).await)
             }
-            Self::ApiInfo { perm } => {
+            Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm).map_err(handle_rpc_err)?;
-                let token_exp = client.token_exp;
+                let token_exp = Duration::from_std(expire_in.into())?;
                 let auth_params = AuthNewParams { perms, token_exp };
-                let token = auth_new(auth_params, &client.rpc_token)
+                let token = auth_new(auth_params, &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 let addr = API_INFO.multiaddr.to_owned();

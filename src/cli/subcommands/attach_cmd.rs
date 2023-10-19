@@ -14,7 +14,6 @@ use crate::rpc_api::mpool_api::MpoolPushMessageResult;
 use crate::rpc_client::node_ops::node_status;
 use crate::rpc_client::*;
 use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
-use crate::Client;
 use boa_engine::{
     object::{builtins::JsArray, FunctionObjectBuilder},
     prelude::JsObject,
@@ -358,9 +357,9 @@ impl AttachCommand {
         Ok(())
     }
 
-    pub fn run(self, client: Client) -> anyhow::Result<()> {
+    pub fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         let mut context = Context::default();
-        self.setup_context(&mut context, &client.rpc_token);
+        self.setup_context(&mut context, &rpc_token);
 
         self.import_prelude(&mut context)?;
 

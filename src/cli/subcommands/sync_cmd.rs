@@ -7,7 +7,6 @@ use std::{
 };
 
 use crate::rpc_client::*;
-use crate::Client;
 use crate::{chain_sync::SyncStage, lotus_json::LotusJson};
 use cid::Cid;
 use clap::Subcommand;
@@ -40,16 +39,14 @@ pub enum SyncCommands {
 }
 
 impl SyncCommands {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = sync_status((), &client.rpc_token)
-                        .await
-                        .map_err(handle_rpc_err)?;
+                    let response = sync_status((), &rpc_token).await.map_err(handle_rpc_err)?;
                     let state = &response.active_syncs[0];
 
                     let target_height = if let Some(tipset) = state.target() {
@@ -94,9 +91,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let response = sync_status((), &client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let response = sync_status((), &rpc_token).await.map_err(handle_rpc_err)?;
 
                 let state = &response.active_syncs[0];
                 let base = state.base();
@@ -133,7 +128,7 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                let response = sync_check_bad((LotusJson(cid),), &client.rpc_token)
+                let response = sync_check_bad((LotusJson(cid),), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
@@ -146,7 +141,7 @@ impl SyncCommands {
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                sync_mark_bad((LotusJson(cid),), &client.rpc_token)
+                sync_mark_bad((LotusJson(cid),), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("OK");

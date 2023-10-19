@@ -10,7 +10,6 @@ use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
 use crate::shim::{address::Address, econ::TokenAmount};
-use crate::Client;
 
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
@@ -83,12 +82,12 @@ fn filter_messages(
 async fn get_actor_sequence(
     message: &Message,
     tipset: &Arc<Tipset>,
-    client: &Client,
+    rpc_token: &Option<String>,
 ) -> Option<u64> {
     let address = message.from;
     let get_actor_result = state_get_actor(
         (address.to_owned().into(), tipset.key().to_owned().into()),
-        &client.rpc_token,
+        &rpc_token,
     )
     .await;
 
@@ -221,7 +220,7 @@ fn print_stats(stats: &[MpStat], basefee_lookback: u32) {
 }
 
 impl MpoolCommands {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         match self {
             Self::Pending {
                 local,
@@ -229,12 +228,12 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = mpool_pending((LotusJson(vec![]),), &client.rpc_token)
+                let messages = mpool_pending((LotusJson(vec![]),), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
-                    let response = wallet_list((), &client.rpc_token)
+                    let response = wallet_list((), &rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                         .into_inner();
@@ -263,23 +262,23 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = chain_head(&client.rpc_token)
+                let tipset = chain_head(&rpc_token)
                     .await
                     .map(|LotusJson(tipset)| Arc::new(tipset))
                     .map_err(handle_rpc_err)?;
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
 
-                let atto_str = chain_get_min_base_fee((basefee_lookback,), &client.rpc_token)
+                let atto_str = chain_get_min_base_fee((basefee_lookback,), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = mpool_pending((LotusJson(vec![]),), &client.rpc_token)
+                let messages = mpool_pending((LotusJson(vec![]),), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
-                    let response = wallet_list((), &client.rpc_token)
+                    let response = wallet_list((), &rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                         .into_inner();
@@ -296,7 +295,7 @@ impl MpoolCommands {
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
-                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &client).await {
+                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &rpc_token).await {
                         actor_sequences.insert(msg.from, sequence);
                     }
                 }

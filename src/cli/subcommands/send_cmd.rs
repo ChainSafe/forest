@@ -8,7 +8,6 @@ use crate::rpc_client::{mpool_push_message, wallet_default_address};
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::{Message, METHOD_SEND};
-use crate::Client;
 use num::Zero as _;
 
 use super::handle_rpc_err;
@@ -33,12 +32,12 @@ pub struct SendCommand {
 }
 
 impl SendCommand {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         let from: Address = if let Some(from) = &self.from {
             StrictAddress::from_str(from)?.into()
         } else {
             Address::from_str(
-                &wallet_default_address((), &client.rpc_token)
+                &wallet_default_address((), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?
                     .ok_or_else(|| {
@@ -61,7 +60,7 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = mpool_push_message((LotusJson(message), None), &client.rpc_token)
+        let signed_msg = mpool_push_message((LotusJson(message), None), &rpc_token)
             .await
             .map_err(handle_rpc_err)?
             .into_inner();

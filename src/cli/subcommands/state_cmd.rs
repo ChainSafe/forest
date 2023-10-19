@@ -7,7 +7,6 @@ use crate::lotus_json::LotusJson;
 use crate::rpc_client::state_ops::state_fetch_root;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
-use crate::Client;
 use cid::Cid;
 use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
@@ -36,12 +35,12 @@ pub enum StateCommands {
 }
 
 impl StateCommands {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         match self {
             Self::Fetch { root, save_to_file } => {
                 println!(
                     "{}",
-                    state_fetch_root((LotusJson(root), save_to_file), &client.rpc_token)
+                    state_fetch_root((LotusJson(root), save_to_file), &rpc_token)
                         .await
                         .map_err(handle_rpc_err)?
                 );

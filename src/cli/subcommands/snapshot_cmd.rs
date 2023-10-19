@@ -8,7 +8,6 @@ use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::{chain_ops::*, state_network_name};
 use crate::utils::bail_moved_cmd;
-use crate::Client;
 use anyhow::Context as _;
 use chrono::Utc;
 use clap::Subcommand;
@@ -76,7 +75,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, client: Client) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -85,14 +84,14 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = match chain_head(&client.rpc_token).await {
+                let chain_head = match chain_head(&rpc_token).await {
                     Ok(LotusJson(head)) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let chain_name = state_network_name((), &client.rpc_token)
+                let chain_name = state_network_name((), &rpc_token)
                     .await
                     .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
                     .map_err(handle_rpc_err)?;
@@ -147,7 +146,7 @@ impl SnapshotCommands {
                     }
                 });
 
-                let hash_result = chain_export(params, &client.rpc_token)
+                let hash_result = chain_export(params, &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 
