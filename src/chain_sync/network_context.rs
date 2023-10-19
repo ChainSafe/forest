@@ -378,19 +378,11 @@ where
             .duration_since(req_pre_time)
             .unwrap_or_default();
         match res {
-            Ok(Ok(Ok(bs_res))) => match bs_res.status {
-                ChainExchangeResponseStatus::Success
-                | ChainExchangeResponseStatus::PartialResponse => {
-                    peer_manager.log_success(peer_id, res_duration).await;
-                    debug!("Succeeded: ChainExchange Request to {peer_id}");
-                    Ok(bs_res)
-                }
-                _ => {
-                    peer_manager.log_failure(peer_id, res_duration).await;
-                    debug!("Failed: ChainExchange Request to {peer_id}");
-                    Err(format!("{:?}: {}", bs_res.status, bs_res.message))
-                }
-            },
+            Ok(Ok(Ok(bs_res))) => {
+                peer_manager.log_success(peer_id, res_duration).await;
+                debug!("Succeeded: ChainExchange Request to {peer_id}");
+                Ok(bs_res)
+            }
             Ok(Ok(Err(e))) => {
                 // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
