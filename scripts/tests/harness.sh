@@ -51,11 +51,14 @@ function forest_run_node_stateless_detached {
   CONFIG_PATH="./stateless_forest_config.toml"
   echo "${CONFIG_PATH}"
   echo "Running forest in stateless and detached mode"
-  echo "[client]" > $CONFIG_PATH
-  echo "data_dir = \"/tmp/stateless_forest_data\"" >> $CONFIG_PATH
-  echo "" >> $CONFIG_PATH
-  echo "[network]" >> $CONFIG_PATH
-  echo "listening_multiaddrs = [\"/ip4/127.0.0.1/tcp/0\"]" >> $CONFIG_PATH
+  {
+    echo "[client]"
+    echo "data_dir = \"/tmp/stateless_forest_data\""
+    echo ""
+    echo "[network]"
+    echo "listening_multiaddrs = [\"/ip4/127.0.0.1/tcp/0\"]"
+  } > $CONFIG_PATH
+  
   $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --no-gc --stateless
 }
 
@@ -82,8 +85,11 @@ function forest_init {
 function forest_init_stateless {
   forest_run_node_stateless_detached
 
-  export ADMIN_TOKEN=$(cat stateless_admin_token)
-  export FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
+  ADMIN_TOKEN=$(cat stateless_admin_token)
+  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
+
+  export ADMIN_TOKEN
+  export FULLNODE_API_INFO
 
   wait_util_rpc_is_ready
 }
@@ -117,7 +123,7 @@ function wait_util_rpc_is_ready {
 }
 
 function wait_util_p2p_is_ready {
-  until $($FOREST_CLI_PATH net listen); do
+  until $FOREST_CLI_PATH net listen; do
       echo "Libp2p listen address is unavailable - sleeping for 1s"
       sleep 1s
   done
