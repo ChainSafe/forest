@@ -2983,6 +2983,7 @@ dependencies = [
  "memmap2 0.9.0",
  "memory-stats",
  "mimalloc",
+ "multiaddr",
  "multimap",
  "nom",
  "nonempty",

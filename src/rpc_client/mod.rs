@@ -14,6 +14,7 @@ pub mod sync_ops;
 pub mod wallet_ops;
 
 use std::env;
+use std::str::FromStr;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::utils::net::global_http_client;
@@ -34,9 +35,59 @@ pub use self::{
     wallet_ops::*,
 };
 
+#[derive(Clone, Debug)]
 pub struct ApiInfo {
     pub multiaddr: Multiaddr,
     pub token: Option<String>,
+}
+
+impl FromStr for ApiInfo {
+    type Err = multiaddr::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (multiaddr, token) = match s.split_once(':') {
+            // token:host
+            Some((jwt, host)) => (host.parse()?, Some(jwt.to_owned())),
+            // host
+            None => (s.parse()?, None),
+        };
+
+        Ok(ApiInfo { multiaddr, token })
+    }
+}
+
+impl ApiInfo {
+    /// Utility method for sending RPC requests over HTTP
+    async fn call<P, R>(&self, method_name: &str, params: P) -> Result<R, Error>
+    where
+        P: Serialize,
+        R: DeserializeOwned,
+    {
+        let rpc_req = RequestObject::request()
+            .with_method(method_name)
+            .with_params(serde_json::to_value(params)?)
+            .finish();
+
+        let api_url = multiaddress_to_url(self.multiaddr.to_owned());
+
+        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
+
+        let request = global_http_client().post(api_url).json(&rpc_req);
+        let request = match self.token.as_ref() {
+            Some(token) => request.header(http::header::AUTHORIZATION, token),
+            _ => request,
+        };
+
+        let rpc_res = request.send().await?.error_for_status()?.json().await?;
+
+        match rpc_res {
+            JsonRpcResponse::Result { result, .. } => Ok(result),
+            JsonRpcResponse::Error { error, .. } => Err(Error::Full {
+                data: None,
+                code: error.code,
+                message: error.message,
+            }),
+        }
+    }
 }
 
 pub static API_INFO: Lazy<ApiInfo> = Lazy::new(|| {
@@ -144,29 +195,10 @@ where
     P: Serialize,
     R: DeserializeOwned,
 {
-    let rpc_req = RequestObject::request()
-        .with_method(method_name)
-        .with_params(serde_json::to_value(params)?)
-        .finish();
-
-    let api_url = multiaddress_to_url(API_INFO.multiaddr.to_owned());
-
-    debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
-
-    let request = global_http_client().post(api_url).json(&rpc_req);
-    let request = match (API_INFO.token.as_ref(), token) {
-        (Some(token), _) | (_, Some(token)) => request.header(http::header::AUTHORIZATION, token),
-        _ => request,
-    };
-
-    let rpc_res = request.send().await?.error_for_status()?.json().await?;
-
-    match rpc_res {
-        JsonRpcResponse::Result { result, .. } => Ok(result),
-        JsonRpcResponse::Error { error, .. } => Err(Error::Full {
-            data: None,
-            code: error.code,
-            message: error.message,
-        }),
+    ApiInfo {
+        token: API_INFO.token.clone().or(token.clone()),
+        ..API_INFO.clone()
     }
+    .call(method_name, params)
+    .await
 }
