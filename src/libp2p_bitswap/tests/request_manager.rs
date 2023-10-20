@@ -17,7 +17,7 @@ mod tests {
         identity::Keypair,
         multiaddr::Protocol,
         noise,
-        swarm::{SwarmBuilder, SwarmEvent},
+        swarm::{self, SwarmEvent},
         tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
     };
     use parking_lot::RwLock;
@@ -112,7 +112,12 @@ mod tests {
             .timeout(TIMEOUT)
             .boxed();
         let behaviour = BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default());
-        let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, peer_id).build();
+        let mut swarm = Swarm::new(
+            transport,
+            behaviour,
+            peer_id,
+            swarm::Config::with_tokio_executor(),
+        );
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let peer_addr = loop {
             let event = swarm.select_next_some().await;
