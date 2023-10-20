@@ -24,9 +24,6 @@ pub(super) struct Migration0_14_0_0_14_1 {
     to: Version,
 }
 
-/// Temporary database path for the migration.
-const MIGRATION_DB_0_13_0_0_13_1: &str = "migration_0_14_0_to_0_14_1";
-
 /// Migrates the database from version 0.14.0 to 0.14.1
 /// This migration merges the two databases represented by rolling db into one.
 impl MigrationOperation for Migration0_14_0_0_14_1 {
@@ -42,7 +39,7 @@ impl MigrationOperation for Migration0_14_0_0_14_1 {
     }
 
     fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-        let source_db = chain_data_path.join("0.14.0");
+        let source_db = chain_data_path.join(self.temporary_db_name());
 
         let db_paths: Vec<PathBuf> = source_db
             .read_dir()?
@@ -110,10 +107,10 @@ impl MigrationOperation for Migration0_14_0_0_14_1 {
     }
 
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        if !chain_data_path.join(MIGRATION_DB_0_13_0_0_13_1).exists() {
+        if !chain_data_path.join(self.temporary_db_name()).exists() {
             anyhow::bail!(
                 "migration database {} does not exist",
-                chain_data_path.join(MIGRATION_DB_0_13_0_0_13_1).display()
+                chain_data_path.join(self.temporary_db_name()).display()
             );
         }
         Ok(())
