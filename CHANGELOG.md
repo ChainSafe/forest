@@ -34,6 +34,9 @@
   files.
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Add
   `forest-tool archive diff` command for debugging state-root mismatches.
+- [#3609](https://github.com/ChainSafe/forest/pull/3609) Add `--no-metrics`
+  option to `forest` for controlling the availability of the metrics Prometheus
+  server.
 
 ### Changed
 

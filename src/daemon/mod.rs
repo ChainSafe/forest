@@ -195,7 +195,7 @@ pub(super) async fn start(
         });
     }
 
-    {
+    if config.client.enable_metrics_endpoint {
         // Start Prometheus server port
         let prometheus_listener = TcpListener::bind(config.client.metrics_address).context(
             format!("could not bind to {}", config.client.metrics_address),
