@@ -389,7 +389,7 @@ pub(super) async fn start(
 
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;
-    if config.client.snapshot_path.is_none() {
+    if config.client.snapshot_path.is_none() && !opts.stateless {
         set_snapshot_path_if_needed(
             &mut config,
             epoch,

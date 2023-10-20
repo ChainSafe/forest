@@ -30,6 +30,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::time::Sleep;
+use tokio_util::either::Either;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
@@ -178,7 +179,9 @@ where
 
         Ok(Self {
             state: if stateless_mode {
-                ChainMuxerState::Stateless(Box::pin(tokio::time::sleep(Duration::MAX)))
+                ChainMuxerState::Stateless(Either::Right(Box::pin(tokio::time::sleep(
+                    Duration::default(),
+                ))))
             } else {
                 ChainMuxerState::Idle
             },
@@ -831,7 +834,7 @@ enum ChainMuxerState {
     Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
     Follow(ChainMuxerFuture<(), ChainMuxerError>),
     /// In stateless mode, forest still connects to the P2P swarm but does not sync to HEAD.
-    Stateless(Pin<Box<Sleep>>),
+    Stateless(Either<ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>, Pin<Box<Sleep>>>),
 }
 
 impl<DB, M> Future for ChainMuxer<DB, M>
@@ -856,10 +859,21 @@ where
                         self.state = ChainMuxerState::Connect(self.evaluate_network_head());
                     }
                 }
-                ChainMuxerState::Stateless(ref mut sleep) => {
-                    std::task::ready!(sleep.as_mut().poll(cx));
-                    unreachable!("Infinite sleep should never end.");
-                }
+                ChainMuxerState::Stateless(ref mut either) => match either {
+                    Either::Left(ref mut connect) => {
+                        if let Err(e) = std::task::ready!(connect.as_mut().poll(cx)) {
+                            error!("Evaluating the network head failed, retrying. Error = {e:?}");
+                        }
+                        self.state = ChainMuxerState::Stateless(Either::Right(Box::pin(
+                            tokio::time::sleep(Duration::from_secs(60)),
+                        )));
+                    }
+                    Either::Right(ref mut sleep) => {
+                        std::task::ready!(sleep.as_mut().poll(cx));
+                        self.state =
+                            ChainMuxerState::Stateless(Either::Left(self.evaluate_network_head()));
+                    }
+                },
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
                     Poll::Ready(Ok(evaluation)) => match evaluation {
                         NetworkHeadEvaluation::Behind {
