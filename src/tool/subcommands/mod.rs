@@ -57,6 +57,10 @@ pub enum Subcommand {
     /// Utilities for manipulating CAR files
     #[command(subcommand)]
     Car(car_cmd::CarCommands),
+
+    /// API tooling
+    #[command(subcommand)]
+    Api(api_cmd::ApiCommands),
 }
 
 fn read_config(config: &Option<String>, chain: &Option<NetworkChain>) -> anyhow::Result<Config> {

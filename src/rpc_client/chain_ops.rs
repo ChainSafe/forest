@@ -1,10 +1,47 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::chain_api::*;
+use crate::{
+    blocks::{BlockHeader, Tipset, TipsetKeys},
+    lotus_json::LotusJson,
+    rpc_api::chain_api::*,
+    shim::clock::ChainEpoch,
+};
+use cid::Cid;
 use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
+
+use super::ApiInfo;
+
+impl ApiInfo {
+    pub async fn chain_head(&self) -> Result<Tipset, Error> {
+        let LotusJson(tipset) = self.call(CHAIN_HEAD, ()).await?;
+        Ok(tipset)
+    }
+
+    pub async fn chain_get_block(&self, cid: Cid) -> Result<BlockHeader, Error> {
+        let LotusJson(header) = self.call(CHAIN_GET_BLOCK, (LotusJson(cid),)).await?;
+        Ok(header)
+    }
+
+    // Get tipset at epoch. Pick younger tipset if epoch points to a
+    // null-tipset. Only tipsets below the given `head` are searched. If `head`
+    // is null, the node will use the heaviest tipset.
+    pub async fn chain_get_tipset_by_height(
+        &self,
+        epoch: ChainEpoch,
+        head: TipsetKeys,
+    ) -> Result<Tipset, Error> {
+        let LotusJson(tipset) = self.call(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head)).await?;
+        Ok(tipset)
+    }
+
+    pub async fn chain_get_genesis(&self) -> Result<Option<Tipset>, Error> {
+        let LotusJson(opt_gen) = self.call(CHAIN_GET_GENESIS, ()).await?;
+        Ok(opt_gen)
+    }
+}
 
 pub async fn chain_get_block(
     cid: ChainGetBlockParams,

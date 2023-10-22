@@ -201,7 +201,7 @@ pub mod chain_api {
     pub type ChainGetBlockMessagesParams = (LotusJson<Cid>,);
     pub type ChainGetBlockMessagesResult = BlockMessages;
 
-    pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipsetByHeight";
+    pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
     pub type ChainGetTipsetByHeightParams = (ChainEpoch, TipsetKeys);
     pub type ChainGetTipsetByHeightResult = LotusJson<Tipset>;
 

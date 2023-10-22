@@ -14,6 +14,7 @@ pub mod sync_ops;
 pub mod wallet_ops;
 
 use std::env;
+use std::fmt;
 use std::str::FromStr;
 
 use crate::libp2p::{Multiaddr, Protocol};
@@ -41,6 +42,18 @@ pub struct ApiInfo {
     pub token: Option<String>,
 }
 
+impl fmt::Display for ApiInfo {
+    /// Convert an ApiInfo to a string
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(token) = &self.token {
+            token.fmt(f)?;
+            write!(f, ":")?;
+        }
+        self.multiaddr.fmt(f)?;
+        Ok(())
+    }
+}
+
 impl FromStr for ApiInfo {
     type Err = multiaddr::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -56,8 +69,23 @@ impl FromStr for ApiInfo {
 }
 
 impl ApiInfo {
+    // Update API handle with new (optional) token
+    pub fn set_token(self, token: Option<String>) -> Self {
+        ApiInfo {
+            token: token.or(self.token),
+            ..self
+        }
+    }
+
+    // Get API_INFO environment variable if exists, otherwise, use default
+    // multiaddress. Fails if the environment variable is malformed.
+    pub fn from_env() -> Result<Self, multiaddr::Error> {
+        let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
+        ApiInfo::from_str(&api_info)
+    }
+
     /// Utility method for sending RPC requests over HTTP
-    async fn call<P, R>(&self, method_name: &str, params: P) -> Result<R, Error>
+    pub async fn call<P, R>(&self, method_name: &str, params: P) -> Result<R, Error>
     where
         P: Serialize,
         R: DeserializeOwned,
@@ -65,6 +93,7 @@ impl ApiInfo {
         let rpc_req = RequestObject::request()
             .with_method(method_name)
             .with_params(serde_json::to_value(params)?)
+            .with_id(0)
             .finish();
 
         let api_url = multiaddress_to_url(self.multiaddr.to_owned());
@@ -195,10 +224,9 @@ where
     P: Serialize,
     R: DeserializeOwned,
 {
-    ApiInfo {
-        token: API_INFO.token.clone().or(token.clone()),
-        ..API_INFO.clone()
-    }
-    .call(method_name, params)
-    .await
+    API_INFO
+        .clone()
+        .set_token(token.clone())
+        .call(method_name, params)
+        .await
 }
