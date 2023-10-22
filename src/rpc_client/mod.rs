@@ -96,7 +96,7 @@ impl ApiInfo {
             .with_id(0)
             .finish();
 
-        let api_url = multiaddress_to_url(self.multiaddr.to_owned());
+        let api_url = multiaddress_to_url(&self.multiaddr);
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -166,9 +166,9 @@ struct Url {
 }
 
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: Multiaddr) -> String {
+fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
     // Fold Multiaddress into a Url struct
-    let addr = multiaddr.into_iter().fold(
+    let addr = multiaddr.iter().fold(
         Url {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT,
