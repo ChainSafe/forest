@@ -230,6 +230,10 @@ pub mod chain_api {
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
     pub type ChainGetMinBaseFeeParams = (u32,);
     pub type ChainGetMinBaseFeeResult = String;
+
+    pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+    pub type ChainGetMessagesInTipsetParams = (LotusJson<TipsetKeys>,);
+    pub type ChainGetMessagesInTipsetResult = (LotusJson<TipsetKeys>,);
 }
 
 /// Message Pool API
