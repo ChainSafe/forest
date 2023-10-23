@@ -72,16 +72,6 @@ use std::time::Duration;
 use tokio::time;
 use tracing::info;
 
-// This enum facilitates GC loop control flow. It allows for simpler workflow logic by avoiding
-// inner loops within the workflow itself.
-#[derive(PartialEq, Debug)]
-enum ControlFlow {
-    // Continue the GC workflow.
-    Continue,
-    // The GC workflow has finished.
-    Finished,
-}
-
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
 /// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
@@ -163,24 +153,21 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
     pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         loop {
-            match self.gc_workflow().await? {
-                ControlFlow::Continue => continue,
-                ControlFlow::Finished => {
-                    // Make sure we don't run the GC too often.
-                    time::sleep(interval).await;
-                }
-            }
+            self.gc_workflow(interval).await?
         }
     }
 
-    async fn gc_workflow(&mut self) -> anyhow::Result<ControlFlow> {
+    // This function yields to the main GC loop if the conditions are not met for execution of the
+    // next step.
+    async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
         let current_epoch = tipset.epoch();
-        // Don't run the GC if there aren't enough state-roots yet.
+        // Don't run the GC if there aren't enough state-roots yet. Sleep and yield to the main loop
+        // in order to refresh the heaviest tipset value.
         if depth > current_epoch {
             time::sleep(self.block_time * (depth - current_epoch) as u32).await;
-            return anyhow::Ok(ControlFlow::Continue);
+            return anyhow::Ok(());
         }
 
         if self.marked.is_empty() {
@@ -190,9 +177,11 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
         }
 
         let epochs_since_marked = current_epoch - self.epoch_marked;
+        // Don't proceed with next steps until we advance at least `depth` epochs. Sleep and yield
+        // to the main loop in order to refresh the heaviest tipset value.
         if epochs_since_marked < depth {
             time::sleep(self.block_time * (depth - epochs_since_marked) as u32).await;
-            return anyhow::Ok(ControlFlow::Continue);
+            return anyhow::Ok(());
         }
 
         info!("filter keys for GC");
@@ -201,14 +190,16 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
         info!("GC sweep");
         self.sweep()?;
 
-        anyhow::Ok(ControlFlow::Finished)
+        // Make sure we don't run the GC too often.
+        time::sleep(interval).await;
+
+        anyhow::Ok(())
     }
 }
 #[cfg(test)]
 mod test {
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
-    use crate::db::gc::ControlFlow;
 
     use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB};
     use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
@@ -244,6 +235,7 @@ mod test {
 
     #[tokio::test]
     async fn test_populate() {
+        let interval = Duration::from_secs(0);
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block: BlockHeader = mock_block(1, 1);
@@ -255,26 +247,22 @@ mod test {
 
         let cs_cloned = cs.clone();
         let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
-        let mut gc = MarkAndSweep::new(
-            db.clone(),
-            get_heaviest_tipset,
-            depth,
-            Duration::from_secs(0),
-        );
+        let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
 
         // test insufficient epochs
-        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        gc.gc_workflow(interval).await.unwrap();
         assert!(gc.marked.is_empty());
 
         // test marked
         run_to_epoch(db, cs, depth);
-        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        gc.gc_workflow(interval).await.unwrap();
         assert_eq!(gc.marked.len(), 2);
         assert_eq!(gc.epoch_marked, 1);
     }
 
     #[tokio::test]
     async fn test_filter_and_sweep() {
+        let interval = Duration::from_secs(0);
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
         let gen_block: BlockHeader = mock_block(1, 1);
@@ -284,13 +272,8 @@ mod test {
             ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
         );
         let cs_cloned = cs.clone();
-        let get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
-        let mut gc = MarkAndSweep::new(
-            db.clone(),
-            get_heaviest_tipset,
-            depth,
-            Duration::from_secs(0),
-        );
+        let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
+        let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
 
         run_to_epoch(db.clone(), cs.clone(), depth);
 
@@ -299,7 +282,7 @@ mod test {
         let unreachable_cnt = 4;
         // test insufficient epochs for filter step
         insert_unrechable(db.clone(), unreachable_cnt);
-        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        gc.gc_workflow(interval).await.unwrap();
         assert_eq!(gc.marked.len() as u64, reachable_cnt + unreachable_cnt);
         assert_eq!(gc.epoch_marked, 1);
 
@@ -311,12 +294,12 @@ mod test {
             db.get_keys().unwrap().len() as u64,
             unreachable_cnt + reachable_cnt
         );
-        assert_eq!(ControlFlow::Finished, gc.gc_workflow().await.unwrap());
+        gc.gc_workflow(interval).await.unwrap();
         assert_eq!(gc.marked.len(), 0);
         assert_eq!(db.get_keys().unwrap().len(), reachable_cnt as usize);
 
         // try another run
-        assert_eq!(ControlFlow::Continue, gc.gc_workflow().await.unwrap());
+        gc.gc_workflow(interval).await.unwrap();
         assert_eq!(gc.marked.len(), db.get_keys().unwrap().len());
     }
 }
