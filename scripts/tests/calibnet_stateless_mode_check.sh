@@ -32,4 +32,4 @@ PID=$!
 until grep -r -m 1 "non-empty ChainExchange response from $PEER_ID" "$NODE_LOG_DIRECTORY"; do
     sleep 1s;
 done
-kill -9 $PID
+kill -KILL $PID

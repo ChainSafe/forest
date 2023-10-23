@@ -529,7 +529,7 @@ where
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
+                        debug!("Receiving event from p2p event stream failed: {why}");
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
