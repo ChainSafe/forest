@@ -515,7 +515,7 @@ where
         Ok(Some((tipset, source)))
     }
 
-    fn handle_network_messages(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
+    fn stateless_node(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
