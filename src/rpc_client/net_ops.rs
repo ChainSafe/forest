@@ -1,16 +1,22 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::net_api::*;
+use crate::rpc_api::{data_types::AddrInfo, net_api::*};
 use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
+
+use super::RpcRequest;
 
 pub async fn net_addrs_listen(
     (): NetAddrsListenParams,
     auth_token: &Option<String>,
 ) -> Result<NetAddrsListenResult, Error> {
     call(NET_ADDRS_LISTEN, (), auth_token).await
+}
+
+pub fn net_addrs_listen_req() -> RpcRequest<AddrInfo> {
+    RpcRequest::new(NET_ADDRS_LISTEN, ())
 }
 
 pub async fn net_peers(
@@ -20,11 +26,19 @@ pub async fn net_peers(
     call(NET_PEERS, (), auth_token).await
 }
 
+pub fn net_peers_req() -> RpcRequest<Vec<AddrInfo>> {
+    RpcRequest::new(NET_PEERS, ())
+}
+
 pub async fn net_info(
     (): NetInfoParams,
     auth_token: &Option<String>,
 ) -> Result<NetInfoResult, Error> {
     call(NET_INFO, (), auth_token).await
+}
+
+pub fn net_info_req() -> RpcRequest<NetInfoResult> {
+    RpcRequest::new(NET_INFO, ())
 }
 
 pub async fn net_connect(
@@ -34,9 +48,17 @@ pub async fn net_connect(
     call(NET_CONNECT, params, auth_token).await
 }
 
+pub fn net_connect_req(addr: AddrInfo) -> RpcRequest<()> {
+    RpcRequest::new(NET_CONNECT, (addr,))
+}
+
 pub async fn net_disconnect(
     params: NetDisconnectParams,
     auth_token: &Option<String>,
 ) -> Result<NetDisconnectResult, Error> {
     call(NET_DISCONNECT, params, auth_token).await
+}
+
+pub fn net_disconnect_req(peer: String) -> RpcRequest<()> {
+    RpcRequest::new(NET_DISCONNECT, (peer,))
 }

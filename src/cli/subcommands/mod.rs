@@ -26,7 +26,6 @@ use std::io::{self, Write};
 use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
-use crate::lotus_json::LotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
@@ -222,19 +221,14 @@ pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) -> anyhow::Result
 }
 
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_pretty<T: Serialize>(
-    res: Result<T, JsonRpcError>,
-) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
+pub(super) fn print_rpc_res_pretty<T: Serialize>(obj: T) -> anyhow::Result<()> {
     println!("{}", serde_json::to_string_pretty(&obj)?);
     Ok(())
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(
-    res: Result<LotusJson<Tipset>, JsonRpcError>,
-) -> anyhow::Result<()> {
-    let tipset = res.map_err(handle_rpc_err)?.into_inner();
+pub(super) fn print_rpc_res_cids(res: Result<Tipset, JsonRpcError>) -> anyhow::Result<()> {
+    let tipset = res.map_err(handle_rpc_err)?;
     println!(
         "{}",
         serde_json::to_string_pretty(

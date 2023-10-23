@@ -5,7 +5,7 @@ use std::ffi::OsString;
 
 use super::subcommands::{handle_rpc_err, Cli};
 use crate::networks::NetworkChain;
-use crate::rpc_client::state_network_name;
+use crate::rpc_client::ApiInfo;
 use crate::shim::address::{CurrentNetwork, Network};
 use clap::Parser;
 use std::str::FromStr;
@@ -17,13 +17,13 @@ where
     // Capture Cli inputs
     let Cli { opts, cmd } = Cli::parse_from(args);
 
+    let api = ApiInfo::from_env()?.set_token(opts.token.clone());
+
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
         .block_on(async {
-            let name = state_network_name((), &opts.token)
-                .await
-                .map_err(handle_rpc_err)?;
+            let name = api.state_network_name().await.map_err(handle_rpc_err)?;
             let chain = NetworkChain::from_str(&name)?;
             if chain.is_testnet() {
                 CurrentNetwork::set_global(Network::Testnet);

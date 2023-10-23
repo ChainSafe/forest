@@ -3,8 +3,7 @@
 
 use std::path::PathBuf;
 
-use crate::lotus_json::LotusJson;
-use crate::rpc_client::state_ops::state_fetch_root;
+use crate::rpc_client::ApiInfo;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
@@ -35,12 +34,12 @@ pub enum StateCommands {
 }
 
 impl StateCommands {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Fetch { root, save_to_file } => {
                 println!(
                     "{}",
-                    state_fetch_root((LotusJson(root), save_to_file), &rpc_token)
+                    api.state_fetch_root(root, save_to_file)
                         .await
                         .map_err(handle_rpc_err)?
                 );

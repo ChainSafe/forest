@@ -2,11 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::lotus_json::LotusJson;
-use crate::rpc_client::{
-    chain_head, node_ops::node_status, start_time, state_network_name, wallet_balance,
-    wallet_default_address,
-};
+use crate::rpc_client::node_ops::node_status_req;
+use crate::rpc_client::{wallet_balance_req, wallet_default_address_req, ApiInfo};
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
@@ -159,24 +156,25 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         let res = tokio::try_join!(
-            node_status((), &rpc_token),
-            chain_head(&rpc_token),
-            state_network_name((), &rpc_token),
-            start_time(&rpc_token),
-            wallet_default_address((), &rpc_token)
+            api.call_req(node_status_req()),
+            api.chain_head(),
+            api.state_network_name(),
+            api.start_time(),
+            api.call_req(wallet_default_address_req())
         );
 
         match res {
-            Ok((node_status, LotusJson(head), network, start_time, default_wallet_address)) => {
+            Ok((node_status, head, network, start_time, default_wallet_address)) => {
                 let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
                 let blocks_per_tipset_last_finality =
                     node_status.chain_status.blocks_per_tipset_last_finality;
 
                 let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
                 {
-                    let balance = wallet_balance((def_addr.clone(),), &rpc_token)
+                    let balance = api
+                        .call_req(wallet_balance_req(def_addr.clone()))
                         .await
                         .map_err(handle_rpc_err)?;
                     Some(balance)

@@ -7,13 +7,11 @@ use std::{
     str::FromStr,
 };
 
-use crate::chain_sync::SyncStage;
-use crate::cli::humantoken;
-use crate::lotus_json::LotusJson;
-use crate::rpc_api::mpool_api::MpoolPushMessageResult;
-use crate::rpc_client::node_ops::node_status;
+use crate::chain::ChainEpochDelta;
 use crate::rpc_client::*;
-use crate::shim::{address::Address, clock::ChainEpoch, message::Message};
+use crate::shim::{address::Address, message::Message};
+use crate::{chain_sync::SyncStage, rpc_client::node_ops::node_status_req};
+use crate::{cli::humantoken, message::SignedMessage};
 use boa_engine::{
     object::{builtins::JsArray, FunctionObjectBuilder},
     prelude::JsObject,
@@ -26,7 +24,7 @@ use boa_runtime::Console;
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
 use rustyline::{config::Config as RustyLineConfig, history::FileHistory, EditMode, Editor};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value as JsonValue;
 use tokio::time;
 
@@ -185,11 +183,12 @@ where
 }
 
 macro_rules! bind_func {
-    ($context:expr, $token:expr, $func:ident) => {
+    ($context:expr, $api:expr, $func:ident) => {
         let js_func_name = stringify!($func).to_case(Case::Camel);
         let js_func = FunctionObjectBuilder::new($context, unsafe {
-            NativeFunction::from_closure_with_captures(
-                |_this, params, token, context| {
+            {
+                let api = $api.clone();
+                NativeFunction::from_closure(move |_this, params, context| {
                     let handle = tokio::runtime::Handle::current();
 
                     let result = tokio::task::block_in_place(|| {
@@ -203,12 +202,11 @@ macro_rules! bind_func {
                         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
                         //                 Check if unwrap is safe here
                         let args = serde_json::from_value(value.to_json(context).unwrap())?;
-                        handle.block_on($func(args, token))
+                        handle.block_on($func(args, &api))
                     });
                     check_result(context, result)
-                },
-                $token.clone(),
-            )
+                })
+            }
         })
         .name(js_func_name.clone())
         .build();
@@ -220,41 +218,47 @@ macro_rules! bind_func {
     };
 }
 
-macro_rules! bind_request_func {
-    ($context:expr, $token:expr, $($func:ident => $req:expr),* $(,)?) => {
-        $(
-        let js_func_name = stringify!($func).to_case(Case::Camel);
-        let js_func = FunctionObjectBuilder::new($context, unsafe {
-            NativeFunction::from_closure_with_captures(
-                |_this, params, token, context| {
-                    let handle = tokio::runtime::Handle::current();
+fn bind_request<T: DeserializeOwned, R>(
+    context: &mut Context,
+    api: &ApiInfo,
+    name: &'static str,
+    req: impl Fn(T) -> RpcRequest<R> + 'static,
+) {
+    let js_func_name = name.to_case(Case::Camel);
+    let js_func = FunctionObjectBuilder::new(context, unsafe {
+        NativeFunction::from_closure({
+            let api = api.clone();
+            move |_this, params, context| {
+                let handle = tokio::runtime::Handle::current();
 
-                    let result = tokio::task::block_in_place(|| {
-                        let value = if params.is_empty() {
-                            JsValue::Null
-                        } else {
-                            let arr = JsArray::from_iter(params.to_vec(), context);
-                            let obj: JsObject = arr.into();
-                            JsValue::from(obj)
-                        };
-                        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-                        //                 Check if unwrap is safe here
-                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
-                        let api = ApiInfo::from_env()?.set_token(token.clone());
-                        handle.block_on(api.call_req($req(args)))
-                    });
-                    check_result(context, result)
-                },
-                $token.clone(),
-            )
+                let result = tokio::task::block_in_place(|| {
+                    let value = if params.is_empty() {
+                        JsValue::Null
+                    } else {
+                        let arr = JsArray::from_iter(params.to_vec(), context);
+                        let obj: JsObject = arr.into();
+                        JsValue::from(obj)
+                    };
+                    let args = serde_json::from_value(value.to_json(context)?)?;
+                    handle.block_on(api.call_req(req(args).lower()))
+                });
+                check_result(context, result)
+            }
         })
-        .name(js_func_name.clone())
-        .build();
+    })
+    .name(js_func_name.clone())
+    .build();
 
-        let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
-        $context
-            .register_global_property(js_func_name, js_func, attr)
-            .expect("`register_global_property` should not fail");
+    let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
+    context
+        .register_global_property(js_func_name, js_func, attr)
+        .expect("`register_global_property` should not fail");
+}
+
+macro_rules! bind_request_func {
+    ($context:expr, $api:expr, $($name:literal => $req:expr),* $(,)?) => {
+    $(
+        bind_request($context, &$api, $name, $req);
     )*
     };
 }
@@ -263,8 +267,8 @@ type SendMessageParams = (String, String, String);
 
 async fn send_message(
     params: SendMessageParams,
-    auth_token: &Option<String>,
-) -> Result<MpoolPushMessageResult, jsonrpc_v2::Error> {
+    api: &ApiInfo,
+) -> Result<SignedMessage, jsonrpc_v2::Error> {
     let (from, to, value) = params;
 
     let message = Message::transfer(
@@ -273,36 +277,26 @@ async fn send_message(
         humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
     );
 
-    let json_message = LotusJson(message);
-    mpool_push_message((json_message, None), auth_token).await
+    api.call_req(mpool_push_message_req(message, None)).await
 }
 
 type SleepParams = (u64,);
 type SleepResult = ();
 
-async fn sleep(
-    params: SleepParams,
-    _auth_token: &Option<String>,
-) -> Result<SleepResult, jsonrpc_v2::Error> {
+async fn sleep(params: SleepParams, _api: &ApiInfo) -> Result<SleepResult, jsonrpc_v2::Error> {
     let secs = params.0;
     time::sleep(time::Duration::from_secs(secs)).await;
     Ok(())
 }
 
-type SleepTipsetsParams = (ChainEpoch,);
-type SleepTipsetsResult = ();
-
-async fn sleep_tipsets(
-    params: SleepTipsetsParams,
-    auth_token: &Option<String>,
-) -> Result<SleepTipsetsResult, jsonrpc_v2::Error> {
+async fn sleep_tipsets(epochs: ChainEpochDelta, api: &ApiInfo) -> Result<(), jsonrpc_v2::Error> {
     let mut epoch = None;
     loop {
-        let state = sync_status((), auth_token).await?;
+        let state = api.sync_status().await?;
         if state.active_syncs[0].stage() == SyncStage::Complete {
             if let Some(prev) = epoch {
                 let curr = state.active_syncs[0].epoch();
-                if (curr - prev) >= params.0 {
+                if (curr - prev) >= epochs {
                     return Ok(());
                 }
             } else {
@@ -314,7 +308,7 @@ async fn sleep_tipsets(
 }
 
 impl AttachCommand {
-    fn setup_context(&self, context: &mut Context, token: &Option<String>) {
+    fn setup_context(&self, context: &mut Context, api: ApiInfo) {
         let console = Console::init(context);
         context
             .register_global_property(Console::NAME, console, Attribute::all())
@@ -338,45 +332,45 @@ impl AttachCommand {
         // Add custom object that mimics `module.exports`
         set_module(context);
 
-        // Net API
-        bind_func!(context, token, net_addrs_listen);
-        bind_func!(context, token, net_peers);
-        bind_func!(context, token, net_disconnect);
-        bind_func!(context, token, net_connect);
+        bind_request_func!(context, api,
+                // Net API
+                "net_addrs_listen" => |()| net_addrs_listen_req(),
+                "net_peers"        => |()| net_peers_req(),
+                "net_disconnect"   => |peer| net_disconnect_req(peer),
+                "net_connect"      => |addr| net_connect_req(addr),
 
-        // Node API
-        bind_func!(context, token, node_status);
+                // Node API
+                "node_status" => |()| node_status_req(),
 
-        // Sync API
-        bind_func!(context, token, sync_check_bad);
-        bind_func!(context, token, sync_mark_bad);
-        bind_func!(context, token, sync_status);
+                // Sync API
+                "sync_check_bad" => |cid| ApiInfo::sync_check_bad_req(cid),
+                "sync_mark_bad"  => |cid| ApiInfo::sync_mark_bad_req(cid),
+                "sync_status"    => |()| ApiInfo::sync_status_req(),
 
-        // Wallet API
-        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-        //                 bind wallet_sign, wallet_verify
-        bind_func!(context, token, wallet_new);
-        bind_func!(context, token, wallet_default_address);
-        bind_func!(context, token, wallet_balance);
-        bind_func!(context, token, wallet_export);
-        bind_func!(context, token, wallet_import);
-        bind_func!(context, token, wallet_list);
-        bind_func!(context, token, wallet_has);
-        bind_func!(context, token, wallet_set_default);
+                // Wallet API
+                // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
+                //                 bind wallet_sign, wallet_verify
+                "wallet_new"         => |sig_type| wallet_new_req(sig_type),
+                "wallet_default"     => |()| wallet_default_address_req(),
+                "wallet_balance"     => |addr| wallet_balance_req(addr),
+                "wallet_export"      => |addr| wallet_export_req(addr),
+                "wallet_import"      => |keys| wallet_import_req(keys),
+                "wallet_list"        => |()| wallet_list_req(),
+                "wallet_has"         => |addr| wallet_has_req(addr),
+                "wallet_set_default" => |addr| wallet_set_default_req(addr),
 
-        // Message Pool API
-        bind_func!(context, token, mpool_push_message);
+                // Message Pool API
+                "mpool_push_message" => |(message, specs)| mpool_push_message_req(message, specs),
 
-        // Common API
-        bind_request_func!(context, token,
-            version => |()| version_req(),
-            shutdown => |()| shutdown_req(),
+                // Common API
+                "version" => |()| ApiInfo::version_req(),
+                "shutdown" => |()| ApiInfo::shutdown_req(),
         );
 
         // Bind send_message, sleep, sleep_tipsets
-        bind_func!(context, token, send_message);
-        bind_func!(context, token, sleep);
-        bind_func!(context, token, sleep_tipsets);
+        bind_func!(context, api, send_message);
+        bind_func!(context, api, sleep);
+        bind_func!(context, api, sleep_tipsets);
     }
 
     fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
@@ -398,9 +392,9 @@ impl AttachCommand {
         Ok(())
     }
 
-    pub fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         let mut context = Context::default();
-        self.setup_context(&mut context, &rpc_token);
+        self.setup_context(&mut context, api);
 
         self.import_prelude(&mut context)?;
 

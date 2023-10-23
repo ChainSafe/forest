@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_client::{shutdown_req, ApiInfo};
+use crate::rpc_client::ApiInfo;
 
 use super::handle_rpc_err;
 use crate::cli::subcommands::prompt_confirm;
@@ -14,17 +14,13 @@ pub struct ShutdownCommand {
 }
 
 impl ShutdownCommand {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         println!("Shutting down Forest node");
         if !self.force && !prompt_confirm() {
             println!("Aborted.");
             return Ok(());
         }
-        ApiInfo::from_env()?
-            .set_token(rpc_token)
-            .call_req(shutdown_req())
-            .await
-            .map_err(handle_rpc_err)?;
+        api.shutdown().await.map_err(handle_rpc_err)?;
         Ok(())
     }
 }

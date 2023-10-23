@@ -131,6 +131,8 @@ pub mod auth_api {
     use serde::{Deserialize, Serialize};
     use serde_with::{serde_as, DurationSeconds};
 
+    use crate::lotus_json_with_self;
+
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
     #[serde_as]
     #[derive(Deserialize, Serialize)]
@@ -139,6 +141,8 @@ pub mod auth_api {
         #[serde_as(as = "DurationSeconds<i64>")]
         pub token_exp: Duration,
     }
+    lotus_json_with_self!(AuthNewParams);
+
     pub type AuthNewResult = Vec<u8>;
 
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
@@ -163,6 +167,7 @@ pub mod chain_api {
 
     use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
     use crate::lotus_json::LotusJson;
+    use crate::lotus_json_with_self;
     use crate::shim::clock::ChainEpoch;
     use crate::shim::message::Message;
     use cid::Cid;
@@ -186,6 +191,8 @@ pub mod chain_api {
         pub skip_checksum: bool,
         pub dry_run: bool,
     }
+
+    lotus_json_with_self!(ChainExportParams);
 
     pub type ChainExportResult = Option<String>;
 
@@ -231,9 +238,9 @@ pub mod chain_api {
     pub type ChainGetMinBaseFeeParams = (u32,);
     pub type ChainGetMinBaseFeeResult = String;
 
-    pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
-    pub type ChainGetMessagesInTipsetParams = (LotusJson<TipsetKeys>,);
-    pub type ChainGetMessagesInTipsetResult = (LotusJson<TipsetKeys>,);
+    // pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+    // pub type ChainGetMessagesInTipsetParams = (LotusJson<TipsetKeys>,);
+    // pub type ChainGetMessagesInTipsetResult = (LotusJson<TipsetKeys>,);
 }
 
 /// Message Pool API
@@ -273,7 +280,6 @@ pub mod sync_api {
     pub type SyncMarkBadResult = ();
 
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
-    pub type SyncStateParams = ();
     pub type SyncStateResult = RPCSyncState;
 }
 
@@ -440,7 +446,7 @@ pub mod common_api {
 pub mod net_api {
     use serde::{Deserialize, Serialize};
 
-    use crate::rpc_api::data_types::AddrInfo;
+    use crate::{lotus_json_with_self, rpc_api::data_types::AddrInfo};
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
     pub type NetAddrsListenParams = ();
@@ -462,6 +468,7 @@ pub mod net_api {
         pub num_pending_outgoing: u32,
         pub num_established: u32,
     }
+    lotus_json_with_self!(NetInfoResult);
 
     impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
         fn from(i: libp2p::swarm::NetworkInfo) -> Self {
@@ -515,6 +522,8 @@ pub mod node_api {
 
     use serde::{Deserialize, Serialize};
 
+    use crate::lotus_json_with_self;
+
     #[derive(Debug, Serialize, Deserialize, Default)]
     pub struct NodeSyncStatus {
         pub epoch: u64,
@@ -539,4 +548,6 @@ pub mod node_api {
         pub peer_status: NodePeerStatus,
         pub chain_status: NodeChainStatus,
     }
+
+    lotus_json_with_self!(NodeStatus);
 }

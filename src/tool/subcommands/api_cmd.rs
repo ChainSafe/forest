@@ -1,24 +1,13 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
 use clap::Subcommand;
-use futures::Future;
 use serde::de::DeserializeOwned;
 use std::str::FromStr;
 
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::lotus_json::HasLotusJson;
-use crate::rpc_api::chain_api::*;
-use crate::rpc_api::common_api::*;
-use crate::rpc_client::chain_get_block_req;
-use crate::rpc_client::chain_get_genesis_req;
-use crate::rpc_client::chain_get_tipset_by_height_req;
-use crate::rpc_client::chain_head_req;
-use crate::rpc_client::common_ops;
-use crate::rpc_client::start_time_req;
-use crate::rpc_client::version_req;
 use crate::rpc_client::ApiInfo;
 use crate::rpc_client::RpcRequest;
 
@@ -206,8 +195,8 @@ impl RpcTest {
 
 fn common_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(version_req()),
-        RpcTest::basic(start_time_req()),
+        RpcTest::basic(ApiInfo::version_req()),
+        RpcTest::basic(ApiInfo::start_time_req()),
     ]
 }
 
@@ -215,15 +204,15 @@ fn chain_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
 
     vec![
-        RpcTest::validate(chain_head_req(), |forest, lotus| {
+        RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
             forest.epoch().abs_diff(lotus.epoch()) < 10
         }),
-        RpcTest::identity(chain_get_block_req(*shared_block.cid())),
-        RpcTest::identity(chain_get_tipset_by_height_req(
+        RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
+        RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
             TipsetKeys::default(),
         )),
-        RpcTest::identity(chain_get_genesis_req()),
+        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
     ]
 }
 

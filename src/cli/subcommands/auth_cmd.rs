@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
-use crate::rpc_api::auth_api::AuthNewParams;
-use crate::rpc_client::{auth_new, API_INFO};
+use crate::rpc_client::{auth_new_req, ApiInfo, API_INFO};
 use chrono::Duration;
 use clap::Subcommand;
 use jsonrpc_v2::Error as JsonRpcError;
@@ -47,21 +46,20 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm).map_err(handle_rpc_err)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let auth_params = AuthNewParams { perms, token_exp };
-                print_rpc_res_bytes(auth_new(auth_params, &rpc_token).await)
+                print_rpc_res_bytes(api.call_req(auth_new_req(perms, token_exp)).await)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm).map_err(handle_rpc_err)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let auth_params = AuthNewParams { perms, token_exp };
-                let token = auth_new(auth_params, &rpc_token)
+                let token = api
+                    .call_req(auth_new_req(perms, token_exp))
                     .await
                     .map_err(handle_rpc_err)?;
                 let addr = API_INFO.multiaddr.to_owned();

@@ -11,7 +11,6 @@ use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
-use crate::lotus_json::HasLotusJson;
 use crate::lotus_json_with_self;
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
@@ -54,6 +53,8 @@ pub struct RPCSyncState {
     pub active_syncs: Vec<SyncState>,
 }
 
+lotus_json_with_self!(RPCSyncState);
+
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 
 // Chain API
@@ -73,6 +74,8 @@ pub struct MessageSendSpec {
     #[serde(with = "crate::lotus_json")]
     max_fee: TokenAmount,
 }
+
+lotus_json_with_self!(MessageSendSpec);
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -102,6 +105,8 @@ pub struct AddrInfo {
     pub id: String,
     pub addrs: HashSet<Multiaddr>,
 }
+
+lotus_json_with_self!(AddrInfo);
 
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {

@@ -4,9 +4,8 @@
 use std::str::FromStr;
 
 use crate::blocks::Tipset;
-use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc_client::{chain_ops::*, mpool_pending, state_ops::*, wallet_ops::*};
+use crate::rpc_client::{chain_ops::*, mpool_pending_req, wallet_ops::*, ApiInfo};
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -14,7 +13,6 @@ use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
 use num::BigInt;
-use std::sync::Arc;
 
 use super::handle_rpc_err;
 
@@ -79,20 +77,14 @@ fn filter_messages(
     Ok(filtered)
 }
 
-async fn get_actor_sequence(
-    message: &Message,
-    tipset: &Arc<Tipset>,
-    rpc_token: &Option<String>,
-) -> Option<u64> {
+async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -> Option<u64> {
     let address = message.from;
-    let get_actor_result = state_get_actor(
-        (address.to_owned().into(), tipset.key().to_owned().into()),
-        rpc_token,
-    )
-    .await;
+    let get_actor_result = api
+        .state_get_actor(address.to_owned().into(), tipset.key().to_owned().into())
+        .await;
 
     let actor_state = match get_actor_result {
-        Ok(LotusJson(maybe_actor)) => {
+        Ok(maybe_actor) => {
             if let Some(state) = maybe_actor {
                 state
             } else {
@@ -220,7 +212,7 @@ fn print_stats(stats: &[MpStat], basefee_lookback: u32) {
 }
 
 impl MpoolCommands {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Pending {
                 local,
@@ -228,22 +220,22 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = mpool_pending((LotusJson(vec![]),), &rpc_token)
+                let messages = api
+                    .call_req(mpool_pending_req(vec![]))
                     .await
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
-                    let response = wallet_list((), &rpc_token)
+                    let response = api
+                        .call_req(wallet_list_req())
                         .await
-                        .map_err(handle_rpc_err)?
-                        .into_inner();
+                        .map_err(handle_rpc_err)?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
                 };
 
-                let filtered_messages =
-                    filter_messages(messages.into_inner(), local_addrs, &to, &from)?;
+                let filtered_messages = filter_messages(messages, local_addrs, &to, &from)?;
 
                 for msg in filtered_messages {
                     if cids {
@@ -262,40 +254,38 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = chain_head(&rpc_token)
-                    .await
-                    .map(|LotusJson(tipset)| Arc::new(tipset))
-                    .map_err(handle_rpc_err)?;
+                let tipset = api.chain_head().await.map_err(handle_rpc_err)?;
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
 
-                let atto_str = chain_get_min_base_fee((basefee_lookback,), &rpc_token)
+                let atto_str = api
+                    .call_req(chain_get_min_base_fee_req(basefee_lookback))
                     .await
                     .map_err(handle_rpc_err)?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = mpool_pending((LotusJson(vec![]),), &rpc_token)
+                let messages = api
+                    .call_req(mpool_pending_req(vec![]))
                     .await
                     .map_err(handle_rpc_err)?;
 
                 let local_addrs = if local {
-                    let response = wallet_list((), &rpc_token)
+                    let response = api
+                        .call_req(wallet_list_req())
                         .await
-                        .map_err(handle_rpc_err)?
-                        .into_inner();
+                        .map_err(handle_rpc_err)?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
                 };
 
-                let messages: Vec<Message> =
-                    filter_messages(messages.into_inner(), local_addrs, &None, &None)?
-                        .into_iter()
-                        .map(|it| it.message)
-                        .collect();
+                let messages: Vec<Message> = filter_messages(messages, local_addrs, &None, &None)?
+                    .into_iter()
+                    .map(|it| it.message)
+                    .collect();
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
-                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &rpc_token).await {
+                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &api).await {
                         actor_sequences.insert(msg.from, sequence);
                     }
                 }

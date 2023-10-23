@@ -1,28 +1,53 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::state_api::*;
+use std::path::PathBuf;
+
+use crate::{
+    blocks::TipsetKeys,
+    rpc_api::state_api::*,
+    shim::{address::Address, state_tree::ActorState},
+};
+use cid::Cid;
 use jsonrpc_v2::Error;
 
-use crate::rpc_client::call;
+use super::{ApiInfo, RpcRequest};
 
-pub async fn state_get_actor(
-    params: StateGetActorParams,
-    auth_token: &Option<String>,
-) -> Result<StateGetActorResult, Error> {
-    call(STATE_GET_ACTOR, params, auth_token).await
-}
+impl ApiInfo {
+    pub async fn state_get_actor(
+        &self,
+        address: Address,
+        head: TipsetKeys,
+    ) -> Result<Option<ActorState>, Error> {
+        self.call_req(Self::state_get_actor_req(address, head))
+            .await
+    }
 
-pub async fn state_fetch_root(
-    params: StateFetchRootParams,
-    auth_token: &Option<String>,
-) -> Result<StateFetchRootResult, Error> {
-    call(STATE_FETCH_ROOT, params, auth_token).await
-}
+    pub fn state_get_actor_req(
+        address: Address,
+        head: TipsetKeys,
+    ) -> RpcRequest<Option<ActorState>> {
+        RpcRequest::new(STATE_GET_ACTOR, (address, head))
+    }
 
-pub async fn state_network_name(
-    (): StateNetworkNameParams,
-    auth_token: &Option<String>,
-) -> Result<StateNetworkNameResult, Error> {
-    call(STATE_NETWORK_NAME, (), auth_token).await
+    pub async fn state_fetch_root(
+        &self,
+        root: Cid,
+        opt_path: Option<PathBuf>,
+    ) -> Result<String, Error> {
+        self.call_req(Self::state_fetch_root_req(root, opt_path))
+            .await
+    }
+
+    pub fn state_fetch_root_req(root: Cid, opt_path: Option<PathBuf>) -> RpcRequest<String> {
+        RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
+    }
+
+    pub async fn state_network_name(&self) -> Result<String, Error> {
+        self.call_req(Self::state_network_name_req()).await
+    }
+
+    pub fn state_network_name_req() -> RpcRequest<String> {
+        RpcRequest::new(STATE_NETWORK_NAME, ())
+    }
 }

@@ -3,11 +3,10 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::lotus_json::LotusJson;
-use crate::rpc_client::chain_ops::*;
+use crate::rpc_client::{chain_ops::*, ApiInfo};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
-use futures::TryFutureExt;
 
 use super::*;
 
@@ -56,17 +55,15 @@ pub enum ChainCommands {
 }
 
 impl ChainCommands {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => {
-                print_rpc_res_pretty(chain_get_block((cid.into(),), &rpc_token).await)
-            }
-            Self::Genesis => print_rpc_res_pretty(chain_get_genesis(&rpc_token).await),
-            Self::Head => print_rpc_res_cids(chain_head(&rpc_token).await),
+            Self::Block { cid } => print_rpc_res_pretty(api.chain_get_block(cid).await?),
+            Self::Genesis => print_rpc_res_pretty(LotusJson(api.chain_get_genesis().await?)),
+            Self::Head => print_rpc_res_cids(api.chain_head().await),
             Self::Message { cid } => {
-                print_rpc_res_pretty(chain_get_message((cid.into(),), &rpc_token).await)
+                print_rpc_res_pretty(api.call_req(chain_get_message_req(cid)).await)
             }
-            Self::ReadObj { cid } => print_rpc_res(chain_read_obj((cid.into(),), &rpc_token).await),
+            Self::ReadObj { cid } => print_rpc_res(api.call_req(chain_read_obj_req(cid)).await),
             Self::SetHead {
                 cids,
                 epoch: Some(epoch),
@@ -74,12 +71,11 @@ impl ChainCommands {
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
-                tipset_by_epoch_or_offset(epoch, &rpc_token)
-                    .and_then(|tipset_json| {
-                        chain_set_head((tipset_json.into_inner().key().clone(),), &rpc_token)
-                    })
+                let tipset = tipset_by_epoch_or_offset(&api, epoch)
                     .await
-                    .map_err(handle_rpc_err)
+                    .map_err(handle_rpc_err)?;
+                api.chain_set_head(tipset.key().clone()).await?;
+                Ok(())
             }
             Self::SetHead {
                 cids,
@@ -87,9 +83,9 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                chain_set_head((TipsetKeys::from_iter(cids.clone()),), &rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)
+                api.chain_set_head(TipsetKeys::from_iter(cids.clone()))
+                    .await?;
+                Ok(())
             }
         }
     }
@@ -98,21 +94,18 @@ impl ChainCommands {
 /// If `epoch_or_offset` is negative, get the tipset that many blocks before the
 /// current head. Else treat `epoch_or_offset` as an epoch, and get that tipset.
 async fn tipset_by_epoch_or_offset(
+    api: &ApiInfo,
     epoch_or_offset: i64,
-    auth_token: &Option<String>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let current_head = chain_head(auth_token).await?.into_inner();
+) -> Result<Tipset, JsonRpcError> {
+    let current_head = api.chain_head().await?;
 
     let target_epoch = match epoch_or_offset.is_negative() {
         true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
 
-    chain_get_tipset_by_height(
-        LotusJson((target_epoch, current_head.key().clone())),
-        auth_token,
-    )
-    .await
+    api.chain_get_tipset_by_height(target_epoch, current_head.key().clone())
+        .await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

@@ -7,7 +7,7 @@ use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
-use crate::rpc_client::{chain_ops::*, state_network_name};
+use crate::rpc_client::{chain_ops::*, ApiInfo};
 use crate::utils::bail_moved_cmd;
 use anyhow::Context as _;
 use chrono::NaiveDateTime;
@@ -76,7 +76,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -85,24 +85,23 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = match chain_head(&rpc_token).await {
-                    Ok(LotusJson(head)) => head,
+                let chain_head = match api.chain_head().await {
+                    Ok(head) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let chain_name = state_network_name((), &rpc_token)
+                let chain_name = api
+                    .state_network_name()
                     .await
                     .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
                     .map_err(handle_rpc_err)?;
 
-                let LotusJson(tipset) = chain_get_tipset_by_height(
-                    LotusJson((epoch, TipsetKeys::default())),
-                    &rpc_token,
-                )
-                .await
-                .map_err(handle_rpc_err)?;
+                let tipset = api
+                    .chain_get_tipset_by_height(epoch, TipsetKeys::default())
+                    .await
+                    .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
@@ -159,7 +158,8 @@ impl SnapshotCommands {
                     }
                 });
 
-                let hash_result = chain_export(params, &rpc_token)
+                let hash_result = api
+                    .call_req(chain_export_req(params))
                     .await
                     .map_err(handle_rpc_err)?;
 

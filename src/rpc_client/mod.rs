@@ -153,6 +153,32 @@ impl ApiInfo {
             }),
         }
     }
+
+    pub async fn call_req_e<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+        let rpc_req = RequestObject::request()
+            .with_method(req.method_name)
+            .with_params(req.params)
+            .with_id(0)
+            .finish();
+
+        let api_url = multiaddress_to_url(&self.multiaddr);
+
+        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
+
+        let request = global_http_client().post(api_url).json(&rpc_req);
+        let request = match self.token.as_ref() {
+            Some(token) => request.header(http::header::AUTHORIZATION, token),
+            _ => request,
+        };
+
+        let rpc_res: JsonRpcResponse<T::LotusJson> =
+            request.send().await?.error_for_status()?.json().await?;
+
+        match rpc_res {
+            JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
+            JsonRpcResponse::Error { error, .. } => Err(error),
+        }
+    }
 }
 
 pub static API_INFO: Lazy<ApiInfo> = Lazy::new(|| {
@@ -174,10 +200,34 @@ pub static API_INFO: Lazy<ApiInfo> = Lazy::new(|| {
 });
 
 /// Error object in a response
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
+}
+
+impl std::fmt::Display for JsonRpcError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (code={})", self.message, self.code)
+    }
+}
+
+impl std::error::Error for JsonRpcError {
+    fn description(&self) -> &str {
+        &self.message
+    }
+}
+
+impl From<reqwest::Error> for JsonRpcError {
+    fn from(reqwest_error: reqwest::Error) -> Self {
+        JsonRpcError {
+            code: reqwest_error
+                .status()
+                .map(|s| s.as_u16())
+                .unwrap_or_default() as i64,
+            message: reqwest_error.to_string(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
