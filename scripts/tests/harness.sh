@@ -122,7 +122,7 @@ function wait_util_rpc_is_ready {
   done
 }
 
-function wait_util_p2p_is_ready {
+function wait_until_p2p_is_ready {
   until $FOREST_CLI_PATH net listen; do
       echo "Libp2p listen address is unavailable - sleeping for 1s"
       sleep 1s
