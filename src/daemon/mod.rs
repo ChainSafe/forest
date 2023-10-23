@@ -238,7 +238,7 @@ pub(super) async fn start(
             config.chain.recent_state_roots,
         );
 
-        let get_heaviest_tipset = move || chain_store.heaviest_tipset();
+        let get_heaviest_tipset = Box::new(move || chain_store.heaviest_tipset());
 
         MarkAndSweep::new(
             db_writer,

@@ -88,16 +88,16 @@ enum ControlFlow {
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
 /// taking care of the latter.
-pub struct MarkAndSweep<DB, GT> {
+pub struct MarkAndSweep<DB> {
     db: Arc<DB>,
-    get_heaviest_tipset: GT,
+    get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
 
-impl<DB: Blockstore + GarbageCollectable, GT: Fn() -> Arc<Tipset>> MarkAndSweep<DB, GT> {
+impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -108,7 +108,7 @@ impl<DB: Blockstore + GarbageCollectable, GT: Fn() -> Arc<Tipset>> MarkAndSweep<
     /// * `block_time` - An average block production time.
     pub fn new(
         db: Arc<DB>,
-        get_heaviest_tipset: GT,
+        get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
         depth: ChainEpochDelta,
         block_time: Duration,
     ) -> Self {
@@ -254,7 +254,7 @@ mod test {
         );
 
         let cs_cloned = cs.clone();
-        let get_heaviest_tipset = move || cs_cloned.heaviest_tipset();
+        let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
         let mut gc = MarkAndSweep::new(
             db.clone(),
             get_heaviest_tipset,
