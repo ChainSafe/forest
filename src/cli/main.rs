@@ -24,10 +24,8 @@ where
         .build()
         .unwrap()
         .block_on(async {
-            let mut config = crate::Config::default();
-            config.client.rpc_token = token;
             logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
-            if let Ok(name) = state_network_name((), &config.client.rpc_token).await {
+            if let Ok(name) = state_network_name((), &token).await {
                 if get_actual_chain_name(&name) != "mainnet" {
                     CurrentNetwork::set_global(Network::Testnet);
                 }
@@ -37,21 +35,21 @@ where
                 Subcommand::Fetch(_cmd) => {
                     bail_moved_cmd("fetch-params", "forest-tool fetch-params")
                 }
-                Subcommand::Chain(cmd) => cmd.run(config).await,
-                Subcommand::Auth(cmd) => cmd.run(config).await,
-                Subcommand::Net(cmd) => cmd.run(config).await,
+                Subcommand::Chain(cmd) => cmd.run(token).await,
+                Subcommand::Auth(cmd) => cmd.run(token).await,
+                Subcommand::Net(cmd) => cmd.run(token).await,
                 Subcommand::Wallet(..) => bail_moved_cmd("wallet", "forest-wallet"),
-                Subcommand::Sync(cmd) => cmd.run(config).await,
-                Subcommand::Mpool(cmd) => cmd.run(config).await,
-                Subcommand::State(cmd) => cmd.run(config).await,
-                Subcommand::Config(cmd) => cmd.run(&config, &mut std::io::stdout()),
-                Subcommand::Send(cmd) => cmd.run(config).await,
-                Subcommand::Info(cmd) => cmd.run(config).await,
-                Subcommand::DB(cmd) => cmd.run().await,
-                Subcommand::Snapshot(cmd) => cmd.run(config).await,
+                Subcommand::Sync(cmd) => cmd.run(token).await,
+                Subcommand::Mpool(cmd) => cmd.run(token).await,
+                Subcommand::State(cmd) => cmd.run(token).await,
+                Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
+                Subcommand::Send(cmd) => cmd.run(token).await,
+                Subcommand::Info(cmd) => cmd.run(token).await,
+                Subcommand::DB(cmd) => cmd.run(token).await,
+                Subcommand::Snapshot(cmd) => cmd.run(token).await,
                 Subcommand::Archive(cmd) => cmd.run().await,
-                Subcommand::Attach(cmd) => cmd.run(config),
-                Subcommand::Shutdown(cmd) => cmd.run(config).await,
+                Subcommand::Attach(cmd) => cmd.run(token),
+                Subcommand::Shutdown(cmd) => cmd.run(token).await,
                 Subcommand::Car(..) => bail_moved_cmd("car", "forest-tool"),
             }
         })
