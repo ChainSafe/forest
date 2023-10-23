@@ -5,7 +5,7 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use crate::blocks::{
@@ -29,8 +29,6 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::time::Sleep;
-use tokio_util::either::Either;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::chain_sync::{
@@ -154,6 +152,9 @@ pub struct ChainMuxer<DB, M> {
 
     /// Syncing configurations
     sync_config: SyncConfig,
+
+    /// When `stateless_mode` is true, forest connects to the P2P network but does not sync to HEAD.
+    stateless_mode: bool,
 }
 
 impl<DB, M> ChainMuxer<DB, M>
@@ -178,13 +179,7 @@ where
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
 
         Ok(Self {
-            state: if stateless_mode {
-                ChainMuxerState::Stateless(Either::Right(Box::pin(tokio::time::sleep(
-                    Duration::default(),
-                ))))
-            } else {
-                ChainMuxerState::Idle
-            },
+            state: ChainMuxerState::Idle,
             worker_state: Default::default(),
             network,
             genesis,
@@ -195,6 +190,7 @@ where
             tipset_sender,
             tipset_receiver,
             sync_config: cfg,
+            stateless_mode,
         })
     }
 
@@ -876,7 +872,7 @@ enum ChainMuxerState {
     Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
     Follow(ChainMuxerFuture<(), ChainMuxerError>),
     /// In stateless mode, forest still connects to the P2P swarm but does not sync to HEAD.
-    Stateless(Either<ChainMuxerFuture<(), ChainMuxerError>, Pin<Box<Sleep>>>),
+    Stateless(ChainMuxerFuture<(), ChainMuxerError>),
 }
 
 impl<DB, M> Future for ChainMuxer<DB, M>
@@ -890,7 +886,10 @@ where
         loop {
             match self.state {
                 ChainMuxerState::Idle => {
-                    if self.sync_config.tipset_sample_size == 0 {
+                    if self.stateless_mode {
+                        info!("Running chain muxer in stateless mode...");
+                        self.state = ChainMuxerState::Stateless(self.handle_network_messages());
+                    } else if self.sync_config.tipset_sample_size == 0 {
                         // A standalone node might use this option to not be stuck waiting for P2P
                         // messages.
                         info!("Skip evaluating network head, assume in-sync.");
@@ -901,22 +900,11 @@ where
                         self.state = ChainMuxerState::Connect(self.evaluate_network_head());
                     }
                 }
-                ChainMuxerState::Stateless(ref mut either) => match either {
-                    Either::Left(ref mut connect) => {
-                        if let Err(e) = std::task::ready!(connect.as_mut().poll(cx)) {
-                            error!("Failed to process network messages, retrying. Error = {e:?}");
-                        }
-                        self.state = ChainMuxerState::Stateless(Either::Right(Box::pin(
-                            tokio::time::sleep(Duration::from_secs(60)),
-                        )));
+                ChainMuxerState::Stateless(ref mut future) => {
+                    if let Err(why) = std::task::ready!(future.as_mut().poll(cx)) {
+                        return Poll::Ready(why);
                     }
-                    Either::Right(ref mut sleep) => {
-                        std::task::ready!(sleep.as_mut().poll(cx));
-                        self.state = ChainMuxerState::Stateless(Either::Left(
-                            self.handle_network_messages(),
-                        ));
-                    }
-                },
+                }
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
                     Poll::Ready(Ok(evaluation)) => match evaluation {
                         NetworkHeadEvaluation::Behind {
