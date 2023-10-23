@@ -81,7 +81,7 @@ cov forest-wallet --token "$TOKEN" balance "$NEW_ADDR" | grep 0
 cov forest-cli --token "$TOKEN" send --from "$DEFAULT_ADDR" "$NEW_ADDR" 10attoFIL
 
 # Create a read-only token
-READ_TOKEN=$(cov forest-cli --token "$TOKEN" auth create-token --perm read)
+READ_TOKEN=$(cov forest-cli --token "$TOKEN" auth create-token --perm read --expire-in 1month)
 # Make sure that viewing the wallet fails with the read-only token
 cov forest-wallet --token "$READ_TOKEN" list && { echo "must fail"; return 1; }
 # Verifying a message should still work with the read-only token
