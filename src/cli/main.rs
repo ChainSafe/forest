@@ -45,7 +45,7 @@ where
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
                 Subcommand::Send(cmd) => cmd.run(token).await,
                 Subcommand::Info(cmd) => cmd.run(token).await,
-                Subcommand::DB(cmd) => cmd.run(token).await,
+                Subcommand::DB(cmd) => cmd.run().await,
                 Subcommand::Snapshot(cmd) => cmd.run(token).await,
                 Subcommand::Archive(cmd) => cmd.run().await,
                 Subcommand::Attach(cmd) => cmd.run(token),
