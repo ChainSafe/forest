@@ -37,6 +37,8 @@
 - [#3609](https://github.com/ChainSafe/forest/pull/3609) Add `--no-metrics`
   option to `forest` for controlling the availability of the metrics Prometheus
   server.
+- [#3613](https://github.com/ChainSafe/forest/pull/3613) Add `--expire-in`
+  parameter to token commands.
 
 ### Changed
 
