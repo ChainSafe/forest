@@ -18,6 +18,12 @@ $FOREST_CLI_PATH snapshot export
 echo "Testing snapshot validity"
 zstd --test ./*.car.zst
 
+echo "Exporting zstd compressed snapshot at genesis"
+$FOREST_CLI_PATH snapshot export --tipset 0
+
+echo "Testing genesis snapshot validity"
+zstd --test forest_snapshot_calibnet_2022-11-01_height_0.forest.car.zst
+
 echo "Verifying snapshot checksum"
 sha256sum --check ./*.sha256sum
 
