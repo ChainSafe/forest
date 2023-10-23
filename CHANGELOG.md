@@ -47,6 +47,9 @@
 
 ### Fixed
 
+- [#3619](https://github.com/ChainSafe/forest/pull/3619) Use correct timestamp
+  in exported snapshot filenames.
+
 ## Forest v0.14.0 "Hakuna Matata"
 
 ### Breaking
