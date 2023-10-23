@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use super::Config;
 use crate::chain_sync::SyncStage;
 use crate::cli::humantoken;
 use crate::lotus_json::LotusJson;
@@ -358,9 +357,9 @@ impl AttachCommand {
         Ok(())
     }
 
-    pub fn run(self, config: Config) -> anyhow::Result<()> {
+    pub fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         let mut context = Context::default();
-        self.setup_context(&mut context, &config.client.rpc_token);
+        self.setup_context(&mut context, &rpc_token);
 
         self.import_prelude(&mut context)?;
 

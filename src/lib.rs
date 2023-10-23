@@ -3,6 +3,19 @@
 
 #![recursion_limit = "1024"]
 #![cfg_attr(not(test), deny(clippy::todo, clippy::dbg_macro))]
+#![cfg_attr(
+    doc,
+    deny(rustdoc::all),
+    allow(
+        // We build with `--document-private-items` on both docs.rs and our
+        // vendored docs.
+        rustdoc::private_intra_doc_links,
+        // See module `doctest_private` below.
+        rustdoc::private_doc_tests,
+        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3602
+        rustdoc::missing_crate_level_docs
+    )
+)]
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "rustalloc")] {
@@ -27,6 +40,7 @@ mod cli;
 mod cli_shared;
 mod daemon;
 mod db;
+mod documentation;
 mod fil_cns;
 mod genesis;
 mod interpreter;
