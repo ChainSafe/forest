@@ -37,8 +37,9 @@
 //! ## Disk usage
 //! The expected disk usage is slightly greater than the size of live data for three reasons:
 //! 1. Unreachable data is not removed until it is at least 7.5 hours old (see `chain finality`).
-//! 2. The garbage collector is conservative and is expected to leave a small (<1%) amount of unreachable data behind.
-//! 3. The blockstore backend may be fragmented, therefore not relinquishing the disk space back to
+//! 2. The garbage collector is conservative and is expected to leave a small (less than 1%) amount
+//! of unreachable data behind.
+//! 3. The blockstore back-end may be fragmented, therefore not relinquishing the disk space back to
 //! the OS.
 //!
 //! ## Memory usage
