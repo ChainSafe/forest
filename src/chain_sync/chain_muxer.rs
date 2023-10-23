@@ -519,6 +519,48 @@ where
         Ok(Some((tipset, source)))
     }
 
+    fn handle_network_messages(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
+        let p2p_messages = self.net_handler.clone();
+        let chain_store = self.state_manager.chain_store().clone();
+        let network = self.network.clone();
+        let genesis = self.genesis.clone();
+        let bad_block_cache = self.bad_blocks.clone();
+        let mem_pool = self.mpool.clone();
+        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+
+        let future = async move {
+            loop {
+                let event = match p2p_messages.recv_async().await {
+                    Ok(event) => event,
+                    Err(why) => {
+                        debug!("Receiving event from p2p event stream failed: {}", why);
+                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
+                    }
+                };
+
+                match Self::process_gossipsub_event(
+                    event,
+                    network.clone(),
+                    chain_store.clone(),
+                    bad_block_cache.clone(),
+                    mem_pool.clone(),
+                    genesis.clone(),
+                    PubsubMessageProcessingStrategy::DoNotProcess,
+                    block_delay,
+                )
+                .await
+                {
+                    Ok(_) => {}
+                    Err(why) => {
+                        debug!("Processing GossipSub event failed: {why:?}");
+                    }
+                };
+            }
+        };
+
+        Box::pin(future)
+    }
+
     fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
         let p2p_messages = self.net_handler.clone();
         let chain_store = self.state_manager.chain_store().clone();
@@ -834,7 +876,7 @@ enum ChainMuxerState {
     Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
     Follow(ChainMuxerFuture<(), ChainMuxerError>),
     /// In stateless mode, forest still connects to the P2P swarm but does not sync to HEAD.
-    Stateless(Either<ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>, Pin<Box<Sleep>>>),
+    Stateless(Either<ChainMuxerFuture<(), ChainMuxerError>, Pin<Box<Sleep>>>),
 }
 
 impl<DB, M> Future for ChainMuxer<DB, M>
@@ -862,7 +904,7 @@ where
                 ChainMuxerState::Stateless(ref mut either) => match either {
                     Either::Left(ref mut connect) => {
                         if let Err(e) = std::task::ready!(connect.as_mut().poll(cx)) {
-                            error!("Evaluating the network head failed, retrying. Error = {e:?}");
+                            error!("Failed to process network messages, retrying. Error = {e:?}");
                         }
                         self.state = ChainMuxerState::Stateless(Either::Right(Box::pin(
                             tokio::time::sleep(Duration::from_secs(60)),
@@ -870,8 +912,9 @@ where
                     }
                     Either::Right(ref mut sleep) => {
                         std::task::ready!(sleep.as_mut().poll(cx));
-                        self.state =
-                            ChainMuxerState::Stateless(Either::Left(self.evaluate_network_head()));
+                        self.state = ChainMuxerState::Stateless(Either::Left(
+                            self.handle_network_messages(),
+                        ));
                     }
                 },
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {
