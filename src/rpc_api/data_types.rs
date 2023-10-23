@@ -11,6 +11,8 @@ use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
+use crate::lotus_json::HasLotusJson;
+use crate::lotus_json_with_self;
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::executor::Receipt;
@@ -107,7 +109,7 @@ pub struct PeerID {
 }
 
 /// Represents the current version of the API.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIVersion {
     pub version: String,
@@ -116,9 +118,11 @@ pub struct APIVersion {
     pub block_delay: u64,
 }
 
+lotus_json_with_self!(APIVersion);
+
 /// Integer based value on version information. Highest order bits for Major,
 /// Mid order for Minor and lowest for Patch.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Version(u32);
 
 impl Version {

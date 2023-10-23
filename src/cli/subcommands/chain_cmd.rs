@@ -118,7 +118,11 @@ async fn tipset_by_epoch_or_offset(
         false => epoch_or_offset,
     };
 
-    chain_get_tipset_by_height((target_epoch, current_head.key().clone()), auth_token).await
+    chain_get_tipset_by_height(
+        LotusJson((target_epoch, current_head.key().clone())),
+        auth_token,
+    )
+    .await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

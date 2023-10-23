@@ -4,13 +4,23 @@
 use ahash::HashMap;
 use clap::Subcommand;
 use futures::Future;
+use serde::de::DeserializeOwned;
 use std::str::FromStr;
 
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
+use crate::lotus_json::HasLotusJson;
 use crate::rpc_api::chain_api::*;
 use crate::rpc_api::common_api::*;
+use crate::rpc_client::chain_get_block_req;
+use crate::rpc_client::chain_get_genesis_req;
+use crate::rpc_client::chain_get_tipset_by_height_req;
+use crate::rpc_client::chain_head_req;
+use crate::rpc_client::common_ops;
+use crate::rpc_client::start_time_req;
+use crate::rpc_client::version_req;
 use crate::rpc_client::ApiInfo;
+use crate::rpc_client::RpcRequest;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -34,88 +44,11 @@ impl ApiCommands {
     }
 }
 
-struct ApiStatus {
-    forest_api: ApiInfo,
-    lotus_api: ApiInfo,
-    forest: HashMap<&'static str, EndpointStatus>,
-    lotus: HashMap<&'static str, EndpointStatus>,
-}
-
-impl ApiStatus {
-    fn new(forest_api: ApiInfo, lotus_api: ApiInfo) -> Self {
-        ApiStatus {
-            forest_api,
-            lotus_api,
-            forest: HashMap::default(),
-            lotus: HashMap::default(),
-        }
-    }
-
-    // Verify that both Forest and Lotus uses the same JSON schema for requests
-    // and responses. The Forest response does not have to contain the same data
-    // as Lotus' as long as the format is the same.
-    async fn basic_check<T, Fut>(&mut self, ident: &'static str, call: impl Fn(ApiInfo) -> Fut)
-    where
-        Fut: Future<Output = Result<T, jsonrpc_v2::Error>>,
-    {
-        let forest_resp = call(self.forest_api.clone()).await;
-        let lotus_resp = call(self.lotus_api.clone()).await;
-
-        let forest_status = forest_resp
-            .err()
-            .map_or(EndpointStatus::Valid, EndpointStatus::from_json_error);
-        let lotus_status = lotus_resp
-            .err()
-            .map_or(EndpointStatus::Valid, EndpointStatus::from_json_error);
-
-        dbg!(ident);
-        self.forest.insert(ident, dbg!(forest_status));
-        self.lotus.insert(ident, dbg!(lotus_status));
-    }
-
-    async fn validate_check<T, Fut>(
-        &mut self,
-        ident: &'static str,
-        call: impl Fn(ApiInfo) -> Fut,
-        validate: impl Fn(T, T) -> bool,
-    ) where
-        Fut: Future<Output = Result<T, jsonrpc_v2::Error>>,
-    {
-        let forest_resp = call(self.forest_api.clone()).await;
-        let lotus_resp = call(self.lotus_api.clone()).await;
-
-        dbg!(ident);
-        match (forest_resp, lotus_resp) {
-            (Ok(forest), Ok(lotus)) => {
-                if validate(forest, lotus) {
-                    self.forest.insert(ident, dbg!(EndpointStatus::Valid));
-                } else {
-                    self.forest
-                        .insert(ident, dbg!(EndpointStatus::InvalidResponse));
-                }
-                self.lotus.insert(ident, dbg!(EndpointStatus::Valid));
-            }
-            (forest_resp, lotus_resp) => {
-                let forest_status = forest_resp
-                    .err()
-                    .map_or(EndpointStatus::Valid, EndpointStatus::from_json_error);
-                let lotus_status = lotus_resp
-                    .err()
-                    .map_or(EndpointStatus::Valid, EndpointStatus::from_json_error);
-
-                dbg!(ident);
-                self.forest.insert(ident, dbg!(forest_status));
-                self.lotus.insert(ident, dbg!(lotus_status));
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum EndpointStatus {
     Missing,
     InvalidRequest,
-    InternalServerError,
+    InternalServerError(String),
     InvalidJSON,
     InvalidResponse,
     Valid,
@@ -136,8 +69,8 @@ fn err_code(err: &jsonrpc_v2::Error) -> i64 {
 
 impl EndpointStatus {
     fn from_json_error(err: jsonrpc_v2::Error) -> Self {
-        dbg!(&err_message(&err));
-        dbg!(&err_code(&err));
+        // dbg!(&err_message(&err));
+        // dbg!(&err_code(&err));
         if err_code(&err) == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
             EndpointStatus::InvalidRequest
         } else if err_code(&err) == err_code(&jsonrpc_v2::Error::METHOD_NOT_FOUND) {
@@ -147,7 +80,7 @@ impl EndpointStatus {
         } else if err_code(&err) == err_code(&jsonrpc_v2::Error::PARSE_ERROR) {
             EndpointStatus::InvalidResponse
         } else {
-            EndpointStatus::InternalServerError
+            EndpointStatus::InternalServerError(err_message(&err))
         }
     }
 }
@@ -169,55 +102,140 @@ async fn youngest_tipset(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<Ti
     }
 }
 
+struct RpcTest {
+    request: RpcRequest,
+    check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
+    check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
+}
+
+impl RpcTest {
+    // Check that an endpoint exist and that both the Lotus and Forest JSON
+    // response follows the same schema.
+    fn basic<T: DeserializeOwned>(request: RpcRequest<T>) -> RpcTest
+    where
+        T: HasLotusJson,
+    {
+        RpcTest {
+            request: request.lower(),
+            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Box::new(|_, _| true),
+        }
+    }
+
+    // Check that an endpoint exist, has the same JSON schema, and do custom
+    // validation over both responses.
+    fn validate<T>(request: RpcRequest<T>, validate: impl Fn(T, T) -> bool + 'static) -> RpcTest
+    where
+        T: HasLotusJson,
+        T::LotusJson: DeserializeOwned,
+    {
+        RpcTest {
+            request: request.lower(),
+            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Box::new(move |forest_json, lotus_json| {
+                serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
+                    serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
+                        validate(
+                            HasLotusJson::from_lotus_json(forest),
+                            HasLotusJson::from_lotus_json(lotus),
+                        )
+                    })
+                })
+            }),
+        }
+    }
+
+    // Check that an endpoint exist and that Forest returns exactly the same
+    // JSON as Lotus.
+    fn identity<T: PartialEq>(request: RpcRequest<T>) -> RpcTest
+    where
+        T: HasLotusJson,
+        T::LotusJson: DeserializeOwned,
+    {
+        RpcTest::validate(request, |forest, lotus| forest == lotus)
+    }
+
+    async fn run(
+        &self,
+        forest_api: &ApiInfo,
+        lotus_api: &ApiInfo,
+    ) -> (EndpointStatus, EndpointStatus) {
+        let forest_resp = forest_api.call_req(self.request.clone()).await;
+        let lotus_resp = lotus_api.call_req(self.request.clone()).await;
+
+        // dbg!(self.request.method_name);
+        match (forest_resp, lotus_resp) {
+            (Ok(forest), Ok(lotus))
+                if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
+            {
+                let forest_status = if (self.check_semantics)(forest, lotus) {
+                    EndpointStatus::Valid
+                } else {
+                    EndpointStatus::InvalidResponse
+                };
+                (forest_status, EndpointStatus::Valid)
+            }
+            (forest_resp, lotus_resp) => {
+                let forest_status =
+                    forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                        if (self.check_syntax)(value) {
+                            EndpointStatus::Valid
+                        } else {
+                            EndpointStatus::InvalidJSON
+                        }
+                    });
+                let lotus_status =
+                    lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                        if (self.check_syntax)(value) {
+                            EndpointStatus::Valid
+                        } else {
+                            EndpointStatus::InvalidJSON
+                        }
+                    });
+
+                (forest_status, lotus_status)
+            }
+        }
+    }
+}
+
+fn common_tests() -> Vec<RpcTest> {
+    vec![
+        RpcTest::basic(version_req()),
+        RpcTest::basic(start_time_req()),
+    ]
+}
+
+fn chain_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let shared_block = shared_tipset.min_ticket_block();
+
+    vec![
+        RpcTest::validate(chain_head_req(), |forest, lotus| {
+            forest.epoch().abs_diff(lotus.epoch()) < 10
+        }),
+        RpcTest::identity(chain_get_block_req(*shared_block.cid())),
+        RpcTest::identity(chain_get_tipset_by_height_req(
+            shared_tipset.epoch(),
+            TipsetKeys::default(),
+        )),
+        RpcTest::identity(chain_get_genesis_req()),
+    ]
+}
+
 async fn compare_apis(forest: ApiInfo, lotus: ApiInfo) -> anyhow::Result<()> {
     let shared_tipset = youngest_tipset(&forest, &lotus).await?;
     let shared_block = shared_tipset.min_ticket_block();
     dbg!(shared_block.epoch());
 
-    let mut status = ApiStatus::new(forest, lotus);
+    let mut tests = vec![];
 
-    status
-        .basic_check(VERSION, |api| async move { api.version().await })
-        .await;
-    status
-        .basic_check(START_TIME, |api| async move { api.start_time().await })
-        .await;
-    status
-        .validate_check(
-            CHAIN_HEAD,
-            |api| async move { api.chain_head().await },
-            |forest, lotus| forest.epoch().abs_diff(lotus.epoch()) < 10,
-        )
-        .await;
+    tests.extend(common_tests());
+    tests.extend(chain_tests(&shared_tipset));
 
-    status
-        .validate_check(
-            CHAIN_HEAD,
-            |api| async move { api.chain_get_block(*shared_block.cid()).await },
-            |forest, lotus| forest == lotus,
-        )
-        .await;
+    for test in tests.into_iter() {
+        eprintln!("Testing: {} ", test.request.method_name);
+        eprintln!("Result: {:?}", test.run(&forest, &lotus).await);
+    }
 
-    status
-        .validate_check(
-            CHAIN_GET_TIPSET_BY_HEIGHT,
-            |api| async move {
-                api.chain_get_tipset_by_height(shared_block.epoch(), TipsetKeys::default())
-                    .await
-            },
-            |forest, lotus| forest == lotus,
-        )
-        .await;
-
-    status
-        .validate_check(
-            CHAIN_GET_GENESIS,
-            |api| async move { api.chain_get_genesis().await },
-            |forest, lotus| forest == lotus,
-        )
-        .await;
-    // status
-    //     .basic_check(START_TIME, |api| async move { api.shutdown().await })
-    //     .await;
     Ok(())
 }

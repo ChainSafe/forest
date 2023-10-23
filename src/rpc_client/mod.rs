@@ -15,9 +15,12 @@ pub mod wallet_ops;
 
 use std::env;
 use std::fmt;
+use std::marker::PhantomData;
 use std::str::FromStr;
 
 use crate::libp2p::{Multiaddr, Protocol};
+use crate::lotus_json::HasLotusJson;
+use crate::lotus_json::LotusJson;
 use crate::utils::net::global_http_client;
 use jsonrpc_v2::{Error, Id, RequestObject, V2};
 use once_cell::sync::Lazy;
@@ -110,6 +113,39 @@ impl ApiInfo {
 
         match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(result),
+            JsonRpcResponse::Error { error, .. } => Err(Error::Full {
+                data: None,
+                code: error.code,
+                message: error.message,
+            }),
+        }
+    }
+
+    // HTTP error
+    // JsonRpcError
+    // JSON parsing error
+    pub async fn call_req<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, Error> {
+        let rpc_req = RequestObject::request()
+            .with_method(req.method_name)
+            .with_params(req.params)
+            .with_id(0)
+            .finish();
+
+        let api_url = multiaddress_to_url(&self.multiaddr);
+
+        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
+
+        let request = global_http_client().post(api_url).json(&rpc_req);
+        let request = match self.token.as_ref() {
+            Some(token) => request.header(http::header::AUTHORIZATION, token),
+            _ => request,
+        };
+
+        let rpc_res: JsonRpcResponse<T::LotusJson> =
+            request.send().await?.error_for_status()?.json().await?;
+
+        match rpc_res {
+            JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
             JsonRpcResponse::Error { error, .. } => Err(Error::Full {
                 data: None,
                 code: error.code,
@@ -229,4 +265,42 @@ where
         .set_token(token.clone())
         .call(method_name, params)
         .await
+}
+
+/// Utility method for sending RPC requests over HTTP
+async fn call_req<R: HasLotusJson>(req: RpcRequest<R>, token: &Option<String>) -> Result<R, Error> {
+    API_INFO
+        .clone()
+        .set_token(token.clone())
+        .call_req(req)
+        .await
+}
+
+#[derive(Debug, Clone)]
+pub struct RpcRequest<T = serde_json::Value> {
+    pub method_name: &'static str,
+    params: serde_json::Value,
+    result_type: PhantomData<T>,
+}
+
+impl<T> RpcRequest<T> {
+    pub fn new<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
+        RpcRequest {
+            method_name,
+            params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
+                serde_json::Value::String(
+                    "INTERNAL ERROR: Parameters could not be serialized as JSON".to_string(),
+                ),
+            ),
+            result_type: PhantomData,
+        }
+    }
+
+    pub fn lower(self) -> RpcRequest {
+        RpcRequest {
+            method_name: self.method_name,
+            params: self.params,
+            result_type: PhantomData,
+        }
+    }
 }

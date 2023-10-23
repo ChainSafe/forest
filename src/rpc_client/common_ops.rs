@@ -7,15 +7,15 @@ use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
 
-use super::{ApiInfo, API_INFO};
+use super::{call_req, ApiInfo, RpcRequest, API_INFO};
 
 impl ApiInfo {
     pub async fn version(&self) -> Result<APIVersion, Error> {
-        self.call(VERSION, ()).await
+        self.call_req(version_req()).await
     }
 
     pub async fn start_time(&self) -> Result<DateTime<Utc>, Error> {
-        self.call(START_TIME, ()).await
+        self.call_req(start_time_req()).await
     }
 
     pub async fn shutdown(&self) -> Result<(), Error> {
@@ -27,11 +27,11 @@ pub async fn version(
     (): VersionParams,
     auth_token: &Option<String>,
 ) -> Result<VersionResult, Error> {
-    API_INFO
-        .clone()
-        .set_token(auth_token.clone())
-        .version()
-        .await
+    call_req(version_req(), auth_token).await
+}
+
+pub fn version_req() -> RpcRequest<APIVersion> {
+    RpcRequest::new(VERSION, ())
 }
 
 pub async fn shutdown(
@@ -43,4 +43,8 @@ pub async fn shutdown(
 
 pub async fn start_time(auth_token: &Option<String>) -> Result<StartTimeResult, Error> {
     call(START_TIME, (), auth_token).await
+}
+
+pub fn start_time_req() -> RpcRequest<DateTime<Utc>> {
+    RpcRequest::new(START_TIME, ())
 }

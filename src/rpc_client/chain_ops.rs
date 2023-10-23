@@ -12,7 +12,7 @@ use jsonrpc_v2::Error;
 
 use crate::rpc_client::call;
 
-use super::ApiInfo;
+use super::{ApiInfo, RpcRequest};
 
 impl ApiInfo {
     pub async fn chain_head(&self) -> Result<Tipset, Error> {
@@ -50,6 +50,10 @@ pub async fn chain_get_block(
     call(CHAIN_GET_BLOCK, cid, auth_token).await
 }
 
+pub fn chain_get_block_req(cid: Cid) -> RpcRequest<BlockHeader> {
+    RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
+}
+
 pub async fn chain_export(
     params: ChainExportParams,
     auth_token: &Option<String>,
@@ -64,14 +68,26 @@ pub async fn chain_get_tipset_by_height(
     call(CHAIN_GET_TIPSET_BY_HEIGHT, params, auth_token).await
 }
 
+pub fn chain_get_tipset_by_height_req(epoch: ChainEpoch, head: TipsetKeys) -> RpcRequest<Tipset> {
+    RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
+}
+
 pub async fn chain_get_genesis(
     auth_token: &Option<String>,
 ) -> Result<ChainGetGenesisResult, Error> {
     call(CHAIN_GET_GENESIS, (), auth_token).await
 }
 
+pub fn chain_get_genesis_req() -> RpcRequest<Option<Tipset>> {
+    RpcRequest::new(CHAIN_GET_GENESIS, ())
+}
+
 pub async fn chain_head(auth_token: &Option<String>) -> Result<ChainHeadResult, Error> {
     call(CHAIN_HEAD, (), auth_token).await
+}
+
+pub fn chain_head_req() -> RpcRequest<Tipset> {
+    RpcRequest::new(CHAIN_HEAD, ())
 }
 
 pub async fn chain_get_message(

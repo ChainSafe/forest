@@ -355,6 +355,7 @@ impl<T> Stringify<T> {
     }
 }
 
+#[macro_export]
 macro_rules! lotus_json_with_self {
     ($($domain_ty:ty),* $(,)?) => {
         $(
@@ -381,4 +382,34 @@ lotus_json_with_self!(
     String,
     chrono::DateTime<chrono::Utc>,
     serde_json::Value,
+    (),
 );
+
+impl<T: HasLotusJson> HasLotusJson for (T,) {
+    type LotusJson = (T::LotusJson,);
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        (self.0.into_lotus_json(),)
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        (HasLotusJson::from_lotus_json(lotus_json.0),)
+    }
+}
+
+impl<A: HasLotusJson, B: HasLotusJson> HasLotusJson for (A, B) {
+    type LotusJson = (A::LotusJson, B::LotusJson);
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        (self.0.into_lotus_json(), self.1.into_lotus_json())
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        (
+            HasLotusJson::from_lotus_json(lotus_json.0),
+            HasLotusJson::from_lotus_json(lotus_json.1),
+        )
+    }
+}

@@ -170,7 +170,7 @@ pub(in crate::rpc) async fn chain_get_tipset_by_height<DB>(
 where
     DB: Blockstore,
 {
-    let (height, tsk) = params;
+    let LotusJson((height, tsk)) = params;
     let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
     let tss = data
         .state_manager
