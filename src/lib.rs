@@ -40,6 +40,7 @@ mod cli;
 mod cli_shared;
 mod daemon;
 mod db;
+mod documentation;
 mod fil_cns;
 mod genesis;
 mod interpreter;
