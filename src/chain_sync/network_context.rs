@@ -27,6 +27,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
@@ -194,7 +195,7 @@ where
         .await?
         .into_iter()
         .map(FullTipset::try_from)
-        .collect();
+        .try_collect()?;
 
         if fts.len() != 1 {
             return Err(format!(
@@ -202,7 +203,8 @@ where
                 fts.len()
             ));
         }
-        fts.remove(0)
+
+        Ok(fts.remove(0))
     }
 
     /// Requests that some content with a particular `Cid` get fetched over
