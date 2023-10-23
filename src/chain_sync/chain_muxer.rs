@@ -888,7 +888,7 @@ where
                 ChainMuxerState::Idle => {
                     if self.stateless_mode {
                         info!("Running chain muxer in stateless mode...");
-                        self.state = ChainMuxerState::Stateless(self.handle_network_messages());
+                        self.state = ChainMuxerState::Stateless(self.stateless_node());
                     } else if self.sync_config.tipset_sample_size == 0 {
                         // A standalone node might use this option to not be stuck waiting for P2P
                         // messages.
