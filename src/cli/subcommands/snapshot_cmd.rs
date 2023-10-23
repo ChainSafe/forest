@@ -97,10 +97,12 @@ impl SnapshotCommands {
                     .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
                     .map_err(handle_rpc_err)?;
 
-                let LotusJson(tipset) =
-                    chain_get_tipset_by_height((epoch, TipsetKeys::default()), &rpc_token)
-                        .await
-                        .map_err(handle_rpc_err)?;
+                let LotusJson(tipset) = chain_get_tipset_by_height(
+                    LotusJson((epoch, TipsetKeys::default())),
+                    &rpc_token,
+                )
+                .await
+                .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
