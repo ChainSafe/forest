@@ -23,22 +23,12 @@ impl ApiInfo {
     }
 }
 
-pub async fn version(
-    (): VersionParams,
-    auth_token: &Option<String>,
-) -> Result<VersionResult, Error> {
-    call_req(version_req(), auth_token).await
-}
-
 pub fn version_req() -> RpcRequest<APIVersion> {
     RpcRequest::new(VERSION, ())
 }
 
-pub async fn shutdown(
-    (): ShutdownParams,
-    auth_token: &Option<String>,
-) -> Result<ShutdownResult, Error> {
-    call(SHUTDOWN, (), auth_token).await
+pub fn shutdown_req() -> RpcRequest<()> {
+    RpcRequest::new(SHUTDOWN, ())
 }
 
 pub async fn start_time(auth_token: &Option<String>) -> Result<StartTimeResult, Error> {

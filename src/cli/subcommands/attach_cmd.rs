@@ -221,6 +221,45 @@ macro_rules! bind_func {
     };
 }
 
+macro_rules! bind_request_func {
+    ($context:expr, $token:expr, $($func:ident => $req:expr),* $(,)?) => {
+        $(
+        let js_func_name = stringify!($func).to_case(Case::Camel);
+        let js_func = FunctionObjectBuilder::new($context, unsafe {
+            NativeFunction::from_closure_with_captures(
+                |_this, params, token, context| {
+                    let handle = tokio::runtime::Handle::current();
+
+                    let result = tokio::task::block_in_place(|| {
+                        let value = if params.is_empty() {
+                            JsValue::Null
+                        } else {
+                            let arr = JsArray::from_iter(params.to_vec(), context);
+                            let obj: JsObject = arr.into();
+                            JsValue::from(obj)
+                        };
+                        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
+                        //                 Check if unwrap is safe here
+                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        let api = ApiInfo::from_env()?.set_token(token.clone());
+                        handle.block_on(api.call_req($req(args)))
+                    });
+                    check_result(context, result)
+                },
+                $token.clone(),
+            )
+        })
+        .name(js_func_name.clone())
+        .build();
+
+        let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
+        $context
+            .register_global_property(js_func_name, js_func, attr)
+            .expect("`register_global_property` should not fail");
+    )*
+    };
+}
+
 type SendMessageParams = (String, String, String);
 
 async fn send_message(
@@ -330,8 +369,10 @@ impl AttachCommand {
         bind_func!(context, token, mpool_push_message);
 
         // Common API
-        bind_func!(context, token, version);
-        bind_func!(context, token, shutdown);
+        bind_request_func!(context, token,
+            version => |()| version_req(),
+            shutdown => |()| shutdown_req(),
+        );
 
         // Bind send_message, sleep, sleep_tipsets
         bind_func!(context, token, send_message);

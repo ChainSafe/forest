@@ -46,10 +46,15 @@ impl ApiCommands {
 
 #[derive(Debug, Clone)]
 enum EndpointStatus {
+    // RPC endpoint is missing (currently not reported correctly by either Forest nor Lotus)
     Missing,
+    // Request isn't valid according to jsonrpc spec
     InvalidRequest,
+    // Catch-all for errors on the node
     InternalServerError(String),
+    // Unexpected JSON schema
     InvalidJSON,
+    // Got response with the right JSON schema but it failed sanity checking
     InvalidResponse,
     Valid,
 }
