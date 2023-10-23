@@ -19,8 +19,8 @@
 //! to a 100% extra disk usage.
 //!
 //! ## GC Workflow
-//! 1. Mark: traverse all the relevant database columns, generating integer hash representations for
-//! each database key and storing those in a set.
+//! 1. Mark: traverse all the blocks, generating integer hash representations for each identifier
+//! and storing those in a set.
 //! 2. Wait at least `chain finality` blocks.
 //! 3. Traverse reachable blocks starting at the current heaviest tipset and remove those from the
 //! marked set, leaving only unreachable entries that are older than `chain finality`.
@@ -38,7 +38,8 @@
 //! The expected disk usage is slightly greater than the size of live data for three reasons:
 //! 1. Unreachable data is not removed until it is at least 7.5 hours old (see `chain finality`).
 //! 2. The garbage collector is conservative and is expected to leave a small (<1%) amount of unreachable data behind.
-//! 3. The blockstore backend may be fragmented and not relinquish the disk space back to the OS.
+//! 3. The blockstore backend may be fragmented, therefore not relinquishing the disk space back to
+//! the OS.
 //!
 //! ## Memory usage
 //! During the `mark` and up to the `sweep` stage, the algorithm requires `4 bytes` of memory for
@@ -54,8 +55,8 @@
 //! 4. Finally, the algorithm waits for a configured amount of time to initiate the next run.
 //!
 //! ## Performance
-//! Note: This needs to be measured and potentially defined in terms of `snapshot export` or any
-//! other visible and comparable metric.
+//! The time complexity of this algorithm is O(n).
+
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
