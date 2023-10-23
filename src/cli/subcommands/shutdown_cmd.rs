@@ -3,7 +3,7 @@
 
 use crate::rpc_client::shutdown;
 
-use super::{handle_rpc_err, Config};
+use super::handle_rpc_err;
 use crate::cli::subcommands::prompt_confirm;
 
 #[derive(Debug, clap::Args)]
@@ -14,15 +14,13 @@ pub struct ShutdownCommand {
 }
 
 impl ShutdownCommand {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         println!("Shutting down Forest node");
         if !self.force && !prompt_confirm() {
             println!("Aborted.");
             return Ok(());
         }
-        shutdown((), &config.client.rpc_token)
-            .await
-            .map_err(handle_rpc_err)?;
+        shutdown((), &rpc_token).await.map_err(handle_rpc_err)?;
         Ok(())
     }
 }
