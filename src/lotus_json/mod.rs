@@ -355,7 +355,6 @@ impl<T> Stringify<T> {
     }
 }
 
-#[macro_export]
 macro_rules! lotus_json_with_self {
     ($($domain_ty:ty),* $(,)?) => {
         $(
@@ -374,6 +373,7 @@ macro_rules! lotus_json_with_self {
         )*
     }
 }
+pub(crate) use lotus_json_with_self;
 
 lotus_json_with_self!(
     u32,

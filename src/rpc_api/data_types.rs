@@ -11,7 +11,7 @@ use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
-use crate::lotus_json_with_self;
+use crate::lotus_json::lotus_json_with_self;
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::executor::Receipt;

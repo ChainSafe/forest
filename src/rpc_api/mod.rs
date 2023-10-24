@@ -131,7 +131,7 @@ pub mod auth_api {
     use serde::{Deserialize, Serialize};
     use serde_with::{serde_as, DurationSeconds};
 
-    use crate::lotus_json_with_self;
+    use crate::lotus_json::lotus_json_with_self;
 
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
     #[serde_as]
@@ -166,8 +166,8 @@ pub mod chain_api {
     use std::path::PathBuf;
 
     use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+    use crate::lotus_json::lotus_json_with_self;
     use crate::lotus_json::LotusJson;
-    use crate::lotus_json_with_self;
     use crate::shim::clock::ChainEpoch;
     use crate::shim::message::Message;
     use cid::Cid;
@@ -439,7 +439,8 @@ pub mod common_api {
 pub mod net_api {
     use serde::{Deserialize, Serialize};
 
-    use crate::{lotus_json_with_self, rpc_api::data_types::AddrInfo};
+    use crate::lotus_json::lotus_json_with_self;
+    use crate::rpc_api::data_types::AddrInfo;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
     pub type NetAddrsListenResult = AddrInfo;
@@ -492,7 +493,7 @@ pub mod db_api {
 
 /// Progress API
 pub mod progress_api {
-    use crate::lotus_json_with_self;
+    use crate::lotus_json::lotus_json_with_self;
     use serde::{Deserialize, Serialize};
 
     pub const GET_PROGRESS: &str = "Filecoin.GetProgress";
@@ -514,7 +515,7 @@ pub mod node_api {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::lotus_json_with_self;
+    use crate::lotus_json::lotus_json_with_self;
 
     #[derive(Debug, Serialize, Deserialize, Default)]
     pub struct NodeSyncStatus {
