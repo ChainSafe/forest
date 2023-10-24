@@ -3,9 +3,7 @@
 
 pub mod common;
 
-use common::CommonArgs;
-
-use crate::common::{create_tmp_config, daemon, CommonEnv};
+use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
 
 // Ignored because it's flaky.
 #[test]

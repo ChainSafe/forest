@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::blocks::TipsetKeys;
 use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
@@ -9,8 +10,8 @@ use crate::networks::ChainConfig;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::{chain_ops::*, state_network_name};
 use crate::utils::bail_moved_cmd;
-use anyhow::{bail, Context as _};
-use chrono::Utc;
+use anyhow::Context as _;
+use chrono::NaiveDateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
 use std::path::{Path, PathBuf};
@@ -76,7 +77,8 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, config: Config, chain_config: ChainConfig) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+        let chain_config = ChainConfig::default();
         match self {
             Self::Export {
                 output_path,
@@ -85,23 +87,33 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = match chain_head(&config.client.rpc_token).await {
+                let chain_head = match chain_head(&rpc_token).await {
                     Ok(LotusJson(head)) => head,
                     Err(_) => cli_error_and_die("Could not get network head", 1),
                 };
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let chain_name = state_network_name((), &config.client.rpc_token)
+                let chain_name = state_network_name((), &rpc_token)
                     .await
                     .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
                     .map_err(handle_rpc_err)?;
+
+                let LotusJson(tipset) =
+                    chain_get_tipset_by_height((epoch, TipsetKeys::default()), &rpc_token)
+                        .await
+                        .map_err(handle_rpc_err)?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
                         TrustedVendor::Forest,
                         chain_name,
-                        Utc::now().date_naive(),
+                        NaiveDateTime::from_timestamp_opt(
+                            tipset.min_ticket_block().timestamp() as i64,
+                            0,
+                        )
+                        .unwrap_or_default()
+                        .into(),
                         epoch,
                         true,
                     )),
@@ -119,14 +131,6 @@ impl SnapshotCommands {
                     skip_checksum,
                     dry_run,
                 };
-
-                let finality = chain_config.policy.chain_finality.min(epoch);
-                if params.recent_roots < finality {
-                    bail!(
-                        "For {}, depth has to be at least {finality}.",
-                        chain_config.network
-                    );
-                }
 
                 let handle = tokio::spawn({
                     let tmp_file = temp_path.to_owned();
@@ -155,7 +159,7 @@ impl SnapshotCommands {
                     }
                 });
 
-                let hash_result = chain_export(params, &config.client.rpc_token)
+                let hash_result = chain_export(params, &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
 

@@ -34,6 +34,11 @@
   files.
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Add
   `forest-tool archive diff` command for debugging state-root mismatches.
+- [#3609](https://github.com/ChainSafe/forest/pull/3609) Add `--no-metrics`
+  option to `forest` for controlling the availability of the metrics Prometheus
+  server.
+- [#3613](https://github.com/ChainSafe/forest/pull/3613) Add `--expire-in`
+  parameter to token commands.
 
 ### Changed
 
@@ -41,8 +46,13 @@
 
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove
   `forest-cli state diff` command. Replaced by `forest-tool archive diff`.
+- [#3615](https://github.com/ChainSafe/forest/pull/3615) Remove `chain` section
+  from forest configuration files.
 
 ### Fixed
+
+- [#3619](https://github.com/ChainSafe/forest/pull/3619) Use correct timestamp
+  in exported snapshot filenames.
 
 ## Forest v0.14.0 "Hakuna Matata"
 
