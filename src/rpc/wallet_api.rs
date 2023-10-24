@@ -179,7 +179,7 @@ where
 }
 
 /// Verify a Signature, true if verified, false otherwise
-pub(in crate::rpc) async fn wallet_verify<DB: Blockstore>(
+pub(in crate::rpc) async fn wallet_verify<DB>(
     Params(LotusJson((address, msg, sig))): Params<LotusJson<(Address, Vec<u8>, Signature)>>,
 ) -> Result<bool, JsonRpcError> {
     Ok(sig.verify(&msg, &address).is_ok())
