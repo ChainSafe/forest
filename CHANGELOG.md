@@ -37,6 +37,8 @@
 - [#3609](https://github.com/ChainSafe/forest/pull/3609) Add `--no-metrics`
   option to `forest` for controlling the availability of the metrics Prometheus
   server.
+- [#3613](https://github.com/ChainSafe/forest/pull/3613) Add `--expire-in`
+  parameter to token commands.
 
 ### Changed
 
@@ -44,6 +46,8 @@
 
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove
   `forest-cli state diff` command. Replaced by `forest-tool archive diff`.
+- [#3615](https://github.com/ChainSafe/forest/pull/3615) Remove `chain` section
+  from forest configuration files.
 
 ### Fixed
 

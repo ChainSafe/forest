@@ -1,6 +1,17 @@
 name: Forest code coverage
 
+# Cancel workflow if there is a new change to the branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 on:
+  pull_request:
+    branches:
+      - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
@@ -18,6 +29,7 @@ jobs:
   codecov:
     name: Cover
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -39,7 +51,15 @@ jobs:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: Run cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage (quick)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          ./scripts/gen_coverage_report.sh quick
+        env:
+          CC: "sccache clang"
+          CXX: "sccache clang++"
       - name: Generate code coverage
+        if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           ./scripts/gen_coverage_report.sh
         env:
@@ -51,3 +71,4 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
           fail_ci_if_error: true
+          dry_run: ${{ github.ref != 'refs/heads/main' }}

@@ -9,7 +9,7 @@ use cid::multibase;
 use clap::Subcommand;
 use itertools::Itertools;
 
-use super::{handle_rpc_err, print_stdout, Config};
+use super::{handle_rpc_err, print_stdout};
 use crate::cli::subcommands::cli_error_and_die;
 
 #[derive(Debug, Subcommand)]
@@ -33,10 +33,10 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
-                let info = net_addrs_listen((), &config.client.rpc_token)
+                let info = net_addrs_listen((), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 let addresses: Vec<String> = info
@@ -48,9 +48,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Info => {
-                let info = net_info((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let info = net_info((), &rpc_token).await.map_err(handle_rpc_err)?;
                 println!("forest libp2p swarm info:");
                 println!("num peers: {}", info.num_peers);
                 println!("num connections: {}", info.num_connections);
@@ -61,9 +59,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Peers => {
-                let addrs = net_peers((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let addrs = net_peers((), &rpc_token).await.map_err(handle_rpc_err)?;
                 let output: Vec<String> = addrs
                     .into_iter()
                     .filter_map(|info| {
@@ -114,14 +110,14 @@ impl NetCommands {
                     addrs,
                 };
 
-                net_connect((addr_info,), &config.client.rpc_token)
+                net_connect((addr_info,), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("connect {id}: success");
                 Ok(())
             }
             Self::Disconnect { id } => {
-                net_disconnect((id.to_owned(),), &config.client.rpc_token)
+                net_disconnect((id.to_owned(),), &rpc_token)
                     .await
                     .map_err(handle_rpc_err)?;
                 println!("disconnect {id}: success");

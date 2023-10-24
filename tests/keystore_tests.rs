@@ -16,6 +16,7 @@ fn forest_headless_encrypt_keystore_no_passphrase_should_fail() {
     let (config_file, _data_dir) = create_tmp_config();
     daemon()
         .common_args()
+        .chain("calibnet")
         .arg("--config")
         .arg(config_file)
         .assert()
@@ -27,6 +28,7 @@ fn forest_headless_no_encrypt_no_passphrase_should_succeed() {
     let (config_file, data_dir) = create_tmp_config();
     daemon()
         .common_args()
+        .chain("calibnet")
         .arg("--config")
         .arg(config_file)
         .arg("--encrypt-keystore")
@@ -43,6 +45,7 @@ fn forest_headless_encrypt_keystore_with_passphrase_should_succeed() {
     daemon()
         .env(FOREST_KEYSTORE_PHRASE_ENV, "hunter2")
         .common_args()
+        .chain("calibnet")
         .arg("--config")
         .arg(config_file)
         .assert()
@@ -57,6 +60,7 @@ fn should_create_jwt_admin_token() {
     let token_path = data_dir.path().join("admin-token");
     daemon()
         .common_args()
+        .chain("calibnet")
         .arg("--config")
         .arg(config_file)
         .arg("--encrypt-keystore")
