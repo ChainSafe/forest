@@ -359,7 +359,7 @@ impl<T> Stringify<T> {
 macro_rules! lotus_json_with_self {
     ($($domain_ty:ty),* $(,)?) => {
         $(
-            impl crate::lotus_json::HasLotusJson for $domain_ty {
+            impl $crate::lotus_json::HasLotusJson for $domain_ty {
                 type LotusJson = Self;
                 fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")

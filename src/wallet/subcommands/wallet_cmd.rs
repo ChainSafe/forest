@@ -164,7 +164,7 @@ impl WalletCommands {
                 let LotusJson(key) = serde_json::from_str::<LotusJson<KeyInfo>>(key_str)
                     .context("invalid key format")?;
 
-                let key = api.wallet_import(vec![key].into()).await?;
+                let key = api.wallet_import(vec![key]).await?;
 
                 println!("{key}");
                 Ok(())
@@ -243,7 +243,7 @@ impl WalletCommands {
                 };
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
-                let response = api.wallet_verify((address).into(), msg, signature).await?;
+                let response = api.wallet_verify(address, msg, signature).await?;
 
                 println!("{response}");
                 Ok(())

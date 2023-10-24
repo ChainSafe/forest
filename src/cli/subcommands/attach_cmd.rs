@@ -330,28 +330,28 @@ impl AttachCommand {
                 // Net API
                 "net_addrs_listen" => |()| ApiInfo::net_addrs_listen_req(),
                 "net_peers"        => |()| ApiInfo::net_peers_req(),
-                "net_disconnect"   => |peer| ApiInfo::net_disconnect_req(peer),
-                "net_connect"      => |addr| ApiInfo::net_connect_req(addr),
+                "net_disconnect"   => ApiInfo::net_disconnect_req,
+                "net_connect"      => ApiInfo::net_connect_req,
 
                 // Node API
                 "node_status" => |()| ApiInfo::node_status_req(),
 
                 // Sync API
-                "sync_check_bad" => |cid| ApiInfo::sync_check_bad_req(cid),
-                "sync_mark_bad"  => |cid| ApiInfo::sync_mark_bad_req(cid),
+                "sync_check_bad" => ApiInfo::sync_check_bad_req,
+                "sync_mark_bad"  => ApiInfo::sync_mark_bad_req,
                 "sync_status"    => |()| ApiInfo::sync_status_req(),
 
                 // Wallet API
                 // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
                 //                 bind wallet_sign, wallet_verify
-                "wallet_new"         => |sig_type| ApiInfo::wallet_new_req(sig_type),
+                "wallet_new"         => ApiInfo::wallet_new_req,
                 "wallet_default"     => |()| ApiInfo::wallet_default_address_req(),
-                "wallet_balance"     => |addr| ApiInfo::wallet_balance_req(addr),
-                "wallet_export"      => |addr| ApiInfo::wallet_export_req(addr),
-                "wallet_import"      => |keys| ApiInfo::wallet_import_req(keys),
+                "wallet_balance"     => ApiInfo::wallet_balance_req,
+                "wallet_export"      => ApiInfo::wallet_export_req,
+                "wallet_import"      => ApiInfo::wallet_import_req,
                 "wallet_list"        => |()| ApiInfo::wallet_list_req(),
-                "wallet_has"         => |addr| ApiInfo::wallet_has_req(addr),
-                "wallet_set_default" => |addr| ApiInfo::wallet_set_default_req(addr),
+                "wallet_has"         => ApiInfo::wallet_has_req,
+                "wallet_set_default" => ApiInfo::wallet_set_default_req,
 
                 // Message Pool API
                 "mpool_push_message" => |(message, specs)| ApiInfo::mpool_push_message_req(message, specs),

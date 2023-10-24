@@ -155,7 +155,7 @@ impl NodeStatusInfo {
 
 impl InfoCommand {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let res = tokio::try_join!(
+        let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
             api.node_status(),
             api.chain_head(),
             api.state_network_name(),
@@ -163,35 +163,30 @@ impl InfoCommand {
             api.wallet_default_address(),
         )?;
 
-        match res {
-            (node_status, head, network, start_time, default_wallet_address) => {
-                let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
-                let blocks_per_tipset_last_finality =
-                    node_status.chain_status.blocks_per_tipset_last_finality;
+        let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        let blocks_per_tipset_last_finality =
+            node_status.chain_status.blocks_per_tipset_last_finality;
 
-                let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
-                {
-                    let balance = api.wallet_balance(def_addr.clone()).await?;
-                    Some(balance)
-                } else {
-                    None
-                };
+        let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address {
+            let balance = api.wallet_balance(def_addr.clone()).await?;
+            Some(balance)
+        } else {
+            None
+        };
 
-                let node_status_info = NodeStatusInfo::new(
-                    cur_duration,
-                    blocks_per_tipset_last_finality,
-                    &head,
-                    start_time,
-                    network,
-                    default_wallet_address.clone(),
-                    default_wallet_address_balance,
-                );
+        let node_status_info = NodeStatusInfo::new(
+            cur_duration,
+            blocks_per_tipset_last_finality,
+            &head,
+            start_time,
+            network,
+            default_wallet_address.clone(),
+            default_wallet_address_balance,
+        );
 
-                println!("{}", node_status_info.format(Utc::now()));
+        println!("{}", node_status_info.format(Utc::now()));
 
-                Ok(())
-            }
-        }
+        Ok(())
     }
 }
 
