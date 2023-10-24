@@ -252,19 +252,6 @@ fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
     url
 }
 
-// /// Utility method for sending RPC requests over HTTP
-// async fn call<P, R>(method_name: &str, params: P, token: &Option<String>) -> Result<R, Error>
-// where
-//     P: Serialize,
-//     R: DeserializeOwned,
-// {
-//     API_INFO
-//         .clone()
-//         .set_token(token.clone())
-//         .call(method_name, params)
-//         .await
-// }
-
 #[derive(Debug, Clone)]
 pub struct RpcRequest<T = serde_json::Value> {
     pub method_name: &'static str,
