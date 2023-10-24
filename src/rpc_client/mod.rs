@@ -23,7 +23,6 @@ use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::net::global_http_client;
 use jsonrpc_v2::{Id, RequestObject, V2};
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use tracing::debug;
 
@@ -113,24 +112,6 @@ impl ApiInfo {
         }
     }
 }
-
-pub static API_INFO: Lazy<ApiInfo> = Lazy::new(|| {
-    // Get API_INFO environment variable if exists, otherwise, use default
-    // multiaddress
-    let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
-
-    let (multiaddr, token) = match api_info.split_once(':') {
-        // Typically this is when a JWT was provided
-        Some((jwt, host)) => (
-            host.parse().expect("Parse multiaddress"),
-            Some(jwt.to_owned()),
-        ),
-        // Use entire API_INFO env var as host string
-        None => (api_info.parse().expect("Parse multiaddress"), None),
-    };
-
-    ApiInfo { multiaddr, token }
-});
 
 /// Error object in a response
 #[derive(Debug, Deserialize)]

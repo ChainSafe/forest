@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
-use crate::rpc_client::{ApiInfo, JsonRpcError, API_INFO};
+use crate::rpc_client::{ApiInfo, JsonRpcError};
 use chrono::Duration;
 use clap::Subcommand;
 use std::str::FromStr;
@@ -58,12 +58,11 @@ impl AuthCommands {
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
                 let token = api.auth_new(perms, token_exp).await?;
-                let addr = API_INFO.multiaddr.to_owned();
-                println!(
-                    "FULLNODE_API_INFO=\"{}:{}\"",
-                    String::from_utf8(token)?,
-                    addr
-                );
+                let new_api = ApiInfo {
+                    token: Some(String::from_utf8(token)?),
+                    ..api
+                };
+                println!("FULLNODE_API_INFO=\"{}\"", new_api);
                 Ok(())
             }
         }
