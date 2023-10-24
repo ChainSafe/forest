@@ -45,7 +45,7 @@ pub struct ApiInfo {
 }
 
 impl fmt::Display for ApiInfo {
-    /// Convert an ApiInfo to a string
+    /// Convert an [`ApiInfo`] to a string
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(token) = &self.token {
             token.fmt(f)?;
