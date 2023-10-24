@@ -57,7 +57,7 @@
 //! 4. Finally, the algorithm waits for a configured amount of time to initiate the next run.
 //!
 //! ## Performance
-//! The time complexity of mark and sweep steps is O(n). The filter step is currently utilising a
+//! The time complexity of mark and sweep steps is O(n). The filter step is currently utilizing a
 //! depth-first search algorithm, with O(V+E) complexity, where V is the number of vertices and E is
 //! the number of edges.
 
