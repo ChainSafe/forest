@@ -59,14 +59,18 @@ impl fmt::Display for ApiInfo {
 impl FromStr for ApiInfo {
     type Err = multiaddr::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (multiaddr, token) = match s.split_once(':') {
+        Ok(match s.split_once(':') {
             // token:host
-            Some((jwt, host)) => (host.parse()?, Some(jwt.to_owned())),
+            Some((jwt, host)) => ApiInfo {
+                multiaddr: host.parse()?,
+                token: Some(jwt.to_owned()),
+            },
             // host
-            None => (s.parse()?, None),
-        };
-
-        Ok(ApiInfo { multiaddr, token })
+            None => ApiInfo {
+                multiaddr: s.parse()?,
+                token: None,
+            },
+        })
     }
 }
 
