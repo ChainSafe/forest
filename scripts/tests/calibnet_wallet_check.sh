@@ -55,6 +55,7 @@ $FOREST_WALLET_PATH set-default "$ADDR_ONE"
 
 $FOREST_WALLET_PATH list
 
+date --iso-8601=seconds
 MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
 : "$MSG"
 
@@ -62,6 +63,8 @@ ADDR_TWO_BALANCE=0
 i=0
 while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
+  PENDING=$($FOREST_CLI_PATH mpool pending --local)
+  : "Pending messages: $PENDING"
   
   : "Checking balance $i/20"
   sleep 30s
@@ -80,10 +83,11 @@ forest-wallet delete "$ADDR_DEL"
 forest-wallet list | grep --null-data --invert-match "${ADDR_DEL}"
 
 # TODO: Uncomment this check once the send command is fixed
-# # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
-# # so we need to truncate units from `$FIL_AMT` for proper comparison
-# FIL_AMT=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
-# if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
-#   echo "FIL amount should match"
-#   exit 1
-# fi
+# `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
+# so we need to truncate units from `$FIL_AMT` for proper comparison
+FIL_AMT=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
+if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
+  # echo "FIL amount should match"
+  echo "::warning::Sending message $MSG failed"
+  # exit 1
+fi
