@@ -183,6 +183,8 @@ fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
     Fut: Future<Output = anyhow::Result<R>>,
 {
     let js_func_name = name.to_case(Case::Camel);
+    // Safety: This is unsafe since GC'ed variables caught in the closure will
+    // not get traced. We're safe because we do not use any GC'ed variables.
     let js_func = FunctionObjectBuilder::new(context, unsafe {
         NativeFunction::from_closure({
             let api = api.clone();
@@ -281,6 +283,8 @@ impl AttachCommand {
             .register_global_property("_BOA_VERSION", "0.17.0", Attribute::default())
             .expect("`register_global_property` should not fail");
 
+        // Safety: This is unsafe since GC'ed variables caught in the closure will
+        // not get traced. We're safe because we do not use any GC'ed variables.
         // Add custom implementation that mimics `require`
         let require_func = unsafe {
             NativeFunction::from_closure_with_captures(
