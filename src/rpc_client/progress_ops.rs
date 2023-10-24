@@ -2,13 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_api::progress_api::*;
-use jsonrpc_v2::Error;
 
-use crate::rpc_client::call;
+use super::{ApiInfo, JsonRpcError, RpcRequest};
 
-pub async fn get_progress(
-    params: GetProgressParams,
-    auth_token: &Option<String>,
-) -> Result<GetProgressResult, Error> {
-    call(GET_PROGRESS, params, auth_token).await
+impl ApiInfo {
+    pub async fn get_progress(
+        &self,
+        progress_type: GetProgressType,
+    ) -> Result<GetProgressResult, JsonRpcError> {
+        self.call_req_e(Self::get_progress_req(progress_type)).await
+    }
+
+    pub fn get_progress_req(progress_type: GetProgressType) -> RpcRequest<(u64, u64)> {
+        RpcRequest::new(GET_PROGRESS, progress_type)
+    }
 }

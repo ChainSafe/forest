@@ -3,11 +3,11 @@
 
 use super::*;
 use crate::blocks::TipsetKeys;
-use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
+use crate::cli::subcommands::cli_error_and_die;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
-use crate::rpc_client::{chain_ops::*, ApiInfo};
+use crate::rpc_client::ApiInfo;
 use crate::utils::bail_moved_cmd;
 use anyhow::Context as _;
 use chrono::NaiveDateTime;
@@ -95,13 +95,11 @@ impl SnapshotCommands {
                 let chain_name = api
                     .state_network_name()
                     .await
-                    .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
-                    .map_err(handle_rpc_err)?;
+                    .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())?;
 
                 let tipset = api
                     .chain_get_tipset_by_height(epoch, TipsetKeys::default())
-                    .await
-                    .map_err(handle_rpc_err)?;
+                    .await?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
@@ -158,10 +156,7 @@ impl SnapshotCommands {
                     }
                 });
 
-                let hash_result = api
-                    .call_req(chain_export_req(params))
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let hash_result = api.chain_export(params).await?;
 
                 handle.abort();
                 let _ = handle.await;

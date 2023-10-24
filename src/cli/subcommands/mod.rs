@@ -214,8 +214,7 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 }
 
 /// Prints a plain HTTP JSON-RPC response result
-pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
+pub(super) fn print_rpc_res(obj: String) -> anyhow::Result<()> {
     println!("{}", &obj);
     Ok(())
 }
@@ -243,12 +242,8 @@ pub(super) fn print_rpc_res_cids(res: Result<Tipset, JsonRpcError>) -> anyhow::R
 }
 
 /// Prints a bytes HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
-    println!(
-        "{}",
-        String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
-    );
+pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
+    println!("{}", String::from_utf8(obj)?);
     Ok(())
 }
 

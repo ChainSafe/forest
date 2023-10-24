@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::blocks::Tipset;
 use crate::message::SignedMessage;
-use crate::rpc_client::{chain_ops::*, mpool_pending_req, wallet_ops::*, ApiInfo};
+use crate::rpc_client::ApiInfo;
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -13,8 +13,6 @@ use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashSet};
 use clap::Subcommand;
 use num::BigInt;
-
-use super::handle_rpc_err;
 
 #[derive(Debug, Subcommand)]
 pub enum MpoolCommands {
@@ -93,12 +91,7 @@ async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -
             }
         }
         Err(err) => {
-            let error_message = match err {
-                jsonrpc_v2::Error::Full { message, .. } => message,
-                jsonrpc_v2::Error::Provided { message, .. } => message.to_string(),
-            };
-
-            println!("{}, err: {}", address, error_message);
+            println!("{}, err: {}", address, err);
             return None;
         }
     };
@@ -220,16 +213,10 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = api
-                    .call_req(mpool_pending_req(vec![]))
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let messages = api.mpool_pending(vec![]).await?;
 
                 let local_addrs = if local {
-                    let response = api
-                        .call_req(wallet_list_req())
-                        .await
-                        .map_err(handle_rpc_err)?;
+                    let response = api.wallet_list().await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -254,25 +241,16 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = api.chain_head().await.map_err(handle_rpc_err)?;
+                let tipset = api.chain_head().await?;
                 let curr_base_fee = tipset.blocks()[0].parent_base_fee().to_owned();
 
-                let atto_str = api
-                    .call_req(chain_get_min_base_fee_req(basefee_lookback))
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let atto_str = api.chain_get_min_base_fee(basefee_lookback).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = api
-                    .call_req(mpool_pending_req(vec![]))
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let messages = api.mpool_pending(vec![]).await?;
 
                 let local_addrs = if local {
-                    let response = api
-                        .call_req(wallet_list_req())
-                        .await
-                        .map_err(handle_rpc_err)?;
+                    let response = api.wallet_list().await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None

@@ -3,13 +3,12 @@
 
 use std::str::FromStr;
 
-use crate::rpc_client::{mpool_push_message_req, ApiInfo};
+use crate::rpc_client::ApiInfo;
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::{Message, METHOD_SEND};
 use num::Zero as _;
 
-use super::handle_rpc_err;
 use crate::cli::humantoken;
 
 #[derive(Debug, clap::Args)]
@@ -52,10 +51,7 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = api
-            .call_req(mpool_push_message_req(message, None))
-            .await
-            .map_err(handle_rpc_err)?;
+        let signed_msg = api.mpool_push_message(message, None).await?;
 
         println!("{}", signed_msg.cid().unwrap());
 

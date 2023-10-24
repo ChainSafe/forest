@@ -384,6 +384,7 @@ lotus_json_with_self!(
     serde_json::Value,
     (),
     std::path::PathBuf,
+    bool,
 );
 
 impl<T: HasLotusJson> HasLotusJson for (T,) {
@@ -411,6 +412,27 @@ impl<A: HasLotusJson, B: HasLotusJson> HasLotusJson for (A, B) {
         (
             HasLotusJson::from_lotus_json(lotus_json.0),
             HasLotusJson::from_lotus_json(lotus_json.1),
+        )
+    }
+}
+
+impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson> HasLotusJson for (A, B, C) {
+    type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson);
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        (
+            self.0.into_lotus_json(),
+            self.1.into_lotus_json(),
+            self.2.into_lotus_json(),
+        )
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        (
+            HasLotusJson::from_lotus_json(lotus_json.0),
+            HasLotusJson::from_lotus_json(lotus_json.1),
+            HasLotusJson::from_lotus_json(lotus_json.2),
         )
     }
 }

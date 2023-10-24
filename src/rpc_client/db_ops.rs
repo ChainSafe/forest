@@ -2,16 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_api::db_api::*;
-use jsonrpc_v2::Error;
 
-use crate::rpc_client::call;
+use super::{ApiInfo, JsonRpcError, RpcRequest};
 
-use super::RpcRequest;
+impl ApiInfo {
+    pub async fn db_gc(&self) -> Result<(), JsonRpcError> {
+        self.call_req_e(Self::db_gc_req()).await
+    }
 
-pub async fn db_gc((): DBGCParams, auth_token: &Option<String>) -> Result<DBGCResult, Error> {
-    call(DB_GC, (), auth_token).await
-}
-
-pub fn db_gc_req() -> RpcRequest<()> {
-    RpcRequest::new(DB_GC, ())
+    pub fn db_gc_req() -> RpcRequest<()> {
+        RpcRequest::new(DB_GC, ())
+    }
 }

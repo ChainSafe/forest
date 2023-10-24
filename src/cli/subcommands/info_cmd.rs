@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::rpc_client::node_ops::node_status_req;
-use crate::rpc_client::{wallet_balance_req, wallet_default_address_req, ApiInfo};
+use crate::rpc_client::ApiInfo;
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
@@ -14,7 +13,6 @@ use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::cli::humantoken::TokenAmountPretty;
-use crate::cli::subcommands::handle_rpc_err;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -158,25 +156,22 @@ impl NodeStatusInfo {
 impl InfoCommand {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         let res = tokio::try_join!(
-            api.call_req(node_status_req()),
+            api.node_status(),
             api.chain_head(),
             api.state_network_name(),
             api.start_time(),
-            api.call_req(wallet_default_address_req())
-        );
+            api.wallet_default_address(),
+        )?;
 
         match res {
-            Ok((node_status, head, network, start_time, default_wallet_address)) => {
+            (node_status, head, network, start_time, default_wallet_address) => {
                 let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
                 let blocks_per_tipset_last_finality =
                     node_status.chain_status.blocks_per_tipset_last_finality;
 
                 let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
                 {
-                    let balance = api
-                        .call_req(wallet_balance_req(def_addr.clone()))
-                        .await
-                        .map_err(handle_rpc_err)?;
+                    let balance = api.wallet_balance(def_addr.clone()).await?;
                     Some(balance)
                 } else {
                     None
@@ -196,7 +191,6 @@ impl InfoCommand {
 
                 Ok(())
             }
-            Err(e) => Err(handle_rpc_err(e)),
         }
     }
 }

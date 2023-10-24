@@ -3,12 +3,12 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::lotus_json::LotusJson;
-use crate::rpc_client::{chain_ops::*, ApiInfo};
+use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
 
-use super::*;
+use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {
@@ -59,11 +59,9 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => print_rpc_res_pretty(api.chain_get_block(cid).await?),
             Self::Genesis => print_rpc_res_pretty(LotusJson(api.chain_get_genesis().await?)),
-            Self::Head => print_rpc_res_cids(api.chain_head().await),
-            Self::Message { cid } => {
-                print_rpc_res_pretty(api.call_req(chain_get_message_req(cid)).await)
-            }
-            Self::ReadObj { cid } => print_rpc_res(api.call_req(chain_read_obj_req(cid)).await),
+            Self::Head => print_rpc_res_cids(Ok(api.chain_head().await?)),
+            Self::Message { cid } => print_rpc_res_pretty(api.chain_get_message(cid).await?),
+            Self::ReadObj { cid } => print_rpc_res(api.chain_read_obj(cid).await?),
             Self::SetHead {
                 cids,
                 epoch: Some(epoch),
@@ -71,9 +69,7 @@ impl ChainCommands {
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
-                let tipset = tipset_by_epoch_or_offset(&api, epoch)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let tipset = tipset_by_epoch_or_offset(&api, epoch).await?;
                 api.chain_set_head(tipset.key().clone()).await?;
                 Ok(())
             }

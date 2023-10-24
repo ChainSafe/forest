@@ -3,13 +3,13 @@
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::rpc_api::data_types::AddrInfo;
-use crate::rpc_client::{net_ops::*, ApiInfo};
+use crate::rpc_client::ApiInfo;
 use ahash::HashSet;
 use cid::multibase;
 use clap::Subcommand;
 use itertools::Itertools;
 
-use super::{handle_rpc_err, print_stdout};
+use super::print_stdout;
 use crate::cli::subcommands::cli_error_and_die;
 
 #[derive(Debug, Subcommand)]
@@ -36,10 +36,7 @@ impl NetCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
-                let info = api
-                    .call_req(net_addrs_listen_req())
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let info = api.net_addrs_listen().await?;
                 let addresses: Vec<String> = info
                     .addrs
                     .iter()
@@ -49,7 +46,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Info => {
-                let info = api.call_req(net_info_req()).await.map_err(handle_rpc_err)?;
+                let info = api.net_info().await?;
                 println!("forest libp2p swarm info:");
                 println!("num peers: {}", info.num_peers);
                 println!("num connections: {}", info.num_connections);
@@ -60,10 +57,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Peers => {
-                let addrs = api
-                    .call_req(net_peers_req())
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let addrs = api.net_peers().await?;
                 let output: Vec<String> = addrs
                     .into_iter()
                     .filter_map(|info| {
@@ -114,16 +108,12 @@ impl NetCommands {
                     addrs,
                 };
 
-                api.call_req(net_connect_req(addr_info))
-                    .await
-                    .map_err(handle_rpc_err)?;
+                api.net_connect(addr_info).await?;
                 println!("connect {id}: success");
                 Ok(())
             }
             Self::Disconnect { id } => {
-                api.call_req(net_disconnect_req(id.to_owned()))
-                    .await
-                    .map_err(handle_rpc_err)?;
+                api.net_disconnect(id.to_owned()).await?;
                 println!("disconnect {id}: success");
                 Ok(())
             }

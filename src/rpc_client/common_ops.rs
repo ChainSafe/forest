@@ -3,29 +3,29 @@
 
 use crate::rpc_api::{common_api::*, data_types::APIVersion};
 use chrono::{DateTime, Utc};
-use jsonrpc_v2::Error;
 
-use super::{ApiInfo, RpcRequest};
+use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
-    pub async fn version(&self) -> Result<APIVersion, Error> {
-        self.call_req(Self::version_req()).await
-    }
+    // Current unused
+    // pub async fn version(&self) -> Result<APIVersion, JsonRpcError> {
+    //     self.call_req_e(Self::version_req()).await
+    // }
 
     pub fn version_req() -> RpcRequest<APIVersion> {
         RpcRequest::new(VERSION, ())
     }
 
-    pub async fn start_time(&self) -> Result<DateTime<Utc>, Error> {
-        self.call_req(Self::start_time_req()).await
+    pub async fn start_time(&self) -> Result<DateTime<Utc>, JsonRpcError> {
+        self.call_req_e(Self::start_time_req()).await
     }
 
     pub fn start_time_req() -> RpcRequest<DateTime<Utc>> {
         RpcRequest::new(START_TIME, ())
     }
 
-    pub async fn shutdown(&self) -> Result<(), Error> {
-        self.call_req(Self::shutdown_req()).await
+    pub async fn shutdown(&self) -> Result<(), JsonRpcError> {
+        self.call_req_e(Self::shutdown_req()).await
     }
 
     pub fn shutdown_req() -> RpcRequest<()> {

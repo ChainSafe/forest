@@ -3,7 +3,7 @@
 
 use std::ffi::OsString;
 
-use super::subcommands::{handle_rpc_err, Cli};
+use super::subcommands::Cli;
 use crate::networks::NetworkChain;
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -23,12 +23,12 @@ where
         .enable_all()
         .build()?
         .block_on(async {
-            let name = api.state_network_name().await.map_err(handle_rpc_err)?;
+            let name = api.state_network_name().await?;
             let chain = NetworkChain::from_str(&name)?;
             if chain.is_testnet() {
                 CurrentNetwork::set_global(Network::Testnet);
             }
             // Run command
-            cmd.run(opts.token).await
+            cmd.run(api).await
         })
 }

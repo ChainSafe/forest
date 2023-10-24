@@ -10,8 +10,6 @@ use cid::Cid;
 use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-use super::handle_rpc_err;
-
 #[derive(Serialize_tuple, Deserialize_tuple, Clone, Debug)]
 struct VestingSchedule {
     entries: Vec<VestingScheduleEntry>,
@@ -37,12 +35,7 @@ impl StateCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Fetch { root, save_to_file } => {
-                println!(
-                    "{}",
-                    api.state_fetch_root(root, save_to_file)
-                        .await
-                        .map_err(handle_rpc_err)?
-                );
+                println!("{}", api.state_fetch_root(root, save_to_file).await?);
             }
         }
         Ok(())

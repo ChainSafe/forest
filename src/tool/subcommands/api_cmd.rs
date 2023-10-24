@@ -9,6 +9,7 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::lotus_json::HasLotusJson;
 use crate::rpc_client::ApiInfo;
+use crate::rpc_client::JsonRpcError;
 use crate::rpc_client::RpcRequest;
 
 #[derive(Debug, Subcommand)]
@@ -48,12 +49,6 @@ enum EndpointStatus {
     Valid,
 }
 
-fn err_message(err: &jsonrpc_v2::Error) -> String {
-    match err {
-        jsonrpc_v2::Error::Full { message, .. } => String::from(message),
-        jsonrpc_v2::Error::Provided { message, .. } => String::from(*message),
-    }
-}
 fn err_code(err: &jsonrpc_v2::Error) -> i64 {
     match err {
         jsonrpc_v2::Error::Full { code, .. } => *code,
@@ -62,33 +57,26 @@ fn err_code(err: &jsonrpc_v2::Error) -> i64 {
 }
 
 impl EndpointStatus {
-    fn from_json_error(err: jsonrpc_v2::Error) -> Self {
+    fn from_json_error(err: JsonRpcError) -> Self {
         // dbg!(&err_message(&err));
         // dbg!(&err_code(&err));
-        if err_code(&err) == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
+        if err.code == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
             EndpointStatus::InvalidRequest
-        } else if err_code(&err) == err_code(&jsonrpc_v2::Error::METHOD_NOT_FOUND) {
+        } else if err.code == err_code(&jsonrpc_v2::Error::METHOD_NOT_FOUND) {
             EndpointStatus::Missing
-        } else if err_code(&err) == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
+        } else if err.code == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
             EndpointStatus::InvalidJSON
-        } else if err_code(&err) == err_code(&jsonrpc_v2::Error::PARSE_ERROR) {
+        } else if err.code == err_code(&jsonrpc_v2::Error::PARSE_ERROR) {
             EndpointStatus::InvalidResponse
         } else {
-            EndpointStatus::InternalServerError(err_message(&err))
+            EndpointStatus::InternalServerError(err.to_string())
         }
     }
 }
 
-fn handle_rpc_err(e: jsonrpc_v2::Error) -> anyhow::Error {
-    match serde_json::to_string(&e) {
-        Ok(err_msg) => anyhow::Error::msg(err_msg),
-        Err(err) => err.into(),
-    }
-}
-
 async fn youngest_tipset(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<Tipset> {
-    let t1 = forest.chain_head().await.map_err(handle_rpc_err)?;
-    let t2 = lotus.chain_head().await.map_err(handle_rpc_err)?;
+    let t1 = forest.chain_head().await?;
+    let t2 = lotus.chain_head().await?;
     if t1.epoch() < t2.epoch() {
         Ok(t1)
     } else {
@@ -154,8 +142,8 @@ impl RpcTest {
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
     ) -> (EndpointStatus, EndpointStatus) {
-        let forest_resp = forest_api.call_req(self.request.clone()).await;
-        let lotus_resp = lotus_api.call_req(self.request.clone()).await;
+        let forest_resp = forest_api.call_req_e(self.request.clone()).await;
+        let lotus_resp = lotus_api.call_req_e(self.request.clone()).await;
 
         // dbg!(self.request.method_name);
         match (forest_resp, lotus_resp) {

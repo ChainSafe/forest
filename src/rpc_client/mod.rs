@@ -20,11 +20,10 @@ use std::str::FromStr;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
-use crate::lotus_json::LotusJson;
 use crate::utils::net::global_http_client;
-use jsonrpc_v2::{Error, Id, RequestObject, V2};
+use jsonrpc_v2::{Id, RequestObject, V2};
 use once_cell::sync::Lazy;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::debug;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
@@ -85,73 +84,6 @@ impl ApiInfo {
     pub fn from_env() -> Result<Self, multiaddr::Error> {
         let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
         ApiInfo::from_str(&api_info)
-    }
-
-    /// Utility method for sending RPC requests over HTTP
-    pub async fn call<P, R>(&self, method_name: &str, params: P) -> Result<R, Error>
-    where
-        P: Serialize,
-        R: DeserializeOwned,
-    {
-        let rpc_req = RequestObject::request()
-            .with_method(method_name)
-            .with_params(serde_json::to_value(params)?)
-            .with_id(0)
-            .finish();
-
-        let api_url = multiaddress_to_url(&self.multiaddr);
-
-        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
-
-        let request = global_http_client().post(api_url).json(&rpc_req);
-        let request = match self.token.as_ref() {
-            Some(token) => request.header(http::header::AUTHORIZATION, token),
-            _ => request,
-        };
-
-        let rpc_res = request.send().await?.error_for_status()?.json().await?;
-
-        match rpc_res {
-            JsonRpcResponse::Result { result, .. } => Ok(result),
-            JsonRpcResponse::Error { error, .. } => Err(Error::Full {
-                data: None,
-                code: error.code,
-                message: error.message,
-            }),
-        }
-    }
-
-    // HTTP error
-    // JsonRpcError
-    // JSON parsing error
-    pub async fn call_req<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, Error> {
-        let rpc_req = RequestObject::request()
-            .with_method(req.method_name)
-            .with_params(req.params)
-            .with_id(0)
-            .finish();
-
-        let api_url = multiaddress_to_url(&self.multiaddr);
-
-        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
-
-        let request = global_http_client().post(api_url).json(&rpc_req);
-        let request = match self.token.as_ref() {
-            Some(token) => request.header(http::header::AUTHORIZATION, token),
-            _ => request,
-        };
-
-        let rpc_res: JsonRpcResponse<T::LotusJson> =
-            request.send().await?.error_for_status()?.json().await?;
-
-        match rpc_res {
-            JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-            JsonRpcResponse::Error { error, .. } => Err(Error::Full {
-                data: None,
-                code: error.code,
-                message: error.message,
-            }),
-        }
     }
 
     pub async fn call_req_e<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
@@ -304,27 +236,18 @@ fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
     url
 }
 
-/// Utility method for sending RPC requests over HTTP
-async fn call<P, R>(method_name: &str, params: P, token: &Option<String>) -> Result<R, Error>
-where
-    P: Serialize,
-    R: DeserializeOwned,
-{
-    API_INFO
-        .clone()
-        .set_token(token.clone())
-        .call(method_name, params)
-        .await
-}
-
-/// Utility method for sending RPC requests over HTTP
-async fn call_req<R: HasLotusJson>(req: RpcRequest<R>, token: &Option<String>) -> Result<R, Error> {
-    API_INFO
-        .clone()
-        .set_token(token.clone())
-        .call_req(req)
-        .await
-}
+// /// Utility method for sending RPC requests over HTTP
+// async fn call<P, R>(method_name: &str, params: P, token: &Option<String>) -> Result<R, Error>
+// where
+//     P: Serialize,
+//     R: DeserializeOwned,
+// {
+//     API_INFO
+//         .clone()
+//         .set_token(token.clone())
+//         .call(method_name, params)
+//         .await
+// }
 
 #[derive(Debug, Clone)]
 pub struct RpcRequest<T = serde_json::Value> {

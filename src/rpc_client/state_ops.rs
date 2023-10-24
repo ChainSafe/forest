@@ -9,17 +9,16 @@ use crate::{
     shim::{address::Address, state_tree::ActorState},
 };
 use cid::Cid;
-use jsonrpc_v2::Error;
 
-use super::{ApiInfo, RpcRequest};
+use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
     pub async fn state_get_actor(
         &self,
         address: Address,
         head: TipsetKeys,
-    ) -> Result<Option<ActorState>, Error> {
-        self.call_req(Self::state_get_actor_req(address, head))
+    ) -> Result<Option<ActorState>, JsonRpcError> {
+        self.call_req_e(Self::state_get_actor_req(address, head))
             .await
     }
 
@@ -34,8 +33,8 @@ impl ApiInfo {
         &self,
         root: Cid,
         opt_path: Option<PathBuf>,
-    ) -> Result<String, Error> {
-        self.call_req(Self::state_fetch_root_req(root, opt_path))
+    ) -> Result<String, JsonRpcError> {
+        self.call_req_e(Self::state_fetch_root_req(root, opt_path))
             .await
     }
 
@@ -43,8 +42,8 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub async fn state_network_name(&self) -> Result<String, Error> {
-        self.call_req(Self::state_network_name_req()).await
+    pub async fn state_network_name(&self) -> Result<String, JsonRpcError> {
+        self.call_req_e(Self::state_network_name_req()).await
     }
 
     pub fn state_network_name_req() -> RpcRequest<String> {

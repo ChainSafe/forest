@@ -7,33 +7,31 @@ use crate::{
     shim::message::Message,
 };
 use cid::Cid;
-use jsonrpc_v2::Error;
 
-use crate::rpc_client::call;
+use super::{ApiInfo, JsonRpcError, RpcRequest};
 
-use super::RpcRequest;
+impl ApiInfo {
+    pub async fn mpool_push_message(
+        &self,
+        message: Message,
+        specs: Option<MessageSendSpec>,
+    ) -> Result<SignedMessage, JsonRpcError> {
+        self.call_req_e(Self::mpool_push_message_req(message, specs))
+            .await
+    }
 
-pub async fn mpool_push_message(
-    params: MpoolPushMessageParams,
-    auth_token: &Option<String>,
-) -> Result<MpoolPushMessageResult, Error> {
-    call(MPOOL_PUSH_MESSAGE, params, auth_token).await
-}
+    pub fn mpool_push_message_req(
+        message: Message,
+        specs: Option<MessageSendSpec>,
+    ) -> RpcRequest<SignedMessage> {
+        RpcRequest::new(MPOOL_PUSH_MESSAGE, (message, specs))
+    }
 
-pub fn mpool_push_message_req(
-    message: Message,
-    specs: Option<MessageSendSpec>,
-) -> RpcRequest<SignedMessage> {
-    RpcRequest::new(MPOOL_PUSH_MESSAGE, (message, specs))
-}
+    pub async fn mpool_pending(&self, cids: Vec<Cid>) -> Result<Vec<SignedMessage>, JsonRpcError> {
+        self.call_req_e(Self::mpool_pending_req(cids)).await
+    }
 
-pub async fn mpool_pending(
-    params: MpoolPendingParams,
-    auth_token: &Option<String>,
-) -> Result<MpoolPendingResult, Error> {
-    call(MPOOL_PENDING, params, auth_token).await
-}
-
-pub fn mpool_pending_req(cids: Vec<Cid>) -> RpcRequest<Vec<SignedMessage>> {
-    RpcRequest::new(MPOOL_PENDING, (cids,))
+    pub fn mpool_pending_req(cids: Vec<Cid>) -> RpcRequest<Vec<SignedMessage>> {
+        RpcRequest::new(MPOOL_PENDING, (cids,))
+    }
 }

@@ -3,7 +3,6 @@
 
 use crate::rpc_client::ApiInfo;
 
-use super::handle_rpc_err;
 use crate::cli::subcommands::prompt_confirm;
 
 #[derive(Debug, clap::Args)]
@@ -20,7 +19,7 @@ impl ShutdownCommand {
             println!("Aborted.");
             return Ok(());
         }
-        api.shutdown().await.map_err(handle_rpc_err)?;
+        api.shutdown().await?;
         Ok(())
     }
 }

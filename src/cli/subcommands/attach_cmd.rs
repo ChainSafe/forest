@@ -8,9 +8,9 @@ use std::{
 };
 
 use crate::chain::ChainEpochDelta;
+use crate::chain_sync::SyncStage;
 use crate::rpc_client::*;
 use crate::shim::{address::Address, message::Message};
-use crate::{chain_sync::SyncStage, rpc_client::node_ops::node_status_req};
 use crate::{cli::humantoken, message::SignedMessage};
 use boa_engine::{
     object::{builtins::JsArray, FunctionObjectBuilder},
@@ -156,7 +156,7 @@ fn require(
     }
 }
 
-fn check_result<R>(context: &mut Context, result: Result<R, jsonrpc_v2::Error>) -> JsResult<JsValue>
+fn check_result<R>(context: &mut Context, result: anyhow::Result<R>) -> JsResult<JsValue>
 where
     R: Serialize,
 {
@@ -168,15 +168,7 @@ where
             JsValue::from_json(&value, context)
         }
         Err(err) => {
-            let message = match err {
-                jsonrpc_v2::Error::Full { code, message, .. } => {
-                    format!("JSON RPC Error: Code: {code}, Message: {message}")
-                }
-                jsonrpc_v2::Error::Provided { code, message } => {
-                    format!("JSON RPC Error: Code: {code}, Message: {message}")
-                }
-            };
-            eprintln!("Error: {message}");
+            eprintln!("Error: {err}");
             Ok(JsValue::Undefined)
         }
     }
@@ -239,8 +231,8 @@ fn bind_request<T: DeserializeOwned, R>(
                         let obj: JsObject = arr.into();
                         JsValue::from(obj)
                     };
-                    let args = serde_json::from_value(value.to_json(context)?)?;
-                    handle.block_on(api.call_req(req(args).lower()))
+                    let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                    Ok(handle.block_on(api.call_req_e(req(args).lower()))?)
                 });
                 check_result(context, result)
             }
@@ -265,10 +257,7 @@ macro_rules! bind_request_func {
 
 type SendMessageParams = (String, String, String);
 
-async fn send_message(
-    params: SendMessageParams,
-    api: &ApiInfo,
-) -> Result<SignedMessage, jsonrpc_v2::Error> {
+async fn send_message(params: SendMessageParams, api: &ApiInfo) -> anyhow::Result<SignedMessage> {
     let (from, to, value) = params;
 
     let message = Message::transfer(
@@ -277,19 +266,19 @@ async fn send_message(
         humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
     );
 
-    api.call_req(mpool_push_message_req(message, None)).await
+    Ok(api.mpool_push_message(message, None).await?)
 }
 
 type SleepParams = (u64,);
 type SleepResult = ();
 
-async fn sleep(params: SleepParams, _api: &ApiInfo) -> Result<SleepResult, jsonrpc_v2::Error> {
+async fn sleep(params: SleepParams, _api: &ApiInfo) -> anyhow::Result<SleepResult> {
     let secs = params.0;
     time::sleep(time::Duration::from_secs(secs)).await;
     Ok(())
 }
 
-async fn sleep_tipsets(epochs: ChainEpochDelta, api: &ApiInfo) -> Result<(), jsonrpc_v2::Error> {
+async fn sleep_tipsets(epochs: ChainEpochDelta, api: &ApiInfo) -> anyhow::Result<()> {
     let mut epoch = None;
     loop {
         let state = api.sync_status().await?;
@@ -334,13 +323,13 @@ impl AttachCommand {
 
         bind_request_func!(context, api,
                 // Net API
-                "net_addrs_listen" => |()| net_addrs_listen_req(),
-                "net_peers"        => |()| net_peers_req(),
-                "net_disconnect"   => |peer| net_disconnect_req(peer),
-                "net_connect"      => |addr| net_connect_req(addr),
+                "net_addrs_listen" => |()| ApiInfo::net_addrs_listen_req(),
+                "net_peers"        => |()| ApiInfo::net_peers_req(),
+                "net_disconnect"   => |peer| ApiInfo::net_disconnect_req(peer),
+                "net_connect"      => |addr| ApiInfo::net_connect_req(addr),
 
                 // Node API
-                "node_status" => |()| node_status_req(),
+                "node_status" => |()| ApiInfo::node_status_req(),
 
                 // Sync API
                 "sync_check_bad" => |cid| ApiInfo::sync_check_bad_req(cid),
@@ -350,17 +339,17 @@ impl AttachCommand {
                 // Wallet API
                 // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
                 //                 bind wallet_sign, wallet_verify
-                "wallet_new"         => |sig_type| wallet_new_req(sig_type),
-                "wallet_default"     => |()| wallet_default_address_req(),
-                "wallet_balance"     => |addr| wallet_balance_req(addr),
-                "wallet_export"      => |addr| wallet_export_req(addr),
-                "wallet_import"      => |keys| wallet_import_req(keys),
-                "wallet_list"        => |()| wallet_list_req(),
-                "wallet_has"         => |addr| wallet_has_req(addr),
-                "wallet_set_default" => |addr| wallet_set_default_req(addr),
+                "wallet_new"         => |sig_type| ApiInfo::wallet_new_req(sig_type),
+                "wallet_default"     => |()| ApiInfo::wallet_default_address_req(),
+                "wallet_balance"     => |addr| ApiInfo::wallet_balance_req(addr),
+                "wallet_export"      => |addr| ApiInfo::wallet_export_req(addr),
+                "wallet_import"      => |keys| ApiInfo::wallet_import_req(keys),
+                "wallet_list"        => |()| ApiInfo::wallet_list_req(),
+                "wallet_has"         => |addr| ApiInfo::wallet_has_req(addr),
+                "wallet_set_default" => |addr| ApiInfo::wallet_set_default_req(addr),
 
                 // Message Pool API
-                "mpool_push_message" => |(message, specs)| mpool_push_message_req(message, specs),
+                "mpool_push_message" => |(message, specs)| ApiInfo::mpool_push_message_req(message, specs),
 
                 // Common API
                 "version" => |()| ApiInfo::version_req(),
