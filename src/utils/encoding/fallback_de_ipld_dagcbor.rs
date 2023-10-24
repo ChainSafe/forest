@@ -647,7 +647,7 @@ where
 /// This is without the CBOR tag information. It is only the CBOR byte string identifier (major
 /// type 2), the number of bytes, and a null byte prefixed CID.
 ///
-/// The reason for not including the CBOR tag information is the [`Value`] implementation. That one
+/// The reason for not including the CBOR tag information is the `Value` implementation. That one
 /// starts to parse the bytes, before we could interfere. If the data only includes a CID, we are
 /// parsing over the tag to determine whether it is a CID or not and go from there.
 struct CidDeserializer<'a, R>(&'a mut Deserializer<R>);

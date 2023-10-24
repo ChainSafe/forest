@@ -45,6 +45,7 @@ pub struct Config {
     pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
+    #[serde(skip)]
     pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
 }

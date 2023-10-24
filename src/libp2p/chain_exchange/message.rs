@@ -39,7 +39,7 @@ impl ChainExchangeRequest {
         self.options & MESSAGES > 0
     }
 
-    /// If the value of `options` is valid
+    /// If either the [HEADERS] bit or the [MESSAGES] bit is set.
     pub fn is_options_valid(&self) -> bool {
         self.include_blocks() || self.include_messages()
     }

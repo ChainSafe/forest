@@ -10,9 +10,14 @@ use crate::cid_collections::CidHashSet;
 use crate::cli_shared::{snapshot, snapshot::TrustedVendor};
 use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
+use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
 use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
+use crate::shim::fvm_shared_latest::address::Network;
+use crate::shim::machine::MultiEngine;
+use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
 use clap::Subcommand;
@@ -81,6 +86,20 @@ pub enum ArchiveCommands {
         #[arg(long, default_value_t = false)]
         force: bool,
     },
+    /// Show the difference between the canonical and computed state of a
+    /// tipset.
+    Diff {
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
+        /// Selected epoch to validate.
+        #[arg(long)]
+        epoch: ChainEpoch,
+        // Depth of diffing. Differences in trees below this depth will just be
+        // shown as different branch IDs.
+        #[arg(long)]
+        depth: Option<u64>,
+    },
 }
 
 impl ArchiveCommands {
@@ -124,6 +143,11 @@ impl ArchiveCommands {
                 output_path,
                 force,
             } => merge_snapshots(snapshot_files, output_path, force).await,
+            Self::Diff {
+                snapshot_files,
+                epoch,
+                depth,
+            } => show_tipset_diff(snapshot_files, epoch, depth).await,
         }
     }
 }
@@ -436,6 +460,85 @@ async fn merge_snapshots(
 
     // Flush to ensure everything has been successfully written
     writer.flush().await.context("failed to flush")?;
+
+    Ok(())
+}
+
+/// Compute the tree of actor states for a given epoch and compare it to the
+/// expected result (as encoded in the blockchain). Differences are printed
+/// using the diff format (red for the blockchain state, green for the computed
+/// state).
+async fn show_tipset_diff(
+    snapshot_files: Vec<PathBuf>,
+    epoch: ChainEpoch,
+    depth: Option<u64>,
+) -> anyhow::Result<()> {
+    use colored::*;
+
+    let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+
+    let heaviest_tipset = Arc::new(store.heaviest_tipset()?);
+    if heaviest_tipset.epoch() <= epoch {
+        anyhow::bail!(
+            "Highest epoch must be at least 1 greater than the target epoch. \
+             Highest epoch = {}, target epoch = {}.",
+            heaviest_tipset.epoch(),
+            epoch
+        )
+    }
+
+    let genesis = heaviest_tipset.genesis(&store)?;
+    let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
+
+    let timestamp = genesis.timestamp();
+    let chain_index = ChainIndex::new(Arc::clone(&store));
+    let chain_config = ChainConfig::from_chain(&network);
+    if chain_config.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
+    let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
+    let tipset = chain_index.tipset_by_height(
+        epoch,
+        Arc::clone(&heaviest_tipset),
+        ResolveNullTipset::TakeOlder,
+    )?;
+
+    let child_tipset = chain_index.tipset_by_height(
+        epoch + 1,
+        Arc::clone(&heaviest_tipset),
+        ResolveNullTipset::TakeNewer,
+    )?;
+
+    let (state_root, _) = apply_block_messages(
+        timestamp,
+        Arc::new(chain_index),
+        Arc::new(chain_config),
+        beacon,
+        &MultiEngine::default(),
+        tipset,
+        NO_CALLBACK,
+        VMTrace::NotTraced,
+    )?;
+
+    if child_tipset.parent_state() != &state_root {
+        println!(
+            "{}",
+            format!("- Expected state hash: {}", child_tipset.parent_state()).red()
+        );
+        println!(
+            "{}",
+            format!("+ Computed state hash: {}", state_root).green()
+        );
+
+        crate::statediff::print_state_diff(
+            &store,
+            &state_root,
+            child_tipset.parent_state(),
+            depth,
+        )?;
+    } else {
+        println!("Computed state matches expected state.");
+    }
 
     Ok(())
 }

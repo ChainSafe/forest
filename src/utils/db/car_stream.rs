@@ -97,10 +97,9 @@ impl<ReaderT: AsyncBufRead + Unpin> CarStream<ReaderT> {
         } else {
             FramedRead::new(Either::Left(reader), UviBytes::default())
         };
-        let header = read_header(&mut reader).await.ok_or(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "invalid header block",
-        ))?;
+        let header = read_header(&mut reader)
+            .await
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid header block"))?;
 
         // Read the first block and check if it is valid. This check helps to
         // catch invalid CAR files as soon as we open.
