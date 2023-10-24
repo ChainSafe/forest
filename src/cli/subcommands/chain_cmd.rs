@@ -8,7 +8,7 @@ use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
 
-use super::{print_rpc_res, print_rpc_res_cids, print_rpc_res_pretty};
+use super::{print_pretty_json, print_rpc_res_cids};
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {
@@ -57,11 +57,14 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => print_rpc_res_pretty(api.chain_get_block(cid).await?),
-            Self::Genesis => print_rpc_res_pretty(LotusJson(api.chain_get_genesis().await?)),
+            Self::Block { cid } => print_pretty_json(api.chain_get_block(cid).await?),
+            Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
-            Self::Message { cid } => print_rpc_res_pretty(api.chain_get_message(cid).await?),
-            Self::ReadObj { cid } => print_rpc_res(api.chain_read_obj(cid).await?),
+            Self::Message { cid } => print_pretty_json(api.chain_get_message(cid).await?),
+            Self::ReadObj { cid } => {
+                println!("{}", api.chain_read_obj(cid).await?);
+                Ok(())
+            }
             Self::SetHead {
                 cids,
                 epoch: Some(epoch),

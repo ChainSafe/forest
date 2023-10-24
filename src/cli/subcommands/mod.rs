@@ -204,14 +204,8 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     std::process::exit(code);
 }
 
-/// Prints a plain HTTP JSON-RPC response result
-pub(super) fn print_rpc_res(obj: String) -> anyhow::Result<()> {
-    println!("{}", &obj);
-    Ok(())
-}
-
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_pretty<T: Serialize>(obj: T) -> anyhow::Result<()> {
+pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
     println!("{}", serde_json::to_string_pretty(&obj)?);
     Ok(())
 }
@@ -236,11 +230,6 @@ pub(super) fn print_rpc_res_cids(res: Tipset) -> anyhow::Result<()> {
 pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
     println!("{}", String::from_utf8(obj)?);
     Ok(())
-}
-
-/// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
-pub(super) fn print_stdout(out: String) {
-    println!("{}", out)
 }
 
 pub fn prompt_confirm() -> bool {

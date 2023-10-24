@@ -9,7 +9,6 @@ use cid::multibase;
 use clap::Subcommand;
 use itertools::Itertools;
 
-use super::print_stdout;
 use crate::cli::subcommands::cli_error_and_die;
 
 #[derive(Debug, Subcommand)]
@@ -42,7 +41,7 @@ impl NetCommands {
                     .iter()
                     .map(|addr| format!("{}/p2p/{}", addr, info.id))
                     .collect();
-                print_stdout(addresses.join("\n"));
+                println!("{}", addresses.join("\n"));
                 Ok(())
             }
             Self::Info => {
@@ -78,7 +77,7 @@ impl NetCommands {
                         Some(format!("{}, [{}]", info.id, addresses.join(", ")))
                     })
                     .collect();
-                print_stdout(output.join("\n"));
+                println!("{}", output.join("\n"));
                 Ok(())
             }
             Self::Connect { address } => {
