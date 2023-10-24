@@ -7,6 +7,7 @@ use std::path::Path;
 use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
+use futures::stream::FuturesUnordered;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
@@ -70,31 +71,30 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
 });
 
 pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
-    let (mut roots, blocks) = stream::iter(ACTOR_BUNDLES.iter())
-        .then(
-            |ActorBundleInfo {
-                 manifest: root,
-                 url,
-                 alt_url,
-             }| async move {
-                let response = if let Ok(response) = http_get(url).await {
-                    response
-                } else {
-                    warn!("failed to download bundle from primary URL, trying alternative URL");
-                    http_get(alt_url).await?
-                };
-                let bytes = response.bytes().await?;
-                let car = CarStream::new(Cursor::new(bytes)).await?;
-                ensure!(car.header.version == 1);
-                ensure!(car.header.roots.len() == 1);
-                ensure!(&car.header.roots[0] == root);
-                anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
-            },
-        )
-        .try_collect::<Vec<_>>()
-        .await?
-        .into_iter()
-        .unzip::<_, _, Vec<_>, Vec<_>>();
+    let (mut roots, blocks) = FuturesUnordered::from_iter(ACTOR_BUNDLES.iter().map(
+        |ActorBundleInfo {
+             manifest: root,
+             url,
+             alt_url,
+         }| async move {
+            let response = if let Ok(response) = http_get(url).await {
+                response
+            } else {
+                warn!("failed to download bundle from primary URL, trying alternative URL");
+                http_get(alt_url).await?
+            };
+            let bytes = response.bytes().await?;
+            let car = CarStream::new(Cursor::new(bytes)).await?;
+            ensure!(car.header.version == 1);
+            ensure!(car.header.roots.len() == 1);
+            ensure!(&car.header.roots[0] == root);
+            anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
+        },
+    ))
+    .try_collect::<Vec<_>>()
+    .await?
+    .into_iter()
+    .unzip::<_, _, Vec<_>, Vec<_>>();
 
     ensure!(roots.iter().all_unique());
 
