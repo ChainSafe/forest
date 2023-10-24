@@ -7,13 +7,10 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// RPC call to create a new JWT Token
-pub(in crate::rpc) async fn auth_new<DB>(
+pub(in crate::rpc) async fn auth_new<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<AuthNewParams>,
-) -> Result<AuthNewResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+) -> Result<Vec<u8>, JsonRpcError> {
     let auth_params: AuthNewParams = params;
     let ks = data.keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
@@ -24,13 +21,12 @@ where
 /// RPC call to verify JWT Token and return the token's permissions
 pub(in crate::rpc) async fn auth_verify<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<AuthVerifyParams>,
-) -> Result<AuthVerifyResult, JsonRpcError>
+    Params((header_raw,)): Params<(String,)>,
+) -> Result<Vec<String>, JsonRpcError>
 where
     DB: Blockstore,
 {
     let ks = data.keystore.read().await;
-    let (header_raw,) = params;
     let token = header_raw.trim_start_matches("Bearer ");
     let ki = ks.get(JWT_IDENTIFIER)?;
     let perms = verify_token(token, ki.private_key())?;

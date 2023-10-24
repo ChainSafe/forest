@@ -20,10 +20,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_DEFAULT_ADDRESS, ())
     }
 
-    pub async fn wallet_new(
-        &self,
-        signature_type: SignatureType,
-    ) -> Result<WalletNewResult, JsonRpcError> {
+    pub async fn wallet_new(&self, signature_type: SignatureType) -> Result<String, JsonRpcError> {
         self.call(Self::wallet_new_req(signature_type)).await
     }
 
@@ -31,10 +28,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_NEW, (signature_type,))
     }
 
-    pub async fn wallet_balance(
-        &self,
-        address: String,
-    ) -> Result<WalletBalanceResult, JsonRpcError> {
+    pub async fn wallet_balance(&self, address: String) -> Result<String, JsonRpcError> {
         self.call(Self::wallet_balance_req(address)).await
     }
 
@@ -112,7 +106,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_VERIFY, (address, data, signature))
     }
 
-    pub async fn wallet_delete(&self, address: String) -> Result<WalletDeleteResult, JsonRpcError> {
+    pub async fn wallet_delete(&self, address: String) -> Result<(), JsonRpcError> {
         self.call(Self::wallet_delete_req(address)).await
     }
 

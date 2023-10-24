@@ -143,41 +143,24 @@ pub mod auth_api {
     }
     lotus_json_with_self!(AuthNewParams);
 
-    pub type AuthNewResult = Vec<u8>;
-
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
-    pub type AuthVerifyParams = (String,);
-    pub type AuthVerifyResult = Vec<String>;
 }
 
 /// Beacon API
 pub mod beacon_api {
-    use crate::beacon::BeaconEntry;
-    use crate::lotus_json::LotusJson;
-    use crate::shim::clock::ChainEpoch;
-
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
-    pub type BeaconGetEntryParams = (ChainEpoch,);
-    pub type BeaconGetEntryResult = LotusJson<BeaconEntry>;
 }
 
 /// Chain API
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+    use crate::blocks::TipsetKeys;
     use crate::lotus_json::lotus_json_with_self;
-    use crate::lotus_json::LotusJson;
     use crate::shim::clock::ChainEpoch;
-    use crate::shim::message::Message;
-    use cid::Cid;
     use serde::{Deserialize, Serialize};
 
-    use crate::rpc_api::data_types::BlockMessages;
-
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
-    pub type ChainGetMessageParams = (LotusJson<Cid>,);
-    pub type ChainGetMessageResult = LotusJson<Message>;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
 
@@ -197,136 +180,44 @@ pub mod chain_api {
     pub type ChainExportResult = Option<String>;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
-    pub type ChainReadObjParams = (LotusJson<Cid>,);
-    pub type ChainReadObjResult = String;
-
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
-    pub type ChainHasObjParams = (LotusJson<Cid>,);
-    pub type ChainHasObjResult = bool;
-
     pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
-    pub type ChainGetBlockMessagesParams = (LotusJson<Cid>,);
-    pub type ChainGetBlockMessagesResult = BlockMessages;
-
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
-    pub type ChainGetTipsetByHeightParams = LotusJson<(ChainEpoch, TipsetKeys)>;
-    pub type ChainGetTipsetByHeightResult = LotusJson<Tipset>;
-
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
-    pub type ChainGetGenesisParams = ();
-    pub type ChainGetGenesisResult = Option<LotusJson<Tipset>>;
-
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
-    pub type ChainHeadParams = ();
-    pub type ChainHeadResult = LotusJson<Tipset>;
-
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
-    pub type ChainGetBlockParams = (LotusJson<Cid>,);
-    pub type ChainGetBlockResult = LotusJson<BlockHeader>;
-
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
-    pub type ChainGetTipSetParams = (LotusJson<TipsetKeys>,);
-    pub type ChainGetTipSetResult = LotusJson<Tipset>;
-
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
-    pub type ChainSetHeadParams = (TipsetKeys,);
-    pub type ChainSetHeadResult = ();
-
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
-    pub type ChainGetMinBaseFeeParams = (u32,);
-    pub type ChainGetMinBaseFeeResult = String;
 }
 
 /// Message Pool API
 pub mod mpool_api {
-    use cid::Cid;
-
-    use crate::rpc_api::data_types::MessageSendSpec;
-    use crate::shim::message::Message;
-    use crate::{lotus_json::LotusJson, message::SignedMessage};
-
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-    pub type MpoolPendingParams = (LotusJson<Vec<Cid>>,);
-    pub type MpoolPendingResult = LotusJson<Vec<SignedMessage>>;
-
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-    pub type MpoolPushParams = (LotusJson<SignedMessage>,);
-    pub type MpoolPushResult = LotusJson<Cid>;
-
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-    pub type MpoolPushMessageParams = (LotusJson<Message>, Option<MessageSendSpec>);
-    pub type MpoolPushMessageResult = LotusJson<SignedMessage>;
 }
 
 /// Sync API
 pub mod sync_api {
-
-    use cid::Cid;
-
-    use crate::{lotus_json::LotusJson, rpc_api::data_types::RPCSyncState};
-
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-    pub type SyncCheckBadParams = (LotusJson<Cid>,);
-    pub type SyncCheckBadResult = String;
-
     pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-    pub type SyncMarkBadParams = (LotusJson<Cid>,);
-    pub type SyncMarkBadResult = ();
-
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
-    pub type SyncStateResult = RPCSyncState;
 }
 
 /// Wallet API
 pub mod wallet_api {
-    use crate::key_management::KeyInfo;
-    use crate::lotus_json::LotusJson;
-    use crate::shim::address::Address;
-    use crate::shim::crypto::{Signature, SignatureType};
-
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-    pub type WalletBalanceParams = (String,);
-    pub type WalletBalanceResult = String;
-
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-    pub type WalletDefaultAddressResult = Option<String>;
-
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-    pub type WalletExportParams = (String,);
-    pub type WalletExportResult = LotusJson<KeyInfo>;
-
     pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-    pub type WalletHasParams = (String,);
-    pub type WalletHasResult = bool;
-
     pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-    pub type WalletImportParams = LotusJson<Vec<KeyInfo>>;
-    pub type WalletImportResult = String;
-
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
-    pub type WalletListResult = LotusJson<Vec<Address>>;
-
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-    pub type WalletNewParams = (LotusJson<SignatureType>,);
-    pub type WalletNewResult = String;
-
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-    pub type WalletSetDefaultParams = (LotusJson<Address>,);
-    pub type WalletSetDefaultResult = ();
-
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-    pub type WalletSignParams = (LotusJson<Address>, Vec<u8>);
-    pub type WalletSignResult = LotusJson<Signature>;
-
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (LotusJson<Address>, Vec<u8>, LotusJson<Signature>);
-    pub type WalletVerifyResult = bool;
-
     pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
-    pub type WalletDeleteParams = (String,);
-    pub type WalletDeleteResult = ();
 }
 
 /// State API
@@ -391,16 +282,11 @@ pub mod gas_api {
     use crate::lotus_json::LotusJson;
 
     use crate::rpc_api::data_types::MessageSendSpec;
-    use crate::shim::address::Address;
     use crate::shim::message::Message;
 
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub type GasEstimateFeeCapParams = (LotusJson<Message>, i64, LotusJson<TipsetKeys>);
-    pub type GasEstimateFeeCapResult = String;
 
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-    pub type GasEstimateGasPremiumParams = (u64, LotusJson<Address>, i64, LotusJson<TipsetKeys>);
-    pub type GasEstimateGasPremiumResult = String;
 
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
     pub type GasEstimateGasLimitParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
@@ -483,8 +369,6 @@ pub mod net_api {
 /// DB API
 pub mod db_api {
     pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
-    pub type DBGCParams = ();
-    pub type DBGCResult = ();
 }
 
 /// Progress API

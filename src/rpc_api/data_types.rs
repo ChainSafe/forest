@@ -68,7 +68,7 @@ pub struct BlockMessages {
     pub cids: Vec<Cid>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
     #[serde(with = "crate::lotus_json")]

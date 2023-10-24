@@ -7,9 +7,10 @@ use std::convert::TryFrom;
 use crate::blocks::TipsetKeys;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc_api::{data_types::RPCState, mpool_api::*};
-use crate::shim::address::Protocol;
+use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
+use crate::shim::{address::Protocol, message::Message};
 use ahash::{HashSet, HashSetExt};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
@@ -18,12 +19,11 @@ use super::gas_api::estimate_message_gas;
 /// Return `Vec` of pending messages in `mpool`
 pub(in crate::rpc) async fn mpool_pending<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<MpoolPendingParams>,
-) -> Result<MpoolPendingResult, JsonRpcError>
+    Params(LotusJson((cid_vec,))): Params<LotusJson<(Vec<Cid>,)>>,
+) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (LotusJson(cid_vec),) = params;
     let tsk = TipsetKeys::from_iter(cid_vec);
     let mut ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
 
@@ -78,8 +78,8 @@ where
 /// Add `SignedMessage` to `mpool`, return message CID
 pub(in crate::rpc) async fn mpool_push<DB>(
     data: Data<RPCState<DB>>,
-    Params((LotusJson(signed_message),)): Params<MpoolPushParams>,
-) -> Result<MpoolPushResult, JsonRpcError>
+    Params(LotusJson((signed_message,))): Params<LotusJson<(SignedMessage,)>>,
+) -> Result<LotusJson<Cid>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -91,13 +91,11 @@ where
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub(in crate::rpc) async fn mpool_push_message<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<MpoolPushMessageParams>,
-) -> Result<MpoolPushMessageResult, JsonRpcError>
+    Params(LotusJson((umsg, spec))): Params<LotusJson<(Message, Option<MessageSendSpec>)>>,
+) -> Result<LotusJson<SignedMessage>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (LotusJson(umsg), spec) = params;
-
     let from = umsg.from;
 
     let mut keystore = data.keystore.as_ref().write().await;

@@ -12,7 +12,7 @@ impl ApiInfo {
         &self,
         perms: Vec<String>,
         token_exp: Duration,
-    ) -> Result<AuthNewResult, JsonRpcError> {
+    ) -> Result<Vec<u8>, JsonRpcError> {
         self.call(Self::auth_new_req(perms, token_exp)).await
     }
 

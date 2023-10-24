@@ -93,14 +93,12 @@ impl ApiInfo {
     pub async fn chain_get_min_base_fee(
         &self,
         basefee_lookback: u32,
-    ) -> Result<ChainGetMinBaseFeeResult, JsonRpcError> {
+    ) -> Result<String, JsonRpcError> {
         self.call(Self::chain_get_min_base_fee_req(basefee_lookback))
             .await
     }
 
-    pub fn chain_get_min_base_fee_req(
-        basefee_lookback: u32,
-    ) -> RpcRequest<ChainGetMinBaseFeeResult> {
+    pub fn chain_get_min_base_fee_req(basefee_lookback: u32) -> RpcRequest<String> {
         RpcRequest::new(CHAIN_GET_MIN_BASE_FEE, (basefee_lookback,))
     }
 }
