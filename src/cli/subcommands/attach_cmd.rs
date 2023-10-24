@@ -162,9 +162,8 @@ where
 {
     match result {
         Ok(v) => {
-            // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-            //                 Check if unwrap is safe here
-            let value: JsonValue = serde_json::to_value(v).unwrap();
+            let value: JsonValue =
+                serde_json::to_value(v).map_err(|e| JsError::from_opaque(e.to_string().into()))?;
             JsValue::from_json(&value, context)
         }
         Err(err) => {
@@ -191,9 +190,11 @@ macro_rules! bind_func {
                             let obj: JsObject = arr.into();
                             JsValue::from(obj)
                         };
-                        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-                        //                 Check if unwrap is safe here
-                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        let args = serde_json::from_value(
+                            value
+                                .to_json(context)
+                                .map_err(|e| anyhow::anyhow!(e.to_string()))?,
+                        )?;
                         handle.block_on($func(args, &api))
                     });
                     check_result(context, result)
@@ -231,7 +232,11 @@ fn bind_request<T: DeserializeOwned, R>(
                         let obj: JsObject = arr.into();
                         JsValue::from(obj)
                     };
-                    let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                    let args = serde_json::from_value(
+                        value
+                            .to_json(context)
+                            .map_err(|e| anyhow::anyhow!(e.to_string()))?,
+                    )?;
                     Ok(handle.block_on(api.call_req_e(req(args).lower()))?)
                 });
                 check_result(context, result)
