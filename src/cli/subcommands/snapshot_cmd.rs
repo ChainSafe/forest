@@ -78,7 +78,6 @@ pub enum SnapshotCommands {
 
 impl SnapshotCommands {
     pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
-        let chain_config = ChainConfig::default();
         match self {
             Self::Export {
                 output_path,
@@ -123,6 +122,7 @@ impl SnapshotCommands {
                 let output_dir = output_path.parent().context("invalid output path")?;
                 let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
 
+                let chain_config = ChainConfig::default();
                 let params = ChainExportParams {
                     epoch,
                     recent_roots: depth.unwrap_or(chain_config.recent_state_roots),

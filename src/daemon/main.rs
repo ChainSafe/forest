@@ -85,7 +85,8 @@ where
     let Cli { opts, cmd } = Cli::parse_from(args);
 
     let (cfg, path) = opts.to_config().context("Error parsing config")?;
-    let chain_config = ChainConfig::from_chain(&opts.chain.clone().unwrap_or_default());
+    let chain_config =
+        ChainConfig::from_chain(&opts.chain.clone().unwrap_or_else(|| cfg.chain.clone()));
 
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the
     // subcommand.
