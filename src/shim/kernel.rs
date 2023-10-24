@@ -14,11 +14,7 @@ use std::fmt;
 use std::fmt::Debug;
 
 macro_rules! error_number {
-    ($($variant:ident, $number:literal),* $(,)?) => {
-        $(
-            static_assertions::const_assert_eq!($number, N4::$variant as u32);
-        )*
-
+    ($($variant:ident),* $(,)?) => {
         #[derive(Debug, Clone)]
         pub enum ErrorNumber {
             $($variant,)*
@@ -28,7 +24,7 @@ macro_rules! error_number {
         #[repr(u32)]
         #[derive(Debug, Clone, FromPrimitive)]
         enum KnownErrorNumber {
-            $($variant = $number,)*
+            $($variant = N4::$variant as u32,)*
         }
 
         impl From<KnownErrorNumber> for ErrorNumber {
@@ -51,19 +47,19 @@ macro_rules! error_number {
 }
 
 error_number! {
-    IllegalArgument, 1,
-    IllegalOperation, 2,
-    LimitExceeded, 3,
-    AssertionFailed, 4,
-    InsufficientFunds, 5,
-    NotFound, 6,
-    InvalidHandle, 7,
-    IllegalCid, 8,
-    IllegalCodec, 9,
-    Serialization, 10,
-    Forbidden, 11,
-    BufferTooSmall, 12,
-    ReadOnly, 13,
+    IllegalArgument,
+    IllegalOperation,
+    LimitExceeded,
+    AssertionFailed,
+    InsufficientFunds,
+    NotFound,
+    InvalidHandle,
+    IllegalCid,
+    IllegalCodec,
+    Serialization,
+    Forbidden,
+    BufferTooSmall,
+    ReadOnly,
 }
 
 impl From<N2> for ErrorNumber {
