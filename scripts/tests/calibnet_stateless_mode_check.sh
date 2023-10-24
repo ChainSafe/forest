@@ -14,7 +14,7 @@ assert_eq "$MSG" $'[\n  "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7
 wait_until_p2p_is_ready
 ADDRESS=$($FOREST_CLI_PATH net listen | tail -n 1)
 echo "Stateless node address: $ADDRESS"
-PEER_ID=$(echo "$ADDRESS" | cut -d "/" -f7 -z)
+PEER_ID=$(echo "$ADDRESS" | cut --delimiter="/" --fields=7 --zero-terminated)
 echo "Stateless node peer id: $PEER_ID"
 
 # Run a normal forest node that only connects to the stateless node

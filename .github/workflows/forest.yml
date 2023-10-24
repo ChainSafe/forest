@@ -184,8 +184,9 @@ jobs:
       - name: Set permissions
         run: |
           chmod +x ~/.cargo/bin/forest*
-      - name: Other commands check
+      - name: Calibnet stateless mode checks
         run: ./scripts/tests/calibnet_stateless_mode_check.sh
+        timeout-minutes: 10
 
   # state migration regression tests
   state-migrations-check:
