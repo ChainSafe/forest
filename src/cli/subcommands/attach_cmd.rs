@@ -23,6 +23,7 @@ use boa_parser::Parser;
 use boa_runtime::Console;
 use convert_case::{Case, Casing};
 use directories::BaseDirs;
+use futures::Future;
 use rustyline::{config::Config as RustyLineConfig, history::FileHistory, EditMode, Editor};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value as JsonValue;
@@ -173,50 +174,14 @@ where
     }
 }
 
-macro_rules! bind_func {
-    ($context:expr, $api:expr, $func:ident) => {
-        let js_func_name = stringify!($func).to_case(Case::Camel);
-        let js_func = FunctionObjectBuilder::new($context, unsafe {
-            {
-                let api = $api.clone();
-                NativeFunction::from_closure(move |_this, params, context| {
-                    let handle = tokio::runtime::Handle::current();
-
-                    let result = tokio::task::block_in_place(|| {
-                        let value = if params.is_empty() {
-                            JsValue::Null
-                        } else {
-                            let arr = JsArray::from_iter(params.to_vec(), context);
-                            let obj: JsObject = arr.into();
-                            JsValue::from(obj)
-                        };
-                        let args = serde_json::from_value(
-                            value
-                                .to_json(context)
-                                .map_err(|e| anyhow::anyhow!(e.to_string()))?,
-                        )?;
-                        handle.block_on($func(args, &api))
-                    });
-                    check_result(context, result)
-                })
-            }
-        })
-        .name(js_func_name.clone())
-        .build();
-
-        let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
-        $context
-            .register_global_property(js_func_name, js_func, attr)
-            .expect("`register_global_property` should not fail");
-    };
-}
-
-fn bind_request<T: DeserializeOwned, R>(
+fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
     context: &mut Context,
     api: &ApiInfo,
     name: &'static str,
-    req: impl Fn(T) -> RpcRequest<R> + 'static,
-) {
+    req: impl Fn(T, ApiInfo) -> Fut + 'static,
+) where
+    Fut: Future<Output = anyhow::Result<R>>,
+{
     let js_func_name = name.to_case(Case::Camel);
     let js_func = FunctionObjectBuilder::new(context, unsafe {
         NativeFunction::from_closure({
@@ -237,7 +202,7 @@ fn bind_request<T: DeserializeOwned, R>(
                             .to_json(context)
                             .map_err(|e| anyhow::anyhow!(e.to_string()))?,
                     )?;
-                    Ok(handle.block_on(api.call(req(args).lower()))?)
+                    Ok(handle.block_on(req(args, api.clone()))?)
                 });
                 check_result(context, result)
             }
@@ -252,17 +217,20 @@ fn bind_request<T: DeserializeOwned, R>(
         .expect("`register_global_property` should not fail");
 }
 
-macro_rules! bind_request_func {
+macro_rules! bind_request {
     ($context:expr, $api:expr, $($name:literal => $req:expr),* $(,)?) => {
     $(
-        bind_request($context, &$api, $name, $req);
+        bind_async($context, &$api, $name, move |args, api| {
+            let rpc = $req(args).lower();
+            async move { Ok(api.call(rpc).await?) }
+        });
     )*
     };
 }
 
 type SendMessageParams = (String, String, String);
 
-async fn send_message(params: SendMessageParams, api: &ApiInfo) -> anyhow::Result<SignedMessage> {
+async fn send_message(params: SendMessageParams, api: ApiInfo) -> anyhow::Result<SignedMessage> {
     let (from, to, value) = params;
 
     let message = Message::transfer(
@@ -277,13 +245,13 @@ async fn send_message(params: SendMessageParams, api: &ApiInfo) -> anyhow::Resul
 type SleepParams = (u64,);
 type SleepResult = ();
 
-async fn sleep(params: SleepParams, _api: &ApiInfo) -> anyhow::Result<SleepResult> {
+async fn sleep(params: SleepParams, _api: ApiInfo) -> anyhow::Result<SleepResult> {
     let secs = params.0;
     time::sleep(time::Duration::from_secs(secs)).await;
     Ok(())
 }
 
-async fn sleep_tipsets(epochs: ChainEpochDelta, api: &ApiInfo) -> anyhow::Result<()> {
+async fn sleep_tipsets(epochs: ChainEpochDelta, api: ApiInfo) -> anyhow::Result<()> {
     let mut epoch = None;
     loop {
         let state = api.sync_status().await?;
@@ -326,7 +294,7 @@ impl AttachCommand {
         // Add custom object that mimics `module.exports`
         set_module(context);
 
-        bind_request_func!(context, api,
+        bind_request!(context, api,
                 // Net API
                 "net_addrs_listen" => |()| ApiInfo::net_addrs_listen_req(),
                 "net_peers"        => |()| ApiInfo::net_peers_req(),
@@ -362,9 +330,9 @@ impl AttachCommand {
         );
 
         // Bind send_message, sleep, sleep_tipsets
-        bind_func!(context, api, send_message);
-        bind_func!(context, api, sleep);
-        bind_func!(context, api, sleep_tipsets);
+        bind_async(context, &api, "send_message", send_message);
+        bind_async(context, &api, "seep", sleep);
+        bind_async(context, &api, "sleep_tipsets", sleep_tipsets);
     }
 
     fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
