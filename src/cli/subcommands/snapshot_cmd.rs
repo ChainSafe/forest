@@ -3,7 +3,6 @@
 
 use super::*;
 use crate::blocks::TipsetKeys;
-use crate::cli::subcommands::cli_error_and_die;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -85,17 +84,12 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = match api.chain_head().await {
-                    Ok(head) => head,
-                    Err(_) => cli_error_and_die("Could not get network head", 1),
-                };
+                let chain_head = api.chain_head().await?;
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let chain_name = api
-                    .state_network_name()
-                    .await
-                    .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())?;
+                let raw_network_name = api.state_network_name().await?;
+                let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
                 let tipset = api
                     .chain_get_tipset_by_height(epoch, TipsetKeys::default())
