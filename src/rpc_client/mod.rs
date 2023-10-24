@@ -257,6 +257,7 @@ impl<T> RpcRequest<T> {
         }
     }
 
+    // Discard type information about the response.
     pub fn lower(self) -> RpcRequest {
         RpcRequest {
             method_name: self.method_name,
