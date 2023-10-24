@@ -202,7 +202,7 @@ fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
                             .to_json(context)
                             .map_err(|e| anyhow::anyhow!(e.to_string()))?,
                     )?;
-                    Ok(handle.block_on(req(args, api.clone()))?)
+                    handle.block_on(req(args, api.clone()))
                 });
                 check_result(context, result)
             }
@@ -221,6 +221,8 @@ macro_rules! bind_request {
     ($context:expr, $api:expr, $($name:literal => $req:expr),* $(,)?) => {
     $(
         bind_async($context, &$api, $name, move |args, api| {
+            // Some of the closures are redundant, others are not.
+            #[allow(clippy::redundant_closure_call)]
             let rpc = $req(args).lower();
             async move { Ok(api.call(rpc).await?) }
         });
