@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use super::Config;
 use crate::chain_sync::SyncStage;
 use crate::cli::humantoken;
 use crate::lotus_json::LotusJson;
@@ -165,8 +164,8 @@ where
 {
     match result {
         Ok(v) => {
-            // TODO: check if unwrap is safe here
-            let value: JsonValue = serde_json::to_value(v).unwrap();
+            let value: JsonValue =
+                serde_json::to_value(v).map_err(|e| JsError::from_opaque(e.to_string().into()))?;
             JsValue::from_json(&value, context)
         }
         Err(err) => {
@@ -200,8 +199,7 @@ macro_rules! bind_func {
                             let obj: JsObject = arr.into();
                             JsValue::from(obj)
                         };
-                        // TODO: check if unwrap is safe here
-                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        let args = serde_json::from_value(value.to_json(context)?)?;
                         handle.block_on($func(args, token))
                     });
                     check_result(context, result)
@@ -313,7 +311,8 @@ impl AttachCommand {
         bind_func!(context, token, sync_status);
 
         // Wallet API
-        // TODO: bind wallet_sign, wallet_verify
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
+        //                 bind wallet_sign, wallet_verify
         bind_func!(context, token, wallet_new);
         bind_func!(context, token, wallet_default_address);
         bind_func!(context, token, wallet_balance);
@@ -355,9 +354,9 @@ impl AttachCommand {
         Ok(())
     }
 
-    pub fn run(self, config: Config) -> anyhow::Result<()> {
+    pub fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         let mut context = Context::default();
-        self.setup_context(&mut context, &config.client.rpc_token);
+        self.setup_context(&mut context, &rpc_token);
 
         self.import_prelude(&mut context)?;
 

@@ -12,7 +12,7 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use libp2p::{
     core::Multiaddr,
     identity::{PeerId, PublicKey},
-    kad::{record::store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent, QueryId},
+    kad::{self, record::store::MemoryStore},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,
     swarm::{
@@ -113,7 +113,7 @@ impl<'a> DiscoveryConfig<'a> {
         // Kademlia config
         let store = MemoryStore::new(local_peer_id);
         let kad_config = {
-            let mut cfg = KademliaConfig::default();
+            let mut cfg = kad::Config::default();
             cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
                 "/fil/kad/{network_name}/kad/1.0.0"
             ))?]);
@@ -121,7 +121,7 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let kademlia_opt = if enable_kademlia {
-            let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
+            let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
             for (peer_id, addr) in user_defined {
                 kademlia.add_address(&peer_id, addr);
                 peers.insert(peer_id);
@@ -154,7 +154,7 @@ impl<'a> DiscoveryConfig<'a> {
     }
 }
 
-pub type KademliaBehaviour = Toggle<Kademlia<MemoryStore>>;
+pub type KademliaBehaviour = Toggle<kad::Behaviour<MemoryStore>>;
 
 /// Implementation of `NetworkBehaviour` that discovers the nodes on the
 /// network.
@@ -193,7 +193,7 @@ impl DiscoveryBehaviour {
     }
 
     /// Bootstrap Kademlia network
-    pub fn bootstrap(&mut self) -> Result<QueryId, String> {
+    pub fn bootstrap(&mut self) -> Result<kad::QueryId, String> {
         if let Some(active_kad) = self.kademlia.as_mut() {
             active_kad.bootstrap().map_err(|e| e.to_string())
         } else {
@@ -346,9 +346,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 ToSwarm::GenerateEvent(ev) => match ev {
                     // Adding to Kademlia buckets is automatic with our config,
                     // no need to do manually.
-                    KademliaEvent::RoutingUpdated { .. } => {}
-                    KademliaEvent::RoutablePeer { .. } => {}
-                    KademliaEvent::PendingRoutablePeer { .. } => {
+                    kad::Event::RoutingUpdated { .. } => {}
+                    kad::Event::RoutablePeer { .. } => {}
+                    kad::Event::PendingRoutablePeer { .. } => {
                         // Intentionally ignore
                     }
                     other => {

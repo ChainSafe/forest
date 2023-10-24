@@ -25,7 +25,7 @@ use std::io::{self, Write};
 
 use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
-use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
+use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::lotus_json::LotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
@@ -49,8 +49,9 @@ use crate::cli::subcommands::info_cmd::InfoCommand;
 #[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
 #[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
-    #[command(flatten)]
-    pub opts: CliOpts,
+    /// Client JWT token to use for JSON-RPC authentication
+    #[arg(short, long)]
+    pub token: Option<String>,
     #[command(subcommand)]
     pub cmd: Subcommand,
 }

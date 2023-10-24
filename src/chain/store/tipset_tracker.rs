@@ -54,8 +54,6 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     /// height.
     fn check_multiple_blocks_from_same_miner(&self, cids: &[Cid], header: &BlockHeader) {
         for cid in cids.iter() {
-            // TODO: maybe cache the miner address to avoid having to do a `blockstore`
-            // lookup here
             if let Ok(Some(block)) = BlockHeader::load(&self.db, *cid) {
                 if header.miner_address() == block.miner_address() {
                     warn!(
@@ -96,8 +94,6 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                     continue;
                 }
 
-                // TODO: maybe cache the parents tipset keys to avoid having to do a
-                // `blockstore` lookup here
                 let h = BlockHeader::load(&self.db, cid)
                     .ok()
                     .flatten()

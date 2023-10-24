@@ -64,7 +64,51 @@ pub fn verify_token(token: &str, key: &[u8]) -> JWTResult<Vec<String>> {
 
 pub fn generate_priv_key() -> KeyInfo {
     let priv_key = rand::thread_rng().gen::<[u8; 32]>();
-    // TODO temp use of bls key as placeholder, need to update keyinfo to use string
+    // This is temporary use of bls key as placeholder, need to update keyinfo to use string
     // instead of keyinfo for key type
     KeyInfo::new(SignatureType::Bls, priv_key.to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_and_verify_token() {
+        let perms_expected = vec![
+            "Ph'nglui mglw'nafh Cthulhu".to_owned(),
+            "R'lyeh wgah'nagl fhtagn".to_owned(),
+        ];
+        let key = generate_priv_key();
+
+        // Token duration of 1 hour. Validation must pass.
+        let token = create_token(
+            perms_expected.clone(),
+            key.private_key(),
+            Duration::hours(1),
+        )
+        .unwrap();
+        let perms = verify_token(&token, key.private_key()).unwrap();
+        assert_eq!(perms_expected, perms);
+
+        // Token duration of -1 hour (already expired). Validation must fail.
+        let token = create_token(
+            perms_expected.clone(),
+            key.private_key(),
+            -Duration::hours(1),
+        )
+        .unwrap();
+        assert!(verify_token(&token, key.private_key()).is_err());
+
+        // Token duration of -10 seconds (already expired, slightly). There is leeway of 60 seconds
+        // by default, so validation must pass.
+        let token = create_token(
+            perms_expected.clone(),
+            key.private_key(),
+            -Duration::seconds(10),
+        )
+        .unwrap();
+        let perms = verify_token(&token, key.private_key()).unwrap();
+        assert_eq!(perms_expected, perms);
+    }
 }

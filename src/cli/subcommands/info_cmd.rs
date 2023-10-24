@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::cli_shared::cli::CliOpts;
 use crate::lotus_json::LotusJson;
 use crate::rpc_client::{
     chain_head, node_ops::node_status, start_time, state_network_name, wallet_balance,
@@ -17,7 +16,6 @@ use humantime::format_duration;
 use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use super::Config;
 use crate::cli::humantoken::TokenAmountPretty;
 use crate::cli::subcommands::handle_rpc_err;
 
@@ -161,13 +159,13 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(self, config: Config, _opts: &CliOpts) -> anyhow::Result<()> {
+    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         let res = tokio::try_join!(
-            node_status((), &config.client.rpc_token),
-            chain_head(&config.client.rpc_token),
-            state_network_name((), &config.client.rpc_token),
-            start_time(&config.client.rpc_token),
-            wallet_default_address((), &config.client.rpc_token)
+            node_status((), &rpc_token),
+            chain_head(&rpc_token),
+            state_network_name((), &rpc_token),
+            start_time(&rpc_token),
+            wallet_default_address((), &rpc_token)
         );
 
         match res {
@@ -178,7 +176,7 @@ impl InfoCommand {
 
                 let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
                 {
-                    let balance = wallet_balance((def_addr.clone(),), &config.client.rpc_token)
+                    let balance = wallet_balance((def_addr.clone(),), &rpc_token)
                         .await
                         .map_err(handle_rpc_err)?;
                     Some(balance)

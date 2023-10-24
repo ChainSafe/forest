@@ -6,6 +6,7 @@ use crate::chain::{ChainStore, Error as ChainError};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use tracing::debug;
 
 use super::{
@@ -21,67 +22,66 @@ pub fn make_chain_exchange_response<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut response_chain: Vec<TipsetBundle> = Vec::with_capacity(request.request_len as usize);
+    if !request.is_options_valid() {
+        return ChainExchangeResponse {
+            chain: Default::default(),
+            status: ChainExchangeResponseStatus::BadRequest,
+            message: format!("Invalid options {}", request.options),
+        };
+    }
 
-    let mut curr_tipset_cids = request.start.clone();
-
-    loop {
-        let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
-        let tipset = match cs.tipset_from_keys(&TipsetKeys::from_iter(curr_tipset_cids)) {
+    let inner = move || {
+        let root = match cs.tipset_from_keys(&TipsetKeys::from_iter(request.start.clone())) {
             Ok(tipset) => tipset,
-            Err(err) => {
-                debug!("Cannot get tipset from keys: {}", err);
-
-                return ChainExchangeResponse {
-                    chain: vec![],
-                    status: ChainExchangeResponseStatus::InternalError,
-                    message: "Tipset was not found in the database".into(),
-                };
+            Err(crate::chain::store::Error::NotFound(_)) => {
+                return Ok(ChainExchangeResponse {
+                    status: ChainExchangeResponseStatus::BlockNotFound,
+                    chain: Default::default(),
+                    message: "Start tipset was not found in the database".into(),
+                });
+            }
+            Err(e) => {
+                debug!("Failed to get tipset from keys: {e}");
+                anyhow::bail!(e);
             }
         };
 
-        if request.include_messages() {
-            match compact_messages(cs.blockstore(), &tipset) {
-                Ok(compacted_messages) => tipset_bundle.messages = Some(compacted_messages),
-                Err(err) => {
-                    debug!("Cannot compact messages for tipset: {}", err);
-
-                    return ChainExchangeResponse {
-                        chain: vec![],
-                        status: ChainExchangeResponseStatus::InternalError,
-                        message: "Can not fulfil the request".into(),
-                    };
+        let chain: Vec<_> = cs
+            .chain_index
+            .chain(root)
+            .take(request.request_len as _)
+            .map(|tipset| {
+                let mut tipset_bundle: TipsetBundle = TipsetBundle::default();
+                if request.include_messages() {
+                    tipset_bundle.messages = Some(compact_messages(cs.blockstore(), &tipset)?);
                 }
-            }
-        }
 
-        curr_tipset_cids = tipset.parents().cids.clone().into_iter().collect();
-        let tipset_epoch = tipset.epoch();
+                if request.include_blocks() {
+                    tipset_bundle.blocks = tipset.blocks().to_vec();
+                }
 
-        if request.include_blocks() {
-            // TODO Cloning blocks isn't ideal, this can maybe be switched to serialize this
-            // data in the function. This may not be possible without overriding rpc in
-            // libp2p
-            tipset_bundle.blocks = tipset.blocks().to_vec();
-        }
+                anyhow::Ok(tipset_bundle)
+            })
+            .try_collect()?;
 
-        response_chain.push(tipset_bundle);
+        anyhow::Ok(ChainExchangeResponse {
+            status: if request.request_len > chain.len() as u64 {
+                ChainExchangeResponseStatus::PartialResponse
+            } else {
+                ChainExchangeResponseStatus::Success
+            },
+            chain,
+            message: "Success".into(),
+        })
+    };
 
-        if response_chain.len() as u64 >= request.request_len || tipset_epoch == 0 {
-            break;
-        }
-    }
-
-    let result_chain_length = response_chain.len() as u64;
-
-    ChainExchangeResponse {
-        chain: response_chain,
-        status: if result_chain_length < request.request_len {
-            ChainExchangeResponseStatus::PartialResponse
-        } else {
-            ChainExchangeResponseStatus::Success
+    match inner() {
+        Ok(r) => r,
+        Err(e) => ChainExchangeResponse {
+            chain: Default::default(),
+            status: ChainExchangeResponseStatus::InternalError,
+            message: e.to_string(),
         },
-        message: "Success".into(),
     }
 }
 

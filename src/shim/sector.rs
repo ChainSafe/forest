@@ -13,6 +13,7 @@ use fvm_shared3::sector::{
 pub use fvm_shared3::sector::{
     RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
 };
+pub use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
 use num_derive::FromPrimitive;
 use std::ops::Deref;
 
@@ -76,6 +77,20 @@ impl From<RegisteredSealProof> for RegisteredSealProofV2 {
     fn from(value: RegisteredSealProof) -> RegisteredSealProofV2 {
         let num_id: i64 = value.0.into();
         RegisteredSealProofV2::from(num_id)
+    }
+}
+
+impl From<RegisteredSealProofV4> for RegisteredSealProof {
+    fn from(value: RegisteredSealProofV4) -> RegisteredSealProof {
+        let num_id: i64 = value.into();
+        RegisteredSealProof(RegisteredSealProofV3::from(num_id))
+    }
+}
+
+impl From<RegisteredSealProof> for RegisteredSealProofV4 {
+    fn from(value: RegisteredSealProof) -> RegisteredSealProofV4 {
+        let num_id: i64 = value.0.into();
+        RegisteredSealProofV4::from(num_id)
     }
 }
 

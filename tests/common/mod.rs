@@ -20,6 +20,8 @@ pub fn daemon() -> Command {
 
 pub trait CommonArgs {
     fn common_args(&mut self) -> &mut Self;
+
+    fn chain(&mut self, chain: impl AsRef<std::ffi::OsStr>) -> &mut Self;
 }
 
 impl CommonArgs for Command {
@@ -29,6 +31,10 @@ impl CommonArgs for Command {
             .arg("--metrics-address")
             .arg("127.0.0.1:0")
             .arg("--exit-after-init")
+    }
+
+    fn chain(&mut self, chain: impl AsRef<std::ffi::OsStr>) -> &mut Self {
+        self.arg("--chain").arg(chain)
     }
 }
 
@@ -51,9 +57,6 @@ pub fn create_tmp_config() -> (PathBuf, TempDir) {
         r#"
 [client]
 data_dir = "{}"
-
-[chain.network]
-type = "calibnet"
 "#,
         temp_dir.path().display()
     );

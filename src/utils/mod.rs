@@ -9,6 +9,7 @@ pub mod misc;
 pub mod monitoring;
 pub mod net;
 pub mod proofs_api;
+pub mod reqwest_resume;
 pub mod stream;
 pub mod version;
 
@@ -20,8 +21,8 @@ use std::{pin::Pin, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
 
-// FIXME: Remove this function and hidden commands
-//        Tracking issue https://github.com/ChainSafe/forest/issues/3363
+// TODO(elmattic): https://github.com/ChainSafe/forest/issues/3363
+//                 Remove this function and hidden commands
 /// Function used to bail on usage of migrated commands
 pub fn bail_moved_cmd(subcommand: &str, command: &str) -> anyhow::Result<()> {
     anyhow::bail!(

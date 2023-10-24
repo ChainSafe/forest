@@ -99,7 +99,8 @@ impl PartialEq for Tipset {
 #[cfg(test)]
 impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        // XXX: Support random generation of tipsets with multiple blocks.
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/3570
+        //               Support random generation of tipsets with multiple blocks.
         Tipset::from(BlockHeader::arbitrary(g))
     }
 }

@@ -51,7 +51,7 @@ jobs:
           context: ./scripts/devnet
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          push: ${{ github.ref == 'refs/heads/main' }}
+          push: true
       - name: List docker images
         run: docker image ls
 

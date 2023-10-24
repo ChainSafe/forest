@@ -31,7 +31,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, trace, warn};
 
 /// Timeout for response from an RPC request
-// TODO this value can be tweaked, this is just set pretty low to avoid peers
+// This value could be tweaked, this is just set pretty low to avoid peers
 // timing out requests from slowing the node down. If increase, should create a
 // countermeasure for this.
 const CHAIN_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(5);

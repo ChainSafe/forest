@@ -37,13 +37,9 @@
 
 mod lints;
 
-use std::{
-    io,
-    ops::Range,
-    process::{self, Command},
-};
+use std::{io, ops::Range, process::Command};
 
-use ariadne::{ReportKind, Source};
+use ariadne::{Color, ReportKind, Source};
 use cargo_metadata::{
     camino::{Utf8Path, Utf8PathBuf},
     Message, MetadataCommand,
@@ -65,6 +61,7 @@ fn lint() {
     LintRunner::new()
         .run::<lints::NoTestsWithReturn>()
         .run::<lints::SpecializedAssertions>()
+        .run_comment_linter()
         .finish();
 }
 
@@ -192,9 +189,9 @@ impl LintRunner {
         // 5. Load all the source files, skipping non-existent or non-rust files
         let files = all_source_files
             .flat_map(|path| {
-                let text = std::fs::read_to_string(&path).ok()?;
-                let ast = syn::parse_file(&text).ok()?;
-                Some((path, (Source::from(text), ast)))
+                let plaintext = std::fs::read_to_string(&path).ok()?;
+                let all = SourceFile::try_from(plaintext).ok()?;
+                Some((path, all))
             })
             .collect::<Cache>();
 
@@ -213,7 +210,7 @@ impl LintRunner {
         info!("running {}", std::any::type_name::<T>());
         let mut linter = T::default();
         let mut all_violations = vec![];
-        for (path, (text, ast)) in self.files.map.iter() {
+        for (path, SourceFile { linewise, ast, .. }) in self.files.map.iter() {
             linter.visit_file(ast);
             for Violation {
                 span,
@@ -221,7 +218,7 @@ impl LintRunner {
                 color,
             } in linter.flush()
             {
-                let mut label = ariadne::Label::new((path, span2span(text, span)));
+                let mut label = ariadne::Label::new((path, span2span(linewise, span)));
                 if let Some(message) = message {
                     label = label.with_message(message)
                 }
@@ -258,28 +255,118 @@ impl LintRunner {
         self.num_violations += num_violations;
         self
     }
-    /// Exits the program with an appropriate error code.
-    pub fn finish(self) -> ! {
+    /// Panics with an appropriate error message on failure
+    pub fn finish(self) {
         match self.num_violations {
             0 => {
                 println!("no violations found in {} files", self.files.map.len());
-                process::exit(0)
             }
             nonzero => {
-                println!(
+                panic!(
                     "found {} violations in {} files",
                     nonzero,
                     self.files.map.len()
                 );
-                process::exit(1)
             }
         }
     }
 }
 
+impl LintRunner {
+    /// Special case comments because:
+    /// - They operate on a concrete syntax tree.
+    ///   (This is because `rustc`'s lexer diregards comments).
+    /// - We get byteoffset spans from [`rowan`](https://docs.rs/rowan/latest/rowan),
+    ///   not char-offset spans.
+    pub fn run_comment_linter(mut self) -> Self {
+        use ra_ap_syntax::{ast, AstNode as _, AstToken as _};
+        use regex_automata::{meta::Regex, Anchored, Input};
+        info!("linting comments");
+        let mut all_violations = vec![];
+        let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();
+        let checker =
+            Regex::new(r"TODO\(.*\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
+        for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
+            for comment in ra_ap_syntax::SourceFile::parse(plaintext)
+                .tree()
+                .syntax() // downcast from AST to untyped syntax tree
+                .descendants_with_tokens() // comments are tokens
+                .filter_map(|it| it.into_token().and_then(ast::Comment::cast))
+            {
+                let haystack = comment.text();
+                for found in finder.find_iter(haystack) {
+                    if !checker.is_match(
+                        Input::new(comment.text())
+                            .range(found.start()..)
+                            .anchored(Anchored::Yes),
+                    ) {
+                        let byte_offset_of_comment_in_file =
+                            usize::from(comment.syntax().text_range().start());
+                        let byte_offset_of_todo_in_comment = found.start();
+                        let byte_offset_needle =
+                            byte_offset_of_comment_in_file + byte_offset_of_todo_in_comment;
+                        let char_offset = plaintext
+                            .char_indices()
+                            .enumerate()
+                            .find_map(|(char_offset, (byte_offset_haystack, _char))| {
+                                (byte_offset_haystack == byte_offset_needle).then_some(char_offset)
+                            })
+                            .unwrap();
+                        all_violations.push(
+                            ariadne::Label::new((
+                                path,
+                                char_offset..char_offset + (haystack[found.range()].len()),
+                            ))
+                            .with_color(Color::Red),
+                        );
+                    }
+                }
+            }
+        }
+        let num_violations = all_violations.len();
+        let auto = Utf8PathBuf::new(); // ariadne figures out the file label if it doesn't have one
+        let builder = ariadne::Report::build(ReportKind::Error, &auto, 0)
+            .with_labels(all_violations)
+            .with_message("TODOs must have owners and tracking issues")
+            .with_help("Change these to be `TODO(<owner>): https://github.com/ChainSafe/forest/issues/<issue>");
+        match num_violations {
+            0 => {}
+            _ => {
+                builder
+                    .with_config(ariadne::Config::default().with_compact(true))
+                    .finish()
+                    .print(&self.files)
+                    .unwrap();
+            }
+        }
+        self.num_violations += num_violations;
+        self
+    }
+}
+
+struct SourceFile {
+    plaintext: String,
+    /// For formatting.
+    linewise: ariadne::Source,
+    /// Abstract syntax tree.
+    ast: syn::File,
+}
+
+impl TryFrom<String> for SourceFile {
+    type Error = syn::Error;
+
+    fn try_from(plaintext: String) -> Result<Self, Self::Error> {
+        Ok(Self {
+            linewise: ariadne::Source::from(&plaintext),
+            ast: syn::parse_file(&plaintext)?,
+            plaintext,
+        })
+    }
+}
+
 /// Stores all the files for repeated linting and formatting into pretty reports
 struct Cache {
-    map: ahash::HashMap<Utf8PathBuf, (Source, syn::File)>,
+    map: ahash::HashMap<Utf8PathBuf, SourceFile>,
 }
 
 impl<Id> ariadne::Cache<Id> for &Cache
@@ -287,10 +374,14 @@ where
     Id: AsRef<str>,
 {
     fn fetch(&mut self, id: &Id) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
+        fn id_not_found_error(id: impl AsRef<str>) -> Box<dyn std::fmt::Debug> {
+            Box::new(format!("{} not in cache", id.as_ref()))
+        }
+
         self.map
             .get(Utf8Path::new(&id))
-            .map(|(text, _ast)| text)
-            .ok_or(Box::new(format!("{} not in cache", id.as_ref())))
+            .map(|SourceFile { linewise, .. }| linewise)
+            .ok_or_else(|| id_not_found_error(id))
     }
 
     fn display<'a>(&self, id: &'a Id) -> Option<Box<dyn std::fmt::Display + 'a>> {
@@ -298,8 +389,8 @@ where
     }
 }
 
-impl FromIterator<(Utf8PathBuf, (Source, syn::File))> for Cache {
-    fn from_iter<T: IntoIterator<Item = (Utf8PathBuf, (Source, syn::File))>>(iter: T) -> Self {
+impl FromIterator<(Utf8PathBuf, SourceFile)> for Cache {
+    fn from_iter<T: IntoIterator<Item = (Utf8PathBuf, SourceFile)>>(iter: T) -> Self {
         Self {
             map: iter.into_iter().collect(),
         }
@@ -314,4 +405,49 @@ fn coord2offset(text: &Source, coord: LineColumn) -> usize {
     let line = text.line(coord.line - 1).expect("line is past end of file");
     assert!(coord.column <= line.len(), "column is past end of line");
     line.offset() + coord.column
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    #[should_panic = "found 3 violations in 1 files"]
+    fn should_lint_bad_comments() {
+        LintRunner {
+            files: Cache::from_iter([(
+                Utf8PathBuf::from("test.rs"),
+                SourceFile::try_from(String::from(
+                    "
+                    // TODO
+                    const _: () = {};
+                    fn foo() {
+                        /* FIXME */
+                    }
+                    // XXX: a comment left by David
+                    mod bar;
+                    ",
+                ))
+                .unwrap(),
+            )]),
+            num_violations: 0,
+        }
+        .run_comment_linter()
+        .finish();
+    }
+
+    #[test]
+    fn should_not_lint_good_comments() {
+        LintRunner {
+            files: Cache::from_iter([(
+                Utf8PathBuf::from("test.rs"),
+                SourceFile::try_from(String::from(
+                    "// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/1234",
+                ))
+                .unwrap(),
+            )]),
+            num_violations: 0,
+        }
+        .run_comment_linter()
+        .finish();
+    }
 }
