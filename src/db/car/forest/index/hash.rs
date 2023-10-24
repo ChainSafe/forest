@@ -1,4 +1,4 @@
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroUsize;
 
 use super::NonMaximalU64;
 use cid::Cid;

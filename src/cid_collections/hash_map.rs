@@ -250,6 +250,8 @@ impl<V> Iterator for IntoIter<V> {
     }
 }
 
+impl<V> ExactSizeIterator for IntoIter<V> {}
+
 fn join_size_hints(
     left: (usize, Option<usize>),
     right: (usize, Option<usize>),

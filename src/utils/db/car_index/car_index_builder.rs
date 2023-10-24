@@ -35,8 +35,10 @@ impl CarIndexBuilder {
             longest_distance: 0,
             capacity: values.len(),
         };
+        println!("{:?}", table);
         for (hash, value) in values {
-            table.insert(KeyValuePair { hash, value })
+            table.insert(KeyValuePair { hash, value });
+            println!("{:?}", table);
         }
         table
     }
@@ -86,6 +88,7 @@ impl CarIndexBuilder {
                     self.longest_distance = self.longest_distance.max(new_dist);
 
                     if found_dist < new_dist || (found_dist == new_dist && new.hash < found.hash) {
+                        println!("do the thing");
                         self.table[at as usize] = Bucket::Full(new);
                         new = found;
                     }

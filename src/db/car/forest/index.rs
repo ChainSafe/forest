@@ -20,65 +20,153 @@
 //! - use [`std::hash::Hasher`]s instead of custom hashing
 //!   The current code says using e.g the default hasher
 
-use crate::cid_collections::CidHashMap;
-
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use cid::Cid;
 #[cfg(test)]
 use quickcheck::quickcheck;
 use std::{
     cmp,
     io::{self, Read, Write},
+    iter::ExactSizeIterator,
     num::NonZeroUsize,
 };
 
 mod hash;
 
-fn build_table(locations: CidHashMap<u64>, load_factor: f64) -> Box<[Slot]> {
-    assert!((0.0..=1.0).contains(&load_factor));
-    let table_width = cmp::max(
-        (locations.len() as f64 / load_factor) as usize,
-        locations.len(),
-    );
-    let Some(table_width) = NonZeroUsize::new(table_width) else {
-        return Box::new([]);
-    };
-    let mut table = vec![Slot::Empty; table_width.get()].into_boxed_slice();
-
-    for (cid, frame_offset) in locations {
-        let hash = hash::of(&cid);
-        let mut current_ix = hash::ideal_bucket_ix(hash, table_width);
-        loop {
-            // this is guaranteed to terminate because table_width >= locations.len()
-            match table[current_ix] {
-                Slot::Empty => {
-                    table[current_ix] = Slot::Occupied { hash, frame_offset };
-                    break;
-                }
-                Slot::Occupied { .. } => current_ix = (current_ix + 1) % table_width,
-            }
-        }
-    }
-    table
+#[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+/// An in-memory representation of a hash-table
+struct Table {
+    slots: Vec<Slot>,
+    initial_width: usize,
+    collisions: usize,
+    longest_distance: usize,
 }
 
-pub fn write(
-    locations: CidHashMap<u64>,
-    load_factor: f64,
-    mut writer: impl io::Write,
-) -> io::Result<()> {
-    let table = build_table(locations, load_factor);
-    Header {
-        magic_number: Header::V1_MAGIC,
-        longest_distance: u64::MAX,
-        collisions: u64::MAX,
-        buckets: u64::try_from(table.len()).unwrap(),
+impl Table {
+    fn new<I>(locations: I, load_factor: f64) -> Self
+    where
+        I: IntoIterator<Item = (Cid, u64)>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let locations = locations.into_iter();
+        assert!((0.0..=1.0).contains(&load_factor));
+        let initial_width = cmp::max(
+            (locations.len() as f64 / load_factor) as usize,
+            locations.len(),
+        );
+        let Some(initial_width) = NonZeroUsize::new(initial_width) else {
+            return Self {
+                slots: vec![Slot::Empty],
+                initial_width: 0,
+                collisions: 0,
+                longest_distance: 0,
+            };
+        };
+        let mut slots = vec![Slot::Empty; initial_width.get()];
+
+        let mut collisions = 0;
+        let mut longest_distance = 0;
+
+        for (cid, mut frame_offset) in locations {
+            println!("{:?}", slots);
+            let mut hash = hash::of(&cid);
+            let ideal_ix = hash::ideal_bucket_ix(hash, initial_width);
+            let mut current_ix = ideal_ix;
+            'find_slot_for_hash: loop {
+                // this is guaranteed to terminate because table_width >= locations.len()
+                match slots[current_ix] {
+                    Slot::Empty => {
+                        slots[current_ix] = Slot::Occupied { hash, frame_offset };
+                        longest_distance = cmp::max(
+                            longest_distance,
+                            distance(ideal_ix, current_ix, initial_width),
+                        );
+                        break 'find_slot_for_hash;
+                    }
+                    Slot::Occupied {
+                        hash: already_hash,
+                        frame_offset: already_frame_offset,
+                    } => {
+                        if hash == already_hash {
+                            collisions += 1;
+                        }
+                        // TODO(aatifsyed): document this
+                        let already_dist = distance(
+                            hash::ideal_bucket_ix(already_hash, initial_width),
+                            current_ix,
+                            initial_width,
+                        );
+                        let current_dist = distance(
+                            hash::ideal_bucket_ix(hash, initial_width),
+                            current_ix,
+                            initial_width,
+                        );
+
+                        if already_dist < current_dist
+                            || (already_dist == current_dist && hash < already_hash)
+                        {
+                            slots[current_ix] = Slot::Occupied { hash, frame_offset };
+                            hash = already_hash;
+                            frame_offset = already_frame_offset
+                        }
+
+                        longest_distance = cmp::max(longest_distance, current_dist);
+                        current_ix = (current_ix + 1) % initial_width
+                    }
+                }
+            }
+        }
+        // TODO(aatifsyed): document this
+        for i in 0..longest_distance {
+            slots.push(slots[i])
+        }
+        slots.push(Slot::Empty);
+        Self {
+            slots,
+            initial_width: initial_width.get(),
+            collisions,
+            longest_distance,
+        }
     }
-    .write_to(&mut writer)?;
-    for slot in &*table {
-        slot.write_to(&mut writer)?
+    fn header(&self) -> Header {
+        Header {
+            magic_number: Header::V1_MAGIC,
+            longest_distance: self.longest_distance.try_into().unwrap(),
+            collisions: self.collisions.try_into().unwrap(),
+            initial_buckets: self.initial_width.try_into().unwrap(),
+        }
     }
-    Slot::Empty.write_to(writer)
+}
+
+fn distance(ideal_ix: usize, current_ix: usize, initial_width: NonZeroUsize) -> usize {
+    match ideal_ix > current_ix {
+        true => initial_width.get() - ideal_ix + current_ix,
+        false => current_ix - ideal_ix,
+    }
+}
+
+impl Writeable for Table {
+    fn write_to(&self, mut writer: impl Write) -> io::Result<()> {
+        self.header().write_to(&mut writer)?;
+        for slot in &self.slots {
+            slot.write_to(&mut writer)?
+        }
+        Ok(())
+    }
+}
+
+struct HashAndOffset {
+    hash: NonMaximalU64,
+    offset: u64,
+}
+impl HashAndOffset {
+    pub fn new(cid: Cid, offset: u64) -> Self {
+        Self {
+            hash: hash::of(&cid),
+            offset,
+        }
+    }
 }
 
 pub struct Index<ReaderT> {
@@ -93,7 +181,7 @@ where
     pub fn new(mut reader: ReaderT) -> io::Result<Self> {
         let mut cursor = positioned_io::Cursor::new(&mut reader);
         let header = Header::read_from(&mut cursor)?;
-        for _ in 0..header.buckets {
+        for _ in 0..header.initial_buckets + header.longest_distance {
             Slot::read_from(&mut cursor)?;
         }
         let Slot::Empty = Slot::read_from(&mut cursor)? else {
@@ -110,15 +198,17 @@ where
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 struct Header {
-    // Version number
+    /// Version number
     magic_number: u64,
-    // Worst-case distance between an entry and its bucket.
+    /// Worst-case distance between an entry and its bucket.
     longest_distance: u64,
-    // Number of hash collisions. Reserved for future use.
+    /// Number of hash collisions. Reserved for future use.
     collisions: u64,
-    // Number of buckets. Note that the index includes padding after the last
-    // bucket.
-    buckets: u64,
+    /// Number of buckets before duplication.
+    /// Note that the index includes:
+    /// - [`Self::longest_distance`] additional buckets
+    /// - a terminal [`Slot::Empty`].
+    initial_buckets: u64,
 }
 
 impl Header {
@@ -127,7 +217,7 @@ impl Header {
     // const V2_MAGIC: u64 = 0xdeadbeef + 2;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 enum Slot {
     Empty,
@@ -213,7 +303,7 @@ impl Readable for Header {
             magic_number: reader.read_u64::<LittleEndian>()?,
             longest_distance: reader.read_u64::<LittleEndian>()?,
             collisions: reader.read_u64::<LittleEndian>()?,
-            buckets: reader.read_u64::<LittleEndian>()?,
+            initial_buckets: reader.read_u64::<LittleEndian>()?,
         })
     }
 }
@@ -224,7 +314,7 @@ impl Writeable for Header {
             magic_number,
             longest_distance,
             collisions,
-            buckets,
+            initial_buckets: buckets,
         } = *self;
         writer.write_u64::<LittleEndian>(magic_number)?;
         writer.write_u64::<LittleEndian>(longest_distance)?;
@@ -261,7 +351,7 @@ trait Writeable {
 // This lives in a module so its constructor is private
 mod util {
     /// Like [`std::num::NonZeroU64`], but is never [`u64::MAX`]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct NonMaximalU64(u64);
 
     impl NonMaximalU64 {
@@ -294,10 +384,71 @@ fn round_trip<T: PartialEq + std::fmt::Debug + Readable + Writeable>(original: &
         let mut v = vec![];
         original
             .write_to(&mut v)
-            .expect("Vec<u8> has infallible IO, and illegal states should be unrepresentable");
+            .expect("Vec<u8> has infallible IO");
         v
     };
     let deserialized =
         T::read_from(serialized.as_slice()).expect("couldn't deserialize T from a deserialized T");
     pretty_assertions::assert_eq!(original, &deserialized);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cid::Cid;
+    use pretty_assertions::assert_eq;
+    use quickcheck::quickcheck;
+    use std::str::FromStr as _;
+
+    trait WriteableExt: Writeable {
+        fn write_to_vec(&self) -> Vec<u8> {
+            let mut v = Vec::new();
+            self.write_to(&mut v).expect("Vec<u8> has infallible IO");
+            v
+        }
+    }
+    impl<T> WriteableExt for T where T: Writeable {}
+
+    fn do_test(pairs: Vec<(Cid, u64)>) {
+        for (cid, location) in &pairs {
+            println!("{cid}: {location}")
+        }
+        let subject = Table::new(pairs.clone(), 0.8);
+        println!("subject = {:?}", subject);
+        let reference = crate::utils::db::car_index::CarIndexBuilder::new(
+            pairs
+                .into_iter()
+                .map(|(cid, u)| (crate::utils::db::car_index::Hash::from(cid), u)),
+        );
+        println!("reference = {:?}", reference);
+        let subject = subject.write_to_vec();
+        let reference = {
+            let mut v = vec![];
+            reference.write(&mut v).unwrap();
+            v
+        };
+
+        assert_eq!(subject, reference);
+    }
+
+    #[test]
+    fn test() {
+        do_test(vec![
+            (
+                Cid::from_str("QmZnzvhAkaFb1kvuHB5MxBp88z8WAWFmRDfdmM3qMqrmsc").unwrap(),
+                0,
+            ),
+            (
+                Cid::from_str("QmQKJPEKDi5qHyFLZqe7BssKkUPoFRdpTcgfqDxvkPvR7n").unwrap(),
+                0,
+            ),
+            (Cid::from_str("bagnvg4iek3fam3a").unwrap(), 0),
+        ])
+    }
+
+    quickcheck! {
+        fn do_quickcheck(pairs: Vec<(Cid, u64)>) -> () {
+            do_test(pairs)
+        }
+    }
 }
