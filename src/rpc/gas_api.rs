@@ -6,10 +6,7 @@ use crate::blocks::TipsetKeys;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
-use crate::rpc_api::{
-    data_types::{MessageSendSpec, RPCState},
-    gas_api::*,
-};
+use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
 use crate::shim::address::Address;
 use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
@@ -146,12 +143,11 @@ async fn estimate_gas_premium<DB: Blockstore>(
 /// Estimate the gas limit
 pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<GasEstimateGasLimitParams>,
-) -> Result<GasEstimateGasLimitResult, JsonRpcError>
+    Params(LotusJson((msg, tsk))): Params<LotusJson<(Message, TipsetKeys)>>,
+) -> Result<i64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (LotusJson(msg), LotusJson(tsk)) = params;
     estimate_gas_limit::<DB>(&data, msg, tsk).await
 }
 
@@ -201,12 +197,13 @@ where
 /// Estimates the gas parameters for a given message
 pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<GasEstimateMessageGasParams>,
-) -> Result<GasEstimateMessageGasResult, JsonRpcError>
+    Params(LotusJson((msg, spec, tsk))): Params<
+        LotusJson<(Message, Option<MessageSendSpec>, TipsetKeys)>,
+    >,
+) -> Result<LotusJson<Message>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let (LotusJson(msg), spec, LotusJson(tsk)) = params;
     estimate_message_gas::<DB>(&data, msg, spec, tsk)
         .await
         .map(Into::into)

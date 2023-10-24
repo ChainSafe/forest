@@ -38,7 +38,7 @@ impl ApiInfo {
         RpcRequest::new(NET_CONNECT, (addr,))
     }
 
-    pub async fn net_disconnect(&self, peer: String) -> Result<NetDisconnectResult, JsonRpcError> {
+    pub async fn net_disconnect(&self, peer: String) -> Result<(), JsonRpcError> {
         self.call(Self::net_disconnect_req(peer)).await
     }
 
