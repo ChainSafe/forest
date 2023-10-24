@@ -129,29 +129,10 @@ impl JsonRpcError {
     // -32602 	Invalid params 	Invalid method parameter(s).
     // -32603 	Internal error 	Internal JSON-RPC error.
     // -32000 to -32099 	Server error 	Reserved for implementation-defined server-errors.
-    pub const PARSE_ERROR: JsonRpcError = JsonRpcError {
-        code: -32700,
-        message: Cow::Borrowed(
-            "Invalid JSON was received by the server. \
-             An error occurred on the server while parsing the JSON text.",
-        ),
-    };
-    pub const INVALID_REQUEST: JsonRpcError = JsonRpcError {
-        code: -32600,
-        message: Cow::Borrowed("The JSON sent is not a valid Request object."),
-    };
-    pub const METHOD_NOT_FOUND: JsonRpcError = JsonRpcError {
-        code: -32601,
-        message: Cow::Borrowed("The method does not exist / is not available."),
-    };
     pub const INVALID_PARAMS: JsonRpcError = JsonRpcError {
         code: -32602,
         message: Cow::Borrowed("Invalid method parameter(s)."),
     };
-    // pub const INTERNAL_ERROR: JsonRpcError = JsonRpcError {
-    //     code: -32603,
-    //     message: Cow::Borrowed("Internal JSON-RPC error."),
-    // };
 }
 
 impl std::fmt::Display for JsonRpcError {
