@@ -10,12 +10,12 @@ use cid::Cid;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
 use once_cell::sync::Lazy;
-use reqwest::{Response, Url};
+use reqwest::Url;
 use tokio::fs::File;
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::utils::db::car_stream::{CarStream, CarWriter};
-use crate::utils::net::global_http_client;
+use crate::utils::net::http_get;
 
 #[derive(Debug)]
 pub struct ActorBundleInfo {
@@ -69,15 +69,6 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
     ])
 });
 
-pub async fn try_download_bundle(url: &Url) -> anyhow::Result<Response> {
-    info!(%url, "downloading bundle");
-    Ok(global_http_client()
-        .get(url.clone())
-        .send()
-        .await?
-        .error_for_status()?)
-}
-
 pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     let (mut roots, blocks) = stream::iter(ACTOR_BUNDLES.iter())
         .then(
@@ -86,11 +77,11 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
                  url,
                  alt_url,
              }| async move {
-                let response = if let Ok(response) = try_download_bundle(url).await {
+                let response = if let Ok(response) = http_get(url).await {
                     response
                 } else {
                     warn!("failed to download bundle from primary URL, trying alternative URL");
-                    try_download_bundle(alt_url).await?
+                    http_get(alt_url).await?
                 };
                 let bytes = response.bytes().await?;
                 let car = CarStream::new(Cursor::new(bytes)).await?;
