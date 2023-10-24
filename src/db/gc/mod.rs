@@ -46,6 +46,7 @@
 //! During the `mark` and up to the `sweep` stage, the algorithm requires `4 bytes` of memory for
 //! each database record. Additionally, the seen cache while traversing the reachable graph
 //! executing the `filter` stage requires at least `32 bytes` of memory for each reachable block.
+//! For a typical mainnet snapshot of about 100 GiB that adds up to roughly 2.5 GiB.
 //!
 //! ## Scheduling
 //! 1. GC is triggered automatically and there have to be at least `chain finality` epochs stored
