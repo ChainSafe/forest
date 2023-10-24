@@ -19,11 +19,11 @@ echo "Stateless node peer id: $PEER_ID"
 
 # Run a normal forest node that only connects to the stateless node
 CONFIG_PATH="./forest_config.toml"
-{
-    echo "[network]"
-    echo "listening_multiaddrs = [\"/ip4/127.0.0.1/tcp/0\"]"
-    echo "bootstrap_peers = [\"$ADDRESS\"]"
-} > $CONFIG_PATH
+cat <<- EOF > $CONFIG_PATH
+	[network]
+	listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
+	bootstrap_peers = ["$ADDRESS"]
+EOF
 
 NODE_LOG_DIRECTORY=$(mktemp --directory)
 RUST_LOG="info,forest_filecoin::chain_sync::network_context=debug" $FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --no-metrics --rpc false --log-dir "$NODE_LOG_DIRECTORY" &

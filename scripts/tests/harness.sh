@@ -51,14 +51,14 @@ function forest_run_node_stateless_detached {
   CONFIG_PATH="./stateless_forest_config.toml"
   echo "${CONFIG_PATH}"
   echo "Running forest in stateless and detached mode"
-  {
-    echo "[client]"
-    echo "data_dir = \"/tmp/stateless_forest_data\""
-    echo ""
-    echo "[network]"
-    echo "listening_multiaddrs = [\"/ip4/127.0.0.1/tcp/0\"]"
-  } > $CONFIG_PATH
-  
+  cat <<- EOF > $CONFIG_PATH
+		[client]
+		data_dir = "/tmp/stateless_forest_data"
+
+		[network]
+		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
+	EOF
+
   $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --no-gc --stateless
 }
 
