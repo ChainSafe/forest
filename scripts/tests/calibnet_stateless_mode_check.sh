@@ -25,11 +25,10 @@ cat <<- EOF > $CONFIG_PATH
 	bootstrap_peers = ["$ADDRESS"]
 EOF
 
-NODE_LOG_DIRECTORY=$(mktemp --directory)
-RUST_LOG="info,forest_filecoin::chain_sync::network_context=debug" $FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --no-metrics --rpc false --log-dir "$NODE_LOG_DIRECTORY" &
+$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --metrics-address 127.0.0.1:6117 &
 FOREST_NODE_PID=$!
 # Verify that the stateless node can respond to chain exchange requests
-until grep -r -m 1 "non-empty ChainExchange response from $PEER_ID" "$NODE_LOG_DIRECTORY"; do
+until curl http://127.0.0.1:6117/metrics | grep "peer_chain_exchange_success{PEER=\"${PEER_ID}\"}"; do
     sleep 1s;
 done
 kill -KILL $FOREST_NODE_PID

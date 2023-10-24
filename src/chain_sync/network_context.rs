@@ -388,6 +388,9 @@ where
                         | ChainExchangeResponseStatus::PartialResponse
                 ) {
                     debug!("Succeeded: got non-empty ChainExchange response from {peer_id}");
+                    crate::chain_sync::metrics::PEER_CHAIN_EXCHANGE_SUCCESS
+                        .with_label_values(&[peer_id.to_string().as_str()])
+                        .inc();
                 } else {
                     debug!("Succeeded: got empty ChainExchange response from {peer_id}");
                 }
