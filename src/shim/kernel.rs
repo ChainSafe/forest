@@ -15,6 +15,10 @@ use std::fmt::Debug;
 
 macro_rules! error_number {
     ($($variant:ident, $number:literal),* $(,)?) => {
+        $(
+            static_assertions::const_assert_eq!($number, N4::$variant as u32);
+        )*
+
         #[derive(Debug, Clone)]
         pub enum ErrorNumber {
             $($variant,)*
