@@ -46,6 +46,8 @@
 
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove
   `forest-cli state diff` command. Replaced by `forest-tool archive diff`.
+- [#3615](https://github.com/ChainSafe/forest/pull/3615) Remove `chain` section
+  from forest configuration files.
 
 ### Fixed
 
