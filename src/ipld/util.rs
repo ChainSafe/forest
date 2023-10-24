@@ -373,7 +373,6 @@ impl<DB, T> UnorderedChainStream<DB, T> {
         }
     }
 
-    #[allow(dead_code)]
     pub async fn join_workers(self) -> anyhow::Result<()> {
         self.worker_handle.await?
     }
