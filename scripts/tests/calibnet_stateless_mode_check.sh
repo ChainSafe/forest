@@ -8,8 +8,8 @@ source "$(dirname "$0")/harness.sh"
 forest_init_stateless
 
 echo "Verifying the heaviest tipset to be the genesis"
-MSG=$($FOREST_CLI_PATH chain head)
-assert_eq "$MSG" $'[\n  "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4"\n]'
+HEAD_CID=$($FOREST_CLI_PATH chain head | jq -r '.[0]')
+assert_eq "$HEAD_CID" "bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4"
 
 wait_until_p2p_is_ready
 ADDRESS=$($FOREST_CLI_PATH net listen | tail -n 1)
