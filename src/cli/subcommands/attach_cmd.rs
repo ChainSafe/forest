@@ -237,7 +237,7 @@ fn bind_request<T: DeserializeOwned, R>(
                             .to_json(context)
                             .map_err(|e| anyhow::anyhow!(e.to_string()))?,
                     )?;
-                    Ok(handle.block_on(api.call_req_e(req(args).lower()))?)
+                    Ok(handle.block_on(api.call(req(args).lower()))?)
                 });
                 check_result(context, result)
             }

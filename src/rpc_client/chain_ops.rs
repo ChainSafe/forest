@@ -13,7 +13,7 @@ use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
     pub async fn chain_head(&self) -> Result<Tipset, JsonRpcError> {
-        self.call_req_e(Self::chain_head_req()).await
+        self.call(Self::chain_head_req()).await
     }
 
     pub fn chain_head_req() -> RpcRequest<Tipset> {
@@ -21,7 +21,7 @@ impl ApiInfo {
     }
 
     pub async fn chain_get_block(&self, cid: Cid) -> Result<BlockHeader, JsonRpcError> {
-        self.call_req_e(Self::chain_get_block_req(cid)).await
+        self.call(Self::chain_get_block_req(cid)).await
     }
 
     pub fn chain_get_block_req(cid: Cid) -> RpcRequest<BlockHeader> {
@@ -36,7 +36,7 @@ impl ApiInfo {
         epoch: ChainEpoch,
         head: TipsetKeys,
     ) -> Result<Tipset, JsonRpcError> {
-        self.call_req_e(Self::chain_get_tipset_by_height_req(epoch, head))
+        self.call(Self::chain_get_tipset_by_height_req(epoch, head))
             .await
     }
 
@@ -48,7 +48,7 @@ impl ApiInfo {
     }
 
     pub async fn chain_get_genesis(&self) -> Result<Option<Tipset>, JsonRpcError> {
-        self.call_req_e(Self::chain_get_genesis_req()).await
+        self.call(Self::chain_get_genesis_req()).await
     }
 
     pub fn chain_get_genesis_req() -> RpcRequest<Option<Tipset>> {
@@ -56,7 +56,7 @@ impl ApiInfo {
     }
 
     pub async fn chain_set_head(&self, new_head: TipsetKeys) -> Result<(), JsonRpcError> {
-        self.call_req_e(Self::chain_set_head_req(new_head)).await
+        self.call(Self::chain_set_head_req(new_head)).await
     }
 
     pub fn chain_set_head_req(new_head: TipsetKeys) -> RpcRequest<()> {
@@ -67,7 +67,7 @@ impl ApiInfo {
         &self,
         params: ChainExportParams,
     ) -> Result<ChainExportResult, JsonRpcError> {
-        self.call_req_e(Self::chain_export_req(params)).await
+        self.call(Self::chain_export_req(params)).await
     }
 
     pub fn chain_export_req(params: ChainExportParams) -> RpcRequest<ChainExportResult> {
@@ -75,7 +75,7 @@ impl ApiInfo {
     }
 
     pub async fn chain_get_message(&self, cid: Cid) -> Result<Message, JsonRpcError> {
-        self.call_req_e(Self::chain_get_message_req(cid)).await
+        self.call(Self::chain_get_message_req(cid)).await
     }
 
     pub fn chain_get_message_req(cid: Cid) -> RpcRequest<Message> {
@@ -83,7 +83,7 @@ impl ApiInfo {
     }
 
     pub async fn chain_read_obj(&self, cid: Cid) -> Result<String, JsonRpcError> {
-        self.call_req_e(Self::chain_read_obj_req(cid)).await
+        self.call(Self::chain_read_obj_req(cid)).await
     }
 
     pub fn chain_read_obj_req(cid: Cid) -> RpcRequest<String> {
@@ -94,7 +94,7 @@ impl ApiInfo {
         &self,
         basefee_lookback: u32,
     ) -> Result<ChainGetMinBaseFeeResult, JsonRpcError> {
-        self.call_req_e(Self::chain_get_min_base_fee_req(basefee_lookback))
+        self.call(Self::chain_get_min_base_fee_req(basefee_lookback))
             .await
     }
 

@@ -18,8 +18,7 @@ impl ApiInfo {
         address: Address,
         head: TipsetKeys,
     ) -> Result<Option<ActorState>, JsonRpcError> {
-        self.call_req_e(Self::state_get_actor_req(address, head))
-            .await
+        self.call(Self::state_get_actor_req(address, head)).await
     }
 
     pub fn state_get_actor_req(
@@ -34,8 +33,7 @@ impl ApiInfo {
         root: Cid,
         opt_path: Option<PathBuf>,
     ) -> Result<String, JsonRpcError> {
-        self.call_req_e(Self::state_fetch_root_req(root, opt_path))
-            .await
+        self.call(Self::state_fetch_root_req(root, opt_path)).await
     }
 
     pub fn state_fetch_root_req(root: Cid, opt_path: Option<PathBuf>) -> RpcRequest<String> {
@@ -43,7 +41,7 @@ impl ApiInfo {
     }
 
     pub async fn state_network_name(&self) -> Result<String, JsonRpcError> {
-        self.call_req_e(Self::state_network_name_req()).await
+        self.call(Self::state_network_name_req()).await
     }
 
     pub fn state_network_name_req() -> RpcRequest<String> {

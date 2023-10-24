@@ -86,7 +86,7 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
-    pub async fn call_req_e<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+    pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
         let rpc_req = RequestObject::request()
             .with_method(req.method_name)
             .with_params(req.params)

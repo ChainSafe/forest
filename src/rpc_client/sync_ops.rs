@@ -8,7 +8,7 @@ use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
     pub async fn sync_check_bad(&self, cid: Cid) -> Result<String, JsonRpcError> {
-        self.call_req_e(Self::sync_check_bad_req(cid)).await
+        self.call(Self::sync_check_bad_req(cid)).await
     }
 
     pub fn sync_check_bad_req(cid: Cid) -> RpcRequest<String> {
@@ -16,7 +16,7 @@ impl ApiInfo {
     }
 
     pub async fn sync_mark_bad(&self, cid: Cid) -> Result<(), JsonRpcError> {
-        self.call_req_e(Self::sync_mark_bad_req(cid)).await
+        self.call(Self::sync_mark_bad_req(cid)).await
     }
 
     pub fn sync_mark_bad_req(cid: Cid) -> RpcRequest<()> {
@@ -24,7 +24,7 @@ impl ApiInfo {
     }
 
     pub async fn sync_status(&self) -> Result<RPCSyncState, JsonRpcError> {
-        self.call_req_e(Self::sync_status_req()).await
+        self.call(Self::sync_status_req()).await
     }
 
     pub fn sync_status_req() -> RpcRequest<RPCSyncState> {

@@ -16,7 +16,7 @@ impl ApiInfo {
         message: Message,
         specs: Option<MessageSendSpec>,
     ) -> Result<SignedMessage, JsonRpcError> {
-        self.call_req_e(Self::mpool_push_message_req(message, specs))
+        self.call(Self::mpool_push_message_req(message, specs))
             .await
     }
 
@@ -28,7 +28,7 @@ impl ApiInfo {
     }
 
     pub async fn mpool_pending(&self, cids: Vec<Cid>) -> Result<Vec<SignedMessage>, JsonRpcError> {
-        self.call_req_e(Self::mpool_pending_req(cids)).await
+        self.call(Self::mpool_pending_req(cids)).await
     }
 
     pub fn mpool_pending_req(cids: Vec<Cid>) -> RpcRequest<Vec<SignedMessage>> {

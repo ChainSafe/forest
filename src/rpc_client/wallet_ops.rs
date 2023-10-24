@@ -13,7 +13,7 @@ use crate::{
 
 impl ApiInfo {
     pub async fn wallet_default_address(&self) -> Result<Option<String>, JsonRpcError> {
-        self.call_req_e(Self::wallet_default_address_req()).await
+        self.call(Self::wallet_default_address_req()).await
     }
 
     pub fn wallet_default_address_req() -> RpcRequest<Option<String>> {
@@ -24,7 +24,7 @@ impl ApiInfo {
         &self,
         signature_type: SignatureType,
     ) -> Result<WalletNewResult, JsonRpcError> {
-        self.call_req_e(Self::wallet_new_req(signature_type)).await
+        self.call(Self::wallet_new_req(signature_type)).await
     }
 
     pub fn wallet_new_req(signature_type: SignatureType) -> RpcRequest<String> {
@@ -35,7 +35,7 @@ impl ApiInfo {
         &self,
         address: String,
     ) -> Result<WalletBalanceResult, JsonRpcError> {
-        self.call_req_e(Self::wallet_balance_req(address)).await
+        self.call(Self::wallet_balance_req(address)).await
     }
 
     pub fn wallet_balance_req(address: String) -> RpcRequest<String> {
@@ -43,7 +43,7 @@ impl ApiInfo {
     }
 
     pub async fn wallet_export(&self, address: String) -> Result<KeyInfo, JsonRpcError> {
-        self.call_req_e(Self::wallet_export_req(address)).await
+        self.call(Self::wallet_export_req(address)).await
     }
 
     pub fn wallet_export_req(address: String) -> RpcRequest<KeyInfo> {
@@ -51,7 +51,7 @@ impl ApiInfo {
     }
 
     pub async fn wallet_import(&self, key: Vec<KeyInfo>) -> Result<String, JsonRpcError> {
-        self.call_req_e(Self::wallet_import_req(key)).await
+        self.call(Self::wallet_import_req(key)).await
     }
 
     pub fn wallet_import_req(key: Vec<KeyInfo>) -> RpcRequest<String> {
@@ -59,7 +59,7 @@ impl ApiInfo {
     }
 
     pub async fn wallet_list(&self) -> Result<Vec<Address>, JsonRpcError> {
-        self.call_req_e(Self::wallet_list_req()).await
+        self.call(Self::wallet_list_req()).await
     }
 
     pub fn wallet_list_req() -> RpcRequest<Vec<Address>> {
@@ -67,7 +67,7 @@ impl ApiInfo {
     }
 
     pub async fn wallet_has(&self, key: String) -> Result<bool, JsonRpcError> {
-        self.call_req_e(Self::wallet_has_req(key)).await
+        self.call(Self::wallet_has_req(key)).await
     }
 
     pub fn wallet_has_req(key: String) -> RpcRequest<bool> {
@@ -75,7 +75,7 @@ impl ApiInfo {
     }
 
     pub async fn wallet_set_default(&self, address: Address) -> Result<(), JsonRpcError> {
-        self.call_req_e(Self::wallet_set_default_req(address)).await
+        self.call(Self::wallet_set_default_req(address)).await
     }
 
     pub fn wallet_set_default_req(address: Address) -> RpcRequest<()> {
@@ -87,7 +87,7 @@ impl ApiInfo {
         address: Address,
         data: Vec<u8>,
     ) -> Result<Signature, JsonRpcError> {
-        self.call_req_e(Self::wallet_sign_req(address, data)).await
+        self.call(Self::wallet_sign_req(address, data)).await
     }
 
     pub fn wallet_sign_req(address: Address, data: Vec<u8>) -> RpcRequest<Signature> {
@@ -100,7 +100,7 @@ impl ApiInfo {
         data: Vec<u8>,
         signature: Signature,
     ) -> Result<bool, JsonRpcError> {
-        self.call_req_e(Self::wallet_verify_req(address, data, signature))
+        self.call(Self::wallet_verify_req(address, data, signature))
             .await
     }
 
@@ -113,7 +113,7 @@ impl ApiInfo {
     }
 
     pub async fn wallet_delete(&self, address: String) -> Result<WalletDeleteResult, JsonRpcError> {
-        self.call_req_e(Self::wallet_delete_req(address)).await
+        self.call(Self::wallet_delete_req(address)).await
     }
 
     pub fn wallet_delete_req(address: String) -> RpcRequest<()> {

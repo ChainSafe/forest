@@ -17,7 +17,7 @@ impl ApiInfo {
     }
 
     pub async fn start_time(&self) -> Result<DateTime<Utc>, JsonRpcError> {
-        self.call_req_e(Self::start_time_req()).await
+        self.call(Self::start_time_req()).await
     }
 
     pub fn start_time_req() -> RpcRequest<DateTime<Utc>> {
@@ -25,7 +25,7 @@ impl ApiInfo {
     }
 
     pub async fn shutdown(&self) -> Result<(), JsonRpcError> {
-        self.call_req_e(Self::shutdown_req()).await
+        self.call(Self::shutdown_req()).await
     }
 
     pub fn shutdown_req() -> RpcRequest<()> {

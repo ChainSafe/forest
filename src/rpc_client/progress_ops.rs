@@ -10,7 +10,7 @@ impl ApiInfo {
         &self,
         progress_type: GetProgressType,
     ) -> Result<GetProgressResult, JsonRpcError> {
-        self.call_req_e(Self::get_progress_req(progress_type)).await
+        self.call(Self::get_progress_req(progress_type)).await
     }
 
     pub fn get_progress_req(progress_type: GetProgressType) -> RpcRequest<(u64, u64)> {

@@ -7,7 +7,7 @@ use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
     pub async fn node_status(&self) -> Result<NodeStatus, JsonRpcError> {
-        self.call_req_e(Self::node_status_req()).await
+        self.call(Self::node_status_req()).await
     }
 
     pub fn node_status_req() -> RpcRequest<NodeStatus> {
