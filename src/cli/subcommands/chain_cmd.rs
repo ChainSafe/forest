@@ -59,7 +59,7 @@ impl ChainCommands {
         match self {
             Self::Block { cid } => print_rpc_res_pretty(api.chain_get_block(cid).await?),
             Self::Genesis => print_rpc_res_pretty(LotusJson(api.chain_get_genesis().await?)),
-            Self::Head => print_rpc_res_cids(Ok(api.chain_head().await?)),
+            Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => print_rpc_res_pretty(api.chain_get_message(cid).await?),
             Self::ReadObj { cid } => print_rpc_res(api.chain_read_obj(cid).await?),
             Self::SetHead {

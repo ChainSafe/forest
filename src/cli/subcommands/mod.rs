@@ -21,7 +21,7 @@ mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
@@ -29,7 +29,6 @@ use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
-use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
 use std::path::PathBuf;
 use tracing::error;
@@ -193,14 +192,6 @@ pub enum Subcommand {
     Car(CarCommands),
 }
 
-/// Pretty-print a JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
-    match serde_json::to_string(&e) {
-        Ok(err_msg) => anyhow::Error::msg(err_msg),
-        Err(err) => err.into(),
-    }
-}
-
 /// Format a vector to a prettified string
 pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
@@ -226,8 +217,8 @@ pub(super) fn print_rpc_res_pretty<T: Serialize>(obj: T) -> anyhow::Result<()> {
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(res: Result<Tipset, JsonRpcError>) -> anyhow::Result<()> {
-    let tipset = res.map_err(handle_rpc_err)?;
+pub(super) fn print_rpc_res_cids(res: Tipset) -> anyhow::Result<()> {
+    let tipset = res;
     println!(
         "{}",
         serde_json::to_string_pretty(
@@ -249,17 +240,7 @@ pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
 
 /// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
 pub(super) fn print_stdout(out: String) {
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    handle
-        .write_all(out.as_bytes())
-        .map_err(|e| handle_rpc_err(e.into()))
-        .unwrap();
-
-    handle
-        .write("\n".as_bytes())
-        .map_err(|e| handle_rpc_err(e.into()))
-        .unwrap();
+    println!("{}", out)
 }
 
 pub fn prompt_confirm() -> bool {

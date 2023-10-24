@@ -49,24 +49,17 @@ enum EndpointStatus {
     Valid,
 }
 
-fn err_code(err: &jsonrpc_v2::Error) -> i64 {
-    match err {
-        jsonrpc_v2::Error::Full { code, .. } => *code,
-        jsonrpc_v2::Error::Provided { code, .. } => *code,
-    }
-}
-
 impl EndpointStatus {
     fn from_json_error(err: JsonRpcError) -> Self {
         // dbg!(&err_message(&err));
         // dbg!(&err_code(&err));
-        if err.code == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
+        if err.code == JsonRpcError::INVALID_REQUEST.code {
             EndpointStatus::InvalidRequest
-        } else if err.code == err_code(&jsonrpc_v2::Error::METHOD_NOT_FOUND) {
+        } else if err.code == JsonRpcError::METHOD_NOT_FOUND.code {
             EndpointStatus::Missing
-        } else if err.code == err_code(&jsonrpc_v2::Error::INVALID_REQUEST) {
+        } else if err.code == JsonRpcError::INVALID_REQUEST.code {
             EndpointStatus::InvalidJSON
-        } else if err.code == err_code(&jsonrpc_v2::Error::PARSE_ERROR) {
+        } else if err.code == JsonRpcError::PARSE_ERROR.code {
             EndpointStatus::InvalidResponse
         } else {
             EndpointStatus::InternalServerError(err.to_string())
