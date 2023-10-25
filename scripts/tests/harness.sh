@@ -80,7 +80,7 @@ function forest_print_logs_and_metrics {
   cat "$LOG_DIRECTORY"/*
 }
 
-function wait_util_rpc_is_ready {
+function wait_until_rpc_is_ready {
   # Wait for Forest to be ready. We can assume that it is ready when the
   # RPC server is up. This checks if Forest's RPC endpoint is up.
   function call_forest_chain_head {
