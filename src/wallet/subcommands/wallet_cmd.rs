@@ -127,7 +127,7 @@ impl WalletCommands {
             Self::Export { address } => {
                 let response = api.wallet_export(address.to_string()).await?;
 
-                let encoded_key = serde_json::to_string(&response)?;
+                let encoded_key = serde_json::to_string(&LotusJson(response))?;
                 println!("{}", hex::encode(encoded_key));
                 Ok(())
             }
