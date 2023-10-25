@@ -41,7 +41,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_export_req(address: String) -> RpcRequest<KeyInfo> {
-        RpcRequest::new(WALLET_EXPORT, address)
+        RpcRequest::new(WALLET_EXPORT, (address,))
     }
 
     pub async fn wallet_import(&self, key: Vec<KeyInfo>) -> Result<String, JsonRpcError> {
@@ -65,7 +65,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_has_req(key: String) -> RpcRequest<bool> {
-        RpcRequest::new(WALLET_HAS, key)
+        RpcRequest::new(WALLET_HAS, (key,))
     }
 
     pub async fn wallet_set_default(&self, address: Address) -> Result<(), JsonRpcError> {
@@ -111,6 +111,6 @@ impl ApiInfo {
     }
 
     pub fn wallet_delete_req(address: String) -> RpcRequest<()> {
-        RpcRequest::new(WALLET_DELETE, address)
+        RpcRequest::new(WALLET_DELETE, (address,))
     }
 }

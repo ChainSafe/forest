@@ -79,7 +79,7 @@ impl ApiInfo {
     }
 
     pub fn chain_get_message_req(cid: Cid) -> RpcRequest<Message> {
-        RpcRequest::new(CHAIN_GET_MESSAGE, cid)
+        RpcRequest::new(CHAIN_GET_MESSAGE, (cid,))
     }
 
     pub async fn chain_read_obj(&self, cid: Cid) -> Result<String, JsonRpcError> {
