@@ -65,7 +65,8 @@ while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   $FOREST_CLI_PATH mpool pending --local
 
   # Quietly check if the message reached other nodes
-  glif_check_pending | grep -q "$MSG"
+  RESP=$(glif_check_pending)
+  echo "$RESP" | grep "$MSG" || true
   
   : "Checking balance $i/20"
   sleep 30s
