@@ -247,6 +247,7 @@ pub mod common_api {
     pub const VERSION: &str = "Filecoin.Version";
     pub const SHUTDOWN: &str = "Filecoin.Shutdown";
     pub const START_TIME: &str = "Filecoin.StartTime";
+    pub const DISCOVER: &str = "Filecoin.Discover";
 }
 
 /// Net API
