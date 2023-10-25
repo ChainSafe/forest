@@ -231,6 +231,28 @@ jobs:
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
 
+  # Calibnet checks with discovery disabled
+  calibnet-no-discovery-check:
+    needs:
+      - build-ubuntu
+    name: Calibnet no discovery checks
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - run: ./scripts/tests/calibnet_no_discovery_check.sh
+
   db-migration-checks:
     needs:
       - build-ubuntu
