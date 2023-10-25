@@ -1,16 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
+// use ahash::HashSet;
+// use chrono::Duration;
 use clap::Subcommand;
+// use libp2p::Multiaddr;
 use serde::de::DeserializeOwned;
 use std::str::FromStr;
+use tabled::{builder::Builder, settings::Style};
 
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::lotus_json::HasLotusJson;
-use crate::rpc_client::ApiInfo;
-use crate::rpc_client::JsonRpcError;
-use crate::rpc_client::RpcRequest;
+// use crate::rpc_api::data_types::AddrInfo;
+use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
+use crate::shim::address::Address;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -34,14 +39,14 @@ impl ApiCommands {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum EndpointStatus {
     // RPC endpoint is missing (currently not reported correctly by either Forest nor Lotus)
     Missing,
     // Request isn't valid according to jsonrpc spec
     InvalidRequest,
     // Catch-all for errors on the node
-    InternalServerError(String),
+    InternalServerError,
     // Unexpected JSON schema
     InvalidJSON,
     // Got response with the right JSON schema but it failed sanity checking
@@ -62,7 +67,7 @@ impl EndpointStatus {
         } else if err.code == JsonRpcError::PARSE_ERROR.code {
             EndpointStatus::InvalidResponse
         } else {
-            EndpointStatus::InternalServerError(err.to_string())
+            EndpointStatus::InternalServerError
         }
     }
 }
@@ -135,8 +140,8 @@ impl RpcTest {
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
     ) -> (EndpointStatus, EndpointStatus) {
-        let forest_resp = forest_api.call_req_e(self.request.clone()).await;
-        let lotus_resp = lotus_api.call_req_e(self.request.clone()).await;
+        let forest_resp = forest_api.call(self.request.clone()).await;
+        let lotus_resp = lotus_api.call(self.request.clone()).await;
 
         // dbg!(self.request.method_name);
         match (forest_resp, lotus_resp) {
@@ -181,6 +186,14 @@ fn common_tests() -> Vec<RpcTest> {
     ]
 }
 
+fn auth_tests() -> Vec<RpcTest> {
+    // vec![RpcTest::basic(ApiInfo::auth_new_req(
+    //     vec!["read".to_string()],
+    //     Duration::days(1),
+    // ))]
+    vec![]
+}
+
 fn chain_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
 
@@ -194,23 +207,96 @@ fn chain_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             TipsetKeys::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_genesis_req()),
+        RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
+        // requires admin rights
+        // RpcTest::identity(ApiInfo::chain_get_min_base_fee_req(20)),
+    ]
+}
+
+fn mpool_tests() -> Vec<RpcTest> {
+    vec![RpcTest::basic(ApiInfo::mpool_pending_req(vec![]))]
+}
+
+fn net_tests() -> Vec<RpcTest> {
+    // let peer: Multiaddr = "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy".parse().unwrap();
+    // let addr_info = AddrInfo {
+    //     id: "12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy".to_string(),
+    //     addrs: HashSet::from_iter([peer]),
+    // };
+    vec![
+        RpcTest::basic(ApiInfo::net_addrs_listen_req()),
+        RpcTest::basic(ApiInfo::net_peers_req()),
+        RpcTest::basic(ApiInfo::net_info_req()),
+        // requires write access
+        // RpcTest::basic(ApiInfo::net_connect_req(addr_info)),
+    ]
+}
+
+fn node_tests() -> Vec<RpcTest> {
+    vec![
+        // This is a v1 RPC call. We don't support any v1 calls yet.
+        //RpcTest::basic(ApiInfo::node_status_req())
+    ]
+}
+
+fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity(ApiInfo::state_network_name_req()),
+        RpcTest::identity(ApiInfo::state_get_actor_req(
+            Address::SYSTEM_ACTOR,
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 
 async fn compare_apis(forest: ApiInfo, lotus: ApiInfo) -> anyhow::Result<()> {
     let shared_tipset = youngest_tipset(&forest, &lotus).await?;
-    let shared_block = shared_tipset.min_ticket_block();
-    dbg!(shared_block.epoch());
 
     let mut tests = vec![];
 
     tests.extend(common_tests());
+    tests.extend(auth_tests());
     tests.extend(chain_tests(&shared_tipset));
+    tests.extend(mpool_tests());
+    tests.extend(net_tests());
+    tests.extend(node_tests());
+    tests.extend(state_tests(&shared_tipset));
+
+    let mut results = HashMap::default();
 
     for test in tests.into_iter() {
-        eprintln!("Testing: {} ", test.request.method_name);
-        eprintln!("Result: {:?}", test.run(&forest, &lotus).await);
+        let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+        results
+            .entry((test.request.method_name, forest_status, lotus_status))
+            .and_modify(|v| *v += 1)
+            .or_insert(1u32);
     }
 
+    let mut results = results.into_iter().collect::<Vec<_>>();
+    results.sort();
+    output_markdown(&results);
+
     Ok(())
+}
+
+fn output_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) {
+    let mut builder = Builder::default();
+
+    builder.set_header(["RPC Method", "Forest", "Lotus"]);
+
+    for ((method, forest_status, lotus_status), n) in results {
+        builder.push_record([
+            if *n > 1 {
+                format!("{} ({})", method, n)
+            } else {
+                format!("{}", method)
+            },
+            format!("{:?}", forest_status),
+            format!("{:?}", lotus_status),
+        ]);
+    }
+
+    let table = builder.build().with(Style::markdown()).to_string();
+
+    println!("{}", table);
 }
