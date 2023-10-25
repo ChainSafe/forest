@@ -28,9 +28,9 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
     }
 
-    // Get tipset at epoch. Pick younger tipset if epoch points to a
-    // null-tipset. Only tipsets below the given `head` are searched. If `head`
-    // is null, the node will use the heaviest tipset.
+    /// Get tipset at epoch. Pick younger tipset if epoch points to a
+    /// null-tipset. Only tipsets below the given `head` are searched. If `head`
+    /// is null, the node will use the heaviest tipset.
     pub async fn chain_get_tipset_by_height(
         &self,
         epoch: ChainEpoch,
