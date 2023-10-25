@@ -21,7 +21,6 @@ use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
-use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::fmt;
 use std::fmt::Debug;
@@ -31,19 +30,15 @@ macro_rules! error_number {
         #[derive(Debug, Clone)]
         pub enum ErrorNumber {
             $($variant,)*
+            /// This is to catch `#[non_exhaustive]` upstream errors, and MUST NOT for be constructed
             Unknown(u32),
         }
 
-        #[repr(u32)]
-        #[derive(Debug, Clone, FromPrimitive)]
-        enum KnownErrorNumber {
-            $($variant = N4::$variant as u32,)*
-        }
-
-        impl From<KnownErrorNumber> for ErrorNumber {
-            fn from(error: KnownErrorNumber) -> Self {
+        impl From<N4> for ErrorNumber {
+            fn from(error: N4) -> Self {
                 match error {
-                    $(KnownErrorNumber::$variant => Self::$variant,)*
+                    $(N4::$variant => Self::$variant,)*
+                    _ => Self::Unknown(error as u32),
                 }
             }
         }
@@ -51,7 +46,7 @@ macro_rules! error_number {
         impl fmt::Display for ErrorNumber {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
-                    $(Self::$variant => KnownErrorNumber::$variant.fmt(f),)*
+                    $(Self::$variant => std::fmt::Display::fmt(&N4::$variant, f),)*
                     Self::Unknown(u) => std::fmt::Debug::fmt(&u, f),
                 }
             }
@@ -77,7 +72,7 @@ error_number! {
 
 impl From<N2> for ErrorNumber {
     fn from(value: N2) -> Self {
-        let opt: Option<KnownErrorNumber> = FromPrimitive::from_u32(value as u32);
+        let opt: Option<N4> = FromPrimitive::from_u32(value as u32);
         match opt {
             Some(err) => err.into(),
             None => Self::Unknown(value as u32),
@@ -87,17 +82,7 @@ impl From<N2> for ErrorNumber {
 
 impl From<N3> for ErrorNumber {
     fn from(value: N3) -> Self {
-        let opt: Option<KnownErrorNumber> = FromPrimitive::from_u32(value as u32);
-        match opt {
-            Some(err) => err.into(),
-            None => Self::Unknown(value as u32),
-        }
-    }
-}
-
-impl From<N4> for ErrorNumber {
-    fn from(value: N4) -> Self {
-        let opt: Option<KnownErrorNumber> = FromPrimitive::from_u32(value as u32);
+        let opt: Option<N4> = FromPrimitive::from_u32(value as u32);
         match opt {
             Some(err) => err.into(),
             None => Self::Unknown(value as u32),
@@ -150,7 +135,14 @@ mod tests {
     fn test_n2_error_fmt() {
         let shim: NShim = N2::IllegalArgument.into();
 
-        assert_eq!(format!("{}", shim), "IllegalArgument");
+        assert_eq!(format!("{}", shim), "illegal argument");
+    }
+
+    #[test]
+    fn test_n3_error_fmt() {
+        let shim: NShim = N3::ReadOnly.into();
+
+        assert_eq!(format!("{}", shim), "execution context is read-only");
     }
 
     #[test]
