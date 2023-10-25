@@ -200,9 +200,7 @@ fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
                         JsValue::from(obj)
                     };
                     let args = serde_json::from_value(
-                        value
-                            .to_json(context)
-                            .map_err(|e| anyhow::anyhow!(e.to_string()))?,
+                        value.to_json(context).map_err(|e| anyhow::anyhow!("{e}"))?,
                     )?;
                     handle.block_on(req(args, api.clone()))
                 });
