@@ -125,3 +125,81 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use http::StatusCode;
+    use reqwest::Response;
+
+    use crate::utils::net::global_http_client;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn check_bundles_are_mirrored() {
+        // Run the test only in CI so that regular test on dev machines don't download the bundles
+        // on poor internet connections.
+        if std::env::var("CI").is_err() {
+            return;
+        }
+
+        FuturesUnordered::from_iter(ACTOR_BUNDLES.iter().map(
+            |ActorBundleInfo {
+                 manifest,
+                 url,
+                 alt_url,
+             }| async move {
+                let primary = http_get(url).await;
+                let alt = http_get(alt_url).await;
+
+                // Check that neither of the sources respond with 404.
+                // Such code would indicate that the bundle URLs are incorrect.
+                // In case of GH releases, it may have been yanked for some reason.
+                // In case of our own bundles, it may have been not uploaded (or deleted).
+                assert_ne!(
+                    StatusCode::NOT_FOUND,
+                    primary.status(),
+                    "Could not download {url}"
+                );
+                assert_ne!(
+                    StatusCode::NOT_FOUND,
+                    alt.status(),
+                    "Could not download {alt_url}"
+                );
+
+                // If either of the sources are otherwise down, we don't want to fail the test.
+                // This is because we don't want to fail the test if the infrastructure is down.
+                if !primary.status().is_success() || !alt.status().is_success() {
+                    return anyhow::Ok(());
+                }
+
+                // Check that the bundles are identical.
+                // This is to ensure that the bundle was not tamperered with and that the
+                // bundle was uploaded to the alternative URL correctly.
+                let primary = primary.bytes().await?;
+                let alt = alt.bytes().await?;
+
+                let car_primary = CarStream::new(Cursor::new(primary)).await?;
+                let car_secondary = CarStream::new(Cursor::new(alt)).await?;
+
+                assert_eq!(
+                    car_primary.header.roots, car_secondary.header.roots,
+                    "Roots for {url} and {alt_url} do not match"
+                );
+                assert_eq!(
+                    car_primary.header.roots[0], *manifest,
+                    "Manifest for {url} and {alt_url} does not match"
+                );
+
+                Ok(())
+            },
+        ))
+        .try_collect::<Vec<_>>()
+        .await
+        .unwrap();
+    }
+
+    pub async fn http_get(url: &Url) -> Response {
+        global_http_client().get(url.clone()).send().await.unwrap()
+    }
+}
