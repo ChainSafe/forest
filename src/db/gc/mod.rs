@@ -170,11 +170,15 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
         // Don't run the GC if there aren't enough state-roots yet. Sleep and yield to the main loop
         // in order to refresh the heaviest tipset value.
         if depth > current_epoch {
-            time::sleep(self.block_time * (depth - current_epoch) as u32).await;
+            time::sleep(interval).await;
             return anyhow::Ok(());
         }
 
+        // This signifies a new run.
         if self.marked.is_empty() {
+            // Make sure we don't run the GC too often.
+            time::sleep(interval).await;
+
             info!("populate keys for GC");
             self.populate()?;
             self.epoch_marked = current_epoch;
@@ -193,9 +197,6 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
 
         info!("GC sweep");
         self.sweep()?;
-
-        // Make sure we don't run the GC too often.
-        time::sleep(interval).await;
 
         anyhow::Ok(())
     }
@@ -238,10 +239,17 @@ mod test {
     }
 
     #[tokio::test]
+    // This is a test that checks the `mark` step.
+    // 1. Generate the genesis block and write it to the database.
+    // 2. Try running the GC, encounter insufficient depth, check that there were no marked records.
+    // 3. Generate `depth` blocks.
+    // 4. Run the GC again to make sure it marked all the available records successfully.
     async fn test_populate() {
         let interval = Duration::from_secs(0);
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
+
+        // Generate genesis block.
         let gen_block: BlockHeader = mock_block(1, 1);
         let depth = 1;
         db.put_cbor_default(&gen_block).unwrap();
