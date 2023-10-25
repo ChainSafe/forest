@@ -87,7 +87,7 @@ impl ApiInfo {
     }
 
     pub fn chain_read_obj_req(cid: Cid) -> RpcRequest<String> {
-        RpcRequest::new(CHAIN_READ_OBJ, cid)
+        RpcRequest::new(CHAIN_READ_OBJ, (cid,))
     }
 
     pub async fn chain_get_min_base_fee(
