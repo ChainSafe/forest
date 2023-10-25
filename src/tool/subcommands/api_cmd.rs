@@ -184,6 +184,7 @@ fn common_tests() -> Vec<RpcTest> {
         RpcTest::basic(ApiInfo::version_req()),
         RpcTest::basic(ApiInfo::start_time_req()),
         RpcTest::basic(ApiInfo::discover_req()),
+        RpcTest::basic(ApiInfo::session_req()),
     ]
 }
 

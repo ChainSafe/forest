@@ -38,6 +38,10 @@ impl ApiInfo {
     pub fn discover_req() -> RpcRequest<DiscoverResult> {
         RpcRequest::new(DISCOVER, ())
     }
+
+    pub fn session_req() -> RpcRequest<String> {
+        RpcRequest::new(SESSION, ())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
