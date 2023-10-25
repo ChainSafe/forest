@@ -116,7 +116,7 @@ impl ApiInfo {
 
         match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-            JsonRpcResponse::Error { error, .. } => Err(dbg!(error)),
+            JsonRpcResponse::Error { error, .. } => Err(error),
         }
     }
 }
