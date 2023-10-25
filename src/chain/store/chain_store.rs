@@ -173,14 +173,12 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        self.tipset_from_keys(
+        self.load_required_tipset(
             &self
                 .settings
                 .require_obj::<TipsetKeys>(HEAD_KEY)
                 .expect("failed to load heaviest tipset"),
         )
-        .ok()
-        .flatten()
         .expect("failed to load heaviest tipset")
     }
 
@@ -196,15 +194,21 @@ where
 
     /// Returns Tipset from key-value store from provided CIDs
     #[tracing::instrument(skip_all)]
-    pub fn tipset_from_keys(&self, tsk: &TipsetKeys) -> Result<Option<Arc<Tipset>>, Error> {
+    pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Option<Arc<Tipset>>, Error> {
         if tsk.cids.is_empty() {
             return Ok(Some(self.heaviest_tipset()));
         }
-        match self.chain_index.load_tipset(tsk) {
-            Ok(ts) => Ok(Some(ts)),
-            Err(Error::NotFound(_)) => Ok(None),
-            Err(e) => Err(e),
+        self.chain_index.load_tipset(tsk)
+    }
+
+    /// Returns Tipset from key-value store from provided CIDs.
+    /// This calls fails if the tipset is missing or invalid.
+    #[tracing::instrument(skip_all)]
+    pub fn load_required_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        if tsk.cids.is_empty() {
+            return Ok(self.heaviest_tipset());
         }
+        self.chain_index.load_required_tipset(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest
@@ -316,7 +320,7 @@ where
             )));
         }
         let lbts = chain_index
-            .load_tipset(next_ts.parents())
+            .load_required_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }

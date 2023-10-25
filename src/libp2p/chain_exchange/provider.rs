@@ -30,7 +30,7 @@ where
     }
 
     let inner = move || {
-        let root = match cs.tipset_from_keys(&TipsetKeys::from_iter(request.start.clone()))? {
+        let root = match cs.load_tipset(&TipsetKeys::from_iter(request.start.clone()))? {
             Some(tipset) => tipset,
             None => {
                 return Ok(ChainExchangeResponse {

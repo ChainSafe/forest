@@ -69,10 +69,7 @@ where
         ))?;
     }
 
-    let head = data
-        .chain_store
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+    let head = data.chain_store.load_required_tipset(&tsk)?;
     let start_ts =
         data.chain_store
             .chain_index
@@ -177,8 +174,7 @@ where
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
@@ -233,8 +229,7 @@ where
     let ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&tsk)?;
     Ok((*ts).clone().into())
 }
 
@@ -251,8 +246,7 @@ where
     let new_head = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&params)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&params)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {
@@ -264,8 +258,7 @@ where
         current = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(parents)?
-            .ok_or("Tipset not found")?;
+            .load_required_tipset(parents)?;
     }
     data.state_manager
         .chain_store()
@@ -289,8 +282,7 @@ where
         current = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(parents)?
-            .ok_or("Tipset not found")?;
+            .load_required_tipset(parents)?;
 
         min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee().to_owned());
     }

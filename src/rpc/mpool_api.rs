@@ -28,8 +28,7 @@ where
     let mut ts = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending()?;
 
@@ -74,8 +73,7 @@ where
         ts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())?
-            .ok_or("Tipset not found")?;
+            .load_required_tipset(ts.parents())?;
     }
     Ok(pending.into_iter().collect::<Vec<_>>().into())
 }

@@ -657,9 +657,8 @@ where
         // Load parent state.
         let pts = self
             .cs
-            .tipset_from_keys(tipset.parents())
-            .map_err(|err| Error::Other(err.to_string()))?
-            .ok_or_else(|| Error::Other("Tipset not found".into()))?;
+            .load_required_tipset(tipset.parents())
+            .map_err(|err| Error::Other(err.to_string()))?;
         let messages = self
             .cs
             .messages_for_tipset(&pts)
@@ -726,13 +725,12 @@ where
 
             let tipset = self
                 .cs
-                .tipset_from_keys(current.parents())
+                .load_required_tipset(current.parents())
                 .map_err(|err| {
                     Error::Other(format!(
                         "failed to load tipset during msg wait searchback: {err:}"
                     ))
-                })?
-                .ok_or_else(|| Error::Other("Tipset not found".into()))?;
+                })?;
             let r = self.tipset_executed_message(
                 &tipset,
                 *message_cid,
@@ -1059,7 +1057,7 @@ where
         let tipsets = itertools::unfold(Some(end), |tipset| {
             let child = tipset.take()?;
             // if this has parents, unfold them in the next iteration
-            *tipset = self.cs.tipset_from_keys(child.parents()).ok().flatten();
+            *tipset = self.cs.load_required_tipset(child.parents()).ok();
             Some(child)
         })
         .take_while(|tipset| tipset.epoch() >= *epochs.start());

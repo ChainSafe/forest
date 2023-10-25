@@ -98,8 +98,7 @@ where
         let pts = data
             .state_manager
             .chain_store()
-            .tipset_from_keys(ts.parents())?
-            .ok_or("Tipset not found")?;
+            .load_required_tipset(ts.parents())?;
         blocks += pts.blocks().len();
         let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
 

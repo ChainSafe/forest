@@ -36,8 +36,7 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&key)?;
     Ok(state_manager.call(&mut message, Some(tipset))?)
 }
 
@@ -52,8 +51,7 @@ pub(in crate::rpc) async fn state_replay<DB: Blockstore + Send + Sync + 'static>
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&key)?;
     let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -80,10 +78,7 @@ pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
     Params(params): Params<StateNetworkVersionParams>,
 ) -> Result<StateNetworkVersionResult, JsonRpcError> {
     let (LotusJson(tsk),) = params;
-    let ts = data
-        .chain_store
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
@@ -92,10 +87,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     Params(params): Params<StateGetActorParams>,
 ) -> Result<StateGetActorResult, JsonRpcError> {
     let (LotusJson(addr), LotusJson(tsk)) = params;
-    let ts = data
-        .chain_store
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state.map(Into::into).map_err(|e| e.into())
 }
@@ -111,8 +103,7 @@ pub(in crate::rpc) async fn state_market_balance<DB: Blockstore + Send + Sync + 
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&key)?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -123,10 +114,7 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
     Params(params): Params<StateMarketDealsParams>,
 ) -> Result<StateMarketDealsResult, JsonRpcError> {
     let (LotusJson(tsk),) = params;
-    let ts = data
-        .chain_store
-        .tipset_from_keys(&tsk)?
-        .ok_or("Tipset not found")?;
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
@@ -166,8 +154,7 @@ pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'st
     let tipset = data
         .state_manager
         .chain_store()
-        .tipset_from_keys(&key)?
-        .ok_or("Tipset not found")?;
+        .load_required_tipset(&key)?;
     state_manager
         .get_receipt(tipset, cid)
         .map(|s| s.into())
