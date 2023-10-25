@@ -186,7 +186,7 @@ pub struct DiscoveryBehaviour {
     target_peer_count: u64,
     /// Seed peers
     user_defined: Vec<(PeerId, Multiaddr)>,
-    /// Options to configure dials to a known peer.
+    /// Options to configure dials to known peers.
     pending_dial_opts: VecDeque<DialOpts>,
 }
 
