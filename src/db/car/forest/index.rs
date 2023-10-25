@@ -23,8 +23,6 @@
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cid::Cid;
-#[cfg(test)]
-use quickcheck::quickcheck;
 use std::{
     cmp,
     io::{self, Read, Write},
@@ -34,8 +32,8 @@ use std::{
 
 mod hash;
 
-#[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
 /// An in-memory representation of a hash-table
+#[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
 struct Table {
     slots: Vec<Slot>,
     initial_width: usize,
@@ -69,7 +67,6 @@ impl Table {
         let mut longest_distance = 0;
 
         for (cid, frame_offset) in locations {
-            println!("{:?}", slots);
             let mut insert_me = OccupiedSlot {
                 hash: hash::of(&cid),
                 frame_offset,
@@ -77,25 +74,23 @@ impl Table {
             let ideal_ix = hash::ideal_bucket_ix(insert_me.hash, initial_width);
             let mut current_ix = ideal_ix;
             // this is guaranteed to terminate because table_width >= locations.len()
-            'find_slot_for_hash: loop {
+            loop {
                 match slots[current_ix] {
                     Slot::Empty => {
                         slots[current_ix] = Slot::Occupied(insert_me);
                         longest_distance = cmp::max(
                             longest_distance,
-                            distance::with_index(ideal_ix, current_ix, initial_width),
+                            distance(insert_me.hash, current_ix, initial_width),
                         );
-                        break 'find_slot_for_hash;
+                        break;
                     }
                     Slot::Occupied(already) => {
                         if insert_me.hash == already.hash {
                             collisions += 1;
                         }
                         // TODO(aatifsyed): document this
-                        let already_dist =
-                            distance::with_hash(already.hash, current_ix, initial_width);
-                        let insert_me_dist =
-                            distance::with_hash(insert_me.hash, current_ix, initial_width);
+                        let already_dist = distance(already.hash, current_ix, initial_width);
+                        let insert_me_dist = distance(insert_me.hash, current_ix, initial_width);
 
                         if already_dist < insert_me_dist
                             || (already_dist == insert_me_dist && insert_me.hash < already.hash)
@@ -132,21 +127,13 @@ impl Table {
     }
 }
 
-mod distance {
-    use super::{hash, util::NonMaximalU64};
-    use std::num::NonZeroUsize;
-    pub fn with_index(ideal_ix: usize, current_ix: usize, initial_width: NonZeroUsize) -> usize {
+pub fn distance(hash: NonMaximalU64, current_ix: usize, initial_width: NonZeroUsize) -> usize {
+    {
+        let ideal_ix = hash::ideal_bucket_ix(hash, initial_width);
         match ideal_ix > current_ix {
             true => initial_width.get() - ideal_ix + current_ix,
             false => current_ix - ideal_ix,
         }
-    }
-    pub fn with_hash(hash: NonMaximalU64, current_ix: usize, initial_width: NonZeroUsize) -> usize {
-        with_index(
-            hash::ideal_bucket_ix(hash, initial_width),
-            current_ix,
-            initial_width,
-        )
     }
 }
 
@@ -319,19 +306,6 @@ impl Writeable for Header {
     }
 }
 
-#[cfg(test)]
-quickcheck! {
-    fn header(it: Header) -> () {
-        round_trip(&it);
-    }
-    fn slot(it: Slot) -> () {
-        round_trip(&it);
-    }
-    fn raw_slot(it: RawSlot) -> () {
-        round_trip(&it);
-    }
-}
-
 trait Readable {
     fn read_from(reader: impl Read) -> io::Result<Self>
     where
@@ -373,77 +347,50 @@ mod util {
 }
 
 #[cfg(test)]
-#[track_caller]
-fn round_trip<T: PartialEq + std::fmt::Debug + Readable + Writeable>(original: &T) {
-    let serialized = {
-        let mut v = vec![];
-        original
-            .write_to(&mut v)
-            .expect("Vec<u8> has infallible IO");
-        v
-    };
-    let deserialized =
-        T::read_from(serialized.as_slice()).expect("couldn't deserialize T from a deserialized T");
-    pretty_assertions::assert_eq!(original, &deserialized);
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
     use cid::Cid;
     use pretty_assertions::assert_eq;
-    use quickcheck::quickcheck;
-    use std::str::FromStr as _;
-
-    trait WriteableExt: Writeable {
-        fn write_to_vec(&self) -> Vec<u8> {
-            let mut v = Vec::new();
-            self.write_to(&mut v).expect("Vec<u8> has infallible IO");
-            v
-        }
-    }
-    impl<T> WriteableExt for T where T: Writeable {}
 
     fn do_test(pairs: Vec<(Cid, u64)>) {
-        for (cid, location) in &pairs {
-            println!("{cid}: {location}")
-        }
         let subject = Table::new(pairs.clone(), 0.8);
-        println!("subject = {:?}", subject);
         let reference = crate::utils::db::car_index::CarIndexBuilder::new(
             pairs
                 .into_iter()
                 .map(|(cid, u)| (crate::utils::db::car_index::Hash::from(cid), u)),
         );
-        println!("reference = {:?}", reference);
-        let subject = subject.write_to_vec();
-        let reference = {
-            let mut v = vec![];
-            reference.write(&mut v).unwrap();
-            v
-        };
+        let subject = write_to_vec(|v| subject.write_to(v));
+        let reference = write_to_vec(|v| reference.write(v));
 
         assert_eq!(subject, reference);
     }
 
-    #[test]
-    fn test() {
-        do_test(vec![
-            (
-                Cid::from_str("QmZnzvhAkaFb1kvuHB5MxBp88z8WAWFmRDfdmM3qMqrmsc").unwrap(),
-                0,
-            ),
-            (
-                Cid::from_str("QmQKJPEKDi5qHyFLZqe7BssKkUPoFRdpTcgfqDxvkPvR7n").unwrap(),
-                0,
-            ),
-            (Cid::from_str("bagnvg4iek3fam3a").unwrap(), 0),
-        ])
-    }
-
-    quickcheck! {
+    quickcheck::quickcheck! {
         fn do_quickcheck(pairs: Vec<(Cid, u64)>) -> () {
             do_test(pairs)
         }
+        fn header(it: Header) -> () {
+            round_trip(&it);
+        }
+        fn slot(it: Slot) -> () {
+            round_trip(&it);
+        }
+        fn raw_slot(it: RawSlot) -> () {
+            round_trip(&it);
+        }
+    }
+
+    #[track_caller]
+    fn round_trip<T: PartialEq + std::fmt::Debug + Readable + Writeable>(original: &T) {
+        let serialized = write_to_vec(|v| original.write_to(v));
+        let deserialized = T::read_from(serialized.as_slice())
+            .expect("couldn't deserialize T from a deserialized T");
+        pretty_assertions::assert_eq!(original, &deserialized);
+    }
+
+    fn write_to_vec(f: impl FnOnce(&mut Vec<u8>) -> io::Result<()>) -> Vec<u8> {
+        let mut v = Vec::new();
+        f(&mut v).unwrap();
+        v
     }
 }
