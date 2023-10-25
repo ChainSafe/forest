@@ -62,7 +62,7 @@ ADDR_TWO_BALANCE=0
 i=0
 while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
-  $FOREST_CLI_PATH mpool pending --local
+  $FOREST_CLI_PATH mpool pending --local --from "$ADDR_ONE"
 
   # Quietly check if the message reached other nodes
   RESP=$(glif_check_pending)
