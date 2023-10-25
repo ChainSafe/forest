@@ -68,50 +68,43 @@ impl Table {
         let mut collisions = 0;
         let mut longest_distance = 0;
 
-        for (cid, mut frame_offset) in locations {
+        for (cid, frame_offset) in locations {
             println!("{:?}", slots);
-            let mut hash = hash::of(&cid);
-            let ideal_ix = hash::ideal_bucket_ix(hash, initial_width);
+            let mut insert_me = OccupiedSlot {
+                hash: hash::of(&cid),
+                frame_offset,
+            };
+            let ideal_ix = hash::ideal_bucket_ix(insert_me.hash, initial_width);
             let mut current_ix = ideal_ix;
+            // this is guaranteed to terminate because table_width >= locations.len()
             'find_slot_for_hash: loop {
-                // this is guaranteed to terminate because table_width >= locations.len()
                 match slots[current_ix] {
                     Slot::Empty => {
-                        slots[current_ix] = Slot::Occupied { hash, frame_offset };
+                        slots[current_ix] = Slot::Occupied(insert_me);
                         longest_distance = cmp::max(
                             longest_distance,
-                            distance(ideal_ix, current_ix, initial_width),
+                            distance::with_index(ideal_ix, current_ix, initial_width),
                         );
                         break 'find_slot_for_hash;
                     }
-                    Slot::Occupied {
-                        hash: already_hash,
-                        frame_offset: already_frame_offset,
-                    } => {
-                        if hash == already_hash {
+                    Slot::Occupied(already) => {
+                        if insert_me.hash == already.hash {
                             collisions += 1;
                         }
                         // TODO(aatifsyed): document this
-                        let already_dist = distance(
-                            hash::ideal_bucket_ix(already_hash, initial_width),
-                            current_ix,
-                            initial_width,
-                        );
-                        let current_dist = distance(
-                            hash::ideal_bucket_ix(hash, initial_width),
-                            current_ix,
-                            initial_width,
-                        );
+                        let already_dist =
+                            distance::with_hash(already.hash, current_ix, initial_width);
+                        let insert_me_dist =
+                            distance::with_hash(insert_me.hash, current_ix, initial_width);
 
-                        if already_dist < current_dist
-                            || (already_dist == current_dist && hash < already_hash)
+                        if already_dist < insert_me_dist
+                            || (already_dist == insert_me_dist && insert_me.hash < already.hash)
                         {
-                            slots[current_ix] = Slot::Occupied { hash, frame_offset };
-                            hash = already_hash;
-                            frame_offset = already_frame_offset
+                            slots[current_ix] = Slot::Occupied(insert_me);
+                            insert_me = already;
                         }
 
-                        longest_distance = cmp::max(longest_distance, current_dist);
+                        longest_distance = cmp::max(longest_distance, insert_me_dist);
                         current_ix = (current_ix + 1) % initial_width
                     }
                 }
@@ -139,10 +132,21 @@ impl Table {
     }
 }
 
-fn distance(ideal_ix: usize, current_ix: usize, initial_width: NonZeroUsize) -> usize {
-    match ideal_ix > current_ix {
-        true => initial_width.get() - ideal_ix + current_ix,
-        false => current_ix - ideal_ix,
+mod distance {
+    use super::{hash, util::NonMaximalU64};
+    use std::num::NonZeroUsize;
+    pub fn with_index(ideal_ix: usize, current_ix: usize, initial_width: NonZeroUsize) -> usize {
+        match ideal_ix > current_ix {
+            true => initial_width.get() - ideal_ix + current_ix,
+            false => current_ix - ideal_ix,
+        }
+    }
+    pub fn with_hash(hash: NonMaximalU64, current_ix: usize, initial_width: NonZeroUsize) -> usize {
+        with_index(
+            hash::ideal_bucket_ix(hash, initial_width),
+            current_ix,
+            initial_width,
+        )
     }
 }
 
@@ -156,17 +160,11 @@ impl Writeable for Table {
     }
 }
 
-struct HashAndOffset {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+struct OccupiedSlot {
     hash: NonMaximalU64,
-    offset: u64,
-}
-impl HashAndOffset {
-    pub fn new(cid: Cid, offset: u64) -> Self {
-        Self {
-            hash: hash::of(&cid),
-            offset,
-        }
-    }
+    frame_offset: u64,
 }
 
 pub struct Index<ReaderT> {
@@ -221,10 +219,7 @@ impl Header {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 enum Slot {
     Empty,
-    Occupied {
-        hash: NonMaximalU64,
-        frame_offset: u64,
-    },
+    Occupied(OccupiedSlot),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -248,7 +243,7 @@ impl Readable for Slot {
     {
         let raw @ RawSlot { hash, frame_offset } = Readable::read_from(reader)?;
         match NonMaximalU64::new(hash) {
-            Some(hash) => Ok(Self::Occupied { hash, frame_offset }),
+            Some(hash) => Ok(Self::Occupied(OccupiedSlot { hash, frame_offset })),
             None => match raw == RawSlot::EMPTY {
                 true => Ok(Self::Empty),
                 false => Err(io::Error::new(
@@ -264,7 +259,7 @@ impl Writeable for Slot {
     fn write_to(&self, writer: impl Write) -> io::Result<()> {
         let raw = match *self {
             Slot::Empty => RawSlot::EMPTY,
-            Slot::Occupied { hash, frame_offset } => RawSlot {
+            Slot::Occupied(OccupiedSlot { hash, frame_offset }) => RawSlot {
                 hash: hash.get(),
                 frame_offset,
             },
