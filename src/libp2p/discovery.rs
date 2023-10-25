@@ -153,7 +153,7 @@ impl<'a> DiscoveryConfig<'a> {
             peers,
             peer_addresses,
             target_peer_count,
-            user_defined,
+            custom_seed_peers: user_defined,
             pending_dial_opts: VecDeque::new(),
         })
     }
@@ -185,7 +185,7 @@ pub struct DiscoveryBehaviour {
     /// Number of connected peers to pause discovery on.
     target_peer_count: u64,
     /// Seed peers
-    user_defined: Vec<(PeerId, Multiaddr)>,
+    custom_seed_peers: Vec<(PeerId, Multiaddr)>,
     /// Options to configure dials to known peers.
     pending_dial_opts: VecDeque<DialOpts>,
 }
@@ -207,7 +207,7 @@ impl DiscoveryBehaviour {
             active_kad.bootstrap().map_err(|e| e.to_string())
         } else {
             // Manually dial to seed peers when kademlia is disabled
-            for (peer_id, address) in &self.user_defined {
+            for (peer_id, address) in &self.custom_seed_peers {
                 self.pending_dial_opts.push_back(
                     DialOpts::peer_id(*peer_id)
                         .condition(PeerCondition::Disconnected)
