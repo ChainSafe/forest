@@ -350,7 +350,6 @@ pub(super) async fn start(
                     .chain_config()
                     .get_beacon_schedule(chain_store.genesis().timestamp()),
             );
-            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             start_rpc(
                 Arc::new(RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
