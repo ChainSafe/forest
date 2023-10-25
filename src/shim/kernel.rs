@@ -13,7 +13,18 @@ use num_traits::FromPrimitive;
 use std::fmt;
 use std::fmt::Debug;
 
-macro_rules! error_number {
+//! We have three goals for our error shims:
+//! - preserve upstream error _numbers_.
+//! - preserve upstream error messages.
+//! - allow _matching_ on specific errors.
+//!
+//! There are a couple of things that make this difficult:
+//! - `fvm_shared*::error::ErrorNumber` is `#[non_exhaustive]`
+//! - ...
+//!
+//! We have designed with the following assumptions about the `fvm*` crates:
+//! - new error variants are append-only
+//! - error messages are consistent between crates
     ($($variant:ident),* $(,)?) => {
         #[derive(Debug, Clone)]
         pub enum ErrorNumber {
