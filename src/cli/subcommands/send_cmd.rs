@@ -7,6 +7,7 @@ use crate::rpc_client::ApiInfo;
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::{Message, METHOD_SEND};
+use anyhow::Context as _;
 use num::Zero as _;
 
 use crate::cli::humantoken;
@@ -31,13 +32,14 @@ pub struct SendCommand {
 
 impl SendCommand {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let from: Address = if let Some(from) = &self.from {
-            StrictAddress::from_str(from)?.into()
-        } else {
-            Address::from_str(&api.wallet_default_address().await?.ok_or_else(|| {
-                anyhow::anyhow!("No default wallet address selected. Please set a default address.")
-            })?)?
-        };
+        let from: Address =
+            if let Some(from) = &self.from {
+                StrictAddress::from_str(from)?.into()
+            } else {
+                Address::from_str(&api.wallet_default_address().await?.context(
+                    "No default wallet address selected. Please set a default address.",
+                )?)?
+            };
 
         let message = Message {
             from,
