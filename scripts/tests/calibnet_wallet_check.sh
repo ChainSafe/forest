@@ -57,14 +57,15 @@ $FOREST_WALLET_PATH list
 
 date --iso-8601=seconds
 MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
-: "$MSG"
 
 ADDR_TWO_BALANCE=0
 i=0
 while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
   PENDING=$($FOREST_CLI_PATH mpool pending --local)
-  : "Pending messages: $PENDING"
+
+  # Check if the message reached other nodes
+  glif_check_pending | grep "$MSG"
   
   : "Checking balance $i/20"
   sleep 30s

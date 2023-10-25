@@ -15,6 +15,11 @@ export TMP_DIR
 export LOG_DIRECTORY
 export FOREST_WALLET_PATH
 
+function glif_check_pending {
+  echo "Get pending messages"
+  curl -X POST 'https://api.calibration.node.glif.io/rpc/v0' -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"Filecoin.MpoolPending","params":[[]]}' | jq
+}
+
 function forest_import_non_calibnet_snapshot {
   echo "Importing a non calibnet snapshot"
   $FOREST_PATH --chain calibnet --encrypt-keystore false --halt-after-import --import-snapshot ./test-snapshots/chain4.car
