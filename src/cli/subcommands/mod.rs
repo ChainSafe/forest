@@ -211,8 +211,7 @@ pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(res: Tipset) -> anyhow::Result<()> {
-    let tipset = res;
+pub(super) fn print_rpc_res_cids(tipset: Tipset) -> anyhow::Result<()> {
     println!(
         "{}",
         serde_json::to_string_pretty(
