@@ -252,6 +252,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_no_discovery_check.sh
+        timeout-minutes: 10
 
   db-migration-checks:
     needs:

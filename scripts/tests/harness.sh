@@ -80,21 +80,6 @@ function forest_print_logs_and_metrics {
   cat "$LOG_DIRECTORY"/*
 }
 
-function wait_until_rpc_is_ready {
-  # Wait for Forest to be ready. We can assume that it is ready when the
-  # RPC server is up. This checks if Forest's RPC endpoint is up.
-  function call_forest_chain_head {
-    curl --silent -X POST -H "Content-Type: application/json" \
-          --data '{"jsonrpc":"2.0","id":2,"method":"Filecoin.ChainHead","params":"null"}' \
-          "http://127.0.0.1:2345/rpc/v0"
-  }
-
-  until call_forest_chain_head; do
-      echo "Forest is unavailable - sleeping for 1s"
-      sleep 1s
-  done
-}
-
 function forest_cleanup {
   if pkill -0 forest 2>/dev/null; then
     forest_print_logs_and_metrics
