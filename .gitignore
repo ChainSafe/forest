@@ -22,6 +22,7 @@ config*.toml
 /test_dir*
 /devnet.car
 genesis.json
+/forest_snapshot*
 
 # Tracing/profiling
 /perf.data*
