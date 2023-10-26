@@ -4,12 +4,9 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
-use crate::chain_sync::TipsetValidator;
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
-use crate::utils::db::CborStoreExt;
 use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
@@ -123,14 +120,19 @@ pub struct ChainExchangeResponse {
 impl ChainExchangeResponse {
     /// Converts `chain_exchange` response into result.
     /// Returns an error if the response status is not `Ok`.
-    pub fn into_result(self) -> Result<Vec<TipsetBundle>, String> {
+    /// Tipset bundle is converted into generic return type with `TryFrom` trait
+    /// implementation.
+    pub fn into_result<T>(self) -> Result<Vec<T>, String>
+    where
+        T: TryFrom<TipsetBundle, Error = String>,
+    {
         if self.status != ChainExchangeResponseStatus::Success
             && self.status != ChainExchangeResponseStatus::PartialResponse
         {
             return Err(format!("Status {:?}: {}", self.status, self.message));
         }
 
-        Ok(self.chain)
+        self.chain.into_iter().map(T::try_from).collect()
     }
 }
 /// Contains all BLS and SECP messages and their indexes per block
@@ -156,30 +158,6 @@ pub struct TipsetBundle {
 
     /// Compressed messages format.
     pub messages: Option<CompactedMessages>,
-}
-
-impl TipsetBundle {
-    pub fn persist(&self, store: &impl Blockstore) -> anyhow::Result<()> {
-        for b in &self.blocks {
-            store.put_cbor_default(b)?;
-        }
-
-        if let Ok(fts) = FullTipset::try_from(self) {
-            for b in fts.blocks() {
-                let msg_root =
-                    TipsetValidator::compute_msg_root(store, b.bls_msgs(), b.secp_msgs())?;
-                if b.header().messages() != &msg_root {
-                    anyhow::bail!(
-                        "Invalid message root actual: {msg_root}, expected: {}",
-                        b.header().messages()
-                    );
-                }
-                b.persist(store)?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl TryFrom<TipsetBundle> for Tipset {
@@ -280,127 +258,15 @@ fn fts_from_bundle_parts(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::blocks::{Block, BlockHeader};
-    use crate::db::MemoryDB;
-    use crate::libp2p::chain_exchange::{CompactedMessages, TipsetBundle};
-    use crate::message::SignedMessage;
-    use crate::shim::{
-        address::Address,
-        crypto::Signature,
-        message::{Message, Message_v3},
-    };
-    use num::BigInt;
     use quickcheck_macros::quickcheck;
     use serde_json;
+
+    use super::*;
 
     #[quickcheck]
     fn chain_exchange_response_status_roundtrip(status: ChainExchangeResponseStatus) {
         let serialized = serde_json::to_string(&status).unwrap();
         let parsed = serde_json::from_str(&serialized).unwrap();
         assert_eq!(status, parsed);
-    }
-
-    #[test]
-    fn tipset_bundle_save_load_roundtrip() {
-        let ua: Message = Message_v3 {
-            to: Address::new_id(0).into(),
-            from: Address::new_id(0).into(),
-            ..Message_v3::default()
-        }
-        .into();
-        let ub: Message = Message_v3 {
-            to: Address::new_id(1).into(),
-            from: Address::new_id(1).into(),
-            ..Message_v3::default()
-        }
-        .into();
-        let uc: Message = Message_v3 {
-            to: Address::new_id(2).into(),
-            from: Address::new_id(2).into(),
-            ..Message_v3::default()
-        }
-        .into();
-        let ud: Message = Message_v3 {
-            to: Address::new_id(3).into(),
-            from: Address::new_id(3).into(),
-            ..Message_v3::default()
-        }
-        .into();
-        let b0_bls_messages = vec![ua.clone(), ub.clone()];
-        let b1_bls_messages = vec![uc.clone(), ud.clone()];
-
-        let sa = SignedMessage::new_unchecked(ua.clone(), Signature::new_secp256k1(vec![0]));
-        let sb = SignedMessage::new_unchecked(ub.clone(), Signature::new_secp256k1(vec![0]));
-        let sc = SignedMessage::new_unchecked(uc.clone(), Signature::new_secp256k1(vec![0]));
-        let sd = SignedMessage::new_unchecked(ud.clone(), Signature::new_secp256k1(vec![0]));
-        let b0_secp_messages = vec![sa.clone(), sb.clone(), sd.clone()];
-        let b1_secp_messages = vec![sb.clone(), sc.clone(), sa.clone()];
-
-        let tmp_store: MemoryDB = MemoryDB::default();
-        let h0: BlockHeader = BlockHeader::builder()
-            .weight(BigInt::from(1u32))
-            .miner_address(Address::new_id(0))
-            .messages(
-                TipsetValidator::compute_msg_root(&tmp_store, &b0_bls_messages, &b0_secp_messages)
-                    .unwrap(),
-            )
-            .build()
-            .unwrap();
-        let h1 = BlockHeader::builder()
-            .weight(BigInt::from(1u32))
-            .miner_address(Address::new_id(1))
-            .messages(
-                TipsetValidator::compute_msg_root(&tmp_store, &b1_bls_messages, &b1_secp_messages)
-                    .unwrap(),
-            )
-            .build()
-            .unwrap();
-
-        let b0 = Block {
-            header: h0,
-            secp_messages: b0_secp_messages,
-            bls_messages: b0_bls_messages,
-        };
-        assert_eq!(
-            b0.header().messages(),
-            &TipsetValidator::compute_msg_root(&tmp_store, b0.bls_msgs(), b0.secp_msgs()).unwrap()
-        );
-        let b1 = Block {
-            header: h1,
-            secp_messages: b1_secp_messages,
-            bls_messages: b1_bls_messages,
-        };
-        assert_eq!(
-            b1.header().messages(),
-            &TipsetValidator::compute_msg_root(&tmp_store, b1.bls_msgs(), b1.secp_msgs()).unwrap()
-        );
-
-        let tsb = TipsetBundle {
-            blocks: vec![b0.header().clone(), b1.header().clone()],
-            messages: Some(CompactedMessages {
-                secp_msgs: vec![sa, sb, sc, sd],
-                secp_msg_includes: vec![vec![0, 1, 3], vec![1, 2, 0]],
-                bls_msgs: vec![ua, ub, uc, ud],
-                bls_msg_includes: vec![vec![0, 1], vec![2, 3]],
-            }),
-        };
-
-        let store = MemoryDB::default();
-        tsb.persist(&store).unwrap();
-
-        let ts: Tipset = Tipset::load(&store, &[*b0.cid(), *b1.cid()].into_iter().collect())
-            .unwrap()
-            .unwrap();
-
-        let fts = FullTipset::try_from(TipsetBundle {
-            blocks: vec![b0.header().clone(), b1.header().clone()],
-            messages: Some(super::super::compact_messages(&store, &ts).unwrap()),
-        })
-        .unwrap();
-        let blocks = fts.into_blocks();
-        assert_eq!(blocks.len(), 2);
-        assert_eq!(blocks[0], b0);
-        assert_eq!(blocks[1], b1);
     }
 }

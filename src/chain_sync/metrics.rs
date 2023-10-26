@@ -154,24 +154,6 @@ pub static PEER_TIPSET_EPOCH: Lazy<Box<GenericGaugeVec<AtomicI64>>> = Lazy::new(
         );
     peer_tipset_epoch
 });
-pub static PEER_CHAIN_EXCHANGE_SUCCESS: Lazy<Box<GenericGaugeVec<AtomicU64>>> = Lazy::new(|| {
-    let metrics = Box::new(
-        GenericGaugeVec::new(
-            Opts::new(
-                "peer_chain_exchange_success",
-                "Number of successful and non-empty chain exchange responses received from a peer",
-            ),
-            &["PEER"],
-        )
-        .expect("Defining the peer_chain_exchange_success metric must succeed"),
-    );
-    prometheus::default_registry()
-        .register(metrics.clone())
-        .expect(
-        "Registering the last_validated_tipset_epoch metric with the metrics registry must succeed",
-    );
-    metrics
-});
 pub static NETWORK_HEAD_EVALUATION_ERRORS: Lazy<Box<GenericCounter<AtomicU64>>> = Lazy::new(|| {
     let network_head_evaluation_errors = Box::new(
         GenericCounter::<AtomicU64>::new(

@@ -4,7 +4,9 @@
 use std::convert::TryFrom;
 
 use crate::blocks::{Block, BlockHeader, FullTipset};
-use crate::libp2p::chain_exchange::{CompactedMessages, TipsetBundle};
+use crate::libp2p::chain_exchange::{
+    ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
+};
 use crate::message::SignedMessage;
 use crate::shim::{
     address::Address,
@@ -12,6 +14,37 @@ use crate::shim::{
     message::{Message, Message_v3},
 };
 use num::BigInt;
+
+#[test]
+fn convert_single_tipset_bundle() {
+    let block = Block {
+        header: BlockHeader::builder()
+            .miner_address(Address::new_id(0))
+            .build()
+            .unwrap(),
+        bls_messages: Vec::new(),
+        secp_messages: Vec::new(),
+    };
+    let bundle = TipsetBundle {
+        blocks: vec![block.header.clone()],
+        messages: Some(CompactedMessages {
+            bls_msgs: Vec::new(),
+            bls_msg_includes: vec![Vec::new()],
+            secp_msgs: Vec::new(),
+            secp_msg_includes: vec![Vec::new()],
+        }),
+    };
+
+    let res = ChainExchangeResponse {
+        chain: vec![bundle],
+        status: ChainExchangeResponseStatus::Success,
+        message: "".into(),
+    }
+    .into_result::<FullTipset>()
+    .unwrap();
+
+    assert_eq!(res, [FullTipset::new(vec![block]).unwrap()]);
+}
 
 #[test]
 fn tipset_bundle_to_full_tipset() {
