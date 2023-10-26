@@ -23,7 +23,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-      - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}

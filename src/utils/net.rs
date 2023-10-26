@@ -4,6 +4,7 @@
 use crate::utils::io::WithProgress;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
+use reqwest::Response;
 use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
 use tokio::io::AsyncBufRead;
@@ -90,4 +91,13 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
         stream,
         content_length,
     )))
+}
+
+pub async fn http_get(url: &Url) -> anyhow::Result<Response> {
+    info!(%url, "GET");
+    Ok(global_http_client()
+        .get(url.clone())
+        .send()
+        .await?
+        .error_for_status()?)
 }

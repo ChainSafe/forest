@@ -24,10 +24,8 @@ install-with-mimalloc:
 	cargo install --locked --path . --force --no-default-features --features mimalloc
 
 install-deps:
-	# https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md#1-adding-the-packagecloud-repository
-	curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
 	apt-get update -y
-	apt-get install --no-install-recommends -y git-lfs build-essential clang
+	apt-get install --no-install-recommends -y build-essential clang
 
 install-lint-tools:
 	cargo install --locked taplo-cli
