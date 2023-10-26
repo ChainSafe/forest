@@ -189,6 +189,7 @@ pub mod chain_api {
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+    pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
 }
 
 /// Message Pool API

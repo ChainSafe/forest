@@ -212,6 +212,9 @@ fn chain_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
         // requires admin rights
         // RpcTest::identity(ApiInfo::chain_get_min_base_fee_req(20)),
+        RpcTest::identity(ApiInfo::chain_get_messages_in_tipset_req(
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 

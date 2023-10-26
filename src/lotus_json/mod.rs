@@ -327,7 +327,7 @@ where
 }
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
-#[derive(Serialize, Deserialize, From, Default)]
+#[derive(Debug, Serialize, Deserialize, From, Default)]
 #[serde(bound = "T: HasLotusJson + Clone")]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 
