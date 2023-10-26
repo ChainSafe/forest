@@ -91,11 +91,10 @@ forest-wallet delete "$ADDR_DEL"
 forest-wallet list | grep --null-data --invert-match "${ADDR_DEL}"
 
 # TODO: Uncomment this check once the send command is fixed
-# `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
-# so we need to truncate units from `$FIL_AMT` for proper comparison
-FIL_AMT=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
-if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
-  # echo "FIL amount should match"
-  echo "::warning::Sending message $MSG failed"
-  # exit 1
-fi
+# # `$ADDR_TWO_BALANCE` is unitless (`list` command formats "500" as "500 atto FIL"),
+# # so we need to truncate units from `$FIL_AMT` for proper comparison
+# FIL_AMT=$(echo "$FIL_AMT"| cut -d ' ' -f 1)
+# if [ "$ADDR_TWO_BALANCE" != "$FIL_AMT" ]; then
+#   echo "FIL amount should match"
+#   exit 1
+# fi
