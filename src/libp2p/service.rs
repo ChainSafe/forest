@@ -231,18 +231,25 @@ where
 
         // Listen on network endpoints before being detached and connecting to any peers.
         for addr in &config.listening_multiaddrs {
-            if let Err(err) = swarm.listen_on(addr.clone()) {
-                error!("Fail to listen on {addr}: {err}");
-            } else {
-                loop {
-                    if let SwarmEvent::NewListenAddr { address, .. } =
-                        swarm.select_next_some().await
+            match swarm.listen_on(addr.clone()) {
+                Ok(id) => loop {
+                    if let SwarmEvent::NewListenAddr {
+                        address,
+                        listener_id,
+                    } = swarm.select_next_some().await
                     {
-                        info!("p2p peer is now listening on: {address}");
-                        break;
+                        if id == listener_id {
+                            info!("p2p peer is now listening on: {address}");
+                            break;
+                        }
                     }
-                }
+                },
+                Err(err) => error!("Fail to listen on {addr}: {err}"),
             }
+        }
+
+        if swarm.listeners().count() == 0 {
+            anyhow::bail!("p2p peer failed to listen on any network endpoints");
         }
 
         Ok(Libp2pService {
