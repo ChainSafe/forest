@@ -286,6 +286,10 @@ async fn compare_apis(
                         msg.cid()?,
                     )));
                 }
+                tests.push(RpcTest::basic(ApiInfo::state_miner_power(
+                    block.miner_address().clone(),
+                    tipset.key().clone(),
+                )))
             }
         }
     }

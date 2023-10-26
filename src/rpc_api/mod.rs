@@ -233,6 +233,7 @@ pub mod state_api {
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
+    pub const STATE_MINOR_POWER: &str = "Filecoin.StateMinerPower";
 }
 
 /// Gas API

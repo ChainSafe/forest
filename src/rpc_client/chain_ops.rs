@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::rpc_api::data_types::ApiMessage;
 use crate::shim::message::Message;
 use crate::{
     blocks::{BlockHeader, Tipset, TipsetKeys},
@@ -9,7 +9,6 @@ use crate::{
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
-use serde::{Deserialize, Serialize};
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
@@ -106,37 +105,5 @@ impl ApiInfo {
 
     pub fn chain_get_messages_in_tipset_req(tsk: TipsetKeys) -> RpcRequest<Vec<ApiMessage>> {
         RpcRequest::new(CHAIN_GET_MESSAGES_IN_TIPSET, (tsk,))
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct ApiMessage {
-    cid: Cid,
-    message: Message,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiMessageLotusJson {
-    cid: LotusJson<Cid>,
-    message: LotusJson<Message>,
-}
-
-impl HasLotusJson for ApiMessage {
-    type LotusJson = ApiMessageLotusJson;
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ApiMessageLotusJson {
-            cid: LotusJson(self.cid),
-            message: LotusJson(self.message),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        ApiMessage {
-            cid: lotus_json.cid.into_inner(),
-            message: lotus_json.message.into_inner(),
-        }
     }
 }

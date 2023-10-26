@@ -12,6 +12,7 @@ use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::executor::Receipt;
@@ -21,6 +22,8 @@ use ahash::HashSet;
 use chrono::Utc;
 use cid::Cid;
 use fil_actor_interface::market::{DealProposal, DealState};
+use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::power::Claim;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use parking_lot::RwLock as SyncRwLock;
@@ -133,5 +136,84 @@ pub struct Version(u32);
 impl Version {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
         Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct ApiMessage {
+    cid: Cid,
+    message: Message,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMessageLotusJson {
+    cid: LotusJson<Cid>,
+    message: LotusJson<Message>,
+}
+
+impl HasLotusJson for ApiMessage {
+    type LotusJson = ApiMessageLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ApiMessageLotusJson {
+            cid: LotusJson(self.cid),
+            message: LotusJson(self.message),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        ApiMessage {
+            cid: lotus_json.cid.into_inner(),
+            message: lotus_json.message.into_inner(),
+        }
+    }
+}
+
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct MinerPower {
+//     miner_power: Claim,
+//     total_power: Claim,
+//     has_min_power: bool,
+// }
+
+// impl PartialEq for MinerPower {
+//     fn eq(&self, other: &Self) -> bool {
+//         fn eq_claim(a: &Claim, b: &Claim) -> bool {
+//             a.raw_byte_power == b.raw_byte_power && a.quality_adj_power == b.quality_adj_power
+//         }
+//         eq_claim(&self.miner_power, &other.miner_power)
+//             && eq_claim(&self.total_power, &other.total_power)
+//             && self.has_min_power == other.has_min_power
+//     }
+// }
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MinerPowerLotusJson {
+    miner_power: LotusJson<Claim>,
+    total_power: LotusJson<Claim>,
+    has_min_power: bool,
+}
+
+impl HasLotusJson for MinerPower {
+    type LotusJson = MinerPowerLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        MinerPowerLotusJson {
+            miner_power: LotusJson(self.miner_power),
+            total_power: LotusJson(self.total_power),
+            has_min_power: self.has_min_power,
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        MinerPower {
+            miner_power: lotus_json.miner_power.into_inner(),
+            total_power: lotus_json.total_power.into_inner(),
+            has_min_power: lotus_json.has_min_power,
+        }
     }
 }
