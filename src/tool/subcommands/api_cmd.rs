@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::HashMap;
-// use ahash::HashSet;
-// use chrono::Duration;
 use clap::Subcommand;
-// use libp2p::Multiaddr;
 use serde::de::DeserializeOwned;
+use std::path::PathBuf;
 use std::str::FromStr;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
+use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
-// use crate::rpc_api::data_types::AddrInfo;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::Address;
 
@@ -27,13 +25,20 @@ pub enum ApiCommands {
         /// Lotus address
         #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible"))]
         lotus: ApiInfo,
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+        #[arg()]
+        snapshot_files: Vec<PathBuf>,
     },
 }
 
 impl ApiCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
-            Self::Compare { forest, lotus } => compare_apis(forest, lotus).await?,
+            Self::Compare {
+                forest,
+                lotus,
+                snapshot_files,
+            } => compare_apis(forest, lotus, snapshot_files).await?,
         }
         Ok(())
     }
@@ -69,16 +74,6 @@ impl EndpointStatus {
         } else {
             EndpointStatus::InternalServerError
         }
-    }
-}
-
-async fn youngest_tipset(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<Tipset> {
-    let t1 = forest.chain_head().await?;
-    let t2 = lotus.chain_head().await?;
-    if t1.epoch() < t2.epoch() {
-        Ok(t1)
-    } else {
-        Ok(t2)
     }
 }
 
@@ -196,22 +191,25 @@ fn auth_tests() -> Vec<RpcTest> {
     vec![]
 }
 
-fn chain_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block = shared_tipset.min_ticket_block();
-
+fn chain_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
             forest.epoch().abs_diff(lotus.epoch()) < 10
         }),
+        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
+    ]
+}
+
+fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let shared_block = shared_tipset.min_ticket_block();
+
+    vec![
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
             TipsetKeys::default(),
         )),
-        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
-        // requires admin rights
-        // RpcTest::identity(ApiInfo::chain_get_min_base_fee_req(20)),
         RpcTest::identity(ApiInfo::chain_get_messages_in_tipset_req(
             shared_tipset.key().clone(),
         )),
@@ -254,18 +252,43 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
-async fn compare_apis(forest: ApiInfo, lotus: ApiInfo) -> anyhow::Result<()> {
-    let shared_tipset = youngest_tipset(&forest, &lotus).await?;
-
+async fn compare_apis(
+    forest: ApiInfo,
+    lotus: ApiInfo,
+    snapshot_files: Vec<PathBuf>,
+) -> anyhow::Result<()> {
     let mut tests = vec![];
 
     tests.extend(common_tests());
     tests.extend(auth_tests());
-    tests.extend(chain_tests(&shared_tipset));
+    tests.extend(chain_tests());
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
-    tests.extend(state_tests(&shared_tipset));
+
+    if !snapshot_files.is_empty() {
+        let store = ManyCar::try_from(snapshot_files)?;
+        let shared_tipset = store.heaviest_tipset()?;
+        tests.extend(chain_tests_with_tipset(&shared_tipset));
+        tests.extend(state_tests(&shared_tipset));
+
+        for tipset in shared_tipset.chain(&store).take(20) {
+            for block in tipset.blocks() {
+                let (bls_messages, secp_messages) =
+                    crate::chain::store::block_messages(&store, &block)?;
+                for msg in bls_messages {
+                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                        msg.cid()?,
+                    )));
+                }
+                for msg in secp_messages {
+                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                        msg.cid()?,
+                    )));
+                }
+            }
+        }
+    }
 
     let mut results = HashMap::default();
 
