@@ -17,7 +17,7 @@ pub fn of(cid: &Cid) -> NonMaximalU64 {
 }
 
 /// Desired bucket for a hash with a given table length
-pub fn ideal_bucket_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
+pub fn ideal_slot_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
     usize::try_from((hash.get() as u128 * num_buckets.get() as u128) >> 64).unwrap()
 }
 
@@ -28,7 +28,7 @@ mod tests {
 
     quickcheck! {
         fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
-            ideal_bucket_ix(hash, num_buckets) < num_buckets.get()
+            ideal_slot_ix(hash, num_buckets) < num_buckets.get()
         }
     }
 }

@@ -250,7 +250,14 @@ impl<V> Iterator for IntoIter<V> {
     }
 }
 
-impl<V> ExactSizeIterator for IntoIter<V> {}
+impl<V> ExactSizeIterator for IntoIter<V> {
+    fn len(&self) -> usize {
+        // we're a compound collection, so we need to be careful about
+        // fulfilling the contract of ExactSizeIterator.
+        let Self { compact, uncompact } = self;
+        compact.len().checked_add(uncompact.len()).unwrap()
+    }
+}
 
 fn join_size_hints(
     left: (usize, Option<usize>),
