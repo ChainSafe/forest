@@ -177,7 +177,6 @@ pub enum NetRPCMethods {
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
-    config: Libp2pConfig,
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
     peer_manager: Arc<PeerManager>,
@@ -193,7 +192,7 @@ impl<DB> Libp2pService<DB>
 where
     DB: Blockstore + BitswapStoreReadWrite + Sync + Send + 'static,
 {
-    pub fn new(
+    pub async fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
@@ -225,8 +224,28 @@ where
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
+        // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
+        // peer's multiaddress. Useful if others want to use this node to bootstrap
+        // from.
+        info!("p2p network peer id: {}", swarm.local_peer_id());
+
+        // Listen on network endpoints before being detached and connecting to any peers.
+        for addr in &config.listening_multiaddrs {
+            if let Err(err) = swarm.listen_on(addr.clone()) {
+                error!("Fail to listen on {addr}: {err}");
+            } else {
+                loop {
+                    if let SwarmEvent::NewListenAddr { address, .. } =
+                        swarm.select_next_some().await
+                    {
+                        info!("p2p peer is now listening on: {address}");
+                        break;
+                    }
+                }
+            }
+        }
+
         Ok(Libp2pService {
-            config,
             swarm,
             cs,
             peer_manager,
@@ -243,11 +262,6 @@ where
     /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
-        for addr in &self.config.listening_multiaddrs {
-            if let Err(err) = Swarm::listen_on(&mut self.swarm, addr.clone()) {
-                error!("Fail to listen on {addr}: {err}");
-            }
-        }
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
