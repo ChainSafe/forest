@@ -42,6 +42,9 @@
 
 ### Changed
 
+- [#3614](https://github.com/ChainSafe/forest/issues/3614) Moved downloading
+  bundle to runtime.
+
 ### Removed
 
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove

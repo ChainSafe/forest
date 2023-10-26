@@ -153,6 +153,9 @@ pub struct CliOpts {
     /// Check your command-line options and configuration file if one is used
     #[arg(long)]
     pub dry_run: bool,
+    /// Skip loading actors from the actors bundle.
+    #[arg(long)]
+    pub skip_load_actors: bool,
 }
 
 impl CliOpts {
@@ -250,6 +253,8 @@ impl CliOpts {
         if let Some(encrypt_keystore) = self.encrypt_keystore {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }
+
+        cfg.client.load_actors = !self.skip_load_actors;
 
         Ok((cfg, path))
     }
