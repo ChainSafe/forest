@@ -211,7 +211,7 @@ pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
     let new_head = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&params)?;
+        .load_required_tipset(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {
