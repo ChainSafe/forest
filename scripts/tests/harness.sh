@@ -59,7 +59,7 @@ function forest_run_node_stateless_detached {
 		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
 	EOF
 
-  $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --no-gc --stateless
+  $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless
 }
 
 function forest_wait_for_sync {
@@ -103,13 +103,6 @@ function forest_print_logs_and_metrics {
   echo "Print forest log files"
   ls -hl "$LOG_DIRECTORY"
   cat "$LOG_DIRECTORY"/*
-}
-
-function wait_until_p2p_is_ready {
-  until $FOREST_CLI_PATH net listen; do
-      echo "Libp2p listen address is unavailable - sleeping for 1s"
-      sleep 1s
-  done
 }
 
 function forest_cleanup {
