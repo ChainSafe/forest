@@ -45,10 +45,11 @@
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cid::Cid;
+use itertools::Itertools;
 use std::{
     cmp,
     io::{self, Read, Write},
-    iter::ExactSizeIterator,
+    iter::{self, ExactSizeIterator},
     num::NonZeroUsize,
 };
 
@@ -89,6 +90,71 @@ struct Table {
 }
 
 impl Table {
+    fn new2(locations: impl IntoIterator<Item = (Cid, u64)>, load_factor: f64) -> Self {
+        assert!((0.0..=1.0).contains(&load_factor));
+        let mut slots = locations
+            .into_iter()
+            .map(|(cid, frame_offset)| {
+                Slot::Occupied(OccupiedSlot {
+                    hash: hash::of(&cid),
+                    frame_offset,
+                })
+            })
+            .sorted()
+            .collect::<Vec<_>>();
+
+        let initial_width = cmp::max((slots.len() as f64 / load_factor) as usize, slots.len());
+        let Some(initial_width) = NonZeroUsize::new(initial_width) else {
+            return Self {
+                slots: vec![Slot::Empty],
+                initial_width: 0,
+                collisions: 0,
+                longest_distance: 0,
+            };
+        };
+
+        let mut longest_distance = 0;
+
+        while let Some((ix, ideal_slot_ix)) =
+            slots.iter().enumerate().find_map(|(ix, slot)| match slot {
+                Slot::Occupied(OccupiedSlot { hash, .. }) => {
+                    let ideal_slot_ix = hash::ideal_slot_ix(*hash, initial_width);
+                    match dbg!(ideal_slot_ix) < dbg!(ix) {
+                        // too early
+                        true => Some((ix, ideal_slot_ix)),
+                        false => None,
+                    }
+                }
+                Slot::Empty => None,
+            })
+        {
+            let distance = 1 + ideal_slot_ix - ix;
+            longest_distance = cmp::max(longest_distance, distance);
+            slots.splice(ix..ix, iter::repeat(Slot::Empty).take(distance));
+        }
+
+        for i in 0..longest_distance {
+            slots.push(slots[i])
+        }
+
+        slots.push(Slot::Empty);
+        Self {
+            collisions: slots
+                .iter()
+                .flat_map(|slot| match slot {
+                    Slot::Empty => None,
+                    Slot::Occupied(occ) => Some(occ),
+                })
+                .group_by(|occ| occ.hash)
+                .into_iter()
+                .map(|(_hash, group)| group.count())
+                .filter(|n| *n > 1)
+                .sum(),
+            slots,
+            initial_width: initial_width.get(),
+            longest_distance,
+        }
+    }
     fn new<I>(locations: I, load_factor: f64) -> Self
     where
         I: IntoIterator<Item = (Cid, u64)>,
@@ -377,7 +443,13 @@ mod tests {
     use cid::Cid;
     use pretty_assertions::assert_eq;
 
-    fn do_test(pairs: Vec<(Cid, u64)>) {
+    fn do_v1_vs_v2(pairs: Vec<(Cid, u64)>) {
+        let v1 = Table::new(pairs.clone(), 0.8);
+        let v2 = Table::new2(pairs, 0.8);
+        assert_eq!(v1, v2)
+    }
+
+    fn do_reference(pairs: Vec<(Cid, u64)>) {
         let reference = crate::utils::db::car_index::CarIndexBuilder::new(
             pairs
                 .clone()
@@ -391,8 +463,11 @@ mod tests {
     }
 
     quickcheck::quickcheck! {
+        fn v1_vs_v2(pairs: Vec<(Cid, u64)>) -> () {
+            do_v1_vs_v2(pairs)
+        }
         fn do_quickcheck(pairs: Vec<(Cid, u64)>) -> () {
-            do_test(pairs)
+            do_reference(pairs)
         }
         fn header(it: V1Header) -> () {
             round_trip(&it);
