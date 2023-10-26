@@ -164,9 +164,8 @@ where
 {
     match result {
         Ok(v) => {
-            // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-            //                 Check if unwrap is safe here
-            let value: JsonValue = serde_json::to_value(v).unwrap();
+            let value: JsonValue =
+                serde_json::to_value(v).map_err(|e| JsError::from_opaque(e.to_string().into()))?;
             JsValue::from_json(&value, context)
         }
         Err(err) => {
@@ -200,9 +199,7 @@ macro_rules! bind_func {
                             let obj: JsObject = arr.into();
                             JsValue::from(obj)
                         };
-                        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-                        //                 Check if unwrap is safe here
-                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        let args = serde_json::from_value(value.to_json(context)?)?;
                         handle.block_on($func(args, token))
                     });
                     check_result(context, result)
