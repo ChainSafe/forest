@@ -420,7 +420,7 @@ where
                 if let Err(e) =
                     metrics::PEER_TIPSET_EPOCH.remove_label_values(&[peer_id.to_string().as_str()])
                 {
-                    warn!("{e}");
+                    debug!("{e}");
                 }
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(

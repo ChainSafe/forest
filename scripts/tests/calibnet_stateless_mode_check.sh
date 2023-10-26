@@ -25,7 +25,7 @@ cat <<- EOF > $CONFIG_PATH
 EOF
 
 # Disable discovery to not connect to more nodes
-$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --mdns false --kademlia false --metrics-address 127.0.0.1:6117 --skip-load-actors &
+$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --mdns false --kademlia false --metrics-address 127.0.0.1:6117 &
 FOREST_NODE_PID=$!
 # Verify that the stateless node can respond to chain exchange requests
 until curl http://127.0.0.1:6117/metrics | grep "chain_exchange_response_in"; do
