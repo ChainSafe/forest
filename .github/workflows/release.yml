@@ -19,7 +19,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - run: ./assets/ci_download.sh
       - name: Apt Dependencies
         if: contains(matrix.os, 'ubuntu')
         uses: nick-fields/retry@v2

@@ -6,8 +6,6 @@ use std::{fmt::Display, str::FromStr};
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
-use once_cell::sync::Lazy;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
@@ -15,6 +13,9 @@ use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
+
+mod actors_bundle;
+pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
 
 mod drand;
 
@@ -355,44 +356,3 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
         })
         .collect()
 }
-
-#[derive(Debug)]
-pub struct ActorBundleInfo {
-    pub manifest: Cid,
-    pub url: Url,
-}
-
-macro_rules! actor_bundle_info {
-    ($($cid:literal @ $version:literal for $network:literal),* $(,)?) => {
-        [
-            $(
-                ActorBundleInfo {
-                    manifest: $cid.parse().unwrap(),
-                    url: concat!(
-                            "https://github.com/filecoin-project/builtin-actors/releases/download/",
-                            $version,
-                            "/builtin-actors-",
-                            $network,
-                            ".car"
-                        ).parse().unwrap()
-                },
-            )*
-        ]
-    }
-}
-
-pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
-    Box::new(actor_bundle_info![
-        "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy" @ "v9.0.3" for "calibrationnet",
-        "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo" @ "v10.0.0-rc.1" for "calibrationnet",
-        "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco" @ "v11.0.0-rc2" for "calibrationnet",
-        "bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs" @ "v12.0.0-rc.1" for "calibrationnet",
-        "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
-        "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts" @ "v10.0.0" for "devnet",
-        "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i" @ "v11.0.0" for "devnet",
-        "bafy2bzacebk6yiirh4ennphzyka7b6g6jzn3lt4lr5ht7rjwulnrcthjihapo" @ "v12.0.0-rc.1" for "devnet",
-        "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i" @ "v9.0.3" for "mainnet",
-        "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos" @ "v10.0.0" for "mainnet",
-        "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",
-    ])
-});

@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use super::Config;
 use crate::chain_sync::SyncStage;
 use crate::cli::humantoken;
 use crate::lotus_json::LotusJson;
@@ -165,9 +164,8 @@ where
 {
     match result {
         Ok(v) => {
-            // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-            //                 Check if unwrap is safe here
-            let value: JsonValue = serde_json::to_value(v).unwrap();
+            let value: JsonValue =
+                serde_json::to_value(v).map_err(|e| JsError::from_opaque(e.to_string().into()))?;
             JsValue::from_json(&value, context)
         }
         Err(err) => {
@@ -201,9 +199,7 @@ macro_rules! bind_func {
                             let obj: JsObject = arr.into();
                             JsValue::from(obj)
                         };
-                        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-                        //                 Check if unwrap is safe here
-                        let args = serde_json::from_value(value.to_json(context).unwrap())?;
+                        let args = serde_json::from_value(value.to_json(context)?)?;
                         handle.block_on($func(args, token))
                     });
                     check_result(context, result)
@@ -358,9 +354,9 @@ impl AttachCommand {
         Ok(())
     }
 
-    pub fn run(self, config: Config) -> anyhow::Result<()> {
+    pub fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
         let mut context = Context::default();
-        self.setup_context(&mut context, &config.client.rpc_token);
+        self.setup_context(&mut context, &rpc_token);
 
         self.import_prelude(&mut context)?;
 
