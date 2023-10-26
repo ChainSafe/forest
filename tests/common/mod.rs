@@ -31,6 +31,7 @@ impl CommonArgs for Command {
             .arg("--metrics-address")
             .arg("127.0.0.1:0")
             .arg("--exit-after-init")
+            .arg("--skip-load-actors")
     }
 
     fn chain(&mut self, chain: impl AsRef<std::ffi::OsStr>) -> &mut Self {
