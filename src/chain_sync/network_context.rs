@@ -160,7 +160,7 @@ where
         peer_id: Option<PeerId>,
         tsk: &TipsetKeys,
     ) -> Result<FullTipset, String> {
-        let mut fts: Vec<_> = self
+        let mut fts = self
             .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES)
             .await?;
 
@@ -170,7 +170,6 @@ where
                 fts.len()
             ));
         }
-
         Ok(fts.remove(0))
     }
 

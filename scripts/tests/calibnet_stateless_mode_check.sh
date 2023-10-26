@@ -24,10 +24,11 @@ cat <<- EOF > $CONFIG_PATH
 	bootstrap_peers = ["$STATELESS_NODE_ADDRESS"]
 EOF
 
-$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --metrics-address 127.0.0.1:6117 &
+# Disable discovery to not connect to more nodes
+$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --mdns false --kademlia false --metrics-address 127.0.0.1:6117 --skip-load-actors &
 FOREST_NODE_PID=$!
 # Verify that the stateless node can respond to chain exchange requests
-until curl http://127.0.0.1:6117/metrics | grep "peer_chain_exchange_success{PEER=\"${STATELESS_NODE_PEER_ID}\"}"; do
+until curl http://127.0.0.1:6117/metrics | grep "chain_exchange_response_in"; do
     sleep 1s;
 done
 kill -KILL $FOREST_NODE_PID
