@@ -23,7 +23,7 @@ use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
@@ -149,11 +149,6 @@ pub(super) async fn start(
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
-
-    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
-    // peer's multiaddress. Useful if others want to use this node to bootstrap
-    // from.
-    info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut keystore = load_or_create_keystore(&config).await?;
 
@@ -300,7 +295,8 @@ pub(super) async fn start(
         net_keypair,
         &network_name,
         genesis_cid,
-    )?;
+    )
+    .await?;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
