@@ -34,7 +34,10 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
 ) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     Ok(state_manager.call(&mut message, Some(tipset))?)
 }
 
@@ -45,7 +48,10 @@ pub(in crate::rpc) async fn state_replay<DB: Blockstore + Send + Sync + 'static>
     Params(LotusJson((cid, key))): Params<LotusJson<(Cid, TipsetKeys)>>,
 ) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -71,7 +77,7 @@ pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
 ) -> Result<NetworkVersion, JsonRpcError> {
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
@@ -79,7 +85,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
 ) -> Result<LotusJson<Option<ActorState>>, JsonRpcError> {
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state.map(Into::into).map_err(|e| e.into())
 }
@@ -90,7 +96,10 @@ pub(in crate::rpc) async fn state_market_balance<DB: Blockstore + Send + Sync + 
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
 ) -> Result<MarketBalance, JsonRpcError> {
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -100,7 +109,7 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
 ) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
@@ -136,7 +145,10 @@ pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'st
     Params(LotusJson((cid, key))): Params<LotusJson<(Cid, TipsetKeys)>>,
 ) -> Result<LotusJson<Receipt>, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     state_manager
         .get_receipt(tipset, cid)
         .map(|s| s.into())

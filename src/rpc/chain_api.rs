@@ -67,7 +67,7 @@ where
         ))?;
     }
 
-    let head = data.chain_store.tipset_from_keys(&tsk)?;
+    let head = data.chain_store.load_required_tipset(&tsk)?;
     let start_ts =
         data.chain_store
             .chain_index
@@ -153,7 +153,10 @@ pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKeys)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
@@ -192,7 +195,10 @@ pub(in crate::rpc) async fn chain_get_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let ts = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
     Ok((*ts).clone().into())
 }
 
@@ -202,7 +208,10 @@ pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
 ) -> Result<(), JsonRpcError> {
-    let new_head = data.state_manager.chain_store().tipset_from_keys(&tsk)?;
+    let new_head = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&params)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {
@@ -211,7 +220,10 @@ pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
                 .unmark_block_as_validated(&cid);
         }
         let parents = current.blocks()[0].parents();
-        current = data.state_manager.chain_store().tipset_from_keys(parents)?;
+        current = data
+            .state_manager
+            .chain_store()
+            .load_required_tipset(parents)?;
     }
     data.state_manager
         .chain_store()
@@ -228,7 +240,10 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 
     for _ in 0..basefee_lookback {
         let parents = current.blocks()[0].parents();
-        current = data.state_manager.chain_store().tipset_from_keys(parents)?;
+        current = data
+            .state_manager
+            .chain_store()
+            .load_required_tipset(parents)?;
 
         min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee().to_owned());
     }
