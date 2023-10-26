@@ -831,7 +831,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             break;
         }
         // Attempt to load the parent tipset from local store
-        if let Ok(tipset) = chain_store.tipset_from_keys(oldest_parent.parents()) {
+        if let Ok(tipset) = chain_store.load_required_tipset(oldest_parent.parents()) {
             parent_blocks.extend(tipset.cids());
             parent_tipsets.push(tipset);
             continue;
@@ -870,7 +870,8 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
-        let mut potential_common_ancestor = chain_store.tipset_from_keys(current_head.parents())?;
+        let mut potential_common_ancestor =
+            chain_store.load_required_tipset(current_head.parents())?;
         let mut i = 0;
         let mut fork_length = 1;
         while i < fork_tipsets.len() {
@@ -906,7 +907,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
                     return Err(TipsetRangeSyncerError::ChainForkLengthExceedsFinalityThreshold);
                 }
                 potential_common_ancestor =
-                    chain_store.tipset_from_keys(potential_common_ancestor.parents())?;
+                    chain_store.load_required_tipset(potential_common_ancestor.parents())?;
             }
         }
     }
@@ -1180,7 +1181,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     block_timestamp_checks(header).map_err(|e| (*block_cid, e))?;
 
     let base_tipset = chain_store
-        .tipset_from_keys(header.parents())
+        .load_required_tipset(header.parents())
         // The parent tipset will always be there when calling validate_block
         // as part of the sync_tipset_range flow because all of the headers in the range
         // have been committed to the store. When validate_block is called from sync_tipset
