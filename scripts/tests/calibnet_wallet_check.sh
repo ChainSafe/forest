@@ -58,15 +58,21 @@ $FOREST_WALLET_PATH list
 date --iso-8601=seconds
 MSG=$($FOREST_CLI_PATH send "$ADDR_TWO" "$FIL_AMT")
 
+# give a little time for the message to be broadcast on the network
+sleep 0.5s
+
 ADDR_TWO_BALANCE=0
 i=0
 while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
   i=$((i+1))
   $FOREST_CLI_PATH mpool pending --local --from "$ADDR_ONE"
 
-  # Quietly check if the message reached other nodes
-  RESP=$(glif_check_pending)
-  echo "$RESP" | grep "$MSG" || true
+  # quietly check if the message reached the glif node
+  if glif_check_pending | jq | grep -q "$MSG"; then
+      echo "found message ${MSG} in glif mpool"
+  else
+      echo "not found yet"
+  fi
   
   : "Checking balance $i/20"
   sleep 30s

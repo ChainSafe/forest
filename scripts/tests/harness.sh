@@ -16,7 +16,7 @@ export LOG_DIRECTORY
 export FOREST_WALLET_PATH
 
 function glif_check_pending {
-  curl --silent --show-error --fail -X POST 'https://api.calibration.node.glif.io/rpc/v0' -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"Filecoin.MpoolPending","params":[[]]}' | jq
+  curl --silent --show-error --fail -X POST 'https://api.calibration.node.glif.io/rpc/v0' -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"Filecoin.MpoolPending","params":[[]]}'
 }
 
 function forest_import_non_calibnet_snapshot {
