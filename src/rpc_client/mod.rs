@@ -240,7 +240,7 @@ fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
 /// An `RpcRequest` is an at-rest description of a remote procedure call. It can
 /// be invoked using `ApiInfo::call`.
 ///
-/// When adding support for a new RPC method, the corrosponding `RpcRequest`
+/// When adding support for a new RPC method, the corresponding `RpcRequest`
 /// value should be public for use in testing.
 #[derive(Debug, Clone)]
 pub struct RpcRequest<T = serde_json::Value> {
