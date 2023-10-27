@@ -23,7 +23,7 @@ use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
@@ -150,11 +150,6 @@ pub(super) async fn start(
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
 
-    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
-    // peer's multiaddress. Useful if others want to use this node to bootstrap
-    // from.
-    info!("PeerId: {}", PeerId::from(net_keypair.public()));
-
     let mut keystore = load_or_create_keystore(&config).await?;
 
     if keystore.get(JWT_IDENTIFIER).is_err() {
@@ -181,7 +176,10 @@ pub(super) async fn start(
     )?)));
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
-    load_actor_bundles(&db).await?;
+
+    if config.client.load_actors {
+        load_actor_bundles(&db).await?;
+    }
 
     let mut services = JoinSet::new();
 
@@ -193,7 +191,7 @@ pub(super) async fn start(
         });
     }
 
-    {
+    if config.client.enable_metrics_endpoint {
         // Start Prometheus server port
         let prometheus_listener = TcpListener::bind(config.client.metrics_address).context(
             format!("could not bind to {}", config.client.metrics_address),
@@ -297,7 +295,8 @@ pub(super) async fn start(
         net_keypair,
         &network_name,
         genesis_cid,
-    )?;
+    )
+    .await?;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();

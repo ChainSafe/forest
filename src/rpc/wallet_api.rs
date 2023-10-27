@@ -3,24 +3,25 @@
 #![allow(clippy::unused_async)]
 use std::{convert::TryFrom, str::FromStr};
 
-use crate::key_management::{Error, Key};
+use crate::key_management::{Error, Key, KeyInfo};
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::{data_types::RPCState, wallet_api::*};
-use crate::shim::{address::Address, econ::TokenAmount, state_tree::StateTree};
+use crate::rpc_api::data_types::RPCState;
+use crate::shim::{
+    address::Address,
+    crypto::{Signature, SignatureType},
+    econ::TokenAmount,
+    state_tree::StateTree,
+};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_traits::Zero;
 
 /// Return the balance from `StateManager` for a given `Address`
-pub(in crate::rpc) async fn wallet_balance<DB>(
+pub(in crate::rpc) async fn wallet_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletBalanceParams>,
-) -> Result<WalletBalanceResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (addr_str,) = params;
+    Params((addr_str,)): Params<(String,)>,
+) -> Result<String, JsonRpcError> {
     let address = Address::from_str(&addr_str)?;
 
     let heaviest_ts = data.state_manager.chain_store().heaviest_tipset();
@@ -41,12 +42,9 @@ where
 }
 
 /// Get the default Address for the Wallet
-pub(in crate::rpc) async fn wallet_default_address<DB>(
+pub(in crate::rpc) async fn wallet_default_address<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<WalletDefaultAddressResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+) -> Result<Option<String>, JsonRpcError> {
     let keystore = data.keystore.read().await;
 
     let addr = crate::key_management::get_default(&keystore)?;
@@ -54,14 +52,10 @@ where
 }
 
 /// Export `KeyInfo` from the Wallet given its address
-pub(in crate::rpc) async fn wallet_export<DB>(
+pub(in crate::rpc) async fn wallet_export<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletExportParams>,
-) -> Result<WalletExportResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (addr_str,) = params;
+    Params((addr_str,)): Params<(String,)>,
+) -> Result<LotusJson<KeyInfo>, JsonRpcError> {
     let addr = Address::from_str(&addr_str)?;
 
     let keystore = data.keystore.read().await;
@@ -71,14 +65,10 @@ where
 }
 
 /// Return whether or not a Key is in the Wallet
-pub(in crate::rpc) async fn wallet_has<DB>(
+pub(in crate::rpc) async fn wallet_has<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletHasParams>,
-) -> Result<WalletHasResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (addr_str,) = params;
+    Params((addr_str,)): Params<(String,)>,
+) -> Result<bool, JsonRpcError> {
     let addr = Address::from_str(&addr_str)?;
 
     let keystore = data.keystore.read().await;
@@ -88,13 +78,10 @@ where
 }
 
 /// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
-pub(in crate::rpc) async fn wallet_import<DB>(
+pub(in crate::rpc) async fn wallet_import<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletImportParams>,
-) -> Result<WalletImportResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+    Params(params): Params<LotusJson<Vec<KeyInfo>>>,
+) -> Result<String, JsonRpcError> {
     let key_info = params
         .into_inner()
         .into_iter()
@@ -121,27 +108,20 @@ where
 }
 
 /// List all Addresses in the Wallet
-pub(in crate::rpc) async fn wallet_list<DB>(
+pub(in crate::rpc) async fn wallet_list<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<WalletListResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
     let keystore = data.keystore.read().await;
     Ok(crate::key_management::list_addrs(&keystore)?.into())
 }
 
 /// Generate a new Address that is stored in the Wallet
-pub(in crate::rpc) async fn wallet_new<DB>(
+pub(in crate::rpc) async fn wallet_new<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletNewParams>,
-) -> Result<WalletNewResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (sig_raw,) = params;
+    Params(LotusJson((sig_raw,))): Params<LotusJson<(SignatureType,)>>,
+) -> Result<String, JsonRpcError> {
     let mut keystore = data.keystore.write().await;
-    let key = crate::key_management::generate_key(sig_raw.0)?;
+    let key = crate::key_management::generate_key(sig_raw)?;
 
     let addr = format!("wallet-{}", key.address);
     keystore.put(&addr, key.key_info.clone())?;
@@ -154,17 +134,13 @@ where
 }
 
 /// Set the default Address for the Wallet
-pub(in crate::rpc) async fn wallet_set_default<DB>(
+pub(in crate::rpc) async fn wallet_set_default<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletSetDefaultParams>,
-) -> Result<WalletSetDefaultResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (address,) = params;
+    Params(LotusJson((address,))): Params<LotusJson<(Address,)>>,
+) -> Result<(), JsonRpcError> {
     let mut keystore = data.keystore.write().await;
 
-    let addr_string = format!("wallet-{}", address.0);
+    let addr_string = format!("wallet-{}", address);
     let key_info = keystore.get(&addr_string)?;
     keystore.remove("default")?; // This line should unregister current default key then continue
     keystore.put("default", key_info)?;
@@ -174,14 +150,12 @@ where
 /// Sign a vector of bytes
 pub(in crate::rpc) async fn wallet_sign<DB>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletSignParams>,
-) -> Result<WalletSignResult, JsonRpcError>
+    Params(LotusJson((address, msg_string))): Params<LotusJson<(Address, Vec<u8>)>>,
+) -> Result<LotusJson<Signature>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     let state_manager = &data.state_manager;
-    let (addr, msg_string) = params;
-    let address = addr.0;
     let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
     let key_addr = state_manager
         .resolve_to_key_addr(&address, &heaviest_tipset)
@@ -205,33 +179,20 @@ where
 }
 
 /// Verify a Signature, true if verified, false otherwise
-pub(in crate::rpc) async fn wallet_verify<DB>(
-    _data: Data<RPCState<DB>>,
-    Params(params): Params<WalletVerifyParams>,
-) -> Result<WalletVerifyResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (addr, msg, LotusJson(sig)) = params;
-    let address = addr.0;
-
-    let ret = sig.verify(&msg, &address).is_ok();
-    Ok(ret)
+pub(in crate::rpc) async fn wallet_verify(
+    Params(LotusJson((address, msg, sig))): Params<LotusJson<(Address, Vec<u8>, Signature)>>,
+) -> Result<bool, JsonRpcError> {
+    Ok(sig.verify(&msg, &address).is_ok())
 }
 
 /// Deletes a wallet given its address.
-pub(in crate::rpc) async fn wallet_delete<DB>(
+pub(in crate::rpc) async fn wallet_delete<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<WalletDeleteParams>,
-) -> Result<WalletDeleteResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (addr_str,) = params;
+    Params((addr_str,)): Params<(String,)>,
+) -> Result<(), JsonRpcError> {
     let mut keystore = data.keystore.write().await;
     let addr = Address::from_str(&addr_str)?;
     crate::key_management::remove_key(&addr, &mut keystore)?;
-
     Ok(())
 }
 

@@ -49,6 +49,9 @@ pub struct CliOpts {
     /// Allow RPC to be active or not (default: true)
     #[arg(short, long)]
     pub rpc: Option<bool>,
+    /// Disable Metrics endpoint
+    #[arg(short, long)]
+    pub no_metrics: bool,
     /// Client JWT token to use for JSON-RPC authentication
     #[arg(short, long)]
     pub token: Option<String>,
@@ -147,6 +150,9 @@ pub struct CliOpts {
     /// Check your command-line options and configuration file if one is used
     #[arg(long)]
     pub dry_run: bool,
+    /// Skip loading actors from the actors bundle.
+    #[arg(long)]
+    pub skip_load_actors: bool,
 }
 
 impl CliOpts {
@@ -186,9 +192,16 @@ impl CliOpts {
         } else {
             cfg.client.enable_rpc = false;
         }
-        if let Some(metrics_address) = self.metrics_address {
-            cfg.client.metrics_address = metrics_address;
+
+        if self.no_metrics {
+            cfg.client.enable_metrics_endpoint = false;
+        } else {
+            cfg.client.enable_metrics_endpoint = true;
+            if let Some(metrics_address) = self.metrics_address {
+                cfg.client.metrics_address = metrics_address;
+            }
         }
+
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
             anyhow::bail!("Can't set import_snapshot and import_chain at the same time!")
         } else if self.import_snapshot.is_some() && self.consume_snapshot.is_some() {
@@ -237,6 +250,8 @@ impl CliOpts {
         if let Some(encrypt_keystore) = self.encrypt_keystore {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }
+
+        cfg.client.load_actors = !self.skip_load_actors;
 
         Ok((cfg, path))
     }

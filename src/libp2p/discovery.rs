@@ -12,11 +12,14 @@ use ahash::{HashMap, HashMapExt, HashSet, HashSetExt};
 use libp2p::{
     core::Multiaddr,
     identity::{PeerId, PublicKey},
-    kad::{record::store::MemoryStore, Kademlia, KademliaConfig, KademliaEvent, QueryId},
+    kad::{self, record::store::MemoryStore},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,
     swarm::{
-        behaviour::toggle::Toggle, derive_prelude::*, NetworkBehaviour, PollParameters, ToSwarm,
+        behaviour::toggle::Toggle,
+        derive_prelude::*,
+        dial_opts::{DialOpts, PeerCondition},
+        NetworkBehaviour, PollParameters, ToSwarm,
     },
     StreamProtocol,
 };
@@ -113,7 +116,7 @@ impl<'a> DiscoveryConfig<'a> {
         // Kademlia config
         let store = MemoryStore::new(local_peer_id);
         let kad_config = {
-            let mut cfg = KademliaConfig::default();
+            let mut cfg = kad::Config::default();
             cfg.set_protocol_names(vec![StreamProtocol::try_from_owned(format!(
                 "/fil/kad/{network_name}/kad/1.0.0"
             ))?]);
@@ -121,10 +124,10 @@ impl<'a> DiscoveryConfig<'a> {
         };
 
         let kademlia_opt = if enable_kademlia {
-            let mut kademlia = Kademlia::with_config(local_peer_id, store, kad_config);
-            for (peer_id, addr) in user_defined {
-                kademlia.add_address(&peer_id, addr);
-                peers.insert(peer_id);
+            let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
+            for (peer_id, addr) in &user_defined {
+                kademlia.add_address(peer_id, addr.clone());
+                peers.insert(*peer_id);
             }
             if let Err(e) = kademlia.bootstrap() {
                 warn!("Kademlia bootstrap failed: {}", e);
@@ -150,11 +153,13 @@ impl<'a> DiscoveryConfig<'a> {
             peers,
             peer_addresses,
             target_peer_count,
+            custom_seed_peers: user_defined,
+            pending_dial_opts: VecDeque::new(),
         })
     }
 }
 
-pub type KademliaBehaviour = Toggle<Kademlia<MemoryStore>>;
+pub type KademliaBehaviour = Toggle<kad::Behaviour<MemoryStore>>;
 
 /// Implementation of `NetworkBehaviour` that discovers the nodes on the
 /// network.
@@ -179,6 +184,10 @@ pub struct DiscoveryBehaviour {
     peer_addresses: HashMap<PeerId, HashSet<Multiaddr>>,
     /// Number of connected peers to pause discovery on.
     target_peer_count: u64,
+    /// Seed peers
+    custom_seed_peers: Vec<(PeerId, Multiaddr)>,
+    /// Options to configure dials to known peers.
+    pending_dial_opts: VecDeque<DialOpts>,
 }
 
 impl DiscoveryBehaviour {
@@ -193,10 +202,19 @@ impl DiscoveryBehaviour {
     }
 
     /// Bootstrap Kademlia network
-    pub fn bootstrap(&mut self) -> Result<QueryId, String> {
+    pub fn bootstrap(&mut self) -> Result<kad::QueryId, String> {
         if let Some(active_kad) = self.kademlia.as_mut() {
             active_kad.bootstrap().map_err(|e| e.to_string())
         } else {
+            // Manually dial to seed peers when kademlia is disabled
+            for (peer_id, address) in &self.custom_seed_peers {
+                self.pending_dial_opts.push_back(
+                    DialOpts::peer_id(*peer_id)
+                        .condition(PeerCondition::Disconnected)
+                        .addresses(vec![address.clone()])
+                        .build(),
+                );
+            }
             Err("Kademlia is not activated".to_string())
         }
     }
@@ -316,6 +334,11 @@ impl NetworkBehaviour for DiscoveryBehaviour {
             return Poll::Ready(ToSwarm::GenerateEvent(ev));
         }
 
+        // Dial to peers
+        if let Some(opts) = self.pending_dial_opts.pop_front() {
+            return Poll::Ready(ToSwarm::Dial { opts });
+        }
+
         // Poll the stream that fires when we need to start a random Kademlia query.
         while self.next_kad_random_query.poll_tick(cx).is_ready() {
             if self.n_node_connected < self.target_peer_count {
@@ -346,9 +369,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 ToSwarm::GenerateEvent(ev) => match ev {
                     // Adding to Kademlia buckets is automatic with our config,
                     // no need to do manually.
-                    KademliaEvent::RoutingUpdated { .. } => {}
-                    KademliaEvent::RoutablePeer { .. } => {}
-                    KademliaEvent::PendingRoutablePeer { .. } => {
+                    kad::Event::RoutingUpdated { .. } => {}
+                    kad::Event::RoutablePeer { .. } => {}
+                    kad::Event::PendingRoutablePeer { .. } => {
                         // Intentionally ignore
                     }
                     other => {

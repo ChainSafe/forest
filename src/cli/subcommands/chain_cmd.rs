@@ -3,13 +3,12 @@
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::lotus_json::LotusJson;
-use crate::rpc_client::chain_ops::*;
+use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
-use futures::TryFutureExt;
 
-use super::*;
+use super::{print_pretty_json, print_rpc_res_cids};
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {
@@ -56,20 +55,15 @@ pub enum ChainCommands {
 }
 
 impl ChainCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => {
-                print_rpc_res_pretty(chain_get_block((cid.into(),), &config.client.rpc_token).await)
-            }
-            Self::Genesis => {
-                print_rpc_res_pretty(chain_get_genesis(&config.client.rpc_token).await)
-            }
-            Self::Head => print_rpc_res_cids(chain_head(&config.client.rpc_token).await),
-            Self::Message { cid } => print_rpc_res_pretty(
-                chain_get_message((cid.into(),), &config.client.rpc_token).await,
-            ),
+            Self::Block { cid } => print_pretty_json(api.chain_get_block(cid).await?),
+            Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
+            Self::Head => print_rpc_res_cids(api.chain_head().await?),
+            Self::Message { cid } => print_pretty_json(api.chain_get_message(cid).await?),
             Self::ReadObj { cid } => {
-                print_rpc_res(chain_read_obj((cid.into(),), &config.client.rpc_token).await)
+                println!("{}", api.chain_read_obj(cid).await?);
+                Ok(())
             }
             Self::SetHead {
                 cids,
@@ -78,15 +72,9 @@ impl ChainCommands {
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
-                tipset_by_epoch_or_offset(epoch, &config.client.rpc_token)
-                    .and_then(|tipset_json| {
-                        chain_set_head(
-                            (tipset_json.into_inner().key().clone(),),
-                            &config.client.rpc_token,
-                        )
-                    })
-                    .await
-                    .map_err(handle_rpc_err)
+                let tipset = tipset_by_epoch_or_offset(&api, epoch).await?;
+                api.chain_set_head(tipset.key().clone()).await?;
+                Ok(())
             }
             Self::SetHead {
                 cids,
@@ -94,12 +82,9 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                chain_set_head(
-                    (TipsetKeys::from_iter(cids.clone()),),
-                    &config.client.rpc_token,
-                )
-                .await
-                .map_err(handle_rpc_err)
+                api.chain_set_head(TipsetKeys::from_iter(cids.clone()))
+                    .await?;
+                Ok(())
             }
         }
     }
@@ -108,17 +93,18 @@ impl ChainCommands {
 /// If `epoch_or_offset` is negative, get the tipset that many blocks before the
 /// current head. Else treat `epoch_or_offset` as an epoch, and get that tipset.
 async fn tipset_by_epoch_or_offset(
+    api: &ApiInfo,
     epoch_or_offset: i64,
-    auth_token: &Option<String>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let current_head = chain_head(auth_token).await?.into_inner();
+) -> Result<Tipset, JsonRpcError> {
+    let current_head = api.chain_head().await?;
 
     let target_epoch = match epoch_or_offset.is_negative() {
         true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
 
-    chain_get_tipset_by_height((target_epoch, current_head.key().clone()), auth_token).await
+    api.chain_get_tipset_by_height(target_epoch, current_head.key().clone())
+        .await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

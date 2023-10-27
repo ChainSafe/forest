@@ -46,22 +46,31 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
-    pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Option<Arc<Tipset>>, Error> {
         if let Some(ts) = self.ts_cache.lock().get(tsk) {
             metrics::LRU_CACHE_HIT
                 .with_label_values(&[metrics::values::TIPSET])
                 .inc();
-            return Ok(ts.clone());
+            return Ok(Some(ts.clone()));
         }
 
-        let ts = Arc::new(
-            Tipset::load(&self.db, tsk)?.ok_or(Error::NotFound(String::from("Key for header")))?,
-        );
-        self.ts_cache.lock().put(tsk.clone(), ts.clone());
-        metrics::LRU_CACHE_MISS
-            .with_label_values(&[metrics::values::TIPSET])
-            .inc();
-        Ok(ts)
+        let ts_opt = Tipset::load(&self.db, tsk)?.map(Arc::new);
+        if let Some(ts) = &ts_opt {
+            self.ts_cache.lock().put(tsk.clone(), ts.clone());
+            metrics::LRU_CACHE_MISS
+                .with_label_values(&[metrics::values::TIPSET])
+                .inc();
+        }
+
+        Ok(ts_opt)
+    }
+
+    /// Loads a tipset from memory given the tipset keys and cache.
+    /// This calls fails if the tipset is missing or invalid. Semantically
+    /// identical to [`Tipset::load_required`] but the result is cached.
+    pub fn load_required_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+        self.load_tipset(tsk)?
+            .ok_or_else(|| Error::NotFound("Key for header".into()))
     }
 
     /// Find tipset at epoch `to` in the chain of ancestors starting at `from`.
@@ -142,7 +151,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
         itertools::unfold(Some(from), move |tipset| {
             tipset.take().map(|child| {
-                *tipset = self.load_tipset(child.parents()).ok();
+                *tipset = self.load_required_tipset(child.parents()).ok();
                 child
             })
         })
@@ -166,10 +175,10 @@ impl<DB: Blockstore> ChainIndex<DB> {
         if let Some(entry) = check_for_beacon_entry(ts)? {
             return Ok(entry);
         }
-        let mut cur = self.load_tipset(ts.parents())?;
+        let mut cur = self.load_required_tipset(ts.parents())?;
         for i in 1..20 {
             if i != 1 {
-                cur = self.load_tipset(cur.parents())?;
+                cur = self.load_required_tipset(cur.parents())?;
             }
             if let Some(entry) = check_for_beacon_entry(&cur)? {
                 return Ok(entry);

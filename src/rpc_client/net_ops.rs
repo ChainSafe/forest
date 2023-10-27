@@ -1,42 +1,48 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::net_api::*;
-use jsonrpc_v2::Error;
+use crate::rpc_api::{data_types::AddrInfo, net_api::*};
 
-use crate::rpc_client::call;
+use super::{ApiInfo, JsonRpcError, RpcRequest};
 
-pub async fn net_addrs_listen(
-    (): NetAddrsListenParams,
-    auth_token: &Option<String>,
-) -> Result<NetAddrsListenResult, Error> {
-    call(NET_ADDRS_LISTEN, (), auth_token).await
-}
+impl ApiInfo {
+    pub async fn net_addrs_listen(&self) -> Result<AddrInfo, JsonRpcError> {
+        self.call(Self::net_addrs_listen_req()).await
+    }
 
-pub async fn net_peers(
-    (): NetPeersParams,
-    auth_token: &Option<String>,
-) -> Result<NetPeersResult, Error> {
-    call(NET_PEERS, (), auth_token).await
-}
+    pub fn net_addrs_listen_req() -> RpcRequest<AddrInfo> {
+        RpcRequest::new(NET_ADDRS_LISTEN, ())
+    }
 
-pub async fn net_info(
-    (): NetInfoParams,
-    auth_token: &Option<String>,
-) -> Result<NetInfoResult, Error> {
-    call(NET_INFO, (), auth_token).await
-}
+    pub async fn net_peers(&self) -> Result<Vec<AddrInfo>, JsonRpcError> {
+        self.call(Self::net_peers_req()).await
+    }
 
-pub async fn net_connect(
-    params: NetConnectParams,
-    auth_token: &Option<String>,
-) -> Result<NetConnectResult, Error> {
-    call(NET_CONNECT, params, auth_token).await
-}
+    pub fn net_peers_req() -> RpcRequest<Vec<AddrInfo>> {
+        RpcRequest::new(NET_PEERS, ())
+    }
 
-pub async fn net_disconnect(
-    params: NetDisconnectParams,
-    auth_token: &Option<String>,
-) -> Result<NetDisconnectResult, Error> {
-    call(NET_DISCONNECT, params, auth_token).await
+    pub async fn net_info(&self) -> Result<NetInfoResult, JsonRpcError> {
+        self.call(Self::net_info_req()).await
+    }
+
+    pub fn net_info_req() -> RpcRequest<NetInfoResult> {
+        RpcRequest::new(NET_INFO, ())
+    }
+
+    pub async fn net_connect(&self, addr: AddrInfo) -> Result<(), JsonRpcError> {
+        self.call(Self::net_connect_req(addr)).await
+    }
+
+    pub fn net_connect_req(addr: AddrInfo) -> RpcRequest<()> {
+        RpcRequest::new(NET_CONNECT, (addr,))
+    }
+
+    pub async fn net_disconnect(&self, peer: String) -> Result<(), JsonRpcError> {
+        self.call(Self::net_disconnect_req(peer)).await
+    }
+
+    pub fn net_disconnect_req(peer: String) -> RpcRequest<()> {
+        RpcRequest::new(NET_DISCONNECT, (peer,))
+    }
 }

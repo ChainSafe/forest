@@ -306,8 +306,8 @@ fn cid_error_to_io_error(cid_error: cid::Error) -> io::Error {
 /// ```
 #[tracing::instrument(level = "trace", skip_all, ret)]
 fn read_header(mut reader: impl Read) -> io::Result<CarHeader> {
-    let header_len =
-        read_varint_body_length_or_eof(&mut reader)?.ok_or(io::Error::from(UnexpectedEof))?;
+    let header_len = read_varint_body_length_or_eof(&mut reader)?
+        .ok_or_else(|| io::Error::from(UnexpectedEof))?;
     let mut buffer = vec![0; usize::try_from(header_len).unwrap()];
     reader.read_exact(&mut buffer)?;
     from_slice_with_fallback(&buffer).map_err(|e| io::Error::new(InvalidData, e))

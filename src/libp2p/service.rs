@@ -30,7 +30,7 @@ use libp2p::{
     multiaddr::Protocol,
     noise, ping,
     request_response::{self, RequestId, ResponseChannel},
-    swarm::{SwarmBuilder, SwarmEvent},
+    swarm::{self, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
 use tokio_stream::wrappers::IntervalStream;
@@ -177,7 +177,6 @@ pub enum NetRPCMethods {
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
-    config: Libp2pConfig,
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
     peer_manager: Arc<PeerManager>,
@@ -193,7 +192,7 @@ impl<DB> Libp2pService<DB>
 where
     DB: Blockstore + BitswapStoreReadWrite + Sync + Send + 'static,
 {
-    pub fn new(
+    pub async fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
@@ -206,15 +205,15 @@ where
         let transport =
             build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
 
-        let mut swarm = SwarmBuilder::with_tokio_executor(
+        let mut swarm = Swarm::new(
             transport,
             ForestBehaviour::new(&net_keypair, &config, network_name)?,
             peer_id,
-        )
-        .notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
-        .per_connection_event_buffer_size(64)
-        .idle_connection_timeout(Duration::from_secs(60 * 10))
-        .build();
+            swarm::Config::with_tokio_executor()
+                .with_notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
+                .with_per_connection_event_buffer_size(64)
+                .with_idle_connection_timeout(Duration::from_secs(60 * 10)),
+        );
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
@@ -225,8 +224,35 @@ where
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
+        // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
+        // peer's multiaddress. Useful if others want to use this node to bootstrap
+        // from.
+        info!("p2p network peer id: {}", swarm.local_peer_id());
+
+        // Listen on network endpoints before being detached and connecting to any peers.
+        for addr in &config.listening_multiaddrs {
+            match swarm.listen_on(addr.clone()) {
+                Ok(id) => loop {
+                    if let SwarmEvent::NewListenAddr {
+                        address,
+                        listener_id,
+                    } = swarm.select_next_some().await
+                    {
+                        if id == listener_id {
+                            info!("p2p peer is now listening on: {address}");
+                            break;
+                        }
+                    }
+                },
+                Err(err) => error!("Fail to listen on {addr}: {err}"),
+            }
+        }
+
+        if swarm.listeners().count() == 0 {
+            anyhow::bail!("p2p peer failed to listen on any network endpoints");
+        }
+
         Ok(Libp2pService {
-            config,
             swarm,
             cs,
             peer_manager,
@@ -243,11 +269,6 @@ where
     /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
-        for addr in &self.config.listening_multiaddrs {
-            if let Err(err) = Swarm::listen_on(&mut self.swarm, addr.clone()) {
-                error!("Fail to listen on {addr}: {err}");
-            }
-        }
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
@@ -825,7 +846,7 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 /// has all above protocols enabled.
 pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
     let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
-    let build_dns_tcp = || libp2p::dns::TokioDnsConfig::system(build_tcp());
+    let build_dns_tcp = || libp2p::dns::tokio::Transport::system(build_tcp());
     let transport = build_dns_tcp()?;
 
     let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;

@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::io::WithProgress;
+use crate::utils::reqwest_resume;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
+use reqwest::Response;
 use std::{io::ErrorKind, path::Path};
 use tap::Pipe;
 use tokio::io::AsyncBufRead;
@@ -68,9 +70,10 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
     let (stream, content_length) = match Url::parse(location) {
         Ok(url) => {
             info!("Downloading file: {}", url);
-            let resp = reqwest::get(url).await?.error_for_status()?;
+            let resume_resp = reqwest_resume::get(url).await?;
+            let resp = resume_resp.response().error_for_status_ref()?;
             let content_length = resp.content_length().unwrap_or_default();
-            let stream = resp
+            let stream = resume_resp
                 .bytes_stream()
                 .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
                 .pipe(tokio_util::io::StreamReader::new);
@@ -90,4 +93,13 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
         stream,
         content_length,
     )))
+}
+
+pub async fn http_get(url: &Url) -> anyhow::Result<Response> {
+    info!(%url, "GET");
+    Ok(global_http_client()
+        .get(url.clone())
+        .send()
+        .await?
+        .error_for_status()?)
 }

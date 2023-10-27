@@ -3,14 +3,12 @@
 
 use std::sync::Arc;
 
-use crate::cli_shared::cli::Config;
 use crate::rpc_api::progress_api::GetProgressType;
-use crate::rpc_client::{db_ops::db_gc, progress_ops::get_progress};
+use crate::rpc_client::ApiInfo;
 use crate::utils::io::ProgressBar;
 use chrono::Utc;
 use clap::Subcommand;
 
-use crate::cli::subcommands::handle_rpc_err;
 use crate::utils::bail_moved_cmd;
 
 #[derive(Debug, Subcommand)]
@@ -28,7 +26,7 @@ pub enum DBCommands {
 }
 
 impl DBCommands {
-    pub async fn run(self, config: &Config) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Stats => bail_moved_cmd("db stats", "forest-tool db stats"),
             Self::GC => {
@@ -41,14 +39,15 @@ impl DBCommands {
                 }));
                 tokio::spawn({
                     let bar = bar.clone();
+                    let api = api.clone();
                     async move {
                         let mut interval =
                             tokio::time::interval(tokio::time::Duration::from_secs(1));
                         loop {
                             interval.tick().await;
-                            if let Ok((progress, total)) =
-                                get_progress((GetProgressType::DatabaseGarbageCollection,), &None)
-                                    .await
+                            if let Ok((progress, total)) = api
+                                .get_progress(GetProgressType::DatabaseGarbageCollection)
+                                .await
                             {
                                 let bar = bar.lock().await;
                                 if bar.is_finish() {
@@ -61,9 +60,7 @@ impl DBCommands {
                     }
                 });
 
-                db_gc((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                api.db_gc().await?;
 
                 bar.lock().await.finish_println(&format!(
                     "Database garbage collection completed. took {}s",

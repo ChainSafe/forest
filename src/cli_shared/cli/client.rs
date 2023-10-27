@@ -42,6 +42,7 @@ pub struct Client {
     pub data_dir: PathBuf,
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
+    pub enable_metrics_endpoint: bool,
     pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
@@ -73,6 +74,8 @@ pub struct Client {
     pub token_exp: Duration,
     /// Display progress bars mode. Auto will display if TTY.
     pub show_progress_bars: ProgressBarVisibility,
+    /// Load actors from the bundle file (possibly generating it if it doesn't exist)
+    pub load_actors: bool,
 }
 
 impl Default for Client {
@@ -82,6 +85,7 @@ impl Default for Client {
             data_dir: dir.data_dir().to_path_buf(),
             genesis_file: None,
             enable_rpc: true,
+            enable_metrics_endpoint: true,
             rpc_token: None,
             snapshot_path: None,
             snapshot: false,
@@ -96,6 +100,7 @@ impl Default for Client {
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             show_progress_bars: Default::default(),
+            load_actors: true,
         }
     }
 }

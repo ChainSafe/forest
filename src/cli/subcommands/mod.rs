@@ -21,16 +21,14 @@ mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
-use crate::cli_shared::cli::{CliOpts, HELP_MESSAGE};
-use crate::lotus_json::LotusJson;
+use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
-use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
 use std::path::PathBuf;
 use tracing::error;
@@ -49,8 +47,9 @@ use crate::cli::subcommands::info_cmd::InfoCommand;
 #[command(name = env!("CARGO_PKG_NAME"), author = env!("CARGO_PKG_AUTHORS"), version = FOREST_VERSION_STRING.as_str(), about = env!("CARGO_PKG_DESCRIPTION"))]
 #[command(help_template(HELP_MESSAGE))]
 pub struct Cli {
-    #[command(flatten)]
-    pub opts: CliOpts,
+    /// Client JWT token to use for JSON-RPC authentication
+    #[arg(short, long)]
+    pub token: Option<String>,
     #[command(subcommand)]
     pub cmd: Subcommand,
 }
@@ -193,14 +192,6 @@ pub enum Subcommand {
     Car(CarCommands),
 }
 
-/// Pretty-print a JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
-    match serde_json::to_string(&e) {
-        Ok(err_msg) => anyhow::Error::msg(err_msg),
-        Err(err) => err.into(),
-    }
-}
-
 /// Format a vector to a prettified string
 pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
     format!("[{}]", vec.join(", "))
@@ -213,27 +204,14 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     std::process::exit(code);
 }
 
-/// Prints a plain HTTP JSON-RPC response result
-pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
-    println!("{}", &obj);
-    Ok(())
-}
-
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_pretty<T: Serialize>(
-    res: Result<T, JsonRpcError>,
-) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
+pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
     println!("{}", serde_json::to_string_pretty(&obj)?);
     Ok(())
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(
-    res: Result<LotusJson<Tipset>, JsonRpcError>,
-) -> anyhow::Result<()> {
-    let tipset = res.map_err(handle_rpc_err)?.into_inner();
+pub(super) fn print_rpc_res_cids(tipset: Tipset) -> anyhow::Result<()> {
     println!(
         "{}",
         serde_json::to_string_pretty(
@@ -248,28 +226,9 @@ pub(super) fn print_rpc_res_cids(
 }
 
 /// Prints a bytes HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
-    println!(
-        "{}",
-        String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
-    );
+pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
+    println!("{}", String::from_utf8(obj)?);
     Ok(())
-}
-
-/// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
-pub(super) fn print_stdout(out: String) {
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    handle
-        .write_all(out.as_bytes())
-        .map_err(|e| handle_rpc_err(e.into()))
-        .unwrap();
-
-    handle
-        .write("\n".as_bytes())
-        .map_err(|e| handle_rpc_err(e.into()))
-        .unwrap();
 }
 
 pub fn prompt_confirm() -> bool {

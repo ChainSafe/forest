@@ -5,7 +5,7 @@ use crate::shim::address::Address;
 use blake2b_simd::Params;
 use filecoin_proofs_api::ProverId;
 use fvm_ipld_encoding::strict_bytes::{Deserialize, Serialize};
-pub use serde::{de, ser, Deserializer, Serializer};
+use serde::{de, ser, Deserializer, Serializer};
 
 mod fallback_de_ipld_dagcbor;
 

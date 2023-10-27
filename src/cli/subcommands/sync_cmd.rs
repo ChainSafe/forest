@@ -6,14 +6,13 @@ use std::{
     time::Duration,
 };
 
+use crate::chain_sync::SyncStage;
 use crate::rpc_client::*;
-use crate::{chain_sync::SyncStage, lotus_json::LotusJson};
 use cid::Cid;
 use clap::Subcommand;
 use ticker::Ticker;
 
-use super::Config;
-use crate::cli::subcommands::{format_vec_pretty, handle_rpc_err};
+use crate::cli::subcommands::format_vec_pretty;
 
 #[derive(Debug, Subcommand)]
 pub enum SyncCommands {
@@ -40,16 +39,14 @@ pub enum SyncCommands {
 }
 
 impl SyncCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = sync_status((), &config.client.rpc_token)
-                        .await
-                        .map_err(handle_rpc_err)?;
+                    let response = api.sync_status().await?;
                     let state = &response.active_syncs[0];
 
                     let target_height = if let Some(tipset) = state.target() {
@@ -94,9 +91,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let response = sync_status((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let response = api.sync_status().await?;
 
                 let state = &response.active_syncs[0];
                 let base = state.base();
@@ -133,9 +128,7 @@ impl SyncCommands {
             }
             Self::CheckBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                let response = sync_check_bad((LotusJson(cid),), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let response = api.sync_check_bad(cid).await?;
 
                 if response.is_empty() {
                     println!("Block \"{cid}\" is not marked as a bad block");
@@ -146,9 +139,7 @@ impl SyncCommands {
             }
             Self::MarkBad { cid } => {
                 let cid: Cid = cid.parse()?;
-                sync_mark_bad((LotusJson(cid),), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                api.sync_mark_bad(cid).await?;
                 println!("OK");
                 Ok(())
             }
