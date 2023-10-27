@@ -275,10 +275,6 @@ mod tests {
         {
             Self {}
         }
-
-        fn temporary_db_name(&self) -> String {
-            "".into()
-        }
     }
 
     #[test]
