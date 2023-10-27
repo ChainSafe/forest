@@ -36,8 +36,6 @@ pub(super) trait MigrationOperation {
     /// Performs post-migration checks. This is the place to check if the migration database is
     /// ready to be used by Forest and renamed into a versioned database.
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()>;
-    /// Returns the name of the temporary database that will be created during the migration.
-    fn temporary_db_name(&self) -> String;
 }
 
 /// Migrations map. The key is the starting version and the value is the tuple of the target version
@@ -195,7 +193,7 @@ fn create_migration_chain_from_migrations(
 mod tests {
     use std::fs;
 
-    use crate::db::migration::migration_map::db_name;
+    use crate::db::migration::migration_map::temporary_db_name;
     use tempfile::TempDir;
 
     use super::*;
@@ -422,13 +420,13 @@ mod tests {
         }
 
         fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-            let temp_db_path = chain_data_path.join(self.temporary_db_name());
+            let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
             fs::create_dir(&temp_db_path).unwrap();
             Ok(temp_db_path)
         }
 
         fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-            let path = chain_data_path.join(self.temporary_db_name());
+            let path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
             if !path.exists() {
                 anyhow::bail!("{} does not exist", path.display());
             }
@@ -440,10 +438,6 @@ mod tests {
             Self: Sized,
         {
             Self { from, to }
-        }
-
-        fn temporary_db_name(&self) -> String {
-            db_name(&self.from, &self.to)
         }
     }
 
@@ -472,6 +466,7 @@ mod tests {
     }
 }
 
-pub(crate) fn db_name(from: &Version, to: &Version) -> String {
+/// Returns the name of the temporary database that will be created during the migration.
+pub(crate) fn temporary_db_name(from: &Version, to: &Version) -> String {
     format!("migration_{}_{}", from, to).replace('.', "_")
 }

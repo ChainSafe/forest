@@ -3,7 +3,7 @@
 
 //! Migration logic from any version that requires no migration logic.
 
-use crate::db::migration::migration_map::db_name;
+use crate::db::migration::migration_map::temporary_db_name;
 use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
@@ -24,7 +24,7 @@ impl MigrationOperation for MigrationVoid {
     fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
         let source_db = chain_data_path.join(self.from.to_string());
 
-        let temp_db_path = chain_data_path.join(self.temporary_db_name());
+        let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
         if temp_db_path.exists() {
             info!(
                 "removing old temporary database {temp_db_path}",
@@ -48,7 +48,7 @@ impl MigrationOperation for MigrationVoid {
     }
 
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-        let temp_db_name = self.temporary_db_name();
+        let temp_db_name = temporary_db_name(&self.from, &self.to);
         if !chain_data_path.join(&temp_db_name).exists() {
             anyhow::bail!(
                 "migration database {} does not exist",
@@ -63,10 +63,6 @@ impl MigrationOperation for MigrationVoid {
         Self: Sized,
     {
         Self { from, to }
-    }
-
-    fn temporary_db_name(&self) -> String {
-        db_name(&self.from, &self.to)
     }
 }
 
