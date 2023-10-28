@@ -29,13 +29,12 @@ jobs:
   codecov:
     name: Cover
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    if: false && github.event.pull_request.draft == false
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
         with:
           submodules: true
-      - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}

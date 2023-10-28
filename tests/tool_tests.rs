@@ -10,11 +10,14 @@ use crate::common::tool;
 // Exporting an empty archive should fail but not panic
 #[test]
 fn export_empty_archive() {
-    let temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
+    let temp_file = tempfile::Builder::new()
+        .tempfile()
+        .unwrap()
+        .into_temp_path();
     tool()
         .arg("archive")
         .arg("export")
-        .arg(temp_file.path())
+        .arg(&temp_file)
         .assert()
         .failure()
         .stderr(predicate::eq(
@@ -25,9 +28,16 @@ fn export_empty_archive() {
 // Running `forest-tool state-migration actor-bundle` may not fail.
 #[test]
 fn state_migration_actor_bundle_runs() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let bundle = temp_dir.path().join("bundle.car");
+
     tool()
         .arg("state-migration")
         .arg("actor-bundle")
+        .arg(&bundle)
         .assert()
         .success();
+
+    assert!(bundle.exists());
+    assert!(zstd::decode_all(std::fs::File::open(&bundle).unwrap()).is_ok());
 }

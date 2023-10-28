@@ -71,6 +71,8 @@ pub struct Client {
         |g| Duration::milliseconds(i64::arbitrary(g))
     )))]
     pub token_exp: Duration,
+    /// Load actors from the bundle file (possibly generating it if it doesn't exist)
+    pub load_actors: bool,
 }
 
 impl Default for Client {
@@ -94,6 +96,7 @@ impl Default for Client {
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
+            load_actors: true,
         }
     }
 }

@@ -524,9 +524,9 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
         let this = self.project();
         let receive_block = || {
             if let Ok(item) = this.block_receiver.try_recv() {
-                return anyhow::Ok(item);
+                return item;
             }
-            anyhow::Ok(None)
+            None
         };
         loop {
             while let Some(cid) = this.queue.pop() {
@@ -537,7 +537,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                 }
             }
 
-            if let Some(block) = receive_block()? {
+            if let Some(block) = receive_block() {
                 return Poll::Ready(Some(block));
             }
 
@@ -599,9 +599,10 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                 if let Some(item) = item {
                     return Poll::Ready(Some(item));
                 }
-                // Close the sender when it's empty, then we can exit in the next iteration.
+                // Close the sender when it's empty and exit.
                 if this.extract_sender.is_empty() && this.block_receiver.is_empty() {
-                    this.extract_sender.close();
+                    this.worker_handle.abort();
+                    return Poll::Ready(None);
                 }
             } else {
                 // That's it, nothing else to do. End of stream.

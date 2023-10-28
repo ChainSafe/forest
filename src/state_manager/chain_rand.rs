@@ -132,7 +132,7 @@ where
                 }
             }
 
-            rand_ts = self.chain_index.load_tipset(rand_ts.parents())?;
+            rand_ts = self.chain_index.load_required_tipset(rand_ts.parents())?;
         }
 
         bail!(

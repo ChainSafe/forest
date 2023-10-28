@@ -5,6 +5,12 @@ slow-timeout = { period = "10s", terminate-after = 3 }
 filter = 'test(state_migration_actor_bundle_runs)'
 slow-timeout = { period = "120s", terminate-after = 3 }
 
+# This test downloads bundles from the network, which can take a while.
+# It is only run on CI, so we can afford to be more patient.
+[[profile.default.overrides]]
+filter = 'test(networks::actors_bundle::tests::check_bundles_are_mirrored)'
+slow-timeout = { period = "60s", terminate-after = 3 }
+
 [[profile.default.overrides]]
 # lint runs `cargo check` for source file discovery, which can take a while
 filter = 'binary(lint)'

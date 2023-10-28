@@ -159,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_calibnet_genesis() {
-        let mut temp_path = Builder::new().tempfile().unwrap();
+        let mut temp_path = tempfile::Builder::new().tempfile().unwrap();
         temp_path.write_all(calibnet::DEFAULT_GENESIS).unwrap();
         assert!(validate(&temp_path.into_temp_path(), false, true)
             .await

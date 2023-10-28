@@ -223,7 +223,7 @@ where
     ) -> Result<FullTipset, ChainMuxerError> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(&tipset_keys)?;
+        let ts = chain_store.load_required_tipset(&tipset_keys)?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
@@ -411,10 +411,12 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
-                // Unset heaviest tipset for disconnected peers
-                metrics::PEER_TIPSET_EPOCH
-                    .with_label_values(&[peer_id.to_string().as_str()])
-                    .set(-1);
+                // Remove peer id labels for disconnected peers
+                if let Err(e) =
+                    metrics::PEER_TIPSET_EPOCH.remove_label_values(&[peer_id.to_string().as_str()])
+                {
+                    debug!("{e}");
+                }
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),

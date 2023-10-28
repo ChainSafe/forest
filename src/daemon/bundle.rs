@@ -1,33 +1,45 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::utils::db::{car_stream::CarHeader, car_util::load_car};
-use anyhow::Context as _;
+use crate::{
+    networks::{ActorBundleInfo, ACTOR_BUNDLES},
+    utils::{db::car_util::load_car, net::http_get},
+};
+use anyhow::ensure;
+use futures::{stream::FuturesUnordered, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use std::io::Cursor;
+use tracing::warn;
 
-pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<CarHeader> {
-    const ERROR_MESSAGE: &str = "Actor bundles assets are not properly downloaded, make sure git-lfs is installed and run `git lfs pull` again. See <https://github.com/git-lfs/git-lfs/blob/main/INSTALLING.md>";
+/// Tries to load the missing actor bundles to the blockstore. If the bundle is
+/// not present, it will be downloaded.
+pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<()> {
+    FuturesUnordered::from_iter(
+        ACTOR_BUNDLES
+            .iter()
+            .filter(|bundle| !db.has(&bundle.manifest).unwrap_or(false))
+            .map(
+                |ActorBundleInfo {
+                     manifest: root,
+                     url,
+                     alt_url,
+                 }| async move {
+                    let response = if let Ok(response) = http_get(url).await {
+                        response
+                    } else {
+                        warn!("failed to download bundle from primary URL, trying alternative URL");
+                        http_get(alt_url).await?
+                    };
+                    let bytes = response.bytes().await?;
+                    let header = load_car(db, Cursor::new(bytes)).await?;
+                    ensure!(header.roots.len() == 1);
+                    ensure!(&header.roots[0] == root);
+                    Ok(())
+                },
+            ),
+    )
+    .try_collect::<Vec<_>>()
+    .await?;
 
-    const ACTOR_BUNDLES_CAR_ZST: &[u8] = include_bytes!("../../assets/actor_bundles.car.zst");
-
-    load_car(db, ACTOR_BUNDLES_CAR_ZST)
-        .await
-        .context(ERROR_MESSAGE)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::networks::ACTOR_BUNDLES;
-    use ahash::HashSet;
-    use cid::Cid;
-    use pretty_assertions::assert_eq;
-
-    #[tokio::test]
-    async fn test_load_actor_bundles() {
-        let db = fvm_ipld_blockstore::MemoryBlockstore::new();
-        let roots = HashSet::from_iter(load_actor_bundles(&db).await.unwrap().roots);
-        let roots_expected: HashSet<Cid> = ACTOR_BUNDLES.iter().map(|b| b.manifest).collect();
-        assert_eq!(roots, roots_expected);
-    }
+    Ok(())
 }
