@@ -19,14 +19,14 @@ use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-pub(super) struct Migration0_14_0_0_14_1 {
+pub(super) struct Migration0_14_0_0_15_0 {
     from: Version,
     to: Version,
 }
 
 /// Migrates the database from version 0.14.0 to 0.14.1
 /// This migration merges the two databases represented by rolling db into one.
-impl MigrationOperation for Migration0_14_0_0_14_1 {
+impl MigrationOperation for Migration0_14_0_0_15_0 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
