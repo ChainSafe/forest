@@ -204,7 +204,7 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
 #[cfg(test)]
 mod test {
     use crate::blocks::{BlockHeader, Tipset};
-    use crate::chain::ChainStore;
+    use crate::chain::{ChainEpochDelta, ChainStore};
 
     use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB};
     use crate::message_pool::test_provider::{mock_block, mock_block_with_parents};
@@ -218,7 +218,7 @@ mod test {
     use fvm_ipld_blockstore::Blockstore;
     use std::sync::Arc;
 
-    fn insert_unrechable(db: impl Blockstore, quantity: u64) {
+    fn insert_unreachable(db: impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
             let block: BlockHeader = mock_block(1 + idx, 1 + quantity);
             db.put_cbor_default(&block).unwrap();
@@ -293,7 +293,7 @@ mod test {
 
         let unreachable_cnt = 4;
         // test insufficient epochs for filter step
-        insert_unrechable(db.clone(), unreachable_cnt);
+        insert_unreachable(db.clone(), unreachable_cnt);
         gc.gc_workflow(interval).await.unwrap();
         assert_eq!(gc.marked.len() as u64, reachable_cnt + unreachable_cnt);
         assert_eq!(gc.epoch_marked, 1);
@@ -313,5 +313,60 @@ mod test {
         // try another run
         gc.gc_workflow(interval).await.unwrap();
         assert_eq!(gc.marked.len(), db.get_keys().unwrap().len());
+    }
+
+    #[quickcheck_async::tokio]
+    async fn test_workflow(depth: u8, current_epoch: u8, unreachable_cnt: u8) {
+        let unreachable_cnt = unreachable_cnt as u64;
+        // Enforce depth above zero.
+        if depth < 1 {
+            return;
+        }
+
+        // Depth and current epoch are limited to positive numbers to cater for realistic scenarios.
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpoch;
+
+        let interval = Duration::from_secs(0);
+        let db = Arc::new(MemoryDB::default());
+        let chain_config = Arc::new(ChainConfig::default());
+        let gen_block: BlockHeader = mock_block(1, 1);
+        db.put_cbor_default(&gen_block).unwrap();
+        let cs = Arc::new(
+            ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
+        );
+        let cs_cloned = cs.clone();
+        let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
+        let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
+
+        // Make sure we have enough epochs to start garbage collection.
+        run_to_epoch(db.clone(), cs.clone(), current_epoch + depth);
+
+        let current_epoch = current_epoch + depth;
+
+        // Insert something to clean up.
+        insert_unreachable(db.clone(), unreachable_cnt);
+
+        // Initiate the GC.
+        gc.gc_workflow(interval).await.unwrap();
+        // Make sure there are marked items.
+        assert!(!gc.marked.is_empty());
+
+        run_to_epoch(db.clone(), cs.clone(), current_epoch + depth);
+        let current_epoch = current_epoch + depth;
+
+        // Make sure we account for the genesis block.
+        let total_reachable_count = current_epoch + 1;
+
+        assert_eq!(
+            db.get_keys().unwrap().len() as u64,
+            total_reachable_count as u64 + unreachable_cnt
+        );
+
+        // filter and sweep
+        gc.gc_workflow(interval).await.unwrap();
+
+        assert_eq!(gc.marked.len(), 0);
+        assert_eq!(db.get_keys().unwrap().len(), total_reachable_count as usize);
     }
 }
