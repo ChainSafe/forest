@@ -156,10 +156,6 @@ impl JsonRpcError {
         code: -32602,
         message: Cow::Borrowed("Invalid method parameter(s)."),
     };
-    // pub const INTERNAL_ERROR: JsonRpcError = JsonRpcError {
-    //     code: -32603,
-    //     message: Cow::Borrowed("Internal JSON-RPC error."),
-    // };
 }
 
 impl std::fmt::Display for JsonRpcError {
@@ -260,6 +256,11 @@ fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
     url
 }
 
+/// An `RpcRequest` is an at-rest description of a remote procedure call. It can
+/// be invoked using `ApiInfo::call`.
+///
+/// When adding support for a new RPC method, the corresponding `RpcRequest`
+/// value should be public for use in testing.
 #[derive(Debug, Clone)]
 pub struct RpcRequest<T = serde_json::Value> {
     pub method_name: &'static str,

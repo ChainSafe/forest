@@ -10,11 +10,6 @@ use serde_json::Value;
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
-    // Current unused
-    // pub async fn version(&self) -> Result<APIVersion, JsonRpcError> {
-    //     self.call_req_e(Self::version_req()).await
-    // }
-
     pub fn version_req() -> RpcRequest<APIVersion> {
         RpcRequest::new(VERSION, ())
     }
