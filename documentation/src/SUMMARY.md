@@ -30,5 +30,6 @@
   - [Devnet Notes](./developer_documentation/devnet_notes.md)
   - [Filecoin Archive](./developer_documentation/filecoin_archive.md)
   - [Archie and Fuzzy](./developer_documentation/archie_and_fuzzy.md)
+  - [RPC API Compatibility](./developer_documentation/rpc_api_compatibility.md)
   - [Notes and sketches](./developer_documentation/notes_and_sketches.md)
     - [ChainMuxer/TipsetProcessor state machine](./developer_documentation/chain_muxer_state_machine.md)
