@@ -217,7 +217,8 @@ pub struct DiscoverMethod {
     name: String,
     param_structure: String,
     params: Value,
-    // result
+    // Missing 'result' field. Tracking issue:
+    // https://github.com/ChainSafe/forest/issues/3585
     summary: String,
 }
 
