@@ -46,8 +46,8 @@ impl ApiCommands {
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum EndpointStatus {
-    // RPC endpoint is missing (currently not reported correctly by either Forest nor Lotus)
-    Missing,
+    // RPC method is missing
+    MissingMethod,
     // Request isn't valid according to jsonrpc spec
     InvalidRequest,
     // Catch-all for errors on the node
@@ -61,12 +61,10 @@ enum EndpointStatus {
 
 impl EndpointStatus {
     fn from_json_error(err: JsonRpcError) -> Self {
-        // dbg!(&err_message(&err));
-        // dbg!(&err_code(&err));
         if err.code == JsonRpcError::INVALID_REQUEST.code {
             EndpointStatus::InvalidRequest
         } else if err.code == JsonRpcError::METHOD_NOT_FOUND.code {
-            EndpointStatus::Missing
+            EndpointStatus::MissingMethod
         } else if err.code == JsonRpcError::INVALID_REQUEST.code {
             EndpointStatus::InvalidJSON
         } else if err.code == JsonRpcError::PARSE_ERROR.code {
@@ -138,7 +136,6 @@ impl RpcTest {
         let forest_resp = forest_api.call(self.request.clone()).await;
         let lotus_resp = lotus_api.call(self.request.clone()).await;
 
-        // dbg!(self.request.method_name);
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
@@ -184,10 +181,8 @@ fn common_tests() -> Vec<RpcTest> {
 }
 
 fn auth_tests() -> Vec<RpcTest> {
-    // vec![RpcTest::basic(ApiInfo::auth_new_req(
-    //     vec!["read".to_string()],
-    //     Duration::days(1),
-    // ))]
+    // Auth commands should be tested as well. Tracking issue:
+    // https://github.com/ChainSafe/forest/issues/3639
     vec![]
 }
 
@@ -221,23 +216,19 @@ fn mpool_tests() -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
-    // let peer: Multiaddr = "/dns4/bootstrap-0.calibration.fildev.network/tcp/1347/p2p/12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy".parse().unwrap();
-    // let addr_info = AddrInfo {
-    //     id: "12D3KooWCi2w8U4DDB9xqrejb5KYHaQv2iA2AJJ6uzG3iQxNLBMy".to_string(),
-    //     addrs: HashSet::from_iter([peer]),
-    // };
+    // More net commands should be tested. Tracking issue:
+    // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
         RpcTest::basic(ApiInfo::net_info_req()),
-        // requires write access
-        // RpcTest::basic(ApiInfo::net_connect_req(addr_info)),
     ]
 }
 
 fn node_tests() -> Vec<RpcTest> {
     vec![
-        // This is a v1 RPC call. We don't support any v1 calls yet.
+        // This is a v1 RPC call. We don't support any v1 calls yet. Tracking
+        // issue: https://github.com/ChainSafe/forest/issues/3640
         //RpcTest::basic(ApiInfo::node_status_req())
     ]
 }
