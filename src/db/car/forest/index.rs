@@ -17,7 +17,7 @@
 //!
 //! The simplest implementation is a sorted list of `(Cid, u64)`, pairs.
 //! We'll call each such pair an `entry`.
-//! But this has a couple of downsides:
+//! But this simple implementation has a couple of downsides:
 //! - `O(log(n))` time complexity for searches.
 //!   (We could amortise this by doing an initial scan for checkpoints, but
 //!   seeking backwards in the file may still be penalised by the OS).
@@ -45,7 +45,7 @@
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cid::Cid;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use std::{
     cmp,
     io::{self, Read, Write},
@@ -94,13 +94,12 @@ impl Table {
         assert!((0.0..=1.0).contains(&load_factor));
         let mut slots = locations
             .into_iter()
-            .map(|(cid, frame_offset)| {
-                Slot::Occupied(OccupiedSlot {
-                    hash: hash::of(&cid),
-                    frame_offset,
-                })
+            .map(|(cid, frame_offset)| OccupiedSlot {
+                hash: hash::of(&cid),
+                frame_offset,
             })
-            .sorted()
+            .sorted_by_key(|occ| occ.hash)
+            .map(Slot::Occupied)
             .collect::<Vec<_>>();
 
         let initial_width = cmp::max((slots.len() as f64 / load_factor) as usize, slots.len());
@@ -115,26 +114,30 @@ impl Table {
 
         let mut longest_distance = 0;
 
-        while let Some((ix, ideal_slot_ix)) =
+        while let Some((ix, distance)) =
             slots.iter().enumerate().find_map(|(ix, slot)| match slot {
                 Slot::Occupied(OccupiedSlot { hash, .. }) => {
                     let ideal_slot_ix = hash::ideal_slot_ix(*hash, initial_width);
-                    match dbg!(ideal_slot_ix) < dbg!(ix) {
+                    let distance = distance(*hash, ix, initial_width);
+                    println!("ideal_slot_ix={ideal_slot_ix}, ix={ix}, distance={distance}");
+                    match ix < ideal_slot_ix {
                         // too early
-                        true => Some((ix, ideal_slot_ix)),
+                        true => Some((ix, distance)),
                         false => None,
                     }
                 }
                 Slot::Empty => None,
             })
         {
-            let distance = 1 + ideal_slot_ix - ix;
             longest_distance = cmp::max(longest_distance, distance);
             slots.splice(ix..ix, iter::repeat(Slot::Empty).take(distance));
         }
 
-        for i in 0..longest_distance {
-            slots.push(slots[i])
+        if longest_distance != 0 {
+            // why??
+            for i in 0..longest_distance + 1 {
+                slots.push(slots[i])
+            }
         }
 
         slots.push(Slot::Empty);
@@ -408,7 +411,7 @@ trait Writeable {
     fn write_to(&self, writer: impl Write) -> io::Result<()>;
 }
 
-// This lives in a module so its constructor is private
+// This lives in a module so its constructor can be private
 mod util {
     /// Like [`std::num::NonZeroU64`], but is never [`u64::MAX`]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -444,6 +447,9 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn do_v1_vs_v2(pairs: Vec<(Cid, u64)>) {
+        for (cid, offset) in &pairs {
+            println!("{cid}: {offset}")
+        }
         let v1 = Table::new(pairs.clone(), 0.8);
         let v2 = Table::new2(pairs, 0.8);
         assert_eq!(v1, v2)
