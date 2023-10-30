@@ -65,8 +65,6 @@ impl EndpointStatus {
             EndpointStatus::InvalidRequest
         } else if err.code == JsonRpcError::METHOD_NOT_FOUND.code {
             EndpointStatus::MissingMethod
-        } else if err.code == JsonRpcError::INVALID_REQUEST.code {
-            EndpointStatus::InvalidJSON
         } else if err.code == JsonRpcError::PARSE_ERROR.code {
             EndpointStatus::InvalidResponse
         } else {
@@ -254,8 +252,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
 
     for tipset in shared_tipset.chain(&store).take(20) {
         for block in tipset.blocks() {
-            let (bls_messages, secp_messages) =
-                crate::chain::store::block_messages(&store, &block)?;
+            let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages {
                 tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
                     msg.cid()?,
@@ -267,7 +264,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                 )));
             }
             tests.push(RpcTest::basic(ApiInfo::state_miner_power(
-                block.miner_address().clone(),
+                *block.miner_address(),
                 tipset.key().clone(),
             )))
         }
@@ -338,7 +335,7 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
             if *n > 1 {
                 format!("{} ({})", method, n)
             } else {
-                format!("{}", method)
+                method.to_string()
             },
             format!("{:?}", forest_status),
             format!("{:?}", lotus_status),
