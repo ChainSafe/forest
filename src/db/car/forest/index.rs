@@ -1,6 +1,6 @@
 //! Embedded index for the `.forest.car.zst` format.
 //!
-//! Maps from [`Cid`]s to zstd frame offsets.
+//! Maps from [`Cid`]s to candidate zstd frame offsets.
 //!
 //! # Design statement
 //!
@@ -13,7 +13,7 @@
 //!   This precludes using e.g [`serde::Serialize`]
 //! - (Bonus) efficient merging of multiple indices.
 //!
-//! ## Implementation
+//! # Implementation
 //!
 //! The simplest implementation is a sorted list of `(Cid, u64)`, pairs.
 //! We'll call each such pair an `entry`.
@@ -43,7 +43,7 @@
 //!
 //! TODO(aatifsyed): document longest distence shenanigans
 //!
-//! ## Wishlist
+//! # Wishlist
 //! - use [`std::num::NonZeroU64`] for the reserved hash.
 //! - use [`std::hash::Hasher`]s instead of custom hashing
 //!   The current code says using e.g the default hasher
@@ -60,6 +60,9 @@ use std::{
 
 mod hash;
 
+/// Write an index to the given writer.
+///
+/// See [module documentation](mod@self) for more.
 pub fn write<I>(locations: I, mut to: impl Write) -> io::Result<()>
 where
     I: IntoIterator<Item = (Cid, u64)>,
@@ -397,7 +400,7 @@ mod tests {
     }
 
     quickcheck::quickcheck! {
-        fn do_quickcheck(pairs: Vec<(Cid, u64)>) -> () {
+        fn backwards_compat(pairs: Vec<(Cid, u64)>) -> () {
             do_reference(pairs)
         }
         fn header(it: V1Header) -> () {
