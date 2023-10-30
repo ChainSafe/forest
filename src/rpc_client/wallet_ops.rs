@@ -1,84 +1,116 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::wallet_api::*;
-use jsonrpc_v2::Error;
+use super::{ApiInfo, JsonRpcError, RpcRequest};
+use crate::{
+    key_management::KeyInfo,
+    rpc_api::wallet_api::*,
+    shim::{
+        address::Address,
+        crypto::{Signature, SignatureType},
+    },
+};
 
-use crate::rpc_client::call;
+impl ApiInfo {
+    pub async fn wallet_default_address(&self) -> Result<Option<String>, JsonRpcError> {
+        self.call(Self::wallet_default_address_req()).await
+    }
 
-pub async fn wallet_new(
-    signature_type: WalletNewParams,
-    auth_token: &Option<String>,
-) -> Result<WalletNewResult, Error> {
-    call(WALLET_NEW, signature_type, auth_token).await
-}
+    pub fn wallet_default_address_req() -> RpcRequest<Option<String>> {
+        RpcRequest::new(WALLET_DEFAULT_ADDRESS, ())
+    }
 
-pub async fn wallet_default_address(
-    (): WalletDefaultAddressParams,
-    auth_token: &Option<String>,
-) -> Result<WalletDefaultAddressResult, Error> {
-    call(WALLET_DEFAULT_ADDRESS, (), auth_token).await
-}
+    pub async fn wallet_new(&self, signature_type: SignatureType) -> Result<String, JsonRpcError> {
+        self.call(Self::wallet_new_req(signature_type)).await
+    }
 
-pub async fn wallet_balance(
-    address: WalletBalanceParams,
-    auth_token: &Option<String>,
-) -> Result<WalletBalanceResult, Error> {
-    call(WALLET_BALANCE, address, auth_token).await
-}
+    pub fn wallet_new_req(signature_type: SignatureType) -> RpcRequest<String> {
+        RpcRequest::new(WALLET_NEW, (signature_type,))
+    }
 
-pub async fn wallet_export(
-    address: WalletExportParams,
-    auth_token: &Option<String>,
-) -> Result<WalletExportResult, Error> {
-    call(WALLET_EXPORT, address, auth_token).await
-}
+    pub async fn wallet_balance(&self, address: String) -> Result<String, JsonRpcError> {
+        self.call(Self::wallet_balance_req(address)).await
+    }
 
-pub async fn wallet_import(
-    key: WalletImportParams,
-    auth_token: &Option<String>,
-) -> Result<WalletImportResult, Error> {
-    call(WALLET_IMPORT, key, auth_token).await
-}
+    pub fn wallet_balance_req(address: String) -> RpcRequest<String> {
+        RpcRequest::new(WALLET_BALANCE, (address,))
+    }
 
-pub async fn wallet_list(
-    (): WalletListParams,
-    auth_token: &Option<String>,
-) -> Result<WalletListResult, Error> {
-    call(WALLET_LIST, (), auth_token).await
-}
+    pub async fn wallet_export(&self, address: String) -> Result<KeyInfo, JsonRpcError> {
+        self.call(Self::wallet_export_req(address)).await
+    }
 
-pub async fn wallet_has(
-    key: WalletHasParams,
-    auth_token: &Option<String>,
-) -> Result<WalletHasResult, Error> {
-    call(WALLET_HAS, key, auth_token).await
-}
+    pub fn wallet_export_req(address: String) -> RpcRequest<KeyInfo> {
+        RpcRequest::new(WALLET_EXPORT, (address,))
+    }
 
-pub async fn wallet_set_default(
-    address: WalletSetDefaultParams,
-    auth_token: &Option<String>,
-) -> Result<WalletSetDefaultResult, Error> {
-    call(WALLET_SET_DEFAULT, address, auth_token).await
-}
+    pub async fn wallet_import(&self, key: Vec<KeyInfo>) -> Result<String, JsonRpcError> {
+        self.call(Self::wallet_import_req(key)).await
+    }
 
-pub async fn wallet_sign(
-    message: WalletSignParams,
-    auth_token: &Option<String>,
-) -> Result<WalletSignResult, Error> {
-    call(WALLET_SIGN, message, auth_token).await
-}
+    pub fn wallet_import_req(key: Vec<KeyInfo>) -> RpcRequest<String> {
+        RpcRequest::new(WALLET_IMPORT, key)
+    }
 
-pub async fn wallet_verify(
-    message: WalletVerifyParams,
-    auth_token: &Option<String>,
-) -> Result<WalletVerifyResult, Error> {
-    call(WALLET_VERIFY, message, auth_token).await
-}
+    pub async fn wallet_list(&self) -> Result<Vec<Address>, JsonRpcError> {
+        self.call(Self::wallet_list_req()).await
+    }
 
-pub async fn wallet_delete(
-    message: WalletDeleteParams,
-    auth_token: &Option<String>,
-) -> Result<WalletDeleteResult, Error> {
-    call(WALLET_DELETE, message, auth_token).await
+    pub fn wallet_list_req() -> RpcRequest<Vec<Address>> {
+        RpcRequest::new(WALLET_LIST, ())
+    }
+
+    pub async fn wallet_has(&self, key: String) -> Result<bool, JsonRpcError> {
+        self.call(Self::wallet_has_req(key)).await
+    }
+
+    pub fn wallet_has_req(key: String) -> RpcRequest<bool> {
+        RpcRequest::new(WALLET_HAS, (key,))
+    }
+
+    pub async fn wallet_set_default(&self, address: Address) -> Result<(), JsonRpcError> {
+        self.call(Self::wallet_set_default_req(address)).await
+    }
+
+    pub fn wallet_set_default_req(address: Address) -> RpcRequest<()> {
+        RpcRequest::new(WALLET_SET_DEFAULT, (address,))
+    }
+
+    pub async fn wallet_sign(
+        &self,
+        address: Address,
+        data: Vec<u8>,
+    ) -> Result<Signature, JsonRpcError> {
+        self.call(Self::wallet_sign_req(address, data)).await
+    }
+
+    pub fn wallet_sign_req(address: Address, data: Vec<u8>) -> RpcRequest<Signature> {
+        RpcRequest::new(WALLET_SIGN, (address, data))
+    }
+
+    pub async fn wallet_verify(
+        &self,
+        address: Address,
+        data: Vec<u8>,
+        signature: Signature,
+    ) -> Result<bool, JsonRpcError> {
+        self.call(Self::wallet_verify_req(address, data, signature))
+            .await
+    }
+
+    pub fn wallet_verify_req(
+        address: Address,
+        data: Vec<u8>,
+        signature: Signature,
+    ) -> RpcRequest<bool> {
+        RpcRequest::new(WALLET_VERIFY, (address, data, signature))
+    }
+
+    pub async fn wallet_delete(&self, address: String) -> Result<(), JsonRpcError> {
+        self.call(Self::wallet_delete_req(address)).await
+    }
+
+    pub fn wallet_delete_req(address: String) -> RpcRequest<()> {
+        RpcRequest::new(WALLET_DELETE, (address,))
+    }
 }
