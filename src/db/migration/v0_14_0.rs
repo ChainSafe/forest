@@ -109,7 +109,7 @@ impl MigrationOperation for Migration0_14_0_0_15_0 {
 
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
         let temp_db_name = temporary_db_name(&self.from, &self.to);
-        if !chain_data_path.join(temp_db_name).exists() {
+        if !chain_data_path.join(&temp_db_name).exists() {
             anyhow::bail!(
                 "migration database {} does not exist",
                 chain_data_path.join(temp_db_name).display()
