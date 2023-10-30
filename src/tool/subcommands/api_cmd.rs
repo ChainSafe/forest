@@ -273,7 +273,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
 }
 
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
-/// but other backend may be used (such as `venus`). The `lotus` node is assumed
+/// but other nodes may be used (such as `venus`). The `lotus` node is assumed
 /// to be correct and the `forest` node will be marked as incorrect if it
 /// deviates.
 ///
