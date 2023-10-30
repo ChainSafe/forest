@@ -243,6 +243,9 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
+// Extract tests that use chain-specific data such as block CIDs or message
+// CIDs. Right now, only the last 20 tipsets are used. It would be nice to
+// sample a greater range.
 fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
