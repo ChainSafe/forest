@@ -2,19 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::{
-    data_types::{MarketDeal, MessageLookup, RPCState},
-    state_api::*,
+use crate::rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
+use crate::shim::{
+    address::Address, executor::Receipt, message::Message, state_tree::ActorState,
+    version::NetworkVersion,
 };
-use crate::shim::address::Address;
-use crate::state_manager::InvocResult;
+use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
+use cid::Cid;
 use fil_actor_interface::market;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -22,18 +24,20 @@ use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
 use parking_lot::Mutex;
+use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
 
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateCallParams>,
-) -> Result<StateCallResult, JsonRpcError> {
+    Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
+) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (message_json, LotusJson(key)) = params;
-    let mut message = message_json.into_inner();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     Ok(state_manager.call(&mut message, Some(tipset))?)
 }
 
@@ -41,11 +45,13 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
 /// executed in the indicated tipset.
 pub(in crate::rpc) async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateReplayParams>,
-) -> Result<StateReplayResult, JsonRpcError> {
+    Params(LotusJson((cid, key))): Params<LotusJson<(Cid, TipsetKeys)>>,
+) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let (LotusJson(cid), LotusJson(key)) = params;
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -58,7 +64,7 @@ pub(in crate::rpc) async fn state_replay<DB: Blockstore + Send + Sync + 'static>
 /// gets network name from state manager
 pub(in crate::rpc) async fn state_network_name<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<StateNetworkNameResult, JsonRpcError> {
+) -> Result<String, JsonRpcError> {
     let state_manager = &data.state_manager;
     let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
 
@@ -69,19 +75,17 @@ pub(in crate::rpc) async fn state_network_name<DB: Blockstore>(
 
 pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateNetworkVersionParams>,
-) -> Result<StateNetworkVersionResult, JsonRpcError> {
-    let (LotusJson(tsk),) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<NetworkVersion, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateGetActorParams>,
-) -> Result<StateGetActorResult, JsonRpcError> {
-    let (LotusJson(addr), LotusJson(tsk)) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Option<ActorState>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state.map(Into::into).map_err(|e| e.into())
 }
@@ -90,11 +94,12 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
 /// Market
 pub(in crate::rpc) async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateMarketBalanceParams>,
-) -> Result<StateMarketBalanceResult, JsonRpcError> {
-    let (address, LotusJson(key)) = params;
-    let address = address.into_inner();
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<MarketBalance, JsonRpcError> {
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -102,10 +107,9 @@ pub(in crate::rpc) async fn state_market_balance<DB: Blockstore + Send + Sync + 
 
 pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateMarketDealsParams>,
-) -> Result<StateMarketDealsResult, JsonRpcError> {
-    let (LotusJson(tsk),) = params;
-    let ts = data.chain_store.tipset_from_keys(&tsk)?;
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
@@ -138,11 +142,13 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
 /// returns the message receipt for the given message
 pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateGetReceiptParams>,
-) -> Result<StateGetReceiptResult, JsonRpcError> {
-    let (LotusJson(cid), LotusJson(key)) = params;
+    Params(LotusJson((cid, key))): Params<LotusJson<(Cid, TipsetKeys)>>,
+) -> Result<LotusJson<Receipt>, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let tipset = data.state_manager.chain_store().tipset_from_keys(&key)?;
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
     state_manager
         .get_receipt(tipset, cid)
         .map(|s| s.into())
@@ -152,9 +158,8 @@ pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'st
 /// message arrives on chain, and gets to the indicated confidence depth.
 pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<StateWaitMsgParams>,
-) -> Result<StateWaitMsgResult, JsonRpcError> {
-    let (LotusJson(cid), confidence) = params;
+    Params(LotusJson((cid, confidence))): Params<LotusJson<(Cid, i64)>>,
+) -> Result<MessageLookup, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
@@ -189,8 +194,8 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
 /// consensus rules.
 pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
     data: Data<RPCState<DB>>,
-    Params((LotusJson(root_cid), save_to_file)): Params<StateFetchRootParams>,
-) -> Result<StateFetchRootResult, JsonRpcError> {
+    Params(LotusJson((root_cid, save_to_file))): Params<LotusJson<(Cid, Option<PathBuf>)>>,
+) -> Result<String, JsonRpcError> {
     let network_send = data.network_send.clone();
     let db = data.chain_store.db.clone();
     drop(data);

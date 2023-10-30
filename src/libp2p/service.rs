@@ -177,7 +177,6 @@ pub enum NetRPCMethods {
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
-    config: Libp2pConfig,
     swarm: Swarm<ForestBehaviour>,
     cs: Arc<ChainStore<DB>>,
     peer_manager: Arc<PeerManager>,
@@ -193,7 +192,7 @@ impl<DB> Libp2pService<DB>
 where
     DB: Blockstore + BitswapStoreReadWrite + Sync + Send + 'static,
 {
-    pub fn new(
+    pub async fn new(
         config: Libp2pConfig,
         cs: Arc<ChainStore<DB>>,
         peer_manager: Arc<PeerManager>,
@@ -225,8 +224,35 @@ where
         let (network_sender_in, network_receiver_in) = flume::unbounded();
         let (network_sender_out, network_receiver_out) = flume::unbounded();
 
+        // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
+        // peer's multiaddress. Useful if others want to use this node to bootstrap
+        // from.
+        info!("p2p network peer id: {}", swarm.local_peer_id());
+
+        // Listen on network endpoints before being detached and connecting to any peers.
+        for addr in &config.listening_multiaddrs {
+            match swarm.listen_on(addr.clone()) {
+                Ok(id) => loop {
+                    if let SwarmEvent::NewListenAddr {
+                        address,
+                        listener_id,
+                    } = swarm.select_next_some().await
+                    {
+                        if id == listener_id {
+                            info!("p2p peer is now listening on: {address}");
+                            break;
+                        }
+                    }
+                },
+                Err(err) => error!("Fail to listen on {addr}: {err}"),
+            }
+        }
+
+        if swarm.listeners().count() == 0 {
+            anyhow::bail!("p2p peer failed to listen on any network endpoints");
+        }
+
         Ok(Libp2pService {
-            config,
             swarm,
             cs,
             peer_manager,
@@ -243,11 +269,6 @@ where
     /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("Running libp2p service");
-        for addr in &self.config.listening_multiaddrs {
-            if let Err(err) = Swarm::listen_on(&mut self.swarm, addr.clone()) {
-                error!("Fail to listen on {addr}: {err}");
-            }
-        }
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
@@ -684,45 +705,46 @@ async fn handle_chain_exchange_event<DB>(
     DB: Blockstore + Sync + Send + 'static,
 {
     match ce_event {
-        request_response::Event::Message { peer, message } => {
-            match message {
-                request_response::Message::Request {
-                    request,
-                    channel,
-                    request_id,
-                } => {
-                    trace!("Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",);
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::ChainExchangeRequestInbound { request_id },
-                    )
-                    .await;
-                    let db = db.clone();
-                    tokio::task::spawn(async move {
-                        if let Err(e) = cx_response_tx.send((
-                            request_id,
-                            channel,
-                            make_chain_exchange_response(&db, &request),
-                        )) {
-                            debug!("Failed to send ChainExchangeResponse: {e:?}");
-                        }
-                    });
-                }
-                request_response::Message::Response {
-                    request_id,
-                    response,
-                } => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::ChainExchangeResponseInbound { request_id },
-                    )
-                    .await;
-                    chain_exchange
-                        .handle_inbound_response(&request_id, response)
-                        .await;
-                }
+        request_response::Event::Message { peer, message } => match message {
+            request_response::Message::Request {
+                request,
+                channel,
+                request_id,
+            } => {
+                trace!(
+                    "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
+                );
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeRequestInbound { request_id },
+                )
+                .await;
+
+                let db = db.clone();
+                tokio::task::spawn(async move {
+                    if let Err(e) = cx_response_tx.send((
+                        request_id,
+                        channel,
+                        make_chain_exchange_response(&db, &request),
+                    )) {
+                        debug!("Failed to send ChainExchangeResponse: {e:?}");
+                    }
+                });
             }
-        }
+            request_response::Message::Response {
+                request_id,
+                response,
+            } => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeResponseInbound { request_id },
+                )
+                .await;
+                chain_exchange
+                    .handle_inbound_response(&request_id, response)
+                    .await;
+            }
+        },
         request_response::Event::OutboundFailure {
             peer: _,
             request_id,

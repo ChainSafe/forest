@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
-use crate::rpc_api::auth_api::AuthNewParams;
-use crate::rpc_client::{auth_new, API_INFO};
+use crate::rpc_client::{ApiInfo, JsonRpcError};
 use chrono::Duration;
 use clap::Subcommand;
-use jsonrpc_v2::Error as JsonRpcError;
 use std::str::FromStr;
 
-use super::{handle_rpc_err, print_rpc_res_bytes};
+use super::print_rpc_res_bytes;
 
 #[derive(Debug, Subcommand)]
 pub enum AuthCommands {
@@ -47,29 +45,24 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 }
 
 impl AuthCommands {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
-                let perms = process_perms(perm).map_err(handle_rpc_err)?;
+                let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let auth_params = AuthNewParams { perms, token_exp };
-                print_rpc_res_bytes(auth_new(auth_params, &rpc_token).await)
+                print_rpc_res_bytes(api.auth_new(perms, token_exp).await?)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
-                let perms = process_perms(perm).map_err(handle_rpc_err)?;
+                let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let auth_params = AuthNewParams { perms, token_exp };
-                let token = auth_new(auth_params, &rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
-                let addr = API_INFO.multiaddr.to_owned();
-                println!(
-                    "FULLNODE_API_INFO=\"{}:{}\"",
-                    String::from_utf8(token).map_err(|e| handle_rpc_err(e.into()))?,
-                    addr
-                );
+                let token = api.auth_new(perms, token_exp).await?;
+                let new_api = ApiInfo {
+                    token: Some(String::from_utf8(token)?),
+                    ..api
+                };
+                println!("FULLNODE_API_INFO=\"{}\"", new_api);
                 Ok(())
             }
         }
