@@ -28,6 +28,7 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::RwLock;
 
 /// This is where you store persistent data, or at least access to stateful
@@ -199,3 +200,37 @@ impl HasLotusJson for MinerPower {
         }
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoverResult {
+    info: DiscoverInfo,
+    methods: Vec<DiscoverMethod>,
+    openrpc: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoverMethod {
+    deprecated: bool,
+    description: String,
+    external_docs: DiscoverDocs,
+    name: String,
+    param_structure: String,
+    params: Value,
+    // result
+    summary: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoverDocs {
+    description: String,
+    url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoverInfo {
+    title: String,
+    version: String,
+}
+
+lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
