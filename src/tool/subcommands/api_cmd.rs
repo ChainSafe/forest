@@ -243,6 +243,52 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
+fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+    let shared_tipset = store.heaviest_tipset()?;
+    tests.extend(chain_tests_with_tipset(&shared_tipset));
+    tests.extend(state_tests(&shared_tipset));
+
+    for tipset in shared_tipset.chain(&store).take(20) {
+        for block in tipset.blocks() {
+            let (bls_messages, secp_messages) =
+                crate::chain::store::block_messages(&store, &block)?;
+            for msg in bls_messages {
+                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                    msg.cid()?,
+                )));
+            }
+            for msg in secp_messages {
+                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                    msg.cid()?,
+                )));
+            }
+            tests.push(RpcTest::basic(ApiInfo::state_miner_power(
+                block.miner_address().clone(),
+                tipset.key().clone(),
+            )))
+        }
+    }
+    Ok(tests)
+}
+
+/// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
+/// but other backend may be used (such as `venus`). The `lotus` node is assumed
+/// to be correct and the `forest` node will be marked as incorrect if it
+/// deviates.
+///
+/// If snapshot files are provided, these files will be used to generate
+/// additional tests.
+///
+/// Example output:
+/// ```markdown
+/// | RPC Method                        | Forest              | Lotus         |
+/// |-----------------------------------|---------------------|---------------|
+/// | Filecoin.ChainGetBlock            | Valid               | Valid         |
+/// | Filecoin.ChainGetGenesis          | Valid               | Valid         |
+/// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
+/// ```
+/// The number after a method name indicates how many times an RPC call was tested.
 async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
@@ -259,30 +305,7 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        let shared_tipset = store.heaviest_tipset()?;
-        tests.extend(chain_tests_with_tipset(&shared_tipset));
-        tests.extend(state_tests(&shared_tipset));
-
-        for tipset in shared_tipset.chain(&store).take(20) {
-            for block in tipset.blocks() {
-                let (bls_messages, secp_messages) =
-                    crate::chain::store::block_messages(&store, &block)?;
-                for msg in bls_messages {
-                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                        msg.cid()?,
-                    )));
-                }
-                for msg in secp_messages {
-                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                        msg.cid()?,
-                    )));
-                }
-                tests.push(RpcTest::basic(ApiInfo::state_miner_power(
-                    block.miner_address().clone(),
-                    tipset.key().clone(),
-                )))
-            }
-        }
+        tests.extend(snapshot_tests(&store)?);
     }
 
     let mut results = HashMap::default();
@@ -297,12 +320,12 @@ async fn compare_apis(
 
     let mut results = results.into_iter().collect::<Vec<_>>();
     results.sort();
-    output_markdown(&results);
+    println!("{}", format_as_markdown(&results));
 
     Ok(())
 }
 
-fn output_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) {
+fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {
     let mut builder = Builder::default();
 
     builder.set_header(["RPC Method", "Forest", "Lotus"]);
@@ -319,7 +342,5 @@ fn output_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u
         ]);
     }
 
-    let table = builder.build().with(Style::markdown()).to_string();
-
-    println!("{}", table);
+    builder.build().with(Style::markdown()).to_string()
 }
