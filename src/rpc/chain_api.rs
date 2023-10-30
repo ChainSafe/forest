@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{BlockHeader, Tipset};
+use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
@@ -12,8 +12,10 @@ use crate::rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
+use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
@@ -22,14 +24,10 @@ use once_cell::sync::Lazy;
 use sha2::Sha256;
 use tokio::sync::Mutex;
 
-pub(in crate::rpc) async fn chain_get_message<DB>(
+pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetMessageParams>,
-) -> Result<ChainGetMessageResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (LotusJson(msg_cid),) = params;
+    Params(LotusJson((msg_cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<LotusJson<Message>, JsonRpcError> {
     let ret: Message = data
         .state_manager
         .blockstore()
@@ -48,7 +46,7 @@ pub(in crate::rpc) async fn chain_export<DB>(
         skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
-) -> Result<ChainExportResult, JsonRpcError>
+) -> Result<Option<String>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -102,14 +100,10 @@ where
     }
 }
 
-pub(in crate::rpc) async fn chain_read_obj<DB>(
+pub(in crate::rpc) async fn chain_read_obj<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainReadObjParams>,
-) -> Result<ChainReadObjResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (LotusJson(obj_cid),) = params;
+    Params(LotusJson((obj_cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<String, JsonRpcError> {
     let ret = data
         .state_manager
         .blockstore()
@@ -118,25 +112,17 @@ where
     Ok(hex::encode(ret))
 }
 
-pub(in crate::rpc) async fn chain_has_obj<DB>(
+pub(in crate::rpc) async fn chain_has_obj<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainHasObjParams>,
-) -> Result<ChainHasObjResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (LotusJson(obj_cid),) = params;
+    Params(LotusJson((obj_cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<bool, JsonRpcError> {
     Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
-pub(in crate::rpc) async fn chain_get_block_messages<DB>(
+pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetBlockMessagesParams>,
-) -> Result<ChainGetBlockMessagesResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (LotusJson(blk_cid),) = params;
+    Params(LotusJson((blk_cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<BlockMessages, JsonRpcError> {
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
@@ -163,14 +149,10 @@ where
     Ok(ret)
 }
 
-pub(in crate::rpc) async fn chain_get_tipset_by_height<DB>(
+pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetTipsetByHeightParams>,
-) -> Result<ChainGetTipsetByHeightResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (height, tsk) = params;
+    Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKeys)>>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
@@ -183,34 +165,24 @@ where
     Ok((*tss).clone().into())
 }
 
-pub(in crate::rpc) async fn chain_get_genesis<DB>(
+pub(in crate::rpc) async fn chain_get_genesis<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<ChainGetGenesisResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
     let genesis = data.state_manager.chain_store().genesis();
     Ok(Some(Tipset::from(genesis).into()))
 }
 
-pub(in crate::rpc) async fn chain_head<DB>(
+pub(in crate::rpc) async fn chain_head<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<ChainHeadResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
     Ok((*heaviest).clone().into())
 }
 
-pub(in crate::rpc) async fn chain_get_block<DB>(
+pub(in crate::rpc) async fn chain_get_block<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetBlockParams>,
-) -> Result<ChainGetBlockResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (LotusJson(blk_cid),) = params;
+    Params(LotusJson((blk_cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<LotusJson<BlockHeader>, JsonRpcError> {
     let blk: BlockHeader = data
         .state_manager
         .blockstore()
@@ -219,13 +191,10 @@ where
     Ok(blk.into())
 }
 
-pub(in crate::rpc) async fn chain_get_tipset<DB>(
+pub(in crate::rpc) async fn chain_get_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params((LotusJson(tsk),)): Params<ChainGetTipSetParams>,
-) -> Result<ChainGetTipSetResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
@@ -235,18 +204,14 @@ where
 
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
-pub(in crate::rpc) async fn chain_set_head<DB>(
+pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainSetHeadParams>,
-) -> Result<ChainSetHeadResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (params,) = params;
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<(), JsonRpcError> {
     let new_head = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&params)?;
+        .load_required_tipset(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {
@@ -266,14 +231,10 @@ where
         .map_err(Into::into)
 }
 
-pub(crate) async fn chain_get_min_base_fee<DB>(
+pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<ChainGetMinBaseFeeParams>,
-) -> Result<ChainGetMinBaseFeeResult, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (basefee_lookback,) = params;
+    Params((basefee_lookback,)): Params<(u32,)>,
+) -> Result<String, JsonRpcError> {
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     let mut min_base_fee = current.blocks()[0].parent_base_fee().clone();
 
