@@ -171,24 +171,6 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
-// #[derive(Debug, Serialize, Deserialize)]
-// pub struct MinerPower {
-//     miner_power: Claim,
-//     total_power: Claim,
-//     has_min_power: bool,
-// }
-
-// impl PartialEq for MinerPower {
-//     fn eq(&self, other: &Self) -> bool {
-//         fn eq_claim(a: &Claim, b: &Claim) -> bool {
-//             a.raw_byte_power == b.raw_byte_power && a.quality_adj_power == b.quality_adj_power
-//         }
-//         eq_claim(&self.miner_power, &other.miner_power)
-//             && eq_claim(&self.total_power, &other.total_power)
-//             && self.has_min_power == other.has_min_power
-//     }
-// }
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPowerLotusJson {
