@@ -211,7 +211,7 @@ mod tests {
     pub async fn http_get(url: &Url) -> anyhow::Result<Response> {
         Ok(global_http_client()
             .get(url.clone())
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(120))
             .send()
             .await?)
     }
