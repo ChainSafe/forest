@@ -324,6 +324,7 @@ pub(super) async fn start(
         tipset_sink,
         tipset_stream,
         config.sync.clone(),
+        opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
@@ -384,7 +385,7 @@ pub(super) async fn start(
 
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;
-    if config.client.snapshot_path.is_none() {
+    if config.client.snapshot_path.is_none() && !opts.stateless {
         set_snapshot_path_if_needed(
             &mut config,
             epoch,
