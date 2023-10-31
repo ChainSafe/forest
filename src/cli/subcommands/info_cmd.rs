@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::lotus_json::LotusJson;
-use crate::rpc_client::{
-    chain_head, node_ops::node_status, start_time, state_network_name, wallet_balance,
-    wallet_default_address,
-};
+use crate::rpc_client::ApiInfo;
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
@@ -17,7 +13,6 @@ use num::BigInt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::cli::humantoken::TokenAmountPretty;
-use crate::cli::subcommands::handle_rpc_err;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -159,47 +154,39 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
-        let res = tokio::try_join!(
-            node_status((), &rpc_token),
-            chain_head(&rpc_token),
-            state_network_name((), &rpc_token),
-            start_time(&rpc_token),
-            wallet_default_address((), &rpc_token)
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
+            api.node_status(),
+            api.chain_head(),
+            api.state_network_name(),
+            api.start_time(),
+            api.wallet_default_address(),
+        )?;
+
+        let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        let blocks_per_tipset_last_finality =
+            node_status.chain_status.blocks_per_tipset_last_finality;
+
+        let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address {
+            let balance = api.wallet_balance(def_addr.clone()).await?;
+            Some(balance)
+        } else {
+            None
+        };
+
+        let node_status_info = NodeStatusInfo::new(
+            cur_duration,
+            blocks_per_tipset_last_finality,
+            &head,
+            start_time,
+            network,
+            default_wallet_address.clone(),
+            default_wallet_address_balance,
         );
 
-        match res {
-            Ok((node_status, LotusJson(head), network, start_time, default_wallet_address)) => {
-                let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
-                let blocks_per_tipset_last_finality =
-                    node_status.chain_status.blocks_per_tipset_last_finality;
+        println!("{}", node_status_info.format(Utc::now()));
 
-                let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address
-                {
-                    let balance = wallet_balance((def_addr.clone(),), &rpc_token)
-                        .await
-                        .map_err(handle_rpc_err)?;
-                    Some(balance)
-                } else {
-                    None
-                };
-
-                let node_status_info = NodeStatusInfo::new(
-                    cur_duration,
-                    blocks_per_tipset_last_finality,
-                    &head,
-                    start_time,
-                    network,
-                    default_wallet_address.clone(),
-                    default_wallet_address_balance,
-                );
-
-                println!("{}", node_status_info.format(Utc::now()));
-
-                Ok(())
-            }
-            Err(e) => Err(handle_rpc_err(e)),
-        }
+        Ok(())
     }
 }
 

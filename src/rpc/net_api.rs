@@ -16,7 +16,7 @@ use tracing::error;
 
 pub(in crate::rpc) async fn net_addrs_listen<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<NetAddrsListenResult, JsonRpcError> {
+) -> Result<AddrInfo, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::AddrsListen(tx),
@@ -33,7 +33,7 @@ pub(in crate::rpc) async fn net_addrs_listen<DB: Blockstore>(
 
 pub(in crate::rpc) async fn net_peers<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<NetPeersResult, JsonRpcError> {
+) -> Result<Vec<AddrInfo>, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Peers(tx),
@@ -67,9 +67,8 @@ pub(in crate::rpc) async fn net_info<DB: Blockstore>(
 
 pub(in crate::rpc) async fn net_connect<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<NetConnectParams>,
-) -> Result<NetConnectResult, JsonRpcError> {
-    let (AddrInfo { id, addrs },) = params;
+    Params((AddrInfo { id, addrs },)): Params<(AddrInfo,)>,
+) -> Result<(), JsonRpcError> {
     let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
     let peer_id = PeerId::from_bytes(&id)?;
 
@@ -91,9 +90,8 @@ pub(in crate::rpc) async fn net_connect<DB: Blockstore>(
 
 pub(in crate::rpc) async fn net_disconnect<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<NetDisconnectParams>,
-) -> Result<NetDisconnectResult, JsonRpcError> {
-    let (id,) = params;
+    Params((id,)): Params<(String,)>,
+) -> Result<(), JsonRpcError> {
     let peer_id = PeerId::from_str(&id)?;
 
     let (tx, rx) = oneshot::channel();

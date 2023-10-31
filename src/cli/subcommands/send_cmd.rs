@@ -1,16 +1,15 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use std::str::FromStr as _;
 
-use crate::lotus_json::LotusJson;
-use crate::rpc_client::{mpool_push_message, wallet_default_address};
+use crate::rpc_client::ApiInfo;
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::{Message, METHOD_SEND};
+use anyhow::Context as _;
 use num::Zero as _;
 
-use super::handle_rpc_err;
 use crate::cli::humantoken;
 
 #[derive(Debug, clap::Args)]
@@ -32,21 +31,15 @@ pub struct SendCommand {
 }
 
 impl SendCommand {
-    pub async fn run(self, rpc_token: Option<String>) -> anyhow::Result<()> {
-        let from: Address = if let Some(from) = &self.from {
-            StrictAddress::from_str(from)?.into()
-        } else {
-            Address::from_str(
-                &wallet_default_address((), &rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "No default wallet address selected. Please set a default address."
-                        )
-                    })?,
-            )?
-        };
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let from: Address =
+            if let Some(from) = &self.from {
+                StrictAddress::from_str(from)?.into()
+            } else {
+                Address::from_str(&api.wallet_default_address().await?.context(
+                    "No default wallet address selected. Please set a default address.",
+                )?)?
+            };
 
         let message = Message {
             from,
@@ -60,10 +53,7 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = mpool_push_message((LotusJson(message), None), &rpc_token)
-            .await
-            .map_err(handle_rpc_err)?
-            .into_inner();
+        let signed_msg = api.mpool_push_message(message, None).await?;
 
         println!("{}", signed_msg.cid().unwrap());
 

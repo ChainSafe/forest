@@ -7,7 +7,6 @@ use ahash::{HashMap, HashMapExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
-use tracing::debug;
 
 use super::{
     ChainExchangeRequest, ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages,
@@ -31,18 +30,14 @@ where
     }
 
     let inner = move || {
-        let root = match cs.tipset_from_keys(&TipsetKeys::from_iter(request.start.clone())) {
-            Ok(tipset) => tipset,
-            Err(crate::chain::store::Error::NotFound(_)) => {
+        let root = match cs.load_tipset(&TipsetKeys::from_iter(request.start.clone()))? {
+            Some(tipset) => tipset,
+            None => {
                 return Ok(ChainExchangeResponse {
                     status: ChainExchangeResponseStatus::BlockNotFound,
                     chain: Default::default(),
                     message: "Start tipset was not found in the database".into(),
                 });
-            }
-            Err(e) => {
-                debug!("Failed to get tipset from keys: {e}");
-                anyhow::bail!(e);
             }
         };
 

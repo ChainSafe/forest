@@ -42,6 +42,9 @@
 
 ### Changed
 
+- [#3614](https://github.com/ChainSafe/forest/issues/3614) Moved downloading
+  bundle to runtime.
+
 ### Removed
 
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove
@@ -62,6 +65,9 @@
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
+- [#3593](https://github.com/ChainSafe/forest/pull/3593): Add `--stateless` flag
+  to `forest`. In stateless mode, forest connects to the P2P network but does
+  not sync to HEAD.
 
 ### Changed
 
