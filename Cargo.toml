@@ -207,7 +207,7 @@ predicates = "3.0"
 proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.180"
+ra_ap_syntax = "0.0.183"
 regex-automata = "0.4"
 syn = { version = "2.0.38", default-features = false, features = [
   "full",
