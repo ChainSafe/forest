@@ -202,6 +202,7 @@ fvm3 = { package = "fvm", default-features = false, version = "~3.8", features =
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 http-range-header = "0.4.0"
 libp2p = { version = "0.52.1", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
+libp2p-swarm-test = "0.2"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
 proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }

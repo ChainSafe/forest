@@ -89,20 +89,18 @@ impl<'a> DiscoveryConfig<'a> {
     }
 
     /// Set custom nodes which never expire, e.g. bootstrap or reserved nodes.
-    pub fn with_user_defined<I>(mut self, user_defined: I) -> Self
-    where
-        I: IntoIterator<Item = Multiaddr>,
-    {
-        self.user_defined
-            .extend(user_defined.into_iter().filter_map(|multiaddr| {
-                let mut addr = multiaddr.clone();
-                if let Some(Protocol::P2p(peer_id)) = addr.pop() {
-                    return Some((peer_id, addr));
-                }
-                warn!("Could not parse bootstrap addr {}", multiaddr);
-                None
-            }));
-        self
+    pub fn with_user_defined(
+        mut self,
+        user_defined: impl IntoIterator<Item = Multiaddr>,
+    ) -> anyhow::Result<Self> {
+        for mut addr in user_defined.into_iter() {
+            if let Some(Protocol::P2p(peer_id)) = addr.pop() {
+                self.user_defined.push((peer_id, addr))
+            } else {
+                anyhow::bail!("Failed to parse peer id from {addr}")
+            }
+        }
+        Ok(self)
     }
 
     /// Configures if MDNS is enabled.
@@ -168,7 +166,8 @@ impl<'a> DiscoveryConfig<'a> {
                 mdns: mdns_opt.into(),
                 idenfity: identify::Behaviour::new(
                     identify::Config::new("ipfs/0.1.0".into(), local_public_key)
-                        .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str())),
+                        .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str()))
+                        .with_push_listen_addr_updates(true),
                 ),
             },
             next_kad_random_query: tokio::time::interval(Duration::from_secs(1)),
@@ -470,5 +469,69 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         }
 
         Poll::Pending
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use libp2p::{identity::Keypair, swarm::SwarmEvent, Swarm};
+    use libp2p_swarm_test::SwarmExt;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn kademlia_test() {
+        fn new_descovery(
+            keypair: Keypair,
+            seed_peers: impl IntoIterator<Item = Multiaddr>,
+        ) -> DiscoveryBehaviour {
+            DiscoveryConfig::new(keypair.public(), "calibnet")
+                .with_mdns(false)
+                .with_kademlia(true)
+                .with_user_defined(seed_peers)
+                .unwrap()
+                .target_peer_count(128)
+                .finish()
+                .unwrap()
+        }
+
+        let mut b = Swarm::new_ephemeral(|k| new_descovery(k, vec![]));
+        b.listen().await;
+        let b_peer_id = *b.local_peer_id();
+        let b_addresses: Vec<_> = b
+            .external_addresses()
+            .map(|addr| {
+                let mut addr = addr.clone();
+                addr.push(multiaddr::Protocol::P2p(b_peer_id));
+                addr
+            })
+            .collect();
+
+        let mut c = Swarm::new_ephemeral(|k| new_descovery(k, b_addresses.clone()));
+        c.listen().await;
+        let c_peer_id = *c.local_peer_id();
+
+        let mut a = Swarm::new_ephemeral(|k| new_descovery(k, b_addresses.clone()));
+
+        // Bootstrap `a` and `c`
+        a.behaviour_mut().bootstrap().unwrap();
+        c.behaviour_mut().bootstrap().unwrap();
+
+        // Run event loop of `b` and `c`
+        tokio::spawn(b.loop_on_next());
+        tokio::spawn(c.loop_on_next());
+
+        // Wait until `c` is connected to `a`
+        a.wait(|e| match e {
+            SwarmEvent::Behaviour(DiscoveryEvent::PeerConnected(peer_id)) => {
+                if peer_id == c_peer_id {
+                    Some(())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .await;
     }
 }
