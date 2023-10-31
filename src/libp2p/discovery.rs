@@ -142,6 +142,10 @@ impl<'a> DiscoveryConfig<'a> {
 
         let kademlia_opt = if enable_kademlia {
             let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
+            // `set_mode(Server)` fixes https://github.com/ChainSafe/forest/issues/3620
+            // but it should not be required. It might be a bug in either `forest` or `libp2p`.
+            // TODO: Fix the bug or report with a minimal reproduction.
+            kademlia.set_mode(Some(kad::Mode::Server));
             for (peer_id, addr) in &user_defined {
                 kademlia.add_address(peer_id, addr.clone());
                 peers.insert(*peer_id);
@@ -387,11 +391,9 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 ToSwarm::GenerateEvent(ev) => match ev {
                     DerivedDiscoveryBehaviourEvent::Idenfity(ev) => {
                         if let identify::Event::Received { peer_id, info } = &ev {
-                            if self.n_node_connected < self.target_peer_count {
-                                if let Some(kademlia) = self.discovery.kademlia.as_mut() {
-                                    for address in &info.listen_addrs {
-                                        kademlia.add_address(peer_id, address.clone());
-                                    }
+                            if let Some(kademlia) = self.discovery.kademlia.as_mut() {
+                                for address in &info.listen_addrs {
+                                    kademlia.add_address(peer_id, address.clone());
                                 }
                             }
                         }
