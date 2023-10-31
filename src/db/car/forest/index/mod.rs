@@ -60,7 +60,10 @@ use std::{
     num::NonZeroUsize,
 };
 
+#[cfg(not(test))]
 mod hash;
+#[cfg(test)]
+pub mod hash;
 
 /// Reader for the `.forest.car.zst`'s embedded index.
 ///
@@ -498,6 +501,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     /// Check that the new [`write`] implementation matches the old `CarIndexBuilder` one.
+    #[allow(deprecated)]
     fn do_backwards_compat(pairs: Vec<(Cid, u64)>) {
         let reference = crate::utils::db::car_index::CarIndexBuilder::new(
             pairs

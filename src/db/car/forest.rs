@@ -48,8 +48,8 @@
 
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
+use crate::cid_collections::CidHashMap;
 use crate::db::car::plain::write_skip_frame_header_async;
-use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -85,21 +85,21 @@ pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
     cache_key: CacheKey,
-    indexed: CarIndex<ReaderT>,
+    indexed: index::Reader<ReaderT>,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
-    pub fn new(reader: ReaderT) -> io::Result<Self> {
+    pub fn new(reader: ReaderT) -> io::Result<ForestCar<positioned_io::Slice<ReaderT>>> {
         let (header, footer) = Self::validate_car(&reader)?;
 
-        let index = CarIndex::open(reader, footer.index)?;
+        let indexed = index::Reader::new(positioned_io::Slice::new(reader, footer.index, None))?;
 
         Ok(ForestCar {
             cache_key: 0,
-            indexed: index,
+            indexed,
             frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
             roots: header.roots,
@@ -152,7 +152,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
 
         ForestCar {
             cache_key: self.cache_key,
-            indexed: self.indexed.map_reader(any_reader),
+            indexed: self.indexed.map(|slice| Box::new(slice) as _),
             frame_cache: self.frame_cache,
             write_cache: self.write_cache,
             roots: self.roots,
@@ -168,7 +168,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 }
 
-impl TryFrom<&Path> for ForestCar<EitherMmapOrRandomAccessFile> {
+impl TryFrom<&Path> for ForestCar<positioned_io::Slice<EitherMmapOrRandomAccessFile>> {
     type Error = std::io::Error;
     fn try_from(path: &Path) -> std::io::Result<Self> {
         ForestCar::new(EitherMmapOrRandomAccessFile::open(path)?)
@@ -187,7 +187,7 @@ where
         }
 
         let indexed = &self.indexed;
-        for position in indexed.lookup(*k)?.into_iter() {
+        for position in indexed.get(*k)?.into_iter() {
             let reader = indexed.reader();
             let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
             match cache_query {
@@ -269,24 +269,23 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_mapping = Vec::new();
+        let mut cid_to_frame_offset = CidHashMap::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
-            for cid in cids {
-                cid_mapping.push((Hash::from(cid), offset as FrameOffset));
-            }
+            cid_to_frame_offset.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
             sink.write_all(&zstd_frame).await?;
-            offset += zstd_frame.len();
+            offset += zstd_frame.len()
         }
 
         // Create index
-        let index_offset = offset as u64 + 8;
-        let builder = CarIndexBuilder::new(cid_mapping.into_iter());
-        write_skip_frame_header_async(sink, builder.encoded_len()).await?;
-        builder.write_async(sink).await?;
+        let mut index = vec![];
+        index::write(cid_to_frame_offset, &mut index);
+        write_skip_frame_header_async(sink, index.len().try_into().unwrap()).await?;
+        sink.write_all(&index).await?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
-            index: index_offset,
+            // TODO(aatifsyed): why the addition?
+            index: offset as u64 + 8,
         };
         sink.write_all(&footer.to_le_bytes()).await?;
         Ok(())
@@ -500,7 +499,7 @@ mod tests {
         // A and B are _not_ the same...
         assert_ne!(cid_a, cid_b);
         // ... but they map to the same hash:
-        assert_eq!(Hash::from(cid_a), Hash::from(cid_b));
+        assert_eq!(index::hash::of(&cid_a), index::hash::of(&cid_b));
 
         // For testing purposes, we ignore that the data doesn't map to the
         // CIDs.

@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
-    Forest(super::ForestCar<ReaderT>),
+    Forest(super::ForestCar<positioned_io::Slice<ReaderT>>),
     Memory(super::PlainCar<Vec<u8>>),
 }
 
