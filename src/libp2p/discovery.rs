@@ -143,7 +143,8 @@ impl<'a> DiscoveryConfig<'a> {
         let kademlia_opt = if enable_kademlia {
             let mut kademlia = kad::Behaviour::with_config(local_peer_id, store, kad_config);
             // `set_mode(Server)` fixes https://github.com/ChainSafe/forest/issues/3620
-            // but it should not be required. It might be a bug in either `forest` or `libp2p`.
+            // but it should not be required as the behaviour should automatically switch to server mode
+            // according to the doc. It might be a bug in `libp2p`.
             // TODO: Fix the bug or report with a minimal reproduction.
             kademlia.set_mode(Some(kad::Mode::Server));
             for (peer_id, addr) in &user_defined {
