@@ -1,5 +1,17 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+//! We have three goals for our error shims:
+//! - preserve upstream error _numbers_.
+//! - preserve upstream error messages.
+//! - allow _matching_ on specific errors.
+//!
+//! There are a couple of things that make this difficult:
+//! - `fvm_shared*::error::ErrorNumber` is `#[non_exhaustive]`
+//!
+//! We have designed with the following assumptions about the `fvm*` crates:
+//! - new error variants are append-only
+//! - error messages are consistent between crates
+
 use self::ErrorNumber as NShim;
 use self::SyscallError as EShim;
 use fvm2::kernel::SyscallError as E2;
@@ -8,73 +20,35 @@ use fvm4::kernel::SyscallError as E4;
 use fvm_shared2::error::ErrorNumber as N2;
 use fvm_shared3::error::ErrorNumber as N3;
 use fvm_shared4::error::ErrorNumber as N4;
-use itertools::Either;
+use num_traits::FromPrimitive;
 use std::fmt;
+use std::fmt::Debug;
 
 macro_rules! error_number {
     ($($variant:ident),* $(,)?) => {
         #[derive(Debug, Clone)]
-        #[non_exhaustive]
         pub enum ErrorNumber {
             $($variant,)*
-            Unknown(UnknownErrorNumber),
-        }
-
-        $(
-            static_assertions::const_assert_eq!(N2::$variant as u32, N3::$variant as u32);
-        )*
-
-        impl From<N2> for ErrorNumber {
-            fn from(value: N2) -> Self {
-                match value {
-                    $(N2::$variant => Self::$variant,)*
-                    u => Self::Unknown(UnknownErrorNumber::N2(u)),
-                }
-            }
-        }
-
-        impl From<N3> for ErrorNumber {
-            fn from(value: N3) -> Self {
-                match value {
-                    $(N3::$variant => Self::$variant,)*
-                    u => Self::Unknown(UnknownErrorNumber::N3(u)),
-                }
-            }
+            /// This is to catch `#[non_exhaustive]` upstream errors, and MUST NOT for be constructed
+            Unknown(u32),
         }
 
         impl From<N4> for ErrorNumber {
-            fn from(value: N4) -> Self {
-                match value {
+            fn from(error: N4) -> Self {
+                match error {
                     $(N4::$variant => Self::$variant,)*
-                    u => Self::Unknown(UnknownErrorNumber::N4(u)),
+                    _ => Self::Unknown(error as u32),
                 }
             }
         }
 
-        impl ErrorNumber {
-            fn as_unshimmed(&self) -> Either<N3, Either<N4, N2>> {
+        impl fmt::Display for ErrorNumber {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
-                    $(Self::$variant => Either::Left(N3::$variant),)*
-                    Self::Unknown(u) => u.as_unshimmed(),
+                    $(Self::$variant => std::fmt::Display::fmt(&N4::$variant, f),)*
+                    Self::Unknown(u) => std::fmt::Debug::fmt(&u, f),
                 }
             }
-        }
-    };
-}
-
-#[derive(Debug, Clone)]
-pub enum UnknownErrorNumber {
-    N2(N2),
-    N3(N3),
-    N4(N4),
-}
-
-impl UnknownErrorNumber {
-    fn as_unshimmed(&self) -> Either<N3, Either<N4, N2>> {
-        match self {
-            Self::N2(n) => Either::Right(Either::Right(*n)),
-            Self::N3(n) => Either::Left(*n),
-            Self::N4(n) => Either::Right(Either::Left(*n)),
         }
     }
 }
@@ -92,11 +66,26 @@ error_number! {
     Serialization,
     Forbidden,
     BufferTooSmall,
+    ReadOnly,
 }
 
-impl fmt::Display for ErrorNumber {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_unshimmed().fmt(f)
+impl From<N2> for ErrorNumber {
+    fn from(value: N2) -> Self {
+        let opt: Option<N4> = FromPrimitive::from_u32(value as u32);
+        match opt {
+            Some(err) => err.into(),
+            None => Self::Unknown(value as u32),
+        }
+    }
+}
+
+impl From<N3> for ErrorNumber {
+    fn from(value: N3) -> Self {
+        let opt: Option<N4> = FromPrimitive::from_u32(value as u32);
+        match opt {
+            Some(err) => err.into(),
+            None => Self::Unknown(value as u32),
+        }
     }
 }
 
@@ -134,5 +123,31 @@ impl From<E4> for EShim {
             message,
             number: number.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_n2_error_fmt() {
+        let shim: NShim = N2::IllegalArgument.into();
+
+        assert_eq!(format!("{}", shim), "illegal argument");
+    }
+
+    #[test]
+    fn test_n3_error_fmt() {
+        let shim: NShim = N3::ReadOnly.into();
+
+        assert_eq!(format!("{}", shim), "execution context is read-only");
+    }
+
+    #[test]
+    fn test_unknown_error_fmt() {
+        let shim: NShim = ErrorNumber::Unknown(23);
+
+        assert_eq!(format!("{}", shim), "23");
     }
 }

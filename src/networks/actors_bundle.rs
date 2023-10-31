@@ -130,6 +130,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 mod tests {
     use http::StatusCode;
     use reqwest::Response;
+    use std::time::Duration;
 
     use crate::utils::net::global_http_client;
 
@@ -149,8 +150,12 @@ mod tests {
                  url,
                  alt_url,
              }| async move {
-                let primary = http_get(url).await;
-                let alt = http_get(alt_url).await;
+                let (primary, alt) = match (http_get(url).await, http_get(alt_url).await) {
+                    (Ok(primary), Ok(alt)) => (primary, alt),
+                    (Err(_), Err(_)) => anyhow::bail!("Both sources are down"),
+                    // If either of the sources are otherwise down, we don't want to fail the test.
+                    _ => return anyhow::Ok(()),
+                };
 
                 // Check that neither of the sources respond with 404.
                 // Such code would indicate that the bundle URLs are incorrect.
@@ -176,8 +181,12 @@ mod tests {
                 // Check that the bundles are identical.
                 // This is to ensure that the bundle was not tamperered with and that the
                 // bundle was uploaded to the alternative URL correctly.
-                let primary = primary.bytes().await?;
-                let alt = alt.bytes().await?;
+                let (primary, alt) = match (primary.bytes().await, alt.bytes().await) {
+                    (Ok(primary), Ok(alt)) => (primary, alt),
+                    (Err(_), Err(_)) => anyhow::bail!("Both sources are down"),
+                    // If either of the sources are otherwise down, we don't want to fail the test.
+                    _ => return anyhow::Ok(()),
+                };
 
                 let car_primary = CarStream::new(Cursor::new(primary)).await?;
                 let car_secondary = CarStream::new(Cursor::new(alt)).await?;
@@ -199,7 +208,11 @@ mod tests {
         .unwrap();
     }
 
-    pub async fn http_get(url: &Url) -> Response {
-        global_http_client().get(url.clone()).send().await.unwrap()
+    pub async fn http_get(url: &Url) -> anyhow::Result<Response> {
+        Ok(global_http_client()
+            .get(url.clone())
+            .timeout(Duration::from_secs(120))
+            .send()
+            .await?)
     }
 }
