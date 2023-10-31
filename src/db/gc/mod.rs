@@ -13,10 +13,18 @@
 //! unreachable blocks that are older than `chain finality`, making sure to avoid removing something
 //! that could later become reachable as a result of a fork.
 //!
+//! Properties:
+//!
+//! - No `BlockHeader` reachable from HEAD may be garbage collected.
+//! - No data younger than `chain finality` epochs may be garbage collected.
+//! - State-trees older than `depth` epochs should be garbage collected.
+//! - Not all unreachable data has to be garbage collected. In other words, it's
+//!   acceptable for the garbage collector to be conservative.
+//! - The garbage collector may not prevent access to the database.
+//!
 //! ## GC Algorithm
 //! The `mark-and-sweep` algorithm was chosen due to it's simplicity, efficiency and low memory
-//! footprint. Previously the `semi-space` algorithm was used resulting in data duplication and up
-//! to a 100% extra disk usage.
+//! footprint.
 //!
 //! ## GC Workflow
 //! 1. Mark: traverse all the blocks, generating integer hash representations for each identifier
