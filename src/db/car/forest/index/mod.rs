@@ -51,6 +51,8 @@
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cid::Cid;
+use positioned_io::ReadAt;
+use smallvec::{smallvec, SmallVec};
 use std::{
     cmp,
     io::{self, Read, Write},
@@ -59,6 +61,104 @@ use std::{
 };
 
 mod hash;
+
+/// Reader for the `.forest.car.zst`'s embedded index.
+///
+/// See [module documentation](mod@self) for more.
+pub struct Reader<R> {
+    inner: R,
+    table_offset: u64,
+    header: V1Header,
+}
+
+impl<R> Reader<R>
+where
+    R: ReadAt,
+{
+    pub fn new(reader: R) -> io::Result<Self> {
+        let mut reader = positioned_io::Cursor::new(reader);
+        let Version::V1 = Version::read_from(&mut reader)? else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unsupported embedded index version",
+            ));
+        };
+        let header = V1Header::read_from(&mut reader)?;
+        Ok(Self {
+            table_offset: reader.position(),
+            inner: reader.into_inner(),
+            header,
+        })
+    }
+
+    /// Look up possible frame offsets for a [`Cid`].
+    /// Returns `Ok([])` if no offsets are found, or [`Err(_)`] if the underlying
+    /// IO fails.
+    ///
+    /// Does not allocate unless 2 or more CIDs have collided, see [module documentation](mod@self).
+    ///
+    /// You MUST check the actual CID at the offset to see if it matches.
+    pub fn get(&self, key: Cid) -> io::Result<SmallVec<[u64; 1]>> {
+        self.get_by_hash(hash::of(&key))
+    }
+
+    /// Jump to slot offset and scan downstream. All key-value pairs with a
+    /// matching key are guaranteed to appear before we encounter an empty slot.
+    fn get_by_hash(&self, needle: NonMaximalU64) -> io::Result<SmallVec<[u64; 1]>> {
+        let Some(initial_buckets) =
+            NonZeroUsize::new(self.header.initial_buckets.try_into().unwrap())
+        else {
+            return Ok(smallvec![]); // empty table
+        };
+        let offset_in_table =
+            u64::try_from(hash::ideal_slot_ix(needle, initial_buckets)).unwrap() * RawSlot::WIDTH;
+
+        let mut haystack =
+            positioned_io::Cursor::new_pos(&self.inner, self.table_offset + offset_in_table);
+
+        let mut limit = self.header.longest_distance;
+        while let Slot::Occupied(OccupiedSlot { hash, frame_offset }) =
+            Slot::read_from(&mut haystack)?
+        {
+            if hash == needle {
+                let mut found = smallvec![frame_offset];
+                // The entries are sorted. Once we've found a matching key, all
+                // duplicate hash keys will be right next to it.
+                loop {
+                    match Slot::read_from(&mut haystack)? {
+                        Slot::Occupied(another) if another.hash == needle => {
+                            found.push(another.frame_offset)
+                        }
+                        Slot::Empty | Slot::Occupied(_) => return Ok(found),
+                    }
+                }
+            }
+            if limit == 0 {
+                // Even the biggest bucket does not have this many entries. We
+                // can safely return an empty result now.
+                return Ok(smallvec![]);
+            }
+            limit -= 1;
+        }
+        Ok(smallvec![]) // didn't find anything
+    }
+
+    /// Gets a reference to the underlying reader.
+    pub fn reader(&self) -> &R {
+        &self.inner
+    }
+
+    /// Replace the inner reader.
+    /// It MUST point to the same underlying IO, else future calls to `get`
+    /// will be incorrect.
+    pub fn map<T>(self, f: impl FnOnce(R) -> T) -> Reader<T> {
+        Reader {
+            inner: f(self.inner),
+            table_offset: self.table_offset,
+            header: self.header,
+        }
+    }
+}
 
 /// Write an index to the given writer.
 ///
@@ -236,6 +336,16 @@ impl RawSlot {
         hash: u64::MAX,
         frame_offset: u64::MAX,
     };
+    /// How many bytes occupied by [`RawSlot`] when serialized.
+    const WIDTH: u64 = std::mem::size_of::<u64>() as u64 * 2;
+}
+
+#[test]
+fn raw_slot_width() {
+    assert_eq!(
+        tests::write_to_vec(|v| RawSlot::EMPTY.write_to(v)).len() as u64,
+        RawSlot::WIDTH
+    )
 }
 
 //////////////////////////////////////
@@ -383,9 +493,11 @@ mod util {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ahash::{HashMap, HashSet};
     use cid::Cid;
     use pretty_assertions::assert_eq;
 
+    /// Check that the new [`write`] implementation matches the old `CarIndexBuilder` one.
     fn do_backwards_compat(pairs: Vec<(Cid, u64)>) {
         let reference = crate::utils::db::car_index::CarIndexBuilder::new(
             pairs
@@ -399,9 +511,32 @@ mod tests {
         assert_eq!(subject, reference);
     }
 
+    /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions
+    fn do_hashmap(mut reference: HashMap<Cid, HashSet<u64>>) {
+        reference.retain(|_, offsets| !offsets.is_empty());
+        let subject = Reader::new(write_to_vec(|v| {
+            write(
+                reference
+                    .clone()
+                    .into_iter()
+                    .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset)))
+                    .collect::<Vec<_>>(),
+                v,
+            )
+        }))
+        .unwrap();
+        for (cid, expected) in reference {
+            let actual = subject.get(cid).unwrap().into_iter().collect();
+            assert!(expected.is_subset(&actual)); // collisions
+        }
+    }
+
     quickcheck::quickcheck! {
         fn backwards_compat(pairs: Vec<(Cid, u64)>) -> () {
             do_backwards_compat(pairs)
+        }
+        fn hashmap(reference: HashMap<Cid, HashSet<u64>>) -> () {
+            do_hashmap(reference)
         }
         fn header(it: V1Header) -> () {
             round_trip(&it);
@@ -422,7 +557,7 @@ mod tests {
         pretty_assertions::assert_eq!(original, &deserialized);
     }
 
-    fn write_to_vec(f: impl FnOnce(&mut Vec<u8>) -> io::Result<()>) -> Vec<u8> {
+    pub fn write_to_vec(f: impl FnOnce(&mut Vec<u8>) -> io::Result<()>) -> Vec<u8> {
         let mut v = Vec::new();
         f(&mut v).unwrap();
         v
