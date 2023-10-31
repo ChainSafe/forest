@@ -72,6 +72,7 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 use unsigned_varint::codec::UviBytes;
+mod index;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
