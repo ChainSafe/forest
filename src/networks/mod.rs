@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
-use crate::chain::ChainEpochDelta;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;

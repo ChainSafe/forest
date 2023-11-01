@@ -235,8 +235,8 @@ pub(super) async fn start(
         let mut db_garbage_collector = {
             let chain_store = chain_store.clone();
             let depth = cmp::max(
-                config.chain.policy.chain_finality,
-                config.chain.recent_state_roots,
+                chain_config.policy.chain_finality,
+                config.sync.recent_state_roots,
             );
 
             let get_heaviest_tipset = Box::new(move || chain_store.heaviest_tipset());
@@ -245,7 +245,7 @@ pub(super) async fn start(
                 db_writer,
                 get_heaviest_tipset,
                 depth,
-                Duration::from_secs(config.chain.block_delay_secs as u64),
+                Duration::from_secs(chain_config.block_delay_secs as u64),
             )
         };
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
