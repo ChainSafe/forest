@@ -484,7 +484,7 @@ mod tests {
 
     #[tokio::test]
     async fn kademlia_test() {
-        fn new_descovery(
+        fn new_discovery(
             keypair: Keypair,
             seed_peers: impl IntoIterator<Item = Multiaddr>,
         ) -> DiscoveryBehaviour {
@@ -498,7 +498,7 @@ mod tests {
                 .unwrap()
         }
 
-        let mut b = Swarm::new_ephemeral(|k| new_descovery(k, vec![]));
+        let mut b = Swarm::new_ephemeral(|k| new_discovery(k, vec![]));
         b.listen().await;
         let b_peer_id = *b.local_peer_id();
         let b_addresses: Vec<_> = b
@@ -510,11 +510,11 @@ mod tests {
             })
             .collect();
 
-        let mut c = Swarm::new_ephemeral(|k| new_descovery(k, b_addresses.clone()));
+        let mut c = Swarm::new_ephemeral(|k| new_discovery(k, b_addresses.clone()));
         c.listen().await;
         let c_peer_id = *c.local_peer_id();
 
-        let mut a = Swarm::new_ephemeral(|k| new_descovery(k, b_addresses.clone()));
+        let mut a = Swarm::new_ephemeral(|k| new_discovery(k, b_addresses.clone()));
 
         // Bootstrap `a` and `c`
         a.behaviour_mut().bootstrap().unwrap();
