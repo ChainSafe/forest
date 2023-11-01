@@ -145,7 +145,7 @@ impl<'a> DiscoveryConfig<'a> {
             // `set_mode(Server)` fixes https://github.com/ChainSafe/forest/issues/3620
             // but it should not be required as the behaviour should automatically switch to server mode
             // according to the doc. It might be a bug in `libp2p`.
-            // TODO: Fix the bug or report with a minimal reproduction.
+            // We should fix the bug or report with a minimal reproduction.
             kademlia.set_mode(Some(kad::Mode::Server));
             for (peer_id, addr) in &user_defined {
                 kademlia.add_address(peer_id, addr.clone());
