@@ -11,11 +11,10 @@ pub mod state_migration_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::NetworkChain;
 use crate::utils::version::FOREST_VERSION_STRING;
 use crate::utils::{io::read_file_to_string, io::read_toml};
 use clap::Parser;
-use std::sync::Arc;
 
 /// Command-line options for the `forest-tool` binary
 #[derive(Parser)]
@@ -58,25 +57,22 @@ pub enum Subcommand {
     Car(car_cmd::CarCommands),
 }
 
-fn read_config(config: &Option<String>, chain: &Option<NetworkChain>) -> anyhow::Result<Config> {
-    let path = find_config_path(config);
-    let mut cfg: Config = match &path {
+fn read_config(
+    config_path_opt: &Option<String>,
+    chain_opt: &Option<NetworkChain>,
+) -> anyhow::Result<Config> {
+    match find_config_path(config_path_opt) {
         Some(path) => {
             // Read from config file
             let toml = read_file_to_string(path.to_path_buf())?;
             // Parse and return the configuration file
-            read_toml(&toml)?
+            let mut config: Config = read_toml(&toml)?;
+            if let Some(chain) = chain_opt {
+                config.chain = chain.clone();
+            }
+
+            Ok(config)
         }
-        None => Config::default(),
-    };
-
-    // Override config with chain if some
-    match chain {
-        Some(NetworkChain::Mainnet) => cfg.chain = Arc::new(ChainConfig::mainnet()),
-        Some(NetworkChain::Calibnet) => cfg.chain = Arc::new(ChainConfig::calibnet()),
-        Some(NetworkChain::Devnet(_)) => cfg.chain = Arc::new(ChainConfig::devnet()),
-        None => (),
+        None => Ok(Config::default()),
     }
-
-    Ok(cfg)
 }

@@ -70,7 +70,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     // Retrieve lookback tipset for validation
     let (lookback_tipset, lookback_state) = ChainStore::get_lookback_tipset_for_round(
         state_manager.chain_store().chain_index.clone(),
-        state_manager.chain_config(),
+        state_manager.chain_config().clone(),
         base_tipset.clone(),
         block.header().epoch(),
     )
@@ -152,7 +152,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
             v_base_tipset.as_ref(),
             v_prev_beacon.as_ref(),
             &work_addr,
-            &v_state_manager.chain_config(),
+            v_state_manager.chain_config(),
         )
     }));
 

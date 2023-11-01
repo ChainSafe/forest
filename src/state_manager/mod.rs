@@ -5,6 +5,7 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 mod utils;
+use crate::chain_sync::SyncConfig;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
@@ -204,6 +205,7 @@ pub struct StateManager<DB> {
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
+    sync_config: Arc<SyncConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
 
@@ -217,6 +219,7 @@ where
     pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
+        sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
@@ -226,6 +229,7 @@ where
             cache: TipsetStateCache::new(),
             beacon,
             chain_config,
+            sync_config,
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -239,8 +243,12 @@ where
         self.chain_config.network_version(epoch)
     }
 
-    pub fn chain_config(&self) -> Arc<ChainConfig> {
-        Arc::clone(&self.chain_config)
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
+    }
+
+    pub fn sync_config(&self) -> &Arc<SyncConfig> {
+        &self.sync_config
     }
 
     /// Gets actor from given [`Cid`], if it exists.
@@ -370,7 +378,7 @@ where
     ) -> StateCallResult {
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
@@ -383,7 +391,7 @@ where
                     &self.blockstore_owned(),
                     bstate,
                 )?,
-                chain_config: self.chain_config(),
+                chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
             },
@@ -447,7 +455,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&ts),
@@ -460,7 +468,7 @@ where
                     &self.blockstore_owned(),
                     &st,
                 )?,
-                chain_config: self.chain_config(),
+                chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: ts.min_timestamp(),
             },
@@ -1073,7 +1081,7 @@ where
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
-            self.chain_config(),
+            self.chain_config().clone(),
             self.beacon_schedule(),
             &self.engine,
             tipsets,

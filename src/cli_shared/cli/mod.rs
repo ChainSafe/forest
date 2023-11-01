@@ -7,10 +7,9 @@ mod config;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::NetworkChain;
 use crate::utils::{
     io::{read_file_to_string, read_toml, ProgressBarVisibility},
     misc::LoggingColor,
@@ -93,11 +92,11 @@ pub struct CliOpts {
     /// pre-loaded database
     #[arg(long)]
     pub skip_load: Option<bool>,
-    /// Number of tipsets requested over chain exchange (default is 200)
+    /// Number of tipsets requested over one chain exchange (default is 8)
     #[arg(long)]
-    pub req_window: Option<i64>,
+    pub req_window: Option<usize>,
     /// Number of tipsets to include in the sample that determines what the
-    /// network head is
+    /// network head is (default is 5)
     #[arg(long)]
     pub tipset_sample_size: Option<u8>,
     /// Amount of Peers we want to be connected to (default is 75)
@@ -172,12 +171,7 @@ impl CliOpts {
         };
 
         if let Some(chain) = &self.chain {
-            // override the chain configuration
-            cfg.chain = Arc::new(ChainConfig::from_chain(chain));
-        } else {
-            // override any custom changes to the chain configuration based on the used
-            // network.
-            cfg.chain = Arc::new(ChainConfig::from_chain(&cfg.chain.network));
+            cfg.chain = chain.clone();
         }
 
         if let Some(genesis_file) = &self.genesis {
@@ -244,8 +238,8 @@ impl CliOpts {
         // (where to find these flags, should be easy to do with structops)
 
         // check and set syncing configurations
-        if let Some(req_window) = &self.req_window {
-            cfg.sync.req_window = req_window.to_owned();
+        if let Some(req_window) = self.req_window {
+            cfg.sync.request_window = req_window;
         }
         if let Some(tipset_sample_size) = self.tipset_sample_size {
             cfg.sync.tipset_sample_size = tipset_sample_size.into();
