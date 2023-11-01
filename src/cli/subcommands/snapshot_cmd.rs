@@ -3,9 +3,9 @@
 
 use super::*;
 use crate::blocks::TipsetKeys;
+use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
-use crate::networks::ChainConfig;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::ApiInfo;
 use crate::utils::bail_moved_cmd;
@@ -115,10 +115,9 @@ impl SnapshotCommands {
                 let output_dir = output_path.parent().context("invalid output path")?;
                 let temp_path = NamedTempFile::new_in(output_dir)?.into_temp_path();
 
-                let chain_config = ChainConfig::default();
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: depth.unwrap_or(chain_config.recent_state_roots),
+                    recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: chain_head.key().clone(),
                     skip_checksum,

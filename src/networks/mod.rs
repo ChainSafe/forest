@@ -26,12 +26,6 @@ pub mod mainnet;
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
-const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
-
-// Sync the messages for one or many tipsets @ a time
-// Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
-const DEFAULT_REQUEST_WINDOW: usize = 8;
-
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -199,10 +193,6 @@ pub struct ChainConfig {
     #[serde(default = "default_policy")]
     pub policy: Policy,
     pub eth_chain_id: u32,
-    /// Number of default recent state roots to keep in memory and include in
-    /// the exported snapshot.
-    pub recent_state_roots: i64,
-    pub request_window: u32,
 }
 
 impl ChainConfig {
@@ -217,8 +207,6 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::mainnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
-            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -233,8 +221,6 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy: Policy::calibnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
-            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 
@@ -267,8 +253,6 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.to_vec(),
             policy,
             eth_chain_id: ETH_CHAIN_ID as u32,
-            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
-            request_window: DEFAULT_REQUEST_WINDOW as u32,
         }
     }
 

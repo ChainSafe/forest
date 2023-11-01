@@ -1034,13 +1034,13 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
     genesis: &Tipset,
     invalid_block_strategy: InvalidBlockStrategy,
 ) -> Result<(), TipsetRangeSyncerError> {
-    let request_window = state_manager.chain_config().request_window;
+    let request_window = state_manager.sync_config().request_window;
     let db = chainstore.blockstore();
 
     // Stream through the tipsets from lowest epoch to highest epoch
     stream::iter(tipsets.into_iter().rev())
         // Chunk tipsets in batches (default batch size is 8)
-        .chunks(request_window as usize)
+        .chunks(request_window)
         // Request batches from the p2p network
         .map(|batch| fetch_batch(batch, &network, db))
         // run 64 batches concurrently
@@ -1197,7 +1197,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Retrieve lookback tipset for validation
     let lookback_state = ChainStore::get_lookback_tipset_for_round(
         state_manager.chain_store().chain_index.clone(),
-        state_manager.chain_config(),
+        state_manager.chain_config().clone(),
         base_tipset.clone(),
         block.header().epoch(),
     )

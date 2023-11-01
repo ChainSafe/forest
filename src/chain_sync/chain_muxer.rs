@@ -42,6 +42,12 @@ use crate::chain_sync::{
     validation::{TipsetValidationError, TipsetValidator},
 };
 
+// Sync the messages for one or many tipsets @ a time
+// Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
+const DEFAULT_REQUEST_WINDOW: usize = 8;
+const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 5;
+const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+
 pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
 
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
@@ -75,7 +81,10 @@ pub enum ChainMuxerError {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
-    pub req_window: i64,
+    pub request_window: usize,
+    /// Number of recent state roots to keep in the database after `sync`
+    /// and to include in the exported snapshot.
+    pub recent_state_roots: i64,
     /// Sample size of tipsets to acquire before determining what the network
     /// head is
     #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
@@ -85,8 +94,9 @@ pub struct SyncConfig {
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {
-            req_window: 200,
-            tipset_sample_size: 5,
+            request_window: DEFAULT_REQUEST_WINDOW,
+            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+            tipset_sample_size: DEFAULT_TIPSET_SAMPLE_SIZE,
         }
     }
 }
@@ -150,9 +160,6 @@ pub struct ChainMuxer<DB, M> {
     /// Tipset channel receiver
     tipset_receiver: flume::Receiver<Arc<Tipset>>,
 
-    /// Syncing configurations
-    sync_config: SyncConfig,
-
     /// When `stateless_mode` is true, forest connects to the P2P network but does not sync to HEAD.
     stateless_mode: bool,
 }
@@ -172,7 +179,6 @@ where
         genesis: Arc<Tipset>,
         tipset_sender: flume::Sender<Arc<Tipset>>,
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
-        cfg: SyncConfig,
         stateless_mode: bool,
     ) -> Result<Self, ChainMuxerError> {
         let network =
@@ -183,13 +189,12 @@ where
             worker_state: Default::default(),
             network,
             genesis,
-            state_manager,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             mpool,
             tipset_sender,
             tipset_receiver,
-            sync_config: cfg,
+            state_manager,
             stateless_mode,
         })
     }
@@ -566,7 +571,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let tipset_sample_size = self.sync_config.tipset_sample_size;
+        let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
         let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let evaluator = async move {
@@ -891,7 +896,7 @@ where
                     if self.stateless_mode {
                         info!("Running chain muxer in stateless mode...");
                         self.state = ChainMuxerState::Stateless(self.stateless_node());
-                    } else if self.sync_config.tipset_sample_size == 0 {
+                    } else if self.state_manager.sync_config().tipset_sample_size == 0 {
                         // A standalone node might use this option to not be stuck waiting for P2P
                         // messages.
                         info!("Skip evaluating network head, assume in-sync.");

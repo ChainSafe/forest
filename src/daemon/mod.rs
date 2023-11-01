@@ -236,7 +236,7 @@ pub(super) async fn start(
         Arc::new(DbGarbageCollector::new(
             db,
             chain_config.policy.chain_finality,
-            chain_config.recent_state_roots,
+            config.sync.recent_state_roots,
             get_tipset,
         ))
     };
@@ -255,7 +255,11 @@ pub(super) async fn start(
     let publisher = chain_store.publisher();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&chain_config))?;
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&chain_config),
+        Arc::new(config.sync.clone()),
+    )?;
 
     let state_manager = Arc::new(sm);
 
@@ -310,7 +314,7 @@ pub(super) async fn start(
         network_name.clone(),
         network_send.clone(),
         MpoolConfig::load_config(db.writer().as_ref())?,
-        state_manager.chain_config(),
+        state_manager.chain_config().clone(),
         &mut services,
     )?;
 
@@ -326,7 +330,6 @@ pub(super) async fn start(
         Arc::new(Tipset::from(genesis_header)),
         tipset_sink,
         tipset_stream,
-        config.sync.clone(),
         opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
