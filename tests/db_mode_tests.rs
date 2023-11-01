@@ -14,7 +14,6 @@ fn current_mode_should_create_current_version_if_no_migrations() {
         // In its absence, the default will be "current" anyway, but let's make it explicit.
         .env("FOREST_DB_DEV_MODE", "current")
         .common_args()
-        .chain("calibnet")
         .arg("--config")
         .arg(config_file)
         .arg("--encrypt-keystore")
@@ -38,7 +37,6 @@ fn development_mode_should_create_named_db() {
         .common_env()
         .env("FOREST_DB_DEV_MODE", "azathoth")
         .common_args()
-        .chain("calibnet")
         .arg("--config")
         .arg(&config_file)
         .arg("--encrypt-keystore")

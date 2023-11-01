@@ -3,7 +3,7 @@
 
 pub mod common;
 
-use crate::common::{create_tmp_config, daemon, CommonArgs, CommonEnv};
+use crate::common::{create_tmp_config, daemon, CommonEnv};
 
 // Ignored because it's flaky.
 #[test]
@@ -14,7 +14,6 @@ fn importing_bad_snapshot_should_fail() {
     std::fs::write(&temp_file, "bad-snapshot").unwrap();
     daemon()
         .common_env()
-        .chain("calibnet")
         .arg("--rpc-address")
         .arg("127.0.0.1:0")
         .arg("--metrics-address")

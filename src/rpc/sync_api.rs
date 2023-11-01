@@ -47,7 +47,7 @@ mod tests {
     use crate::beacon::{mock_beacon::MockBeacon, BeaconPoint, BeaconSchedule};
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
-    use crate::chain_sync::SyncStage;
+    use crate::chain_sync::{SyncConfig, SyncStage};
     use crate::db::MemoryDB;
     use crate::key_management::{KeyStore, KeyStoreConfig};
     use crate::libp2p::NetworkMessage;
@@ -74,6 +74,7 @@ mod tests {
         let mut services = JoinSet::new();
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
+        let sync_config = Arc::new(SyncConfig::default());
 
         let genesis_header = BlockHeader::builder()
             .miner_address(Address::new_id(0))
@@ -85,7 +86,8 @@ mod tests {
             ChainStore::new(db.clone(), db, chain_config.clone(), genesis_header).unwrap(),
         );
 
-        let state_manager = Arc::new(StateManager::new(cs_arc.clone(), chain_config).unwrap());
+        let state_manager =
+            Arc::new(StateManager::new(cs_arc.clone(), chain_config, sync_config).unwrap());
         let state_manager_for_thread = state_manager.clone();
         let cs_for_test = &cs_arc;
         let cs_for_chain = &cs_arc;
@@ -112,7 +114,7 @@ mod tests {
                 "test".to_string(),
                 mpool_network_send,
                 Default::default(),
-                state_manager_for_thread.chain_config(),
+                state_manager_for_thread.chain_config().clone(),
                 &mut services,
             )
             .unwrap()
