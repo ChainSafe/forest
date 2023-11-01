@@ -50,6 +50,7 @@ use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::cid_collections::CidHashMap;
 use crate::db::car::plain::write_skip_frame_header_async;
+use crate::db::car::RandomAccessFileReader;
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -85,14 +86,14 @@ pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
     cache_key: CacheKey,
-    indexed: index::Reader<ReaderT>,
+    indexed: index::Reader<positioned_io::Slice<ReaderT>>,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
-    pub fn new(reader: ReaderT) -> io::Result<ForestCar<positioned_io::Slice<ReaderT>>> {
+    pub fn new(reader: ReaderT) -> io::Result<ForestCar<ReaderT>> {
         let (header, footer) = Self::validate_car(&reader)?;
 
         let indexed = index::Reader::new(positioned_io::Slice::new(reader, footer.index, None))?;
@@ -144,15 +145,16 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
-        fn any_reader<ReaderT: super::RandomAccessFileReader>(
-            reader: ReaderT,
-        ) -> Box<dyn super::RandomAccessFileReader> {
-            Box::new(reader)
-        }
-
         ForestCar {
             cache_key: self.cache_key,
-            indexed: self.indexed.map(|slice| Box::new(slice) as _),
+            indexed: self.indexed.map(|slice| {
+                let offset = slice.offset();
+                positioned_io::Slice::new(
+                    Box::new(slice.into_inner()) as Box<dyn RandomAccessFileReader>,
+                    offset,
+                    None,
+                )
+            }),
             frame_cache: self.frame_cache,
             write_cache: self.write_cache,
             roots: self.roots,
@@ -168,7 +170,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 }
 
-impl TryFrom<&Path> for ForestCar<positioned_io::Slice<EitherMmapOrRandomAccessFile>> {
+impl TryFrom<&Path> for ForestCar<EitherMmapOrRandomAccessFile> {
     type Error = std::io::Error;
     fn try_from(path: &Path) -> std::io::Result<Self> {
         ForestCar::new(EitherMmapOrRandomAccessFile::open(path)?)
@@ -278,7 +280,7 @@ impl Encoder {
 
         // Create index
         let mut index = vec![];
-        index::write(cid_to_frame_offset, &mut index);
+        index::write(cid_to_frame_offset, &mut index).expect("Vec has infallible IO");
         write_skip_frame_header_async(sink, index.len().try_into().unwrap()).await?;
         sink.write_all(&index).await?;
 

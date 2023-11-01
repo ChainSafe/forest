@@ -8,7 +8,7 @@
 //!
 //! CARv2 is not supported yet.
 
-use super::{CacheKey, ZstdFrameCache};
+use super::{CacheKey, RandomAccessFileReader, ZstdFrameCache};
 use crate::blocks::Tipset;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use cid::Cid;
@@ -21,18 +21,17 @@ use std::sync::Arc;
 
 pub enum AnyCar<ReaderT> {
     Plain(super::PlainCar<ReaderT>),
-    Forest(super::ForestCar<positioned_io::Slice<ReaderT>>),
+    Forest(super::ForestCar<ReaderT>),
     Memory(super::PlainCar<Vec<u8>>),
 }
 
-impl<ReaderT: super::RandomAccessFileReader> AnyCar<ReaderT> {
+impl<ReaderT: RandomAccessFileReader> AnyCar<ReaderT> {
     /// Open an archive. May be formatted as `.car`, `.car.zst` or
     /// `.forest.car.zst`. This call may block for an indeterminate amount of
     /// time while data is decoded and indexed.
     pub fn new(reader: ReaderT) -> Result<Self> {
         if super::ForestCar::is_valid(&reader) {
-            let forest_car = super::ForestCar::new(reader)?;
-            return Ok(AnyCar::Forest(forest_car));
+            return Ok(AnyCar::Forest(super::ForestCar::new(reader)?));
         }
 
         // Maybe use a tempfile for this in the future.

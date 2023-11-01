@@ -3145,7 +3145,7 @@ dependencies = [
  "parking_lot",
  "pathfinding",
  "pin-project-lite",
- "positioned-io",
+ "positioned-io 0.3.2 (git+https://github.com/aatifsyed/positioned-io)",
  "predicates",
  "pretty_assertions",
  "proc-macro2",
@@ -5553,7 +5553,7 @@ dependencies = [
  "arrayref",
  "log",
  "memmap2 0.5.10",
- "positioned-io",
+ "positioned-io 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rayon",
  "serde",
  "tempfile",
@@ -6508,6 +6508,16 @@ name = "positioned-io"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccabfeeb89c73adf4081f0dca7f8e28dbda90981a222ceea37f619e93ea6afe9"
+dependencies = [
+ "byteorder",
+ "libc",
+ "winapi",
+]
+
+[[package]]
+name = "positioned-io"
+version = "0.3.2"
+source = "git+https://github.com/aatifsyed/positioned-io#c1e1188bbb0e55a45bd1f429153a3d5fa4230b39"
 dependencies = [
  "byteorder",
  "libc",
