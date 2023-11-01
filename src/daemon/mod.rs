@@ -475,7 +475,7 @@ async fn set_snapshot_path_if_needed(
     }
 
     let vendor = snapshot::TrustedVendor::default();
-    let chain = &chain_config.network;
+    let chain = &config.chain;
 
     // What height is our chain at right now, and what network version does that correspond to?
     let network_version = chain_config.network_version(epoch);
@@ -497,10 +497,9 @@ async fn set_snapshot_path_if_needed(
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
-            let (num_bytes, _path) =
-                crate::cli_shared::snapshot::peek(vendor, &chain_config.network)
-                    .await
-                    .context("couldn't get snapshot size")?;
+            let (num_bytes, _path) = crate::cli_shared::snapshot::peek(vendor, chain)
+                .await
+                .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");
