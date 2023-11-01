@@ -553,6 +553,26 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_distance() {
+        for (ideal, actual, num_buckets, expected_distance) in [
+            // right where it wants to be
+            (0, 0, 1, 0),
+            // four places too late
+            (0, 4, 5, 4),
+        ] {
+            let num_buckets = NonZeroUsize::new(num_buckets).unwrap();
+            assert_eq!(
+                expected_distance,
+                distance(
+                    hash::from_ideal_slot_ix(ideal, num_buckets),
+                    actual,
+                    num_buckets
+                )
+            )
+        }
+    }
+
     #[track_caller]
     fn round_trip<T: PartialEq + std::fmt::Debug + Readable + Writeable>(original: &T) {
         let serialized = write_to_vec(|v| original.write_to(v));
