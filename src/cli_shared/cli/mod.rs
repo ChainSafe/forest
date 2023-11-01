@@ -170,6 +170,10 @@ impl CliOpts {
             None => Config::default(),
         };
 
+        if let Some(chain) = &self.chain {
+            cfg.chain = chain.clone();
+        }
+
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
         }

@@ -28,7 +28,7 @@ pub struct FetchCommands {
 
 impl FetchCommands {
     pub async fn run(&self) -> anyhow::Result<()> {
-        let config = read_config(&self.config)?;
+        let config = read_config(&self.config, &None)?;
 
         let sizes = if self.all {
             SectorSizeOpt::All

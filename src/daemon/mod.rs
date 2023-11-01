@@ -108,16 +108,12 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 }
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
-pub async fn start_interruptable(
-    opts: CliOpts,
-    config: Config,
-    chain_config: ChainConfig,
-) -> anyhow::Result<()> {
+pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
 
     let result = tokio::select! {
-        ret = start(opts, config, chain_config, shutdown_send) => ret,
+        ret = start(opts, config, shutdown_send) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -139,10 +135,9 @@ pub async fn start_interruptable(
 pub(super) async fn start(
     opts: CliOpts,
     config: Config,
-    chain_config: ChainConfig,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    let chain_config = Arc::new(chain_config);
+    let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
@@ -167,7 +162,7 @@ pub(super) async fn start(
 
     let keystore = Arc::new(RwLock::new(keystore));
 
-    let chain_data_path = chain_path(&chain_config.network, &config);
+    let chain_data_path = chain_path(&config);
 
     // Try to migrate the database if needed. In case the migration fails, we fallback to creating a new database
     // to avoid breaking the node.
@@ -207,8 +202,7 @@ pub(super) async fn start(
             "Prometheus server started at {}",
             config.client.metrics_address
         );
-        let db_directory =
-            crate::db::db_engine::db_root(&chain_path(&chain_config.network, &config))?;
+        let db_directory = crate::db::db_engine::db_root(&chain_path(&config))?;
         let db = db.writer().clone();
         services.spawn(async {
             crate::metrics::init_prometheus(prometheus_listener, db_directory, db)

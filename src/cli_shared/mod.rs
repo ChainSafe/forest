@@ -11,11 +11,9 @@ pub use mimalloc;
 #[cfg(feature = "jemalloc")]
 pub use tikv_jemallocator;
 
-use crate::networks::NetworkChain;
-
 /// Gets chain data directory
-pub fn chain_path(network: &NetworkChain, config: &crate::cli_shared::cli::Config) -> PathBuf {
-    PathBuf::from(&config.client.data_dir).join(network.to_string())
+pub fn chain_path(config: &crate::cli_shared::cli::Config) -> PathBuf {
+    PathBuf::from(&config.client.data_dir).join(config.chain.to_string())
 }
 
 pub mod snapshot;
