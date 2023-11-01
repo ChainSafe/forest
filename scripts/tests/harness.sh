@@ -47,21 +47,6 @@ function forest_run_node_detached {
   $FOREST_PATH --chain calibnet --encrypt-keystore false --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
 }
 
-function forest_run_node_stateless_detached {
-  CONFIG_PATH="./stateless_forest_config.toml"
-  echo "${CONFIG_PATH}"
-  echo "Running forest in stateless and detached mode"
-  cat <<- EOF > $CONFIG_PATH
-		[client]
-		data_dir = "/tmp/stateless_forest_data"
-
-		[network]
-		listening_multiaddrs = ["/ip4/127.0.0.1/tcp/0"]
-	EOF
-
-  $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless
-}
-
 function forest_wait_for_sync {
   echo "Waiting for sync"
   timeout 30m $FOREST_CLI_PATH sync wait
@@ -80,16 +65,6 @@ function forest_init {
 
   forest_wait_for_sync
   forest_check_db_stats
-}
-
-function forest_init_stateless {
-  forest_run_node_stateless_detached
-
-  ADMIN_TOKEN=$(cat stateless_admin_token)
-  FULLNODE_API_INFO="$ADMIN_TOKEN:/ip4/127.0.0.1/tcp/2345/http"
-
-  export ADMIN_TOKEN
-  export FULLNODE_API_INFO
 }
 
 function forest_print_logs_and_metrics {
