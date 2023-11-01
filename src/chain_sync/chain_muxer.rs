@@ -81,6 +81,7 @@ pub enum ChainMuxerError {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
     pub request_window: usize,
     /// Number of recent state roots to keep in the database after `sync`
     /// and to include in the exported snapshot.
