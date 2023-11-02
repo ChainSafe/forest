@@ -206,6 +206,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_get_messages_in_tipset_req(
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::chain_get_parent_messages_req(*shared_block.cid())),
     ]
 }
 
