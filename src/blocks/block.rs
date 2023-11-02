@@ -4,7 +4,6 @@
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
-use fvm_ipld_blockstore::Blockstore;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 use super::BlockHeader;
@@ -38,13 +37,6 @@ impl Block {
     /// [`BlockHeader::cid`].
     pub fn cid(&self) -> &Cid {
         self.header.cid()
-    }
-
-    /// Persists the block in the given block store
-    pub fn persist(&self, db: &impl Blockstore) -> Result<(), crate::chain::store::Error> {
-        crate::chain::persist_objects(&db, &[self.header()])?;
-        crate::chain::persist_objects(&db, self.bls_msgs())?;
-        crate::chain::persist_objects(&db, self.secp_msgs())
     }
 }
 

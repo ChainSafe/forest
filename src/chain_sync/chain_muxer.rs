@@ -160,9 +160,6 @@ pub struct ChainMuxer<DB, M> {
 
     /// Tipset channel receiver
     tipset_receiver: flume::Receiver<Arc<Tipset>>,
-
-    /// When `stateless_mode` is true, forest connects to the P2P network but does not sync to HEAD.
-    stateless_mode: bool,
 }
 
 impl<DB, M> ChainMuxer<DB, M>
@@ -180,7 +177,6 @@ where
         genesis: Arc<Tipset>,
         tipset_sender: flume::Sender<Arc<Tipset>>,
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
-        stateless_mode: bool,
     ) -> Result<Self, ChainMuxerError> {
         let network =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
@@ -196,7 +192,6 @@ where
             tipset_sender,
             tipset_receiver,
             state_manager,
-            stateless_mode,
         })
     }
 
@@ -258,10 +253,10 @@ where
         peer_id: PeerId,
         genesis_block_cid: Cid,
     ) {
+        // Query the heaviest TipSet from the store
+        let heaviest = chain_store.heaviest_tipset();
         if network.peer_manager().is_peer_new(&peer_id).await {
             // Since the peer is new, send them a hello request
-            // Query the heaviest TipSet from the store
-            let heaviest = chain_store.heaviest_tipset();
             let request = HelloRequest {
                 heaviest_tip_set: heaviest.cids(),
                 heaviest_tipset_height: heaviest.epoch(),
@@ -508,7 +503,9 @@ where
 
         // Store block messages in the block store
         for block in tipset.blocks() {
-            block.persist(&chain_store.db)?;
+            crate::chain::persist_objects(&chain_store.db, &[block.header()])?;
+            crate::chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+            crate::chain::persist_objects(&chain_store.db, block.secp_msgs())?;
         }
 
         // Update the peer head
@@ -521,48 +518,6 @@ where
             .set(tipset.epoch());
 
         Ok(Some((tipset, source)))
-    }
-
-    fn stateless_node(&self) -> ChainMuxerFuture<(), ChainMuxerError> {
-        let p2p_messages = self.net_handler.clone();
-        let chain_store = self.state_manager.chain_store().clone();
-        let network = self.network.clone();
-        let genesis = self.genesis.clone();
-        let bad_block_cache = self.bad_blocks.clone();
-        let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
-
-        let future = async move {
-            loop {
-                let event = match p2p_messages.recv_async().await {
-                    Ok(event) => event,
-                    Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {why}");
-                        return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
-                    }
-                };
-
-                match Self::process_gossipsub_event(
-                    event,
-                    network.clone(),
-                    chain_store.clone(),
-                    bad_block_cache.clone(),
-                    mem_pool.clone(),
-                    genesis.clone(),
-                    PubsubMessageProcessingStrategy::DoNotProcess,
-                    block_delay,
-                )
-                .await
-                {
-                    Ok(_) => {}
-                    Err(why) => {
-                        debug!("Processing GossipSub event failed: {why:?}");
-                    }
-                };
-            }
-        };
-
-        Box::pin(future)
     }
 
     fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
@@ -879,8 +834,6 @@ enum ChainMuxerState {
     Connect(ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError>),
     Bootstrap(ChainMuxerFuture<(), ChainMuxerError>),
     Follow(ChainMuxerFuture<(), ChainMuxerError>),
-    /// In stateless mode, forest still connects to the P2P swarm but does not sync to HEAD.
-    Stateless(ChainMuxerFuture<(), ChainMuxerError>),
 }
 
 impl<DB, M> Future for ChainMuxer<DB, M>
@@ -894,10 +847,7 @@ where
         loop {
             match self.state {
                 ChainMuxerState::Idle => {
-                    if self.stateless_mode {
-                        info!("Running chain muxer in stateless mode...");
-                        self.state = ChainMuxerState::Stateless(self.stateless_node());
-                    } else if self.state_manager.sync_config().tipset_sample_size == 0 {
+                    if self.state_manager.sync_config().tipset_sample_size == 0 {
                         // A standalone node might use this option to not be stuck waiting for P2P
                         // messages.
                         info!("Skip evaluating network head, assume in-sync.");
@@ -906,11 +856,6 @@ where
                         // Create the connect future and set the state to connect
                         info!("Evaluating network head...");
                         self.state = ChainMuxerState::Connect(self.evaluate_network_head());
-                    }
-                }
-                ChainMuxerState::Stateless(ref mut future) => {
-                    if let Err(why) = std::task::ready!(future.as_mut().poll(cx)) {
-                        return Poll::Ready(why);
                     }
                 }
                 ChainMuxerState::Connect(ref mut connect) => match connect.as_mut().poll(cx) {

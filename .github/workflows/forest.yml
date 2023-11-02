@@ -157,33 +157,6 @@ jobs:
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
 
-  # forest stateless mode tests done on calibnet
-  calibnet-stateless-mode-check:
-    needs:
-      - build-ubuntu
-    name: Calibnet stateless mode check
-    runs-on: ubuntu-latest
-    steps:
-      # To help investigate transient test failures
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
-        with:
-          name: forest-${{ runner.os }}
-          path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
-        with:
-          name: forest-${{ runner.os }}
-          path: ~/.cargo/bin
-      # Permissions are lost during artifact-upload
-      # https://github.com/actions/upload-artifact#permission-loss
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - run: ./scripts/tests/calibnet_stateless_mode_check.sh
-        timeout-minutes: 10
-
   # state migration regression tests
   state-migrations-check:
     needs:

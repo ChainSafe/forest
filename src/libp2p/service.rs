@@ -705,46 +705,45 @@ async fn handle_chain_exchange_event<DB>(
     DB: Blockstore + Sync + Send + 'static,
 {
     match ce_event {
-        request_response::Event::Message { peer, message } => match message {
-            request_response::Message::Request {
-                request,
-                channel,
-                request_id,
-            } => {
-                trace!(
-                    "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
-                );
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::ChainExchangeRequestInbound { request_id },
-                )
-                .await;
-
-                let db = db.clone();
-                tokio::task::spawn(async move {
-                    if let Err(e) = cx_response_tx.send((
-                        request_id,
-                        channel,
-                        make_chain_exchange_response(&db, &request),
-                    )) {
-                        debug!("Failed to send ChainExchangeResponse: {e:?}");
-                    }
-                });
-            }
-            request_response::Message::Response {
-                request_id,
-                response,
-            } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::ChainExchangeResponseInbound { request_id },
-                )
-                .await;
-                chain_exchange
-                    .handle_inbound_response(&request_id, response)
+        request_response::Event::Message { peer, message } => {
+            match message {
+                request_response::Message::Request {
+                    request,
+                    channel,
+                    request_id,
+                } => {
+                    trace!("Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",);
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::ChainExchangeRequestInbound { request_id },
+                    )
                     .await;
+                    let db = db.clone();
+                    tokio::task::spawn(async move {
+                        if let Err(e) = cx_response_tx.send((
+                            request_id,
+                            channel,
+                            make_chain_exchange_response(&db, &request),
+                        )) {
+                            debug!("Failed to send ChainExchangeResponse: {e:?}");
+                        }
+                    });
+                }
+                request_response::Message::Response {
+                    request_id,
+                    response,
+                } => {
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::ChainExchangeResponseInbound { request_id },
+                    )
+                    .await;
+                    chain_exchange
+                        .handle_inbound_response(&request_id, response)
+                        .await;
+                }
             }
-        },
+        }
         request_response::Event::OutboundFailure {
             peer: _,
             request_id,
