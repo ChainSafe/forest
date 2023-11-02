@@ -1,12 +1,11 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain_sync::SyncConfig;
 use crate::db::db_engine::DbConfig;
 use crate::libp2p::Libp2pConfig;
-use crate::networks::ChainConfig;
+use crate::{chain_sync::SyncConfig, networks::NetworkChain};
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use super::client::Client;
 
@@ -41,12 +40,11 @@ impl Default for DaemonConfig {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
 pub struct Config {
+    pub chain: NetworkChain,
     pub client: Client,
     pub parity_db: crate::db::parity_db_config::ParityDbConfig,
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
-    #[serde(skip)]
-    pub chain: Arc<ChainConfig>,
     pub daemon: DaemonConfig,
 }
 

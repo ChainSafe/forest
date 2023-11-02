@@ -25,6 +25,7 @@ use crate::key_management::{
 };
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use crate::networks::ChainConfig;
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -136,7 +137,8 @@ pub(super) async fn start(
     config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    if config.chain.is_testnet() {
+    let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
+    if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
 
@@ -214,7 +216,7 @@ pub(super) async fn start(
     //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
+        chain_config.genesis_bytes(),
         &db,
     )
     .await?;
@@ -223,7 +225,7 @@ pub(super) async fn start(
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
         db.writer().clone(),
-        config.chain.clone(),
+        chain_config.clone(),
         genesis_header.clone(),
     )?);
 
@@ -233,8 +235,8 @@ pub(super) async fn start(
         let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
         Arc::new(DbGarbageCollector::new(
             db,
-            config.chain.policy.chain_finality,
-            config.chain.recent_state_roots,
+            chain_config.policy.chain_finality,
+            config.sync.recent_state_roots,
             get_tipset,
         ))
     };
@@ -253,7 +255,11 @@ pub(super) async fn start(
     let publisher = chain_store.publisher();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))?;
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&chain_config),
+        Arc::new(config.sync.clone()),
+    )?;
 
     let state_manager = Arc::new(sm);
 
@@ -265,7 +271,7 @@ pub(super) async fn start(
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config.chain.bootstrap_peers.clone();
+        let bootstrap_peers = chain_config.bootstrap_peers.clone();
 
         Config {
             network: Libp2pConfig {
@@ -308,7 +314,7 @@ pub(super) async fn start(
         network_name.clone(),
         network_send.clone(),
         MpoolConfig::load_config(db.writer().as_ref())?,
-        state_manager.chain_config(),
+        state_manager.chain_config().clone(),
         &mut services,
     )?;
 
@@ -324,8 +330,6 @@ pub(super) async fn start(
         Arc::new(Tipset::from(genesis_header)),
         tipset_sink,
         tipset_stream,
-        config.sync.clone(),
-        opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
@@ -388,9 +392,10 @@ pub(super) async fn start(
 
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;
-    if config.client.snapshot_path.is_none() && !opts.stateless {
+    if config.client.snapshot_path.is_none() {
         set_snapshot_path_if_needed(
             &mut config,
+            &chain_config,
             epoch,
             opts.auto_download_snapshot,
             &db_root_dir,
@@ -456,6 +461,7 @@ pub(super) async fn start(
 /// An [`Err`] should be considered fatal.
 async fn set_snapshot_path_if_needed(
     config: &mut Config,
+    chain_config: &ChainConfig,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
     download_directory: &Path,
@@ -468,10 +474,10 @@ async fn set_snapshot_path_if_needed(
     }
 
     let vendor = snapshot::TrustedVendor::default();
-    let chain = &config.chain.network;
+    let chain = &config.chain;
 
     // What height is our chain at right now, and what network version does that correspond to?
-    let network_version = config.chain.network_version(epoch);
+    let network_version = chain_config.network_version(epoch);
     let network_version_is_small = network_version < NetworkVersion::V16;
 
     // We don't support small network versions (we can't validate from e.g genesis).
@@ -490,10 +496,9 @@ async fn set_snapshot_path_if_needed(
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
-            let (num_bytes, _path) =
-                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
-                    .await
-                    .context("couldn't get snapshot size")?;
+            let (num_bytes, _path) = crate::cli_shared::snapshot::peek(vendor, chain)
+                .await
+                .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");

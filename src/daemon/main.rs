@@ -103,7 +103,7 @@ where
         }
         check_for_unknown_keys(path.to_path_buf(), &cfg);
     } else {
-        info!("Using default {} config", cfg.chain.network);
+        info!("Using default {} config", cfg.chain);
     }
     if opts.dry_run {
         return Ok(());

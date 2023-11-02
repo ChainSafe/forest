@@ -29,6 +29,21 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.15.0 "Buttress"
+
+Forest v0.15.0 is a service release containing minor bug fixes and small
+usability improvements.
+
+### Breaking
+
+### Added
+
 - [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
   `forest-tool car validate` command for checking non-filecoin invariants in CAR
   files.
@@ -39,6 +54,8 @@
   server.
 - [#3613](https://github.com/ChainSafe/forest/pull/3613) Add `--expire-in`
   parameter to token commands.
+- [#3584](https://github.com/ChainSafe/forest/issues/3584) Add
+  `forest-tool api compare` command for testing RPC compatibility.
 
 ### Changed
 
@@ -65,9 +82,6 @@
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
-- [#3593](https://github.com/ChainSafe/forest/pull/3593): Add `--stateless` flag
-  to `forest`. In stateless mode, forest connects to the P2P network but does
-  not sync to HEAD.
 
 ### Changed
 

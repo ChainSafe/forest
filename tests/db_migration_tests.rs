@@ -21,7 +21,6 @@ fn failing_migration_should_not_fail_daemon() {
     daemon()
         .common_env()
         .common_args()
-        .chain("calibnet")
         .arg("--config")
         .arg(config_file)
         .arg("--encrypt-keystore")

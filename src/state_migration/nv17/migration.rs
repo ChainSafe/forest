@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::networks::{ChainConfig, Height};
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -31,7 +31,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         actors_in: &mut StateTree<BS>,
         new_manifest: &BuiltinActorManifest,
         prior_epoch: ChainEpoch,
-        chain_config: &ChainConfig,
+        chain: NetworkChain,
     ) -> anyhow::Result<()> {
         let system_actor = actors_in
             .get_actor(&Address::new_id(0))?
@@ -91,12 +91,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
 
         self.add_migrator(
             miner_v8_actor_code,
-            miner::miner_migrator(
-                miner_v9_actor_code,
-                store,
-                market_state_v8.proposals,
-                chain_config,
-            )?,
+            miner::miner_migrator(miner_v9_actor_code, store, market_state_v8.proposals, chain)?,
         );
 
         let verifreg_state_v8_cid = verifreg_actor_v8.state;
@@ -171,7 +166,7 @@ where
         &mut actors_in,
         &new_manifest,
         epoch,
-        chain_config,
+        chain_config.network.clone(),
     )?;
 
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V4)?;

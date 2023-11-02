@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -68,12 +68,12 @@ fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.0.0-alpha.4", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.0.0", features = ["arb"] }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.0.0-alpha.4", features = ["testing", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.0.0", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 hex = { version = "0.4", features = ["serde"] }
@@ -166,6 +166,7 @@ static_assertions = "1.1.0"
 statrs = "0.16"
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
+tabled = "0.14"
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
