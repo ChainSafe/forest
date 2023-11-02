@@ -253,6 +253,8 @@ jobs:
 
   # Calibnet kademlia discovery checks
   calibnet-kademlia-checks:
+    # Disable until stateless mode is back
+    if: false
     needs:
       - build-ubuntu
     name: Calibnet kademlia checks
