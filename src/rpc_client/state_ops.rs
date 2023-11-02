@@ -9,6 +9,7 @@ use crate::{
     shim::{address::Address, state_tree::ActorState},
 };
 use cid::Cid;
+use fil_actor_interface::miner::MinerPower;
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
@@ -46,5 +47,9 @@ impl ApiInfo {
 
     pub fn state_network_name_req() -> RpcRequest<String> {
         RpcRequest::new(STATE_NETWORK_NAME, ())
+    }
+
+    pub fn state_miner_power(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
+        RpcRequest::new(STATE_MINOR_POWER, (miner, tsk))
     }
 }
