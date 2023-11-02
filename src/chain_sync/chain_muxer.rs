@@ -745,6 +745,13 @@ where
         let tp_bad_block_cache = self.bad_blocks.clone();
         let tp_tipset_receiver = self.tipset_receiver.clone();
         let tp_tracker = self.worker_state.clone();
+
+        tp_tracker
+            .write()
+            .set_stage(crate::chain_sync::SyncStage::Follow);
+        // 
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
         let tp_genesis = self.genesis.clone();
         enum UnexpectedReturnKind {
             TipsetProcessor,
