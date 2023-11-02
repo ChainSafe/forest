@@ -122,6 +122,7 @@
 //! - use a derive macro for simple compound structs
 
 use derive_more::From;
+use fil_actor_interface::power::Claim;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
@@ -327,7 +328,7 @@ where
 }
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
-#[derive(Serialize, Deserialize, From, Default)]
+#[derive(Debug, Serialize, Deserialize, From, Default)]
 #[serde(bound = "T: HasLotusJson + Clone")]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 
@@ -386,6 +387,34 @@ lotus_json_with_self!(
     std::path::PathBuf,
     bool,
 );
+
+#[derive(Default, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ClaimLotusJson {
+    /// Sum of raw byte power for a miner's sectors.
+    pub raw_byte_power: LotusJson<num::BigInt>,
+    /// Sum of quality adjusted power for a miner's sectors.
+    pub quality_adj_power: LotusJson<num::BigInt>,
+}
+
+impl HasLotusJson for Claim {
+    type LotusJson = ClaimLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ClaimLotusJson {
+            raw_byte_power: LotusJson(self.raw_byte_power),
+            quality_adj_power: LotusJson(self.quality_adj_power),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Claim {
+            raw_byte_power: lotus_json.raw_byte_power.into_inner(),
+            quality_adj_power: lotus_json.quality_adj_power.into_inner(),
+        }
+    }
+}
 
 impl<T: HasLotusJson> HasLotusJson for (T,) {
     type LotusJson = (T::LotusJson,);
