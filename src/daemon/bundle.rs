@@ -9,6 +9,7 @@ use anyhow::ensure;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use std::io::Cursor;
+use std::mem::discriminant;
 use tracing::warn;
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
@@ -21,7 +22,8 @@ pub async fn load_actor_bundles(
         ACTOR_BUNDLES
             .iter()
             .filter(|bundle| {
-                !db.has(&bundle.manifest).unwrap_or(false) && &bundle.network == network
+                !db.has(&bundle.manifest).unwrap_or(false)
+                    && discriminant(network) == discriminant(&bundle.network)
             })
             .map(
                 |ActorBundleInfo {
