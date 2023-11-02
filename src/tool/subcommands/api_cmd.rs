@@ -234,6 +234,7 @@ fn node_tests() -> Vec<RpcTest> {
 }
 
 fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let shared_block = shared_tipset.min_ticket_block();
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
@@ -248,6 +249,10 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
+            *shared_block.miner_address(),
             shared_tipset.key().clone(),
         )),
     ]

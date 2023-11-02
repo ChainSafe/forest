@@ -5,7 +5,10 @@ use std::path::PathBuf;
 
 use crate::{
     blocks::TipsetKeys,
-    rpc_api::{data_types::ApiActorState, state_api::*},
+    rpc_api::{
+        data_types::{ApiActorState, SectorOnChainInfo},
+        state_api::*,
+    },
     shim::{address::Address, clock::ChainEpoch, state_tree::ActorState},
 };
 use cid::Cid;
@@ -68,5 +71,12 @@ impl ApiInfo {
 
     pub fn state_read_state_req(actor: Address, tsk: TipsetKeys) -> RpcRequest<ApiActorState> {
         RpcRequest::new(STATE_READ_STATE, (actor, tsk))
+    }
+
+    pub fn state_miner_active_sectors_req(
+        actor: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Vec<SectorOnChainInfo>> {
+        RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
     }
 }
