@@ -76,6 +76,7 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 create_migrations!(
     "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
     "0.13.0" -> "0.14.0" @ MigrationVoid,
+    "0.14.0" -> "0.15.0" @ MigrationVoid,
 );
 
 pub struct Migration {

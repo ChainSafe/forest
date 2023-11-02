@@ -29,6 +29,21 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.15.0 "Buttress"
+
+Forest v0.15.0 is a service release containing minor bug fixes and small
+usability improvements.
+
+### Breaking
+
+### Added
+
 - [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
   `forest-tool car validate` command for checking non-filecoin invariants in CAR
   files.
