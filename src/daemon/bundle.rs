@@ -22,8 +22,10 @@ pub async fn load_actor_bundles(
         ACTOR_BUNDLES
             .iter()
             .filter(|bundle| {
-                !db.has(&bundle.manifest).unwrap_or(false)
-                    && discriminant(network) == discriminant(&bundle.network)
+                !db.has(&bundle.manifest).unwrap_or(false) &&
+                // Comparing only the discriminant is enough. All devnets share the same
+                // actor bundle.
+                discriminant(network) == discriminant(&bundle.network)
             })
             .map(
                 |ActorBundleInfo {
