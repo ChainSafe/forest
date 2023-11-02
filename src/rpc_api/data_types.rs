@@ -26,6 +26,7 @@ use fil_actor_interface::miner::MinerPower;
 use fil_actor_interface::power::Claim;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+use libipld_core::ipld::Ipld;
 use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -235,3 +236,16 @@ pub struct DiscoverInfo {
 }
 
 lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
+
+#[derive(Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiActorState {
+    #[serde(with = "crate::lotus_json")]
+    balance: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    code: Cid,
+    #[serde(with = "crate::lotus_json")]
+    state: Ipld,
+}
+
+lotus_json_with_self!(ApiActorState);

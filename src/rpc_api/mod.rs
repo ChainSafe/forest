@@ -236,6 +236,7 @@ pub mod state_api {
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
     pub const STATE_MINOR_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
+    pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
 }
 
 /// Gas API

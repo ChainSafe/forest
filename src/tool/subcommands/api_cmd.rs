@@ -246,6 +246,10 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
+        RpcTest::identity(ApiInfo::state_read_state_req(
+            Address::SYSTEM_ACTOR,
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 

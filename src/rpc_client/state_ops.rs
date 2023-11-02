@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::{
     blocks::TipsetKeys,
-    rpc_api::state_api::*,
+    rpc_api::{data_types::ApiActorState, state_api::*},
     shim::{address::Address, clock::ChainEpoch, state_tree::ActorState},
 };
 use cid::Cid;
@@ -64,5 +64,9 @@ impl ApiInfo {
             STATE_GET_RANDOMNESS_FROM_BEACON,
             (personalization as u32, rand_epoch, entropy, tsk),
         )
+    }
+
+    pub fn state_read_state_req(actor: Address, tsk: TipsetKeys) -> RpcRequest<ApiActorState> {
+        RpcRequest::new(STATE_READ_STATE, (actor, tsk))
     }
 }
