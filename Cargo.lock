@@ -2460,7 +2460,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2475,7 +2475,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2492,7 +2492,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "num-derive",
  "num-traits",
@@ -2510,7 +2510,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "hex",
  "hex-literal",
  "num-derive",
@@ -2534,7 +2534,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2565,7 +2565,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "multihash 0.18.1",
  "num",
@@ -2592,7 +2592,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "libipld-core",
  "num-bigint",
  "num-derive",
@@ -2619,7 +2619,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "itertools 0.11.0",
  "lazy_static",
  "multihash 0.18.1",
@@ -2645,7 +2645,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "indexmap 2.0.2",
  "integer-encoding",
  "num-derive",
@@ -2668,7 +2668,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "integer-encoding",
  "lazy_static",
  "num-derive",
@@ -2685,7 +2685,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "num-derive",
  "num-traits",
@@ -2701,7 +2701,7 @@ dependencies = [
  "cid",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2721,7 +2721,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2743,7 +2743,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "integer-encoding",
  "itertools 0.11.0",
  "multihash 0.18.1",
@@ -2952,12 +2952,12 @@ dependencies = [
  "futures",
  "fvm 2.7.0",
  "fvm 3.8.0",
- "fvm 4.0.0-alpha.4",
+ "fvm 4.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "gethostname",
  "git-version",
  "hex",
@@ -3362,9 +3362,9 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "4.0.0-alpha.4"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a71e2172d4454647217d0f2d31c0a5f72feb10b277520ea0a14643081fa74a7f"
+checksum = "290a65ac2d207225ce14021e993a54a1cb1c09384dab3996546fb91d29736209"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -3378,7 +3378,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "log",
  "minstant",
@@ -3561,9 +3561,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_shared"
-version = "4.0.0-alpha.4"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "022bdee26d3a256905d6430b66099868ff7a439a8ceb22c0f351843aa7c5f394"
+checksum = "c3a19ef48bbc1b22742002667b82944237cfdebc38e946c216aa8de1192392ea"
 dependencies = [
  "anyhow",
  "arbitrary",
