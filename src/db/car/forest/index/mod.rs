@@ -51,12 +51,13 @@
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cid::Cid;
+use itertools::Itertools as _;
 use positioned_io::ReadAt;
 use smallvec::{smallvec, SmallVec};
 use std::{
     cmp,
     io::{self, Read, Write},
-    iter::ExactSizeIterator,
+    iter::{self, ExactSizeIterator},
     num::NonZeroUsize,
 };
 
@@ -264,6 +265,76 @@ impl Table {
         for i in 0..longest_distance {
             slots.push(slots[i])
         }
+        slots.push(Slot::Empty);
+        Self {
+            slots,
+            initial_width: initial_width.get(),
+            collisions,
+            longest_distance,
+        }
+    }
+
+    fn new_by_sorting<I>(locations: I, load_factor: f64) -> Self
+    where
+        I: IntoIterator<Item = (Cid, u64)>,
+    {
+        assert!((0.0..=1.0).contains(&load_factor));
+
+        let mut slots = locations
+            .into_iter()
+            .map(|(cid, frame_offset)| {
+                Slot::Occupied(OccupiedSlot {
+                    hash: hash::of(&cid),
+                    frame_offset,
+                })
+            })
+            .sorted()
+            .collect::<Vec<_>>();
+
+        let initial_width = cmp::max((slots.len() as f64 / load_factor) as usize, slots.len());
+
+        let Some(initial_width) = NonZeroUsize::new(initial_width) else {
+            return Self {
+                slots: vec![Slot::Empty],
+                initial_width: 0,
+                collisions: 0,
+                longest_distance: 0,
+            };
+        };
+
+        let mut longest_distance = 0;
+        let collisions = slots
+            .iter()
+            .filter_map(|slot| match slot {
+                Slot::Empty => None,
+                Slot::Occupied(occ) => Some(occ),
+            })
+            .group_by(|it| it.hash)
+            .into_iter()
+            .map(|(_, group)| group.count() - 1)
+            .max()
+            .unwrap_or_default();
+
+        while let Some((ix, padding)) = slots.iter().enumerate().find_map(|(ix, slot)| {
+            match slot {
+                Slot::Occupied(OccupiedSlot { hash, .. }) => {
+                    let ideal_ix = hash::ideal_slot_ix(*hash, initial_width);
+                    match ideal_ix > ix {
+                        // too early
+                        true => {
+                            let distance = ideal_ix - ix;
+                            longest_distance = cmp::max(longest_distance, distance);
+                            Some((ix, distance))
+                        }
+                        false => None,
+                    }
+                }
+                Slot::Empty => None,
+            }
+        }) {
+            slots.splice(ix..ix, iter::repeat(Slot::Empty).take(padding));
+        }
+
         slots.push(Slot::Empty);
         Self {
             slots,
@@ -535,12 +606,108 @@ mod tests {
         }
     }
 
+    fn do_ordered_properties(mut reference: HashMap<Cid, HashSet<u64>>) {
+        reference.retain(|_, offsets| !offsets.is_empty());
+        let Table {
+            slots,
+            initial_width,
+            collisions,
+            longest_distance,
+        } = Table::new_by_sorting(
+            reference
+                .into_iter()
+                .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset))),
+            0.8,
+        );
+
+        for (left, right) in slots
+            .iter()
+            .filter_map(|slot| match slot {
+                Slot::Empty => None,
+                Slot::Occupied(it) => Some(it),
+            })
+            .tuple_windows()
+        {
+            assert!(left.hash <= right.hash)
+        }
+
+        if let Some(initial_width) = NonZeroUsize::new(initial_width) {
+            for (actual_ix, ideal_ix) in
+                slots.iter().enumerate().flat_map(|(ix, slot)| match slot {
+                    Slot::Empty => None,
+                    Slot::Occupied(occ) => Some((ix, hash::ideal_slot_ix(occ.hash, initial_width))),
+                })
+            {
+                assert!(actual_ix >= ideal_ix)
+            }
+        }
+    }
+
+    /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions
+    fn do_ordered(mut reference: HashMap<Cid, HashSet<u64>>) {
+        reference.retain(|_, offsets| !offsets.is_empty());
+        let subject = Reader::new(write_to_vec(|v| {
+            let mut to = v;
+            let Table {
+                slots,
+                initial_width,
+                collisions,
+                longest_distance,
+            } = Table::new_by_sorting(
+                reference.clone().into_iter().flat_map(|(cid, offsets)| {
+                    offsets.into_iter().map(move |offset| (cid, offset))
+                }),
+                0.8,
+            );
+            let header = V1Header {
+                longest_distance: longest_distance.try_into().unwrap(),
+                collisions: collisions.try_into().unwrap(),
+                initial_buckets: initial_width.try_into().unwrap(),
+            };
+
+            Version::V1.write_to(&mut to)?;
+            header.write_to(&mut to)?;
+            for slot in slots {
+                slot.write_to(&mut to)?;
+            }
+            Ok(())
+        }))
+        .unwrap();
+        for (cid, expected) in reference {
+            let actual = subject.get(cid).unwrap().into_iter().collect();
+            dbg!(&expected, &actual);
+            assert!(expected.is_subset(&actual)); // collisions
+        }
+    }
+
+    #[test]
+    fn test() {
+        do_ordered(HashMap::from_iter([
+            (
+                "baeraedsrwzfekv5w75txtsqw4hac2".parse().unwrap(),
+                HashSet::from_iter([0]),
+            ),
+            (
+                "QmV8EtARfAmmNX5yo6hZBvjyFEKW4u2JBf5EEVq6Wv5mch"
+                    .parse()
+                    .unwrap(),
+                HashSet::from_iter([0]),
+            ),
+        ]))
+    }
+
     quickcheck::quickcheck! {
         fn backwards_compat(pairs: Vec<(Cid, u64)>) -> () {
             do_backwards_compat(pairs)
         }
         fn hashmap(reference: HashMap<Cid, HashSet<u64>>) -> () {
             do_hashmap(reference)
+        }
+        fn ordered(reference: HashMap<Cid, HashSet<u64>>) -> () {
+            do_ordered(reference)
+        }
+        fn ordered_properties(reference: HashMap<Cid, HashSet<u64>>) -> () {
+            do_ordered_properties(reference)
         }
         fn header(it: V1Header) -> () {
             round_trip(&it);
