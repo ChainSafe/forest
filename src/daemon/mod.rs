@@ -180,7 +180,7 @@ pub(super) async fn start(
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     if config.client.load_actors {
-        load_actor_bundles(&db).await?;
+        load_actor_bundles(&db, &config.chain).await?;
     }
 
     let mut services = JoinSet::new();

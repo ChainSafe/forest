@@ -44,7 +44,7 @@ impl FromStr for NetworkChain {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "mainnet" => Ok(NetworkChain::Mainnet),
-            "calibnet" => Ok(NetworkChain::Calibnet),
+            "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
         }
     }
