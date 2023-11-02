@@ -749,7 +749,6 @@ where
         tp_tracker
             .write()
             .set_stage(crate::chain_sync::SyncStage::Follow);
-        // 
         std::thread::sleep(std::time::Duration::from_secs(1));
 
         let tp_genesis = self.genesis.clone();
