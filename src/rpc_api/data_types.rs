@@ -17,6 +17,7 @@ use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::address::Address;
 use crate::shim::executor::Receipt;
+use crate::shim::state_tree::ActorState;
 use crate::shim::{econ::TokenAmount, message::Message};
 use crate::state_manager::StateManager;
 use ahash::HashSet;
@@ -240,7 +241,7 @@ lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo
 /// State of all actor implementations.
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct ApiActorState {
+pub struct ActorStateJson {
     #[serde(with = "crate::lotus_json")]
     /// Link to code for the actor.
     pub code: Cid,
@@ -258,4 +259,27 @@ pub struct ApiActorState {
     pub address: Option<Address>,
 }
 
-lotus_json_with_self!(ApiActorState);
+impl HasLotusJson for ActorState {
+    type LotusJson = ActorStateJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ActorStateJson {
+            code: self.code,
+            head: self.state,
+            nonce: self.sequence,
+            balance: self.balance.clone().into(),
+            address: self.delegated_address.map(|a| a.into()),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        ActorState::new(
+            lotus_json.code,
+            lotus_json.head,
+            lotus_json.balance,
+            lotus_json.nonce,
+            lotus_json.address,
+        )
+    }
+}

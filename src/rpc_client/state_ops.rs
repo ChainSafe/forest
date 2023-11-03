@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use crate::{
     blocks::TipsetKeys,
-    rpc_api::{data_types::ApiActorState, state_api::*},
+    rpc_api::state_api::*,
     shim::{address::Address, state_tree::ActorState},
 };
 use cid::Cid;
@@ -18,14 +18,14 @@ impl ApiInfo {
         &self,
         address: Address,
         head: TipsetKeys,
-    ) -> Result<Option<ApiActorState>, JsonRpcError> {
+    ) -> Result<Option<ActorState>, JsonRpcError> {
         self.call(Self::state_get_actor_req(address, head)).await
     }
 
     pub fn state_get_actor_req(
         address: Address,
         head: TipsetKeys,
-    ) -> RpcRequest<Option<ApiActorState>> {
+    ) -> RpcRequest<Option<ActorState>> {
         RpcRequest::new(STATE_GET_ACTOR, (address, head))
     }
 

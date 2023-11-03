@@ -94,7 +94,7 @@ async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -
         }
     };
 
-    Some(actor_state.nonce)
+    Some(actor_state.sequence)
 }
 
 type StatBucket = HashMap<u64, Message>;
