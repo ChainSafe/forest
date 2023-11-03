@@ -133,11 +133,7 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = stream_graph(
-            &self.db,
-            (*tipset).clone().chain(&self.db),
-            depth,
-        );
+        let mut stream = stream_graph(&self.db, (*tipset).clone().chain(&self.db), depth);
 
         while let Some(block) = stream.next().await {
             let block = block?;
@@ -248,6 +244,11 @@ mod test {
         }
     }
 
+    struct GCTester {
+        db: Arc<MemoryDB>,
+        store: Arc<ChainStore<MemoryDB>>,
+    }
+
     impl GCTester {
         fn new() -> Self {
             let db = Arc::new(MemoryDB::default());
@@ -255,8 +256,7 @@ mod test {
             let gen_block: BlockHeader = mock_block(1, 1);
             db.put_cbor_default(&gen_block).unwrap();
             let store = Arc::new(
-                ChainStore::new(db.clone(), db.clone(), Arc::new(config), gen_block)
-                    .unwrap(),
+                ChainStore::new(db.clone(), db.clone(), Arc::new(config), gen_block).unwrap(),
             );
 
             GCTester { db, store }
@@ -309,11 +309,6 @@ mod test {
         gc.gc_workflow(ZERO_DURATION).await.unwrap();
         assert_eq!(gc.marked.len(), 1 + depth as usize);
         assert_eq!(gc.epoch_marked, depth);
-    }
-
-    struct GCTester {
-        db: Arc<MemoryDB>,
-        store: Arc<ChainStore<MemoryDB>>,
     }
 
     #[quickcheck_async::tokio]
