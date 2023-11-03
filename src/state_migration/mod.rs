@@ -9,7 +9,7 @@ use std::sync::{
 use crate::networks::{ChainConfig, Height};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use crate::utils::misc::reveal_five_trees;
+use crate::utils::misc::reveal_three_trees;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -71,7 +71,7 @@ where
                 .map(|sr| format!("{}", sr.actors))
                 .unwrap_or_default();
             if new_state != *parent_state {
-                reveal_five_trees();
+                reveal_three_trees();
                 tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}s.");
             } else {
                 anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}s.");
