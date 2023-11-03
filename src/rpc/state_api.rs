@@ -84,11 +84,8 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
 ) -> Result<LotusJson<Option<ActorState>>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
-    let mb_actor = data
-        .state_manager
-        .get_actor(&addr, *ts.parent_state())
-        .map_err(|e| JsonRpcError::from(e))?;
-    Ok(LotusJson(mb_actor))
+    let state = data.state_manager.get_actor(&addr, *ts.parent_state());
+    state.map(Into::into).map_err(|e| e.into())
 }
 
 /// looks up the Escrow and Locked balances of the given address in the Storage
