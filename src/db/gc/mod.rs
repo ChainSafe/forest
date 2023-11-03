@@ -235,7 +235,7 @@ mod test {
         }
     }
 
-    fn run_to_epoch(db: impl Blockstore, cs: Arc<ChainStore<MemoryDB>>, epoch: ChainEpoch) {
+    fn run_to_epoch(db: impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
         let mut heaviest_tipset = cs.heaviest_tipset();
 
         for _ in heaviest_tipset.epoch()..epoch {
