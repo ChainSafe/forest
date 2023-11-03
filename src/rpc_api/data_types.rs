@@ -12,19 +12,27 @@ use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::shim::clock::ChainEpoch;
 use crate::shim::executor::Receipt;
-use crate::shim::{econ::TokenAmount, message::Message};
+use crate::shim::sector::{RegisteredSealProof, SectorNumber};
+use crate::shim::{deal::DealID, econ::TokenAmount, message::Message};
 use crate::state_manager::StateManager;
 use ahash::HashSet;
 use chrono::Utc;
 use cid::Cid;
 use fil_actor_interface::market::{DealProposal, DealState};
+use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::power::Claim;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+use libipld_core::ipld::Ipld;
+use num_bigint::BigInt;
 use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::RwLock;
 
 /// This is where you store persistent data, or at least access to stateful
@@ -134,3 +142,172 @@ impl Version {
         Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
     }
 }
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct ApiMessage {
+    cid: Cid,
+    message: Message,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMessageLotusJson {
+    cid: LotusJson<Cid>,
+    message: LotusJson<Message>,
+}
+
+impl HasLotusJson for ApiMessage {
+    type LotusJson = ApiMessageLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ApiMessageLotusJson {
+            cid: LotusJson(self.cid),
+            message: LotusJson(self.message),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        ApiMessage {
+            cid: lotus_json.cid.into_inner(),
+            message: lotus_json.message.into_inner(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MinerPowerLotusJson {
+    miner_power: LotusJson<Claim>,
+    total_power: LotusJson<Claim>,
+    has_min_power: bool,
+}
+
+impl HasLotusJson for MinerPower {
+    type LotusJson = MinerPowerLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        MinerPowerLotusJson {
+            miner_power: LotusJson(self.miner_power),
+            total_power: LotusJson(self.total_power),
+            has_min_power: self.has_min_power,
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        MinerPower {
+            miner_power: lotus_json.miner_power.into_inner(),
+            total_power: lotus_json.total_power.into_inner(),
+            has_min_power: lotus_json.has_min_power,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoverResult {
+    info: DiscoverInfo,
+    methods: Vec<DiscoverMethod>,
+    openrpc: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoverMethod {
+    deprecated: bool,
+    description: String,
+    external_docs: DiscoverDocs,
+    name: String,
+    param_structure: String,
+    params: Value,
+    // Missing 'result' field. Tracking issue:
+    // https://github.com/ChainSafe/forest/issues/3585
+    summary: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoverDocs {
+    description: String,
+    url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DiscoverInfo {
+    title: String,
+    version: String,
+}
+
+lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
+
+#[derive(Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiActorState {
+    #[serde(with = "crate::lotus_json")]
+    balance: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    code: Cid,
+    #[serde(with = "crate::lotus_json")]
+    state: Ipld,
+}
+
+lotus_json_with_self!(ApiActorState);
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorOnChainInfo {
+    pub sector_number: SectorNumber,
+
+    /// The seal proof type implies the PoSt proofs
+    pub seal_proof: RegisteredSealProof,
+
+    #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "SealedCID")]
+    /// `CommR`
+    pub sealed_cid: Cid,
+
+    #[serde(rename = "DealIDs")]
+    #[serde(with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
+
+    /// Epoch during which the sector proof was accepted
+    pub activation: ChainEpoch,
+
+    /// Epoch during which the sector expires
+    pub expiration: ChainEpoch,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Integral of active deals over sector lifetime
+    pub deal_weight: BigInt,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Integral of active verified deals over sector lifetime
+    pub verified_deal_weight: BigInt,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Pledge collected to commit this sector
+    pub initial_pledge: TokenAmount,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Expected one day projection of reward for sector computed at activation
+    /// time
+    pub expected_day_reward: TokenAmount,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Expected twenty day projection of reward for sector computed at
+    /// activation time
+    pub expected_storage_pledge: TokenAmount,
+
+    pub replaced_sector_age: ChainEpoch,
+
+    #[serde(with = "crate::lotus_json")]
+    pub replaced_day_reward: TokenAmount,
+
+    #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "SectorKeyCID")]
+    pub sector_key_cid: Option<Cid>,
+
+    #[serde(rename = "SimpleQAPower")]
+    pub simple_qa_power: bool,
+}
+
+lotus_json_with_self!(SectorOnChainInfo);

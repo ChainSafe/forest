@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc_api::data_types::ApiMessage;
 use crate::shim::message::Message;
 use crate::{
     blocks::{BlockHeader, Tipset, TipsetKeys},
@@ -100,5 +101,13 @@ impl ApiInfo {
 
     pub fn chain_get_min_base_fee_req(basefee_lookback: u32) -> RpcRequest<String> {
         RpcRequest::new(CHAIN_GET_MIN_BASE_FEE, (basefee_lookback,))
+    }
+
+    pub fn chain_get_messages_in_tipset_req(tsk: TipsetKeys) -> RpcRequest<Vec<ApiMessage>> {
+        RpcRequest::new(CHAIN_GET_MESSAGES_IN_TIPSET, (tsk,))
+    }
+
+    pub fn chain_get_parent_messages_req(block_cid: Cid) -> RpcRequest<Vec<ApiMessage>> {
+        RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
     }
 }

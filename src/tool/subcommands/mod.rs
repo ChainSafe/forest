@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub mod api_cmd;
 pub mod archive_cmd;
 pub mod benchmark_cmd;
 pub mod car_cmd;
@@ -55,6 +56,10 @@ pub enum Subcommand {
     /// Utilities for manipulating CAR files
     #[command(subcommand)]
     Car(car_cmd::CarCommands),
+
+    /// API tooling
+    #[command(subcommand)]
+    Api(api_cmd::ApiCommands),
 }
 
 fn read_config(

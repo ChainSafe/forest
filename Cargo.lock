@@ -316,7 +316,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81953c529336010edd6d8e358f886d9581267795c61b19475b71314bffa46d35"
 dependencies = [
  "concurrent-queue",
- "event-listener",
+ "event-listener 2.5.3",
  "futures-core",
 ]
 
@@ -335,6 +335,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-executor"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b0c4a4f319e45986f347ee47fef8bf5e81c9abc3f6f58dc2391439f30df65f0"
+dependencies = [
+ "async-lock",
+ "async-task",
+ "concurrent-queue",
+ "fastrand 2.0.1",
+ "futures-lite",
+ "slab",
+]
+
+[[package]]
+name = "async-fs"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "279cf904654eeebfa37ac9bb1598880884924aab82e290aa65c9e77a0e142e06"
+dependencies = [
+ "async-lock",
+ "autocfg",
+ "blocking",
+ "futures-lite",
+]
+
+[[package]]
 name = "async-fs"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -343,6 +369,21 @@ dependencies = [
  "async-lock",
  "blocking",
  "futures-lite",
+]
+
+[[package]]
+name = "async-global-executor"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1b6f5d7df27bd294849f8eec66ecfc63d11814df7a4f5d74168a2394467b776"
+dependencies = [
+ "async-channel",
+ "async-executor",
+ "async-io 1.13.0",
+ "async-lock",
+ "blocking",
+ "futures-lite",
+ "once_cell",
 ]
 
 [[package]]
@@ -358,11 +399,31 @@ dependencies = [
  "futures-lite",
  "log",
  "parking",
- "polling",
+ "polling 2.8.0",
  "rustix 0.37.25",
  "slab",
  "socket2 0.4.9",
  "waker-fn",
+]
+
+[[package]]
+name = "async-io"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10da8f3146014722c89e7859e1d7bb97873125d7346d10ca642ffab794355828"
+dependencies = [
+ "async-lock",
+ "cfg-if",
+ "concurrent-queue",
+ "futures-io",
+ "futures-lite",
+ "parking",
+ "polling 3.3.0",
+ "rustix 0.38.19",
+ "slab",
+ "tracing",
+ "waker-fn",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -371,7 +432,35 @@ version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "287272293e9d8c41773cec55e365490fe034813a2f172f502d6ddcf75b2f582b"
 dependencies = [
- "event-listener",
+ "event-listener 2.5.3",
+]
+
+[[package]]
+name = "async-net"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0434b1ed18ce1cf5769b8ac540e33f01fa9471058b5e89da9e06f3c882a8c12f"
+dependencies = [
+ "async-io 1.13.0",
+ "blocking",
+ "futures-lite",
+]
+
+[[package]]
+name = "async-process"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea6438ba0a08d81529c69b36700fa2f95837bfe3e776ab39cde9c14d9149da88"
+dependencies = [
+ "async-io 1.13.0",
+ "async-lock",
+ "async-signal",
+ "blocking",
+ "cfg-if",
+ "event-listener 3.0.1",
+ "futures-lite",
+ "rustix 0.38.19",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -383,6 +472,24 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
+]
+
+[[package]]
+name = "async-signal"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e47d90f65a225c4527103a8d747001fc56e375203592b25ad103e1ca13124c5"
+dependencies = [
+ "async-io 2.1.0",
+ "async-lock",
+ "atomic-waker",
+ "cfg-if",
+ "futures-core",
+ "futures-io",
+ "rustix 0.38.19",
+ "signal-hook-registry",
+ "slab",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -999,6 +1106,12 @@ name = "byte-slice-cast"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3ac9f8b63eca6fd385229b3675f6cc0dc5c8a5c8a54a59d4f52ffd670d87b0c"
+
+[[package]]
+name = "bytecount"
+version = "0.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1e5f035d16fc623ae5f74981db80a439803888314e3a555fd6f04acd51a3205"
 
 [[package]]
 name = "bytemuck"
@@ -2335,6 +2448,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "event-listener"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01cec0252c2afff729ee6f00e903d479fba81784c8e2bd77447673471fdfaea1"
+dependencies = [
+ "concurrent-queue",
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "execute"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2460,7 +2584,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2475,7 +2599,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2492,7 +2616,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "num-derive",
  "num-traits",
@@ -2510,7 +2634,7 @@ dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "hex",
  "hex-literal",
  "num-derive",
@@ -2534,7 +2658,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2565,7 +2689,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "multihash 0.18.1",
  "num",
@@ -2592,7 +2716,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "libipld-core",
  "num-bigint",
  "num-derive",
@@ -2619,7 +2743,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "itertools 0.11.0",
  "lazy_static",
  "multihash 0.18.1",
@@ -2645,7 +2769,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "indexmap 2.0.2",
  "integer-encoding",
  "num-derive",
@@ -2668,7 +2792,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "integer-encoding",
  "lazy_static",
  "num-derive",
@@ -2685,7 +2809,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "num-derive",
  "num-traits",
@@ -2701,7 +2825,7 @@ dependencies = [
  "cid",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2721,7 +2845,7 @@ dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "num-derive",
  "num-traits",
  "serde",
@@ -2743,7 +2867,7 @@ dependencies = [
  "fvm_ipld_hamt",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "integer-encoding",
  "itertools 0.11.0",
  "multihash 0.18.1",
@@ -2894,7 +3018,7 @@ dependencies = [
  "ariadne",
  "assert_cmd",
  "async-compression",
- "async-fs",
+ "async-fs 2.0.0",
  "async-recursion",
  "async-trait",
  "axum",
@@ -2952,12 +3076,12 @@ dependencies = [
  "futures",
  "fvm 2.7.0",
  "fvm 3.8.0",
- "fvm 4.0.0-alpha.4",
+ "fvm 4.0.0",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "gethostname",
  "git-version",
  "hex",
@@ -2979,6 +3103,7 @@ dependencies = [
  "libipld-core",
  "libipld-macro",
  "libp2p",
+ "libp2p-swarm-test",
  "libsecp256k1",
  "lru",
  "memmap2 0.9.0",
@@ -3041,6 +3166,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "syn 2.0.38",
+ "tabled",
  "tap",
  "tempfile",
  "termios",
@@ -3361,9 +3487,9 @@ dependencies = [
 
 [[package]]
 name = "fvm"
-version = "4.0.0-alpha.4"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a71e2172d4454647217d0f2d31c0a5f72feb10b277520ea0a14643081fa74a7f"
+checksum = "290a65ac2d207225ce14021e993a54a1cb1c09384dab3996546fb91d29736209"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -3377,7 +3503,7 @@ dependencies = [
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt",
- "fvm_shared 4.0.0-alpha.4",
+ "fvm_shared 4.0.0",
  "lazy_static",
  "log",
  "minstant",
@@ -3560,9 +3686,9 @@ dependencies = [
 
 [[package]]
 name = "fvm_shared"
-version = "4.0.0-alpha.4"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "022bdee26d3a256905d6430b66099868ff7a439a8ceb22c0f351843aa7c5f394"
+checksum = "c3a19ef48bbc1b22742002667b82944237cfdebc38e946c216aa8de1192392ea"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -4151,7 +4277,7 @@ version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbb892e5777fe09e16f3d44de7802f4daa7267ecbe8c466f19d94e25bb0c303e"
 dependencies = [
- "async-io",
+ "async-io 1.13.0",
  "core-foundation",
  "fnv",
  "futures",
@@ -4159,6 +4285,7 @@ dependencies = [
  "ipnet",
  "log",
  "rtnetlink",
+ "smol",
  "system-configuration",
  "tokio",
  "windows 0.51.1",
@@ -4829,6 +4956,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-plaintext"
+version = "0.40.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53cc5390cc2f77b7de2452fb6105892d0bb64e3cafa3bb346abb603f4cc93a09"
+dependencies = [
+ "asynchronous-codec",
+ "bytes",
+ "futures",
+ "libp2p-core",
+ "libp2p-identity",
+ "log",
+ "quick-protobuf",
+ "unsigned-varint",
+]
+
+[[package]]
 name = "libp2p-quic"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4907,11 +5050,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-swarm-test"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61761099882b9c4fe02d4d0fc47641e81381dd2a95a7b4ddeb0dc02f3daaaf16"
+dependencies = [
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "libp2p-core",
+ "libp2p-identity",
+ "libp2p-plaintext",
+ "libp2p-swarm",
+ "libp2p-tcp",
+ "libp2p-yamux",
+ "log",
+ "rand",
+]
+
+[[package]]
 name = "libp2p-tcp"
 version = "0.40.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b558dd40d1bcd1aaaed9de898e9ec6a436019ecc2420dd0016e712fbb61c5508"
 dependencies = [
+ "async-io 1.13.0",
  "futures",
  "futures-timer",
  "if-watch",
@@ -5515,6 +5678,7 @@ version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6471bf08e7ac0135876a9581bf3217ef0333c191c128d34878079f42ee150411"
 dependencies = [
+ "async-io 1.13.0",
  "bytes",
  "futures",
  "libc",
@@ -5808,6 +5972,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81fec4625e73cf41ef4bb6846cafa6d44736525f442ba45e407c4a000a13996f"
 dependencies = [
  "group",
+]
+
+[[package]]
+name = "papergrid"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2ccbe15f2b6db62f9a9871642746427e297b0ceb85f9a7f1ee5ff47d184d0c8"
+dependencies = [
+ "bytecount",
+ "fnv",
+ "unicode-width",
 ]
 
 [[package]]
@@ -6125,6 +6300,20 @@ dependencies = [
  "libc",
  "log",
  "pin-project-lite",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "polling"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e53b6af1f60f36f8c2ac2aad5459d75a5a9b4be1e8cdd40264f315d78193e531"
+dependencies = [
+ "cfg-if",
+ "concurrent-queue",
+ "pin-project-lite",
+ "rustix 0.38.19",
+ "tracing",
  "windows-sys 0.48.0",
 ]
 
@@ -7108,6 +7297,7 @@ version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "322c53fd76a18698f1c27381d58091de3a043d356aa5bd0d510608b565f469a0"
 dependencies = [
+ "async-global-executor",
  "futures",
  "log",
  "netlink-packet-route",
@@ -7681,6 +7871,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "smol"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13f2b548cd8447f8de0fdf1c592929f70f4fc7039a05e47404b0d096ec6987a1"
+dependencies = [
+ "async-channel",
+ "async-executor",
+ "async-fs 1.6.0",
+ "async-io 1.13.0",
+ "async-lock",
+ "async-net",
+ "async-process",
+ "blocking",
+ "futures-lite",
+]
+
+[[package]]
 name = "smol_str"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8045,6 +8252,30 @@ checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "tabled"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfe9c3632da101aba5131ed63f9eed38665f8b3c68703a6bb18124835c1a5d22"
+dependencies = [
+ "papergrid",
+ "tabled_derive",
+ "unicode-width",
+]
+
+[[package]]
+name = "tabled_derive"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99f688a08b54f4f02f0a3c382aefdb7884d3d69609f785bd253dc033243e3fe4"
+dependencies = [
+ "heck",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
