@@ -269,7 +269,7 @@ mod test {
         }
 
         fn insert_unreachable(&self, block_number: i64) {
-            insert_unreachable(self.db.clone(), block_number as u64);
+            insert_unreachable(&self.db, block_number as u64);
         }
 
         fn get_heaviest_tipset_fn(&self) -> Box<dyn Fn() -> Arc<Tipset> + Send> {
