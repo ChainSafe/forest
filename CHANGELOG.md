@@ -35,6 +35,20 @@
 
 ### Fixed
 
+## Forest v0.15.1
+
+Forest v0.15.1 is a service release with support for the v0.14.1 database.
+
+### Breaking
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
 ## Forest v0.15.0 "Buttress"
 
 Forest v0.15.0 is a service release containing minor bug fixes and small
