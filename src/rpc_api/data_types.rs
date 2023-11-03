@@ -11,21 +11,22 @@ use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
-use crate::lotus_json::lotus_json_with_self;
-use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
-use crate::shim::address::Address;
-use crate::shim::executor::Receipt;
-use crate::shim::state_tree::ActorState;
-use crate::shim::{econ::TokenAmount, message::Message};
+use crate::shim::{
+    address::Address, econ::TokenAmount, executor::Receipt, message::Message,
+    state_tree::ActorState,
+};
 use crate::state_manager::StateManager;
 use ahash::HashSet;
 use chrono::Utc;
 use cid::Cid;
-use fil_actor_interface::market::{DealProposal, DealState};
-use fil_actor_interface::miner::MinerPower;
-use fil_actor_interface::power::Claim;
+use fil_actor_interface::{
+    market::{DealProposal, DealState},
+    miner::MinerPower,
+    power::Claim,
+};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use parking_lot::RwLock as SyncRwLock;
