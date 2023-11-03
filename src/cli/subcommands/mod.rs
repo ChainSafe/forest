@@ -6,7 +6,6 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
-mod archive_cmd;
 mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
