@@ -190,6 +190,7 @@ pub mod chain_api {
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
     pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+    pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
 }
 
 /// Message Pool API
@@ -234,6 +235,9 @@ pub mod state_api {
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
     pub const STATE_MINOR_POWER: &str = "Filecoin.StateMinerPower";
+    pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
+    pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
+    pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
 }
 
 /// Gas API
