@@ -31,6 +31,18 @@
 
 ### Changed
 
+### Removed
+
+### Fixed
+
+## Forest v0.14.1
+
+### Breaking
+
+### Added
+
+### Changed
+
 - [#3614](https://github.com/ChainSafe/forest/issues/3614) Moved downloading
   bundle to runtime.
 
