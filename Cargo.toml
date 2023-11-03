@@ -94,6 +94,7 @@ libipld = { version = "0.16", default-features = false, features = ["dag-cbor", 
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
 libp2p = { version = "0.52.1", default-features = false, features = [
+  'autonat',
   'gossipsub',
   'kad',
   'identify',
