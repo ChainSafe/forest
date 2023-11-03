@@ -15,6 +15,7 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::shim::address::Address;
 use crate::shim::executor::Receipt;
 use crate::shim::{econ::TokenAmount, message::Message};
 use crate::state_manager::StateManager;
@@ -235,3 +236,26 @@ pub struct DiscoverInfo {
 }
 
 lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
+
+/// State of all actor implementations.
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiActorState {
+    #[serde(with = "crate::lotus_json")]
+    /// Link to code for the actor.
+    pub code: Cid,
+    #[serde(with = "crate::lotus_json")]
+    /// Link to the state of the actor.
+    pub head: Cid,
+    /// Sequence of the actor.
+    pub nonce: u64,
+    #[serde(with = "crate::lotus_json")]
+    /// Tokens available to the actor.
+    pub balance: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    /// The actor's "delegated" address, if assigned.
+    /// This field is set on actor creation and never modified.
+    pub address: Option<Address>,
+}
+
+lotus_json_with_self!(ApiActorState);
