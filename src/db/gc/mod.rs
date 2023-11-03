@@ -248,88 +248,6 @@ mod test {
         }
     }
 
-    #[tokio::test]
-    // This is a test that checks the `mark` step.
-    // 1. Generate the genesis block and write it to the database.
-    // 2. Try running the GC, encounter insufficient depth, check that there were no marked records.
-    // 3. Generate `depth` blocks.
-    // 4. Run the GC again to make sure it marked all the available records successfully.
-    async fn test_populate() {
-        let interval = Duration::from_secs(0);
-        let db = Arc::new(MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-
-        // Generate genesis block.
-        let gen_block: BlockHeader = mock_block(1, 1);
-        let depth = 1;
-        db.put_cbor_default(&gen_block).unwrap();
-        let cs = Arc::new(
-            ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
-        );
-
-        let cs_cloned = cs.clone();
-        let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
-        let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
-
-        // test insufficient epochs
-        gc.gc_workflow(interval).await.unwrap();
-        assert!(gc.marked.is_empty());
-
-        // test marked
-        run_to_epoch(db, cs, depth);
-        gc.gc_workflow(interval).await.unwrap();
-        assert_eq!(gc.marked.len(), 2);
-        assert_eq!(gc.epoch_marked, 1);
-    }
-
-    #[tokio::test]
-    async fn test_filter_and_sweep() {
-        let interval = Duration::from_secs(0);
-        let db = Arc::new(MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-        let gen_block: BlockHeader = mock_block(1, 1);
-        let depth = 1;
-        db.put_cbor_default(&gen_block).unwrap();
-        let cs = Arc::new(
-            ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
-        );
-        let cs_cloned = cs.clone();
-        let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
-        let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
-
-        run_to_epoch(db.clone(), cs.clone(), depth);
-
-        let mut reachable_cnt = (depth + 1) as u64;
-
-        let unreachable_cnt = 4;
-        // test insufficient epochs for filter step
-        insert_unreachable(db.clone(), unreachable_cnt);
-        gc.gc_workflow(interval).await.unwrap();
-        assert_eq!(gc.marked.len() as u64, reachable_cnt + unreachable_cnt);
-        assert_eq!(gc.epoch_marked, 1);
-
-        // filter and sweep
-        run_to_epoch(db.clone(), cs.clone(), depth * 2);
-        reachable_cnt += depth as u64;
-
-        assert_eq!(
-            db.get_keys().unwrap().len() as u64,
-            unreachable_cnt + reachable_cnt
-        );
-        gc.gc_workflow(interval).await.unwrap();
-        assert_eq!(gc.marked.len(), 0);
-        assert_eq!(db.get_keys().unwrap().len(), reachable_cnt as usize);
-
-        // try another run
-        gc.gc_workflow(interval).await.unwrap();
-        assert_eq!(gc.marked.len(), db.get_keys().unwrap().len());
-    }
-
-    struct GCTester {
-        db: Arc<MemoryDB>,
-        store: Arc<ChainStore<MemoryDB>>,
-    }
-
     impl GCTester {
         fn new() -> Self {
             let db = Arc::new(MemoryDB::default());
@@ -358,6 +276,44 @@ mod test {
             let store = self.store.clone();
             Box::new(move || store.heaviest_tipset())
         }
+    }
+
+    // This is a test that checks the `mark` step.
+    // 1. Generate the genesis block and write it to the database.
+    // 2. Try running the GC, encounter insufficient depth, check that there were no marked records.
+    // 3. Generate `depth` blocks.
+    // 4. Run the GC again to make sure it marked all the available records successfully.
+    #[quickcheck_async::tokio]
+    async fn test_populate(depth: u8) {
+        // Enforce depth above zero.
+        if depth < 1 {
+            return;
+        }
+
+        let tester = GCTester::new();
+        let depth = depth as ChainEpochDelta;
+
+        let mut gc = MarkAndSweep::new(
+            tester.db.clone(),
+            tester.get_heaviest_tipset_fn(),
+            depth,
+            ZERO_DURATION,
+        );
+
+        // test insufficient epochs
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+        assert!(gc.marked.is_empty());
+
+        // test marked
+        tester.run_epochs(depth);
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+        assert_eq!(gc.marked.len(), 1 + depth as usize);
+        assert_eq!(gc.epoch_marked, depth);
+    }
+
+    struct GCTester {
+        db: Arc<MemoryDB>,
+        store: Arc<ChainStore<MemoryDB>>,
     }
 
     #[quickcheck_async::tokio]
