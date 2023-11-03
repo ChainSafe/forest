@@ -305,10 +305,7 @@ impl Table {
         let mut longest_distance = 0;
         let collisions = slots
             .iter()
-            .filter_map(|slot| match slot {
-                Slot::Empty => None,
-                Slot::Occupied(occ) => Some(occ),
-            })
+            .filter_map(Slot::as_occupied)
             .group_by(|it| it.hash)
             .into_iter()
             .map(|(_, group)| group.count() - 1)
@@ -392,6 +389,15 @@ struct OccupiedSlot {
 enum Slot {
     Empty,
     Occupied(OccupiedSlot),
+}
+
+impl Slot {
+    fn as_occupied(&self) -> Option<&OccupiedSlot> {
+        match self {
+            Slot::Empty => None,
+            Slot::Occupied(occ) => Some(occ),
+        }
+    }
 }
 
 /// A [`Slot`] as it appears on disk.
@@ -569,6 +575,7 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
+    use nonzero_ext::nonzero;
     use pretty_assertions::assert_eq;
 
     /// Check that the new [`write`] implementation matches the old `CarIndexBuilder` one.
@@ -620,14 +627,7 @@ mod tests {
             0.8,
         );
 
-        for (left, right) in slots
-            .iter()
-            .filter_map(|slot| match slot {
-                Slot::Empty => None,
-                Slot::Occupied(it) => Some(it),
-            })
-            .tuple_windows()
-        {
+        for (left, right) in slots.iter().filter_map(Slot::as_occupied).tuple_windows() {
             assert!(left.hash <= right.hash)
         }
 
@@ -648,17 +648,19 @@ mod tests {
         reference.retain(|_, offsets| !offsets.is_empty());
         let subject = Reader::new(write_to_vec(|v| {
             let mut to = v;
-            let Table {
-                slots,
-                initial_width,
-                collisions,
-                longest_distance,
-            } = Table::new_by_sorting(
+            let table = Table::new_by_sorting(
                 reference.clone().into_iter().flat_map(|(cid, offsets)| {
                     offsets.into_iter().map(move |offset| (cid, offset))
                 }),
                 0.8,
             );
+            dbg!(&table);
+            let Table {
+                slots,
+                initial_width,
+                collisions,
+                longest_distance,
+            } = table;
             let header = V1Header {
                 longest_distance: longest_distance.try_into().unwrap(),
                 collisions: collisions.try_into().unwrap(),
@@ -682,17 +684,18 @@ mod tests {
 
     #[test]
     fn test() {
+        let bae = "baeraedsrwzfekv5w75txtsqw4hac2".parse().unwrap();
+        let qmv = "QmV8EtARfAmmNX5yo6hZBvjyFEKW4u2JBf5EEVq6Wv5mch"
+            .parse()
+            .unwrap();
+        dbg!(hash::of(&bae), hash::of(&qmv));
+        dbg!(
+            hash::ideal_slot_ix(hash::of(&bae), nonzero!(2usize)),
+            hash::ideal_slot_ix(hash::of(&qmv), nonzero!(2usize))
+        );
         do_ordered(HashMap::from_iter([
-            (
-                "baeraedsrwzfekv5w75txtsqw4hac2".parse().unwrap(),
-                HashSet::from_iter([0]),
-            ),
-            (
-                "QmV8EtARfAmmNX5yo6hZBvjyFEKW4u2JBf5EEVq6Wv5mch"
-                    .parse()
-                    .unwrap(),
-                HashSet::from_iter([0]),
-            ),
+            (bae, HashSet::from_iter([0])),
+            (qmv, HashSet::from_iter([0])),
         ]))
     }
 
