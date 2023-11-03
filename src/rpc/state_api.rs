@@ -8,8 +8,10 @@ use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
-use crate::shim::state_tree::ActorState;
-use crate::shim::{address::Address, executor::Receipt, message::Message, version::NetworkVersion};
+use crate::shim::{
+    address::Address, executor::Receipt, message::Message, state_tree::ActorState,
+    version::NetworkVersion,
+};
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
