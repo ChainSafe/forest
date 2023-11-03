@@ -255,7 +255,7 @@ mod test {
             let gen_block: BlockHeader = mock_block(1, 1);
             db.put_cbor_default(&gen_block).unwrap();
             let store = Arc::new(
-                ChainStore::new(db.clone(), db.clone(), Arc::new(config.clone()), gen_block)
+                ChainStore::new(db.clone(), db.clone(), Arc::new(config), gen_block)
                     .unwrap(),
             );
 
