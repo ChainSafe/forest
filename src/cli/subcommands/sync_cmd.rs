@@ -42,7 +42,7 @@ impl SyncCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
-                let ticker = Ticker::new(0.., Duration::from_secs(1));
+                let ticker = Ticker::new(0.., Duration::from_millis(500));
                 let mut stdout = stdout();
 
                 for _ in ticker {
