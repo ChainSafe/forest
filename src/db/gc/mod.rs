@@ -265,7 +265,7 @@ mod test {
         fn run_epochs(&self, delta: ChainEpochDelta) {
             let tipset = self.store.heaviest_tipset();
             let epoch = tipset.epoch() + delta;
-            run_to_epoch(self.db.clone(), self.store.clone(), epoch);
+            run_to_epoch(&self.db, &self.store, epoch);
         }
 
         fn insert_unreachable(&self, block_number: i64) {
