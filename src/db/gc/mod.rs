@@ -317,7 +317,7 @@ mod test {
     }
 
     #[quickcheck_async::tokio]
-    async fn no_reachable_data_cleanups(depth: u8, current_epoch: u8) {
+    async fn dont_gc_reachable_data(depth: u8, current_epoch: u8) {
         // Enforce depth above zero.
         if depth < 1 {
             return;
