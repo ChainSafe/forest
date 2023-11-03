@@ -30,15 +30,13 @@ use crate::utils::version::FOREST_VERSION_STRING;
 use cid::Cid;
 use clap::Parser;
 use serde::Serialize;
-use std::path::PathBuf;
 use tracing::error;
 
 pub(super) use self::{
-    archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
-    chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands,
+    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
+    config_cmd::ConfigCommands, db_cmd::DBCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -54,80 +52,9 @@ pub struct Cli {
     pub cmd: Subcommand,
 }
 
-// This subcommand is hidden and only here to help users migrating to forest-tool
-#[derive(Debug, clap::Args)]
-pub struct FetchCommands {
-    #[arg(short, long)]
-    all: bool,
-    #[arg(short, long)]
-    keys: bool,
-    #[arg(short, long)]
-    dry_run: bool,
-    params_size: Option<String>,
-}
-
-// Those subcommands are hidden and only here to help users migrating to forest-wallet
-#[derive(Debug, clap::Subcommand)]
-pub enum WalletCommands {
-    New {
-        #[arg(default_value = "secp256k1")]
-        signature_type: String,
-    },
-    Balance {
-        address: String,
-    },
-    Default,
-    Export {
-        address: String,
-    },
-    Has {
-        key: String,
-    },
-    Import {
-        path: Option<String>,
-    },
-    List {
-        #[arg(long, alias = "exact-balance", short_alias = 'e')]
-        no_round: bool,
-        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
-        no_abbrev: bool,
-    },
-    SetDefault {
-        key: String,
-    },
-    Sign {
-        #[arg(short)]
-        message: String,
-        #[arg(short)]
-        address: String,
-    },
-    Verify {
-        #[arg(short)]
-        address: String,
-        #[arg(short)]
-        message: String,
-        #[arg(short)]
-        signature: String,
-    },
-}
-
-// This subcommand is hidden and only here to help users migrating to forest-tool
-#[derive(Debug, clap::Subcommand)]
-pub enum CarCommands {
-    Concat {
-        car_files: Vec<PathBuf>,
-        #[arg(short, long)]
-        output: PathBuf,
-    },
-}
-
 /// Forest binary sub-commands available.
 #[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true, name = "fetch-params")]
-    Fetch(FetchCommands),
-
     /// Interact with Filecoin blockchain
     #[command(subcommand)]
     Chain(ChainCommands),
@@ -139,11 +66,6 @@ pub enum Subcommand {
     /// Manage P2P network
     #[command(subcommand)]
     Net(NetCommands),
-
-    // Those subcommands are hidden and only here to help users migrating to forest-wallet
-    #[command(hide = true)]
-    #[command(subcommand)]
-    Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
     #[command(subcommand)]
@@ -165,10 +87,6 @@ pub enum Subcommand {
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
 
-    /// Manage archives
-    #[command(subcommand)]
-    Archive(ArchiveCommands),
-
     /// Send funds between accounts
     Send(SendCommand),
 
@@ -185,11 +103,6 @@ pub enum Subcommand {
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    #[command(subcommand)]
-    Car(CarCommands),
 }
 
 /// Format a vector to a prettified string
