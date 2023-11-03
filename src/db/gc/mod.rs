@@ -134,8 +134,8 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
         let mut stream = stream_graph(
-            self.db.clone(),
-            (*tipset).clone().chain(self.db.clone()),
+            &self.db,
+            (*tipset).clone().chain(&self.db),
             depth,
         );
 
