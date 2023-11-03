@@ -226,6 +226,8 @@ mod test {
     use fvm_ipld_blockstore::Blockstore;
     use std::sync::Arc;
 
+    const ZERO_DURATION: Duration = Duration::from_secs(0);
+
     fn insert_unreachable(db: impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
             let block: BlockHeader = mock_block(1 + idx, 1 + quantity);
@@ -323,58 +325,160 @@ mod test {
         assert_eq!(gc.marked.len(), db.get_keys().unwrap().len());
     }
 
+    struct GCTester {
+        db: Arc<MemoryDB>,
+        store: Arc<ChainStore<MemoryDB>>,
+    }
+
+    impl GCTester {
+        fn new() -> Self {
+            let db = Arc::new(MemoryDB::default());
+            let config = ChainConfig::default();
+            let gen_block: BlockHeader = mock_block(1, 1);
+            db.put_cbor_default(&gen_block).unwrap();
+            let store = Arc::new(
+                ChainStore::new(db.clone(), db.clone(), Arc::new(config.clone()), gen_block)
+                    .unwrap(),
+            );
+
+            GCTester { db, store }
+        }
+
+        fn run_epochs(&self, delta: ChainEpochDelta) {
+            let tipset = self.store.heaviest_tipset();
+            let epoch = tipset.epoch() + delta;
+            run_to_epoch(self.db.clone(), self.store.clone(), epoch);
+        }
+
+        fn insert_unreachable(&self, block_number: i64) {
+            insert_unreachable(self.db.clone(), block_number as u64);
+        }
+
+        fn get_heaviest_tipset_fn(&self) -> Box<dyn Fn() -> Arc<Tipset> + Send> {
+            let store = self.store.clone();
+            Box::new(move || store.heaviest_tipset())
+        }
+    }
+
     #[quickcheck_async::tokio]
-    async fn test_workflow(depth: u8, current_epoch: u8, unreachable_cnt: u8) {
-        let unreachable_cnt = unreachable_cnt as u64;
+    async fn no_reachable_data_cleanups(depth: u8, current_epoch: u8) {
         // Enforce depth above zero.
         if depth < 1 {
             return;
         }
 
-        // Depth and current epoch are limited to positive numbers to cater for realistic scenarios.
         let depth = depth as ChainEpochDelta;
-        let current_epoch = current_epoch as ChainEpoch;
+        let current_epoch = current_epoch as ChainEpochDelta;
 
-        let interval = Duration::from_secs(0);
-        let db = Arc::new(MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-        let gen_block: BlockHeader = mock_block(1, 1);
-        db.put_cbor_default(&gen_block).unwrap();
-        let cs = Arc::new(
-            ChainStore::new(db.clone(), db.clone(), chain_config, gen_block.clone()).unwrap(),
+        let tester = GCTester::new();
+        let mut gc = MarkAndSweep::new(
+            tester.db.clone(),
+            tester.get_heaviest_tipset_fn(),
+            depth,
+            ZERO_DURATION,
         );
-        let cs_cloned = cs.clone();
-        let get_heaviest_tipset = Box::new(move || cs_cloned.heaviest_tipset());
-        let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
 
-        // Make sure we have enough epochs to start garbage collection.
-        run_to_epoch(db.clone(), cs.clone(), current_epoch + depth);
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpochDelta;
 
-        let current_epoch = current_epoch + depth;
+        // Make sure we run enough epochs to initiate GC.
+        tester.run_epochs(current_epoch);
+        tester.run_epochs(depth);
+        // Mark.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+        tester.run_epochs(depth);
+        // Sweep.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
 
-        // Insert something to clean up.
-        insert_unreachable(db.clone(), unreachable_cnt);
-
-        // Initiate the GC.
-        gc.gc_workflow(interval).await.unwrap();
-        // Make sure there are marked items.
-        assert!(!gc.marked.is_empty());
-
-        run_to_epoch(db.clone(), cs.clone(), current_epoch + depth);
-        let current_epoch = current_epoch + depth;
-
-        // Make sure we account for the genesis block.
-        let total_reachable_count = current_epoch + 1;
-
+        // Make sure we don't clean anything up.
         assert_eq!(
-            db.get_keys().unwrap().len() as u64,
-            total_reachable_count as u64 + unreachable_cnt
+            tester.db.get_keys().unwrap().len() as i64,
+            // `Current epoch + genesis block + twice the depth.`
+            current_epoch + 1 + depth * 2
+        );
+    }
+
+    #[quickcheck_async::tokio]
+    async fn no_young_data_cleanups(depth: u8, current_epoch: u8, unreachable_nodes: u8) {
+        // Enforce depth above zero.
+        if depth < 1 {
+            return;
+        }
+
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpochDelta;
+        let unreachable_nodes = unreachable_nodes as i64;
+
+        let tester = GCTester::new();
+        let mut gc = MarkAndSweep::new(
+            tester.db.clone(),
+            tester.get_heaviest_tipset_fn(),
+            depth,
+            ZERO_DURATION,
         );
 
-        // filter and sweep
-        gc.gc_workflow(interval).await.unwrap();
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpochDelta;
 
-        assert_eq!(gc.marked.len(), 0);
-        assert_eq!(db.get_keys().unwrap().len(), total_reachable_count as usize);
+        // Make sure we run enough epochs to initiate GC.
+        tester.run_epochs(current_epoch);
+        tester.run_epochs(depth);
+        // Mark.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+        tester.run_epochs(depth);
+
+        // Insert unreachable nodes after the mark step.
+        tester.insert_unreachable(unreachable_nodes);
+        // Sweep.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+
+        // Make sure we don't clean anything up.
+        assert_eq!(
+            tester.db.get_keys().unwrap().len() as i64,
+            // `Current epoch + genesis block + twice the depth + unreachable nodes.`
+            current_epoch + 1 + depth * 2 + unreachable_nodes
+        );
+    }
+
+    #[quickcheck_async::tokio]
+    async fn unreachable_old_data_collected(depth: u8, current_epoch: u8, unreachable_nodes: u8) {
+        // Enforce depth above zero.
+        if depth < 1 {
+            return;
+        }
+
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpochDelta;
+        let unreachable_nodes = unreachable_nodes as i64;
+
+        let tester = GCTester::new();
+        let mut gc = MarkAndSweep::new(
+            tester.db.clone(),
+            tester.get_heaviest_tipset_fn(),
+            depth,
+            ZERO_DURATION,
+        );
+
+        let depth = depth as ChainEpochDelta;
+        let current_epoch = current_epoch as ChainEpochDelta;
+
+        // Make sure we run enough epochs to initiate GC.
+        tester.run_epochs(current_epoch);
+        tester.run_epochs(depth);
+        // Insert unreachable nodes before the mark step.
+        tester.insert_unreachable(unreachable_nodes);
+        // Mark.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+        tester.run_epochs(depth);
+
+        // Sweep.
+        gc.gc_workflow(ZERO_DURATION).await.unwrap();
+
+        // Make sure we clean up old unreachable data.
+        assert_eq!(
+            tester.db.get_keys().unwrap().len() as i64,
+            // `Current epoch + genesis block + twice the depth.`
+            current_epoch + 1 + depth * 2
+        );
     }
 }
