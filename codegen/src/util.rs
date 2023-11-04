@@ -31,12 +31,6 @@ pub mod expr {
             typ: Box::new(of),
         })
     }
-    pub fn pointer(to: Expression) -> Expression {
-        Expression::TypePointer(PointerType {
-            pos: 0,
-            typ: Box::new(to),
-        })
-    }
 }
 
 /// Set the `position` field on the given [`gosyn::ast`] struct recursively.
