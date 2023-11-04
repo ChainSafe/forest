@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
     .collect::<Result<Vec<_>, _>>()?
     .into_iter()
     .flatten()
-    .map(|(name, (params, returns))| do_map(name, params, returns, map))
+    .map(|(name, (params, returns))| do_resolve(name, params, returns, resolve))
     .sorted()
     .partition_result::<Vec<_>, Vec<_>, _, _>();
 
@@ -37,12 +37,14 @@ fn main() -> anyhow::Result<()> {
         returns,
     } in &mapped
     {
-        println!(
-            "{}({}) -> ({})",
-            name,
-            params.join(", "),
-            returns.join(", ")
-        )
+        match returns {
+            Some(ret) => {
+                println!("{}({}) -> {}", name, params.join(", "), ret)
+            }
+            None => {
+                println!("{}({})", name, params.join(", "))
+            }
+        }
     }
 
     println!();
@@ -62,11 +64,13 @@ fn main() -> anyhow::Result<()> {
 
 /// Get the methods defined in a given interface.
 ///
-/// Returns a mapping from `method_name` -> `(param_types, return_types)`.
+/// Special handling for `context.Context` and `(_, error)`.
+///
+/// Returns a mapping from `method_name` -> `(param_types, return_type)`.
 pub fn extract(
     file: File,
     interface: &str,
-) -> anyhow::Result<HashMap<String, (FieldList, FieldList)>> {
+) -> anyhow::Result<HashMap<String, (FieldList, Option<Field>)>> {
     let found = file
         .decl
         .into_iter()
@@ -88,11 +92,12 @@ pub fn extract(
     let mut all_methods = HashMap::new();
 
     for mut item in interface.methods.list {
+        item.set_pos(0);
         if let Expression::TypeFunction(FuncType {
             pos: _,
             typ_params,
-            params,
-            result,
+            mut params,
+            mut result,
         }) = item.typ
         {
             ensure!(
@@ -100,14 +105,37 @@ pub fn extract(
                 "method `{}` must have a single name",
                 item.name.iter().map(|it| &it.name).join(", ")
             );
+
+            let name = item.name.remove(0).name;
+
             ensure!(
                 typ_params.list.is_empty(),
-                "generic functions are not supported"
+                "method `{}` must not be generic",
+                name
             );
-            match all_methods.entry(item.name.remove(0).name) {
+
+            if let Some(first) = params.list.first_mut() {
+                if first.typ == expr::selector(expr::ident("context"), "Context") {
+                    params.list.remove(0);
+                }
+            }
+
+            match result.list.len() {
+                0 | 1 => {}
+                2 => {
+                    ensure!(
+                        result.list.remove(1).typ == expr::ident("error"),
+                        "method `{}` has unsupported return type",
+                        name
+                    )
+                }
+                _ => bail!("method `{}` has too many return values", name),
+            }
+
+            match all_methods.entry(name) {
                 Entry::Occupied(it) => bail!("duplicate method definition {}", it.key()),
                 Entry::Vacant(it) => {
-                    it.insert((params, result));
+                    it.insert((params, result.list.pop()));
                 }
             }
         }
@@ -121,19 +149,19 @@ pub fn extract(
 struct Method<T> {
     name: String,
     params: Vec<T>,
-    returns: Vec<T>,
+    returns: Option<T>,
 }
 
-/// Some types for this method could not be mapped.
+/// Some types for this method could not be resolved.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct MapError {
+struct ResolveError {
     name: String,
     required: Vec<Expression>,
 }
 
-impl std::error::Error for MapError {}
+impl std::error::Error for ResolveError {}
 
-impl fmt::Display for MapError {
+impl fmt::Display for ResolveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} depends on the following unmapped types:\n",
@@ -147,51 +175,50 @@ impl fmt::Display for MapError {
     }
 }
 
-/// Attempt to transform this method using the given `mapper`.
-fn do_map<T>(
+/// Attempt to transform this method using the given `resolver`.
+fn do_resolve<T>(
     name: String,
     params: FieldList,
-    returns: FieldList,
-    mut mapper: impl FnMut(Expression) -> Option<T>,
-) -> Result<Method<T>, MapError> {
+    returns: Option<Field>,
+    mut resolver: impl FnMut(Expression) -> Option<T>,
+) -> Result<Method<T>, ResolveError> {
     let mut required = vec![];
-    let mut mapped_params = vec![];
-    let mut mapped_returns = vec![];
+    let mut resolved_params = vec![];
+    let mut resolved_returns = None;
     for Field { typ, .. } in params.list {
-        match mapper(typ.clone()) {
-            Some(it) => mapped_params.push(it),
+        match resolver(typ.clone()) {
+            Some(it) => resolved_params.push(it),
             None => required.push(typ),
         }
     }
-    for Field { typ, .. } in returns.list {
-        match mapper(typ.clone()) {
-            Some(it) => mapped_returns.push(it),
+    if let Some(Field { typ, .. }) = returns {
+        match resolver(typ.clone()) {
+            Some(it) => resolved_returns = Some(it),
             None => required.push(typ),
         }
     }
     match required.is_empty() {
         true => Ok(Method {
             name,
-            params: mapped_params,
-            returns: mapped_returns,
+            params: resolved_params,
+            returns: resolved_returns,
         }),
-        false => Err(MapError { name, required }),
+        false => Err(ResolveError { name, required }),
     }
 }
 
-fn map(mut ty: Expression) -> Option<&'static str> {
+fn resolve(mut ty: Expression) -> Option<&'static str> {
     ty.set_pos(0);
     while let Expression::TypePointer(it) = ty {
         ty = *it.typ;
     }
     let map = HashMap::<_, _, RandomState>::from_iter([
-        (expr::selector(expr::ident("context"), "Context"), "Context"),
-        (expr::ident("error"), "Error"),
         (expr::selector(expr::ident("address"), "Address"), "Address"),
         (
             expr::selector(expr::ident("types"), "TipSetKey"),
             "TipsetKey",
         ),
+        (expr::selector(expr::ident("types"), "KeyType"), "KeyType"),
         (expr::selector(expr::ident("cid"), "Cid"), "Cid"),
         (expr::selector(expr::ident("types"), "BigInt"), "BigInt"),
         (expr::ident("bool"), "bool"),

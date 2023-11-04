@@ -173,7 +173,7 @@ impl SetPos for Expression {
             Expression::TypeMap(it) => it.set_pos(new),
             Expression::TypeArray(_) => todo!(),
             Expression::TypeSlice(it) => it.set_pos(new),
-            Expression::TypeFunction(_) => todo!(),
+            Expression::TypeFunction(it) => it.set_pos(new),
             Expression::TypeStruct(it) => it.set_pos(new),
             Expression::TypeChannel(it) => it.set_pos(new),
             Expression::TypePointer(it) => it.set_pos(new),
