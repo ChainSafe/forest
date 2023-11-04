@@ -13,11 +13,14 @@ use std::{
 use anyhow::{anyhow, bail, ensure, Context as _};
 use gosyn::ast::{Declaration, Expression, Field, FieldList, File, FuncType};
 use itertools::Itertools as _;
+use proc_macro2::Span;
+use quote::quote;
+use syn::{parse_quote, punctuated::Punctuated, token, Ident};
 
 use util::{expr, SetPos as _};
 
 fn main() -> anyhow::Result<()> {
-    let (mapped, could_not_map) = [
+    let (methods, errors) = [
         (include_str!("../api/api_common.go"), "Common"),
         (include_str!("../api/api_net.go"), "Net"),
         (include_str!("../api/api_full.go"), "FullNode"),
@@ -27,36 +30,27 @@ fn main() -> anyhow::Result<()> {
     .collect::<Result<Vec<_>, _>>()?
     .into_iter()
     .flatten()
-    .map(|(name, (params, returns))| do_resolve(name, params, returns, resolve))
     .sorted()
+    .map(|(name, (params, returns))| {
+        do_resolve(name, params, returns, resolve).map(Method::into_syn)
+    })
     .partition_result::<Vec<_>, Vec<_>, _, _>();
 
-    for Method {
-        name,
-        params,
-        returns,
-    } in &mapped
-    {
-        match returns {
-            Some(ret) => {
-                println!("{}({}) -> {}", name, params.join(", "), ret)
-            }
-            None => {
-                println!("{}({})", name, params.join(", "))
-            }
+    let gen = parse_quote! {
+        pub trait Api {
+            #(#methods)*
         }
+    };
+    println!("{}", prettyplease::unparse(&gen));
+
+    for it in &errors {
+        eprintln!("{}", it)
     }
 
-    println!();
-
-    for it in &could_not_map {
-        println!("{}", it)
-    }
-
-    println!(
+    eprintln!(
         "processed {} methods. Additionally, there were {} methods that failed to process.",
-        mapped.len(),
-        could_not_map.len()
+        methods.len(),
+        errors.len()
     );
 
     Ok(())
@@ -70,7 +64,7 @@ fn main() -> anyhow::Result<()> {
 pub fn extract(
     file: File,
     interface: &str,
-) -> anyhow::Result<HashMap<String, (FieldList, Option<Field>)>> {
+) -> anyhow::Result<HashMap<Ident, (FieldList, Option<Field>)>> {
     let found = file
         .decl
         .into_iter()
@@ -93,6 +87,7 @@ pub fn extract(
 
     for mut item in interface.methods.list {
         item.set_pos(0);
+
         if let Expression::TypeFunction(FuncType {
             pos: _,
             typ_params,
@@ -106,7 +101,9 @@ pub fn extract(
                 item.name.iter().map(|it| &it.name).join(", ")
             );
 
-            let name = item.name.remove(0).name;
+            let name = &item.name[0].name;
+            let name = syn::parse_str(name)
+                .with_context(|| format!("couldn't parse method `{}`", name))?;
 
             ensure!(
                 typ_params.list.is_empty(),
@@ -147,15 +144,58 @@ pub fn extract(
 /// A processed method definition.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct Method<T> {
-    name: String,
+    name: Ident,
     params: Vec<T>,
     returns: Option<T>,
+}
+
+impl Method<syn::Type> {
+    fn into_syn(self) -> syn::TraitItemFn {
+        let Self {
+            name,
+            params,
+            returns,
+        } = self;
+        syn::TraitItemFn {
+            attrs: vec![],
+            sig: syn::Signature {
+                constness: None,
+                asyncness: None,
+                unsafety: None,
+                abi: None,
+                fn_token: token::Fn::default(),
+                ident: name,
+                generics: syn::Generics {
+                    lt_token: None,
+                    params: Punctuated::new(),
+                    gt_token: None,
+                    where_clause: None,
+                },
+                paren_token: token::Paren::default(),
+                inputs: params
+                    .into_iter()
+                    .enumerate()
+                    .map(|(ix, ty)| -> syn::FnArg {
+                        let ident = Ident::new(&format!("arg{ix}"), Span::call_site());
+                        parse_quote!(#ident: #ty)
+                    })
+                    .collect(),
+                variadic: None,
+                output: match returns {
+                    Some(it) => syn::ReturnType::Type(token::RArrow::default(), Box::new(it)),
+                    None => syn::ReturnType::Default,
+                },
+            },
+            default: None,
+            semi_token: Some(token::Semi::default()),
+        }
+    }
 }
 
 /// Some types for this method could not be resolved.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct ResolveError {
-    name: String,
+    name: Ident,
     required: Vec<Expression>,
 }
 
@@ -177,7 +217,7 @@ impl fmt::Display for ResolveError {
 
 /// Attempt to transform this method using the given `resolver`.
 fn do_resolve<T>(
-    name: String,
+    name: Ident,
     params: FieldList,
     returns: Option<Field>,
     mut resolver: impl FnMut(Expression) -> Option<T>,
@@ -207,28 +247,46 @@ fn do_resolve<T>(
     }
 }
 
-fn resolve(mut ty: Expression) -> Option<&'static str> {
+fn resolve(mut ty: Expression) -> Option<syn::Type> {
     ty.set_pos(0);
     while let Expression::TypePointer(it) = ty {
         ty = *it.typ;
     }
-    let map = HashMap::<_, _, RandomState>::from_iter([
-        (expr::selector(expr::ident("address"), "Address"), "Address"),
-        (
-            expr::selector(expr::ident("types"), "TipSetKey"),
-            "TipsetKey",
-        ),
-        (expr::selector(expr::ident("types"), "KeyType"), "KeyType"),
-        (expr::selector(expr::ident("cid"), "Cid"), "Cid"),
-        (expr::selector(expr::ident("types"), "BigInt"), "BigInt"),
-        (expr::ident("bool"), "bool"),
-        (expr::ident("uint64"), "u64"),
-        (
-            expr::selector(expr::ident("abi"), "ChainEpoch"),
-            "ChainEpoch",
-        ),
-        (expr::slice(expr::ident("byte")), "Vec<u8>"),
-        (expr::pointer(expr::ident("MessagePrototype")), "Message"),
-    ]);
-    map.get(&ty).copied()
+    let map = HashMap::<_, _, RandomState>::from_iter(
+        [
+            (
+                expr::selector(expr::ident("address"), "Address"),
+                quote!(crate::shim::address::Address),
+            ),
+            (
+                expr::selector(expr::ident("types"), "TipSetKey"),
+                quote!(crate::blocks::TipsetKeys),
+            ),
+            (
+                expr::selector(expr::ident("cid"), "Cid"),
+                quote!(::cid::Cid),
+            ),
+            (
+                expr::selector(expr::ident("types"), "BigInt"),
+                quote!(::num::BigInt),
+            ),
+            // TODO(aatifsyed): should these go via HasLotusJson
+            (expr::ident("bool"), quote!(::std::primitive::bool)),
+            (expr::ident("uint64"), quote!(::std::primitive::u64)),
+            (
+                expr::slice(expr::ident("byte")),
+                quote!(::std::vec::Vec<::std::primitive::u8>),
+            ),
+        ]
+        .into_iter()
+        .map(|(expr, ty)| {
+            (
+                expr,
+                parse_quote! {
+                    <#ty as crate::lotus_json::HasLotusJson>::LotusJson
+                },
+            )
+        }),
+    );
+    map.get(&ty).cloned()
 }
