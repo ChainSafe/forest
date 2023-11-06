@@ -193,7 +193,6 @@ where
 
         let indexed = &self.indexed;
         for position in indexed.get(*k)?.into_iter() {
-            let reader = indexed.reader();
             let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
@@ -202,7 +201,8 @@ where
                 Some(None) => {}
                 None => {
                     // Decode entire frame into memory, "position" arg is the frame start offset.
-                    let cursor = Cursor::new_pos(reader, position);
+                    let entire_file = indexed.reader().get_ref(); // escape the positioned_io::Slice
+                    let cursor = Cursor::new_pos(entire_file, position);
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = HashMap::new();
@@ -289,8 +289,7 @@ impl Encoder {
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
-            // TODO(aatifsyed): why the addition?
-            index: offset as u64 + 8,
+            index: offset as u64 + 8, // 8 bytes in skip frame header
         };
         sink.write_all(&footer.to_le_bytes()).await?;
         Ok(())

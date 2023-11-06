@@ -459,11 +459,11 @@ impl Writeable for V1Header {
         let Self {
             longest_distance,
             collisions,
-            initial_buckets: buckets,
+            initial_buckets,
         } = *self;
         writer.write_u64::<LittleEndian>(longest_distance)?;
         writer.write_u64::<LittleEndian>(collisions)?;
-        writer.write_u64::<LittleEndian>(buckets)?;
+        writer.write_u64::<LittleEndian>(initial_buckets)?;
         Ok(())
     }
 }
