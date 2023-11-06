@@ -15,10 +15,12 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
+use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
+use itertools::Itertools;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
@@ -34,6 +36,43 @@ pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
         .get_cbor(&msg_cid)?
         .ok_or("can't find message with that cid")?;
     Ok(LotusJson(ret))
+}
+
+pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<Vec<MessageInTipset>, JsonRpcError> {
+    let store = data.chain_store.blockstore();
+    let tipset = Tipset::load_required(store, &tsk)?;
+    let full_tipset = tipset
+        .fill_from_blockstore(store)
+        .ok_or_else(|| anyhow::anyhow!("Failed to load full tipset"))?;
+    let blocks = full_tipset.into_blocks();
+    let mut messages = HashMap::default();
+    for block in blocks {
+        for msg in block.bls_msgs() {
+            let cid = msg.cid()?;
+            messages.insert(
+                cid,
+                MessageInTipset {
+                    cid: LotusJson(cid),
+                    message: LotusJson(msg.clone()),
+                },
+            );
+        }
+        for msg in block.secp_msgs() {
+            let cid = msg.cid()?;
+            messages.insert(
+                cid,
+                MessageInTipset {
+                    cid: LotusJson(cid),
+                    message: LotusJson(msg.message.clone()),
+                },
+            );
+        }
+    }
+
+    Ok(messages.into_values().collect_vec())
 }
 
 pub(in crate::rpc) async fn chain_export<DB>(

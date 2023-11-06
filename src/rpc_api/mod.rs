@@ -47,6 +47,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
+    access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -156,8 +157,9 @@ pub mod chain_api {
     use std::path::PathBuf;
 
     use crate::blocks::TipsetKeys;
-    use crate::lotus_json::lotus_json_with_self;
+    use crate::lotus_json::{lotus_json_with_self, LotusJson};
     use crate::shim::clock::ChainEpoch;
+    use cid::Cid;
     use serde::{Deserialize, Serialize};
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
@@ -190,6 +192,14 @@ pub mod chain_api {
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
     pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct MessageInTipset {
+        pub cid: LotusJson<Cid>,
+        pub message: LotusJson<crate::shim::message::Message>,
+    }
+
     pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
 }
 
