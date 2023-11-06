@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::db::migration::v0_14_0::Migration0_15_1_0_16_0;
+use crate::db::migration::v0_14_0::Migration0_15_2_0_16_0;
 use anyhow::bail;
 use anyhow::Context as _;
 use itertools::Itertools;
@@ -81,7 +81,7 @@ create_migrations!(
     "0.14.1" -> "0.15.0" @ MigrationVoid,
     "0.15.0" -> "0.15.1" @ MigrationVoid,
     "0.15.1" -> "0.15.2" @ MigrationVoid,
-    "0.15.2" -> "0.16.0" @ Migration0_15_1_0_16_0,
+    "0.15.2" -> "0.16.0" @ Migration0_15_2_0_16_0,
 );
 
 pub struct Migration {

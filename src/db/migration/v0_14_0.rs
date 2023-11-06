@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Migration logic for 0.15.1 to 0.16.0 version.
+//! Migration logic for 0.15.2 to 0.16.0 version.
 //! We are getting rid of rolling db in favor of mark-and-sweep GC. Therefore the two databases
 //! previously representing node state have to be merged into a new one and removed.
 
@@ -20,14 +20,14 @@ use tracing::info;
 
 use super::migration_map::MigrationOperation;
 
-pub(super) struct Migration0_15_1_0_16_0 {
+pub(super) struct Migration0_15_2_0_16_0 {
     from: Version,
     to: Version,
 }
 
-/// Migrates the database from version 0.15.1 to 0.16.0
+/// Migrates the database from version 0.15.2 to 0.16.0
 /// This migration merges the two databases represented by rolling db into one.
-impl MigrationOperation for Migration0_15_1_0_16_0 {
+impl MigrationOperation for Migration0_15_2_0_16_0 {
     fn new(from: Version, to: Version) -> Self
     where
         Self: Sized,
