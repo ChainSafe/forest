@@ -27,7 +27,7 @@ use crate::libp2p::{
     hello::HelloBehaviour,
 };
 
-use super::discovery::DiscoveryEvent;
+use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent};
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
 /// for a Filecoin node.
@@ -48,9 +48,11 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
         match event {
             ForestBehaviourEvent::Gossipsub(e) => self.record(e),
             ForestBehaviourEvent::Ping(ping_event) => self.record(ping_event),
-            ForestBehaviourEvent::Discovery(DiscoveryEvent::Identify(id_event)) => {
-                self.record(id_event.as_ref())
-            }
+            ForestBehaviourEvent::Discovery(DiscoveryEvent::Discovery(e)) => match e.as_ref() {
+                DerivedDiscoveryBehaviourEvent::Identify(e) => self.record(e),
+                DerivedDiscoveryBehaviourEvent::Kademlia(e) => self.record(e),
+                _ => {}
+            },
             _ => {}
         }
     }
