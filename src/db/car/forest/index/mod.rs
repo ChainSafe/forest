@@ -213,7 +213,7 @@ impl Table {
     /// The `load_factor` determines the average number of bucket a lookup has
     /// to scan.
     /// The formula, with 'f' being the load factor, is `(1+1/(1-load_factor))/2`.
-    /// A load factor of `0.8`` means [`Reader::get`] has to scan through 3
+    /// A load factor of `0.8` means [`Reader::get`] has to scan through 3
     /// slots on average.
     /// A load-factor of `0.9` means we have to scan through 5.5 slots on average.
     ///

@@ -25,7 +25,7 @@ pub fn of(cid: &Cid) -> NonMaximalU64 {
 
 /// Desired slot for a hash with a given table length
 ///
-/// See: https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
+/// See: <https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/>
 pub fn ideal_slot_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
     // One could simply write `self.0 as usize % buckets` but that involves
     // a relatively slow division.
