@@ -29,9 +29,6 @@
 
 ### Added
 
-- [#3662](https://github.com/ChainSafe/forest/pull/3662) Add `--filter` and
-  `--fail-fast` flags to `forest-tool api compare`.
-
 ### Changed
 
 ### Removed
@@ -45,6 +42,9 @@ Forest v0.15.1 is a service release with support for the v0.14.1 database.
 ### Breaking
 
 ### Added
+
+- [#3662](https://github.com/ChainSafe/forest/pull/3662) Add `--filter` and
+  `--fail-fast` flags to `forest-tool api compare`.
 
 ### Changed
 
