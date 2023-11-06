@@ -48,6 +48,10 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
     }
 
+    pub fn chain_get_tipset_req(tsk: TipsetKeys) -> RpcRequest<Tipset> {
+        RpcRequest::new(CHAIN_GET_TIPSET, (tsk,))
+    }
+
     pub async fn chain_get_genesis(&self) -> Result<Option<Tipset>, JsonRpcError> {
         self.call(Self::chain_get_genesis_req()).await
     }
