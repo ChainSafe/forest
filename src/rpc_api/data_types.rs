@@ -15,7 +15,13 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::{
-    address::Address, econ::TokenAmount, executor::Receipt, message::Message,
+    address::Address,
+    clock::ChainEpoch,
+    deal::DealID,
+    econ::TokenAmount,
+    executor::Receipt,
+    message::Message,
+    sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
 };
 use crate::state_manager::StateManager;
@@ -29,6 +35,8 @@ use fil_actor_interface::{
 };
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
+use libipld_core::ipld::Ipld;
+use num_bigint::BigInt;
 use parking_lot::RwLock as SyncRwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -284,3 +292,75 @@ impl HasLotusJson for ActorState {
         )
     }
 }
+#[derive(Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiActorState {
+    #[serde(with = "crate::lotus_json")]
+    balance: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    code: Cid,
+    #[serde(with = "crate::lotus_json")]
+    state: Ipld,
+}
+
+lotus_json_with_self!(ApiActorState);
+
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorOnChainInfo {
+    pub sector_number: SectorNumber,
+
+    /// The seal proof type implies the PoSt proofs
+    pub seal_proof: RegisteredSealProof,
+
+    #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "SealedCID")]
+    /// `CommR`
+    pub sealed_cid: Cid,
+
+    #[serde(rename = "DealIDs")]
+    #[serde(with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
+
+    /// Epoch during which the sector proof was accepted
+    pub activation: ChainEpoch,
+
+    /// Epoch during which the sector expires
+    pub expiration: ChainEpoch,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Integral of active deals over sector lifetime
+    pub deal_weight: BigInt,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Integral of active verified deals over sector lifetime
+    pub verified_deal_weight: BigInt,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Pledge collected to commit this sector
+    pub initial_pledge: TokenAmount,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Expected one day projection of reward for sector computed at activation
+    /// time
+    pub expected_day_reward: TokenAmount,
+
+    #[serde(with = "crate::lotus_json")]
+    /// Expected twenty day projection of reward for sector computed at
+    /// activation time
+    pub expected_storage_pledge: TokenAmount,
+
+    pub replaced_sector_age: ChainEpoch,
+
+    #[serde(with = "crate::lotus_json")]
+    pub replaced_day_reward: TokenAmount,
+
+    #[serde(with = "crate::lotus_json")]
+    #[serde(rename = "SectorKeyCID")]
+    pub sector_key_cid: Option<Cid>,
+
+    #[serde(rename = "SimpleQAPower")]
+    pub simple_qa_power: bool,
+}
+
+lotus_json_with_self!(SectorOnChainInfo);

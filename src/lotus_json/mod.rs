@@ -121,6 +121,7 @@
 //! - use [`proptest`](https://docs.rs/proptest/) to test the parser pipeline
 //! - use a derive macro for simple compound structs
 
+use crate::ipld::{json::IpldJson, Ipld};
 use derive_more::From;
 use fil_actor_interface::power::Claim;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
@@ -487,5 +488,18 @@ impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson, D: HasLotusJson> HasLotu
             HasLotusJson::from_lotus_json(lotus_json.2),
             HasLotusJson::from_lotus_json(lotus_json.3),
         )
+    }
+}
+
+impl HasLotusJson for Ipld {
+    type LotusJson = IpldJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        IpldJson(self)
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        lotus_json.0
     }
 }
