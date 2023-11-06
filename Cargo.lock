@@ -1466,8 +1466,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd326812b3fd01da5bb1af7d340d0d555fd3d4b641e7f1dfcf5962a902952787"
 dependencies = [
  "futures-core",
- "prost 0.12.2",
- "prost-types 0.12.2",
+ "prost 0.12.3",
+ "prost-types 0.12.3",
  "tonic",
  "tracing-core",
 ]
@@ -1485,7 +1485,7 @@ dependencies = [
  "hdrhistogram",
  "humantime",
  "parking_lot",
- "prost-types 0.12.2",
+ "prost-types 0.12.3",
  "serde",
  "serde_json",
  "thread_local",
@@ -3145,7 +3145,7 @@ dependencies = [
  "parking_lot",
  "pathfinding",
  "pin-project-lite",
- "positioned-io 0.3.2 (git+https://github.com/aatifsyed/positioned-io)",
+ "positioned-io",
  "predicates",
  "pretty_assertions",
  "proc-macro2",
@@ -4371,21 +4371,21 @@ dependencies = [
 
 [[package]]
 name = "if-addrs"
-version = "0.7.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbc0fa01ffc752e9dbc72818cdb072cd028b86be5e09dd04c5a643704fe101a9"
+checksum = "cabb0019d51a643781ff15c9c8a3e5dedc365c47211270f4e8f82812fedd8f0a"
 dependencies = [
  "libc",
- "winapi",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
 name = "if-watch"
-version = "3.1.0"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbb892e5777fe09e16f3d44de7802f4daa7267ecbe8c466f19d94e25bb0c303e"
+checksum = "d6b0422c86d7ce0e97169cc42e04ae643caf278874a7a3c87b8150a220dc7e1e"
 dependencies = [
- "async-io 1.13.0",
+ "async-io 2.2.0",
  "core-foundation",
  "fnv",
  "futures",
@@ -5553,7 +5553,7 @@ dependencies = [
  "arrayref",
  "log",
  "memmap2 0.5.10",
- "positioned-io 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "positioned-io",
  "rayon",
  "serde",
  "tempfile",
@@ -6515,16 +6515,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "positioned-io"
-version = "0.3.2"
-source = "git+https://github.com/aatifsyed/positioned-io#c1e1188bbb0e55a45bd1f429153a3d5fa4230b39"
-dependencies = [
- "byteorder",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "postcard"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6696,12 +6686,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a5a410fc7882af66deb8d01d01737353cf3ad6204c408177ba494291a626312"
+checksum = "146c289cda302b98a28d40c8b3b90498d6e526dd24ac2ecea73e4e491685b94a"
 dependencies = [
  "bytes",
- "prost-derive 0.12.2",
+ "prost-derive 0.12.3",
 ]
 
 [[package]]
@@ -6719,9 +6709,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "065717a5dfaca4a83d2fe57db3487b311365200000551d7a364e715dbf4346bc"
+checksum = "efb6c9a1dd1def8e2124d17e83a20af56f1570d6c2d2bd9e266ccb768df3840e"
 dependencies = [
  "anyhow",
  "itertools 0.11.0",
@@ -6741,11 +6731,11 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.12.2"
+version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8339f32236f590281e2f6368276441394fcd1b2133b549cc895d0ae80f2f9a52"
+checksum = "193898f59edcf43c26227dcd4c8427f00d99d61e95dcde58dabd49fa291d470e"
 dependencies = [
- "prost 0.12.2",
+ "prost 0.12.3",
 ]
 
 [[package]]
@@ -8734,7 +8724,7 @@ dependencies = [
  "hyper-timeout",
  "percent-encoding",
  "pin-project",
- "prost 0.12.2",
+ "prost 0.12.3",
  "tokio",
  "tokio-stream",
  "tower",

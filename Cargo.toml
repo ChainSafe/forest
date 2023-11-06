@@ -131,7 +131,7 @@ parity-db = { version = "0.4.6", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4.3.1"
 pin-project-lite = "0.2"
-positioned-io = { git = "https://github.com/aatifsyed/positioned-io" } # https://github.com/vasi/positioned-io/pull/24
+positioned-io = "0.3.3"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.22"
