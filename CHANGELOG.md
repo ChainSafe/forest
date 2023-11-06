@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3670](https://github.com/ChainSafe/forest/pull/3670) Implement the
+  `Filecoin.ChainGetMessagesInTipset` lotus-compatible RPC API.
+
 ### Changed
 
 ### Removed
