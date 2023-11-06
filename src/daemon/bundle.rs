@@ -2,27 +2,37 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
-    networks::{ActorBundleInfo, ACTOR_BUNDLES},
+    networks::{ActorBundleInfo, NetworkChain, ACTOR_BUNDLES},
     utils::{db::car_util::load_car, net::http_get},
 };
 use anyhow::ensure;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use std::io::Cursor;
+use std::mem::discriminant;
 use tracing::warn;
 
 /// Tries to load the missing actor bundles to the blockstore. If the bundle is
 /// not present, it will be downloaded.
-pub async fn load_actor_bundles(db: &impl Blockstore) -> anyhow::Result<()> {
+pub async fn load_actor_bundles(
+    db: &impl Blockstore,
+    network: &NetworkChain,
+) -> anyhow::Result<()> {
     FuturesUnordered::from_iter(
         ACTOR_BUNDLES
             .iter()
-            .filter(|bundle| !db.has(&bundle.manifest).unwrap_or(false))
+            .filter(|bundle| {
+                !db.has(&bundle.manifest).unwrap_or(false) &&
+                // Comparing only the discriminant is enough. All devnets share the same
+                // actor bundle.
+                discriminant(network) == discriminant(&bundle.network)
+            })
             .map(
                 |ActorBundleInfo {
                      manifest: root,
                      url,
                      alt_url,
+                     network: _,
                  }| async move {
                     let response = if let Ok(response) = http_get(url).await {
                         response
