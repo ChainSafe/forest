@@ -81,7 +81,7 @@ http = "0.2.8"
 human-repr = "1.0"
 humantime = "2.1.0"
 hyper = "0.14"
-indexmap = { version = "2.0", features = ["serde"] }
+indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
