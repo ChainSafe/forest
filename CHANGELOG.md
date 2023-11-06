@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#3662](https://github.com/ChainSafe/forest/pull/3662) Add `--filter` and
+  `--fail-fast` flags to `forest-tool api compare`.
 - [#3670](https://github.com/ChainSafe/forest/pull/3670) Implement the
   `Filecoin.ChainGetMessagesInTipset` lotus-compatible RPC API.
 
