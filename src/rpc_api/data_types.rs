@@ -144,10 +144,16 @@ impl Version {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiMessage {
     cid: Cid,
     message: Message,
+}
+
+impl ApiMessage {
+    pub fn new(cid: Cid, message: Message) -> Self {
+        Self { cid, message }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

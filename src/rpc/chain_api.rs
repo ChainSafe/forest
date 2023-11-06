@@ -8,6 +8,7 @@ use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
+use crate::rpc_api::data_types::ApiMessage;
 use crate::rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
@@ -39,7 +40,7 @@ pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
-) -> Result<Vec<MessageInTipset>, JsonRpcError> {
+) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = data.chain_store.blockstore();
     let tipset = Tipset::load_required(store, &tsk)?;
     let full_tipset = tipset
@@ -52,25 +53,19 @@ pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
         for msg in block.bls_msgs() {
             let cid = msg.cid()?;
             if seen.insert(cid) {
-                messages.push(MessageInTipset {
-                    cid: LotusJson(cid),
-                    message: LotusJson(msg.clone()),
-                });
+                messages.push(ApiMessage::new(cid, msg.clone()));
             }
         }
 
         for msg in block.secp_msgs() {
             let cid = msg.cid()?;
             if seen.insert(cid) {
-                messages.push(MessageInTipset {
-                    cid: LotusJson(cid),
-                    message: LotusJson(msg.message.clone()),
-                });
+                messages.push(ApiMessage::new(cid, msg.message.clone()));
             }
         }
     }
 
-    Ok(messages)
+    Ok(LotusJson(messages))
 }
 
 pub(in crate::rpc) async fn chain_export<DB>(
