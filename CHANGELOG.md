@@ -22,6 +22,7 @@
   it is consistent with the existing entries.
 
 -->
+
 ## Forest unreleased
 
 ### Breaking

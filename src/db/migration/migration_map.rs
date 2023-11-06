@@ -79,7 +79,6 @@ create_migrations!(
     "0.14.0" -> "0.15.0" @ MigrationVoid,
     "0.14.1" -> "0.15.0" @ MigrationVoid,
     "0.15.0" -> "0.15.1" @ MigrationVoid,
-    "0.15.0" -> "0.15.2" @ MigrationVoid,
     "0.15.1" -> "0.15.2" @ MigrationVoid,
 );
 
