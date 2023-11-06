@@ -18,9 +18,9 @@
 //! The simplest implementation is a sorted list of `(Cid, u64)`, pairs.
 //! We'll call each such pair an `entry`.
 //! But this simple implementation has a couple of downsides:
-//! - `O(log(n))` time complexity for searches.
-//!   (We could amortise this by doing an initial scan for checkpoints, but
-//!   seeking backwards in the file may still be penalised by the OS).
+//! - `O(log(n))` time complexity for searches with binary search.
+//!   (We could try to amortise this by doing an initial scan for checkpoints,
+//!   but seeking backwards in the file may still be penalised by the OS).
 //! - Variable length, possibly large entries on disk.
 //!
 //! We can address this by using a hash table with linear probing.
@@ -36,12 +36,8 @@
 //!
 //!   We use linear probing, which means that colliding entries are always
 //!   concatenated - seeking forward to the next entry will yield any collisions.
-//!   We obey the following rules to ensure a canonical ordering which gives us,
-//!   for example, efficient merging:
-//!   - For [`hash::ideal_slot_ix`] collisions, sort by hash, lowest first.
-//!
-//!
-//! TODO(aatifsyed): document longest distence shenanigans
+//! - A slot is always found at or within [`Table::longest_distance`] after its
+//!   [`hash::ideal_slot_ix`].
 //!
 //! # Wishlist
 //! - use [`std::num::NonZeroU64`] for the reserved hash.
@@ -164,7 +160,11 @@ where
     }
 }
 
+const DEFAULT_LOAD_FACTOR: f64 = 0.8;
+
 /// Write an index to the given writer.
+///
+/// Returns an [`Err(_)`] if and only if the underlying io fails.
 ///
 /// See [module documentation](mod@self) for more.
 pub fn write<I>(locations: I, mut to: impl Write) -> io::Result<()>
@@ -177,7 +177,7 @@ where
         initial_width,
         collisions,
         longest_distance,
-    } = Table::new(locations, 0.8);
+    } = Table::new(locations, DEFAULT_LOAD_FACTOR);
     let header = V1Header {
         longest_distance: longest_distance.try_into().unwrap(),
         collisions: collisions.try_into().unwrap(),
@@ -202,6 +202,8 @@ struct Table {
 }
 
 impl Table {
+    /// # Panics
+    /// - if `load_factor`` is not in the interval `0..=1``
     fn new<I>(locations: I, load_factor: f64) -> Self
     where
         I: IntoIterator<Item = (Cid, u64)>,
@@ -285,10 +287,11 @@ struct V1Header {
     /// Number of hash collisions.
     /// Not currently considered by the reader.
     collisions: u64,
-    /// Number of buckets before duplication.
+    /// Number of buckets for the sake of [`hash::ideal_slot_ix`] calculations.
     ///
     /// Note that the index includes:
-    /// - [`Self::longest_distance`] additional buckets
+    /// - A number of slots according to the `load_factor`.
+    /// - [`Self::longest_distance`] additional buckets.
     /// - a terminal [`Slot::Empty`].
     initial_buckets: u64,
 }
@@ -460,7 +463,7 @@ trait Writeable {
 // This lives in a module so its constructor can be private
 mod util {
     /// Like [`std::num::NonZeroU64`], but is never [`u64::MAX`]
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
     pub struct NonMaximalU64(u64);
 
     impl NonMaximalU64 {
@@ -491,22 +494,6 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
-    use pretty_assertions::assert_eq;
-
-    /// Check that the new [`write`] implementation matches the old `CarIndexBuilder` one.
-    #[allow(deprecated)]
-    fn do_backwards_compat(pairs: Vec<(Cid, u64)>) {
-        let reference = crate::utils::db::car_index::CarIndexBuilder::new(
-            pairs
-                .clone()
-                .into_iter()
-                .map(|(cid, u)| (crate::utils::db::car_index::Hash::from(cid), u)),
-        );
-        let subject = write_to_vec(|v| write(pairs, v));
-        let reference = write_to_vec(|v| reference.write(v));
-
-        assert_eq!(subject, reference);
-    }
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions
     fn do_hashmap(reference: HashMap<Cid, HashSet<u64>>) {
@@ -528,9 +515,6 @@ mod tests {
     }
 
     quickcheck::quickcheck! {
-        fn backwards_compat(pairs: Vec<(Cid, u64)>) -> () {
-            do_backwards_compat(pairs)
-        }
         fn hashmap(reference: HashMap<Cid, HashSet<u64>>) -> () {
             do_hashmap(reference)
         }
