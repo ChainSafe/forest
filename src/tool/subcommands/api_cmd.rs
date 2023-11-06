@@ -28,7 +28,7 @@ pub enum ApiCommands {
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg()]
         snapshot_files: Vec<PathBuf>,
-        /// Test filter
+        /// Filter which tests to run according to method name. Case sensitive.
         #[arg(long, default_value = "")]
         filter: String,
         /// Cancel test run on the first failure
