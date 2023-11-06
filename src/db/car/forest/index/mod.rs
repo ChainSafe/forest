@@ -42,7 +42,6 @@
 //! # Wishlist
 //! - use [`std::num::NonZeroU64`] for the reserved hash.
 //! - use [`std::hash::Hasher`]s instead of custom hashing
-//!   The current code says using e.g the default hasher
 
 #[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
@@ -207,6 +206,17 @@ struct Table {
 }
 
 impl Table {
+    /// Construct a new table with the invariants outlined in the [module documentation](mod@self).
+    ///
+    /// The `load_factor` determines the average number of bucket a lookup has
+    /// to scan.
+    /// The formula, with 'f' being the load factor, is `(1+1/(1-load_factor))/2`.
+    /// A load factor of `0.8`` means [`Reader::get`] has to scan through 3
+    /// slots on average.
+    /// A load-factor of `0.9` means we have to scan through 5.5 slots on average.
+    ///
+    /// See the `car-index` benchmark for measurements of scans at different lengths.
+    ///
     /// # Panics
     /// - if `load_factor`` is not in the interval `0..=1``
     pub fn new<I>(locations: I, load_factor: f64) -> Self
