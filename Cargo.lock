@@ -3206,7 +3206,6 @@ dependencies = [
  "unsigned-varint 0.7.2",
  "url",
  "walkdir",
- "zerocopy",
  "zstd",
 ]
 
@@ -9921,7 +9920,6 @@ version = "0.7.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e97e415490559a91254a2979b4829267a57d2fcd741a98eee8b722fb57289aa0"
 dependencies = [
- "byteorder",
  "zerocopy-derive",
 ]
 

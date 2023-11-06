@@ -186,7 +186,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 walkdir = "2"
-zerocopy = { version = "0.7.9", features = ["derive"] }
 zstd = "0.13"
 
 [target.'cfg(unix)'.dependencies]
