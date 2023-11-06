@@ -29,7 +29,7 @@
 //!             └─────────┘
 //! ```
 //!
-//! Looking up a block uses a [`crate::utils::db::car_index::CarIndex`] to find
+//! Looking up a block uses an [`index::Reader`] to find
 //! the right z-frame. The frame is then decoded and each block is linearly
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
 //! a lru-cache for faster repeat retrievals.
