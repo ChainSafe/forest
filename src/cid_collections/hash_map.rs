@@ -271,16 +271,12 @@ impl<V> IntoIterator for CidHashMap<V> {
 
     fn into_iter(self) -> Self::IntoIter {
         let Self { compact, uncompact } = self;
-        // required for contract of ExactSizeIterator
-        assert!(compact.len().checked_add(uncompact.len()).is_some());
         IntoIter {
             compact: compact.into_iter(),
             uncompact: uncompact.into_iter(),
         }
     }
 }
-
-impl<V> ExactSizeIterator for IntoIter<V> {}
 
 //////////
 // Keys //

@@ -53,7 +53,7 @@ use smallvec::{smallvec, SmallVec};
 use std::{
     cmp,
     io::{self, Read, Write},
-    iter::{self, ExactSizeIterator},
+    iter,
     num::NonZeroUsize,
 };
 
@@ -170,7 +170,6 @@ const DEFAULT_LOAD_FACTOR: f64 = 0.8;
 pub fn write<I>(locations: I, mut to: impl Write) -> io::Result<()>
 where
     I: IntoIterator<Item = (Cid, u64)>,
-    I::IntoIter: ExactSizeIterator,
 {
     let Table {
         slots,
