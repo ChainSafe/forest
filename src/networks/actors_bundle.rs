@@ -18,6 +18,10 @@ use tracing::warn;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
 use crate::utils::net::http_get;
 
+use std::str::FromStr;
+
+use super::NetworkChain;
+
 #[derive(Debug)]
 pub struct ActorBundleInfo {
     pub manifest: Cid,
@@ -26,6 +30,7 @@ pub struct ActorBundleInfo {
     /// Note that we host the bundles and so we need to update the bucket
     /// ourselves when a new bundle is released.
     pub alt_url: Url,
+    pub network: NetworkChain,
 }
 
 macro_rules! actor_bundle_info {
@@ -47,7 +52,8 @@ macro_rules! actor_bundle_info {
                             "/builtin-actors-",
                             $network,
                             ".car"
-                        ).parse().unwrap()
+                        ).parse().unwrap(),
+                    network: NetworkChain::from_str($network).unwrap(),
                 },
             )*
         ]
@@ -76,6 +82,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
              manifest: root,
              url,
              alt_url,
+             network: _,
          }| async move {
             let response = if let Ok(response) = http_get(url).await {
                 response
@@ -149,6 +156,7 @@ mod tests {
                  manifest,
                  url,
                  alt_url,
+                 network: _,
              }| async move {
                 let (primary, alt) = match (http_get(url).await, http_get(alt_url).await) {
                     (Ok(primary), Ok(alt)) => (primary, alt),

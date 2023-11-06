@@ -5,10 +5,8 @@ use super::*;
 use crate::blocks::TipsetKeys;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_client::ApiInfo;
-use crate::utils::bail_moved_cmd;
 use anyhow::Context as _;
 use chrono::NaiveDateTime;
 use clap::Subcommand;
@@ -36,42 +34,6 @@ pub enum SnapshotCommands {
         /// How many state-roots to include. Lower limit is 900 for `calibnet` and `mainnet`.
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
-    },
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Fetch {
-        #[arg(short, long, default_value = ".")]
-        directory: PathBuf,
-        #[arg(short, long, value_enum, default_value_t = snapshot::TrustedVendor::default())]
-        vendor: snapshot::TrustedVendor,
-    },
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Validate {
-        #[arg(long, default_value_t = 2000)]
-        check_links: u32,
-        #[arg(long)]
-        check_network: Option<crate::networks::NetworkChain>,
-        #[arg(long, default_value_t = 60)]
-        check_stateroots: u32,
-        #[arg(required = true)]
-        snapshot_files: Vec<PathBuf>,
-    },
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Compress {
-        source: PathBuf,
-        #[arg(short, long, default_value = ".")]
-        output_path: PathBuf,
-        #[arg(long, default_value_t = 3)]
-        compression_level: u16,
-        #[arg(long, default_value_t = DEFAULT_FOREST_CAR_FRAME_SIZE)]
-        frame_size: usize,
-        #[arg(long, default_value_t = false)]
-        force: bool,
     },
 }
 
@@ -163,13 +125,6 @@ impl SnapshotCommands {
 
                 println!("Export completed.");
                 Ok(())
-            }
-            Self::Fetch { .. } => bail_moved_cmd("snapshot fetch", "forest-tool snapshot fetch"),
-            Self::Validate { .. } => {
-                bail_moved_cmd("snapshot validate", "forest-tool snapshot validate")
-            }
-            Self::Compress { .. } => {
-                bail_moved_cmd("snapshot compress", "forest-tool snapshot compress")
             }
         }
     }

@@ -3,6 +3,7 @@
 
 use ahash::HashMap;
 use clap::Subcommand;
+use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -28,6 +29,12 @@ pub enum ApiCommands {
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg()]
         snapshot_files: Vec<PathBuf>,
+        /// Filter which tests to run according to method name. Case sensitive.
+        #[arg(long, default_value = "")]
+        filter: String,
+        /// Cancel test run on the first failure
+        #[arg(long)]
+        fail_fast: bool,
     },
 }
 
@@ -38,13 +45,15 @@ impl ApiCommands {
                 forest,
                 lotus,
                 snapshot_files,
-            } => compare_apis(forest, lotus, snapshot_files).await?,
+                filter,
+                fail_fast,
+            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast).await?,
         }
         Ok(())
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum EndpointStatus {
     // RPC method is missing
     MissingMethod,
@@ -206,6 +215,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_get_messages_in_tipset_req(
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::chain_get_parent_messages_req(*shared_block.cid())),
     ]
 }
 
@@ -232,10 +242,25 @@ fn node_tests() -> Vec<RpcTest> {
 }
 
 fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let shared_block = shared_tipset.min_ticket_block();
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
             Address::SYSTEM_ACTOR,
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
+            shared_tipset.key().clone(),
+            DomainSeparationTag::ElectionProofProduction,
+            shared_tipset.epoch(),
+            "dead beef".as_bytes().to_vec(),
+        )),
+        RpcTest::identity(ApiInfo::state_read_state_req(
+            Address::SYSTEM_ACTOR,
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
+            *shared_block.miner_address(),
             shared_tipset.key().clone(),
         )),
     ]
@@ -293,6 +318,8 @@ async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
     snapshot_files: Vec<PathBuf>,
+    filter: String,
+    fail_fast: bool,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -308,14 +335,24 @@ async fn compare_apis(
         tests.extend(snapshot_tests(&store)?);
     }
 
+    tests.sort_by_key(|test| test.request.method_name);
+
     let mut results = HashMap::default();
 
     for test in tests.into_iter() {
+        if !test.request.method_name.contains(&filter) {
+            continue;
+        }
         let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
         results
             .entry((test.request.method_name, forest_status, lotus_status))
             .and_modify(|v| *v += 1)
             .or_insert(1u32);
+        if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
+            && fail_fast
+        {
+            break;
+        }
     }
 
     let mut results = results.into_iter().collect::<Vec<_>>();

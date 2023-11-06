@@ -9,26 +9,15 @@ use crate::utils::io::ProgressBar;
 use chrono::Utc;
 use clap::Subcommand;
 
-use crate::utils::bail_moved_cmd;
-
 #[derive(Debug, Subcommand)]
 pub enum DBCommands {
     /// Run DB garbage collection
     GC,
-    // Those subcommands are hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Stats,
-    #[command(hide = true)]
-    Clean {
-        #[arg(long)]
-        force: bool,
-    },
 }
 
 impl DBCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
-            Self::Stats => bail_moved_cmd("db stats", "forest-tool db stats"),
             Self::GC => {
                 let start = Utc::now();
 
@@ -69,7 +58,6 @@ impl DBCommands {
 
                 Ok(())
             }
-            Self::Clean { .. } => bail_moved_cmd("db clean", "forest-tool db destroy"),
         }
     }
 }

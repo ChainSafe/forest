@@ -357,7 +357,7 @@ where
     let last_epoch = ts.epoch() - epochs as i64;
 
     // Bundles are required when doing state migrations.
-    load_actor_bundles(&db).await?;
+    load_actor_bundles(&db, &network).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
     crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
