@@ -205,78 +205,6 @@ impl Table {
     fn new<I>(locations: I, load_factor: f64) -> Self
     where
         I: IntoIterator<Item = (Cid, u64)>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        let locations = locations.into_iter();
-        assert!((0.0..=1.0).contains(&load_factor));
-        let initial_width = cmp::max(
-            (locations.len() as f64 / load_factor) as usize,
-            locations.len(),
-        );
-        let Some(initial_width) = NonZeroUsize::new(initial_width) else {
-            return Self {
-                slots: vec![Slot::Empty],
-                initial_width: 0,
-                collisions: 0,
-                longest_distance: 0,
-            };
-        };
-        let mut slots = vec![Slot::Empty; initial_width.get()];
-
-        let mut collisions = 0;
-        let mut longest_distance = 0;
-
-        for (cid, frame_offset) in locations {
-            let mut insert_me = OccupiedSlot {
-                hash: hash::of(&cid),
-                frame_offset,
-            };
-            let ideal_ix = hash::ideal_slot_ix(insert_me.hash, initial_width);
-            let mut current_ix = ideal_ix;
-            // this is guaranteed to terminate because table_width >= locations.len()
-            loop {
-                let insert_me_dist = distance(insert_me.hash, current_ix, initial_width);
-                longest_distance = cmp::max(longest_distance, insert_me_dist);
-
-                match slots[current_ix] {
-                    Slot::Empty => {
-                        slots[current_ix] = Slot::Occupied(insert_me);
-                        break;
-                    }
-                    Slot::Occupied(already) => {
-                        if insert_me.hash == already.hash {
-                            collisions += 1;
-                        }
-                        // TODO(aatifsyed): document this
-                        let already_dist = distance(already.hash, current_ix, initial_width);
-
-                        if already_dist < insert_me_dist
-                            || (already_dist == insert_me_dist && insert_me.hash < already.hash)
-                        {
-                            slots[current_ix] = Slot::Occupied(insert_me);
-                            insert_me = already;
-                        }
-
-                        current_ix = (current_ix + 1) % initial_width
-                    }
-                }
-            }
-        }
-        for i in 0..longest_distance {
-            slots.push(slots[i])
-        }
-        slots.push(Slot::Empty);
-        Self {
-            slots,
-            initial_width: initial_width.get(),
-            collisions,
-            longest_distance,
-        }
-    }
-
-    fn new_by_sorting<I>(locations: I, load_factor: f64) -> Self
-    where
-        I: IntoIterator<Item = (Cid, u64)>,
     {
         assert!((0.0..=1.0).contains(&load_factor));
 
@@ -337,17 +265,6 @@ impl Table {
             slots,
             initial_width: initial_width.get(),
             collisions,
-        }
-    }
-}
-
-/// How far away is `hash` at `current_ix` from its [`hash::ideal_slot_ix`]?
-fn distance(hash: NonMaximalU64, current_ix: usize, initial_width: NonZeroUsize) -> usize {
-    {
-        let ideal_ix = hash::ideal_slot_ix(hash, initial_width);
-        match ideal_ix > current_ix {
-            true => initial_width.get() - ideal_ix + current_ix,
-            false => current_ix - ideal_ix,
         }
     }
 }
@@ -574,7 +491,6 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
-    use nonzero_ext::nonzero;
     use pretty_assertions::assert_eq;
 
     /// Check that the new [`write`] implementation matches the old `CarIndexBuilder` one.
@@ -593,8 +509,7 @@ mod tests {
     }
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions
-    fn do_hashmap(mut reference: HashMap<Cid, HashSet<u64>>) {
-        reference.retain(|_, offsets| !offsets.is_empty());
+    fn do_hashmap(reference: HashMap<Cid, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
             write(
                 reference
@@ -612,104 +527,12 @@ mod tests {
         }
     }
 
-    fn do_ordered_properties(mut reference: HashMap<Cid, HashSet<u64>>) {
-        reference.retain(|_, offsets| !offsets.is_empty());
-        let Table {
-            slots,
-            initial_width,
-            collisions,
-            longest_distance,
-        } = Table::new_by_sorting(
-            reference
-                .into_iter()
-                .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset))),
-            0.8,
-        );
-
-        for (left, right) in slots.iter().filter_map(Slot::as_occupied).tuple_windows() {
-            assert!(left.hash <= right.hash)
-        }
-
-        if let Some(initial_width) = NonZeroUsize::new(initial_width) {
-            for (actual_ix, ideal_ix) in
-                slots.iter().enumerate().flat_map(|(ix, slot)| match slot {
-                    Slot::Empty => None,
-                    Slot::Occupied(occ) => Some((ix, hash::ideal_slot_ix(occ.hash, initial_width))),
-                })
-            {
-                assert!(actual_ix >= ideal_ix)
-            }
-        }
-    }
-
-    /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions
-    fn do_ordered(mut reference: HashMap<Cid, HashSet<u64>>) {
-        reference.retain(|_, offsets| !offsets.is_empty());
-        let subject = Reader::new(write_to_vec(|v| {
-            let mut to = v;
-            let table = Table::new_by_sorting(
-                reference.clone().into_iter().flat_map(|(cid, offsets)| {
-                    offsets.into_iter().map(move |offset| (cid, offset))
-                }),
-                0.8,
-            );
-            dbg!(&table);
-            let Table {
-                slots,
-                initial_width,
-                collisions,
-                longest_distance,
-            } = table;
-            let header = V1Header {
-                longest_distance: longest_distance.try_into().unwrap(),
-                collisions: collisions.try_into().unwrap(),
-                initial_buckets: initial_width.try_into().unwrap(),
-            };
-
-            Version::V1.write_to(&mut to)?;
-            header.write_to(&mut to)?;
-            for slot in slots {
-                slot.write_to(&mut to)?;
-            }
-            Ok(())
-        }))
-        .unwrap();
-        for (cid, expected) in reference {
-            let actual = subject.get(cid).unwrap().into_iter().collect();
-            dbg!(&expected, &actual);
-            assert!(expected.is_subset(&actual)); // collisions
-        }
-    }
-
-    #[test]
-    fn test() {
-        let bae = "baeraedsrwzfekv5w75txtsqw4hac2".parse().unwrap();
-        let qmv = "QmV8EtARfAmmNX5yo6hZBvjyFEKW4u2JBf5EEVq6Wv5mch"
-            .parse()
-            .unwrap();
-        dbg!(hash::of(&bae), hash::of(&qmv));
-        dbg!(
-            hash::ideal_slot_ix(hash::of(&bae), nonzero!(2usize)),
-            hash::ideal_slot_ix(hash::of(&qmv), nonzero!(2usize))
-        );
-        do_ordered(HashMap::from_iter([
-            (bae, HashSet::from_iter([0])),
-            (qmv, HashSet::from_iter([0])),
-        ]))
-    }
-
     quickcheck::quickcheck! {
         fn backwards_compat(pairs: Vec<(Cid, u64)>) -> () {
             do_backwards_compat(pairs)
         }
         fn hashmap(reference: HashMap<Cid, HashSet<u64>>) -> () {
             do_hashmap(reference)
-        }
-        fn ordered(reference: HashMap<Cid, HashSet<u64>>) -> () {
-            do_ordered(reference)
-        }
-        fn ordered_properties(reference: HashMap<Cid, HashSet<u64>>) -> () {
-            do_ordered_properties(reference)
         }
         fn header(it: V1Header) -> () {
             round_trip(&it);
@@ -719,26 +542,6 @@ mod tests {
         }
         fn raw_slot(it: RawSlot) -> () {
             round_trip(&it);
-        }
-    }
-
-    #[test]
-    fn test_distance() {
-        for (ideal, actual, num_buckets, expected_distance) in [
-            // right where it wants to be
-            (0, 0, 1, 0),
-            // four places too late
-            (0, 4, 5, 4),
-        ] {
-            let num_buckets = NonZeroUsize::new(num_buckets).unwrap();
-            assert_eq!(
-                expected_distance,
-                distance(
-                    hash::from_ideal_slot_ix(ideal, num_buckets),
-                    actual,
-                    num_buckets
-                )
-            )
         }
     }
 
