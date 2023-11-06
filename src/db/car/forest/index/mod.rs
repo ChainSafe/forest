@@ -302,7 +302,6 @@ impl Table {
             };
         };
 
-        let mut longest_distance = 0;
         let collisions = slots
             .iter()
             .filter_map(Slot::as_occupied)
@@ -312,32 +311,36 @@ impl Table {
             .max()
             .unwrap_or_default();
 
-        while let Some((ix, padding)) = slots.iter().enumerate().find_map(|(ix, slot)| {
+        while let Some((ix, distance)) = slots.iter().enumerate().find_map(|(ix, slot)| {
             match slot {
                 Slot::Occupied(OccupiedSlot { hash, .. }) => {
                     let ideal_ix = hash::ideal_slot_ix(*hash, initial_width);
                     match ideal_ix > ix {
                         // too early
-                        true => {
-                            let distance = ideal_ix - ix;
-                            longest_distance = cmp::max(longest_distance, distance);
-                            Some((ix, distance))
-                        }
+                        true => Some((ix, ideal_ix - ix)),
                         false => None,
                     }
                 }
                 Slot::Empty => None,
             }
         }) {
-            slots.splice(ix..ix, iter::repeat(Slot::Empty).take(padding));
+            slots.splice(ix..ix, iter::repeat(Slot::Empty).take(distance));
         }
-
         slots.push(Slot::Empty);
+
         Self {
+            longest_distance: slots
+                .iter()
+                .enumerate()
+                .filter_map(|(ix, slot)| {
+                    slot.as_occupied()
+                        .map(|it| ix - hash::ideal_slot_ix(it.hash, initial_width))
+                })
+                .max()
+                .unwrap_or_default(),
             slots,
             initial_width: initial_width.get(),
             collisions,
-            longest_distance,
         }
     }
 }
