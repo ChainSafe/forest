@@ -50,6 +50,10 @@ Forest v0.15.1 is a service release with support for the v0.14.1 database.
 
 ### Removed
 
+- [#3363](https://github.com/ChainSafe/forest/issues/3363) Remove hidden
+  `forest-cli` commands used for helping users to migrate on `forest-tool` and
+  `forest-wallet`.
+
 ### Fixed
 
 ## Forest v0.15.0 "Buttress"
