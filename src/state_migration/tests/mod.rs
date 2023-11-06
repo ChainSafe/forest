@@ -111,7 +111,7 @@ async fn test_state_migration(
     let store = Arc::new(
         crate::db::car::plain::PlainCar::new(RandomAccessFile::open(&car_path).unwrap()).unwrap(),
     );
-    load_actor_bundles(&store).await.unwrap();
+    load_actor_bundles(&store, &network).await.unwrap();
 
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];

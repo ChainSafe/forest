@@ -39,6 +39,29 @@
 
 ### Fixed
 
+## Forest v0.15.1
+
+Forest v0.15.1 is a service release with support for the v0.14.1 database.
+
+### Breaking
+
+### Added
+
+- [#3662](https://github.com/ChainSafe/forest/pull/3662) Add `--filter` and
+  `--fail-fast` flags to `forest-tool api compare`.
+- [#3670](https://github.com/ChainSafe/forest/pull/3670) Implement the
+  `Filecoin.ChainGetMessagesInTipset` lotus-compatible RPC API.
+
+### Changed
+
+### Removed
+
+- [#3363](https://github.com/ChainSafe/forest/issues/3363) Remove hidden
+  `forest-cli` commands used for helping users to migrate on `forest-tool` and
+  `forest-wallet`.
+
+### Fixed
+
 ## Forest v0.15.0 "Buttress"
 
 Forest v0.15.0 is a service release containing minor bug fixes and small

@@ -77,6 +77,10 @@ where
                 CHAIN_GET_MIN_BASE_FEE,
                 chain_api::chain_get_min_base_fee::<DB>,
             )
+            .with_method(
+                CHAIN_GET_MESSAGES_IN_TIPSET,
+                chain_api::chain_get_messages_in_tipset::<DB>,
+            )
             // Message Pool API
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)

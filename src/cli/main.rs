@@ -8,7 +8,6 @@ use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::{CurrentNetwork, Network};
-use crate::utils::bail_moved_cmd;
 use clap::Parser;
 
 use super::subcommands::Subcommand;
@@ -35,13 +34,9 @@ where
             }
             // Run command
             match cmd {
-                Subcommand::Fetch(_cmd) => {
-                    bail_moved_cmd("fetch-params", "forest-tool fetch-params")
-                }
                 Subcommand::Chain(cmd) => cmd.run(api).await,
                 Subcommand::Auth(cmd) => cmd.run(api).await,
                 Subcommand::Net(cmd) => cmd.run(api).await,
-                Subcommand::Wallet(..) => bail_moved_cmd("wallet", "forest-wallet"),
                 Subcommand::Sync(cmd) => cmd.run(api).await,
                 Subcommand::Mpool(cmd) => cmd.run(api).await,
                 Subcommand::State(cmd) => cmd.run(api).await,
@@ -50,10 +45,8 @@ where
                 Subcommand::Info(cmd) => cmd.run(api).await,
                 Subcommand::DB(cmd) => cmd.run().await,
                 Subcommand::Snapshot(cmd) => cmd.run(api).await,
-                Subcommand::Archive(cmd) => cmd.run().await,
                 Subcommand::Attach(cmd) => cmd.run(api),
                 Subcommand::Shutdown(cmd) => cmd.run(api).await,
-                Subcommand::Car(..) => bail_moved_cmd("car", "forest-tool"),
             }
         })
 }
