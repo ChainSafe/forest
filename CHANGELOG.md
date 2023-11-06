@@ -22,8 +22,19 @@
   it is consistent with the existing entries.
 
 -->
-
 ## Forest unreleased
+
+### Breaking
+
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.15.2 "Defenestration"
 
 ### Breaking
 
