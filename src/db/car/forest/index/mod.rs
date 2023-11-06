@@ -280,13 +280,11 @@ impl Table {
     {
         assert!((0.0..=1.0).contains(&load_factor));
 
-        let mut slots = locations
+        let slots = locations
             .into_iter()
-            .map(|(cid, frame_offset)| {
-                Slot::Occupied(OccupiedSlot {
-                    hash: hash::of(&cid),
-                    frame_offset,
-                })
+            .map(|(cid, frame_offset)| OccupiedSlot {
+                hash: hash::of(&cid),
+                frame_offset,
             })
             .sorted()
             .collect::<Vec<_>>();
@@ -304,29 +302,27 @@ impl Table {
 
         let collisions = slots
             .iter()
-            .filter_map(Slot::as_occupied)
             .group_by(|it| it.hash)
             .into_iter()
             .map(|(_, group)| group.count() - 1)
             .max()
             .unwrap_or_default();
 
-        while let Some((ix, distance)) = slots.iter().enumerate().find_map(|(ix, slot)| {
-            match slot {
-                Slot::Occupied(OccupiedSlot { hash, .. }) => {
-                    let ideal_ix = hash::ideal_slot_ix(*hash, initial_width);
-                    match ideal_ix > ix {
-                        // too early
-                        true => Some((ix, ideal_ix - ix)),
-                        false => None,
-                    }
-                }
-                Slot::Empty => None,
-            }
-        }) {
-            slots.splice(ix..ix, iter::repeat(Slot::Empty).take(distance));
-        }
-        slots.push(Slot::Empty);
+        let mut total_padding = 0;
+        let slots = slots
+            .into_iter()
+            .enumerate()
+            .flat_map(|(ix, it)| {
+                let actual_ix = ix + total_padding;
+                let ideal_ix = hash::ideal_slot_ix(it.hash, initial_width);
+                let padding = ideal_ix.checked_sub(actual_ix).unwrap_or_default();
+                total_padding += padding;
+                iter::repeat(Slot::Empty)
+                    .take(padding)
+                    .chain(iter::once(Slot::Occupied(it)))
+            })
+            .chain(iter::once(Slot::Empty))
+            .collect::<Vec<_>>();
 
         Self {
             longest_distance: slots
