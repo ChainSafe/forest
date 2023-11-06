@@ -29,6 +29,14 @@
 
 ### Added
 
+- [#3632](https://github.com/ChainSafe/forest/issues/3632) Added an upgrade/fix
+  for calibration network that will go live at epoch 1070494.
+
+- [#3674](https://github.com/ChainSafe/forest/pull/3674) Added a tentative
+  mainnet Watermelon upgrade with the
+  [12.0.0-rc.2](https://github.com/filecoin-project/builtin-actors/releases/tag/v12.0.0-rc.2)
+  bundle.
+
 ### Changed
 
 ### Removed
