@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.15.2 "Defenestration"
+
+### Breaking
+
+### Added
+
 - [#3632](https://github.com/ChainSafe/forest/issues/3632) Added an upgrade/fix
   for calibration network that will go live at epoch 1070494.
 
