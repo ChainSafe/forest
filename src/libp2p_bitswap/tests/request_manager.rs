@@ -13,12 +13,8 @@ mod tests {
         Block, Cid,
     };
     use libp2p::{
-        core,
-        identity::Keypair,
-        multiaddr::Protocol,
-        noise,
-        swarm::{self, SwarmEvent},
-        tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
+        multiaddr::Protocol, noise, swarm::SwarmEvent, tcp, yamux, Multiaddr, PeerId, Swarm,
+        SwarmBuilder,
     };
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
@@ -103,21 +99,19 @@ mod tests {
     }
 
     async fn create_swarm() -> anyhow::Result<(Swarm<BitswapBehaviour>, PeerId, Multiaddr)> {
-        let id_keys = Keypair::generate_ed25519();
-        let peer_id = PeerId::from(id_keys.public());
-        let transport = tcp::tokio::Transport::default()
-            .upgrade(core::upgrade::Version::V1)
-            .authenticate(noise::Config::new(&id_keys)?)
-            .multiplex(yamux::Config::default())
-            .timeout(TIMEOUT)
-            .boxed();
-        let behaviour = BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default());
-        let mut swarm = Swarm::new(
-            transport,
-            behaviour,
-            peer_id,
-            swarm::Config::with_tokio_executor(),
-        );
+        let mut swarm = SwarmBuilder::with_new_identity()
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default().port_reuse(true).nodelay(true),
+                noise::Config::new,
+                yamux::Config::default,
+            )?
+            .with_behaviour(|_keypair| {
+                BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
+            })?
+            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(TIMEOUT))
+            .build();
+
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let peer_addr = loop {
             let event = swarm.select_next_some().await;
@@ -126,6 +120,7 @@ mod tests {
             }
         };
 
+        let peer_id = *swarm.local_peer_id();
         Ok((swarm, peer_id, peer_addr))
     }
 
@@ -157,9 +152,7 @@ mod tests {
 
     fn handle_swarm_event(
         swarm: &mut Swarm<BitswapBehaviour>,
-        swarm_event_opt: Option<
-            SwarmEvent<BitswapBehaviourEvent, libp2p::swarm::THandlerErr<BitswapBehaviour>>,
-        >,
+        swarm_event_opt: Option<SwarmEvent<BitswapBehaviourEvent>>,
         store: &impl BitswapStoreRead,
     ) -> anyhow::Result<()> {
         if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {

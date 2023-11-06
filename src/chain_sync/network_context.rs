@@ -364,7 +364,7 @@ where
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
-                    RequestResponseError::Timeout => {
+                    RequestResponseError::Timeout | RequestResponseError::Io(_) => {
                         peer_manager.log_failure(peer_id, res_duration).await;
                     }
                 }

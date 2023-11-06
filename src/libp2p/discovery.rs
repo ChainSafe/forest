@@ -14,14 +14,14 @@ use libp2p::{
     core::Multiaddr,
     identify,
     identity::{PeerId, PublicKey},
-    kad::{self, record::store::MemoryStore},
+    kad::{self, store::MemoryStore},
     mdns::{tokio::Behaviour as Mdns, Event as MdnsEvent},
     multiaddr::Protocol,
     swarm::{
         behaviour::toggle::Toggle,
         derive_prelude::*,
         dial_opts::{DialOpts, PeerCondition},
-        NetworkBehaviour, PollParameters, ToSwarm,
+        NetworkBehaviour, ToSwarm,
     },
     StreamProtocol,
 };
@@ -316,7 +316,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         )
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm) {
         match &event {
             FromSwarm::ConnectionEstablished(e) => {
                 if e.other_established == 0 {
@@ -354,7 +354,6 @@ impl NetworkBehaviour for DiscoveryBehaviour {
     fn poll(
         &mut self,
         cx: &mut Context,
-        params: &mut impl PollParameters,
     ) -> Poll<ToSwarm<Self::ToSwarm, libp2p::swarm::THandlerInEvent<Self>>> {
         // Immediately process the content of `discovered`.
         if let Some(ev) = self.pending_events.pop_front() {
@@ -391,7 +390,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         }
 
         // Poll discovery events.
-        while let Poll::Ready(ev) = self.discovery.poll(cx, params) {
+        while let Poll::Ready(ev) = self.discovery.poll(cx) {
             match ev {
                 ToSwarm::GenerateEvent(ev) => match ev {
                     DerivedDiscoveryBehaviourEvent::Idenfity(ev) => {
@@ -473,6 +472,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 ToSwarm::ExternalAddrExpired(addr) => {
                     return Poll::Ready(ToSwarm::ExternalAddrExpired(addr))
                 }
+                _ => {}
             }
         }
 
@@ -504,7 +504,7 @@ mod tests {
         }
 
         let mut b = Swarm::new_ephemeral(|k| new_discovery(k, vec![]));
-        b.listen().await;
+        b.listen().with_memory_addr_external().await;
         let b_peer_id = *b.local_peer_id();
         let b_addresses: Vec<_> = b
             .external_addresses()
@@ -515,11 +515,16 @@ mod tests {
             })
             .collect();
 
-        let mut c = Swarm::new_ephemeral(|k| new_discovery(k, b_addresses.clone()));
-        c.listen().await;
+        let mut c = Swarm::new_ephemeral(|k| new_discovery(k, vec![]));
+        c.listen().with_memory_addr_external().await;
         let c_peer_id = *c.local_peer_id();
+        if let Some(c_kad) = c.behaviour_mut().discovery.kademlia.as_mut() {
+            for addr in b.external_addresses() {
+                c_kad.add_address(&b_peer_id, addr.clone());
+            }
+        }
 
-        let mut a = Swarm::new_ephemeral(|k| new_discovery(k, b_addresses.clone()));
+        let mut a = Swarm::new_ephemeral(|k| new_discovery(k, b_addresses));
 
         // Bootstrap `a` and `c`
         a.behaviour_mut().bootstrap().unwrap();
