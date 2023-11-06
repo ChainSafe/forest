@@ -94,8 +94,8 @@ pub mod doctest_private {
 #[cfg(feature = "benchmark-private")]
 #[doc(hidden)]
 pub mod benchmark_private {
+    pub use crate::db::car::forest;
     pub use crate::utils::cid;
-    pub use crate::utils::db::car_index;
 }
 
 // These should be made private in https://github.com/ChainSafe/forest/issues/3013

@@ -73,6 +73,9 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 use unsigned_varint::codec::UviBytes;
+#[cfg(feature = "benchmark-private")]
+pub mod index;
+#[cfg(not(feature = "benchmark-private"))]
 mod index;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";

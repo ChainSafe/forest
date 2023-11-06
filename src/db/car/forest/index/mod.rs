@@ -44,8 +44,10 @@
 //! - use [`std::hash::Hasher`]s instead of custom hashing
 //!   The current code says using e.g the default hasher
 
+#[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
+use cfg_vis::cfg_vis;
 use cid::Cid;
 use itertools::Itertools as _;
 use positioned_io::ReadAt;
@@ -57,9 +59,9 @@ use std::{
     num::NonZeroUsize,
 };
 
-#[cfg(not(test))]
+#[cfg(not(any(test, feature = "benchmark-private")))]
 mod hash;
-#[cfg(test)]
+#[cfg(any(test, feature = "benchmark-private"))]
 pub mod hash;
 
 /// Reader for the `.forest.car.zst`'s embedded index.
@@ -104,6 +106,7 @@ where
 
     /// Jump to slot offset and scan downstream. All key-value pairs with a
     /// matching key are guaranteed to appear before we encounter an empty slot.
+    #[cfg_vis(feature = "benchmark-private", pub)]
     fn get_by_hash(&self, needle: NonMaximalU64) -> io::Result<SmallVec<[u64; 1]>> {
         let Some(initial_buckets) =
             NonZeroUsize::new(self.header.initial_buckets.try_into().unwrap())
@@ -160,6 +163,7 @@ where
     }
 }
 
+#[cfg_vis(feature = "benchmark-private", pub)]
 const DEFAULT_LOAD_FACTOR: f64 = 0.8;
 
 /// Write an index to the given writer.
@@ -193,9 +197,11 @@ where
 
 /// An in-memory representation of a hash-table.
 #[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+#[cfg_vis(feature = "benchmark-private", pub)]
 struct Table {
-    slots: Vec<Slot>,
-    initial_width: usize,
+    // public for benchmarks
+    pub slots: Vec<Slot>,
+    pub initial_width: usize,
     collisions: usize,
     longest_distance: usize,
 }
@@ -203,7 +209,7 @@ struct Table {
 impl Table {
     /// # Panics
     /// - if `load_factor`` is not in the interval `0..=1``
-    fn new<I>(locations: I, load_factor: f64) -> Self
+    pub fn new<I>(locations: I, load_factor: f64) -> Self
     where
         I: IntoIterator<Item = (Cid, u64)>,
     {
@@ -297,20 +303,22 @@ struct V1Header {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+#[cfg_vis(feature = "benchmark-private", pub)]
 struct OccupiedSlot {
-    hash: NonMaximalU64,
+    pub hash: NonMaximalU64,
     frame_offset: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+#[cfg_vis(feature = "benchmark-private", pub)]
 enum Slot {
     Empty,
     Occupied(OccupiedSlot),
 }
 
 impl Slot {
-    fn as_occupied(&self) -> Option<&OccupiedSlot> {
+    pub fn as_occupied(&self) -> Option<&OccupiedSlot> {
         match self {
             Slot::Empty => None,
             Slot::Occupied(occ) => Some(occ),
