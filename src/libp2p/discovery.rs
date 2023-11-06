@@ -37,7 +37,7 @@ pub struct DerivedDiscoveryBehaviour {
     /// Discovers nodes on the local network.
     mdns: Toggle<Mdns>,
     /// [`identify::Behaviour`] needs to be manually hooked up with [`kad::Behaviour`] to make discovery work. See <https://docs.rs/libp2p/latest/libp2p/kad/index.html#important-discrepancies>
-    idenfity: identify::Behaviour,
+    identify: identify::Behaviour,
     /// For details see <https://github.com/libp2p/specs/blob/master/autonat/README.md>
     autonat: autonat::Behaviour,
 }
@@ -53,8 +53,8 @@ pub enum DiscoveryEvent {
     /// peer id.
     PeerDisconnected(PeerId),
 
-    /// Identify event
-    Identify(Box<identify::Event>),
+    /// Discovery event
+    Discovery(Box<DerivedDiscoveryBehaviourEvent>),
 }
 
 /// `DiscoveryBehaviour` configuration.
@@ -172,7 +172,7 @@ impl<'a> DiscoveryConfig<'a> {
             discovery: DerivedDiscoveryBehaviour {
                 kademlia: kademlia_opt.into(),
                 mdns: mdns_opt.into(),
-                idenfity: identify::Behaviour::new(
+                identify: identify::Behaviour::new(
                     identify::Config::new("ipfs/0.1.0".into(), local_public_key)
                         .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str()))
                         .with_push_listen_addr_updates(true),
@@ -392,50 +392,52 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         // Poll discovery events.
         while let Poll::Ready(ev) = self.discovery.poll(cx) {
             match ev {
-                ToSwarm::GenerateEvent(ev) => match ev {
-                    DerivedDiscoveryBehaviourEvent::Idenfity(ev) => {
-                        if let identify::Event::Received { peer_id, info } = &ev {
-                            if let Some(kademlia) = self.discovery.kademlia.as_mut() {
-                                for address in &info.listen_addrs {
-                                    kademlia.add_address(peer_id, address.clone());
+                ToSwarm::GenerateEvent(ev) => {
+                    match &ev {
+                        DerivedDiscoveryBehaviourEvent::Identify(ev) => {
+                            if let identify::Event::Received { peer_id, info } = ev {
+                                if let Some(kademlia) = self.discovery.kademlia.as_mut() {
+                                    for address in &info.listen_addrs {
+                                        kademlia.add_address(peer_id, address.clone());
+                                    }
                                 }
                             }
                         }
-                        self.pending_events
-                            .push_back(DiscoveryEvent::Identify(Box::new(ev)));
-                    }
-                    DerivedDiscoveryBehaviourEvent::Autonat(_) => {}
-                    DerivedDiscoveryBehaviourEvent::Kademlia(ev) => match ev {
-                        // Adding to Kademlia buckets is automatic with our config,
-                        // no need to do manually.
-                        kad::Event::RoutingUpdated { .. } => {}
-                        kad::Event::RoutablePeer { .. } => {}
-                        kad::Event::PendingRoutablePeer { .. } => {
-                            // Intentionally ignore
-                        }
-                        other => {
-                            trace!("Libp2p => Unhandled Kademlia event: {:?}", other)
-                        }
-                    },
-                    DerivedDiscoveryBehaviourEvent::Mdns(ev) => match ev {
-                        MdnsEvent::Discovered(list) => {
-                            if self.n_node_connected >= self.target_peer_count {
-                                // Already over discovery max, don't add discovered peers.
-                                // We could potentially buffer these addresses to be added later,
-                                // but mdns is not an important use case and may be removed in future.
-                                continue;
+                        DerivedDiscoveryBehaviourEvent::Autonat(_) => {}
+                        DerivedDiscoveryBehaviourEvent::Kademlia(ev) => match ev {
+                            // Adding to Kademlia buckets is automatic with our config,
+                            // no need to do manually.
+                            kad::Event::RoutingUpdated { .. } => {}
+                            kad::Event::RoutablePeer { .. } => {}
+                            kad::Event::PendingRoutablePeer { .. } => {
+                                // Intentionally ignore
                             }
+                            other => {
+                                trace!("Libp2p => Unhandled Kademlia event: {:?}", other)
+                            }
+                        },
+                        DerivedDiscoveryBehaviourEvent::Mdns(ev) => match ev {
+                            MdnsEvent::Discovered(list) => {
+                                if self.n_node_connected >= self.target_peer_count {
+                                    // Already over discovery max, don't add discovered peers.
+                                    // We could potentially buffer these addresses to be added later,
+                                    // but mdns is not an important use case and may be removed in future.
+                                    continue;
+                                }
 
-                            // Add any discovered peers to Kademlia
-                            for (peer_id, multiaddr) in list {
-                                if let Some(kad) = self.discovery.kademlia.as_mut() {
-                                    kad.add_address(&peer_id, multiaddr);
+                                // Add any discovered peers to Kademlia
+                                for (peer_id, multiaddr) in list {
+                                    if let Some(kad) = self.discovery.kademlia.as_mut() {
+                                        kad.add_address(peer_id, multiaddr.clone());
+                                    }
                                 }
                             }
-                        }
-                        MdnsEvent::Expired(_) => {}
-                    },
-                },
+                            MdnsEvent::Expired(_) => {}
+                        },
+                    }
+                    self.pending_events
+                        .push_back(DiscoveryEvent::Discovery(Box::new(ev)));
+                }
                 ToSwarm::Dial { opts } => {
                     return Poll::Ready(ToSwarm::Dial { opts });
                 }
