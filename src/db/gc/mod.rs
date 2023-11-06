@@ -106,7 +106,7 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     ///
     /// * `db` - A reference to the database instance.
     /// * `get_heaviest_tipset` - A function that facilitates heaviest tipset retrieval.
-    /// * `depth` - The number of state-roots to retain.
+    /// * `depth` - The number of state-roots to retain. Should be at least `2 * chain finality`.
     /// * `block_time` - An average block production time.
     pub fn new(
         db: Arc<DB>,
@@ -153,8 +153,6 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     ///
     /// # Arguments
     ///
-    /// * `depth` - Specifies how far back the full history should be maintained. Cannot be less
-    /// than chain finality.
     /// * `interval` - GC Interval to avoid constantly consuming node's resources.
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node

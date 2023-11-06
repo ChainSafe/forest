@@ -235,7 +235,7 @@ pub(super) async fn start(
         let mut db_garbage_collector = {
             let chain_store = chain_store.clone();
             let depth = cmp::max(
-                chain_config.policy.chain_finality,
+                chain_config.policy.chain_finality * 2,
                 config.sync.recent_state_roots,
             );
 
