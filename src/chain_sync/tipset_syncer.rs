@@ -773,7 +773,6 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         tracker.write().error(why.to_string());
         return Err(why);
     };
-    tracker.write().set_stage(SyncStage::Complete);
 
     // At this point the head is synced and it can be set in the store as the
     // heaviest

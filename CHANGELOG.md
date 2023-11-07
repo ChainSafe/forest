@@ -39,6 +39,9 @@
 
 ### Fixed
 
+- [#3540](https://github.com/ChainSafe/forest/issues/3540) Fix forest-cli sync
+  wait to ensure that Forest is in the follow mode.
+
 ## Forest v0.15.2 "Defenestration"
 
 ### Breaking
