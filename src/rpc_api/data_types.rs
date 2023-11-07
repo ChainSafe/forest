@@ -76,34 +76,7 @@ pub struct BlockMessages {
     pub cids: Vec<Cid>,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct BlockMessagesLotusJson {
-    bls_msg: LotusJson<Vec<Message>>,
-    secp_msg: LotusJson<Vec<SignedMessage>>,
-    cids: LotusJson<Vec<Cid>>,
-}
-
-impl HasLotusJson for BlockMessages {
-    type LotusJson = BlockMessagesLotusJson;
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        BlockMessagesLotusJson {
-            bls_msg: LotusJson(self.bls_msg),
-            secp_msg: LotusJson(self.secp_msg),
-            cids: LotusJson(self.cids),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        BlockMessages {
-            bls_msg: lotus_json.bls_msg.into_inner(),
-            secp_msg: lotus_json.secp_msg.into_inner(),
-            cids: lotus_json.cids.into_inner(),
-        }
-    }
-}
+lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
