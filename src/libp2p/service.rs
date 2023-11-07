@@ -510,7 +510,7 @@ async fn handle_discovery_event(
             debug!("Peer disconnected, {:?}", peer_id);
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
-        DiscoveryEvent::Identify(_) => {}
+        DiscoveryEvent::Discovery(_) => {}
     }
 }
 
