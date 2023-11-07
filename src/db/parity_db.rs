@@ -1,20 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashSet, HashSetExt};
 use std::path::PathBuf;
 
 use super::SettingsStore;
 
-use crate::db::{
-    parity_db_config::ParityDbConfig, truncated_hash, DBStatistics, GarbageCollectable,
-};
+use crate::db::{parity_db_config::ParityDbConfig, DBStatistics};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
 use anyhow::{anyhow, Context as _};
 use cid::multihash::Code::Blake2b256;
 
-use cid::multihash::MultihashDigest;
 use cid::Cid;
 
 use fvm_ipld_blockstore::Blockstore;
@@ -99,13 +95,6 @@ impl ParityDb {
             db: Db::open_or_create(&opts)?,
             statistics_enabled: opts.stats,
         })
-    }
-
-    pub fn wrap(db: parity_db::Db, stats: bool) -> Self {
-        Self {
-            db,
-            statistics_enabled: stats,
-        }
     }
 
     /// Returns an appropriate column variant based on the information
@@ -265,87 +254,6 @@ impl DBStatistics for ParityDb {
     }
 }
 
-type Op = (u8, Operation<Vec<u8>, Vec<u8>>);
-
-impl ParityDb {
-    /// Removes a record.
-    ///
-    /// # Arguments
-    /// * `key` - record identifier
-    pub fn dereference_operation(key: &Cid) -> Op {
-        let column = Self::choose_column(key);
-        (column as u8, Operation::Dereference(key.to_bytes()))
-    }
-
-    /// Updates/inserts a record.
-    ///
-    /// # Arguments
-    /// * `column` - column identifier
-    /// * `key` - record identifier
-    /// * `value` - record contents
-    pub fn set_operation(column: u8, key: Vec<u8>, value: Vec<u8>) -> Op {
-        (column, Operation::Set(key, value))
-    }
-}
-
-impl GarbageCollectable for ParityDb {
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
-        let mut set = HashSet::new();
-
-        // First iterate over all of the indexed entries.
-        let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
-        while let Some((key, _)) = iter.next()? {
-            let cid = Cid::try_from(key)?;
-            set.insert(truncated_hash(cid.hash()));
-        }
-
-        self.db
-            .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
-                let hash = Blake2b256.digest(&val.value);
-                set.insert(truncated_hash(&hash));
-                true
-            })?;
-
-        Ok(set)
-    }
-
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
-        let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
-        while let Some((key, _)) = iter.next()? {
-            let cid = Cid::try_from(key)?;
-
-            if keys.contains(&truncated_hash(cid.hash())) {
-                self.db
-                    .commit_changes([Self::dereference_operation(&cid)])
-                    .context("error remove")?
-            }
-        }
-
-        // An unfortunate consequence of having to use `iter_column_while`.
-        let mut result = Ok(());
-
-        self.db
-            .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
-                let hash = Blake2b256.digest(&val.value);
-                if keys.contains(&truncated_hash(&hash)) {
-                    let cid = Cid::new_v1(DAG_CBOR, hash);
-                    let res = self
-                        .db
-                        .commit_changes([Self::dereference_operation(&cid)])
-                        .context("error remove");
-
-                    if res.is_err() {
-                        result = res;
-                        return false;
-                    }
-                }
-                true
-            })?;
-
-        result
-    }
-}
-
 #[cfg(test)]
 mod test {
     use cid::multihash::Code::Sha2_256;
@@ -412,48 +320,6 @@ mod test {
             .unwrap()
             .expect("data not found");
         assert_eq!(b"bloop", actual.as_bytes());
-    }
-
-    #[test]
-    #[ignore]
-    // This needs to be reinstated once there is a reliable way to make sure that all the commits
-    // make it to the database and are visible when read through iterator.
-    // There seems to be a bug related to database reads.
-    // See https://github.com/paritytech/parity-db/issues/227.
-    fn garbage_collectable() {
-        let db = TempParityDB::new();
-        let data = [
-            b"h'nglui mglw'nafh".to_vec(),
-            b"Cthulhu".to_vec(),
-            b"R'lyeh wgah'nagl fhtagn!!".to_vec(),
-        ];
-        let cids = [
-            Cid::new_v1(DAG_CBOR, Blake2b256.digest(&data[0])),
-            Cid::new_v1(DAG_CBOR, Sha2_256.digest(&data[1])),
-            Cid::new_v1(IPLD_RAW, Blake2b256.digest(&data[1])),
-        ];
-
-        let cases = [
-            (DbColumn::GraphDagCborBlake2b256, cids[0], &data[0]),
-            (DbColumn::GraphFull, cids[1], &data[1]),
-            (DbColumn::GraphFull, cids[2], &data[2]),
-        ];
-
-        for (_, cid, data) in cases {
-            db.put_keyed(&cid, data).unwrap();
-        }
-
-        let keys = db.get_keys().unwrap();
-
-        // This is flaky, because iterating columns does not give visibility guarantees for the
-        // latest commits.
-        assert_eq!(keys.len(), cases.len());
-
-        db.remove_keys(keys).unwrap();
-
-        // Panics on this line: https://github.com/paritytech/parity-db/blob/ec686930169b84d21336bed6d6f05c787a17d61f/src/file.rs#L130
-        let keys = db.get_keys().unwrap();
-        assert_eq!(keys.len(), 0);
     }
 
     #[test]

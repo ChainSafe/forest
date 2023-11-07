@@ -7,6 +7,7 @@ use crate::cli_shared::{
     logger,
 };
 use crate::daemon::ipc_shmem_conf;
+use crate::utils::io::ProgressBar;
 use crate::utils::version::FOREST_VERSION_STRING;
 use anyhow::Context as _;
 use clap::Parser;
@@ -88,6 +89,7 @@ where
     // subcommand.
 
     let (loki_task, _chrome_flush_guard) = logger::setup_logger(&opts);
+    ProgressBar::set_progress_bars_visibility(cfg.client.show_progress_bars);
 
     if let Some(path) = &path {
         match path {
