@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#3675](https://github.com/ChainSafe/forest/pull/3675) Implement support of
+  testing `Filecoin.ChainGetBlockMessages` endpoint in `forest-tool api compare`
+  subcommand. Add `forest-cli chain block-messages` subcommand.
+
 ### Changed
 
 ### Removed
