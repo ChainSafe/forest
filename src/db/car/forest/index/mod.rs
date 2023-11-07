@@ -163,6 +163,55 @@ where
 #[cfg_vis(feature = "benchmark-private", pub)]
 const DEFAULT_LOAD_FACTOR: f64 = 0.8;
 
+pub struct Writer {
+    version: Version,
+    header: V1Header,
+    slots: Vec<Slot>,
+}
+
+impl Writer {
+    pub fn new(locations: impl IntoIterator<Item = (Cid, u64)>) -> Self {
+        let Table {
+            slots,
+            initial_width,
+            collisions,
+            longest_distance,
+        } = Table::new(locations, DEFAULT_LOAD_FACTOR);
+        Self {
+            version: Version::V1,
+            header: V1Header {
+                longest_distance: longest_distance.try_into().unwrap(),
+                collisions: collisions.try_into().unwrap(),
+                initial_buckets: initial_width.try_into().unwrap(),
+            },
+            slots,
+        }
+    }
+    pub fn written_len(&self) -> u64 {
+        let Self {
+            version,
+            header,
+            slots,
+        } = self;
+        version.written_len()
+            + header.written_len()
+            + slots.iter().map(Writeable::written_len).sum::<u64>()
+    }
+    pub fn write_into(self, mut writer: impl Write) -> io::Result<()> {
+        let Self {
+            version,
+            header,
+            slots,
+        } = self;
+        version.write_to(&mut writer)?;
+        header.write_to(&mut writer)?;
+        for slot in slots {
+            slot.write_to(&mut writer)?
+        }
+        Ok(())
+    }
+}
+
 /// Write an index to the given writer.
 ///
 /// Returns an [`Err(_)`] if and only if the underlying io fails.
@@ -335,6 +384,15 @@ impl Slot {
             Slot::Occupied(occ) => Some(occ),
         }
     }
+    fn into_raw(self) -> RawSlot {
+        match self {
+            Slot::Empty => RawSlot::EMPTY,
+            Slot::Occupied(OccupiedSlot { hash, frame_offset }) => RawSlot {
+                hash: hash.get(),
+                frame_offset,
+            },
+        }
+    }
 }
 
 /// A [`Slot`] as it appears on disk.
@@ -385,6 +443,10 @@ impl Writeable for Version {
     fn write_to(&self, mut writer: impl Write) -> io::Result<()> {
         writer.write_u64::<LittleEndian>(*self as u64)
     }
+
+    fn written_len(&self) -> u64 {
+        u64::try_from(std::mem::size_of::<u64>()).unwrap()
+    }
 }
 
 impl Readable for Slot {
@@ -408,14 +470,11 @@ impl Readable for Slot {
 
 impl Writeable for Slot {
     fn write_to(&self, writer: impl Write) -> io::Result<()> {
-        let raw = match *self {
-            Slot::Empty => RawSlot::EMPTY,
-            Slot::Occupied(OccupiedSlot { hash, frame_offset }) => RawSlot {
-                hash: hash.get(),
-                frame_offset,
-            },
-        };
-        raw.write_to(writer)
+        self.into_raw().write_to(writer)
+    }
+
+    fn written_len(&self) -> u64 {
+        self.into_raw().written_len()
     }
 }
 
@@ -437,6 +496,10 @@ impl Writeable for RawSlot {
         writer.write_u64::<LittleEndian>(hash)?;
         writer.write_u64::<LittleEndian>(frame_offset)?;
         Ok(())
+    }
+
+    fn written_len(&self) -> u64 {
+        u64::try_from(std::mem::size_of::<u64>() * 2).unwrap()
     }
 }
 
@@ -465,6 +528,10 @@ impl Writeable for V1Header {
         writer.write_u64::<LittleEndian>(initial_buckets)?;
         Ok(())
     }
+
+    fn written_len(&self) -> u64 {
+        u64::try_from(std::mem::size_of::<u64>() * 3).unwrap()
+    }
 }
 
 trait Readable {
@@ -476,6 +543,10 @@ trait Readable {
 trait Writeable {
     /// Must only return [`Err(_)`] if the underlying io fails.
     fn write_to(&self, writer: impl Write) -> io::Result<()>;
+    /// The number of bytes that will be written on a call to [`Writeable::write_to`].
+    ///
+    /// Implementations may panic if this is incorrect.
+    fn written_len(&self) -> u64;
 }
 
 // This lives in a module so its constructor can be private
@@ -550,6 +621,10 @@ mod tests {
     #[track_caller]
     fn round_trip<T: PartialEq + std::fmt::Debug + Readable + Writeable>(original: &T) {
         let serialized = write_to_vec(|v| original.write_to(v));
+        assert_eq!(
+            serialized.len(),
+            usize::try_from(original.written_len()).unwrap()
+        );
         let deserialized = T::read_from(serialized.as_slice())
             .expect("couldn't deserialize T from a deserialized T");
         pretty_assertions::assert_eq!(original, &deserialized);

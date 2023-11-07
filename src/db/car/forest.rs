@@ -81,6 +81,7 @@ mod index;
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
+const ZSTD_SKIP_FRAME_LEN: u64 = 8;
 
 pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
 impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
@@ -253,7 +254,7 @@ pub struct Encoder {}
 
 impl Encoder {
     pub async fn write(
-        sink: &mut (impl AsyncWrite + Unpin),
+        mut sink: impl AsyncWrite + Unpin,
         roots: Vec<Cid>,
         mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> + Unpin,
     ) -> anyhow::Result<()> {
@@ -282,14 +283,15 @@ impl Encoder {
         }
 
         // Create index
-        let mut index = vec![];
-        index::write(cid_to_frame_offset, &mut index).expect("Vec has infallible IO");
-        write_skip_frame_header_async(sink, index.len().try_into().unwrap()).await?;
-        sink.write_all(&index).await?;
+        let writer = index::Writer::new(cid_to_frame_offset);
+        write_skip_frame_header_async(&mut sink, writer.written_len().try_into().unwrap()).await?;
+        tokio::task::block_in_place(|| {
+            writer.write_into(tokio_util::io::SyncIoBridge::new(&mut sink))
+        })?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
-            index: offset as u64 + 8, // 8 bytes in skip frame header
+            index: offset as u64 + ZSTD_SKIP_FRAME_LEN,
         };
         sink.write_all(&footer.to_le_bytes()).await?;
         Ok(())
