@@ -112,7 +112,6 @@ where
         };
         let offset_in_table =
             u64::try_from(hash::ideal_slot_ix(needle, initial_buckets)).unwrap() * RawSlot::WIDTH;
-
         let mut haystack =
             positioned_io::Cursor::new_pos(&self.inner, self.table_offset + offset_in_table);
 
@@ -163,6 +162,7 @@ where
 #[cfg_vis(feature = "benchmark-private", pub)]
 const DEFAULT_LOAD_FACTOR: f64 = 0.8;
 
+#[derive(Debug)]
 pub struct Writer {
     version: Version,
     header: V1Header,
@@ -212,35 +212,6 @@ impl Writer {
     }
 }
 
-/// Write an index to the given writer.
-///
-/// Returns an [`Err(_)`] if and only if the underlying io fails.
-///
-/// See [module documentation](mod@self) for more.
-pub fn write<I>(locations: I, mut to: impl Write) -> io::Result<()>
-where
-    I: IntoIterator<Item = (Cid, u64)>,
-{
-    let Table {
-        slots,
-        initial_width,
-        collisions,
-        longest_distance,
-    } = Table::new(locations, DEFAULT_LOAD_FACTOR);
-    let header = V1Header {
-        longest_distance: longest_distance.try_into().unwrap(),
-        collisions: collisions.try_into().unwrap(),
-        initial_buckets: initial_width.try_into().unwrap(),
-    };
-
-    Version::V1.write_to(&mut to)?;
-    header.write_to(&mut to)?;
-    for slot in slots {
-        slot.write_to(&mut to)?;
-    }
-    Ok(())
-}
-
 /// An in-memory representation of a hash-table.
 #[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
 #[cfg_vis(feature = "benchmark-private", pub)]
@@ -281,9 +252,7 @@ impl Table {
             .sorted()
             .collect::<Vec<_>>();
 
-        let initial_width = cmp::max((slots.len() as f64 / load_factor) as usize, slots.len());
-
-        let Some(initial_width) = NonZeroUsize::new(initial_width) else {
+        let Some(initial_width) = initial_width(slots.len(), load_factor) else {
             return Self {
                 slots: vec![Slot::Empty],
                 initial_width: 0,
@@ -301,7 +270,7 @@ impl Table {
             .unwrap_or_default();
 
         let mut total_padding = 0;
-        let slots = slots
+        let mut slots = slots
             .into_iter()
             .enumerate()
             .flat_map(|(ix, it)| {
@@ -315,6 +284,12 @@ impl Table {
             })
             .chain(iter::once(Slot::Empty))
             .collect::<Vec<_>>();
+
+        // ensure there are at least `initial_width` slots, else lookups could
+        // try and read off the end of the table
+        if let Some(padding) = initial_width.get().checked_sub(slots.len()) {
+            slots.extend(iter::repeat(Slot::Empty).take(padding))
+        }
 
         Self {
             longest_distance: slots
@@ -331,6 +306,13 @@ impl Table {
             collisions,
         }
     }
+}
+
+fn initial_width(slots_len: usize, load_factor: f64) -> Option<NonZeroUsize> {
+    NonZeroUsize::new(cmp::max(
+        (slots_len as f64 / load_factor) as usize,
+        slots_len,
+    ))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, num_derive::FromPrimitive)]
@@ -415,14 +397,6 @@ impl RawSlot {
     const WIDTH: u64 = std::mem::size_of::<u64>() as u64 * 2;
 }
 
-#[test]
-fn raw_slot_width() {
-    assert_eq!(
-        tests::write_to_vec(|v| RawSlot::EMPTY.write_to(v)).len() as u64,
-        RawSlot::WIDTH
-    )
-}
-
 //////////////////////////////////////
 // De/serialization                 //
 // (Integers are all little-endian) //
@@ -499,7 +473,7 @@ impl Writeable for RawSlot {
     }
 
     fn written_len(&self) -> u64 {
-        u64::try_from(std::mem::size_of::<u64>() * 2).unwrap()
+        Self::WIDTH
     }
 }
 
@@ -584,17 +558,19 @@ mod tests {
     use ahash::{HashMap, HashSet};
     use cid::Cid;
 
-    /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions
+    /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
+    ///
+    /// Empty [`HashSet`]s act as a lookup for a non-existent key.
     fn do_hashmap(reference: HashMap<Cid, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
-            write(
+            Writer::new(
                 reference
                     .clone()
                     .into_iter()
                     .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset)))
                     .collect::<Vec<_>>(),
-                v,
             )
+            .write_into(&mut *v)
         }))
         .unwrap();
         for (cid, expected) in reference {
