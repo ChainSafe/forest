@@ -2,14 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use async_trait::async_trait;
-use libp2p::{core::upgrade, request_response};
-use pb::bitswap_pb;
-use protobuf::Message;
+use asynchronous_codec::{FramedRead, FramedWrite};
+use futures::{
+    io::{AsyncRead, AsyncWrite},
+    SinkExt, StreamExt,
+};
+use libp2p::request_response;
 
-use crate::libp2p_bitswap::{prefix::Prefix, *};
+use crate::libp2p_bitswap::{bitswap_pb::mod_Message::BlockPresenceType, prefix::Prefix, *};
 
 // 2MB Block Size according to the specs at https://github.com/ipfs/specs/blob/main/BITSWAP.md
 const MAX_BUF_SIZE: usize = 1024 * 1024 * 2;
+
+fn codec() -> quick_protobuf_codec::Codec<bitswap_pb::Message> {
+    quick_protobuf_codec::Codec::<bitswap_pb::Message>::new(MAX_BUF_SIZE)
+}
 
 #[derive(Default, Debug, Clone)]
 pub struct BitswapRequestResponseCodec;
@@ -24,49 +31,39 @@ impl request_response::Codec for BitswapRequestResponseCodec {
     where
         T: AsyncRead + Send + Unpin,
     {
-        let data = upgrade::read_length_prefixed(io, MAX_BUF_SIZE).await?;
+        let pb_msg: bitswap_pb::Message = FramedRead::new(io, codec())
+            .next()
+            .await
+            .ok_or(std::io::ErrorKind::UnexpectedEof)??;
 
         metrics::inbound_stream_count().inc();
-        metrics::inbound_bytes().inc_by(data.len() as _);
 
-        let pb_msg = bitswap_pb::Message::parse_from_bytes(data.as_slice()).map_err(map_io_err)?;
         let mut parts = vec![];
-        for entry in pb_msg.wantlist.unwrap_or_default().entries {
-            let cid = Cid::try_from(entry.block).map_err(map_io_err)?;
-            let ty = match entry.wantType.try_into() {
-                Ok(ty) => ty,
-                Err(e) => {
-                    tracing::error!("Skipping invalid request type: {e}");
-                    continue;
-                }
-            };
-            parts.push(BitswapMessage::Request(BitswapRequest {
-                ty,
-                cid,
-                send_dont_have: entry.sendDontHave,
-                cancel: entry.cancel,
-            }));
+        if let Some(wantlist) = pb_msg.wantlist {
+            for entry in wantlist.entries {
+                let cid = Cid::try_from(entry.block).map_err(map_io_err)?;
+                parts.push(BitswapMessage::Request(BitswapRequest {
+                    ty: entry.wantType.into(),
+                    cid,
+                    send_dont_have: entry.sendDontHave,
+                    cancel: entry.cancel,
+                }));
+            }
+            for payload in pb_msg.payload {
+                let prefix = Prefix::new(&payload.prefix).map_err(map_io_err)?;
+                let cid = prefix.to_cid(&payload.data).map_err(map_io_err)?;
+                parts.push(BitswapMessage::Response(
+                    cid,
+                    BitswapResponse::Block(payload.data.to_vec()),
+                ));
+            }
+            for presence in pb_msg.blockPresences {
+                let cid = Cid::try_from(presence.cid).map_err(map_io_err)?;
+                let have = presence.type_pb == BlockPresenceType::Have;
+                parts.push(BitswapMessage::Response(cid, BitswapResponse::Have(have)));
+            }
         }
-        for payload in pb_msg.payload {
-            let prefix = Prefix::new(&payload.prefix).map_err(map_io_err)?;
-            let cid = prefix.to_cid(&payload.data).map_err(map_io_err)?;
-            parts.push(BitswapMessage::Response(
-                cid,
-                BitswapResponse::Block(payload.data.to_vec()),
-            ));
-        }
-        for presence in pb_msg.blockPresences {
-            let cid = Cid::try_from(presence.cid).map_err(map_io_err)?;
-            let have = match presence.type_.enum_value() {
-                Ok(bitswap_pb::message::BlockPresenceType::Have) => true,
-                Ok(bitswap_pb::message::BlockPresenceType::DontHave) => false,
-                Err(e) => {
-                    error!("Skipping invalid block presence type {e}");
-                    continue;
-                }
-            };
-            parts.push(BitswapMessage::Response(cid, BitswapResponse::Have(have)));
-        }
+
         Ok(parts)
     }
 
@@ -85,7 +82,7 @@ impl request_response::Codec for BitswapRequestResponseCodec {
         &mut self,
         _: &Self::Protocol,
         io: &mut T,
-        messages: Self::Request,
+        mut messages: Self::Request,
     ) -> IOResult<()>
     where
         T: AsyncWrite + Send + Unpin,
@@ -96,12 +93,14 @@ impl request_response::Codec for BitswapRequestResponseCodec {
             "It's only supported to send a single message" // libp2p-bitswap doesn't support batch sending
         );
 
-        let bytes = messages[0].to_bytes()?;
+        let data = messages.swap_remove(0).into_proto()?;
+        let mut framed = FramedWrite::new(io, codec());
+        framed.send(data).await?;
+        framed.close().await?;
 
         metrics::outbound_stream_count().inc();
-        metrics::outbound_bytes().inc_by(bytes.len() as _);
 
-        upgrade::write_length_prefixed(io, bytes).await
+        Ok(())
     }
 
     // Sending `FIN` header and close the stream

@@ -16,6 +16,7 @@ async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-recursion = "1.0"
 async-trait = "0.1"
+asynchronous-codec = "0.6"
 axum = { version = "0.6", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
@@ -134,7 +135,8 @@ positioned-io = "0.3.2"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.21"
-protobuf = "3.2"
+quick-protobuf = "0.8"
+quick-protobuf-codec = "0.2"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
@@ -219,11 +221,6 @@ syn = { version = "2.0.38", default-features = false, features = [
   "extra-traits",
 ] }
 tokio-test = "0.4.2"
-
-[build-dependencies]
-anyhow = "1"
-protobuf-codegen = "3"
-walkdir = "2"
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
