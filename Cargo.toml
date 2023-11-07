@@ -176,7 +176,7 @@ ticker = "0.1"
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-util = { version = "0.7.9", features = ["compat"] }
+tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tracing = "0.1"
 tracing-appender = "0.2"

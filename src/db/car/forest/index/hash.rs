@@ -5,12 +5,8 @@ use std::num::NonZeroUsize;
 use super::NonMaximalU64;
 use cid::Cid;
 
-/// Writing our own hash function defies conventional wisdom, but _in practice_,
-/// there are few collisions.
-///
-/// See
-/// <https://github.com/ChainSafe/forest/commit/cabb43d8a4e04d8444d3d6c99ef27cd84ded3eb5>
-pub fn of(cid: &Cid) -> NonMaximalU64 {
+/// Summarize a [`Cid`]'s internal hash as a `u64`-sized hash.
+pub fn summary(cid: &Cid) -> NonMaximalU64 {
     NonMaximalU64::fit(
         cid.hash()
             .digest()
@@ -82,7 +78,7 @@ mod tests {
                 578437695752307371,
             ),
         ] {
-            assert_eq!(of(&cid), NonMaximalU64::new(expected).unwrap())
+            assert_eq!(summary(&cid), NonMaximalU64::new(expected).unwrap())
         }
     }
 }

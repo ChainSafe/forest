@@ -27,7 +27,7 @@
 //!
 //! We can address this by using a hash table with linear probing.
 //! This is a linear array of equal-length [`Slot`]s.
-//! - [hashing](hash::of) the [`Cid`] gives us a fixed length entry.
+//! - [hashing](hash::summary) the [`Cid`] gives us a fixed length entry.
 //! - A [`hash::ideal_slot_ix`] gives us a likely location to find the entry,
 //!   given a table size.
 //!   That is, a hash in a collection of length 10 has a different `ideal_slot_ix`
@@ -40,10 +40,6 @@
 //!   concatenated - seeking forward to the next entry will yield any collisions.
 //! - A slot is always found at or within [`Table::longest_distance`] after its
 //!   [`hash::ideal_slot_ix`].
-//!
-//! # Wishlist
-//! - use [`std::num::NonZeroU64`] for the reserved hash.
-//! - use [`std::hash::Hasher`]s instead of custom hashing
 
 #[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
@@ -102,7 +98,7 @@ where
     ///
     /// You MUST check the actual CID at the offset to see if it matches.
     pub fn get(&self, key: Cid) -> io::Result<SmallVec<[u64; 1]>> {
-        self.get_by_hash(hash::of(&key))
+        self.get_by_hash(hash::summary(&key))
     }
 
     /// Jump to slot offset and scan downstream. All key-value pairs with a
@@ -230,7 +226,7 @@ impl Table {
         let slots = locations
             .into_iter()
             .map(|(cid, frame_offset)| OccupiedSlot {
-                hash: hash::of(&cid),
+                hash: hash::summary(&cid),
                 frame_offset,
             })
             .sorted()
@@ -262,7 +258,7 @@ impl Table {
             .flat_map(|(ix, it)| {
                 let actual_ix = ix + total_padding;
                 let ideal_ix = hash::ideal_slot_ix(it.hash, initial_width);
-                let padding = ideal_ix.checked_sub(actual_ix).unwrap_or_default();
+                let padding = ideal_ix.saturating_sub(actual_ix);
                 total_padding += padding;
                 iter::repeat(Slot::Empty)
                     .take(padding)
@@ -294,6 +290,9 @@ impl Table {
 enum Version {
     V0 = 0xdeadbeef,
     V1 = 0xdeadbeef + 1,
+    // V2 should use [`std::num::NonZeroU64`] instead of [`util::NonMaximalU64`]
+    // since that allows a niche optimization on [`Slot`] (and there will be
+    // many [`Slot`]s)
 }
 
 #[derive(Debug, Clone, PartialEq)]
