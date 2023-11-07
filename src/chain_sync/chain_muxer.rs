@@ -917,11 +917,10 @@ where
                         self.state = ChainMuxerState::Idle;
                     }
                     Poll::Pending => {
-                        // Set SyncStage to Follow
                         let tp_tracker = self.worker_state.clone();
                         tp_tracker
                             .write()
-                            .set_stage(crate::chain_sync::SyncStage::Follow);
+                            .set_stage(crate::chain_sync::SyncStage::Complete);
 
                         return Poll::Pending;
                     }

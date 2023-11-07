@@ -25,12 +25,9 @@ pub enum SyncStage {
     /// Syncing messages and performing state transitions.
     #[strum(to_string = "message sync")]
     Messages,
-    /// `ChainSync` completed for a sync range
+    /// `ChainSync` completed and is following chain.
     #[strum(to_string = "complete")]
     Complete,
-    /// `ChainSync` is following chain
-    #[strum(to_string = "follow")]
-    Follow,
     #[cfg_attr(test, arbitrary(skip))]
     /// Error has occurred while syncing.
     #[strum(to_string = "error")]
