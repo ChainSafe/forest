@@ -79,4 +79,8 @@ impl ApiInfo {
     ) -> RpcRequest<Vec<SectorOnChainInfo>> {
         RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
     }
+
+    pub fn state_account_key_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Address> {
+        RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
+    }
 }
