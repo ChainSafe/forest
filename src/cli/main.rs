@@ -43,7 +43,7 @@ where
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
                 Subcommand::Send(cmd) => cmd.run(api).await,
                 Subcommand::Info(cmd) => cmd.run(api).await,
-                Subcommand::DB(cmd) => cmd.run().await,
+                Subcommand::DB(cmd) => cmd.run(api).await,
                 Subcommand::Snapshot(cmd) => cmd.run(api).await,
                 Subcommand::Attach(cmd) => cmd.run(api),
                 Subcommand::Shutdown(cmd) => cmd.run(api).await,
