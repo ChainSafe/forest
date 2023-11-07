@@ -1,8 +1,9 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::db::{truncated_hash, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
-use ahash::HashMap;
+use ahash::{HashMap, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
@@ -14,6 +15,29 @@ use super::SettingsStore;
 pub struct MemoryDB {
     blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
+}
+
+impl GarbageCollectable for MemoryDB {
+    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
+        let mut set = HashSet::with_capacity(self.blockchain_db.read().len());
+        for key in self.blockchain_db.read().keys() {
+            let cid = Cid::try_from(key.as_slice())?;
+            set.insert(truncated_hash(cid.hash()));
+        }
+        Ok(set)
+    }
+
+    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+        let mut db = self.blockchain_db.write();
+        db.retain(|key, _| {
+            let cid = Cid::try_from(key.as_slice());
+            match cid {
+                Ok(cid) => !keys.contains(&truncated_hash(cid.hash())),
+                _ => true,
+            }
+        });
+        Ok(())
+    }
 }
 
 impl SettingsStore for MemoryDB {
