@@ -34,6 +34,23 @@ pub fn ideal_slot_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
     usize::try_from((hash.get() as u128 * num_buckets.get() as u128) >> 64).unwrap()
 }
 
+/// Reverse engineer a hash which will be mapped to `ideal`
+/// # Panics
+/// - If `ideal` >= `num_buckets` - that index is impossible to achieve!
+#[cfg(test)]
+pub fn from_ideal_slot_ix(ideal: usize, num_buckets: NonZeroUsize) -> NonMaximalU64 {
+    assert!(ideal < num_buckets.get());
+
+    fn div_ceil(a: u128, b: u128) -> u64 {
+        (a / b + (if a % b == 0 { 0 } else { 1 })) as u64
+    }
+    let min_with_bucket = div_ceil(
+        (1_u128 << u64::BITS) * ideal as u128,
+        num_buckets.get() as u128,
+    );
+    NonMaximalU64::new(min_with_bucket).unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,6 +60,10 @@ mod tests {
     quickcheck::quickcheck! {
         fn always_in_range(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> bool {
             ideal_slot_ix(hash, num_buckets) < num_buckets.get()
+        }
+        fn backwards(ideal: usize, num_buckets: NonZeroUsize) -> () {
+            let ideal = ideal % num_buckets;
+            assert_eq!(ideal, ideal_slot_ix(from_ideal_slot_ix(ideal, num_buckets), num_buckets))
         }
     }
 
