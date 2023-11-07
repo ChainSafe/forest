@@ -40,8 +40,9 @@ Make a pull request with the following changes:
   assets are automatically generated and should show up after 30 minutes to an
   hour).
 - Verify that the new release is available in the GitHub Container Registry. Use
-  `docker pull ghcr.io/chainsafe/forest:<version>` and ensure that it is present
-  in the [packages][6] list with the `latest` tag.
+  `docker pull ghcr.io/chainsafe/forest:<version>`. If it's a new stable release
+  (and not a backport), tag the image as `latest` with a <link to come> action.
+  Verify the tags in the [packages][6] list.
 
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml

@@ -52,7 +52,6 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # This step yields the following labels
-      # - latest,
       # - date+sha, e.g. 2023-01-19-da4692d,
       # - tag (if pushed).
       - name: Docker Meta
@@ -61,7 +60,7 @@ jobs:
         with:
           images: ghcr.io/chainsafe/forest
           flavor: |
-            latest=auto
+            latest=false
           tags: |
             type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
             type=ref,event=tag
