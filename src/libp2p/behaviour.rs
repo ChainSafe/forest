@@ -17,7 +17,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     Multiaddr,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
@@ -115,7 +115,7 @@ impl ForestBehaviour {
                 .with_max_established_per_peer(Some(5)),
         );
 
-        warn!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
+        info!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
         Ok(ForestBehaviour {
             gossipsub,
             discovery,
