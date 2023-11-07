@@ -67,8 +67,8 @@ Inspecting RPC calls is best done with a reverse proxy. If Lotus listens to port
 1234 and Forest listens to port 2345, run the API compatibility tests through
 reverse proxies:
 
-1. `mitmproxy --node reverse:http://localhost:2345 --listen-port 8080`
-2. `mitmproxy --node reverse:http://localhost:1234 --listen-port 8081`
+1. `mitmproxy --mode reverse:http://localhost:2345 --listen-port 8080`
+2. `mitmproxy --mode reverse:http://localhost:1234 --listen-port 8081`
 3. `forest-tool api compare --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http`
 
 Request / Response pairs will show up in the `mitmproxy` windows.

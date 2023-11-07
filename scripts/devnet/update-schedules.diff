@@ -1,5 +1,5 @@
 diff --git a/build/params_2k.go b/build/params_2k.go
-index 4af81f851..d9cdba416 100644
+index df1b1bedb..10b9f4fed 100644
 --- a/build/params_2k.go
 +++ b/build/params_2k.go
 @@ -65,7 +65,7 @@ var UpgradeLightningHeight = abi.ChainEpoch(-22)
@@ -9,5 +9,5 @@ index 4af81f851..d9cdba416 100644
 -var UpgradeWatermelonHeight = abi.ChainEpoch(200)
 +var UpgradeWatermelonHeight = abi.ChainEpoch(5)
  
- var DrandSchedule = map[abi.ChainEpoch]DrandEnum{
- 	0: DrandMainnet,
+ // This fix upgrade only ran on calibrationnet
+ const UpgradeWatermelonFixHeight = -100

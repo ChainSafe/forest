@@ -11,21 +11,28 @@ use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
-use crate::lotus_json::lotus_json_with_self;
-use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
-use crate::shim::clock::ChainEpoch;
-use crate::shim::executor::Receipt;
-use crate::shim::sector::{RegisteredSealProof, SectorNumber};
-use crate::shim::{deal::DealID, econ::TokenAmount, message::Message};
+use crate::shim::{
+    address::Address,
+    clock::ChainEpoch,
+    deal::DealID,
+    econ::TokenAmount,
+    executor::Receipt,
+    message::Message,
+    sector::{RegisteredSealProof, SectorNumber},
+    state_tree::ActorState,
+};
 use crate::state_manager::StateManager;
 use ahash::HashSet;
 use chrono::Utc;
 use cid::Cid;
-use fil_actor_interface::market::{DealProposal, DealState};
-use fil_actor_interface::miner::MinerPower;
-use fil_actor_interface::power::Claim;
+use fil_actor_interface::{
+    market::{DealProposal, DealState},
+    miner::MinerPower,
+    power::Claim,
+};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use libipld_core::ipld::Ipld;
@@ -51,7 +58,6 @@ where
     pub network_name: String,
     pub start_time: chrono::DateTime<Utc>,
     pub beacon: Arc<BeaconSchedule>,
-    pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -144,10 +150,16 @@ impl Version {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiMessage {
     cid: Cid,
     message: Message,
+}
+
+impl ApiMessage {
+    pub fn new(cid: Cid, message: Message) -> Self {
+        Self { cid, message }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -240,6 +252,51 @@ pub struct DiscoverInfo {
 
 lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
 
+/// State of all actor implementations.
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ActorStateJson {
+    #[serde(with = "crate::lotus_json")]
+    /// Link to code for the actor.
+    pub code: Cid,
+    #[serde(with = "crate::lotus_json")]
+    /// Link to the state of the actor.
+    pub head: Cid,
+    /// Sequence of the actor.
+    pub nonce: u64,
+    #[serde(with = "crate::lotus_json")]
+    /// Tokens available to the actor.
+    pub balance: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    /// The actor's "delegated" address, if assigned.
+    /// This field is set on actor creation and never modified.
+    pub address: Option<Address>,
+}
+
+impl HasLotusJson for ActorState {
+    type LotusJson = ActorStateJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ActorStateJson {
+            code: self.code,
+            head: self.state,
+            nonce: self.sequence,
+            balance: self.balance.clone().into(),
+            address: self.delegated_address.map(|a| a.into()),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        ActorState::new(
+            lotus_json.code,
+            lotus_json.head,
+            lotus_json.balance,
+            lotus_json.nonce,
+            lotus_json.address,
+        )
+    }
+}
 #[derive(Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
