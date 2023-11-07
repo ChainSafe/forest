@@ -9,7 +9,7 @@ use crate::{
         data_types::{ApiActorState, SectorOnChainInfo},
         state_api::*,
     },
-    shim::{address::Address, clock::ChainEpoch, state_tree::ActorState},
+    shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::ActorState},
 };
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
@@ -82,5 +82,9 @@ impl ApiInfo {
 
     pub fn state_account_key_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Address> {
         RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
+    }
+
+    pub fn state_circulating_supply_req(tsk: TipsetKeys) -> RpcRequest<TokenAmount> {
+        RpcRequest::new(STATE_CIRCULATING_SUPPLY, (tsk,))
     }
 }
