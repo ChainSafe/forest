@@ -176,7 +176,6 @@ macro_rules! decl_and_test {
 pub(crate) use decl_and_test;
 
 decl_and_test!(
-    actor_state for crate::shim::state_tree::ActorState,
     address for crate::shim::address::Address,
     beacon_entry for crate::beacon::BeaconEntry,
     big_int for num::BigInt,

@@ -9,6 +9,7 @@ use crate::state_migration::common::MigrationCache;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
+use super::PostMigrationCheckArc;
 use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
 use crate::state_migration::common::migration_job::{MigrationJob, MigrationJobOutput};
 
@@ -22,6 +23,8 @@ pub(in crate::state_migration) struct StateMigration<BS> {
     verifier: Option<MigrationVerifier<BS>>,
     /// Post migrator(s). This may include new actor creation.
     post_migrators: Vec<PostMigratorArc<BS>>,
+    /// Post migration checks. This is used to verify the correctness of the migration.
+    post_migration_checks: Vec<PostMigrationCheckArc<BS>>,
 }
 
 impl<BS: Blockstore> StateMigration<BS> {
@@ -30,6 +33,7 @@ impl<BS: Blockstore> StateMigration<BS> {
             migrations: CidHashMap::new(),
             verifier,
             post_migrators: Default::default(),
+            post_migration_checks: Default::default(),
         }
     }
 
@@ -48,6 +52,14 @@ impl<BS: Blockstore> StateMigration<BS> {
         post_migrator: PostMigratorArc<BS>,
     ) {
         self.post_migrators.push(post_migrator);
+    }
+
+    /// Inserts a new post migration check into the post migration checks specification.
+    pub(in crate::state_migration) fn add_post_migration_check(
+        &mut self,
+        post_migration_check: PostMigrationCheckArc<BS>,
+    ) {
+        self.post_migration_checks.push(post_migration_check);
     }
 }
 
@@ -136,6 +148,11 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         // execute post migration actions, e.g., create new actors
         for post_migrator in self.post_migrators.iter() {
             post_migrator.post_migrate_state(store, &mut actors_out)?;
+        }
+
+        // execute post migration checks
+        for post_migration_check in self.post_migration_checks.iter() {
+            post_migration_check.post_migrate_check(store, &actors_out)?;
         }
 
         actors_out.flush()

@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y ca-certificates build-essential clang o
 WORKDIR /lotus
 
 # Use a specific commit of Lotus to support NV21 Watermelon.
-RUN git clone --depth 1 --branch v1.24.0-rc2 https://github.com/filecoin-project/lotus.git .
+RUN git clone --depth 1 --branch v1.24.0-rc4 https://github.com/filecoin-project/lotus.git .
 
 # Update the schedules to have the migration faster than it is by default.
 COPY update-schedules.diff .
