@@ -58,6 +58,7 @@ where
     pub network_name: String,
     pub start_time: chrono::DateTime<Utc>,
     pub beacon: Arc<BeaconSchedule>,
+    pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

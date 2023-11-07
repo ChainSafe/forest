@@ -38,7 +38,7 @@ Dir.glob('**/*.toml').each do |file|
   crates.each do |crate|
     pattern = get_pattern(crate)
     unless source_code.any? { |line| line.match?(pattern) } || excluded?(crates, crate)
-      puts "Potentially unused: #{crate} in #{crate_dir}"
+      puts "Protentially unused: #{crate} in #{crate_dir}"
       exit_code = 1
     end
   end
