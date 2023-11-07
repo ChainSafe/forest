@@ -25,6 +25,8 @@ macro_rules! impl_system {
             use $crate::state_migration::common::*;
             use $crate::utils::db::CborStoreExt;
 
+            #[allow(dead_code)] // There are cases where it's not needed in a migration.
+                                // See `nv21fix` migration.
             pub(super) fn system_migrator<BS: Blockstore>(
                 new_manifest: &BuiltinActorManifest,
             ) -> Arc<dyn ActorMigration<BS> + Send + Sync> {

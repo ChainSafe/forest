@@ -6,7 +6,7 @@ use std::sync::{
     Arc,
 };
 
-use crate::networks::{ChainConfig, Height};
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
 use crate::utils::misc::reveal_three_trees;
@@ -19,6 +19,7 @@ mod nv17;
 mod nv18;
 mod nv19;
 mod nv21;
+mod nv21fix;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -33,12 +34,16 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
-    let mappings: [(_, RunMigration<DB>); 4] = [
+    let mut mappings: Vec<(_, RunMigration<DB>)> = vec![
         (Height::Shark, nv17::run_migration::<DB>),
         (Height::Hygge, nv18::run_migration::<DB>),
         (Height::Lightning, nv19::run_migration::<DB>),
         (Height::Watermelon, nv21::run_migration::<DB>),
     ];
+
+    if chain_config.network == NetworkChain::Calibnet {
+        mappings.push((Height::WatermelonFix, nv21fix::run_migration::<DB>));
+    }
 
     // Make sure bundle is defined.
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
