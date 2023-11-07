@@ -34,21 +34,30 @@ pub fn ideal_slot_ix(hash: NonMaximalU64, num_buckets: NonZeroUsize) -> usize {
     usize::try_from((hash.get() as u128 * num_buckets.get() as u128) >> 64).unwrap()
 }
 
-/// Reverse engineer a hash which will be mapped to `ideal`
+/// Reverse engineer hashes which will be mapped to `ideal`.
+///
+/// Guaranteed to return at least one value.
+///
 /// # Panics
 /// - If `ideal` >= `num_buckets` - that index is impossible to achieve!
 #[cfg(test)]
-pub fn from_ideal_slot_ix(ideal: usize, num_buckets: NonZeroUsize) -> NonMaximalU64 {
+pub fn from_ideal_slot_ix(
+    ideal: usize,
+    num_buckets: NonZeroUsize,
+) -> impl Iterator<Item = NonMaximalU64> + Clone {
     assert!(ideal < num_buckets.get());
 
     fn div_ceil(a: u128, b: u128) -> u64 {
         (a / b + (if a % b == 0 { 0 } else { 1 })) as u64
     }
-    let min_with_bucket = div_ceil(
+    let min_in_bucket = div_ceil(
         (1_u128 << u64::BITS) * ideal as u128,
         num_buckets.get() as u128,
     );
-    NonMaximalU64::new(min_with_bucket).unwrap()
+    let bucket_height = u64::MAX / u64::try_from(num_buckets.get()).unwrap();
+    (0..bucket_height)
+        .map(move |offset_in_bucket| min_in_bucket + offset_in_bucket)
+        .map(|it| NonMaximalU64::new(it).unwrap())
 }
 
 #[cfg(test)]
@@ -62,8 +71,31 @@ mod tests {
             ideal_slot_ix(hash, num_buckets) < num_buckets.get()
         }
         fn backwards(ideal: usize, num_buckets: NonZeroUsize) -> () {
-            let ideal = ideal % num_buckets;
-            assert_eq!(ideal, ideal_slot_ix(from_ideal_slot_ix(ideal, num_buckets), num_buckets))
+            do_backwards(ideal, num_buckets)
+        }
+    }
+
+    fn do_backwards(ideal: usize, num_buckets: NonZeroUsize) {
+        let ideal = ideal % num_buckets;
+        let candidates = from_ideal_slot_ix(ideal, num_buckets);
+        assert!(
+            candidates.clone().next().is_some(),
+            "must have at least one candidate"
+        );
+        // .take(_): don't want to check e.g u64::MAX candidates
+        for candidate in candidates.take(1024) {
+            assert_eq!(ideal, ideal_slot_ix(candidate, num_buckets))
+        }
+    }
+
+    /// Small offsets and lengths can be checked exhaustively
+    #[test]
+    fn small_backwards() {
+        for num_buckets in 1..u8::MAX {
+            let num_buckets = NonZeroUsize::new(usize::from(num_buckets)).unwrap();
+            for ideal in 0..num_buckets.get() {
+                do_backwards(ideal, num_buckets)
+            }
         }
     }
 

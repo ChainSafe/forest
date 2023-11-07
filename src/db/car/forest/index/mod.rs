@@ -171,12 +171,15 @@ pub struct Writer {
 
 impl Writer {
     pub fn new(locations: impl IntoIterator<Item = (Cid, u64)>) -> Self {
+        Self::from_table(Table::new(locations, DEFAULT_LOAD_FACTOR))
+    }
+    fn from_table(table: Table) -> Self {
         let Table {
             slots,
             initial_width,
             collisions,
             longest_distance,
-        } = Table::new(locations, DEFAULT_LOAD_FACTOR);
+        } = table;
         Self {
             version: Version::V1,
             header: V1Header {
@@ -236,19 +239,28 @@ impl Table {
     /// See the `car-index` benchmark for measurements of scans at different lengths.
     ///
     /// # Panics
-    /// - if `load_factor`` is not in the interval `0..=1``
+    /// - if `load_factor` is not in the interval `0..=1`
     pub fn new<I>(locations: I, load_factor: f64) -> Self
     where
         I: IntoIterator<Item = (Cid, u64)>,
+    {
+        Self::new_from_hashes(
+            locations
+                .into_iter()
+                .map(|(cid, frame_offset)| (hash::summary(&cid), frame_offset)),
+            load_factor,
+        )
+    }
+    /// Separate constructor for testability.
+    fn new_from_hashes<I>(locations: I, load_factor: f64) -> Self
+    where
+        I: IntoIterator<Item = (NonMaximalU64, u64)>,
     {
         assert!((0.0..=1.0).contains(&load_factor));
 
         let slots = locations
             .into_iter()
-            .map(|(cid, frame_offset)| OccupiedSlot {
-                hash: hash::summary(&cid),
-                frame_offset,
-            })
+            .map(|(hash, frame_offset)| OccupiedSlot { hash, frame_offset })
             .sorted()
             .collect::<Vec<_>>();
 
@@ -561,7 +573,7 @@ mod tests {
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     ///
     /// Empty [`HashSet`]s act as a lookup for a non-existent key.
-    fn do_hashmap(reference: HashMap<Cid, HashSet<u64>>) {
+    fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
             Writer::new(
                 reference
@@ -570,7 +582,7 @@ mod tests {
                     .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset)))
                     .collect::<Vec<_>>(),
             )
-            .write_into(&mut *v)
+            .write_into(v)
         }))
         .unwrap();
         for (cid, expected) in reference {
@@ -579,9 +591,46 @@ mod tests {
         }
     }
 
+    /// Like [`do_hashmap_of_cids`], but operates on hashes instead of [`Cid`]s.
+    fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
+        let subject = Reader::new(write_to_vec(|v| {
+            Writer::from_table(Table::new_from_hashes(
+                reference.clone().into_iter().flat_map(|(hash, offsets)| {
+                    offsets.into_iter().map(move |offset| (hash, offset))
+                }),
+                DEFAULT_LOAD_FACTOR,
+            ))
+            .write_into(v)
+        }))
+        .unwrap();
+        for (hash, expected) in reference {
+            let actual = subject.get_by_hash(hash).unwrap().into_iter().collect();
+            assert!(expected.is_subset(&actual))
+        }
+    }
+
     quickcheck::quickcheck! {
-        fn hashmap(reference: HashMap<Cid, HashSet<u64>>) -> () {
-            do_hashmap(reference)
+        fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) -> () {
+            do_hashmap_of_cids(reference)
+        }
+        fn hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) -> () {
+            do_hashmap_of_hashes(reference)
+        }
+        fn everything_maps_to_first_slot(values: Vec<HashSet<u64>>) -> () {
+            let Some(initial_width) = initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR) else {
+                return;
+            };
+            let reference = HashMap::from_iter(iter::zip(hash::from_ideal_slot_ix(0, initial_width).unique(), values));
+            do_hashmap_of_hashes(reference)
+        }
+        fn everything_maps_to_first_10_slots(values: Vec<HashSet<u64>>) -> () {
+            let Some(initial_width) = initial_width(values.iter().map(HashSet::len).sum(), DEFAULT_LOAD_FACTOR) else {
+                return;
+            };
+            let mut generators = Vec::from_iter((0..cmp::min(initial_width.get(), 10)).map(|it|hash::from_ideal_slot_ix(it, initial_width).unique()));
+            let hashes_in_first_10 = generators.iter_mut().flatten();
+            let reference = HashMap::from_iter(iter::zip(hashes_in_first_10, values));
+            do_hashmap_of_hashes(reference)
         }
         fn header(it: V1Header) -> () {
             round_trip(&it);
