@@ -72,7 +72,7 @@ lotus_json_with_self!(RPCSyncState);
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 
 // Chain API
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
     pub bls_msg: Vec<Message>,
