@@ -120,6 +120,7 @@ mod tests {
             .unwrap()
         };
         let start_time = chrono::Utc::now();
+        let (gc_event_tx, _) = flume::unbounded();
 
         let state = Arc::new(RPCState {
             state_manager,
@@ -132,6 +133,7 @@ mod tests {
             start_time,
             chain_store: cs_for_chain.clone(),
             beacon,
+            gc_event_tx,
         });
         (state, network_rx)
     }
