@@ -41,12 +41,13 @@ Make a pull request with the following changes:
   hour).
 - Verify that the new release is available in the GitHub Container Registry. Use
   `docker pull ghcr.io/chainsafe/forest:<version>`. If it's a new stable release
-  (and not a backport), tag the image as `latest` with a <link to come> action.
-  Verify the tags in the [packages][6] list.
+  (and not a backport), tag the image as `latest` with the [retag action][6].
+  Verify the tags in the [packages][7] list.
 
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml
 [3]: https://doc.rust-lang.org/cargo/reference/publishing.html
 [4]: https://github.com/ChainSafe/forest/releases/new
 [5]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md
-[6]: https://github.com/ChainSafe/forest/pkgs/container/forest
+[6]: https://github.com/ChainSafe/forest/actions/workflows/docker-latest-tag.yml
+[7]: https://github.com/ChainSafe/forest/pkgs/container/forest
