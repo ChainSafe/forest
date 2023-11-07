@@ -27,7 +27,9 @@ fn bench_car_index(c: &mut Criterion) {
     let subject_raw = index::Table::new(reference.clone(), index::DEFAULT_LOAD_FACTOR);
     let subject = {
         let mut v = vec![];
-        index::write(reference.clone(), &mut v).unwrap();
+        index::Writer::new(reference.clone())
+            .write_into(&mut v)
+            .unwrap();
         index::Reader::new(v).unwrap()
     };
 

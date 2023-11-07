@@ -146,31 +146,31 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
 mod test {
     use super::*;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_snapshot_from_file_valid() {
         import_snapshot_from_file("test-snapshots/chain4.car")
             .await
             .unwrap();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_snapshot_from_compressed_file_valid() {
         import_snapshot_from_file("test-snapshots/chain4.car.zst")
             .await
             .unwrap()
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_snapshot_from_file_invalid() {
         import_snapshot_from_file("Cargo.toml").await.unwrap_err();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_snapshot_from_file_not_found() {
         import_snapshot_from_file("dummy.car").await.unwrap_err();
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn import_snapshot_from_url_not_found() {
         import_snapshot_from_file("https://dummy.com/dummy.car")
             .await

@@ -108,3 +108,12 @@ pub use key_management::{
 };
 pub use tool::main::main as forest_tool_main;
 pub use wallet::main::main as forest_wallet_main;
+
+#[cfg(test)]
+fn block_on<T>(f: impl std::future::Future<Output = T>) -> T {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(f)
+}

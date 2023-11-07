@@ -424,7 +424,7 @@ impl ForestCarFooter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::executor::block_on;
+    use crate::block_on;
     use quickcheck_macros::quickcheck;
 
     fn mk_encoded_car(

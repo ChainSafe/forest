@@ -131,7 +131,7 @@ mod tests {
     use tempfile::{Builder, TempPath};
     use tokio::io::AsyncWriteExt;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_junk_car() {
         let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(&[0xde, 0xad, 0xbe, 0xef]).unwrap();
@@ -140,7 +140,7 @@ mod tests {
             .is_err());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_empty_car() {
         let temp_path = Builder::new().tempfile().unwrap();
         assert!(validate(&temp_path.into_temp_path(), false, false)
@@ -148,7 +148,7 @@ mod tests {
             .is_err());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_mainnet_genesis() {
         let mut temp_path = Builder::new().tempfile().unwrap();
         temp_path.write_all(mainnet::DEFAULT_GENESIS).unwrap();
@@ -157,7 +157,7 @@ mod tests {
             .is_ok());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_calibnet_genesis() {
         let mut temp_path = tempfile::Builder::new().tempfile().unwrap();
         temp_path.write_all(calibnet::DEFAULT_GENESIS).unwrap();
@@ -207,7 +207,7 @@ mod tests {
     }
 
     // Sanity check to verify that we can create valid forest.car.zst files
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_valid_file() {
         let temp_path =
             create_raw_car_file(vec![valid_block("this data _does_ match the CID")], vec![]).await;
@@ -215,7 +215,7 @@ mod tests {
         assert!(validate(&temp_path, false, false).await.is_ok());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_invalid_blocks() {
         let temp_path = create_raw_car_file(
             vec![
@@ -232,7 +232,7 @@ mod tests {
     }
 
     // If a CarBlock exist that isn't referenced in the index, this is an error.
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn validate_invalid_index() {
         let block = valid_block("this data _does_ match the CID");
         let temp_path = create_raw_car_file(vec![block.clone()], vec![block.cid]).await;
