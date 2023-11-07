@@ -916,7 +916,14 @@ where
                         metrics::FOLLOW_NETWORK_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
                     }
-                    Poll::Pending => return Poll::Pending,
+                    Poll::Pending => {
+                        let tp_tracker = self.worker_state.clone();
+                        tp_tracker
+                            .write()
+                            .set_stage(crate::chain_sync::SyncStage::Complete);
+
+                        return Poll::Pending;
+                    }
                 },
             }
         }

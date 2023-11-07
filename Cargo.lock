@@ -3056,7 +3056,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.16.0"
+version = "0.15.2"
 dependencies = [
  "ahash",
  "anes",
@@ -3171,6 +3171,7 @@ dependencies = [
  "parity-db",
  "parking_lot",
  "pathfinding",
+ "pbr",
  "pin-project-lite",
  "positioned-io",
  "predicates",
@@ -3181,7 +3182,6 @@ dependencies = [
  "protobuf 3.3.0",
  "protobuf-codegen",
  "quickcheck",
- "quickcheck_async",
  "quickcheck_macros",
  "ra_ap_syntax",
  "rand",
@@ -3232,6 +3232,7 @@ dependencies = [
  "tracing-subscriber",
  "unsigned-varint 0.7.2",
  "url",
+ "uuid",
  "walkdir",
  "zerocopy",
  "zstd",
@@ -6268,6 +6269,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pbr"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5827dfa0d69b6c92493d6c38e633bbaa5937c153d0d7c28bf12313f8c6d514"
+dependencies = [
+ "crossbeam-channel",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "pem"
 version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6867,16 +6879,6 @@ dependencies = [
  "env_logger",
  "log",
  "rand",
-]
-
-[[package]]
-name = "quickcheck_async"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "247df671941313a4e255a5015772917368f1b21bfedfbd89d68fbb27e802b2fa"
-dependencies = [
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -9142,6 +9144,9 @@ name = "uuid"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "valuable"

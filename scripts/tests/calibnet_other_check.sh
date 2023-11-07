@@ -13,6 +13,11 @@ forest_init
 echo "Verifying the non calibnet snapshot (./test-snapshots/chain4.car) is being served properly."
 $FOREST_CLI_PATH chain read-obj -c bafy2bzacedjrqan2fwfvhfopi64yickki7miiksecglpeiavf7xueytnzevlu
 
+echo "Running database garbage collection"
+forest_check_db_stats
+$FOREST_CLI_PATH db gc
+forest_check_db_stats
+
 echo "Testing js console"
 $FOREST_CLI_PATH attach --exec 'showPeers()'
 

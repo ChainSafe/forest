@@ -1,0 +1,41 @@
+# Re-tag the given image and push it to the ghcr.io
+# Preserves the old tag.
+name: Docker Latest tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag of the base image to use'
+        required: true
+        type: string
+      new_tag:
+        description: 'New tag to use'
+        default: 'latest'
+        required: true
+        type: string
+      dry_run:
+        description: "Don't push the tag to GHCR"
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  tag-docker-image:
+    name: Retag image and push to GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Github Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-tag image
+        run: |
+          docker tag ghcr.io/chainsafe/forest:${{ github.event.inputs.tag }} ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}
+      - name: Push image
+        if: ${{ !github.event.inputs.dry_run }}
+        run: |
+          docker push ghcr.io/chainsafe/forest:${{ github.event.inputs.new_tag }}
