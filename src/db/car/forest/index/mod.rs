@@ -282,7 +282,7 @@ impl Table {
             .unwrap_or_default();
 
         let mut total_padding = 0;
-        let mut slots = slots
+        let slots = slots
             .into_iter()
             .enumerate()
             .flat_map(|(ix, it)| {
@@ -294,14 +294,11 @@ impl Table {
                     .take(padding)
                     .chain(iter::once(Slot::Occupied(it)))
             })
+            // ensure there are at least `initial_width` slots, else lookups could
+            // try and read off the end of the table
+            .pad_using(initial_width.get(), |_ix| Slot::Empty)
             .chain(iter::once(Slot::Empty))
             .collect::<Vec<_>>();
-
-        // ensure there are at least `initial_width` slots, else lookups could
-        // try and read off the end of the table
-        if let Some(padding) = initial_width.get().checked_sub(slots.len()) {
-            slots.extend(iter::repeat(Slot::Empty).take(padding))
-        }
 
         Self {
             longest_distance: slots
