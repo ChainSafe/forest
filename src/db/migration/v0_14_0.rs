@@ -12,6 +12,7 @@ use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
 use cid::Cid;
+use fs_extra::dir::CopyOptions;
 use fvm_ipld_encoding::DAG_CBOR;
 use semver::Version;
 use std::path::{Path, PathBuf};
@@ -45,7 +46,10 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
         let db_paths: Vec<PathBuf> = source_db
             .read_dir()?
             .filter_map(|entry| Some(entry.ok()?.path()))
-            .filter(|entry| entry.is_dir())
+            .filter(|entry| {
+                let entry_str = entry.to_str().unwrap();
+                entry.is_dir() && !entry_str.contains("car_db")
+            })
             .collect();
         let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
         if temp_db_path.exists() {
@@ -55,6 +59,21 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
             );
             std::fs::remove_dir_all(&temp_db_path)?;
         }
+
+        let old_car_db_path = source_db.join("car_db");
+        let new_car_db_path = temp_db_path.join("car_db");
+
+        info!(
+            "copying snapshot from {source_db} to {temp_db_path}",
+            source_db = old_car_db_path.display(),
+            temp_db_path = new_car_db_path.display()
+        );
+
+        fs_extra::copy_items(
+            &[old_car_db_path.as_path()],
+            new_car_db_path.clone(),
+            &CopyOptions::default().copy_inside(true),
+        )?;
 
         // open the new database to migrate data from the old one.
         let new_db = ParityDb::open(&temp_db_path)?;
