@@ -63,17 +63,21 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
         let old_car_db_path = source_db.join("car_db");
         let new_car_db_path = temp_db_path.join("car_db");
 
-        info!(
-            "copying snapshot from {source_db} to {temp_db_path}",
-            source_db = old_car_db_path.display(),
-            temp_db_path = new_car_db_path.display()
-        );
+        // Make sure `car_db` dir exists as it might not be the case when migrating
+        // from older versions.
+        if old_car_db_path.is_dir() {
+            info!(
+                "copying snapshot from {source_db} to {temp_db_path}",
+                source_db = old_car_db_path.display(),
+                temp_db_path = new_car_db_path.display()
+            );
 
-        fs_extra::copy_items(
-            &[old_car_db_path.as_path()],
-            new_car_db_path.clone(),
-            &CopyOptions::default().copy_inside(true),
-        )?;
+            fs_extra::fs_extra::copy_items(
+                &[old_car_db_path.as_path()],
+                new_car_db_path.clone(),
+                &CopyOptions::default().copy_inside(true),
+            )?;
+        }
 
         // open the new database to migrate data from the old one.
         let new_db = ParityDb::open(&temp_db_path)?;
