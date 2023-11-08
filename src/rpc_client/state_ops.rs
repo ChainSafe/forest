@@ -9,11 +9,15 @@ use crate::{
         data_types::{ApiActorState, SectorOnChainInfo},
         state_api::*,
     },
-    shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::ActorState},
+    shim::{
+        address::Address, clock::ChainEpoch, econ::TokenAmount, message::MethodNum,
+        state_tree::ActorState,
+    },
 };
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use libipld_core::ipld::Ipld;
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
@@ -86,5 +90,14 @@ impl ApiInfo {
 
     pub fn state_circulating_supply_req(tsk: TipsetKeys) -> RpcRequest<TokenAmount> {
         RpcRequest::new(STATE_CIRCULATING_SUPPLY, (tsk,))
+    }
+
+    pub fn state_decode_params_req(
+        recipient: Address,
+        method_number: MethodNum,
+        params: Vec<u8>,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Ipld> {
+        RpcRequest::new(STATE_DECODE_PARAMS, (recipient, method_number, params, tsk))
     }
 }

@@ -298,6 +298,14 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                     msg.from(),
                     root_tsk.clone(),
                 )));
+                if !msg.params().is_empty() {
+                    tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
+                        msg.to(),
+                        msg.method_num(),
+                        msg.params().to_vec(),
+                        root_tsk.clone(),
+                    )));
+                }
             }
             tests.push(RpcTest::basic(ApiInfo::state_miner_power_req(
                 *block.miner_address(),
