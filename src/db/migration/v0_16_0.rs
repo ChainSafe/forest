@@ -7,7 +7,7 @@
 
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
-use crate::db::migration::v0_14_0::paritydb_0_15_1::{DbColumn, ParityDb};
+use crate::db::migration::v0_16_0::paritydb_0_15_1::{DbColumn, ParityDb};
 use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;

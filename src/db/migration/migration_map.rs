@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::db::migration::v0_14_0::Migration0_15_2_0_16_0;
+use crate::db::migration::v0_16_0::Migration0_15_2_0_16_0;
 use anyhow::bail;
 use anyhow::Context as _;
 use itertools::Itertools;
