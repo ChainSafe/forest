@@ -31,6 +31,10 @@
 
 ### Changed
 
+- [#3072](https://github.com/ChainSafe/forest/issues/3072) Implemented
+  mark-and-sweep GC, removing GC progress reports along with the corresponding
+  RPC endpoint.
+
 ### Removed
 
 ### Fixed
