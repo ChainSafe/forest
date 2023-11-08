@@ -66,18 +66,17 @@ fn read_config(
     config_path_opt: &Option<String>,
     chain_opt: &Option<NetworkChain>,
 ) -> anyhow::Result<Config> {
-    match find_config_path(config_path_opt) {
+    let mut config = match find_config_path(config_path_opt) {
         Some(path) => {
             // Read from config file
             let toml = read_file_to_string(path.to_path_buf())?;
             // Parse and return the configuration file
-            let mut config: Config = read_toml(&toml)?;
-            if let Some(chain) = chain_opt {
-                config.chain = chain.clone();
-            }
-
-            Ok(config)
+            read_toml(&toml)?
         }
-        None => Ok(Config::default()),
+        None => Config::default(),
+    };
+    if let Some(chain) = chain_opt {
+        config.chain = chain.clone();
     }
+    Ok(config)
 }
