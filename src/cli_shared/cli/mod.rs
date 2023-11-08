@@ -237,6 +237,7 @@ pub struct CliRpcOpts {
     pub token: Option<String>,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),

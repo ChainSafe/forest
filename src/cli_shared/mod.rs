@@ -38,4 +38,40 @@ pub fn read_config(
     Ok((path, config))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_config_default() {
+        let (config_path, config) = read_config(&None, &None).unwrap();
+
+        assert!(config_path.is_none());
+        assert_eq!(config.chain, NetworkChain::Mainnet);
+    }
+
+    #[test]
+    fn read_config_calibnet_override() {
+        let (config_path, config) = read_config(&None, &Some(NetworkChain::Calibnet)).unwrap();
+
+        assert!(config_path.is_none());
+        assert_eq!(config.chain, NetworkChain::Calibnet);
+    }
+
+    #[test]
+    fn read_config_with_path() {
+        let default_config = Config::default();
+        let path: PathBuf = "config.toml".into();
+        let serialized_config = toml::to_string(&default_config).unwrap();
+        std::fs::write(path.clone(), serialized_config).unwrap();
+
+        let (config_path, config) =
+            read_config(&Some(path.to_str().unwrap().into()), &None).unwrap();
+
+        assert_eq!(config_path.unwrap(), ConfigPath::Cli(path));
+        assert_eq!(config.chain, NetworkChain::Mainnet);
+        assert_eq!(config, default_config);
+    }
+}
+
 pub mod snapshot;
