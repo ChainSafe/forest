@@ -30,10 +30,6 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
     }
 
-    pub async fn chain_get_block_messages(&self, cid: Cid) -> Result<BlockMessages, JsonRpcError> {
-        self.call(Self::chain_get_block_messages_req(cid)).await
-    }
-
     pub fn chain_get_block_messages_req(cid: Cid) -> RpcRequest<BlockMessages> {
         RpcRequest::new(CHAIN_GET_BLOCK_MESSAGES, (cid,))
     }

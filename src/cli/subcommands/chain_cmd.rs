@@ -12,12 +12,6 @@ use super::{print_pretty_json, print_rpc_res_cids};
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {
-    /// Retrieves and prints messages stored in the block specified by the given CID.
-    BlockMessages {
-        #[arg(short)]
-        cid: Cid,
-    },
-
     /// Retrieves and prints out the block specified by the given CID
     Block {
         #[arg(short)]
@@ -64,9 +58,6 @@ impl ChainCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => print_pretty_json(api.chain_get_block(cid).await?),
-            Self::BlockMessages { cid } => {
-                print_pretty_json(LotusJson(api.chain_get_block_messages(cid).await?))
-            }
             Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => print_pretty_json(api.chain_get_message(cid).await?),
