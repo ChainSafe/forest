@@ -72,7 +72,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
                 temp_db_path = new_car_db_path.display()
             );
 
-            fs_extra::fs_extra::copy_items(
+            fs_extra::copy_items(
                 &[old_car_db_path.as_path()],
                 new_car_db_path.clone(),
                 &CopyOptions::default().copy_inside(true),
