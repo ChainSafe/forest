@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.15.2"
+version = "0.16.0"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -16,6 +16,7 @@ async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
 async-recursion = "1.0"
 async-trait = "0.1"
+asynchronous-codec = "0.6"
 axum = { version = "0.6", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
@@ -129,13 +130,13 @@ once_cell = "1.15"
 parity-db = { version = "0.4.6", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4.3.1"
-pbr = "1.1"
 pin-project-lite = "0.2"
 positioned-io = "0.3.2"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.22"
-protobuf = "3.2"
+quick-protobuf = "0.8"
+quick-protobuf-codec = "0.2"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
@@ -184,7 +185,6 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
-uuid = { version = "1.3", features = ['v4'] }
 walkdir = "2"
 zerocopy = { version = "0.7.9", features = ["derive"] }
 zstd = "0.13"
@@ -209,6 +209,7 @@ num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
 proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
+quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
 ra_ap_syntax = "0.0.183"
 regex-automata = "0.4"
@@ -220,11 +221,6 @@ syn = { version = "2.0.38", default-features = false, features = [
   "extra-traits",
 ] }
 tokio-test = "0.4.2"
-
-[build-dependencies]
-anyhow = "1"
-protobuf-codegen = "3"
-walkdir = "2"
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can

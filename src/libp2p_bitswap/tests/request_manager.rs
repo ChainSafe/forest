@@ -12,48 +12,41 @@ mod tests {
         multihash::{self, MultihashDigest},
         Block, Cid,
     };
-    use libp2p::{
-        multiaddr::Protocol, noise, swarm::SwarmEvent, tcp, yamux, Multiaddr, PeerId, Swarm,
-        SwarmBuilder,
-    };
+    use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
+    use libp2p_swarm_test::SwarmExt;
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
     use tokio::{select, task::JoinSet};
 
     const TIMEOUT: Duration = Duration::from_secs(5);
-    const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
     const N_SERVER: usize = 10;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_manager_e2e_test() {
-        request_manager_e2e_test_mpl().await.unwrap();
-    }
-
-    async fn request_manager_e2e_test_mpl() -> anyhow::Result<()> {
-        let block_exist = new_random_block()?;
-        let block_not_exist = new_random_block()?;
+        let block_exist = new_random_block().unwrap();
+        let block_not_exist = new_random_block().unwrap();
 
         // 1. Set up N servers, one of them have `block_exist` in its store
         let mut joinset = JoinSet::new();
         let mut server_addr_vec = vec![];
         let server_index_with_block = OsRng.gen_range(0..N_SERVER);
         for i in 0..N_SERVER {
-            let (server, server_peer_id, server_peer_addr) = create_swarm().await?;
+            let (server, server_peer_id, server_peer_addr) = create_swarm().await.unwrap();
             println!("Server peer id: {server_peer_id}, address: {server_peer_addr}");
             server_addr_vec.push(server_peer_addr.with(Protocol::P2p(server_peer_id)));
 
             let server_store = TestStore::default();
             if i == server_index_with_block {
-                server_store.insert(&block_exist)?;
+                server_store.insert(&block_exist).unwrap();
             }
             joinset.spawn(run_swarm_loop(server, server_store));
         }
 
-        let (mut client, client_peer_id, client_peer_addr) = create_swarm().await?;
+        let (mut client, client_peer_id, client_peer_addr) = create_swarm().await.unwrap();
         println!("Client peer id: {client_peer_id}, address: {client_peer_addr}");
         // 2. Connect the client to all servers
         for addr in server_addr_vec {
-            client.dial(addr)?;
+            client.dial(addr).unwrap();
         }
 
         let client_request_manager = client.behaviour().request_manager();
@@ -73,11 +66,11 @@ mod tests {
             );
             // Use a small timeout here
             tokio::task::spawn_blocking(move || request_rx.recv_timeout(Duration::from_secs(1)))
-                .await?
+                .await.unwrap()
                 .expect_err(
                     "Should timeout, it does not fail fast (atm) in this case to reduce code complexity.",
                 );
-            assert!(!client_store.contains(block_not_exist.cid())?);
+            assert!(!client_store.contains(block_not_exist.cid()).unwrap());
         }
 
         // 4. Get a block that exists on one of the servers
@@ -89,38 +82,22 @@ mod tests {
                 TIMEOUT,
                 Some(request_tx),
             );
-            let success =
-                tokio::task::spawn_blocking(move || request_rx.recv_timeout(TIMEOUT)).await??;
+            let success = tokio::task::spawn_blocking(move || request_rx.recv_timeout(TIMEOUT))
+                .await
+                .unwrap()
+                .unwrap();
             assert!(success);
-            assert!(client_store.contains(block_exist.cid())?);
+            assert!(client_store.contains(block_exist.cid()).unwrap());
         }
-
-        Ok(())
     }
 
     async fn create_swarm() -> anyhow::Result<(Swarm<BitswapBehaviour>, PeerId, Multiaddr)> {
-        let mut swarm = SwarmBuilder::with_new_identity()
-            .with_tokio()
-            .with_tcp(
-                tcp::Config::default().port_reuse(true).nodelay(true),
-                noise::Config::new,
-                yamux::Config::default,
-            )?
-            .with_behaviour(|_keypair| {
-                BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
-            })?
-            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(TIMEOUT))
-            .build();
-
-        swarm.listen_on(LISTEN_ADDR.parse()?)?;
-        let peer_addr = loop {
-            let event = swarm.select_next_some().await;
-            if let SwarmEvent::NewListenAddr { address, .. } = event {
-                break address;
-            }
-        };
-
+        let mut swarm = Swarm::new_ephemeral(|_| {
+            BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
+        });
         let peer_id = *swarm.local_peer_id();
+        let (peer_addr, _) = swarm.listen().with_memory_addr_external().await;
+
         Ok((swarm, peer_id, peer_addr))
     }
 

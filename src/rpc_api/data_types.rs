@@ -58,7 +58,6 @@ where
     pub network_name: String,
     pub start_time: chrono::DateTime<Utc>,
     pub beacon: Arc<BeaconSchedule>,
-    pub gc_event_tx: flume::Sender<flume::Sender<anyhow::Result<()>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,7 +72,7 @@ lotus_json_with_self!(RPCSyncState);
 pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 
 // Chain API
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
     pub bls_msg: Vec<Message>,
@@ -82,6 +81,8 @@ pub struct BlockMessages {
     #[serde(rename = "Cids", with = "crate::lotus_json")]
     pub cids: Vec<Cid>,
 }
+
+lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

@@ -48,14 +48,6 @@ pub fn register_metrics(registry: &Registry) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(in crate::libp2p_bitswap) fn inbound_bytes() -> GenericCounter<AtomicU64> {
-    MESSAGE_SIZE.with_label_values(&["inbound_bytes"])
-}
-
-pub(in crate::libp2p_bitswap) fn outbound_bytes() -> GenericCounter<AtomicU64> {
-    MESSAGE_SIZE.with_label_values(&["outbound_bytes"])
-}
-
 pub(in crate::libp2p_bitswap) fn inbound_stream_count() -> GenericCounter<AtomicU64> {
     MESSAGE_COUNTER.with_label_values(&["inbound_stream_count"])
 }

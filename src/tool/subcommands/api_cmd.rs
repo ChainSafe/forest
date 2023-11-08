@@ -207,6 +207,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
     vec![
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
+        RpcTest::identity(ApiInfo::chain_get_block_messages_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
             TipsetKeys::default(),
