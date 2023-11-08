@@ -6,6 +6,7 @@ use crate::shim::message::Message;
 use crate::{
     blocks::{BlockHeader, Tipset, TipsetKeys},
     rpc_api::chain_api::*,
+    rpc_api::data_types::BlockMessages,
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
@@ -27,6 +28,10 @@ impl ApiInfo {
 
     pub fn chain_get_block_req(cid: Cid) -> RpcRequest<BlockHeader> {
         RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
+    }
+
+    pub fn chain_get_block_messages_req(cid: Cid) -> RpcRequest<BlockMessages> {
+        RpcRequest::new(CHAIN_GET_BLOCK_MESSAGES, (cid,))
     }
 
     /// Get tipset at epoch. Pick younger tipset if epoch points to a
