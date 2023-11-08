@@ -286,7 +286,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                     msg.cid()?,
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from.into(),
+                    msg.from(),
                     root_tsk.clone(),
                 )));
             }
