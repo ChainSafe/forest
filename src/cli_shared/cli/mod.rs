@@ -11,10 +11,8 @@ use std::{
 
 use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
-use crate::utils::{
-    io::{read_file_to_string, ProgressBarVisibility},
-    misc::LoggingColor,
-};
+use crate::utils::io::read_file_to_string;
+use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
@@ -119,10 +117,6 @@ pub struct CliOpts {
     /// Enable or disable colored logging in `stdout`
     #[arg(long, default_value = "auto")]
     pub color: LoggingColor,
-    /// Display progress bars mode [always, never, auto]. Auto will display if
-    /// TTY.
-    #[arg(long)]
-    pub show_progress_bars: Option<ProgressBarVisibility>,
     /// Turn on tokio-console support for debugging
     #[arg(long)]
     pub tokio_console: bool,
@@ -209,10 +203,6 @@ impl CliOpts {
         cfg.client.snapshot_head = self.head.map(|head| head as i64);
         if let Some(skip_load) = self.skip_load {
             cfg.client.skip_load = skip_load;
-        }
-
-        if let Some(show_progress_bars) = self.show_progress_bars {
-            cfg.client.show_progress_bars = show_progress_bars;
         }
 
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);

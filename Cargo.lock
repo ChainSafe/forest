@@ -3010,7 +3010,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.15.2"
+version = "0.16.0"
 dependencies = [
  "ahash",
  "anes",
@@ -3022,6 +3022,7 @@ dependencies = [
  "async-fs 2.0.0",
  "async-recursion",
  "async-trait",
+ "asynchronous-codec",
  "axum",
  "backoff",
  "base64 0.21.4",
@@ -3125,7 +3126,6 @@ dependencies = [
  "parity-db",
  "parking_lot",
  "pathfinding",
- "pbr",
  "pin-project-lite",
  "positioned-io",
  "predicates",
@@ -3133,9 +3133,10 @@ dependencies = [
  "proc-macro2",
  "prometheus",
  "prometheus-client",
- "protobuf 3.3.0",
- "protobuf-codegen",
+ "quick-protobuf",
+ "quick-protobuf-codec",
  "quickcheck",
+ "quickcheck_async",
  "quickcheck_macros",
  "ra_ap_syntax",
  "rand",
@@ -3186,7 +3187,6 @@ dependencies = [
  "tracing-subscriber",
  "unsigned-varint 0.7.2",
  "url",
- "uuid",
  "walkdir",
  "zerocopy",
  "zstd",
@@ -6141,17 +6141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pbr"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed5827dfa0d69b6c92493d6c38e633bbaa5937c153d0d7c28bf12313f8c6d514"
-dependencies = [
- "crossbeam-channel",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "pem"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6577,7 +6566,7 @@ dependencies = [
  "memchr",
  "parking_lot",
  "procfs",
- "protobuf 2.28.0",
+ "protobuf",
  "thiserror",
 ]
 
@@ -6675,57 +6664,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
-name = "protobuf"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b65f4a8ec18723a734e5dc09c173e0abf9690432da5340285d536edcb4dac190"
-dependencies = [
- "once_cell",
- "protobuf-support",
- "thiserror",
-]
-
-[[package]]
-name = "protobuf-codegen"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e85514a216b1c73111d9032e26cc7a5ecb1bb3d4d9539e91fb72a4395060f78"
-dependencies = [
- "anyhow",
- "once_cell",
- "protobuf 3.3.0",
- "protobuf-parse",
- "regex",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "protobuf-parse"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d6fbd6697c9e531873e81cec565a85e226b99a0f10e1acc079be057fe2fcba"
-dependencies = [
- "anyhow",
- "indexmap 1.9.3",
- "log",
- "protobuf 3.3.0",
- "protobuf-support",
- "tempfile",
- "thiserror",
- "which",
-]
-
-[[package]]
-name = "protobuf-support"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6872f4d4f4b98303239a2b5838f5bbbb77b01ffc892d627957f37a22d7cfe69c"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
 name = "psm"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6771,6 +6709,16 @@ dependencies = [
  "env_logger",
  "log",
  "rand",
+]
+
+[[package]]
+name = "quickcheck_async"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "247df671941313a4e255a5015772917368f1b21bfedfbd89d68fbb27e802b2fa"
+dependencies = [
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -9126,9 +9074,6 @@ name = "uuid"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
-dependencies = [
- "getrandom",
-]
 
 [[package]]
 name = "valuable"
@@ -9540,18 +9485,6 @@ name = "webpki-roots"
 version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14247bb57be4f377dfb94c72830b8ce8fc6beac03cf4bf7b9732eadd414123fc"
-
-[[package]]
-name = "which"
-version = "4.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix 0.38.19",
-]
 
 [[package]]
 name = "wide"
