@@ -59,7 +59,8 @@ for reference.
 - [#3540](https://github.com/ChainSafe/forest/issues/3540) Fix forest-cli sync
   wait to ensure that Forest is in the follow mode.
 
-- [#blabla](blabla) Calibration WatermelonFix recovery fix.
+- [#3694](https://github.com/ChainSafe/forest/pull/3694) Calibration
+  WatermelonFix recovery fix.
 
 ## Forest v0.15.2 "Defenestration"
 
