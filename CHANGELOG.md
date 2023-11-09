@@ -58,6 +58,9 @@ for reference.
 
 - [#3540](https://github.com/ChainSafe/forest/issues/3540) Fix forest-cli sync
   wait to ensure that Forest is in the follow mode.
+- [#3686](https://github.com/ChainSafe/forest/issues/3686) Fix regression when
+  using `forest-tool db` subcommands and a `--chain` flag different from
+  mainnet.
 
 - [#3694](https://github.com/ChainSafe/forest/pull/3694) Calibration
   WatermelonFix recovery fix.
