@@ -45,6 +45,7 @@ use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
+use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
@@ -184,6 +185,7 @@ pub struct ArchiveInfo {
     epoch: ChainEpoch,
     tipsets: ChainEpoch,
     messages: ChainEpoch,
+    root: Tipset,
 }
 
 impl std::fmt::Display for ArchiveInfo {
@@ -192,7 +194,14 @@ impl std::fmt::Display for ArchiveInfo {
         writeln!(f, "Network:       {}", self.network)?;
         writeln!(f, "Epoch:         {}", self.epoch)?;
         writeln!(f, "State-roots:   {}", self.epoch - self.tipsets + 1)?;
-        write!(f, "Messages sets: {}", self.epoch - self.messages + 1)?;
+        writeln!(f, "Messages sets: {}", self.epoch - self.messages + 1)?;
+        let root_cids_string = self
+            .root
+            .cids()
+            .iter()
+            .map(Cid::to_string)
+            .join("\n               ");
+        write!(f, "Root CIDs:     {root_cids_string}",)?;
         Ok(())
     }
 }
@@ -216,7 +225,7 @@ impl ArchiveInfo {
 
         let tipsets = root.clone().chain(&store);
 
-        let windowed = (std::iter::once(root).chain(tipsets)).tuple_windows();
+        let windowed = (std::iter::once(root.clone()).chain(tipsets)).tuple_windows();
 
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
@@ -279,6 +288,7 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
+            root,
         })
     }
 }
