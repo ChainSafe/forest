@@ -23,6 +23,7 @@ use crate::shim::{
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
+    trace::ExecutionEvent,
 };
 use crate::state_manager::StateManager;
 use ahash::HashSet;
@@ -371,3 +372,15 @@ pub struct SectorOnChainInfo {
 }
 
 lotus_json_with_self!(SectorOnChainInfo);
+
+#[derive(PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct InvocResult {
+    #[serde(with = "crate::lotus_json")]
+    pub msg: Message,
+    #[serde(with = "crate::lotus_json")]
+    pub msg_rct: Option<Receipt>,
+    pub error: Option<String>,
+}
+
+lotus_json_with_self!(InvocResult);

@@ -181,8 +181,6 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 
-lotus_json_with_self!(InvocResult);
-
 /// An alias Result that represents an `InvocResult` and an Error.
 type StateCallResult = Result<InvocResult, Error>;
 
@@ -399,7 +397,7 @@ where
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
-            VMTrace::NotTraced,
+            VMTrace::Traced,
         )?;
 
         if msg.gas_limit == 0 {

@@ -7,7 +7,9 @@ use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
+use crate::rpc_api::data_types::{
+    InvocResult as InvocResultApi, MarketDeal, MessageLookup, RPCState,
+};
 use crate::shim::{
     address::Address, executor::Receipt, message::Message, state_tree::ActorState,
     version::NetworkVersion,
@@ -32,13 +34,20 @@ use tokio::task::JoinSet;
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
-) -> Result<InvocResult, JsonRpcError> {
+) -> Result<InvocResultApi, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
         .load_required_tipset(&key)?;
-    Ok(state_manager.call(&mut message, Some(tipset))?)
+    let invoc_result = state_manager.call(&mut message, Some(tipset))?;
+    // TODO: retrieve exec trace and duration
+
+    Ok(InvocResultApi {
+        msg: invoc_result.msg,
+        msg_rct: invoc_result.msg_rct,
+        error: invoc_result.error,
+    })
 }
 
 /// returns the result of executing the indicated message, assuming it was

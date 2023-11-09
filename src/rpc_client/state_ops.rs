@@ -6,11 +6,10 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, SectorOnChainInfo},
+        data_types::{ApiActorState, InvocResult, SectorOnChainInfo},
         state_api::*,
     },
     shim::{address::Address, clock::ChainEpoch, message::Message, state_tree::ActorState},
-    state_manager::InvocResult,
 };
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
