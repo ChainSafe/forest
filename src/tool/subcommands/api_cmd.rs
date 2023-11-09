@@ -4,7 +4,6 @@
 use ahash::HashMap;
 use clap::Subcommand;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -209,17 +208,12 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
     vec![
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
-        RpcTest::identity(ApiInfo::chain_get_block_messages_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
             TipsetKeys::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
-        RpcTest::identity(ApiInfo::chain_get_messages_in_tipset_req(
-            shared_tipset.key().clone(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_parent_messages_req(*shared_block.cid())),
     ]
 }
 
@@ -275,30 +269,23 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
 // sample a greater range.
 fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    let shared_tipset = {
-        store
-            .heaviest_tipset()?
-            .chain(&store)
-            .find_or_first(|tipset| {
-                for block in tipset.blocks() {
-                    if let Ok((bls_messages, secp_messages)) =
-                        crate::chain::store::block_messages(&store, block)
-                    {
-                        if !bls_messages.is_empty() || !secp_messages.is_empty() {
-                            return true;
-                        }
-                    }
-                }
-                false
-            })
-            .expect("Failed to find a tipset with messages")
-    };
+    let shared_tipset = store.heaviest_tipset()?;
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
 
     for tipset in shared_tipset.chain(&store).take(20) {
+        tests.push(RpcTest::identity(
+            ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
+        ));
         for block in tipset.blocks() {
+            tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(
+                *block.cid(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
+                *block.cid(),
+            )));
+
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages {
                 tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
