@@ -4,6 +4,7 @@
 use ahash::HashMap;
 use clap::Subcommand;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use itertools::Itertools;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -274,7 +275,24 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
 // sample a greater range.
 fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    let shared_tipset = store.heaviest_tipset()?;
+    let shared_tipset = {
+        store
+            .heaviest_tipset()?
+            .chain(&store)
+            .find_or_first(|tipset| {
+                for block in tipset.blocks() {
+                    if let Ok((bls_messages, secp_messages)) =
+                        crate::chain::store::block_messages(&store, block)
+                    {
+                        if !bls_messages.is_empty() || !secp_messages.is_empty() {
+                            return true;
+                        }
+                    }
+                }
+                false
+            })
+            .expect("Failed to find a tipset with messages")
+    };
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
