@@ -9,11 +9,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
-use crate::utils::{
-    io::{read_file_to_string, read_toml, ProgressBarVisibility},
-    misc::LoggingColor,
-};
+use crate::utils::io::read_file_to_string;
+use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
@@ -118,10 +117,6 @@ pub struct CliOpts {
     /// Enable or disable colored logging in `stdout`
     #[arg(long, default_value = "auto")]
     pub color: LoggingColor,
-    /// Display progress bars mode [always, never, auto]. Auto will display if
-    /// TTY.
-    #[arg(long)]
-    pub show_progress_bars: Option<ProgressBarVisibility>,
     /// Turn on tokio-console support for debugging
     #[arg(long)]
     pub tokio_console: bool,
@@ -156,20 +151,7 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(&self.config);
-        let mut cfg: Config = match &path {
-            Some(path) => {
-                // Read from config file
-                let toml = read_file_to_string(path.to_path_buf())?;
-                // Parse and return the configuration file
-                read_toml(&toml)?
-            }
-            None => Config::default(),
-        };
-
-        if let Some(chain) = &self.chain {
-            cfg.chain = chain.clone();
-        }
+        let (path, mut cfg) = read_config(&self.config, &self.chain)?;
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
@@ -223,10 +205,6 @@ impl CliOpts {
             cfg.client.skip_load = skip_load;
         }
 
-        if let Some(show_progress_bars) = self.show_progress_bars {
-            cfg.client.show_progress_bars = show_progress_bars;
-        }
-
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
         if let Some(target_peer_count) = self.target_peer_count {
@@ -259,6 +237,7 @@ pub struct CliRpcOpts {
     pub token: Option<String>,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),

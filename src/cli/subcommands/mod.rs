@@ -26,7 +26,6 @@ use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
-use cid::Cid;
 use clap::Parser;
 use serde::Serialize;
 use tracing::error;
@@ -124,16 +123,10 @@ pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
 
 /// Prints a tipset from a HTTP JSON-RPC response result
 pub(super) fn print_rpc_res_cids(tipset: Tipset) -> anyhow::Result<()> {
-    println!(
-        "{}",
-        serde_json::to_string_pretty(
-            &tipset
-                .cids()
-                .iter()
-                .map(|cid: &Cid| cid.to_string())
-                .collect::<Vec<_>>()
-        )?
-    );
+    for cid in &tipset.cids() {
+        println!("{cid}");
+    }
+
     Ok(())
 }
 

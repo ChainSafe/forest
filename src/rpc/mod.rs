@@ -5,12 +5,10 @@ mod auth_api;
 mod beacon_api;
 mod chain_api;
 mod common_api;
-mod db_api;
 mod gas_api;
 mod mpool_api;
 mod net_api;
 mod node_api;
-mod progress_api;
 mod rpc_http_handler;
 mod rpc_util;
 mod rpc_ws_handler;
@@ -21,13 +19,12 @@ mod wallet_api;
 use std::{net::TcpListener, sync::Arc};
 
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, db_api::*,
-    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, progress_api::GET_PROGRESS,
-    state_api::*, sync_api::*, wallet_api::*,
+    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, gas_api::*,
+    mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JSONRPCError, Params, Server};
+use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use tokio::sync::mpsc::Sender;
 use tracing::info;
 
@@ -38,8 +35,6 @@ use crate::rpc::{
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
 };
-
-pub type RpcResult<T> = Result<T, JSONRPCError>;
 
 pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
@@ -136,10 +131,6 @@ where
             .with_method(NET_INFO, net_api::net_info::<DB>)
             .with_method(NET_CONNECT, net_api::net_connect::<DB>)
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
-            // DB API
-            .with_method(DB_GC, db_api::db_gc::<DB>)
-            // Progress API
-            .with_method(GET_PROGRESS, progress_api::get_progress)
             // Node API
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             .finish_unwrapped(),

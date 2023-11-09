@@ -60,9 +60,11 @@ impl ChainCommands {
             Self::Block { cid } => print_pretty_json(api.chain_get_block(cid).await?),
             Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
-            Self::Message { cid } => print_pretty_json(api.chain_get_message(cid).await?),
+            Self::Message { cid } => {
+                print_pretty_json(LotusJson(api.chain_get_message(cid).await?))
+            }
             Self::ReadObj { cid } => {
-                println!("{}", api.chain_read_obj(cid).await?);
+                println!("{}", hex::encode(api.chain_read_obj(cid).await?));
                 Ok(())
             }
             Self::SetHead {

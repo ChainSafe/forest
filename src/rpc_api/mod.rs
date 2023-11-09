@@ -104,11 +104,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
 
-    // DB API
-    access.insert(db_api::DB_GC, Access::Write);
-
-    // Progress API
-    access.insert(progress_api::GET_PROGRESS, Access::Read);
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
 
@@ -240,6 +235,9 @@ pub mod state_api {
     pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
     pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
     pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
+    pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
+    pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
+    pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
 }
 
 /// Gas API
@@ -298,28 +296,6 @@ pub mod net_api {
 
     pub const NET_CONNECT: &str = "Filecoin.NetConnect";
     pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
-}
-
-/// DB API
-pub mod db_api {
-    pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
-}
-
-/// Progress API
-pub mod progress_api {
-    use crate::lotus_json::lotus_json_with_self;
-    use serde::{Deserialize, Serialize};
-
-    pub const GET_PROGRESS: &str = "Filecoin.GetProgress";
-    pub type GetProgressParams = (GetProgressType,);
-    pub type GetProgressResult = (u64, u64);
-
-    #[derive(Serialize, Deserialize)]
-    pub enum GetProgressType {
-        DatabaseGarbageCollection,
-    }
-
-    lotus_json_with_self!(GetProgressType);
 }
 
 /// Node API
