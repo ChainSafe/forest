@@ -92,11 +92,11 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_MESSAGE, (cid,))
     }
 
-    pub async fn chain_read_obj(&self, cid: Cid) -> Result<String, JsonRpcError> {
+    pub async fn chain_read_obj(&self, cid: Cid) -> Result<Vec<u8>, JsonRpcError> {
         self.call(Self::chain_read_obj_req(cid)).await
     }
 
-    pub fn chain_read_obj_req(cid: Cid) -> RpcRequest<String> {
+    pub fn chain_read_obj_req(cid: Cid) -> RpcRequest<Vec<u8>> {
         RpcRequest::new(CHAIN_READ_OBJ, (cid,))
     }
 

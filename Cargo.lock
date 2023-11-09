@@ -2616,9 +2616,9 @@ dependencies = [
 
 [[package]]
 name = "fiat-crypto"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a481586acf778f1b1455424c343f71124b048ffa5f4fc3f8f6ae9dc432dcb3c7"
+checksum = "f69037fe1b785e84986b4f2cbcf647381876a00671d25ceef715d7812dd7e1dd"
 
 [[package]]
 name = "fil_actor_account_state"
