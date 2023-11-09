@@ -79,4 +79,8 @@ impl ApiInfo {
     ) -> RpcRequest<Vec<SectorOnChainInfo>> {
         RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
     }
+
+    pub fn state_lookup_id_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Option<Address>> {
+        RpcRequest::new(STATE_LOOKUP_ID, (addr, tsk))
+    }
 }

@@ -265,6 +265,15 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             *shared_block.miner_address(),
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_lookup_id_req(
+            *shared_block.miner_address(),
+            shared_tipset.key().clone(),
+        )),
+        // This should return `Address::new_id(0xdeadbeef)`
+        RpcTest::identity(ApiInfo::state_lookup_id_req(
+            Address::new_id(0xdeadbeef),
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 

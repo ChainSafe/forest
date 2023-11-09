@@ -234,6 +234,7 @@ pub mod state_api {
     pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
     pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
     pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
+    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
 }
 
 /// Gas API
