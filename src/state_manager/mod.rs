@@ -22,7 +22,6 @@ use crate::chain::{
 };
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
-use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;

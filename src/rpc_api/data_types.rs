@@ -379,8 +379,11 @@ pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
     pub msg: Message,
     #[serde(with = "crate::lotus_json")]
+    pub msg_cid: Cid,
+    #[serde(with = "crate::lotus_json")]
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
+    pub duration: u64,
 }
 
 lotus_json_with_self!(InvocResult);
