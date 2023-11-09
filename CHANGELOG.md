@@ -31,6 +31,23 @@
 
 ### Changed
 
+### Removed
+
+### Fixed
+
+## Forest 0.16.0 "Rottenmelon"
+
+This is a mandatory upgrade for calibration network, containing fix for the
+`WatermelonFix` upgrade. See
+[Lotus release](https://github.com/filecoin-project/lotus/releases/tag/v1.24.0-rc5)
+for reference.
+
+### Breaking
+
+### Added
+
+### Changed
+
 - [#3072](https://github.com/ChainSafe/forest/issues/3072) Implemented
   mark-and-sweep GC, removing GC progress reports along with the corresponding
   RPC endpoint.
@@ -44,6 +61,9 @@
 - [#3686](https://github.com/ChainSafe/forest/issues/3686) Fix regression when
   using `forest-tool db` subcommands and a `--chain` flag different from
   mainnet.
+
+- [#3694](https://github.com/ChainSafe/forest/pull/3694) Calibration
+  WatermelonFix recovery fix.
 
 ## Forest v0.15.2 "Defenestration"
 
