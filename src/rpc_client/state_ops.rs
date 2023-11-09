@@ -54,7 +54,7 @@ impl ApiInfo {
     }
 
     pub fn state_miner_power(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
-        RpcRequest::new(STATE_MINOR_POWER, (miner, tsk))
+        RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
     }
 
     pub fn state_get_randomness_from_beacon_req(

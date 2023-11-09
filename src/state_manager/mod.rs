@@ -978,6 +978,26 @@ where
         Ok(out)
     }
 
+    /// Retrieves miner power.
+    pub fn miner_power(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<MinerPower, Error> {
+        if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
+            return Ok(MinerPower {
+                miner_power,
+                total_power,
+                has_miner_power: true,
+            });
+        }
+
+        Ok(MinerPower {
+            has_miner_power: false,
+            ..Default::default()
+        })
+    }
+
     /// Similar to `resolve_to_key_addr` in the `forest_vm` [`crate::state_manager`] but does not
     /// allow `Actor` type of addresses. Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr(
