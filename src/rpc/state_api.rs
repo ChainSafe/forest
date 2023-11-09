@@ -29,6 +29,8 @@ use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
 
+type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
+
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
@@ -357,7 +359,7 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
 >(
     data: Data<RPCState<DB>>,
     Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
-        LotusJson<(i64, ChainEpoch, Vec<u8>, TipsetKeys)>,
+        LotusJson<RandomnessParams>,
     >,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let state_manager = &data.state_manager;
