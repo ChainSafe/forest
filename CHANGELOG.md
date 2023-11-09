@@ -41,6 +41,9 @@
 
 - [#3540](https://github.com/ChainSafe/forest/issues/3540) Fix forest-cli sync
   wait to ensure that Forest is in the follow mode.
+- [#3686](https://github.com/ChainSafe/forest/issues/3686) Fix regression when
+  using `forest-tool db` subcommands and a `--chain` flag different from
+  mainnet.
 
 ## Forest v0.15.2 "Defenestration"
 
