@@ -9,11 +9,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
-use crate::utils::{
-    io::{read_file_to_string, read_toml},
-    misc::LoggingColor,
-};
+use crate::utils::io::read_file_to_string;
+use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
@@ -152,20 +151,7 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(&self.config);
-        let mut cfg: Config = match &path {
-            Some(path) => {
-                // Read from config file
-                let toml = read_file_to_string(path.to_path_buf())?;
-                // Parse and return the configuration file
-                read_toml(&toml)?
-            }
-            None => Config::default(),
-        };
-
-        if let Some(chain) = &self.chain {
-            cfg.chain = chain.clone();
-        }
+        let (path, mut cfg) = read_config(&self.config, &self.chain)?;
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
@@ -251,6 +237,7 @@ pub struct CliRpcOpts {
     pub token: Option<String>,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),

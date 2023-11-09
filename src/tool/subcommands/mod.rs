@@ -12,9 +12,7 @@ pub mod state_migration_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
-use crate::networks::NetworkChain;
 use crate::utils::version::FOREST_VERSION_STRING;
-use crate::utils::{io::read_file_to_string, io::read_toml};
 use clap::Parser;
 
 /// Command-line options for the `forest-tool` binary
@@ -60,24 +58,4 @@ pub enum Subcommand {
     /// API tooling
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
-}
-
-fn read_config(
-    config_path_opt: &Option<String>,
-    chain_opt: &Option<NetworkChain>,
-) -> anyhow::Result<Config> {
-    match find_config_path(config_path_opt) {
-        Some(path) => {
-            // Read from config file
-            let toml = read_file_to_string(path.to_path_buf())?;
-            // Parse and return the configuration file
-            let mut config: Config = read_toml(&toml)?;
-            if let Some(chain) = chain_opt {
-                config.chain = chain.clone();
-            }
-
-            Ok(config)
-        }
-        None => Ok(Config::default()),
-    }
 }
