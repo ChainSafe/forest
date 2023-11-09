@@ -36,8 +36,10 @@ ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
 sleep 5s
 
 $FOREST_WALLET_PATH export "$ADDR_ONE" > preloaded_wallet.test.key
-if ! cmp -s preloaded_wallet.key preloaded_wallet.test.key; then
-    echo ".key files should match"
+$FOREST_WALLET_PATH delete "$ADDR_ONE"
+ROUNDTRIP_ADDR=$($FOREST_WALLET_PATH import preloaded_wallet.test.key)
+if [[ $ADDR_ONE != $ROUNDTRIP_ADDR ]]; then
+    echo "Wallet address should be the same after a roundtrip"
     exit 1
 fi
 
