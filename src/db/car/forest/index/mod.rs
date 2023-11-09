@@ -169,6 +169,98 @@ pub struct Writer {
     slots: Vec<Slot>,
 }
 
+pub struct Builder {
+    load_factor: f64,
+    slots: Vec<(usize, OccupiedSlot)>,
+}
+
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new_with_load_factor(DEFAULT_LOAD_FACTOR)
+    }
+}
+
+impl Builder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn new_with_load_factor(load_factor: f64) -> Self {
+        Self {
+            load_factor,
+            slots: vec![],
+        }
+    }
+
+    fn into_table(self) -> Table {
+        let Self {
+            load_factor,
+            mut slots,
+        } = self;
+        slots.sort_unstable_by_key(|(_, it)| *it);
+        // slots.dedup_by_key(|(_, it)| *it);
+        let Some(initial_width) = initial_width(slots.len(), load_factor) else {
+            return Table {
+                slots: vec![Slot::Empty],
+                initial_width: 0,
+                collisions: 0,
+                longest_distance: 0,
+            };
+        };
+        let collisions = slots
+            .iter()
+            .group_by(|(_, it)| it.hash)
+            .into_iter()
+            .map(|(_, group)| group.count() - 1)
+            .sum::<usize>();
+
+        let mut total_padding = 0;
+        let mut longest_distance = 0;
+        for (ix, (pre_padding, slot)) in slots.iter_mut().enumerate() {
+            let ix = ix + total_padding;
+            let ideal_ix = hash::ideal_slot_ix(slot.hash, initial_width);
+            *pre_padding = ideal_ix.saturating_sub(ix);
+            let actual_ix = ix + *pre_padding;
+            let distance = actual_ix - ideal_ix;
+            longest_distance = cmp::max(longest_distance, distance);
+            total_padding += *pre_padding;
+        }
+        Table {
+            slots: slots
+                .into_iter()
+                .flat_map(|(pre_padding, slot)| {
+                    iter::repeat(Slot::Empty)
+                        .take(pre_padding)
+                        .chain(iter::once(Slot::Occupied(slot)))
+                })
+                // ensure there are at least `initial_width` slots, else lookups
+                // could try and read off the end of the table
+                .pad_using(initial_width.get(), |_ix| Slot::Empty)
+                // terminal slot
+                .chain(iter::once(Slot::Empty))
+                .collect(),
+            initial_width: initial_width.get(),
+            collisions,
+            longest_distance,
+        }
+    }
+}
+
+impl Extend<(Cid, u64)> for Builder {
+    fn extend<T: IntoIterator<Item = (Cid, u64)>>(&mut self, iter: T) {
+        self.extend(iter.into_iter().map(|(cid, u)| (hash::summary(&cid), u)))
+    }
+}
+
+impl Extend<(NonMaximalU64, u64)> for Builder {
+    fn extend<T: IntoIterator<Item = (NonMaximalU64, u64)>>(&mut self, iter: T) {
+        self.slots.extend(
+            iter.into_iter()
+                .map(|(hash, frame_offset)| (0, OccupiedSlot { hash, frame_offset })),
+        )
+    }
+}
+
 impl Writer {
     pub fn new(locations: impl IntoIterator<Item = (Cid, u64)>) -> Self {
         Self::from_table(Table::new(locations, DEFAULT_LOAD_FACTOR))
@@ -278,8 +370,7 @@ impl Table {
             .group_by(|it| it.hash)
             .into_iter()
             .map(|(_, group)| group.count() - 1)
-            .max()
-            .unwrap_or_default();
+            .sum();
 
         let mut total_padding = 0;
         let slots = slots
@@ -606,7 +697,29 @@ mod tests {
         }
     }
 
+    fn do_same(seed: HashMap<Cid, HashSet<u64>>) {
+        let via_builder =
+            {
+                let mut it = Builder::new();
+                it.extend(seed.clone().into_iter().flat_map(|(cid, offsets)| {
+                    offsets.into_iter().map(move |offset| (cid, offset))
+                }));
+                it.into_table()
+            };
+        let traditional = Table::new(
+            seed.clone()
+                .into_iter()
+                .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset))),
+            DEFAULT_LOAD_FACTOR,
+        );
+        // pretty_assertions::assert_eq!(traditional, via_builder);
+        assert_eq!(traditional, via_builder);
+    }
+
     quickcheck::quickcheck! {
+        fn same(seed: HashMap<Cid, HashSet<u64>>) -> () {
+            do_same(seed)
+        }
         fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) -> () {
             do_hashmap_of_cids(reference)
         }
