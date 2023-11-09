@@ -16,7 +16,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 
-use super::{verifier::Verifier, SystemStateOld};
+use super::{system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore> StateMigration<BS> {
@@ -44,6 +44,11 @@ impl<BS: Blockstore> StateMigration<BS> {
             let new_code = new_manifest.get(name)?;
             self.add_migrator(code, nil_migrator(new_code))
         }
+
+        self.add_migrator(
+            current_manifest.get_system(),
+            system::system_migrator(new_manifest),
+        );
 
         Ok(())
     }
@@ -90,7 +95,7 @@ impl<BS: Blockstore> PostMigrationCheck<BS> for PostMigrationVerifier {
                 );
             }
 
-            if actor_in.state != actor_out.state {
+            if actor_in.state != actor_out.state && actor_in.code != current_manifest.get_system() {
                 bail!(
                     "actor {address} state mismatch: pre-migration: {}, post-migration: {}",
                     actor_in.state,
