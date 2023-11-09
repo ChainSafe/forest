@@ -38,7 +38,7 @@ sleep 5s
 $FOREST_WALLET_PATH export "$ADDR_ONE" > preloaded_wallet.test.key
 $FOREST_WALLET_PATH delete "$ADDR_ONE"
 ROUNDTRIP_ADDR=$($FOREST_WALLET_PATH import preloaded_wallet.test.key)
-if [[ $ADDR_ONE != $ROUNDTRIP_ADDR ]]; then
+if [[ "$ADDR_ONE" != "$ROUNDTRIP_ADDR" ]]; then
     echo "Wallet address should be the same after a roundtrip"
     exit 1
 fi
