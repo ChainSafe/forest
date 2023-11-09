@@ -65,7 +65,7 @@ impl ApiInfo {
     ) -> RpcRequest<Vec<u8>> {
         RpcRequest::new(
             STATE_GET_RANDOMNESS_FROM_BEACON,
-            (personalization as u32, rand_epoch, entropy, tsk),
+            (personalization as i64, rand_epoch, entropy, tsk),
         )
     }
 
