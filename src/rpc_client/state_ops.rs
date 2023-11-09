@@ -90,6 +90,7 @@ impl ApiInfo {
 
     pub fn state_network_version_req(tsk: TipsetKeys) -> RpcRequest<NetworkVersion> {
         RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
+    }
 
     pub fn state_account_key_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Address> {
         RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
