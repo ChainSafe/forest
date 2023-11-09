@@ -372,8 +372,8 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
         chain_index.clone().into(),
         beacon,
     );
-    let digest = chain_rand.get_beacon_randomness(rand_epoch, false)?;
-    let ret = crate::state_manager::chain_rand::draw_randomness(
+    let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+    let ret = crate::state_manager::chain_rand::draw_randomness_from_digest(
         &digest,
         personalization,
         rand_epoch,
