@@ -9,7 +9,8 @@ use crate::{
         data_types::{ApiActorState, SectorOnChainInfo},
         state_api::*,
     },
-    shim::{address::Address, clock::ChainEpoch, state_tree::ActorState},
+    shim::{address::Address, clock::ChainEpoch, message::Message, state_tree::ActorState},
+    state_manager::InvocResult,
 };
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
@@ -51,6 +52,10 @@ impl ApiInfo {
 
     pub fn state_network_name_req() -> RpcRequest<String> {
         RpcRequest::new(STATE_NETWORK_NAME, ())
+    }
+
+    pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<InvocResult> {
+        RpcRequest::new(STATE_CALL, (message, tsk))
     }
 
     pub fn state_miner_power(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {

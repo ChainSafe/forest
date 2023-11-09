@@ -14,7 +14,7 @@ use crate::blocks::TipsetKeys;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
-use crate::shim::address::Address;
+use crate::shim::{address::Address, message::Message};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -245,6 +245,7 @@ fn node_tests() -> Vec<RpcTest> {
 
 fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
+    let m = Message::default();
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
@@ -265,6 +266,7 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             *shared_block.miner_address(),
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_call_req(m, shared_tipset.key().clone())),
     ]
 }
 

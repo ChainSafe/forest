@@ -22,6 +22,7 @@ use crate::chain::{
 };
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
+use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
@@ -170,7 +171,7 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -179,6 +180,8 @@ pub struct InvocResult {
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
+
+lotus_json_with_self!(InvocResult);
 
 /// An alias Result that represents an `InvocResult` and an Error.
 type StateCallResult = Result<InvocResult, Error>;
