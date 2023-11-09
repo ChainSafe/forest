@@ -4,11 +4,16 @@
 use super::*;
 use crate::shim::crypto::SignatureType;
 
+// Lotus uses signature types under two names: `KeyType` and `SigType`.
+// `KeyType` can be deserialized from a string but `SigType` must always be an
+// integer. For more information, see
+// https://github.com/filecoin-project/go-state-types/blob/master/crypto/signature.go
+// and
+// https://github.com/filecoin-project/lotus/blob/v1.23.3/chain/types/keystore.go#L47
+
 #[derive(Deserialize, Serialize)]
 #[serde(untagged)] // try an int, then a string
 pub enum SignatureTypeLotusJson {
-    // Lotus also accepts ints when deserializing - we need this for our test vectors
-    // https://github.com/filecoin-project/lotus/blob/v1.23.3/chain/types/keystore.go#L47
     Integer(SignatureType),
     String(Stringify<SignatureType>),
 }
@@ -21,8 +26,7 @@ impl HasLotusJson for SignatureType {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        // always serialize as a string, since lotus deprecates ints
-        SignatureTypeLotusJson::String(Stringify(self))
+        SignatureTypeLotusJson::Integer(self)
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
