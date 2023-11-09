@@ -9,7 +9,7 @@ use crate::{
         data_types::{ApiActorState, SectorOnChainInfo},
         state_api::*,
     },
-    shim::{address::Address, clock::ChainEpoch, state_tree::ActorState},
+    shim::{address::Address, clock::ChainEpoch, state_tree::ActorState, version::NetworkVersion},
 };
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
@@ -82,5 +82,9 @@ impl ApiInfo {
 
     pub fn state_lookup_id_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Option<Address>> {
         RpcRequest::new(STATE_LOOKUP_ID, (addr, tsk))
+    }
+
+    pub fn state_network_version_req(tsk: TipsetKeys) -> RpcRequest<NetworkVersion> {
+        RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
     }
 }
