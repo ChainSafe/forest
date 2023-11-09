@@ -13,6 +13,7 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
+use crate::message::Message as _;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::Address;
 
@@ -274,6 +275,7 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
+    let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
 
@@ -284,17 +286,36 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                 tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
                     msg.cid()?,
                 )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    root_tsk.clone(),
+                )));
             }
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
                     msg.cid()?,
                 )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    root_tsk.clone(),
+                )));
+                if !msg.params().is_empty() {
+                    tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
+                        msg.to(),
+                        msg.method_num(),
+                        msg.params().to_vec(),
+                        root_tsk.clone(),
+                    )));
+                }
             }
-            tests.push(RpcTest::basic(ApiInfo::state_miner_power(
+            tests.push(RpcTest::basic(ApiInfo::state_miner_power_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )))
         }
+        tests.push(RpcTest::basic(ApiInfo::state_circulating_supply_req(
+            tipset.key().clone(),
+        )))
     }
     Ok(tests)
 }
