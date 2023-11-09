@@ -135,13 +135,13 @@ where
 pub(in crate::rpc) async fn chain_read_obj<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((obj_cid,))): Params<LotusJson<(Cid,)>>,
-) -> Result<String, JsonRpcError> {
-    let ret = data
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
+    let bytes = data
         .state_manager
         .blockstore()
         .get(&obj_cid)?
         .ok_or("can't find object with that cid")?;
-    Ok(hex::encode(ret))
+    Ok(LotusJson(bytes))
 }
 
 pub(in crate::rpc) async fn chain_has_obj<DB: Blockstore>(

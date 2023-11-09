@@ -62,7 +62,7 @@ impl ChainCommands {
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => print_pretty_json(api.chain_get_message(cid).await?),
             Self::ReadObj { cid } => {
-                println!("{}", api.chain_read_obj(cid).await?);
+                println!("{}", hex::encode(api.chain_read_obj(cid).await?));
                 Ok(())
             }
             Self::SetHead {
