@@ -359,7 +359,7 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
     Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
         LotusJson<(i64, ChainEpoch, Vec<u8>, TipsetKeys)>,
     >,
-) -> Result<[u8; 32], JsonRpcError> {
+) -> Result<Vec<u8>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let pts = state_manager.chain_store().load_required_tipset(&tsk)?;
     let chain_config = state_manager.chain_config();
