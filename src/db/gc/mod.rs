@@ -99,7 +99,7 @@ pub struct MarkAndSweep<DB> {
     block_time: Duration,
 }
 
-impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
+impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<DB> {
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -133,8 +133,11 @@ impl<DB: Blockstore + GarbageCollectable> MarkAndSweep<DB> {
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream =
-            unordered_stream_graph(self.db.clone(), (*tipset).clone().chain(&self.db), depth);
+        let mut stream = unordered_stream_graph(
+            self.db.clone(),
+            (*tipset).clone().chain(self.db.clone()),
+            depth,
+        );
 
         while let Some(block) = stream.next().await {
             let block = block?;
