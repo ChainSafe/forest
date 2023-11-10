@@ -6,19 +6,18 @@ use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
-use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
+use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::rpc_api::data_types::{MarketDeal, MessageLookup, MinerPowerLotusJson, RPCState};
 use crate::shim::{
     address::Address, executor::Receipt, message::Message, state_tree::ActorState,
     version::NetworkVersion,
 };
-use crate::state_manager::{InvocResult, MarketBalance, MinerPower};
+use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_interface::market;
-use fil_actor_interface::miner::MinerPower;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
@@ -140,12 +139,13 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
     Ok(out)
 }
 
-/// looks up the Escrow and Locked balances of the given address in the Storage
-/// Market
+/// looks up the miner power of the given address.
+// NOTE: MinerPowerLotusJson is returned here directly due to the fact that MinerPower does not
+// derive `Clone`. See https://github.com/ChainSafe/fil-actor-states/pull/199.
 pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
-) -> Result<MinerPower, JsonRpcError> {
+) -> Result<MinerPowerLotusJson, JsonRpcError> {
     let tipset = data
         .state_manager
         .chain_store()
@@ -153,6 +153,7 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
 
     data.state_manager
         .miner_power(&address, &tipset)
+        .map(|res| res.into_lotus_json())
         .map_err(|e| e.into())
 }
 

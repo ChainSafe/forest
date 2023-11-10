@@ -53,7 +53,7 @@ impl ApiInfo {
         RpcRequest::new(STATE_NETWORK_NAME, ())
     }
 
-    pub fn state_miner_power(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
+    pub fn state_miner_power_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
         RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
     }
 

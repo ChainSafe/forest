@@ -36,6 +36,7 @@ use crate::shim::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
+use fil_actor_interface::miner::MinerPower;
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::v10::runtime::Policy;
@@ -988,13 +989,14 @@ where
             return Ok(MinerPower {
                 miner_power,
                 total_power,
-                has_miner_power: true,
+                has_min_power: true,
             });
         }
 
         Ok(MinerPower {
-            has_miner_power: false,
-            ..Default::default()
+            has_min_power: false,
+            miner_power: Default::default(),
+            total_power: Default::default(),
         })
     }
 

@@ -290,7 +290,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                     msg.cid()?,
                 )));
             }
-            tests.push(RpcTest::basic(ApiInfo::state_miner_power(
+            tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )))
