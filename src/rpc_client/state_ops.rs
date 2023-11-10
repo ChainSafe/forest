@@ -10,8 +10,8 @@ use crate::{
         state_api::*,
     },
     shim::{
-        address::Address, clock::ChainEpoch, econ::TokenAmount, message::MethodNum,
-        state_tree::ActorState,
+        address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message,
+        message::MethodNum, state_tree::ActorState,
     },
 };
 use cid::Cid;
