@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::lotus_json::LotusJson;
+use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::message::ChainMessage;
 use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
@@ -61,7 +62,14 @@ impl ChainCommands {
             Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => {
-                print_pretty_json(LotusJson(api.chain_get_message(cid).await?))
+                let bytes = api.chain_read_obj(cid).await?;
+                match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
+                    ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
+                    ChainMessage::Signed(m) => {
+                        let cid = m.cid()?;
+                        print_pretty_json(m.into_lotus_json().with_cid(cid))
+                    }
+                }
             }
             Self::ReadObj { cid } => {
                 println!("{}", hex::encode(api.chain_read_obj(cid).await?));
