@@ -384,14 +384,14 @@ pub struct InvocResult {
     pub error: Option<String>,
     pub duration: u64,
     #[serde(with = "crate::lotus_json")]
-    pub gas_cost: GasCost,
+    pub gas_cost: MessageGasCost,
 }
 
 lotus_json_with_self!(InvocResult);
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct GasCost {
+pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
     #[serde(with = "crate::lotus_json")]
@@ -410,7 +410,7 @@ pub struct GasCost {
     pub total_cost: TokenAmount,
 }
 
-impl GasCost {
+impl MessageGasCost {
     pub fn new(message: &Message, ret: ApplyRet) -> Self {
         Self {
             message: message.cid().unwrap(),
@@ -425,4 +425,4 @@ impl GasCost {
     }
 }
 
-lotus_json_with_self!(GasCost);
+lotus_json_with_self!(MessageGasCost);

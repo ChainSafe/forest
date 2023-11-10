@@ -24,7 +24,7 @@ use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{GasCost, InvocResult as InvocResultApi};
+use crate::rpc_api::data_types::{InvocResult as InvocResultApi, MessageGasCost};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
@@ -426,7 +426,7 @@ where
             msg_cid,
             error: apply_ret.failure_info(),
             duration: 0,
-            gas_cost: GasCost::new(&msg, apply_ret),
+            gas_cost: MessageGasCost::new(&msg, apply_ret),
         })
     }
 
