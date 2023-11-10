@@ -25,6 +25,7 @@ use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::rpc_api::data_types::{InvocResult as InvocResultApi, MessageGasCost};
+use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
@@ -377,6 +378,9 @@ where
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> Result<InvocResultApi, Error> {
+        // TODO: we will handle that when comparing results in api compare
+        CurrentNetwork::set_global(Network::Mainnet);
+
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
@@ -424,7 +428,7 @@ where
         Ok(InvocResultApi {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid,
+            msg_cid: msg_cid, //chain_msg.cid().unwrap(),
             error: apply_ret.failure_info(),
             duration: 0,
             gas_cost: MessageGasCost::new(&chain_msg, apply_ret),
