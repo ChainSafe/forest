@@ -12,7 +12,7 @@ use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
-use crate::message::signed_message::SignedMessage;
+use crate::message::{signed_message::SignedMessage, ChainMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::{
     address::Address,
@@ -411,7 +411,7 @@ pub struct MessageGasCost {
 }
 
 impl MessageGasCost {
-    pub fn new(message: &Message, ret: ApplyRet) -> Self {
+    pub fn new(message: &ChainMessage, ret: ApplyRet) -> Self {
         Self {
             message: message.cid().unwrap(),
             gas_used: TokenAmount::default(),

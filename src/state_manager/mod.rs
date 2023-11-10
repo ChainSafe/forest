@@ -420,13 +420,14 @@ where
         }
 
         let msg_cid = msg.cid().unwrap();
+        let chain_msg = ChainMessage::Unsigned(msg.clone());
         Ok(InvocResultApi {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
             msg_cid,
             error: apply_ret.failure_info(),
             duration: 0,
-            gas_cost: MessageGasCost::new(&msg, apply_ret),
+            gas_cost: MessageGasCost::new(&chain_msg, apply_ret),
         })
     }
 
