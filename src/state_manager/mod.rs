@@ -24,6 +24,7 @@ use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
+use crate::rpc_api::data_types::{GasCost, InvocResult as InvocResultApi};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
@@ -375,7 +376,7 @@ where
         msg: &mut Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> StateCallResult {
+    ) -> Result<InvocResultApi, Error> {
         let bstate = tipset.parent_state();
         let bheight = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
@@ -418,10 +419,14 @@ where
             warn!("chain call failed: {:?}", err);
         }
 
-        Ok(InvocResult {
+        let msg_cid = msg.cid().unwrap();
+        Ok(InvocResultApi {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
+            msg_cid,
             error: apply_ret.failure_info(),
+            duration: 0,
+            gas_cost: GasCost::new(&msg, apply_ret),
         })
     }
 
@@ -431,7 +436,7 @@ where
         self: &Arc<Self>,
         message: &mut Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<InvocResultApi, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)

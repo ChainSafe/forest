@@ -41,16 +41,7 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
         .chain_store()
         .load_required_tipset(&key)?;
     let invoc_result = state_manager.call(&mut message, Some(tipset))?;
-    // TODO: retrieve exec trace
-
-    let msg_cid = invoc_result.msg.cid().unwrap();
-    Ok(InvocResultApi {
-        msg: invoc_result.msg,
-        msg_rct: invoc_result.msg_rct,
-        msg_cid,
-        error: invoc_result.error,
-        duration: 0,
-    })
+    Ok(invoc_result)
 }
 
 /// returns the result of executing the indicated message, assuming it was

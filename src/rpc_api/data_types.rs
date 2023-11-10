@@ -19,11 +19,10 @@ use crate::shim::{
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
-    executor::Receipt,
+    executor::{ApplyRet, Receipt},
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
-    trace::ExecutionEvent,
 };
 use crate::state_manager::StateManager;
 use ahash::HashSet;
@@ -384,6 +383,46 @@ pub struct InvocResult {
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
     pub duration: u64,
+    #[serde(with = "crate::lotus_json")]
+    pub gas_cost: GasCost,
 }
 
 lotus_json_with_self!(InvocResult);
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct GasCost {
+    #[serde(with = "crate::lotus_json")]
+    pub message: Cid,
+    #[serde(with = "crate::lotus_json")]
+    pub gas_used: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub base_fee_burn: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub over_estimation_burn: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub miner_penalty: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub miner_tip: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub refund: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub total_cost: TokenAmount,
+}
+
+impl GasCost {
+    pub fn new(message: &Message, ret: ApplyRet) -> Self {
+        Self {
+            message: message.cid().unwrap(),
+            gas_used: TokenAmount::default(),
+            base_fee_burn: ret.base_fee_burn(),
+            over_estimation_burn: ret.over_estimation_burn(),
+            miner_penalty: ret.miner_tip(),
+            miner_tip: ret.miner_tip(),
+            refund: ret.refund(),
+            total_cost: TokenAmount::default(),
+        }
+    }
+}
+
+lotus_json_with_self!(GasCost);
