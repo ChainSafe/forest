@@ -54,7 +54,9 @@ use std::{
     io::{self, Read, Write},
     iter,
     num::NonZeroUsize,
+    pin::pin,
 };
+use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
 #[cfg(not(any(test, feature = "benchmark-private")))]
 mod hash;
@@ -170,8 +172,55 @@ pub struct Writer {
 }
 
 pub struct Builder {
+    /// In range `0.0..=1.0`
     load_factor: f64,
     slots: Vec<(usize, OccupiedSlot)>,
+}
+
+pub struct Writer2 {
+    version: Version,
+    header: V1Header,
+    slots: Vec<(usize, OccupiedSlot)>,
+}
+
+impl Writer2 {
+    fn predicted_length(&self) -> u64 {
+        self.version.written_len()
+            + self.header.written_len()
+            + (u64::try_from(self.slots.len()).unwrap() + 1) * RawSlot::WIDTH
+            + self
+                .slots
+                .iter()
+                .map(|(pre_padding, _)| u64::try_from(*pre_padding).unwrap())
+                .sum::<u64>()
+                * RawSlot::WIDTH
+    }
+    async fn write(self, to: impl AsyncWrite) -> io::Result<()> {
+        let Self {
+            version,
+            header,
+            slots,
+        } = self;
+        let mut to = pin!(to);
+        let mut buffer = vec![];
+        async fn w<'a>(
+            mut writer: impl AsyncWrite + Unpin,
+            buffer: &mut Vec<u8>,
+            it: impl Transcode<'a>,
+        ) -> io::Result<()> {
+            buffer.resize(it.deparsed_len(), 0u8);
+            it.deparse(buffer);
+            writer.write_all(buffer).await
+        }
+        w(&mut to, &mut buffer, version).await?;
+        w(&mut to, &mut buffer, header).await?;
+        slots.into_iter().flat_map(|(pre_padding, slot)| {
+            iter::repeat(Slot::Empty)
+                .take(pre_padding)
+                .chain(iter::once(Slot::Occupied(slot)))
+        });
+        unimplemented!()
+    }
 }
 
 impl Default for Builder {
@@ -191,14 +240,60 @@ impl Builder {
             slots: vec![],
         }
     }
-
-    fn into_table(self) -> Table {
+    fn into_writer(self) -> Writer2 {
         let Self {
             load_factor,
             mut slots,
         } = self;
         slots.sort_unstable_by_key(|(_, it)| *it);
-        // slots.dedup_by_key(|(_, it)| *it);
+        slots.dedup_by_key(|(_, it)| *it);
+        let Some(initial_width) = initial_width(slots.len(), load_factor) else {
+            return Writer2 {
+                version: Version::V1,
+                header: V1Header {
+                    longest_distance: 0,
+                    collisions: 0,
+                    initial_buckets: 0,
+                },
+                slots: vec![],
+            };
+        };
+        let collisions = slots
+            .iter()
+            .group_by(|(_, it)| it.hash)
+            .into_iter()
+            .map(|(_, group)| group.count() - 1)
+            .sum::<usize>();
+
+        let mut total_padding = 0;
+        let mut longest_distance = 0;
+        for (ix, (pre_padding, slot)) in slots.iter_mut().enumerate() {
+            let ix = ix + total_padding;
+            let ideal_ix = hash::ideal_slot_ix(slot.hash, initial_width);
+            *pre_padding = ideal_ix.saturating_sub(ix);
+            let actual_ix = ix + *pre_padding;
+            let distance = actual_ix - ideal_ix;
+            longest_distance = cmp::max(longest_distance, distance);
+            total_padding += *pre_padding;
+        }
+        Writer2 {
+            version: Version::V1,
+            header: V1Header {
+                longest_distance: longest_distance.try_into().unwrap(),
+                collisions: collisions.try_into().unwrap(),
+                initial_buckets: initial_width.get().try_into().unwrap(),
+            },
+            slots,
+        }
+    }
+
+    fn into_parts(self) -> Table {
+        let Self {
+            load_factor,
+            mut slots,
+        } = self;
+        slots.sort_unstable_by_key(|(_, it)| *it);
+        slots.dedup_by_key(|(_, it)| *it);
         let Some(initial_width) = initial_width(slots.len(), load_factor) else {
             return Table {
                 slots: vec![Slot::Empty],
@@ -415,6 +510,70 @@ fn initial_width(slots_len: usize, load_factor: f64) -> Option<NonZeroUsize> {
     ))
 }
 
+// bargain bucket derive macro
+macro_rules! transcode_each_field {
+    // Capture struct definition
+    (
+        $(#[$struct_meta:meta])*
+        $struct_vis:vis struct $struct_name:ident$(<$struct_lifetime:lifetime>)? {
+            $(
+                $(#[$field_meta:meta])*
+                $field_vis:vis $field_name:ident: $field_ty:ty,
+            )*
+        }
+    ) => {
+        // Passthrough the struct definition
+        $(#[$struct_meta])*
+        $struct_vis struct $struct_name$(<$struct_lifetime>)? {
+            $(
+                $(#[$field_meta])*
+                $field_vis $field_name: $field_ty,
+            )*
+        }
+
+        #[automatically_derived]
+        impl<'__input, $($struct_lifetime)?> Transcode<'__input> for $struct_name$(<$struct_lifetime>)?
+        $(
+            // allow struct_lifetime to have its own name
+            where
+                $struct_lifetime: '__input,
+                '__input: $struct_lifetime,
+        )?
+        {
+            fn parse<IResultErrT: ParseError<'__input>>(
+                input: &'__input [u8],
+            ) -> nom::IResult<&'__input [u8], $struct_name$(<$struct_lifetime>)?, IResultErrT> {
+                use nom::Parser;
+
+                nom::sequence::tuple((
+                    // We must refer to $field_ty here to get the macro to repeat as desired
+                    $(<$field_ty as Transcode>::parse,)*
+                )).map(
+                    |(
+                        $($field_name,)*
+                    )| $struct_name {
+                        $($field_name,)*
+                    },
+                )
+                .parse(input)
+            }
+
+            fn deparsed_len(&self) -> usize {
+                [
+                    $(<$field_ty as Transcode>::deparsed_len(&self.$field_name),)*
+                ].into_iter().sum()
+            }
+            fn deparse(&self, output: &mut [u8]) {
+                $(let output = <$field_ty as TranscodeExt>::deparse_into_and_advance(
+                    &self.$field_name,
+                    output
+                );)*
+                let _ = output;
+            }
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, num_derive::FromPrimitive)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u64)]
@@ -426,6 +585,7 @@ enum Version {
     // many [`Slot`]s)
 }
 
+transcode_each_field! {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 struct V1Header {
@@ -441,7 +601,7 @@ struct V1Header {
     /// - [`Self::longest_distance`] additional buckets.
     /// - a terminal [`Slot::Empty`].
     initial_buckets: u64,
-}
+}}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
@@ -476,7 +636,7 @@ impl Slot {
         }
     }
 }
-
+transcode_each_field! {
 /// A [`Slot`] as it appears on disk.
 ///
 /// If [`Self::hash`] is [`u64::MAX`], then this represents a [`Slot::Empty`],
@@ -486,7 +646,7 @@ impl Slot {
 struct RawSlot {
     hash: u64,
     frame_offset: u64,
-}
+}}
 
 impl RawSlot {
     const EMPTY: Self = Self {
@@ -501,6 +661,63 @@ impl RawSlot {
 // De/serialization                 //
 // (Integers are all little-endian) //
 //////////////////////////////////////
+
+impl<'a> Transcode<'a> for Version {
+    fn parse<IResultErrT: ParseError<'a>>(
+        input: &'a [u8],
+    ) -> nom::IResult<&'a [u8], Self, IResultErrT>
+    where
+        Self: Sized,
+    {
+        let (rest, u) = u64::parse(input)?;
+        match num::FromPrimitive::from_u64(u) {
+            Some(v) => Ok((rest, v)),
+            None => Err(nom::Err::Failure(IResultErrT::add_context(
+                input,
+                "unknown header magic/version",
+                IResultErrT::from_error_kind(input, nom::error::ErrorKind::Verify),
+            ))),
+        }
+    }
+
+    fn deparsed_len(&self) -> usize {
+        (*self as u64).deparsed_len()
+    }
+
+    fn deparse(&self, output: &mut [u8]) {
+        (*self as u64).deparse(output)
+    }
+}
+
+impl<'a> Transcode<'a> for Slot {
+    fn parse<IResultErrT: ParseError<'a>>(
+        input: &'a [u8],
+    ) -> nom::IResult<&'a [u8], Self, IResultErrT>
+    where
+        Self: Sized,
+    {
+        let (rest, raw @ RawSlot { hash, frame_offset }) = RawSlot::parse(input)?;
+        match NonMaximalU64::new(hash) {
+            Some(hash) => Ok((rest, Self::Occupied(OccupiedSlot { hash, frame_offset }))),
+            None => match raw == RawSlot::EMPTY {
+                true => Ok((rest, Self::Empty)),
+                false => Err(nom::Err::Failure(IResultErrT::add_context(
+                    input,
+                    "empty slots must have a frame offset of u64::MAX",
+                    IResultErrT::from_error_kind(input, nom::error::ErrorKind::Verify),
+                ))),
+            },
+        }
+    }
+
+    fn deparsed_len(&self) -> usize {
+        (*self).into_raw().deparsed_len()
+    }
+
+    fn deparse(&self, output: &mut [u8]) {
+        (*self).into_raw().deparse(output)
+    }
+}
 
 impl Readable for Version {
     fn read_from(mut reader: impl Read) -> io::Result<Self>
@@ -608,12 +825,75 @@ impl Writeable for V1Header {
     }
 }
 
+/// A low-level building block for synchronous and asynchronous io.
+///
+/// Taken from <https://github.com/aatifsyed/eq-labs-node-handshake/blob/c979783344cb7759588d2f52bf6f8ebdecf80d26/src/wire.rs#L32>
+trait Transcode<'a> {
+    /// Attempt to deserialize this struct.
+    fn parse<IResultErrT: ParseError<'a>>(
+        input: &'a [u8],
+    ) -> nom::IResult<&'a [u8], Self, IResultErrT>
+    where
+        Self: Sized;
+    /// The length, in bytes, of this struct when serialized.
+    fn deparsed_len(&self) -> usize;
+    /// Deserialise this struct.
+    /// # Panics
+    /// Implementations may panic if `output.len() < self.deparsed_len()`
+    fn deparse(&self, output: &mut [u8]);
+}
+
+impl<'a> Transcode<'a> for u64 {
+    fn parse<IResultErrT: ParseError<'a>>(
+        input: &'a [u8],
+    ) -> nom::IResult<&'a [u8], Self, IResultErrT>
+    where
+        Self: Sized,
+    {
+        nom::number::streaming::le_u64(input)
+    }
+
+    fn deparsed_len(&self) -> usize {
+        std::mem::size_of::<Self>()
+    }
+
+    fn deparse(&self, output: &mut [u8]) {
+        zerocopy::AsBytes::write_to_prefix(
+            &zerocopy::byteorder::little_endian::U64::new(*self),
+            output,
+        )
+        .unwrap()
+    }
+}
+
+trait ParseError<'a>:
+    nom::error::ParseError<&'a [u8]>
+    + nom::error::FromExternalError<&'a [u8], std::str::Utf8Error>
+    + nom::error::ContextError<&'a [u8]>
+{
+}
+
+impl<'a, T> ParseError<'a> for T where
+    T: nom::error::ParseError<&'a [u8]>
+        + nom::error::FromExternalError<&'a [u8], std::str::Utf8Error>
+        + nom::error::ContextError<&'a [u8]>
+{
+}
+
+trait TranscodeExt<'a>: Transcode<'a> {
+    fn deparse_into_and_advance<'output>(&self, output: &'output mut [u8]) -> &'output mut [u8] {
+        self.deparse(output);
+        &mut output[self.deparsed_len()..]
+    }
+}
+
+impl<'a, T> TranscodeExt<'a> for T where T: Transcode<'a> {}
+
 trait Readable {
     fn read_from(reader: impl Read) -> io::Result<Self>
     where
         Self: Sized;
 }
-
 trait Writeable {
     /// Must only return [`Err(_)`] if the underlying io fails.
     fn write_to(&self, writer: impl Write) -> io::Result<()>;
@@ -704,7 +984,7 @@ mod tests {
                 it.extend(seed.clone().into_iter().flat_map(|(cid, offsets)| {
                     offsets.into_iter().map(move |offset| (cid, offset))
                 }));
-                it.into_table()
+                it.into_parts()
             };
         let traditional = Table::new(
             seed.clone()
