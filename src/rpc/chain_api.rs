@@ -8,7 +8,7 @@ use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
-use crate::message::SignedMessage;
+use crate::message::ChainMessage;
 use crate::rpc_api::data_types::ApiMessage;
 use crate::rpc_api::{
     chain_api::*,
@@ -30,17 +30,15 @@ pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((msg_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<LotusJson<Message>, JsonRpcError> {
-    let bytes = data.state_manager.blockstore().get(&msg_cid)?;
-    match bytes {
-        Some(bz) => match fvm_ipld_encoding::from_slice::<Message>(&bz) {
-            Ok(ret) => Ok(LotusJson(ret)),
-            Err(_) => {
-                let signed = fvm_ipld_encoding::from_slice::<SignedMessage>(&bz)?;
-                Ok(LotusJson(signed.into_message()))
-            }
-        },
-        None => Err(format!("can't find message with cid {msg_cid}").into()),
-    }
+    let chain_message: ChainMessage = data
+        .state_manager
+        .blockstore()
+        .get_cbor(&msg_cid)?
+        .ok_or_else(|| format!("can't find message with cid {msg_cid}"))?;
+    Ok(LotusJson(match chain_message {
+        ChainMessage::Signed(m) => m.into_message(),
+        ChainMessage::Unsigned(m) => m,
+    }))
 }
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
