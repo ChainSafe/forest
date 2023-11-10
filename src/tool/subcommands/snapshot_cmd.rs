@@ -500,7 +500,7 @@ mod structured {
         let is_explicit = matches!(called_at.apply_kind(), fvm3::executor::ApplyKind::Explicit);
 
         let chain_message_cid = chain_message.cid()?;
-        let unsiged_message_cid = chain_message.message().cid()?;
+        let unsigned_message_cid = chain_message.message().cid()?;
 
         Ok(json!({
             "MsgCid": LotusJson(chain_message_cid),
@@ -508,7 +508,7 @@ mod structured {
             "MsgRct": LotusJson(apply_ret.msg_receipt()),
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
-                "Message": is_explicit.then_some(LotusJson(unsiged_message_cid)),
+                "Message": is_explicit.then_some(LotusJson(unsigned_message_cid)),
                 "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())).unwrap_or_default(),
                 "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
                 "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
