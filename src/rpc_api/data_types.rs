@@ -12,6 +12,7 @@ use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
+use crate::message::Message as MessageTrait;
 use crate::message::{signed_message::SignedMessage, ChainMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::{
@@ -411,16 +412,16 @@ pub struct MessageGasCost {
 }
 
 impl MessageGasCost {
-    pub fn new(message: &ChainMessage, ret: ApplyRet) -> Self {
+    pub fn new(message: &ChainMessage, apply_ret: ApplyRet) -> Self {
         Self {
             message: message.cid().unwrap(),
-            gas_used: TokenAmount::default(),
-            base_fee_burn: ret.base_fee_burn(),
-            over_estimation_burn: ret.over_estimation_burn(),
-            miner_penalty: ret.miner_tip(),
-            miner_tip: ret.miner_tip(),
-            refund: ret.refund(),
-            total_cost: TokenAmount::default(),
+            gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),
+            base_fee_burn: apply_ret.base_fee_burn(),
+            over_estimation_burn: apply_ret.over_estimation_burn(),
+            miner_penalty: apply_ret.miner_tip(),
+            miner_tip: apply_ret.miner_tip(),
+            refund: apply_ret.refund(),
+            total_cost: message.required_funds() - &apply_ret.refund(),
         }
     }
 }
