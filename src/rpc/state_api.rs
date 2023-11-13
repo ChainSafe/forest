@@ -9,9 +9,10 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
 use crate::shim::{
-    address::Address, executor::Receipt, message::Message, state_tree::ActorState,
-    version::NetworkVersion,
+    address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
+    state_tree::ActorState, version::NetworkVersion,
 };
+use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
@@ -27,6 +28,8 @@ use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
+
+type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
@@ -348,4 +351,29 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
 // inlined, the mutex guard isn't dropped early enough.
 fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
     mutex.lock().pop()
+}
+
+/// Get randomness from beacon
+pub(in crate::rpc) async fn state_get_randomness_from_beacon<
+    DB: Blockstore + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
+        LotusJson<RandomnessParams>,
+    >,
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let tipset = state_manager.chain_store().load_required_tipset(&tsk)?;
+    let chain_config = state_manager.chain_config();
+    let chain_index = &data.chain_store.chain_index;
+    let beacon = state_manager.beacon_schedule();
+    let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
+    let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
+    let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
+        &digest,
+        personalization,
+        rand_epoch,
+        &entropy,
+    )?;
+    Ok(LotusJson(value.to_vec()))
 }

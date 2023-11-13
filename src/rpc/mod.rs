@@ -112,6 +112,10 @@ where
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
+            .with_method(
+                STATE_GET_RANDOMNESS_FROM_BEACON,
+                state_get_randomness_from_beacon::<DB>,
+            )
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
