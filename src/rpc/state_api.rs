@@ -369,11 +369,11 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
     let beacon = state_manager.beacon_schedule();
     let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
     let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
-    let ret = crate::state_manager::chain_rand::draw_randomness_from_digest(
+    let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
         &digest,
         personalization,
         rand_epoch,
         &entropy,
     )?;
-    Ok(LotusJson(ret.to_vec()))
+    Ok(LotusJson(value.to_vec()))
 }
