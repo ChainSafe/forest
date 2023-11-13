@@ -363,11 +363,11 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
     >,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let pts = state_manager.chain_store().load_required_tipset(&tsk)?;
+    let tipset = state_manager.chain_store().load_required_tipset(&tsk)?;
     let chain_config = state_manager.chain_config();
     let chain_index = &data.chain_store.chain_index;
     let beacon = state_manager.beacon_schedule();
-    let chain_rand = ChainRand::new(chain_config.clone(), pts, chain_index.clone(), beacon);
+    let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
     let digest = chain_rand.get_beacon_randomness_v3(rand_epoch)?;
     let ret = crate::state_manager::chain_rand::draw_randomness_from_digest(
         &digest,
