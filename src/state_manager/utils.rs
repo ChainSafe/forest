@@ -335,7 +335,7 @@ pub mod structured {
             events: &mut VecDeque<ExecutionEvent>,
         ) -> Result<ExecutionTrace, BuildCallTreeError> {
             let mut gas_charges = vec![];
-            let mut sub_calls = vec![];
+            let mut subcalls = vec![];
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
             while let Some(event) = events.pop_front() {
@@ -345,7 +345,7 @@ pub mod structured {
                         None
                     }
                     ExecutionEvent::Call(call) => {
-                        sub_calls.push(Self::parse(call, events)?);
+                        subcalls.push(Self::parse(call, events)?);
                         None
                     }
                     ExecutionEvent::CallReturn(ret) => Some(CallTreeReturn::Return(ret)),
@@ -367,6 +367,7 @@ pub mod structured {
                         msg: to_message_trace(call),
                         msg_rct: to_return_trace(ret),
                         gas_charges,
+                        subcalls,
                     });
                 }
             }

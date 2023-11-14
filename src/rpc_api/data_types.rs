@@ -441,6 +441,8 @@ pub struct ExecutionTrace {
     pub msg_rct: ReturnTrace,
     #[serde(with = "crate::lotus_json")]
     pub gas_charges: Vec<GasTrace>,
+    #[serde(with = "crate::lotus_json")]
+    pub subcalls: Vec<ExecutionTrace>,
 }
 
 lotus_json_with_self!(ExecutionTrace);
