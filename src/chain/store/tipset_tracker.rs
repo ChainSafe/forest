@@ -30,6 +30,10 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         }
     }
 
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
+    }
+
     /// Adds a block header to the tracker.
     pub fn add(&self, header: &BlockHeader) {
         let mut map_lock = self.entries.lock();

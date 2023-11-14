@@ -17,7 +17,7 @@ use crate::libp2p::{
 };
 use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
-use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
+use crate::shim::message::Message;
 use crate::state_manager::StateManager;
 use cid::Cid;
 use futures::{
@@ -216,27 +216,25 @@ where
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
-        tipset_keys: TipsetKeys,
+        tipset: &Arc<Tipset>,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
-        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
+        if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset) {
             return Ok(full_tipset);
         }
         // Load from the network
         network
-            .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
+            .chain_exchange_fts(Some(peer_id), tipset.key())
             .await
             .map_err(ChainMuxerError::ChainExchange)
     }
 
     fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
-        tipset_keys: TipsetKeys,
+        tipset: &Arc<Tipset>,
     ) -> Result<FullTipset, ChainMuxerError> {
         let mut blocks = Vec::new();
-        // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.load_required_tipset(&tipset_keys)?;
-        for header in ts.blocks() {
+        for header in tipset.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
                 crate::chain::block_messages(chain_store.blockstore(), header)?;
@@ -364,7 +362,7 @@ where
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u64,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
-        let (tipset_opt, source) = match event {
+        let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound { source, request } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_REQUEST_INBOUND])
@@ -372,6 +370,16 @@ where
                 metrics::PEER_TIPSET_EPOCH
                     .with_label_values(&[source.to_string().as_str()])
                     .set(request.heaviest_tipset_height);
+                if let Ok(Some(tipset)) = Tipset::load(
+                    chain_store.blockstore(),
+                    &TipsetKeys::from_iter(request.heaviest_tip_set),
+                ) {
+                    network
+                        .peer_manager()
+                        .update_peer_head(source, tipset.into())
+                        .await;
+                }
+
                 return Ok(None);
             }
             NetworkEvent::HelloResponseOutbound { request, source } => {
@@ -379,21 +387,31 @@ where
                     .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
                 let tipset_keys = TipsetKeys::from_iter(request.heaviest_tip_set);
-                let tipset = match Self::get_full_tipset(
-                    network.clone(),
-                    chain_store.clone(),
-                    source,
-                    tipset_keys,
-                )
-                .await
-                {
-                    Ok(tipset) => tipset,
-                    Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
-                        return Err(why);
+                // Retrieve tipset from store based on passed in TipsetKeys
+                if let Ok(Some(tipset)) = chain_store.load_tipset(&tipset_keys) {
+                    // Skip old tipsets
+                    if chain_store.is_epoch_finalized(tipset.epoch()) {
+                        return Ok(None);
+                    } else {
+                        let full_tipset = match Self::get_full_tipset(
+                            network.clone(),
+                            chain_store.clone(),
+                            source,
+                            &tipset,
+                        )
+                        .await
+                        {
+                            Ok(tipset) => tipset,
+                            Err(why) => {
+                                debug!("Querying full tipset failed: {}", why);
+                                return Err(why);
+                            }
+                        };
+                        (full_tipset, source)
                     }
-                };
-                (Some(tipset), source)
+                } else {
+                    return Ok(None);
+                }
             }
             NetworkEvent::HelloRequestOutbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -446,12 +464,20 @@ where
                     if let GossipBlockProcessingStrategy::GetFullTipset =
                         gossip_block_processing_strategy
                     {
-                        let tipset =
-                            Self::gossipsub_block_to_full_tipset(b, source, network.clone())
-                                .await?;
-                        (Some(tipset), source)
+                        if !chain_store.is_epoch_finalized(b.header.epoch()) {
+                            let tipset =
+                                Self::gossipsub_block_to_full_tipset(b, source, network.clone())
+                                    .await?;
+                            (tipset, source)
+                        } else {
+                            debug!(
+                                "Skip assembling old gossipsub block at epoch {}",
+                                b.header.epoch()
+                            );
+                            return Ok(None);
+                        }
                     } else {
-                        (None, source)
+                        return Ok(None);
                     }
                 }
                 PubsubMessage::Message(m) => {
@@ -490,17 +516,8 @@ where
             }
         };
 
-        if let Some(tipset) = tipset_opt {
-            if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
-                < chain_store.heaviest_tipset().epoch()
-            {
-                debug!(
-                    "Skip processing tipset at epoch {} from {source} that is too old",
-                    tipset.epoch()
-                );
-                return Ok(None);
-            }
-
+        let should_skip = chain_store.is_epoch_finalized(tipset.epoch());
+        if !should_skip {
             // Validate tipset
             if let Err(why) = TipsetValidator(&tipset).validate(
                 chain_store.clone(),
@@ -522,19 +539,25 @@ where
                 crate::chain::persist_objects(&chain_store.db, block.bls_msgs())?;
                 crate::chain::persist_objects(&chain_store.db, block.secp_msgs())?;
             }
+        }
 
-            // Update the peer head
-            network
-                .peer_manager()
-                .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
-                .await;
-            metrics::PEER_TIPSET_EPOCH
-                .with_label_values(&[source.to_string().as_str()])
-                .set(tipset.epoch());
+        // Update the peer head
+        network
+            .peer_manager()
+            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
+            .await;
+        metrics::PEER_TIPSET_EPOCH
+            .with_label_values(&[source.to_string().as_str()])
+            .set(tipset.epoch());
 
-            Ok(Some((tipset, source)))
-        } else {
+        if should_skip {
+            debug!(
+                "Skip processing tipset at epoch {} from {source} that is too old",
+                tipset.epoch()
+            );
             Ok(None)
+        } else {
+            Ok(Some((tipset, source)))
         }
     }
 

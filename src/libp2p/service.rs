@@ -581,15 +581,6 @@ async fn handle_hello_event(
                 channel,
                 request_id: _,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloRequestInbound {
-                        source: peer,
-                        request: request.clone(),
-                    },
-                )
-                .await;
-
                 let arrival = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
                     .expect("System time before unix epoch")
@@ -610,6 +601,15 @@ async fn handle_hello_event(
                         )
                         .await;
                 } else {
+                    emit_event(
+                        network_sender_out,
+                        NetworkEvent::HelloRequestInbound {
+                            source: peer,
+                            request: request.clone(),
+                        },
+                    )
+                    .await;
+
                     let sent = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("System time before unix epoch")

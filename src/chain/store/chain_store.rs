@@ -143,6 +143,12 @@ where
         Ok(())
     }
 
+    /// If a epoch is older than the `head` epoch - [`Chain finality`](https://docs.filecoin.io/reference/general/glossary/#finality)
+    pub fn is_epoch_finalized(&self, epoch: i64) -> bool {
+        epoch + self.tipset_tracker.chain_config().policy.chain_finality
+            < self.heaviest_tipset().epoch()
+    }
+
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
     /// headers.
     pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
