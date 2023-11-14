@@ -385,6 +385,7 @@ pub mod structured {
             params_codec: codec,
             gas_limit: call.gas_limit,
             read_only: call.read_only,
+            // TODO: figure out how to init this member
             code_cid: Cid::default(),
         }
     }
