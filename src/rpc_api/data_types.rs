@@ -470,7 +470,7 @@ pub struct ReturnTrace {
     pub exit_code: ExitCode,
     #[serde(with = "crate::lotus_json")]
     pub r#return: RawBytes,
-    pub return_code: u64,
+    pub return_codec: u64,
 }
 
 lotus_json_with_self!(ReturnTrace);

@@ -375,19 +375,14 @@ pub mod structured {
     }
 
     fn to_message_trace(call: Call) -> MessageTrace {
+        let (bytes, codec) = to_bytes_codec(call.params);
         MessageTrace {
             from: Address::new_id(call.from),
             to: call.to,
             value: call.value,
             method: call.method_num,
-            params: match call.params {
-                Either::Left(l) => l,
-                Either::Right(r) => match r {
-                    Some(b) => RawBytes::from(b.data),
-                    None => RawBytes::default(),
-                },
-            },
-            params_codec: 0,
+            params: bytes,
+            params_codec: codec,
             gas_limit: call.gas_limit,
             read_only: call.read_only,
             code_cid: Cid::default(),
@@ -396,26 +391,34 @@ pub mod structured {
 
     fn to_return_trace(ret: CallTreeReturn) -> ReturnTrace {
         match ret {
-            CallTreeReturn::Return(return_code) => ReturnTrace {
-                exit_code: return_code.exit_code.unwrap_or(0.into()),
-                r#return: match return_code.data {
-                    Either::Left(l) => l,
-                    Either::Right(r) => match r {
-                        Some(b) => RawBytes::from(b.data),
-                        None => RawBytes::default(),
-                    },
-                },
-                return_code: return_code.exit_code.unwrap_or(0.into()).value() as u64,
-            },
+            CallTreeReturn::Return(return_code) => {
+                let exit_code = return_code.exit_code.unwrap_or(0.into());
+                let (bytes, codec) = to_bytes_codec(return_code.data);
+                ReturnTrace {
+                    exit_code,
+                    r#return: bytes,
+                    return_codec: codec,
+                }
+            }
             CallTreeReturn::Abort(exit_code) => ReturnTrace {
                 exit_code: exit_code,
                 r#return: RawBytes::default(),
-                return_code: 0,
+                return_codec: 0,
             },
             CallTreeReturn::Error(_syscall_error) => ReturnTrace {
                 exit_code: ExitCode::from(0),
                 r#return: RawBytes::default(),
-                return_code: 0,
+                return_codec: 0,
+            },
+        }
+    }
+
+    fn to_bytes_codec(data: Either<RawBytes, Option<IpldBlock>>) -> (RawBytes, u64) {
+        match data {
+            Either::Left(l) => (l, 0),
+            Either::Right(r) => match r {
+                Some(b) => (RawBytes::from(b.data), b.codec),
+                None => (RawBytes::default(), 0),
             },
         }
     }
