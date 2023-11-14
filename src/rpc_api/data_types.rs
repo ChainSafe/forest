@@ -446,14 +446,19 @@ lotus_json_with_self!(ExecutionTrace);
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageTrace {
+    #[serde(with = "crate::lotus_json")]
     pub from: Address,
+    #[serde(with = "crate::lotus_json")]
     pub to: Address,
+    #[serde(with = "crate::lotus_json")]
     pub value: TokenAmount,
     pub method: u64,
+    #[serde(with = "crate::lotus_json")]
     pub params: RawBytes,
     pub params_codec: u64,
     pub gas_limit: Option<u64>,
     pub read_only: Option<bool>,
+    #[serde(with = "crate::lotus_json")]
     pub code_cid: Cid,
 }
 
@@ -463,6 +468,7 @@ lotus_json_with_self!(MessageTrace);
 #[serde(rename_all = "PascalCase")]
 pub struct ReturnTrace {
     pub exit_code: ExitCode,
+    #[serde(with = "crate::lotus_json")]
     pub r#return: RawBytes,
     pub return_code: u64,
 }
