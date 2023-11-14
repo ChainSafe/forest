@@ -442,8 +442,8 @@ async fn handle_network_message(
                     let peer_manager = Arc::clone(peer_manager);
                     Some(Arc::new(move |peer| {
                         peer_manager
-                            .get_peer_head(&peer)
-                            .map(|ts| ts.epoch() >= epoch)
+                            .get_peer_head_epoch(&peer)
+                            .map(|peer_head_epoch| peer_head_epoch >= epoch)
                             .unwrap_or_default()
                     }))
                 } else {

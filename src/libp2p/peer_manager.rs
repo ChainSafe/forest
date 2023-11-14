@@ -104,9 +104,13 @@ impl PeerManager {
         }
     }
 
-    pub fn get_peer_head(&self, peer_id: &PeerId) -> Option<Arc<Tipset>> {
+    /// Gets the head epoch of a peer
+    pub fn get_peer_head_epoch(&self, peer_id: &PeerId) -> Option<i64> {
         let peers = self.peers.read();
-        peers.full_peers.get(peer_id).and_then(|i| i.head.clone())
+        peers
+            .full_peers
+            .get(peer_id)
+            .and_then(|pi| pi.head.as_ref().map(|ts| ts.epoch()))
     }
 
     /// Returns true if peer is not marked as bad or not already in set.
