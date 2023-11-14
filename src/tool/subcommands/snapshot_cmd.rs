@@ -574,6 +574,7 @@ mod structured {
                 | ExecutionEvent::CallAbort(_)
                 | ExecutionEvent::CallError(_) => return Err(BuildCallTreeError::UnexpectedReturn),
                 ExecutionEvent::Log(_ignored) => {}
+                ExecutionEvent::InvokeActor(_cid) => {}
                 ExecutionEvent::Unknown(u) => {
                     return Err(BuildCallTreeError::UnrecognisedEvent(Box::new(u)))
                 }
@@ -719,6 +720,7 @@ mod structured {
                     ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
                     ExecutionEvent::Log(_ignored) => None,
+                    ExecutionEvent::InvokeActor(_cid) => None,
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
                     //       So that BuildCallTreeError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554

@@ -54,6 +54,7 @@ use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
+use utils::structured;
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -425,6 +426,14 @@ where
 
         let msg_cid = msg.cid().unwrap();
         let chain_msg = ChainMessage::Unsigned(msg.clone());
+        let events = apply_ret.exec_trace();
+        //dbg!(&events);
+        let result = structured::parse_events(events);
+        //dbg!(&result);
+        let trace = match result {
+            Ok(t) => t,
+            Err(_e) => None,
+        };
         Ok(InvocResultApi {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
@@ -432,6 +441,7 @@ where
             error: apply_ret.failure_info(),
             duration: 0,
             gas_cost: MessageGasCost::new(&chain_msg, apply_ret),
+            execution_trace: trace,
         })
     }
 

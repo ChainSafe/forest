@@ -6,6 +6,7 @@ use crate::shim::{
     error::ExitCode as ShimExitCode, gas::GasCharge as ShimGasCharge,
     kernel::SyscallError as ShimSyscallError,
 };
+use cid::Cid;
 use fvm2::trace::ExecutionEvent as E2;
 use fvm3::trace::ExecutionEvent as E3;
 use fvm4::trace::ExecutionEvent as E4;
@@ -20,6 +21,7 @@ pub enum ExecutionEvent {
     CallAbort(ShimExitCode),
     CallError(ShimSyscallError),
     Log(String),
+    InvokeActor(Cid),
     Unknown(Either<E3, Either<E4, E2>>),
 }
 
@@ -98,6 +100,7 @@ impl From<E3> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E3::CallError(err) => EShim::CallError(err.into()),
+            E3::InvokeActor(cid) => EShim::InvokeActor(cid),
             e => EShim::Unknown(Either::Left(e)),
         }
     }
@@ -129,6 +132,7 @@ impl From<E4> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E4::CallError(err) => EShim::CallError(err.into()),
+            E4::InvokeActor(cid) => EShim::InvokeActor(cid),
             e => EShim::Unknown(Either::Right(Either::Left(e))),
         }
     }

@@ -237,3 +237,186 @@ mod test {
         assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
     }
 }
+
+pub mod structured {
+    use crate::rpc_api::data_types::{ExecutionTrace, MessageTrace, ReturnTrace};
+    use std::collections::VecDeque;
+
+    use cid::Cid;
+    use serde_json::json;
+
+    use crate::{
+        interpreter::CalledAt,
+        lotus_json::LotusJson,
+        message::{ChainMessage, Message as _},
+        shim::{
+            address::Address,
+            error::ExitCode,
+            executor::ApplyRet,
+            gas::GasCharge,
+            kernel::{ErrorNumber, SyscallError},
+            trace::{Call, CallReturn, ExecutionEvent},
+        },
+    };
+    use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
+    use itertools::Either;
+
+    enum CallTreeReturn {
+        Return(CallReturn),
+        Abort(ExitCode),
+        Error(SyscallError),
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    pub enum BuildCallTreeError {
+        #[error("every ExecutionEvent::Return | ExecutionEvent::CallError should be preceded by an ExecutionEvent::Call, but this one wasn't")]
+        UnexpectedReturn,
+        #[error("every ExecutionEvent::Call should have a corresponding ExecutionEvent::Return, but this one didn't")]
+        NoReturn,
+        #[error("unrecognised ExecutionEvent variant: {0:?}")]
+        UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
+    }
+
+    pub fn parse_events(
+        events: Vec<ExecutionEvent>,
+    ) -> anyhow::Result<Option<ExecutionTrace>, BuildCallTreeError> {
+        let mut events = VecDeque::from(events);
+        let mut front_load_me = vec![];
+        let mut call_trees = vec![];
+
+        // we don't use a `for` loop so we can pass events them to inner parsers
+        while let Some(event) = events.pop_front() {
+            match event {
+                ExecutionEvent::GasCharge(gc) => front_load_me.push(gc),
+                ExecutionEvent::Call(call) => call_trees.push(ExecutionTrace::parse(call, {
+                    // if CallTree::parse took impl Iterator<Item = ExecutionEvent>
+                    // the compiler would infinitely recurse trying to resolve
+                    // &mut &mut &mut ..: Iterator
+                    // so use a VecDeque instead
+                    for gc in front_load_me.drain(..).rev() {
+                        events.push_front(ExecutionEvent::GasCharge(gc))
+                    }
+                    &mut events
+                })?),
+                ExecutionEvent::CallReturn(_)
+                | ExecutionEvent::CallAbort(_)
+                | ExecutionEvent::CallError(_) => return Err(BuildCallTreeError::UnexpectedReturn),
+                ExecutionEvent::Log(_ignored) => {}
+                ExecutionEvent::InvokeActor(_cid) => {}
+                ExecutionEvent::Unknown(u) => {
+                    return Err(BuildCallTreeError::UnrecognisedEvent(Box::new(u)))
+                }
+            }
+        }
+
+        if !front_load_me.is_empty() {
+            tracing::warn!(
+                "vm tracing: ignoring {} trailing gas charges",
+                front_load_me.len()
+            );
+        }
+
+        match call_trees.len() {
+            0 => Ok(None),
+            1 => Ok(Some(call_trees.remove(0))),
+            many => {
+                tracing::warn!(
+                    "vm tracing: ignoring {} call trees at the root level",
+                    many - 1
+                );
+                Ok(Some(call_trees.remove(0)))
+            }
+        }
+    }
+
+    impl ExecutionTrace {
+        fn parse(
+            call: Call,
+            events: &mut VecDeque<ExecutionEvent>,
+        ) -> Result<ExecutionTrace, BuildCallTreeError> {
+            let mut gas_charges = vec![];
+            let mut sub_calls = vec![];
+
+            // we don't use a for loop over `events` so we can pass them to recursive calls
+            while let Some(event) = events.pop_front() {
+                let found_return = match event {
+                    ExecutionEvent::GasCharge(gc) => {
+                        gas_charges.push(gc);
+                        None
+                    }
+                    ExecutionEvent::Call(call) => {
+                        sub_calls.push(Self::parse(call, events)?);
+                        None
+                    }
+                    ExecutionEvent::CallReturn(ret) => Some(CallTreeReturn::Return(ret)),
+                    ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
+                    ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
+                    ExecutionEvent::Log(_ignored) => None,
+                    ExecutionEvent::InvokeActor(_cid) => None,
+                    // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
+                    //       So that BuildCallTreeError::UnrecognisedEvent is never constructed
+                    //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
+                    ExecutionEvent::Unknown(u) => {
+                        return Err(BuildCallTreeError::UnrecognisedEvent(Box::new(u)))
+                    }
+                };
+
+                // commonise the return branch
+                if let Some(ret) = found_return {
+                    return Ok(ExecutionTrace {
+                        msg: to_message_trace(call),
+                        msg_rct: to_return_trace(ret),
+                    });
+                }
+            }
+
+            Err(BuildCallTreeError::NoReturn)
+        }
+    }
+
+    fn to_message_trace(call: Call) -> MessageTrace {
+        MessageTrace {
+            from: Address::new_id(call.from),
+            to: call.to,
+            value: call.value,
+            method: call.method_num,
+            params: match call.params {
+                Either::Left(l) => l,
+                Either::Right(r) => match r {
+                    Some(b) => RawBytes::from(b.data),
+                    None => RawBytes::default(),
+                },
+            },
+            params_codec: 0,
+            gas_limit: call.gas_limit,
+            read_only: call.read_only,
+            code_cid: Cid::default(),
+        }
+    }
+
+    fn to_return_trace(ret: CallTreeReturn) -> ReturnTrace {
+        match ret {
+            CallTreeReturn::Return(return_code) => ReturnTrace {
+                exit_code: return_code.exit_code.unwrap_or(0.into()),
+                r#return: match return_code.data {
+                    Either::Left(l) => l,
+                    Either::Right(r) => match r {
+                        Some(b) => RawBytes::from(b.data),
+                        None => RawBytes::default(),
+                    },
+                },
+                return_code: return_code.exit_code.unwrap_or(0.into()).value() as u64,
+            },
+            CallTreeReturn::Abort(exit_code) => ReturnTrace {
+                exit_code: exit_code,
+                r#return: RawBytes::default(),
+                return_code: 0,
+            },
+            CallTreeReturn::Error(_syscall_error) => ReturnTrace {
+                exit_code: ExitCode::from(0),
+                r#return: RawBytes::default(),
+                return_code: 0,
+            },
+        }
+    }
+}

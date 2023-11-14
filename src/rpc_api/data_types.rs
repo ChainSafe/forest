@@ -20,6 +20,7 @@ use crate::shim::{
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
+    error::ExitCode,
     executor::{ApplyRet, Receipt},
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
@@ -35,6 +36,7 @@ use fil_actor_interface::{
     power::Claim,
 };
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::RawBytes;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
@@ -386,6 +388,8 @@ pub struct InvocResult {
     pub duration: u64,
     #[serde(with = "crate::lotus_json")]
     pub gas_cost: MessageGasCost,
+    #[serde(with = "crate::lotus_json")]
+    pub execution_trace: Option<ExecutionTrace>,
 }
 
 lotus_json_with_self!(InvocResult);
@@ -427,3 +431,40 @@ impl MessageGasCost {
 }
 
 lotus_json_with_self!(MessageGasCost);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExecutionTrace {
+    #[serde(with = "crate::lotus_json")]
+    pub msg: MessageTrace,
+    #[serde(with = "crate::lotus_json")]
+    pub msg_rct: ReturnTrace,
+}
+
+lotus_json_with_self!(ExecutionTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageTrace {
+    pub from: Address,
+    pub to: Address,
+    pub value: TokenAmount,
+    pub method: u64,
+    pub params: RawBytes,
+    pub params_codec: u64,
+    pub gas_limit: Option<u64>,
+    pub read_only: Option<bool>,
+    pub code_cid: Cid,
+}
+
+lotus_json_with_self!(MessageTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ReturnTrace {
+    pub exit_code: ExitCode,
+    pub r#return: RawBytes,
+    pub return_code: u64,
+}
+
+lotus_json_with_self!(ReturnTrace);
