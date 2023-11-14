@@ -63,6 +63,7 @@ mod tests {
                 *block_not_exist.cid(),
                 TIMEOUT,
                 Some(request_tx),
+                None,
             );
             // Use a small timeout here
             tokio::task::spawn_blocking(move || request_rx.recv_timeout(Duration::from_secs(1)))
@@ -81,6 +82,7 @@ mod tests {
                 *block_exist.cid(),
                 TIMEOUT,
                 Some(request_tx),
+                Some(Arc::new(|_: PeerId| true)),
             );
             let success = tokio::task::spawn_blocking(move || request_rx.recv_timeout(TIMEOUT))
                 .await

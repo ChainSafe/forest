@@ -178,6 +178,7 @@ where
     pub async fn bitswap_get<TMessage: DeserializeOwned>(
         &self,
         content: Cid,
+        epoch: Option<i64>,
     ) -> Result<TMessage, String> {
         // Check if what we are fetching over Bitswap already exists in the
         // database. If it does, return it, else fetch over the network.
@@ -191,6 +192,7 @@ where
             .send_async(NetworkMessage::BitswapRequest {
                 cid: content,
                 response_channel: tx,
+                epoch,
             })
             .await
             .map_err(|_| "failed to send bitswap request, network receiver dropped")?;
@@ -246,7 +248,7 @@ where
             None => {
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
-                let peers = self.peer_manager.top_peers_shuffled().await;
+                let peers = self.peer_manager.top_peers_shuffled();
 
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
@@ -306,7 +308,7 @@ where
 
         // Log success for the global request with the latency from before sending.
         match SystemTime::now().duration_since(global_pre_time) {
-            Ok(t) => self.peer_manager.log_global_success(t).await,
+            Ok(t) => self.peer_manager.log_global_success(t),
             Err(e) => {
                 warn!("logged time less than before request: {}", e);
             }
@@ -350,7 +352,7 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                peer_manager.log_success(peer_id, res_duration).await;
+                peer_manager.log_success(peer_id, res_duration);
                 debug!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
@@ -360,12 +362,12 @@ where
                     RequestResponseError::ConnectionClosed
                     | RequestResponseError::DialFailure
                     | RequestResponseError::UnsupportedProtocols => {
-                        peer_manager.mark_peer_bad(peer_id).await;
+                        peer_manager.mark_peer_bad(peer_id);
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
                     RequestResponseError::Timeout => {
-                        peer_manager.log_failure(peer_id, res_duration).await;
+                        peer_manager.log_failure(peer_id, res_duration);
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
@@ -374,7 +376,7 @@ where
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
-                peer_manager.log_failure(peer_id, res_duration).await;
+                peer_manager.log_failure(peer_id, res_duration);
                 debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }

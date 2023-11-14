@@ -10,8 +10,8 @@ use std::{
 use crate::blocks::Tipset;
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
+use parking_lot::RwLock;
 use rand::seq::SliceRandom;
-use tokio::sync::RwLock;
 use tracing::{debug, trace, warn};
 
 use crate::libp2p::*;
@@ -74,7 +74,7 @@ pub struct PeerManager {
     /// Peer operation receiver
     peer_ops_rx: Receiver<PeerOperation>,
     /// Peer ban list, key is peer id, value is expiration time
-    peer_ban_list: RwLock<HashMap<PeerId, Option<Instant>>>,
+    peer_ban_list: tokio::sync::RwLock<HashMap<PeerId, Option<Instant>>>,
 }
 
 impl Default for PeerManager {
@@ -93,8 +93,8 @@ impl Default for PeerManager {
 impl PeerManager {
     /// Updates peer's heaviest tipset. If the peer does not exist in the set, a
     /// new `PeerInfo` will be generated.
-    pub async fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
-        let mut peers = self.peers.write().await;
+    pub fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
+        let mut peers = self.peers.write();
         trace!("Updating head for PeerId {}", &peer_id);
         if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
             pi.head = Some(ts);
@@ -104,17 +104,22 @@ impl PeerManager {
         }
     }
 
+    pub fn get_peer_head(&self, peer_id: &PeerId) -> Option<Arc<Tipset>> {
+        let peers = self.peers.read();
+        peers.full_peers.get(peer_id).and_then(|i| i.head.clone())
+    }
+
     /// Returns true if peer is not marked as bad or not already in set.
-    pub async fn is_peer_new(&self, peer_id: &PeerId) -> bool {
-        let peers = self.peers.read().await;
+    pub fn is_peer_new(&self, peer_id: &PeerId) -> bool {
+        let peers = self.peers.read();
         !peers.bad_peers.contains(peer_id) && !peers.full_peers.contains_key(peer_id)
     }
 
     /// Sort peers based on a score function with the success rate and latency
     /// of requests.
-    pub(in crate::libp2p) async fn sorted_peers(&self) -> Vec<PeerId> {
-        let peer_lk = self.peers.read().await;
-        let average_time = self.avg_global_time.read().await;
+    pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<PeerId> {
+        let peer_lk = self.peers.read();
+        let average_time = self.avg_global_time.read();
         let mut peers: Vec<_> = peer_lk
             .full_peers
             .iter()
@@ -138,10 +143,9 @@ impl PeerManager {
 
     /// Return shuffled slice of ordered peers from the peer manager. Ordering
     /// is based on failure rate and latency of the peer.
-    pub async fn top_peers_shuffled(&self) -> Vec<PeerId> {
+    pub fn top_peers_shuffled(&self) -> Vec<PeerId> {
         let mut peers: Vec<_> = self
             .sorted_peers()
-            .await
             .into_iter()
             .take(SHUFFLE_PEERS_PREFIX)
             .collect();
@@ -154,9 +158,9 @@ impl PeerManager {
 
     /// Logs a global request success. This just updates the average for the
     /// peer manager.
-    pub async fn log_global_success(&self, dur: Duration) {
+    pub fn log_global_success(&self, dur: Duration) {
         debug!("logging global success");
-        let mut avg_global = self.avg_global_time.write().await;
+        let mut avg_global = self.avg_global_time.write();
         if *avg_global == Duration::default() {
             *avg_global = dur;
         } else if dur < *avg_global {
@@ -170,9 +174,9 @@ impl PeerManager {
 
     /// Logs a success for the given peer, and updates the average request
     /// duration.
-    pub async fn log_success(&self, peer: PeerId, dur: Duration) {
+    pub fn log_success(&self, peer: PeerId, dur: Duration) {
         debug!("logging success for {:?}", peer);
-        let mut peers = self.peers.write().await;
+        let mut peers = self.peers.write();
         // Attempt to remove the peer and decrement bad peer count
         if peers.bad_peers.remove(&peer) {
             metrics::BAD_PEERS.dec();
@@ -188,9 +192,9 @@ impl PeerManager {
 
     /// Logs a failure for the given peer, and updates the average request
     /// duration.
-    pub async fn log_failure(&self, peer: PeerId, dur: Duration) {
+    pub fn log_failure(&self, peer: PeerId, dur: Duration) {
         debug!("logging failure for {:?}", peer);
-        let mut peers = self.peers.write().await;
+        let mut peers = self.peers.write();
         if !peers.bad_peers.contains(&peer) {
             metrics::PEER_FAILURE_TOTAL.inc();
             if !peers.full_peers.contains_key(&peer) {
@@ -204,8 +208,8 @@ impl PeerManager {
 
     /// Removes a peer from the set and returns true if the value was present
     /// previously
-    pub async fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
-        let mut peers = self.peers.write().await;
+    pub fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
+        let mut peers = self.peers.write();
         let removed = remove_peer(&mut peers, &peer_id);
         if removed {
             metrics::FULL_PEERS.dec();
@@ -221,8 +225,8 @@ impl PeerManager {
     }
 
     /// Remove peer from managed set, does not mark as bad
-    pub async fn remove_peer(&self, peer_id: &PeerId) -> bool {
-        let mut peers = self.peers.write().await;
+    pub fn remove_peer(&self, peer_id: &PeerId) -> bool {
+        let mut peers = self.peers.write();
         debug!("removed peer {}", peer_id);
         let removed = remove_peer(&mut peers, peer_id);
         if removed {

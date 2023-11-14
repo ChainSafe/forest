@@ -255,7 +255,7 @@ where
     ) {
         // Query the heaviest TipSet from the store
         let heaviest = chain_store.heaviest_tipset();
-        if network.peer_manager().is_peer_new(&peer_id).await {
+        if network.peer_manager().is_peer_new(&peer_id) {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
                 heaviest_tip_set: heaviest.cids(),
@@ -278,17 +278,17 @@ where
             // Update the peer metadata based on the response
             match response {
                 Some(_) => {
-                    network.peer_manager().log_success(peer_id, dur).await;
+                    network.peer_manager().log_success(peer_id, dur);
                 }
                 None => {
-                    network.peer_manager().log_failure(peer_id, dur).await;
+                    network.peer_manager().log_failure(peer_id, dur);
                 }
             }
         }
     }
 
     async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
-        network.peer_manager().remove_peer(&peer_id).await;
+        network.peer_manager().remove_peer(&peer_id);
     }
 
     async fn gossipsub_block_to_full_tipset(
@@ -313,14 +313,14 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<Message>(m))
+            .map(|m| network.bitswap_get::<Message>(m, Some(epoch)))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
         let secp_messages: Vec<_> = block
             .secpk_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<SignedMessage>(m))
+            .map(|m| network.bitswap_get::<SignedMessage>(m, Some(epoch)))
             .collect();
 
         let (bls_messages, secp_messages) =
@@ -511,8 +511,7 @@ where
         // Update the peer head
         network
             .peer_manager()
-            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
-            .await;
+            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
         metrics::PEER_TIPSET_EPOCH
             .with_label_values(&[source.to_string().as_str()])
             .set(tipset.epoch());

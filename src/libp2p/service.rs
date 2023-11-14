@@ -159,6 +159,7 @@ pub enum NetworkMessage {
     BitswapRequest {
         cid: Cid,
         response_channel: flume::Sender<bool>,
+        epoch: Option<i64>,
     },
     JSONRPCRequest {
         method: NetRPCMethods,
@@ -323,7 +324,8 @@ where
                             self.cs.clone(),
                             bitswap_request_manager.clone(),
                             message,
-                            &self.network_sender_out).await;
+                            &self.network_sender_out,
+                            &self.peer_manager).await;
                     }
                     None => { break; }
                 },
@@ -386,6 +388,7 @@ async fn handle_network_message(
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
+    peer_manager: &Arc<PeerManager>,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -428,8 +431,25 @@ async fn handle_network_message(
         NetworkMessage::BitswapRequest {
             cid,
             response_channel,
+            epoch,
         } => {
-            bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, Some(response_channel));
+            bitswap_request_manager.get_block(
+                store,
+                cid,
+                BITSWAP_TIMEOUT,
+                Some(response_channel),
+                if let Some(epoch) = epoch {
+                    let peer_manager = Arc::clone(peer_manager);
+                    Some(Arc::new(move |peer| {
+                        peer_manager
+                            .get_peer_head(&peer)
+                            .map(|ts| ts.epoch() >= epoch)
+                            .unwrap_or_default()
+                    }))
+                } else {
+                    None
+                },
+            );
         }
         NetworkMessage::JSONRPCRequest { method } => {
             match method {
@@ -651,7 +671,7 @@ async fn handle_hello_event(
             error: _,
         } => {
             hello.on_error(&request_id);
-            peer_manager.mark_peer_bad(peer).await;
+            peer_manager.mark_peer_bad(peer);
         }
         request_response::Event::InboundFailure {
             request_id,

@@ -28,7 +28,6 @@ struct ResponseChannels {
 
 /// Request manager implementation that is optimized for Filecoin network
 /// usage
-#[derive(Debug)]
 pub struct BitswapRequestManager {
     outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
     outbound_request_rx: flume::Receiver<(PeerId, BitswapRequest)>,
@@ -79,6 +78,7 @@ impl BitswapRequestManager {
         cid: Cid,
         timeout: Duration,
         responder: Option<flume::Sender<bool>>,
+        validate_peer: Option<Arc<dyn Fn(PeerId) -> bool + Send + Sync>>,
     ) {
         let start = Instant::now();
         let timer = metrics::GET_BLOCK_TIME.start_timer();
@@ -87,10 +87,11 @@ impl BitswapRequestManager {
             let mut success = store.contains(&cid).unwrap_or_default();
             if !success {
                 let deadline = start.checked_add(timeout).expect("Infallible");
-                success =
-                    task::spawn_blocking(move || self.get_block_sync(store_cloned, cid, deadline))
-                        .await
-                        .unwrap_or_default();
+                success = task::spawn_blocking(move || {
+                    self.get_block_sync(store_cloned, cid, deadline, validate_peer)
+                })
+                .await
+                .unwrap_or_default();
                 // Spin check db when `get_block_sync` fails fast,
                 // which means there is other task actually processing the same `cid`
                 while !success && Instant::now() < deadline {
@@ -120,6 +121,7 @@ impl BitswapRequestManager {
         store: Arc<impl BitswapStoreReadWrite>,
         cid: Cid,
         deadline: Instant,
+        validate_peer: Option<Arc<dyn Fn(PeerId) -> bool + Send + Sync>>,
     ) -> bool {
         // Fail fast here when the given `cid` is being processed by other tasks
         if self.response_channels.read().contains_key(&cid) {
@@ -138,6 +140,12 @@ impl BitswapRequestManager {
 
         let have_request = BitswapRequest::new_have(cid).send_dont_have(false);
         for &peer in self.peers.read().iter() {
+            if let Some(validate_peer) = &validate_peer {
+                if !validate_peer(peer) {
+                    continue;
+                }
+            }
+
             if let Err(e) = self.outbound_request_tx.send((peer, have_request.clone())) {
                 warn!("{e}");
             }
