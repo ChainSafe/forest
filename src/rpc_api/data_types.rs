@@ -439,6 +439,8 @@ pub struct ExecutionTrace {
     pub msg: MessageTrace,
     #[serde(with = "crate::lotus_json")]
     pub msg_rct: ReturnTrace,
+    #[serde(with = "crate::lotus_json")]
+    pub gas_charges: Vec<GasTrace>,
 }
 
 lotus_json_with_self!(ExecutionTrace);
@@ -474,3 +476,19 @@ pub struct ReturnTrace {
 }
 
 lotus_json_with_self!(ReturnTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct GasTrace {
+    pub name: String,
+    #[serde(rename = "tg")]
+    pub total_gas: u64,
+    #[serde(rename = "cg")]
+    pub compute_gas: u64,
+    #[serde(rename = "sg")]
+    pub storage_gas: u64,
+    #[serde(rename = "tt")]
+    pub time_taken: u64,
+}
+
+lotus_json_with_self!(GasTrace);

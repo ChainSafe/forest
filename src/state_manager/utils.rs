@@ -239,7 +239,7 @@ mod test {
 }
 
 pub mod structured {
-    use crate::rpc_api::data_types::{ExecutionTrace, MessageTrace, ReturnTrace};
+    use crate::rpc_api::data_types::{ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
     use std::collections::VecDeque;
 
     use cid::Cid;
@@ -341,7 +341,7 @@ pub mod structured {
             while let Some(event) = events.pop_front() {
                 let found_return = match event {
                     ExecutionEvent::GasCharge(gc) => {
-                        gas_charges.push(gc);
+                        gas_charges.push(to_gas_trace(gc));
                         None
                     }
                     ExecutionEvent::Call(call) => {
@@ -366,6 +366,7 @@ pub mod structured {
                     return Ok(ExecutionTrace {
                         msg: to_message_trace(call),
                         msg_rct: to_return_trace(ret),
+                        gas_charges,
                     });
                 }
             }
@@ -421,6 +422,16 @@ pub mod structured {
                 Some(b) => (RawBytes::from(b.data), b.codec),
                 None => (RawBytes::default(), 0),
             },
+        }
+    }
+
+    fn to_gas_trace(gc: GasCharge) -> GasTrace {
+        GasTrace {
+            name: gc.name().into(),
+            total_gas: gc.total().round_up(),
+            compute_gas: gc.compute_gas().round_up(),
+            storage_gas: gc.other_gas().round_up(),
+            time_taken: 0,
         }
     }
 }
