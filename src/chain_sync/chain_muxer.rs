@@ -126,6 +126,12 @@ enum PubsubMessageProcessingStrategy {
     DoNotProcess,
 }
 
+/// Represents whether received blocks should be expanded to full tipsets via bitswap
+enum GossipBlockProcessingStrategy {
+    Discard,
+    GetFullTipset,
+}
+
 /// The `ChainMuxer` handles events from the P2P network and orchestrates the
 /// chain synchronization.
 pub struct ChainMuxer<DB, M> {
@@ -354,10 +360,11 @@ where
         bad_block_cache: Arc<BadBlockCache>,
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
+        gossip_block_processing_strategy: GossipBlockProcessingStrategy,
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u64,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
-        let (tipset, source) = match event {
+        let (tipset_opt, source) = match event {
             NetworkEvent::HelloRequestInbound { source, request } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_REQUEST_INBOUND])
@@ -386,7 +393,7 @@ where
                         return Err(why);
                     }
                 };
-                (tipset, source)
+                (Some(tipset), source)
             }
             NetworkEvent::HelloRequestOutbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
@@ -436,9 +443,16 @@ where
                         .with_label_values(&[metrics::values::PUBSUB_BLOCK])
                         .inc();
                     // Assemble full tipset from block
-                    let tipset =
-                        Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
-                    (tipset, source)
+                    if let GossipBlockProcessingStrategy::GetFullTipset =
+                        gossip_block_processing_strategy
+                    {
+                        let tipset =
+                            Self::gossipsub_block_to_full_tipset(b, source, network.clone())
+                                .await?;
+                        (Some(tipset), source)
+                    } else {
+                        (None, source)
+                    }
                 }
                 PubsubMessage::Message(m) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
@@ -476,48 +490,52 @@ where
             }
         };
 
-        if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
-            < chain_store.heaviest_tipset().epoch()
-        {
-            debug!(
-                "Skip processing tipset at epoch {} from {source} that is too old",
-                tipset.epoch()
-            );
-            return Ok(None);
+        if let Some(tipset) = tipset_opt {
+            if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
+                < chain_store.heaviest_tipset().epoch()
+            {
+                debug!(
+                    "Skip processing tipset at epoch {} from {source} that is too old",
+                    tipset.epoch()
+                );
+                return Ok(None);
+            }
+
+            // Validate tipset
+            if let Err(why) = TipsetValidator(&tipset).validate(
+                chain_store.clone(),
+                bad_block_cache.clone(),
+                genesis.clone(),
+                block_delay,
+            ) {
+                metrics::INVALID_TIPSET_TOTAL.inc();
+                warn!(
+                    "Validating tipset received through GossipSub failed: {}",
+                    why
+                );
+                return Err(why.into());
+            }
+
+            // Store block messages in the block store
+            for block in tipset.blocks() {
+                crate::chain::persist_objects(&chain_store.db, &[block.header()])?;
+                crate::chain::persist_objects(&chain_store.db, block.bls_msgs())?;
+                crate::chain::persist_objects(&chain_store.db, block.secp_msgs())?;
+            }
+
+            // Update the peer head
+            network
+                .peer_manager()
+                .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
+                .await;
+            metrics::PEER_TIPSET_EPOCH
+                .with_label_values(&[source.to_string().as_str()])
+                .set(tipset.epoch());
+
+            Ok(Some((tipset, source)))
+        } else {
+            Ok(None)
         }
-
-        // Validate tipset
-        if let Err(why) = TipsetValidator(&tipset).validate(
-            chain_store.clone(),
-            bad_block_cache.clone(),
-            genesis.clone(),
-            block_delay,
-        ) {
-            metrics::INVALID_TIPSET_TOTAL.inc();
-            warn!(
-                "Validating tipset received through GossipSub failed: {}",
-                why
-            );
-            return Err(why.into());
-        }
-
-        // Store block messages in the block store
-        for block in tipset.blocks() {
-            crate::chain::persist_objects(&chain_store.db, &[block.header()])?;
-            crate::chain::persist_objects(&chain_store.db, block.bls_msgs())?;
-            crate::chain::persist_objects(&chain_store.db, block.secp_msgs())?;
-        }
-
-        // Update the peer head
-        network
-            .peer_manager()
-            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
-            .await;
-        metrics::PEER_TIPSET_EPOCH
-            .with_label_values(&[source.to_string().as_str()])
-            .set(tipset.epoch());
-
-        Ok(Some((tipset, source)))
     }
 
     fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
@@ -548,6 +566,7 @@ where
                     bad_block_cache.clone(),
                     mem_pool.clone(),
                     genesis.clone(),
+                    GossipBlockProcessingStrategy::GetFullTipset,
                     PubsubMessageProcessingStrategy::Process,
                     block_delay,
                 )
@@ -656,24 +675,24 @@ where
                     }
                 };
 
-                let (_tipset, _) = match Self::process_gossipsub_event(
+                match Self::process_gossipsub_event(
                     event,
                     network.clone(),
                     chain_store.clone(),
                     bad_block_cache.clone(),
                     mem_pool.clone(),
                     genesis.clone(),
+                    GossipBlockProcessingStrategy::Discard,
                     PubsubMessageProcessingStrategy::DoNotProcess,
                     block_delay,
                 )
                 .await
                 {
-                    Ok(Some((tipset, source))) => (tipset, source),
-                    Ok(None) => continue,
                     Err(why) => {
                         debug!("Processing GossipSub event failed: {:?}", why);
                         continue;
                     }
+                    _ => continue,
                 };
 
                 // Drop tipsets while we are bootstrapping
@@ -765,6 +784,7 @@ where
                         bad_block_cache.clone(),
                         mem_pool.clone(),
                         genesis.clone(),
+                        GossipBlockProcessingStrategy::GetFullTipset,
                         PubsubMessageProcessingStrategy::Process,
                         block_delay,
                     )
