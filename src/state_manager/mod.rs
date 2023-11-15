@@ -443,7 +443,7 @@ where
         Ok(InvocResultApi {
             msg: msg.clone(),
             msg_rct,
-            msg_cid: msg_cid,
+            msg_cid,
             error,
             duration: 0,
             gas_cost,
