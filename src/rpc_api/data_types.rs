@@ -491,7 +491,7 @@ pub struct ReturnTrace {
 
 lotus_json_with_self!(ReturnTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GasTrace {
     pub name: String,
@@ -506,3 +506,13 @@ pub struct GasTrace {
 }
 
 lotus_json_with_self!(GasTrace);
+
+impl PartialEq for GasTrace {
+    fn eq(&self, other: &Self) -> bool {
+        // Ignore tt
+        self.name == other.name
+            && self.total_gas == other.total_gas
+            && self.compute_gas == other.compute_gas
+            && self.storage_gas == other.storage_gas
+    }
+}
