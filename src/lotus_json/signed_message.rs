@@ -16,6 +16,13 @@ pub struct SignedMessageLotusJson {
     cid: LotusJson<Option<Cid>>,
 }
 
+impl SignedMessageLotusJson {
+    pub fn with_cid(mut self, cid: Cid) -> Self {
+        self.cid = LotusJson(Some(cid));
+        self
+    }
+}
+
 impl HasLotusJson for SignedMessage {
     type LotusJson = SignedMessageLotusJson;
 
