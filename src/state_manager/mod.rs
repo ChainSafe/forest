@@ -378,6 +378,7 @@ where
         msg: &mut Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
+        check_gas: bool,
     ) -> Result<InvocResultApi, Error> {
         // TODO: we will handle that when comparing results in api compare
         CurrentNetwork::set_global(Network::Mainnet);
@@ -426,21 +427,26 @@ where
 
         let msg_cid = msg.cid().unwrap();
         let chain_msg = ChainMessage::Unsigned(msg.clone());
-        let events = apply_ret.exec_trace();
-        //dbg!(&events);
-        let result = structured::parse_events(events);
-        //dbg!(&result);
+
+        let result = structured::parse_events(apply_ret.exec_trace());
         let trace = match result {
             Ok(t) => t,
             Err(_e) => None,
         };
+        let msg_rct = Some(apply_ret.msg_receipt());
+        let error = apply_ret.failure_info();
+        let gas_cost = if check_gas {
+            MessageGasCost::new(&chain_msg, apply_ret)
+        } else {
+            MessageGasCost::default()
+        };
         Ok(InvocResultApi {
             msg: msg.clone(),
-            msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg_cid, //chain_msg.cid().unwrap(),
-            error: apply_ret.failure_info(),
+            msg_rct,
+            msg_cid: msg_cid,
+            error,
             duration: 0,
-            gas_cost: MessageGasCost::new(&chain_msg, apply_ret),
+            gas_cost,
             execution_trace: trace,
         })
     }
@@ -454,7 +460,7 @@ where
     ) -> Result<InvocResultApi, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
-        self.call_raw(message, chain_rand, &ts)
+        self.call_raw(message, chain_rand, &ts, false)
     }
 
     /// Computes message on the given [Tipset] state, after applying other

@@ -394,11 +394,11 @@ pub struct InvocResult {
 
 lotus_json_with_self!(InvocResult);
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageGasCost {
     #[serde(with = "crate::lotus_json")]
-    pub message: Cid,
+    pub message: Option<Cid>,
     #[serde(with = "crate::lotus_json")]
     pub gas_used: TokenAmount,
     #[serde(with = "crate::lotus_json")]
@@ -418,7 +418,7 @@ pub struct MessageGasCost {
 impl MessageGasCost {
     pub fn new(message: &ChainMessage, apply_ret: ApplyRet) -> Self {
         Self {
-            message: message.cid().unwrap(),
+            message: Some(message.cid().unwrap()),
             gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),
             base_fee_burn: apply_ret.base_fee_burn(),
             over_estimation_burn: apply_ret.over_estimation_burn(),
