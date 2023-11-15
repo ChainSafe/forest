@@ -12,6 +12,7 @@ use std::{
 use crate::cid_collections::CidHashMap;
 use ahash::{HashSet, HashSetExt};
 use flume::TryRecvError;
+use futures::StreamExt;
 use libipld::{Block, Cid};
 use libp2p::PeerId;
 use parking_lot::RwLock;
@@ -30,28 +31,65 @@ struct ResponseChannels {
 /// usage
 #[derive(Debug)]
 pub struct BitswapRequestManager {
-    outbound_request_tx: flume::Sender<(PeerId, BitswapRequest)>,
-    outbound_request_rx: flume::Receiver<(PeerId, BitswapRequest)>,
+    outbound_have_request_tx: flume::Sender<(PeerId, Cid)>,
+    outbound_have_request_rx: flume::Receiver<(PeerId, Cid)>,
+    outbound_cancel_request_tx: flume::Sender<(PeerId, Cid)>,
+    outbound_cancel_request_rx: flume::Receiver<(PeerId, Cid)>,
+    outbound_block_request_tx: flume::Sender<(PeerId, Cid)>,
+    outbound_block_request_rx: flume::Receiver<(PeerId, Cid)>,
     peers: RwLock<HashSet<PeerId>>,
     response_channels: RwLock<CidHashMap<ResponseChannels>>,
 }
 
 impl BitswapRequestManager {
-    /// A receiver channel of the outbound `bitswap` network events that the
+    /// A receiver channel of the outbound `bitswap` network requests that the
     /// [`BitswapRequestManager`] emits. The messages from this channel need
     /// to be sent with [`BitswapBehaviour::send_request`] to make
     /// [`BitswapRequestManager::get_block`] work.
-    pub fn outbound_request_rx(&self) -> &flume::Receiver<(PeerId, BitswapRequest)> {
-        &self.outbound_request_rx
+    pub fn outbound_request_stream(
+        &self,
+    ) -> impl futures::stream::Stream<Item = (PeerId, BitswapRequest)> + '_ {
+        type MapperType = fn((libp2p::PeerId, Cid)) -> (libp2p::PeerId, BitswapRequest);
+
+        fn new_block((peer, cid): (PeerId, Cid)) -> (PeerId, BitswapRequest) {
+            (peer, BitswapRequest::new_block(cid).send_dont_have(false))
+        }
+
+        fn new_have((peer, cid): (PeerId, Cid)) -> (PeerId, BitswapRequest) {
+            (peer, BitswapRequest::new_have(cid).send_dont_have(false))
+        }
+
+        fn new_cancel((peer, cid): (PeerId, Cid)) -> (PeerId, BitswapRequest) {
+            (peer, BitswapRequest::new_cancel(cid).send_dont_have(false))
+        }
+
+        let streams = vec![
+            self.outbound_block_request_rx
+                .stream()
+                .map(new_block as MapperType),
+            self.outbound_have_request_rx
+                .stream()
+                .map(new_have as MapperType),
+            self.outbound_cancel_request_rx
+                .stream()
+                .map(new_cancel as MapperType),
+        ];
+        futures::stream::select_all(streams)
     }
 }
 
 impl Default for BitswapRequestManager {
     fn default() -> Self {
-        let (outbound_request_tx, outbound_request_rx) = flume::unbounded();
+        let (outbound_have_request_tx, outbound_have_request_rx) = flume::unbounded();
+        let (outbound_cancel_request_tx, outbound_cancel_request_rx) = flume::unbounded();
+        let (outbound_block_request_tx, outbound_block_request_rx) = flume::unbounded();
         Self {
-            outbound_request_tx,
-            outbound_request_rx,
+            outbound_have_request_tx,
+            outbound_have_request_rx,
+            outbound_cancel_request_tx,
+            outbound_cancel_request_rx,
+            outbound_block_request_tx,
+            outbound_block_request_rx,
             peers: RwLock::new(HashSet::new()),
             response_channels: RwLock::new(CidHashMap::new()),
         }
@@ -136,20 +174,18 @@ impl BitswapRequestManager {
             self.response_channels.write().insert(cid, channels);
         }
 
-        let have_request = BitswapRequest::new_have(cid).send_dont_have(false);
         for &peer in self.peers.read().iter() {
-            if let Err(e) = self.outbound_request_tx.send((peer, have_request.clone())) {
+            if let Err(e) = self.outbound_have_request_tx.send((peer, cid)) {
                 warn!("{e}");
             }
         }
 
         let mut success = false;
         let mut block_data = None;
-        let block_request = BitswapRequest::new_block(cid).send_dont_have(false);
         while !success && Instant::now() < deadline {
             match block_have_rx.try_recv() {
                 Ok(peer) => {
-                    _ = self.outbound_request_tx.send((peer, block_request.clone()));
+                    _ = self.outbound_block_request_tx.send((peer, cid));
                 }
                 Err(TryRecvError::Empty) => {}
                 Err(TryRecvError::Disconnected) => {
@@ -232,12 +268,8 @@ impl BitswapRequestManager {
                     // When a node receives blocks that it asked for, the node should send out a
                     // notification called a 'Cancel' to tell its peers that the
                     // node no longer wants those blocks.
-                    let cancel_request = BitswapRequest::new_cancel(cid);
                     for &peer in self.peers.read().iter() {
-                        if let Err(e) = self
-                            .outbound_request_tx
-                            .send((peer, cancel_request.clone()))
-                        {
+                        if let Err(e) = self.outbound_cancel_request_tx.send((peer, cid)) {
                             warn!("{e}");
                         }
                     }
