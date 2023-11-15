@@ -375,7 +375,7 @@ pub struct SectorOnChainInfo {
 
 lotus_json_with_self!(SectorOnChainInfo);
 
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -393,6 +393,18 @@ pub struct InvocResult {
 }
 
 lotus_json_with_self!(InvocResult);
+
+impl PartialEq for InvocResult {
+    fn eq(&self, other: &Self) -> bool {
+        // Ignore duration
+        self.msg == other.msg
+            && self.msg_cid == other.msg_cid
+            && self.msg_rct == other.msg_rct
+            && self.error == other.error
+            && self.gas_cost == other.gas_cost
+            && self.execution_trace == other.execution_trace
+    }
+}
 
 #[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
