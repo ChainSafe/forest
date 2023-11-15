@@ -434,7 +434,7 @@ where
             Err(_e) => None,
         };
         let msg_rct = Some(apply_ret.msg_receipt());
-        let error = apply_ret.failure_info();
+        let error = apply_ret.failure_info().unwrap_or_default();
         let gas_cost = if check_gas {
             MessageGasCost::new(&chain_msg, apply_ret)
         } else {

@@ -384,7 +384,7 @@ pub struct InvocResult {
     pub msg_cid: Cid,
     #[serde(with = "crate::lotus_json")]
     pub msg_rct: Option<Receipt>,
-    pub error: Option<String>,
+    pub error: String,
     pub duration: u64,
     #[serde(with = "crate::lotus_json")]
     pub gas_cost: MessageGasCost,
