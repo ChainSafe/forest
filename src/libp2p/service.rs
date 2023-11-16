@@ -86,7 +86,7 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
-pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(10);
+pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
 

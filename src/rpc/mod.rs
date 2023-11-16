@@ -109,6 +109,7 @@ where
             .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
+            .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
