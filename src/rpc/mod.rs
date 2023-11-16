@@ -81,6 +81,10 @@ where
                 CHAIN_GET_MESSAGES_IN_TIPSET,
                 chain_api::chain_get_messages_in_tipset::<DB>,
             )
+            .with_method(
+                CHAIN_GET_PARENT_MESSAGES,
+                chain_api::chain_get_parent_message::<DB>,
+            )
             // Message Pool API
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
