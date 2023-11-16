@@ -116,6 +116,7 @@ where
                 STATE_GET_RANDOMNESS_FROM_BEACON,
                 state_get_randomness_from_beacon::<DB>,
             )
+            .with_method(STATE_READ_STATE, state_read_state::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)

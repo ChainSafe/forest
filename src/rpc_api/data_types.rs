@@ -312,6 +312,16 @@ pub struct ApiActorState {
 
 lotus_json_with_self!(ApiActorState);
 
+impl ApiActorState {
+    pub fn new(balance: TokenAmount, code: Cid, state: Ipld) -> Self {
+        Self {
+            balance,
+            code,
+            state,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
