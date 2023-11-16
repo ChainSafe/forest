@@ -151,7 +151,7 @@ impl RpcTest {
 
                 let diff = TextDiff::from_lines(&forest_json, &lotus_json);
                 let mut output = diff.unified_diff();
-                println!("{}", output.context_radius(5));
+                println!("{}\n---", output.context_radius(5));
             }
             is_valid
         })
@@ -350,15 +350,13 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
 
         if let Some(block) = tipset.blocks().first() {
             // For testing execution trace purposes
-            if block.epoch() == 1073290 {
-                let (_bls_messages, secp_messages) =
-                    crate::chain::store::block_messages(&store, block)?;
-                if let Some(m) = secp_messages.get(0) {
-                    tests.push(RpcTest::identity_diff(ApiInfo::state_call_req(
-                        m.message().clone(),
-                        shared_tipset.clone().key().clone(),
-                    )));
-                }
+            let (_bls_messages, secp_messages) =
+                crate::chain::store::block_messages(&store, block)?;
+            if let Some(m) = secp_messages.get(0) {
+                tests.push(RpcTest::identity_diff(ApiInfo::state_call_req(
+                    m.message().clone(),
+                    shared_tipset.clone().key().clone(),
+                )));
             }
         }
     }
