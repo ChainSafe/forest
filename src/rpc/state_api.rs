@@ -17,6 +17,8 @@ use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
+use cid::multihash::Code::Blake2b256;
+use cid::multihash::MultihashDigest;
 use cid::Cid;
 use fil_actor_interface::market;
 use futures::StreamExt;
@@ -389,7 +391,7 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
         .get_actor(&addr, *ts.parent_state())?
         .ok_or("Actor address could not be resolved")?;
     let blk = data.state_manager.blockstore().get(&actor.state)?.unwrap();
-    let state = fvm_ipld_encoding::from_slice::<Cid>(&blk)?;
+    let state = Cid::new_v1(fvm_ipld_encoding::CBOR, Blake2b256.digest(&blk));
     Ok(ApiActorState::new(
         actor.balance.clone().into(),
         actor.code,
