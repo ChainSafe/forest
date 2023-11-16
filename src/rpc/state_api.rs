@@ -17,8 +17,6 @@ use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
-use cid::multihash::Code::Blake2b256;
-use cid::multihash::MultihashDigest;
 use cid::Cid;
 use fil_actor_interface::market;
 use futures::StreamExt;
@@ -384,17 +382,22 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
 pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
-) -> Result<ApiActorState, JsonRpcError> {
+) -> Result<LotusJson<ApiActorState>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&addr, *ts.parent_state())?
         .ok_or("Actor address could not be resolved")?;
-    let blk = data.state_manager.blockstore().get(&actor.state)?.unwrap();
-    let state = Cid::new_v1(fvm_ipld_encoding::CBOR, Blake2b256.digest(&blk));
-    Ok(ApiActorState::new(
+    let blk = data
+        .state_manager
+        .blockstore()
+        .get(&actor.state)?
+        .ok_or("Failed to get block from blockstore")?;
+    let state = fvm_ipld_encoding::from_slice::<Vec<Cid>>(&blk)?[0];
+
+    Ok(LotusJson(ApiActorState::new(
         actor.balance.clone().into(),
         actor.code,
         Ipld::Link(state),
-    ))
+    )))
 }

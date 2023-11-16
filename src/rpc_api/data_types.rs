@@ -299,7 +299,7 @@ impl HasLotusJson for ActorState {
         )
     }
 }
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
     #[serde(with = "crate::lotus_json")]
@@ -307,9 +307,18 @@ pub struct ApiActorState {
     #[serde(with = "crate::lotus_json")]
     code: Cid,
     #[serde(with = "crate::lotus_json")]
+    state: ApiState,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "PascalCase")]
+struct ApiState {
+    #[serde(rename = "BuiltinActors")]
+    #[serde(with = "crate::lotus_json")]
     state: Ipld,
 }
 
+lotus_json_with_self!(ApiState);
 lotus_json_with_self!(ApiActorState);
 
 impl ApiActorState {
@@ -317,7 +326,7 @@ impl ApiActorState {
         Self {
             balance,
             code,
-            state,
+            state: ApiState { state },
         }
     }
 }
