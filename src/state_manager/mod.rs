@@ -379,7 +379,6 @@ where
         msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
-        check_gas: bool,
     ) -> Result<InvocResultApi, Error> {
         // TODO: we will handle that when comparing results in api compare
         CurrentNetwork::set_global(Network::Mainnet);
@@ -428,11 +427,8 @@ where
         // If the fee cap is set to zero, make gas free
         // TODO
 
-        let (apply_ret, gas_info) = if check_gas {
-            todo!()
-        } else {
-            (vm.apply_implicit_message(&msg)?, MessageGasCost::default())
-        };
+        let apply_ret = vm.apply_implicit_message(&msg)?;
+        let gas_info = MessageGasCost::default();
 
         let result = structured::parse_events(apply_ret.exec_trace());
         let trace = match result {
@@ -461,7 +457,7 @@ where
     ) -> Result<InvocResultApi, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
-        self.call_raw(message, chain_rand, &ts, false)
+        self.call_raw(message, chain_rand, &ts)
     }
 
     /// Computes message on the given [Tipset] state, after applying other
