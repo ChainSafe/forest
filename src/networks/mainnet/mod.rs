@@ -151,9 +151,10 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Watermelon,
-            epoch: 3_431_940,
+            // 2023-11-21T13:00:00Z
+            epoch: 3_469_380,
             bundle: Some(
-                Cid::try_from("bafy2bzacecooh5cjxkmraawn7wvmrx7k5hwdmbvqdteujr33mnaeclsazyb6a")
+                Cid::try_from("bafy2bzaceapkgfggvxyllnmuogtwasmsv5qi2qzhc2aybockd6kag2g5lzaio")
                     .unwrap(),
             ),
         },
