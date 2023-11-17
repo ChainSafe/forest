@@ -428,7 +428,7 @@ pub struct MessageGasCost {
 }
 
 impl MessageGasCost {
-    pub fn new(message: &ChainMessage, apply_ret: ApplyRet) -> Self {
+    pub fn new(message: &ChainMessage, apply_ret: &ApplyRet) -> Self {
         Self {
             message: Some(message.cid().unwrap()),
             gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),

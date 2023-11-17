@@ -375,7 +375,7 @@ where
     #[instrument(skip(self, rand))]
     fn call_raw(
         self: &Arc<Self>,
-        msg: &mut Message,
+        msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
         check_gas: bool,
@@ -383,20 +383,22 @@ where
         // TODO: we will handle that when comparing results in api compare
         CurrentNetwork::set_global(Network::Mainnet);
 
-        let bstate = tipset.parent_state();
-        let bheight = tipset.epoch();
+        let mut msg = msg.clone();
+
+        let state_cid = tipset.parent_state();
+        let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
-                state_tree_root: *bstate,
-                epoch: bheight,
+                state_tree_root: *state_cid,
+                epoch: height,
                 rand: Box::new(rand),
                 base_fee: TokenAmount::zero(),
                 circ_supply: genesis_info.get_circulating_supply(
-                    bheight,
+                    height,
                     &self.blockstore_owned(),
-                    bstate,
+                    state_cid,
                 )?,
                 chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
@@ -406,27 +408,35 @@ where
             VMTrace::Traced,
         )?;
 
-        if msg.gas_limit == 0 {
-            msg.gas_limit = 10000000000;
-        }
-
-        let actor = self
-            .get_actor(&msg.from, *bstate)?
-            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-        msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(msg)?;
-        trace!(
-            "gas limit {:},gas premium{:?},value {:?}",
-            msg.gas_limit,
-            msg.gas_premium,
-            msg.value
-        );
-        if let Some(err) = &apply_ret.failure_info() {
-            warn!("chain call failed: {:?}", err);
-        }
-
         let msg_cid = msg.cid().unwrap();
         let chain_msg = ChainMessage::Unsigned(msg.clone());
+
+        let actor = self
+            .get_actor(&msg.from, *state_cid)?
+            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
+        msg.sequence = actor.sequence;
+        vm.apply_message(&chain_msg)?;
+
+        // We flush to get the VM's view of the state tree after applying the above messages
+        // This is needed to get the correct nonce from the actor state to match the VM
+        let state_cid = vm.flush()?;
+
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+
+        let from_actor = state
+            .get_actor(&msg.from())?
+            .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
+
+        msg.sequence = from_actor.sequence;
+
+        // If the fee cap is set to zero, make gas free
+        // TODO
+
+        let (apply_ret, gas_info) = if check_gas {
+            todo!()
+        } else {
+            (vm.apply_implicit_message(&msg)?, MessageGasCost::default())
+        };
 
         let result = structured::parse_events(apply_ret.exec_trace());
         let trace = match result {
@@ -435,18 +445,13 @@ where
         };
         let msg_rct = Some(apply_ret.msg_receipt());
         let error = apply_ret.failure_info().unwrap_or_default();
-        let gas_cost = if check_gas {
-            MessageGasCost::new(&chain_msg, apply_ret)
-        } else {
-            MessageGasCost::default()
-        };
         Ok(InvocResultApi {
             msg: msg.clone(),
             msg_rct,
             msg_cid,
             error,
             duration: 0,
-            gas_cost,
+            gas_cost: gas_info,
             execution_trace: trace,
         })
     }
@@ -455,7 +460,7 @@ where
     /// changes.
     pub fn call(
         self: &Arc<Self>,
-        message: &mut Message,
+        message: &Message,
         tipset: Option<Arc<Tipset>>,
     ) -> Result<InvocResultApi, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
