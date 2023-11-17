@@ -431,6 +431,10 @@ where
         // raw_length is not used for Implicit messages.
         let raw_length = to_vec(msg).expect("encoding error").len();
 
+        // TODO: should we still do it for reward and cron messages?
+        let mut msg = msg.clone();
+        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
+
         match self {
             VM::VM2(fvm_executor) => {
                 let ret = fvm_executor.execute_message(

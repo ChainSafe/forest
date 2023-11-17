@@ -20,6 +20,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
+use crate::db::MemoryDB;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -411,10 +412,6 @@ where
         let msg_cid = msg.cid().unwrap();
         let chain_msg = ChainMessage::Unsigned(msg.clone());
 
-        let actor = self
-            .get_actor(&msg.from, *state_cid)?
-            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-        msg.sequence = actor.sequence;
         vm.apply_message(&chain_msg)?;
 
         // We flush to get the VM's view of the state tree after applying the above messages
@@ -426,8 +423,7 @@ where
         let from_actor = state
             .get_actor(&msg.from())?
             .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
-
-        msg.sequence = from_actor.sequence;
+        msg.set_sequence(from_actor.sequence);
 
         // If the fee cap is set to zero, make gas free
         // TODO
