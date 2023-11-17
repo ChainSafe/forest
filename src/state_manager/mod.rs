@@ -394,7 +394,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: TokenAmount::zero(),
+                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
                 circ_supply: genesis_info.get_circulating_supply(
                     height,
                     &self.blockstore_owned(),
