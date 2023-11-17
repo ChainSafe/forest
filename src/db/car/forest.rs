@@ -48,7 +48,6 @@
 
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
-use crate::cid_collections::CidHashMap;
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::db::car::RandomAccessFileReader;
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
@@ -275,15 +274,15 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_to_frame_offset = CidHashMap::new();
+        let mut builder = index::Builder::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
-            cid_to_frame_offset.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
+            builder.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
             sink.write_all(&zstd_frame).await?;
             offset += zstd_frame.len()
         }
 
         // Create index
-        let writer = index::Writer::new(cid_to_frame_offset);
+        let writer = builder.into_writer();
         write_skip_frame_header_async(&mut sink, writer.written_len().try_into().unwrap()).await?;
         tokio::task::block_in_place(|| {
             writer.write_into(tokio_util::io::SyncIoBridge::new(&mut sink))

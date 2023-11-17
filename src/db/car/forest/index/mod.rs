@@ -111,7 +111,7 @@ where
             return Ok(smallvec![]); // empty table
         };
         let offset_in_table =
-            u64::try_from(hash::ideal_slot_ix(needle, initial_buckets)).unwrap() * RawSlot::WIDTH;
+            u64::try_from(hash::ideal_slot_ix(needle, initial_buckets)).unwrap() * RawSlot::LEN;
         let mut haystack =
             positioned_io::Cursor::new_pos(&self.inner, self.table_offset + offset_in_table);
 
@@ -162,27 +162,22 @@ where
 #[cfg_vis(feature = "benchmark-private", pub)]
 const DEFAULT_LOAD_FACTOR: f64 = 0.8;
 
-#[derive(Debug)]
-pub struct Writer {
-    version: Version,
-    header: V1Header,
-    slots: Vec<Slot>,
-}
-
 pub struct Builder {
     load_factor: f64,
+    /// The first field is unused, but we preserve it to not allocate in
+    /// [`Self::into_writer`]
     slots: Vec<(usize, OccupiedSlot)>,
 }
 
 impl Default for Builder {
     fn default() -> Self {
-        Self::new_with_load_factor(DEFAULT_LOAD_FACTOR)
+        Self::new()
     }
 }
 
 impl Builder {
     pub fn new() -> Self {
-        Self::default()
+        Self::new_with_load_factor(DEFAULT_LOAD_FACTOR)
     }
 
     fn new_with_load_factor(load_factor: f64) -> Self {
@@ -192,28 +187,36 @@ impl Builder {
         }
     }
 
-    fn into_table(self) -> Table {
+    pub fn into_writer(self) -> Writer {
         let Self {
             load_factor,
             mut slots,
         } = self;
+        // First, sort by hash
         slots.sort_unstable_by_key(|(_, it)| *it);
-        // slots.dedup_by_key(|(_, it)| *it);
+        slots.dedup_by_key(|(_, it)| *it);
         let Some(initial_width) = initial_width(slots.len(), load_factor) else {
-            return Table {
-                slots: vec![Slot::Empty],
-                initial_width: 0,
-                collisions: 0,
-                longest_distance: 0,
+            return Writer {
+                version: Version::V1,
+                header: V1Header {
+                    longest_distance: 0,
+                    collisions: 0,
+                    initial_buckets: 0,
+                },
+                slots: vec![],
             };
         };
         let collisions = slots
             .iter()
             .group_by(|(_, it)| it.hash)
             .into_iter()
+            // subtract one because a lone item is not a collision
             .map(|(_, group)| group.count() - 1)
             .sum::<usize>();
 
+        // keep track of how many `Slot::Empty`s should precede each slot so that
+        // it appears at or after its ideal_slot_ix.
+        // We don't need to actually have any `Slot::Empty`s in-memory
         let mut total_padding = 0;
         let mut longest_distance = 0;
         for (ix, (pre_padding, slot)) in slots.iter_mut().enumerate() {
@@ -225,23 +228,15 @@ impl Builder {
             longest_distance = cmp::max(longest_distance, distance);
             total_padding += *pre_padding;
         }
-        Table {
-            slots: slots
-                .into_iter()
-                .flat_map(|(pre_padding, slot)| {
-                    iter::repeat(Slot::Empty)
-                        .take(pre_padding)
-                        .chain(iter::once(Slot::Occupied(slot)))
-                })
-                // ensure there are at least `initial_width` slots, else lookups
-                // could try and read off the end of the table
-                .pad_using(initial_width.get(), |_ix| Slot::Empty)
-                // terminal slot
-                .chain(iter::once(Slot::Empty))
-                .collect(),
-            initial_width: initial_width.get(),
-            collisions,
-            longest_distance,
+
+        Writer {
+            version: Version::V1,
+            header: V1Header {
+                longest_distance: longest_distance.try_into().unwrap(),
+                collisions: collisions.try_into().unwrap(),
+                initial_buckets: initial_width.get().try_into().unwrap(),
+            },
+            slots,
         }
     }
 }
@@ -261,36 +256,66 @@ impl Extend<(NonMaximalU64, u64)> for Builder {
     }
 }
 
+impl FromIterator<(Cid, u64)> for Builder {
+    fn from_iter<T: IntoIterator<Item = (Cid, u64)>>(iter: T) -> Self {
+        let mut this = Self::default();
+        this.extend(iter);
+        this
+    }
+}
+impl FromIterator<(NonMaximalU64, u64)> for Builder {
+    fn from_iter<T: IntoIterator<Item = (NonMaximalU64, u64)>>(iter: T) -> Self {
+        let mut this = Self::default();
+        this.extend(iter);
+        this
+    }
+}
+
+pub struct Writer {
+    version: Version,
+    header: V1Header,
+    /// Number of preceding [`Slot::Empty`]s, followed by the [`Slot::Occupied`].
+    ///
+    /// Note that there must additionally be a terminal [`Slot::Empty`].
+    slots: Vec<(usize, OccupiedSlot)>,
+}
+
 impl Writer {
-    pub fn new(locations: impl IntoIterator<Item = (Cid, u64)>) -> Self {
-        Self::from_table(Table::new(locations, DEFAULT_LOAD_FACTOR))
-    }
-    fn from_table(table: Table) -> Self {
-        let Table {
-            slots,
-            initial_width,
-            collisions,
-            longest_distance,
-        } = table;
-        Self {
-            version: Version::V1,
-            header: V1Header {
-                longest_distance: longest_distance.try_into().unwrap(),
-                collisions: collisions.try_into().unwrap(),
-                initial_buckets: initial_width.try_into().unwrap(),
-            },
-            slots,
-        }
-    }
     pub fn written_len(&self) -> u64 {
         let Self {
             version,
             header,
             slots,
         } = self;
-        version.written_len()
-            + header.written_len()
-            + slots.iter().map(Writeable::written_len).sum::<u64>()
+        written_len(version)
+            + written_len(header)
+            + cmp::max(
+                u64::try_from(
+                    slots
+                        .iter()
+                        .map(|(pre, _)| *pre + 1 /* occupied */)
+                        .sum::<usize>()
+                        + 1, /* trailing */
+                )
+                .unwrap(),
+                header.initial_buckets + 1, /* trailing */
+            ) * Slot::LEN
+    }
+    fn slots(
+        min_slots: usize,
+        slots: impl IntoIterator<Item = (usize, OccupiedSlot)>,
+    ) -> impl Iterator<Item = Slot> {
+        slots
+            .into_iter()
+            .flat_map(|(pre, occ)| {
+                iter::repeat(Slot::Empty)
+                    .take(pre)
+                    .chain(iter::once(Slot::Occupied(occ)))
+            })
+            // ensure there are at least `initial_width` slots, else lookups could
+            // try and read off the end of the table
+            .pad_using(min_slots, |_ix| Slot::Empty)
+            .chain(iter::once(Slot::Empty))
     }
     pub fn write_into(self, mut writer: impl Write) -> io::Result<()> {
         let Self {
@@ -300,111 +325,13 @@ impl Writer {
         } = self;
         version.write_to(&mut writer)?;
         header.write_to(&mut writer)?;
-        for slot in slots {
+        for slot in Self::slots(
+            header.initial_buckets.try_into().unwrap(),
+            slots.iter().copied(),
+        ) {
             slot.write_to(&mut writer)?
         }
         Ok(())
-    }
-}
-
-/// An in-memory representation of a hash-table.
-#[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
-#[cfg_vis(feature = "benchmark-private", pub)]
-struct Table {
-    // public for benchmarks
-    pub slots: Vec<Slot>,
-    pub initial_width: usize,
-    collisions: usize,
-    longest_distance: usize,
-}
-
-impl Table {
-    /// Construct a new table with the invariants outlined in the [module documentation](mod@self).
-    ///
-    /// The `load_factor` determines the average number of bucket a lookup has
-    /// to scan.
-    /// The formula, with 'f' being the load factor, is `(1+1/(1-load_factor))/2`.
-    /// A load factor of `0.8` means [`Reader::get`] has to scan through 3
-    /// slots on average.
-    /// A load-factor of `0.9` means we have to scan through 5.5 slots on average.
-    ///
-    /// See the `car-index` benchmark for measurements of scans at different lengths.
-    ///
-    /// # Panics
-    /// - if `load_factor` is not in the interval `0..=1`
-    pub fn new<I>(locations: I, load_factor: f64) -> Self
-    where
-        I: IntoIterator<Item = (Cid, u64)>,
-    {
-        Self::new_from_hashes(
-            locations
-                .into_iter()
-                .map(|(cid, frame_offset)| (hash::summary(&cid), frame_offset)),
-            load_factor,
-        )
-    }
-    /// Separate constructor for testability.
-    fn new_from_hashes<I>(locations: I, load_factor: f64) -> Self
-    where
-        I: IntoIterator<Item = (NonMaximalU64, u64)>,
-    {
-        assert!((0.0..=1.0).contains(&load_factor));
-
-        let slots = locations
-            .into_iter()
-            .map(|(hash, frame_offset)| OccupiedSlot { hash, frame_offset })
-            .sorted()
-            .collect::<Vec<_>>();
-
-        let Some(initial_width) = initial_width(slots.len(), load_factor) else {
-            return Self {
-                slots: vec![Slot::Empty],
-                initial_width: 0,
-                collisions: 0,
-                longest_distance: 0,
-            };
-        };
-
-        let collisions = slots
-            .iter()
-            .group_by(|it| it.hash)
-            .into_iter()
-            .map(|(_, group)| group.count() - 1)
-            .sum();
-
-        let mut total_padding = 0;
-        let slots = slots
-            .into_iter()
-            .enumerate()
-            .flat_map(|(ix, it)| {
-                let actual_ix = ix + total_padding;
-                let ideal_ix = hash::ideal_slot_ix(it.hash, initial_width);
-                let padding = ideal_ix.saturating_sub(actual_ix);
-                total_padding += padding;
-                iter::repeat(Slot::Empty)
-                    .take(padding)
-                    .chain(iter::once(Slot::Occupied(it)))
-            })
-            // ensure there are at least `initial_width` slots, else lookups could
-            // try and read off the end of the table
-            .pad_using(initial_width.get(), |_ix| Slot::Empty)
-            .chain(iter::once(Slot::Empty))
-            .collect::<Vec<_>>();
-
-        Self {
-            longest_distance: slots
-                .iter()
-                .enumerate()
-                .filter_map(|(ix, slot)| {
-                    slot.as_occupied()
-                        .map(|it| ix - hash::ideal_slot_ix(it.hash, initial_width))
-                })
-                .max()
-                .unwrap_or_default(),
-            slots,
-            initial_width: initial_width.get(),
-            collisions,
-        }
     }
 }
 
@@ -421,9 +348,6 @@ fn initial_width(slots_len: usize, load_factor: f64) -> Option<NonZeroUsize> {
 enum Version {
     V0 = 0xdeadbeef,
     V1 = 0xdeadbeef + 1,
-    // V2 should use [`std::num::NonZeroU64`] instead of [`util::NonMaximalU64`]
-    // since that allows a niche optimization on [`Slot`] (and there will be
-    // many [`Slot`]s)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -460,12 +384,6 @@ enum Slot {
 }
 
 impl Slot {
-    pub fn as_occupied(&self) -> Option<&OccupiedSlot> {
-        match self {
-            Slot::Empty => None,
-            Slot::Occupied(occ) => Some(occ),
-        }
-    }
     fn into_raw(self) -> RawSlot {
         match self {
             Slot::Empty => RawSlot::EMPTY,
@@ -493,8 +411,6 @@ impl RawSlot {
         hash: u64::MAX,
         frame_offset: u64::MAX,
     };
-    /// How many bytes occupied by [`RawSlot`] when serialized.
-    const WIDTH: u64 = std::mem::size_of::<u64>() as u64 * 2;
 }
 
 //////////////////////////////////////
@@ -517,10 +433,7 @@ impl Writeable for Version {
     fn write_to(&self, mut writer: impl Write) -> io::Result<()> {
         writer.write_u64::<LittleEndian>(*self as u64)
     }
-
-    fn written_len(&self) -> u64 {
-        u64::try_from(std::mem::size_of::<u64>()).unwrap()
-    }
+    const LEN: u64 = std::mem::size_of::<u64>() as u64;
 }
 
 impl Readable for Slot {
@@ -546,10 +459,7 @@ impl Writeable for Slot {
     fn write_to(&self, writer: impl Write) -> io::Result<()> {
         self.into_raw().write_to(writer)
     }
-
-    fn written_len(&self) -> u64 {
-        self.into_raw().written_len()
-    }
+    const LEN: u64 = RawSlot::LEN;
 }
 
 impl Readable for RawSlot {
@@ -571,10 +481,7 @@ impl Writeable for RawSlot {
         writer.write_u64::<LittleEndian>(frame_offset)?;
         Ok(())
     }
-
-    fn written_len(&self) -> u64 {
-        Self::WIDTH
-    }
+    const LEN: u64 = std::mem::size_of::<u64>() as u64 * 2;
 }
 
 impl Readable for V1Header {
@@ -602,10 +509,7 @@ impl Writeable for V1Header {
         writer.write_u64::<LittleEndian>(initial_buckets)?;
         Ok(())
     }
-
-    fn written_len(&self) -> u64 {
-        u64::try_from(std::mem::size_of::<u64>() * 3).unwrap()
-    }
+    const LEN: u64 = std::mem::size_of::<u64>() as u64 * 3;
 }
 
 trait Readable {
@@ -620,7 +524,22 @@ trait Writeable {
     /// The number of bytes that will be written on a call to [`Writeable::write_to`].
     ///
     /// Implementations may panic if this is incorrect.
-    fn written_len(&self) -> u64;
+    const LEN: u64;
+}
+
+/// Useful for exhaustiveness checking
+fn written_len<T: Writeable>(_: T) -> u64 {
+    T::LEN
+}
+
+impl<T> Writeable for &T
+where
+    T: Writeable,
+{
+    fn write_to(&self, writer: impl Write) -> io::Result<()> {
+        T::write_to(self, writer)
+    }
+    const LEN: u64 = T::LEN;
 }
 
 // This lives in a module so its constructor can be private
@@ -663,14 +582,15 @@ mod tests {
     /// Empty [`HashSet`]s act as a lookup for a non-existent key.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
-            Writer::new(
-                reference
-                    .clone()
-                    .into_iter()
-                    .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset)))
-                    .collect::<Vec<_>>(),
-            )
-            .write_into(v)
+            let writer =
+                Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
+                    offsets.into_iter().map(move |offset| (hash, offset))
+                }))
+                .into_writer();
+            let expected_len = writer.written_len();
+            writer.write_into(&mut *v)?;
+            assert_eq!(expected_len as usize, v.len());
+            Ok(())
         }))
         .unwrap();
         for (cid, expected) in reference {
@@ -682,13 +602,15 @@ mod tests {
     /// Like [`do_hashmap_of_cids`], but operates on hashes instead of [`Cid`]s.
     fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
-            Writer::from_table(Table::new_from_hashes(
-                reference.clone().into_iter().flat_map(|(hash, offsets)| {
+            let writer =
+                Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
                     offsets.into_iter().map(move |offset| (hash, offset))
-                }),
-                DEFAULT_LOAD_FACTOR,
-            ))
-            .write_into(v)
+                }))
+                .into_writer();
+            let expected_len = writer.written_len();
+            writer.write_into(&mut *v)?;
+            assert_eq!(expected_len as usize, v.len());
+            Ok(())
         }))
         .unwrap();
         for (hash, expected) in reference {
@@ -697,29 +619,7 @@ mod tests {
         }
     }
 
-    fn do_same(seed: HashMap<Cid, HashSet<u64>>) {
-        let via_builder =
-            {
-                let mut it = Builder::new();
-                it.extend(seed.clone().into_iter().flat_map(|(cid, offsets)| {
-                    offsets.into_iter().map(move |offset| (cid, offset))
-                }));
-                it.into_table()
-            };
-        let traditional = Table::new(
-            seed.clone()
-                .into_iter()
-                .flat_map(|(cid, offsets)| offsets.into_iter().map(move |offset| (cid, offset))),
-            DEFAULT_LOAD_FACTOR,
-        );
-        // pretty_assertions::assert_eq!(traditional, via_builder);
-        assert_eq!(traditional, via_builder);
-    }
-
     quickcheck::quickcheck! {
-        fn same(seed: HashMap<Cid, HashSet<u64>>) -> () {
-            do_same(seed)
-        }
         fn hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) -> () {
             do_hashmap_of_cids(reference)
         }
@@ -758,7 +658,7 @@ mod tests {
         let serialized = write_to_vec(|v| original.write_to(v));
         assert_eq!(
             serialized.len(),
-            usize::try_from(original.written_len()).unwrap()
+            usize::try_from(written_len(original)).unwrap()
         );
         let deserialized = T::read_from(serialized.as_slice())
             .expect("couldn't deserialize T from a deserialized T");
