@@ -1,16 +1,13 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
-FROM golang:1.19.12-bullseye AS lotus-builder
+FROM golang:1.20.7-bullseye AS lotus-builder
 
 RUN apt-get update && apt-get install -y ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
 
 WORKDIR /lotus
 
-# Use a specific commit of Lotus to support NV21 Watermelon.
-RUN git clone --depth 1 --branch v1.24.0-rc4 https://github.com/filecoin-project/lotus.git .
-
-# Update the schedules to have the migration faster than it is by default.
-COPY update-schedules.diff .
-RUN git apply update-schedules.diff
+# Use a specific commit of Lotus to support NV21 Watermelon Fix 2 on devnet.
+RUN git clone --depth 1 --branch asr/devnet https://github.com/filecoin-project/lotus.git . && \
+    git checkout 56c80a10d6ba1a7
 
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \

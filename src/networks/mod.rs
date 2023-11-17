@@ -115,6 +115,7 @@ pub enum Height {
     Thunder,
     Watermelon,
     WatermelonFix,
+    WatermelonFix2,
 }
 
 impl Default for Height {
@@ -149,6 +150,7 @@ impl From<Height> for NetworkVersion {
             Height::Thunder => NetworkVersion::V20,
             Height::Watermelon => NetworkVersion::V21,
             Height::WatermelonFix => NetworkVersion::V21,
+            Height::WatermelonFix2 => NetworkVersion::V21,
         }
     }
 }
