@@ -56,6 +56,8 @@ jobs:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: install nextest
         uses: taiki-e/install-action@nextest
+      - run: rm ~/.cargo/bin/cargo-binstall
+        if: failure()
       - run: make test
   tests-release:
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
