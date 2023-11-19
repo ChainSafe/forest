@@ -106,13 +106,30 @@ impl ForestBehaviour {
             .target_peer_count(config.target_peer_count as u64)
             .finish()?;
 
+        const MAX_ESTABLISHED_PER_PEER: u32 = 4;
         let connection_limits = connection_limits::Behaviour::new(
             connection_limits::ConnectionLimits::default()
-                .with_max_pending_incoming(Some(4096))
-                .with_max_pending_outgoing(Some(8192))
-                .with_max_established_incoming(Some(8192))
-                .with_max_established_outgoing(Some(8192))
-                .with_max_established_per_peer(Some(5)),
+                .with_max_pending_incoming(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_pending_outgoing(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_established_incoming(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_established_outgoing(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_established_per_peer(Some(MAX_ESTABLISHED_PER_PEER)),
         );
 
         info!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
