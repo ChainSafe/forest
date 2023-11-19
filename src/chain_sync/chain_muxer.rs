@@ -392,23 +392,23 @@ where
                     // Skip old tipsets
                     if chain_store.is_epoch_finalized(tipset.epoch()) {
                         return Ok(None);
-                    } else {
-                        let full_tipset = match Self::get_full_tipset(
-                            network.clone(),
-                            chain_store.clone(),
-                            source,
-                            &tipset,
-                        )
-                        .await
-                        {
-                            Ok(tipset) => tipset,
-                            Err(why) => {
-                                debug!("Querying full tipset failed: {}", why);
-                                return Err(why);
-                            }
-                        };
-                        (full_tipset, source)
                     }
+
+                    let full_tipset = match Self::get_full_tipset(
+                        network.clone(),
+                        chain_store.clone(),
+                        source,
+                        &tipset,
+                    )
+                    .await
+                    {
+                        Ok(tipset) => tipset,
+                        Err(why) => {
+                            debug!("Querying full tipset failed: {}", why);
+                            return Err(why);
+                        }
+                    };
+                    (full_tipset, source)
                 } else {
                     return Ok(None);
                 }
@@ -464,18 +464,18 @@ where
                     if let GossipBlockProcessingStrategy::GetFullTipset =
                         gossip_block_processing_strategy
                     {
-                        if !chain_store.is_epoch_finalized(b.header.epoch()) {
-                            let tipset =
-                                Self::gossipsub_block_to_full_tipset(b, source, network.clone())
-                                    .await?;
-                            (tipset, source)
-                        } else {
+                        if chain_store.is_epoch_finalized(b.header.epoch()) {
                             debug!(
                                 "Skip assembling old gossipsub block at epoch {}",
                                 b.header.epoch()
                             );
                             return Ok(None);
                         }
+
+                        let tipset =
+                            Self::gossipsub_block_to_full_tipset(b, source, network.clone())
+                                .await?;
+                        (tipset, source)
                     } else {
                         return Ok(None);
                     }
@@ -555,10 +555,10 @@ where
                 "Skip processing tipset at epoch {} from {source} that is too old",
                 tipset.epoch()
             );
-            Ok(None)
-        } else {
-            Ok(Some((tipset, source)))
+            return Ok(None);
         }
+
+        Ok(Some((tipset, source)))
     }
 
     fn evaluate_network_head(&self) -> ChainMuxerFuture<NetworkHeadEvaluation, ChainMuxerError> {
