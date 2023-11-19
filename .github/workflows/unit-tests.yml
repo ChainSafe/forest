@@ -54,12 +54,13 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
+      - run: cargo install --locked cargo-binstall
       - name: install nextest
         uses: taiki-e/install-action@nextest
       # To fix <https://github.com/ChainSafe/forest/actions/runs/6922848666/job/18830370904?pr=3721#step:7:37>
       # The same run would still fail, a manual re-run is required.
-      - run: rm ~/.cargo/bin/cargo-binstall
-        if: failure()
+      # - run: cargo install --force --locked cargo-binstall
+      #   if: failure()
       - run: make test
   tests-release:
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
