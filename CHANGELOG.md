@@ -33,6 +33,8 @@
   2nd NV21 calibration network fix. See this
   [update](https://github.com/filecoin-project/community/discussions/74#discussioncomment-7591806)
   for details.
+- [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
+  `Filecoin.GetParentMessages` lotus-compatible RPC API.
 
 ### Changed
 
