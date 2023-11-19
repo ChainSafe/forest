@@ -29,6 +29,11 @@
 
 ### Added
 
+- [#3718](https://github.com/ChainSafe/forest/issues/3718) Added support for the
+  2nd NV21 calibration network fix. See this
+  [update](https://github.com/filecoin-project/community/discussions/74#discussioncomment-7591806)
+  for details.
+
 ### Changed
 
 ### Removed
