@@ -31,10 +31,13 @@ struct ResponseChannels {
 /// usage
 #[derive(Debug)]
 pub struct BitswapRequestManager {
+    // channel for outbound `have` requests
     outbound_have_request_tx: flume::Sender<(PeerId, Cid)>,
     outbound_have_request_rx: flume::Receiver<(PeerId, Cid)>,
+    // channel for outbound `cancel` requests
     outbound_cancel_request_tx: flume::Sender<(PeerId, Cid)>,
     outbound_cancel_request_rx: flume::Receiver<(PeerId, Cid)>,
+    // channel for outbound `block` requests
     outbound_block_request_tx: flume::Sender<(PeerId, Cid)>,
     outbound_block_request_rx: flume::Receiver<(PeerId, Cid)>,
     peers: RwLock<HashSet<PeerId>>,
@@ -63,6 +66,7 @@ impl BitswapRequestManager {
             (peer, BitswapRequest::new_cancel(cid).send_dont_have(false))
         }
 
+        // Use seperate channels here to not block `block` requests when too many other type of requests are queued.
         let streams = vec![
             self.outbound_block_request_rx
                 .stream()
