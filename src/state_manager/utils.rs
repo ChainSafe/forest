@@ -336,6 +336,7 @@ pub mod structured {
         ) -> Result<ExecutionTrace, BuildCallTreeError> {
             let mut gas_charges = vec![];
             let mut subcalls = vec![];
+            let mut code_cid = Default::default();
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
             while let Some(event) = events.pop_front() {
@@ -352,7 +353,10 @@ pub mod structured {
                     ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
                     ExecutionEvent::Log(_ignored) => None,
-                    ExecutionEvent::InvokeActor(_cid) => None,
+                    ExecutionEvent::InvokeActor(cid) => {
+                        code_cid = cid;
+                        None
+                    }
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
                     //       So that BuildCallTreeError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
@@ -364,7 +368,7 @@ pub mod structured {
                 // commonise the return branch
                 if let Some(ret) = found_return {
                     return Ok(ExecutionTrace {
-                        msg: to_message_trace(call),
+                        msg: to_message_trace(call, code_cid),
                         msg_rct: to_return_trace(ret),
                         gas_charges,
                         subcalls,
@@ -376,7 +380,7 @@ pub mod structured {
         }
     }
 
-    fn to_message_trace(call: Call) -> MessageTrace {
+    fn to_message_trace(call: Call, code_cid: Cid) -> MessageTrace {
         let (bytes, codec) = to_bytes_codec(call.params);
         MessageTrace {
             from: Address::new_id(call.from),
@@ -387,8 +391,7 @@ pub mod structured {
             params_codec: codec,
             gas_limit: call.gas_limit,
             read_only: call.read_only,
-            // TODO: figure out how to init this member
-            code_cid: Cid::default(),
+            code_cid,
         }
     }
 
