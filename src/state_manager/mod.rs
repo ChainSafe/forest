@@ -408,7 +408,6 @@ where
             VMTrace::Traced,
         )?;
 
-        let msg_cid = msg.cid().unwrap();
         let chain_msg = ChainMessage::Unsigned(msg.clone());
 
         vm.apply_message(&chain_msg)?;
@@ -439,6 +438,7 @@ where
             Err(_e) => None,
         };
         let msg_rct = Some(apply_ret.msg_receipt());
+        let msg_cid = msg.cid().unwrap();
         let error = apply_ret.failure_info().unwrap_or_default();
         Ok(InvocResultApi {
             msg: msg.clone(),
