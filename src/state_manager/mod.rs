@@ -20,7 +20,7 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::db::MemoryDB;
+use crate::interpreter::IMPLICIT_MESSAGE_GAS_LIMIT;
 use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -425,7 +425,10 @@ where
         msg.set_sequence(from_actor.sequence);
 
         // If the fee cap is set to zero, make gas free
-        // TODO
+
+        // Implicit messages need to set a special gas limit
+        let mut msg = msg.clone();
+        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
         let apply_ret = vm.apply_implicit_message(&msg)?;
         let gas_info = MessageGasCost::default();

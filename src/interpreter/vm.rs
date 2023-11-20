@@ -73,7 +73,7 @@ type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
-const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
+pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.
@@ -430,10 +430,6 @@ where
     pub fn apply_implicit_message(&mut self, msg: &Message) -> anyhow::Result<ApplyRet> {
         // raw_length is not used for Implicit messages.
         let raw_length = to_vec(msg).expect("encoding error").len();
-
-        // TODO: should we still do it for reward and cron messages?
-        let mut msg = msg.clone();
-        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
         match self {
             VM::VM2(fvm_executor) => {
