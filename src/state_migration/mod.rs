@@ -6,7 +6,7 @@ use std::sync::{
     Arc,
 };
 
-use crate::networks::{ChainConfig, Height, NetworkChain};
+use crate::networks::{ChainConfig, Height};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
 use crate::utils::misc::reveal_three_trees;
@@ -20,6 +20,7 @@ mod nv18;
 mod nv19;
 mod nv21;
 mod nv21fix;
+mod nv21fix2;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -41,8 +42,9 @@ where
         (Height::Watermelon, nv21::run_migration::<DB>),
     ];
 
-    if chain_config.network == NetworkChain::Calibnet {
+    if chain_config.network.is_testnet() {
         mappings.push((Height::WatermelonFix, nv21fix::run_migration::<DB>));
+        mappings.push((Height::WatermelonFix2, nv21fix2::run_migration::<DB>));
     }
 
     // Make sure bundle is defined.

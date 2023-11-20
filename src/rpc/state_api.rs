@@ -21,6 +21,7 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_interface::market;
+use fil_actor_interface::miner::MinerPower;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
@@ -144,6 +145,22 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
         Ok(())
     })?;
     Ok(out)
+}
+
+/// looks up the miner power of the given address.
+pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<MinerPower>, JsonRpcError> {
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+
+    data.state_manager
+        .miner_power(&address, &tipset)
+        .map(|res| res.into())
+        .map_err(|e| e.into())
 }
 
 /// returns the message receipt for the given message

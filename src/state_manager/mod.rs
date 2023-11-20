@@ -39,6 +39,7 @@ use crate::shim::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
+use fil_actor_interface::miner::MinerPower;
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::v10::runtime::Policy;
@@ -1002,6 +1003,27 @@ where
         };
 
         Ok(out)
+    }
+
+    /// Retrieves miner power.
+    pub fn miner_power(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<MinerPower, Error> {
+        if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
+            return Ok(MinerPower {
+                miner_power,
+                total_power,
+                has_min_power: true,
+            });
+        }
+
+        Ok(MinerPower {
+            has_min_power: false,
+            miner_power: Default::default(),
+            total_power: Default::default(),
+        })
     }
 
     /// Similar to `resolve_to_key_addr` in the `forest_vm` [`crate::state_manager`] but does not
