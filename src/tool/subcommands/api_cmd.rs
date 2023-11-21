@@ -348,7 +348,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
             tipset.key().clone(),
         )));
 
-        if let Some(block) = tipset.blocks().first() {
+        for block in tipset.blocks() {
             // For testing execution trace purposes
             let (_bls_messages, secp_messages) =
                 crate::chain::store::block_messages(&store, block)?;
