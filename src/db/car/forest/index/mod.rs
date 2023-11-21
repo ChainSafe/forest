@@ -38,7 +38,7 @@
 //!
 //!   We use linear probing, which means that colliding entries are always
 //!   concatenated - seeking forward to the next entry will yield any collisions.
-//! - A slot is always found at or within [`Table::longest_distance`] after its
+//! - A slot is always found at or within [`V1Header::longest_distance`] after its
 //!   [`hash::ideal_slot_ix`].
 
 #[cfg_vis(feature = "benchmark-private", pub)]
