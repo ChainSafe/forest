@@ -17,7 +17,6 @@ use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::Address;
-use similar::TextDiff;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -136,25 +135,6 @@ impl RpcTest {
         T::LotusJson: DeserializeOwned,
     {
         RpcTest::validate(request, |forest, lotus| forest == lotus)
-    }
-
-    fn identity_diff<T: PartialEq>(request: RpcRequest<T>) -> RpcTest
-    where
-        T: HasLotusJson + serde::Serialize,
-        T::LotusJson: DeserializeOwned,
-    {
-        RpcTest::validate(request, |forest, lotus| {
-            let is_valid = forest == lotus;
-            if !is_valid {
-                let forest_json = serde_json::to_string_pretty(&forest).unwrap();
-                let lotus_json = serde_json::to_string_pretty(&lotus).unwrap();
-
-                let diff = TextDiff::from_lines(&forest_json, &lotus_json);
-                let mut output = diff.unified_diff();
-                println!("{}\n---", output.context_radius(5));
-            }
-            is_valid
-        })
     }
 
     async fn run(
@@ -349,16 +329,15 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
         )));
 
         for block in tipset.blocks() {
-            // For testing execution trace purposes
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
-                tests.push(RpcTest::identity_diff(ApiInfo::state_call_req(
+                tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.message().clone(),
                     shared_tipset.clone().key().clone(),
                 )));
             }
             for msg in bls_messages {
-                tests.push(RpcTest::identity_diff(ApiInfo::state_call_req(
+                tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.clone(),
                     shared_tipset.clone().key().clone(),
                 )));
