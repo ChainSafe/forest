@@ -52,6 +52,8 @@ pub enum RequestResponseError {
     ConnectionClosed,
     /// The remote supports none of the requested protocols.
     UnsupportedProtocols,
+    /// An IO failure happened on an outbound stream.
+    Io(io::Error),
 }
 
 impl From<OutboundFailure> for RequestResponseError {
@@ -61,6 +63,7 @@ impl From<OutboundFailure> for RequestResponseError {
             OutboundFailure::Timeout => Self::Timeout,
             OutboundFailure::ConnectionClosed => Self::ConnectionClosed,
             OutboundFailure::UnsupportedProtocols => Self::UnsupportedProtocols,
+            OutboundFailure::Io(e) => Self::Io(e),
         }
     }
 }
