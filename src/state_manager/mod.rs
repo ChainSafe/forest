@@ -387,6 +387,18 @@ where
         let mut msg = msg.clone();
 
         let state_cid = tipset.parent_state();
+
+        let tipset_messages = self
+            .chain_store()
+            .messages_for_tipset(tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+
+        let prior_messsages = tipset_messages
+            .iter()
+            .filter(|msg| msg.message().from() == msg.from());
+
+        // TODO: handle state forks
+
         let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
@@ -409,9 +421,9 @@ where
             VMTrace::Traced,
         )?;
 
-        let chain_msg = ChainMessage::Unsigned(msg.clone());
-
-        vm.apply_message(&chain_msg)?;
+        for m in prior_messsages {
+            vm.apply_message(&m)?;
+        }
 
         // We flush to get the VM's view of the state tree after applying the above messages
         // This is needed to get the correct nonce from the actor state to match the VM
