@@ -350,11 +350,16 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
 
         for block in tipset.blocks() {
             // For testing execution trace purposes
-            let (_bls_messages, secp_messages) =
-                crate::chain::store::block_messages(&store, block)?;
-            for m in secp_messages {
+            let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
+            for msg in secp_messages {
                 tests.push(RpcTest::identity_diff(ApiInfo::state_call_req(
-                    m.message().clone(),
+                    msg.message().clone(),
+                    shared_tipset.clone().key().clone(),
+                )));
+            }
+            for msg in bls_messages {
+                tests.push(RpcTest::identity_diff(ApiInfo::state_call_req(
+                    msg.clone(),
                     shared_tipset.clone().key().clone(),
                 )));
             }
