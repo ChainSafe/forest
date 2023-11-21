@@ -7,9 +7,7 @@ use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{
-    InvocResult as InvocResultApi, MarketDeal, MessageLookup, RPCState,
-};
+use crate::rpc_api::data_types::{ApiInvocResult, MarketDeal, MessageLookup, RPCState};
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
@@ -38,7 +36,7 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
-) -> Result<InvocResultApi, JsonRpcError> {
+) -> Result<ApiInvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager

@@ -25,7 +25,7 @@ use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
 use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{InvocResult as InvocResultApi, MessageGasCost};
+use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
@@ -380,7 +380,7 @@ where
         msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> Result<InvocResultApi, Error> {
+    ) -> Result<ApiInvocResult, Error> {
         // TODO: we will handle that when comparing results in api compare
         CurrentNetwork::set_global(Network::Mainnet);
 
@@ -453,7 +453,7 @@ where
         let msg_rct = Some(apply_ret.msg_receipt());
         let msg_cid = msg.cid().unwrap();
         let error = apply_ret.failure_info().unwrap_or_default();
-        Ok(InvocResultApi {
+        Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct,
             msg_cid,
@@ -470,7 +470,7 @@ where
         self: &Arc<Self>,
         message: &Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> Result<InvocResultApi, Error> {
+    ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)

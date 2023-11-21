@@ -376,7 +376,7 @@ lotus_json_with_self!(SectorOnChainInfo);
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
+pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
     pub msg: Message,
     #[serde(with = "crate::lotus_json")]
@@ -391,9 +391,9 @@ pub struct InvocResult {
     pub execution_trace: Option<ExecutionTrace>,
 }
 
-lotus_json_with_self!(InvocResult);
+lotus_json_with_self!(ApiInvocResult);
 
-impl PartialEq for InvocResult {
+impl PartialEq for ApiInvocResult {
     fn eq(&self, other: &Self) -> bool {
         // Ignore duration
         self.msg == other.msg

@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, InvocResult, SectorOnChainInfo},
+        data_types::{ApiActorState, ApiInvocResult, SectorOnChainInfo},
         state_api::*,
     },
     shim::{
@@ -57,7 +57,7 @@ impl ApiInfo {
         RpcRequest::new(STATE_NETWORK_NAME, ())
     }
 
-    pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<InvocResult> {
+    pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<ApiInvocResult> {
         RpcRequest::new(STATE_CALL, (message, tsk))
     }
 
