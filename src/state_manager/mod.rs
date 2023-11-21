@@ -26,7 +26,6 @@ use crate::interpreter::{BlockMessages, CalledAt};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
-use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
