@@ -381,9 +381,6 @@ where
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
     ) -> Result<ApiInvocResult, Error> {
-        // TODO: we will handle that when comparing results in api compare
-        CurrentNetwork::set_global(Network::Mainnet);
-
         let mut msg = msg.clone();
 
         let state_cid = tipset.parent_state();
