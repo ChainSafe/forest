@@ -11,6 +11,7 @@ use tabled::{builder::Builder, settings::Style};
 
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
+use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
@@ -274,6 +275,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
 
+    let mut seen = CidHashSet::default();
     for tipset in shared_tipset.chain(&store).take(20) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
@@ -288,32 +290,36 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages {
-                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                    msg.cid()?,
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    root_tsk.clone(),
-                )));
-            }
-            for msg in secp_messages {
-                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                    msg.cid()?,
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    root_tsk.clone(),
-                )));
-                if !msg.params().is_empty() {
-                    tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
-                        msg.to(),
-                        msg.method_num(),
-                        msg.params().to_vec(),
+                if seen.insert(msg.cid()?) {
+                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                        msg.from(),
                         root_tsk.clone(),
                     )));
                 }
             }
-            tests.push(RpcTest::basic(ApiInfo::state_miner_power_req(
+            for msg in secp_messages {
+                if seen.insert(msg.cid()?) {
+                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                        msg.from(),
+                        root_tsk.clone(),
+                    )));
+                    if !msg.params().is_empty() {
+                        tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
+                            msg.to(),
+                            msg.method_num(),
+                            msg.params().to_vec(),
+                            root_tsk.clone(),
+                        )));
+                    }
+                }
+            }
+            tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )))

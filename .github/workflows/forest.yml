@@ -329,6 +329,5 @@ jobs:
         run: ./scripts/devnet/ci_setup.sh
       - name: Devnet check
         run: ./scripts/devnet/ci_check.sh
-      - name: Dump docker logs on failure
-        if: failure()
+      - name: Dump docker logs
         uses: jwalton/gh-docker-logs@v2

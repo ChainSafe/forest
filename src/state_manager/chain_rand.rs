@@ -198,6 +198,23 @@ pub fn draw_randomness(
     Ok(ret)
 }
 
+/// Computes a pseudo random 32 byte `Vec` from digest
+pub fn draw_randomness_from_digest(
+    digest: &[u8; 32],
+    pers: i64,
+    round: ChainEpoch,
+    entropy: &[u8],
+) -> anyhow::Result<[u8; 32]> {
+    let mut state = Params::new().hash_length(32).to_state();
+    state.write_i64::<BigEndian>(pers)?;
+    state.write_all(digest)?;
+    state.write_i64::<BigEndian>(round)?;
+    state.write_all(entropy)?;
+    let mut ret = [0u8; 32];
+    ret.clone_from_slice(state.finalize().as_bytes());
+    Ok(ret)
+}
+
 /// Computes a 256-bit digest.
 /// See <https://github.com/filecoin-project/ref-fvm/blob/master/fvm/CHANGELOG.md#360-2023-08-18>
 pub fn digest(rbase: &[u8]) -> [u8; 32] {
