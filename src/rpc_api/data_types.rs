@@ -394,6 +394,7 @@ pub struct ApiInvocResult {
 lotus_json_with_self!(ApiInvocResult);
 
 impl PartialEq for ApiInvocResult {
+    /// Ignore [`Self::duration`] as it is implementation-dependent
     fn eq(&self, other: &Self) -> bool {
         // Ignore duration
         self.msg == other.msg
@@ -492,6 +493,7 @@ pub struct GasTrace {
 lotus_json_with_self!(GasTrace);
 
 impl PartialEq for GasTrace {
+    /// Ignore [`Self::total_gas`] as it is implementation-dependent
     fn eq(&self, other: &Self) -> bool {
         // Ignore tt
         self.name == other.name
