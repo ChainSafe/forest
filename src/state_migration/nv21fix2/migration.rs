@@ -20,7 +20,7 @@ use super::{system, verifier::Verifier, SystemStateOld};
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore> StateMigration<BS> {
-    pub fn add_nv21fix_migrations(
+    pub fn add_nv21fix2_migrations(
         &mut self,
         store: &Arc<BS>,
         state: &Cid,
@@ -137,22 +137,21 @@ where
 
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::WatermelonFix as usize)
-        .context("no height info for calibration network version NV21 (fixed)")?
+        .get(Height::WatermelonFix2 as usize)
+        .context("no height info for network version NV21 (fixed again)")?
         .bundle
         .as_ref()
-        .context("no bundle for calibration network version NV21 (fixed)")?;
+        .context("no bundle for network version NV21 (fixed again)")?;
 
     blockstore.get(new_manifest_cid)?.context(format!(
-        "manifest for network version NV21 (fixed) not found in blockstore: {new_manifest_cid}"
+        "manifest for network version NV21 (fixed again) not found in blockstore: {new_manifest_cid}"
     ))?;
 
-    // Add migration specification verification
     let verifier = Arc::new(Verifier::default());
 
     let new_manifest = BuiltinActorManifest::load_manifest(blockstore, new_manifest_cid)?;
     let mut migration = StateMigration::<DB>::new(Some(verifier));
-    migration.add_nv21fix_migrations(blockstore, state, &new_manifest)?;
+    migration.add_nv21fix2_migrations(blockstore, state, &new_manifest)?;
     migration.add_post_migration_check(Arc::new(PostMigrationVerifier { state_pre: *state }));
 
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;

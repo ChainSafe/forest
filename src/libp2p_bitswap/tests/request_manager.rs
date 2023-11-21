@@ -98,7 +98,7 @@ mod tests {
             BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
         });
         let peer_id = *swarm.local_peer_id();
-        let (peer_addr, _) = swarm.listen().await;
+        let (peer_addr, _) = swarm.listen().with_memory_addr_external().await;
 
         Ok((swarm, peer_id, peer_addr))
     }
@@ -131,9 +131,7 @@ mod tests {
 
     fn handle_swarm_event(
         swarm: &mut Swarm<BitswapBehaviour>,
-        swarm_event_opt: Option<
-            SwarmEvent<BitswapBehaviourEvent, libp2p::swarm::THandlerErr<BitswapBehaviour>>,
-        >,
+        swarm_event_opt: Option<SwarmEvent<BitswapBehaviourEvent>>,
         store: &impl BitswapStoreRead,
     ) -> anyhow::Result<()> {
         if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {

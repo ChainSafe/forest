@@ -29,6 +29,31 @@
 
 ### Added
 
+- [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
+  `Filecoin.GetParentMessages` lotus-compatible RPC API.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.1 "(Re)Fresh(ed)Melon"
+
+This is yet another mandatory upgrade for calibration network, containing the
+2nd fix for the `WatermelonFix` upgrade. See this
+[update](https://github.com/filecoin-project/community/discussions/74#discussioncomment-7591806)
+for reference.
+
+### Breaking
+
+### Added
+
+- [#3718](https://github.com/ChainSafe/forest/issues/3718) Added support for the
+  2nd NV21 calibration network fix. See this
+  [update](https://github.com/filecoin-project/community/discussions/74#discussioncomment-7591806)
+  for details.
+
 ### Changed
 
 ### Removed

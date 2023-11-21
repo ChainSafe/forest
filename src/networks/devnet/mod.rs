@@ -10,7 +10,7 @@ use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
 pub const ETH_CHAIN_ID: u64 = 31415926;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<[HeightInfo; 24]> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -128,9 +128,25 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Watermelon,
-            epoch: 5,
+            epoch: 15,
+            bundle: Some(
+                Cid::try_from("bafy2bzacebk6yiirh4ennphzyka7b6g6jzn3lt4lr5ht7rjwulnrcthjihapo")
+                    .unwrap(),
+            ),
+        },
+        HeightInfo {
+            height: Height::WatermelonFix,
+            epoch: 20,
             bundle: Some(
                 Cid::try_from("bafy2bzaceau5i7eanhvss22z5ixmyrihilfniqn22tvkecjj56akz4xj7fvku")
+                    .unwrap(),
+            ),
+        },
+        HeightInfo {
+            height: Height::WatermelonFix2,
+            epoch: 25,
+            bundle: Some(
+                Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
                     .unwrap(),
             ),
         },

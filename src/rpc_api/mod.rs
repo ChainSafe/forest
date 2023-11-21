@@ -48,6 +48,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
+    access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -79,6 +80,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_GET_ACTOR, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
+    access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
@@ -228,10 +230,10 @@ pub mod state_api {
     pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
+    pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
-    pub const STATE_MINOR_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
     pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
     pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
