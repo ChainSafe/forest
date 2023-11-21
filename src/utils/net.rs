@@ -6,7 +6,7 @@ use crate::utils::reqwest_resume;
 use cid::Cid;
 use futures::{AsyncWriteExt, TryStreamExt};
 use reqwest::Response;
-use std::{io::ErrorKind, path::Path};
+use std::path::Path;
 use tap::Pipe;
 use tokio::io::AsyncBufRead;
 use tokio_util::{
@@ -75,7 +75,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
             let content_length = resp.content_length().unwrap_or_default();
             let stream = resume_resp
                 .bytes_stream()
-                .map_err(|reqwest_error| std::io::Error::new(ErrorKind::Other, reqwest_error))
+                .map_err(std::io::Error::other)
                 .pipe(tokio_util::io::StreamReader::new);
 
             (Left(stream), content_length)
