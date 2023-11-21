@@ -27,7 +27,7 @@ pub struct BuiltinActorManifest {
 static_assertions::assert_not_impl_all!(BuiltinActor: std::hash::Hash);
 
 impl BuiltinActorManifest {
-    const MANDATORY_BUILTINS: &[BuiltinActor] = &[BuiltinActor::Init, BuiltinActor::System];
+    const MANDATORY_BUILTINS: &'static [BuiltinActor] = &[BuiltinActor::Init, BuiltinActor::System];
     pub fn load_manifest(b: impl Blockstore, manifest_cid: &Cid) -> anyhow::Result<Self> {
         let (manifest_version, actor_list_cid) = b
             .get_cbor::<(u32, Cid)>(manifest_cid)?

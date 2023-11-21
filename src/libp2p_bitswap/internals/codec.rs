@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::io;
+
 use async_trait::async_trait;
 use asynchronous_codec::{FramedRead, FramedWrite};
 use futures::{
@@ -40,7 +42,7 @@ impl request_response::Codec for BitswapRequestResponseCodec {
 
         let mut parts = vec![];
         for entry in pb_msg.wantlist.unwrap_or_default().entries {
-            let cid = Cid::try_from(entry.block).map_err(map_io_err)?;
+            let cid = Cid::try_from(entry.block).map_err(io::Error::other)?;
             parts.push(BitswapMessage::Request(BitswapRequest {
                 ty: entry.wantType.into(),
                 cid,
@@ -50,8 +52,8 @@ impl request_response::Codec for BitswapRequestResponseCodec {
         }
 
         for payload in pb_msg.payload {
-            let prefix = Prefix::new(&payload.prefix).map_err(map_io_err)?;
-            let cid = prefix.to_cid(&payload.data).map_err(map_io_err)?;
+            let prefix = Prefix::new(&payload.prefix).map_err(io::Error::other)?;
+            let cid = prefix.to_cid(&payload.data).map_err(io::Error::other)?;
             parts.push(BitswapMessage::Response(
                 cid,
                 BitswapResponse::Block(payload.data.to_vec()),
@@ -59,7 +61,7 @@ impl request_response::Codec for BitswapRequestResponseCodec {
         }
 
         for presence in pb_msg.blockPresences {
-            let cid = Cid::try_from(presence.cid).map_err(map_io_err)?;
+            let cid = Cid::try_from(presence.cid).map_err(io::Error::other)?;
             let have = presence.type_pb == BlockPresenceType::Have;
             parts.push(BitswapMessage::Response(cid, BitswapResponse::Have(have)));
         }
