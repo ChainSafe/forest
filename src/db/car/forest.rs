@@ -316,8 +316,7 @@ impl Encoder {
         futures::stream::poll_fn(move |cx| {
             let encoder = match encoder_store.as_mut() {
                 Err(e) => {
-                    let dummy_error =
-                        io::Error::new(io::ErrorKind::Other, "Error already consumed.");
+                    let dummy_error = io::Error::other("Error already consumed.");
                     return Poll::Ready(Some(Err(anyhow::Error::from(std::mem::replace(
                         e,
                         dummy_error,

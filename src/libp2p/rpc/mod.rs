@@ -96,8 +96,7 @@ where
     {
         let mut bytes = vec![];
         io.read_to_end(&mut bytes).await?;
-        serde_ipld_dagcbor::de::from_reader(bytes.as_slice())
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+        serde_ipld_dagcbor::de::from_reader(bytes.as_slice()).map_err(io::Error::other)
     }
 
     async fn write_request<T>(
@@ -160,7 +159,7 @@ where
     match tokio::time::timeout(TIMEOUT, DagCborDecodingReader::new(io, MAX_BYTES_ALLOWED)).await {
         Ok(r) => r,
         Err(_) => {
-            let err = io::Error::new(io::ErrorKind::Other, "read_and_decode timeout");
+            let err = io::Error::other("read_and_decode timeout");
             tracing::warn!("{err}");
             Err(err)
         }
@@ -172,8 +171,7 @@ where
     IO: AsyncWrite + Unpin,
     T: serde::Serialize,
 {
-    let bytes = fvm_ipld_encoding::to_vec(&data)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    let bytes = fvm_ipld_encoding::to_vec(&data).map_err(io::Error::other)?;
     io.write_all(&bytes).await?;
     io.close().await?;
     Ok(())
