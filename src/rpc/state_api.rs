@@ -37,7 +37,7 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
+    Params(LotusJson((message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
 ) -> Result<InvocResultApi, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
@@ -45,7 +45,7 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
         .chain_store()
         .load_required_tipset(&key)?;
     // TODO: handle expensive fork error?
-    let invoc_result = state_manager.call(&mut message, Some(tipset))?;
+    let invoc_result = state_manager.call(&message, Some(tipset))?;
     Ok(invoc_result)
 }
 

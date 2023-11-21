@@ -16,7 +16,7 @@ use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
-use crate::shim::{address::Address, message::Message};
+use crate::shim::address::Address;
 use similar::TextDiff;
 
 #[derive(Debug, Subcommand)]

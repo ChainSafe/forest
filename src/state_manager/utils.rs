@@ -242,22 +242,14 @@ pub mod structured {
     use crate::rpc_api::data_types::{ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
     use std::collections::VecDeque;
 
-    use cid::Cid;
-    use serde_json::json;
-
-    use crate::{
-        interpreter::CalledAt,
-        lotus_json::LotusJson,
-        message::{ChainMessage, Message as _},
-        shim::{
-            address::Address,
-            error::ExitCode,
-            executor::ApplyRet,
-            gas::GasCharge,
-            kernel::{ErrorNumber, SyscallError},
-            trace::{Call, CallReturn, ExecutionEvent},
-        },
+    use crate::shim::{
+        address::Address,
+        error::ExitCode,
+        gas::GasCharge,
+        kernel::SyscallError,
+        trace::{Call, CallReturn, ExecutionEvent},
     };
+    use cid::Cid;
     use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
     use itertools::Either;
 
@@ -407,7 +399,7 @@ pub mod structured {
                 }
             }
             CallTreeReturn::Abort(exit_code) => ReturnTrace {
-                exit_code: exit_code,
+                exit_code,
                 r#return: RawBytes::default(),
                 return_codec: 0,
             },
