@@ -39,6 +39,7 @@ use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -977,6 +978,30 @@ where
         };
 
         Ok(out)
+    }
+
+    /// Retrieves miner faules.
+    pub fn miner_faults(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<Vec<BitField>, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        let mut faults = Vec::new();
+
+        state.for_each_deadline(&self.chain_config.policy, self.blockstore(), |_, part| {
+            part.for_each(self.blockstore(), |_, dl| {
+                faults.push(dl.faulty_sectors().clone());
+                Ok(())
+            })
+        })?;
+
+        Ok(faults)
     }
 
     /// Retrieves miner power.

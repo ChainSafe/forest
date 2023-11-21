@@ -18,8 +18,9 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
-use fil_actor_interface::market;
 use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::{market, miner};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
@@ -156,6 +157,21 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
     data.state_manager
         .miner_power(&address, &tipset)
         .map(|res| res.into())
+        .map_err(|e| e.into())
+}
+
+/// looks up the miner power of the given address.
+pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<Vec<BitField>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+
+    data.state_manager
+        .miner_faults(&address, &ts)
         .map_err(|e| e.into())
 }
 
