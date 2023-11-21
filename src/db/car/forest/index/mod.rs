@@ -47,7 +47,7 @@ use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cfg_vis::cfg_vis;
 use cid::Cid;
 use itertools::Itertools as _;
-use positioned_io::ReadAt;
+use positioned_io::{ReadAt, Size};
 use smallvec::{smallvec, SmallVec};
 use std::{
     cmp,
@@ -156,6 +156,39 @@ where
             table_offset: self.table_offset,
             header: self.header,
         }
+    }
+}
+
+struct Iter<R> {
+    inner: R,
+    positions: iter::StepBy<std::ops::Range<u64>>,
+}
+
+impl<R> Iterator for Iter<R>
+where
+    R: ReadAt + Size,
+{
+    type Item = io::Result<Slot>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.positions
+            .next()
+            .map(|pos| Slot::read_from(positioned_io::Cursor::new_pos(&self.inner, pos)))
+    }
+}
+
+impl<R> Reader<R>
+where
+    R: ReadAt + Size,
+{
+    fn iter(&self) -> io::Result<Iter<&R>> {
+        let end = self.inner.size()?.ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "couldn't get end of table size")
+        })?;
+        Ok(Iter {
+            inner: &self.inner,
+            positions: (self.table_offset..end).step_by(Slot::LEN.try_into().unwrap()),
+        })
     }
 }
 
@@ -576,6 +609,7 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
+    use tap::Tap as _;
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
     ///
@@ -600,6 +634,8 @@ mod tests {
     }
 
     /// Like [`do_hashmap_of_cids`], but operates on hashes instead of [`Cid`]s.
+    ///
+    /// Additionally checks [`Reader::iter`]
     fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
             let writer =
@@ -613,10 +649,26 @@ mod tests {
             Ok(())
         }))
         .unwrap();
-        for (hash, expected) in reference {
-            let actual = subject.get_by_hash(hash).unwrap().into_iter().collect();
+        for (hash, expected) in &reference {
+            let actual = subject.get_by_hash(*hash).unwrap().into_iter().collect();
             assert!(expected.is_subset(&actual))
         }
+
+        let via_iter = subject
+            .iter()
+            .unwrap()
+            .filter_map(|it| match it.unwrap() {
+                Slot::Empty => None,
+                Slot::Occupied(it) => Some(it),
+            })
+            .group_by(|it| it.hash)
+            .into_iter()
+            .map(|(hash, group)| (hash, HashSet::from_iter(group.map(|it| it.frame_offset))))
+            .collect::<HashMap<_, _>>();
+        assert_eq!(
+            via_iter,
+            reference.tap_mut(|it| it.retain(|_, v| !v.is_empty()))
+        );
     }
 
     quickcheck::quickcheck! {
