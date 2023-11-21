@@ -422,7 +422,7 @@ where
         )?;
 
         for m in prior_messsages {
-            vm.apply_message(&m)?;
+            vm.apply_message(m)?;
         }
 
         // We flush to get the VM's view of the state tree after applying the above messages
