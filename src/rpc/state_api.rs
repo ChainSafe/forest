@@ -42,7 +42,8 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
         .state_manager
         .chain_store()
         .load_required_tipset(&key)?;
-    // TODO: handle expensive fork error?
+    // Handle expensive fork error?
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
     Ok(state_manager.call(&message, Some(tipset))?)
 }
 
