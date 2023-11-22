@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.2 "November Rain"
+
+### Breaking
+
+### Added
+
 - [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
   `Filecoin.GetParentMessages` lotus-compatible RPC API.
 - [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
