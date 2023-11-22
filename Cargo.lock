@@ -2798,9 +2798,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8ebf5d9559c7c04695e41a33eb08833d62c0ae9348e6aa9af347bd0941a8e7e"
+checksum = "3dbc73f2dbcc2551eb8496aea427c8b1b473a0d2188605603d26b9bb03495e02"
 dependencies = [
  "anyhow",
  "cid",
@@ -2872,9 +2872,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "7.0.0-rc.5"
+version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8ac590f3a0ae4c6af4efd4ddc0f98b3150e801beb511e2a1835db2b204b03e3"
+checksum = "b41ab92dd8ec5a4b1b5cf4a12946c70c927ac6f7fcca21fb913b4db05d6b90c8"
 dependencies = [
  "anyhow",
  "cid",
