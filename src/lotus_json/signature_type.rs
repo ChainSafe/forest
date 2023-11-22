@@ -22,7 +22,7 @@ impl HasLotusJson for SignatureType {
     type LotusJson = SignatureTypeLotusJson;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![(json!("bls"), SignatureType::Bls)]
+        vec![(json!(2), SignatureType::Bls)]
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
