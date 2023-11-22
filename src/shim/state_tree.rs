@@ -292,7 +292,7 @@ where
         }
     }
 
-    /// ResolveToDeterministicAddr returns the public key type of
+    /// Returns the public key type of
     /// address(`BLS`/`SECP256K1`) of an actor identified by `addr`,
     /// or its delegated address.
     pub fn resolve_to_deterministic_addr(
