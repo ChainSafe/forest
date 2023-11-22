@@ -238,6 +238,7 @@ mod test {
     }
 }
 
+/// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
     use crate::rpc_api::data_types::{ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
     use std::collections::VecDeque;

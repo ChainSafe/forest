@@ -454,7 +454,6 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     Ok(())
 }
 
-/// Parsed tree of [`fvm3::trace::ExecutionEvent`]s
 mod structured {
     use cid::Cid;
     use serde_json::json;
