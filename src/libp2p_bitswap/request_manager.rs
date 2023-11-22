@@ -139,13 +139,22 @@ impl BitswapRequestManager {
         }
 
         let have_request = BitswapRequest::new_have(cid).send_dont_have(false);
-        for &peer in self.peers.read().iter() {
-            if let Some(validate_peer) = &validate_peer {
-                if !validate_peer(peer) {
-                    continue;
-                }
-            }
+        let peers: Vec<_> = self.peers.read().iter().cloned().collect();
+        let validated_peers: Vec<_> = peers
+            .iter()
+            .filter(|&&p| validate_peer.as_ref().map(|f| f(p)).unwrap_or(true))
+            .cloned()
+            .collect();
 
+        debug!("Found {} valid peers for {cid}", validated_peers.len());
+        let selected_peers = if validated_peers.is_empty() {
+            // Fallback to all peers
+            peers
+        } else {
+            validated_peers
+        };
+
+        for peer in selected_peers {
             if let Err(e) = self.outbound_request_tx.send((peer, have_request.clone())) {
                 warn!("{e}");
             }
