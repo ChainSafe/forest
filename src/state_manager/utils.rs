@@ -269,6 +269,34 @@ pub mod structured {
         UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
     }
 
+    /// Construct a single [`CallTree`]s from a linear array of [`ExecutionEvent`](fvm4::trace::ExecutionEvent)s.
+    ///
+    /// This function is so-called because it similar to the parse step in a traditional compiler:
+    /// ```text
+    /// text --lex-->     tokens     --parse-->   AST
+    ///               ExecutionEvent --parse--> CallTree
+    /// ```
+    ///
+    /// This function is notable in that [`GasCharge`](fvm4::gas::GasCharge)s which precede a [`CallTree`] at the root level
+    /// are attributed to that node.
+    ///
+    /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)
+    ///
+    /// ```text
+    /// GasCharge GasCharge Call GasCharge Call CallError CallReturn
+    /// ────┬──── ────┬──── ─┬── ────┬──── ─┬── ───┬───── ────┬─────
+    ///     │         │      │       │      │      │          │
+    ///     │         │      │       │      └─(T)──┘          │
+    ///     │         │      └───────┴───(T)───┴──────────────┘
+    ///     └─────────┴──────────────────►│
+    ///     ("front loaded" GasCharges)   │
+    ///                                  (T)
+    ///
+    /// (T): a CallTree node
+    /// ```
+    ///
+    /// Multiple call trees and trailing gas will be warned and ignored.
+    /// If no call tree is found, returns [`Ok(None)`]
     pub fn parse_events(
         events: Vec<ExecutionEvent>,
     ) -> anyhow::Result<Option<ExecutionTrace>, BuildCallTreeError> {
@@ -322,6 +350,17 @@ pub mod structured {
     }
 
     impl ExecutionTrace {
+        /// ```text
+        ///    events: GasCharge Call CallError CallReturn ...
+        ///            ────┬──── ─┬── ───┬───── ────┬─────
+        ///                │      │      │          │
+        /// ┌──────┐       │      └─(T)──┘          │
+        /// │ Call ├───────┴───(T)───┴──────────────┘
+        /// └──────┘            |                   ▲
+        ///                     ▼                   │
+        ///              Returned CallTree          │
+        ///                                     parsing end
+        /// ```
         fn parse(
             call: Call,
             events: &mut VecDeque<ExecutionEvent>,
