@@ -67,6 +67,9 @@ pub mod hash;
 pub struct Reader<R> {
     inner: R,
     table_offset: u64,
+    #[cfg(feature = "benchmark-private")]
+    pub header: V1Header,
+    #[cfg(not(feature = "benchmark-private"))]
     header: V1Header,
 }
 
@@ -159,6 +162,7 @@ where
     }
 }
 
+#[cfg_vis(feature = "benchmark-private", pub)]
 struct Iter<R> {
     inner: R,
     positions: iter::StepBy<std::ops::Range<u64>>,
@@ -181,6 +185,7 @@ impl<R> Reader<R>
 where
     R: ReadAt + Size,
 {
+    #[cfg_vis(feature = "benchmark-private", pub)]
     fn iter(&self) -> io::Result<Iter<&R>> {
         let end = self.inner.size()?.ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "couldn't get end of table size")
@@ -385,6 +390,7 @@ enum Version {
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+#[cfg_vis(feature = "benchmark-private", pub)]
 struct V1Header {
     /// Worst-case distance between an entry and its bucket.
     longest_distance: u64,
@@ -397,7 +403,7 @@ struct V1Header {
     /// - A number of slots according to the `load_factor`.
     /// - [`Self::longest_distance`] additional buckets.
     /// - a terminal [`Slot::Empty`].
-    initial_buckets: u64,
+    pub initial_buckets: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

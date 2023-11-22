@@ -7,6 +7,7 @@ use forest_filecoin::benchmark_private::{
     cid::CidCborExt as _,
     forest::index::{self, hash, NonMaximalU64},
 };
+use positioned_io::{ReadAt, Size};
 use std::{hint::black_box, num::NonZeroUsize};
 
 // Benchmark lookups in car-index vs. HashMap.
@@ -24,10 +25,10 @@ fn bench_car_index(c: &mut Criterion) {
     assert!(reference.contains_key(&live_key));
     assert!(!reference.contains_key(&dead_key));
 
-    let subject_raw = index::Table::new(reference.clone(), index::DEFAULT_LOAD_FACTOR);
     let subject = {
         let mut v = vec![];
-        index::Writer::new(reference.clone())
+        index::Builder::from_iter(reference.clone())
+            .into_writer()
             .write_into(&mut v)
             .unwrap();
         index::Reader::new(v).unwrap()
@@ -45,7 +46,7 @@ fn bench_car_index(c: &mut Criterion) {
         .bench_function("miss", |b| b.iter(|| subject.get(black_box(dead_key))));
 
     for i in [0, 1, 2, 3, 4, 5, 100_u64] {
-        let (hash_key, distance) = hash_at_distance(&subject_raw, i);
+        let (hash_key, distance) = hash_at_distance(&subject, i);
 
         group.bench_function(BenchmarkId::new("hit", distance), |b| {
             b.iter(|| subject.get_by_hash(black_box(hash_key)))
@@ -58,14 +59,19 @@ fn bench_car_index(c: &mut Criterion) {
 criterion_group!(benches, bench_car_index);
 criterion_main!(benches);
 
-fn hash_at_distance(table: &index::Table, wanted_dist: u64) -> (NonMaximalU64, u64) {
+fn hash_at_distance(
+    reader: &index::Reader<impl ReadAt + Size>,
+    wanted_dist: u64,
+) -> (NonMaximalU64, u64) {
     let mut best_diff = u64::MAX;
     let mut best_distance = u64::MAX;
     let mut best_hash = NonMaximalU64::new(0).unwrap();
-    for (ix, slot) in table.slots.iter().enumerate() {
-        if let index::Slot::Occupied(it) = slot {
-            let ideal_ix =
-                hash::ideal_slot_ix(it.hash, NonZeroUsize::new(table.initial_width).unwrap());
+    for (ix, slot) in reader.iter().unwrap().enumerate() {
+        if let index::Slot::Occupied(it) = slot.unwrap() {
+            let ideal_ix = hash::ideal_slot_ix(
+                it.hash,
+                NonZeroUsize::new(reader.header.initial_buckets.try_into().unwrap()).unwrap(),
+            );
             let dist = (ix - ideal_ix) as u64;
             if dist.abs_diff(wanted_dist) < best_diff {
                 best_diff = dist.abs_diff(wanted_dist);
