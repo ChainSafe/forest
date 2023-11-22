@@ -393,7 +393,8 @@ where
             .iter()
             .filter(|msg| msg.message().from() == msg.from());
 
-        // TODO: handle state forks
+        // Handle state forks
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
@@ -433,6 +434,7 @@ where
         msg.set_sequence(from_actor.sequence);
 
         // If the fee cap is set to zero, make gas free
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         // Implicit messages need to set a special gas limit
         let mut msg = msg.clone();
