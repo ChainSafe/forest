@@ -261,7 +261,7 @@ pub mod structured {
     }
 
     #[derive(Debug, thiserror::Error)]
-    pub enum BuildCallTreeError {
+    pub enum BuildExecutionTraceError {
         #[error("every ExecutionEvent::Return | ExecutionEvent::CallError should be preceded by an ExecutionEvent::Call, but this one wasn't")]
         UnexpectedReturn,
         #[error("every ExecutionEvent::Call should have a corresponding ExecutionEvent::Return, but this one didn't")]
@@ -270,15 +270,15 @@ pub mod structured {
         UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
     }
 
-    /// Construct a single [`CallTree`]s from a linear array of [`ExecutionEvent`](fvm4::trace::ExecutionEvent)s.
+    /// Construct a single [`ExecutionTrace`]s from a linear array of [`ExecutionEvent`](fvm4::trace::ExecutionEvent)s.
     ///
     /// This function is so-called because it similar to the parse step in a traditional compiler:
     /// ```text
     /// text --lex-->     tokens     --parse-->   AST
-    ///               ExecutionEvent --parse--> CallTree
+    ///               ExecutionEvent --parse--> ExecutionTrace
     /// ```
     ///
-    /// This function is notable in that [`GasCharge`](fvm4::gas::GasCharge)s which precede a [`CallTree`] at the root level
+    /// This function is notable in that [`GasCharge`](fvm4::gas::GasCharge)s which precede a [`ExecutionTrace`] at the root level
     /// are attributed to that node.
     ///
     /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)
@@ -293,14 +293,14 @@ pub mod structured {
     ///     ("front loaded" GasCharges)   │
     ///                                  (T)
     ///
-    /// (T): a CallTree node
+    /// (T): a ExecutionTrace node
     /// ```
     ///
     /// Multiple call trees and trailing gas will be warned and ignored.
     /// If no call tree is found, returns [`Ok(None)`]
     pub fn parse_events(
         events: Vec<ExecutionEvent>,
-    ) -> anyhow::Result<Option<ExecutionTrace>, BuildCallTreeError> {
+    ) -> anyhow::Result<Option<ExecutionTrace>, BuildExecutionTraceError> {
         let mut events = VecDeque::from(events);
         let mut front_load_me = vec![];
         let mut call_trees = vec![];
@@ -310,7 +310,7 @@ pub mod structured {
             match event {
                 ExecutionEvent::GasCharge(gc) => front_load_me.push(gc),
                 ExecutionEvent::Call(call) => call_trees.push(ExecutionTrace::parse(call, {
-                    // if CallTree::parse took impl Iterator<Item = ExecutionEvent>
+                    // if ExecutionTrace::parse took impl Iterator<Item = ExecutionEvent>
                     // the compiler would infinitely recurse trying to resolve
                     // &mut &mut &mut ..: Iterator
                     // so use a VecDeque instead
@@ -321,11 +321,13 @@ pub mod structured {
                 })?),
                 ExecutionEvent::CallReturn(_)
                 | ExecutionEvent::CallAbort(_)
-                | ExecutionEvent::CallError(_) => return Err(BuildCallTreeError::UnexpectedReturn),
+                | ExecutionEvent::CallError(_) => {
+                    return Err(BuildExecutionTraceError::UnexpectedReturn)
+                }
                 ExecutionEvent::Log(_ignored) => {}
                 ExecutionEvent::InvokeActor(_cid) => {}
                 ExecutionEvent::Unknown(u) => {
-                    return Err(BuildCallTreeError::UnrecognisedEvent(Box::new(u)))
+                    return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)))
                 }
             }
         }
@@ -359,13 +361,13 @@ pub mod structured {
         /// │ Call ├───────┴───(T)───┴──────────────┘
         /// └──────┘            |                   ▲
         ///                     ▼                   │
-        ///              Returned CallTree          │
+        ///              Returned ExecutionTrace    │
         ///                                     parsing end
         /// ```
         fn parse(
             call: Call,
             events: &mut VecDeque<ExecutionEvent>,
-        ) -> Result<ExecutionTrace, BuildCallTreeError> {
+        ) -> Result<ExecutionTrace, BuildExecutionTraceError> {
             let mut gas_charges = vec![];
             let mut subcalls = vec![];
             let mut code_cid = Default::default();
@@ -390,10 +392,10 @@ pub mod structured {
                         None
                     }
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
-                    //       So that BuildCallTreeError::UnrecognisedEvent is never constructed
+                    //       So that BuildExecutionTraceError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
                     ExecutionEvent::Unknown(u) => {
-                        return Err(BuildCallTreeError::UnrecognisedEvent(Box::new(u)))
+                        return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)))
                     }
                 };
 
@@ -408,7 +410,7 @@ pub mod structured {
                 }
             }
 
-            Err(BuildCallTreeError::NoReturn)
+            Err(BuildExecutionTraceError::NoReturn)
         }
     }
 
