@@ -258,6 +258,10 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::SYSTEM_ACTOR,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_read_state_req(
+            Address::SYSTEM_ACTOR,
+            TipsetKeys::from_iter(Vec::new()),
+        )),
         RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
             *shared_block.miner_address(),
             shared_tipset.key().clone(),
