@@ -31,6 +31,8 @@
 
 - [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
   `Filecoin.GetParentMessages` lotus-compatible RPC API.
+- [#3726](https://github.com/ChainSafe/forest/pull/3726) Implement the
+  `Filecoin.StateMinerFaults` lotus-compatible RPC API.
 
 ### Changed
 
