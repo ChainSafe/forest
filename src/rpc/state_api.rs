@@ -43,8 +43,7 @@ pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
         .chain_store()
         .load_required_tipset(&key)?;
     // TODO: handle expensive fork error?
-    let invoc_result = state_manager.call(&message, Some(tipset))?;
-    Ok(invoc_result)
+    Ok(state_manager.call(&message, Some(tipset))?)
 }
 
 /// returns the result of executing the indicated message, assuming it was

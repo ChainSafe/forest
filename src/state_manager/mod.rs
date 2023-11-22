@@ -439,23 +439,18 @@ where
         msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
         let apply_ret = vm.apply_implicit_message(&msg)?;
-        let gas_info = MessageGasCost::default();
-
         let result = structured::parse_events(apply_ret.exec_trace());
         let trace = match result {
             Ok(t) => t,
             Err(_e) => None,
         };
-        let msg_rct = Some(apply_ret.msg_receipt());
-        let msg_cid = msg.cid().unwrap();
-        let error = apply_ret.failure_info().unwrap_or_default();
         Ok(ApiInvocResult {
             msg: msg.clone(),
-            msg_rct,
-            msg_cid,
-            error,
+            msg_rct: Some(apply_ret.msg_receipt()),
+            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            error: apply_ret.failure_info().unwrap_or_default(),
             duration: 0,
-            gas_cost: gas_info,
+            gas_cost: MessageGasCost::default(),
             execution_trace: trace,
         })
     }
