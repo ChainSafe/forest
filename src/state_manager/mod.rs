@@ -439,11 +439,7 @@ where
         msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
         let apply_ret = vm.apply_implicit_message(&msg)?;
-        let result = structured::parse_events(apply_ret.exec_trace());
-        let trace = match result {
-            Ok(t) => t,
-            Err(_e) => None,
-        };
+
         Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
@@ -451,7 +447,7 @@ where
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: 0,
             gas_cost: MessageGasCost::default(),
-            execution_trace: trace,
+            execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
         })
     }
 
