@@ -40,6 +40,22 @@
 //!   concatenated - seeking forward to the next entry will yield any collisions.
 //! - A slot is always found at or within [`V1Header::longest_distance`] after its
 //!   [`hash::ideal_slot_ix`].
+//!
+//! So the layout on disk is as follows:
+//!
+//! ```text
+//! ┌──────────────┐
+//! │Version::V1   │
+//! ├──────────────┤
+//! │Header        │ <- Contains the "intial width", required to perform lookups
+//! ├──────────────┤
+//! │Slot::Occupied│
+//! ├──────────────┤
+//! │Slot::Empty   │
+//! ├──────────────┤    The hash table does not know how many slots it contains:
+//! │Slot::Empty   │    Length information must be stored out of band (e.g in the
+//! ├──────────────┤ <- Zstd skip frame header)
+//! ```
 
 #[cfg_vis(feature = "benchmark-private", pub)]
 use self::util::NonMaximalU64;
@@ -62,6 +78,8 @@ mod hash;
 pub mod hash;
 
 /// Reader for the `.forest.car.zst`'s embedded index.
+///
+/// Performs lookups and slot iteration.
 ///
 /// See [module documentation](mod@self) for more.
 pub struct Reader<R> {
@@ -197,9 +215,11 @@ where
     }
 }
 
-#[cfg_vis(feature = "benchmark-private", pub)]
 const DEFAULT_LOAD_FACTOR: f64 = 0.8;
 
+/// Accumulator of [`Cid`]s and frame offsets ([`u64`]s) for the hash table.
+///
+/// Call [`Self::into_writer`] when you're ready to write the table to disk.
 pub struct Builder {
     load_factor: f64,
     /// The first field is unused, but we preserve it to not allocate in
@@ -309,10 +329,16 @@ impl FromIterator<(NonMaximalU64, u64)> for Builder {
     }
 }
 
+/// Writes the actual slot table to disk.
+///
+/// Importantly, this knows the [`Self::written_len`] of the table, which is
+/// required for some containers.
 pub struct Writer {
     version: Version,
     header: V1Header,
     /// Number of preceding [`Slot::Empty`]s, followed by the [`Slot::Occupied`].
+    ///
+    /// This is so that [`Slot::Empty`]s aren't created, saving memory.
     ///
     /// Note that there must additionally be a terminal [`Slot::Empty`].
     slots: Vec<(usize, OccupiedSlot)>,
@@ -327,6 +353,7 @@ impl Writer {
         } = self;
         written_len(version)
             + written_len(header)
+            // this logic must be kept in sync with [`slots`], below
             + cmp::max(
                 u64::try_from(
                     slots
@@ -343,6 +370,7 @@ impl Writer {
         min_slots: usize,
         slots: impl IntoIterator<Item = (usize, OccupiedSlot)>,
     ) -> impl Iterator<Item = Slot> {
+        // this logic must be kept in sync with [`written_len`], above
         slots
             .into_iter()
             .flat_map(|(pre, occ)| {
