@@ -164,7 +164,7 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
 pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
-) -> Result<Vec<BitField>, JsonRpcError> {
+) -> Result<LotusJson<Vec<BitField>>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
