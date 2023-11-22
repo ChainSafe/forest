@@ -85,6 +85,23 @@ pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
+/// gets the public key address of the given ID address
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
+pub(in crate::rpc) async fn state_account_key<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Address>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let ts_opt = data.chain_store.load_tipset(&tipset_keys)?;
+    Ok(LotusJson(
+        data.state_manager
+            .resolve_to_deterministic_address(address, ts_opt)
+            .await?,
+    ))
+}
+
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
