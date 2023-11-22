@@ -4,7 +4,7 @@
 pub mod chain_rand;
 mod errors;
 mod metrics;
-mod utils;
+pub mod utils;
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::state_migration::run_state_migrations;
