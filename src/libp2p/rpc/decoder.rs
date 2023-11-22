@@ -48,19 +48,16 @@ where
             let n = std::task::ready!(this.io.poll_read(cx, &mut buf))?;
             // Terminated
             if n == 0 {
-                let item = serde_ipld_dagcbor::de::from_reader(&self.bytes[..])
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()));
+                let item =
+                    serde_ipld_dagcbor::de::from_reader(&self.bytes[..]).map_err(io::Error::other);
                 return Poll::Ready(item);
             }
             *this.bytes_read += n;
             if *this.max_bytes_allowed > 0 && *this.bytes_read > *this.max_bytes_allowed {
-                let err = io::Error::new(
-                    io::ErrorKind::Other,
-                    format!(
-                        "Buffer size exceeds the maximum allowed {}B",
-                        *this.max_bytes_allowed,
-                    ),
-                );
+                let err = io::Error::other(format!(
+                    "Buffer size exceeds the maximum allowed {}B",
+                    *this.max_bytes_allowed,
+                ));
                 warn!("{err}");
                 return Poll::Ready(Err(err));
             }
