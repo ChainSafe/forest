@@ -84,6 +84,7 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_EXPORT, params)
     }
 
+    #[allow(dead_code)]
     pub async fn chain_get_message(&self, cid: Cid) -> Result<Message, JsonRpcError> {
         self.call(Self::chain_get_message_req(cid)).await
     }

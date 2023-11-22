@@ -364,7 +364,7 @@ where
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
-                    RequestResponseError::Timeout => {
+                    RequestResponseError::Timeout | RequestResponseError::Io(_) => {
                         peer_manager.log_failure(peer_id, res_duration).await;
                     }
                 }
@@ -403,7 +403,7 @@ where
             .await
             .context("Failed to send hello request: receiver dropped")?;
 
-        const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
+        const HELLO_TIMEOUT: Duration = Duration::from_secs(30);
         let sent = SystemTime::now();
         let res = tokio::task::spawn_blocking(move || rx.recv_timeout(HELLO_TIMEOUT))
             .await?

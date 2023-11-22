@@ -28,8 +28,7 @@ use libp2p::{
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
-    noise, ping,
-    request_response::{self, RequestId, ResponseChannel},
+    noise, ping, request_response,
     swarm::{self, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
@@ -87,7 +86,7 @@ pub const PUBSUB_MSG_STR: &str = "/fil/msgs";
 
 const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
-pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(10);
+pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 
 const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
 
@@ -108,22 +107,22 @@ pub enum NetworkEvent {
         request: HelloRequest,
     },
     HelloRequestOutbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     HelloResponseInbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     ChainExchangeRequestOutbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     ChainExchangeResponseInbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     ChainExchangeRequestInbound {
-        request_id: RequestId,
+        request_id: request_response::InboundRequestId,
     },
     ChainExchangeResponseOutbound {
-        request_id: RequestId,
+        request_id: request_response::InboundRequestId,
     },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
@@ -650,16 +649,10 @@ async fn handle_hello_event(
             peer,
             error: _,
         } => {
-            hello.on_error(&request_id);
+            hello.on_outbound_failure(&request_id);
             peer_manager.mark_peer_bad(peer).await;
         }
-        request_response::Event::InboundFailure {
-            request_id,
-            peer: _,
-            error: _,
-        } => {
-            hello.on_error(&request_id);
-        }
+        request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),
     }
 }
@@ -697,8 +690,8 @@ async fn handle_chain_exchange_event<DB>(
     db: &Arc<ChainStore<DB>>,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
-        RequestId,
-        ResponseChannel<ChainExchangeResponse>,
+        request_response::InboundRequestId,
+        request_response::ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
 ) where
@@ -781,8 +774,8 @@ async fn handle_forest_behaviour_event<DB>(
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
-        RequestId,
-        ResponseChannel<ChainExchangeResponse>,
+        request_response::InboundRequestId,
+        request_response::ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
     pubsub_block_str: &str,

@@ -58,7 +58,7 @@ impl ApiInfo {
     }
 
     pub fn state_miner_power_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
-        RpcRequest::new(STATE_MINOR_POWER, (miner, tsk))
+        RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
     }
 
     pub fn state_get_randomness_from_beacon_req(
@@ -69,7 +69,7 @@ impl ApiInfo {
     ) -> RpcRequest<Vec<u8>> {
         RpcRequest::new(
             STATE_GET_RANDOMNESS_FROM_BEACON,
-            (personalization as u32, rand_epoch, entropy, tsk),
+            (personalization as i64, rand_epoch, entropy, tsk),
         )
     }
 
