@@ -18,8 +18,8 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
+use fil_actor_interface::market;
 use fil_actor_interface::miner::MinerPower;
-use fil_actor_interface::{market, miner};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -173,6 +173,7 @@ pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 's
     data.state_manager
         .miner_faults(&address, &ts)
         .map_err(|e| e.into())
+        .map(|r| r.into())
 }
 
 /// returns the message receipt for the given message
