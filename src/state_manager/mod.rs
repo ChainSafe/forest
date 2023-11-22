@@ -980,7 +980,7 @@ where
         Ok(out)
     }
 
-    /// Retrieves miner faules.
+    /// Retrieves miner faults.
     pub fn miner_faults(
         self: &Arc<Self>,
         addr: &Address,
