@@ -333,13 +333,13 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.message().clone(),
-                    shared_tipset.clone().key().clone(),
+                    shared_tipset.key().clone(),
                 )));
             }
             for msg in bls_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.clone(),
-                    shared_tipset.clone().key().clone(),
+                    shared_tipset.key().clone(),
                 )));
             }
         }
