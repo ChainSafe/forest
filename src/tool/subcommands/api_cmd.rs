@@ -16,7 +16,8 @@ use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
-use crate::shim::address::Address;
+use crate::shim::address::{Address, Protocol};
+use crate::shim::crypto::Signature;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -266,6 +267,42 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             *shared_block.miner_address(),
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_lookup_id_req(
+            *shared_block.miner_address(),
+            shared_tipset.key().clone(),
+        )),
+        // This should return `Address::new_id(0xdeadbeef)`
+        RpcTest::identity(ApiInfo::state_lookup_id_req(
+            Address::new_id(0xdeadbeef),
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::state_network_version_req(
+            shared_tipset.key().clone(),
+        )),
+    ]
+}
+
+fn wallet_tests() -> Vec<RpcTest> {
+    // This address has been funded by the calibnet faucet and the private keys
+    // has been discarded. It should always have a non-zero balance.
+    let known_wallet = Address::from_str("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui").unwrap();
+    // "Hello world!" signed with the above address:
+    let signature = "44364ca78d85e53dda5ac6f719a4f2de3261c17f58558ab7730f80c478e6d43775244e7d6855afad82e4a1fd6449490acfa88e3fcfe7c1fe96ed549c100900b400";
+    let text = "Hello world!".as_bytes().to_vec();
+    let sig_bytes = hex::decode(signature).unwrap();
+    let signature = match known_wallet.protocol() {
+        Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
+        Protocol::BLS => Signature::new_bls(sig_bytes),
+        _ => panic!("Invalid signature (must be bls or secp256k1)"),
+    };
+
+    vec![
+        RpcTest::identity(ApiInfo::wallet_balance_req(known_wallet.to_string())),
+        RpcTest::identity(ApiInfo::wallet_verify_req(known_wallet, text, signature)),
+        // These methods require write access in Lotus. Not sure why.
+        // RpcTest::basic(ApiInfo::wallet_default_address_req()),
+        // RpcTest::basic(ApiInfo::wallet_list_req()),
+        // RpcTest::basic(ApiInfo::wallet_has_req(known_wallet.to_string())),
     ]
 }
 
@@ -383,6 +420,7 @@ async fn compare_apis(
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
+    tests.extend(wallet_tests());
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;

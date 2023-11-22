@@ -11,7 +11,7 @@ use crate::{
     },
     shim::{
         address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message,
-        message::MethodNum, state_tree::ActorState,
+        message::MethodNum, state_tree::ActorState, version::NetworkVersion,
     },
 };
 use cid::Cid;
@@ -86,6 +86,14 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<Vec<SectorOnChainInfo>> {
         RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
+    }
+
+    pub fn state_lookup_id_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Option<Address>> {
+        RpcRequest::new(STATE_LOOKUP_ID, (addr, tsk))
+    }
+
+    pub fn state_network_version_req(tsk: TipsetKeys) -> RpcRequest<NetworkVersion> {
+        RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
     }
 
     pub fn state_account_key_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Address> {
