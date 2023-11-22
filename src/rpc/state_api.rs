@@ -147,14 +147,21 @@ pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
 ) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
+    let bs = data.state_manager.blockstore();
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&miner, *ts.parent_state())?
         .ok_or("Miner actor address could not be resolved")?;
-    let miner_state = miner::State::load(data.state_manager.blockstore(), actor.code, actor.state)?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
 
-    todo!()
+    let sectors = miner_state
+        .load_sectors(bs, None)?
+        .into_iter()
+        .map(SectorOnChainInfo::from)
+        .collect::<Vec<_>>();
+
+    Ok(LotusJson(sectors))
 }
 
 /// looks up the miner power of the given address.

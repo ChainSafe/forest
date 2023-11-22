@@ -287,6 +287,10 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
             tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
                 *block.cid(),
             )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
+                *block.miner_address(),
+                root_tsk.clone(),
+            )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages {

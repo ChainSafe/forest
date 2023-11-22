@@ -312,7 +312,7 @@ pub struct ApiActorState {
 
 lotus_json_with_self!(ApiActorState);
 
-#[derive(Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
     pub sector_number: SectorNumber,
@@ -368,6 +368,28 @@ pub struct SectorOnChainInfo {
 
     #[serde(rename = "SimpleQAPower")]
     pub simple_qa_power: bool,
+}
+
+impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(other: fil_actor_interface::miner::SectorOnChainInfo) -> Self {
+        SectorOnChainInfo {
+            sector_number: other.sector_number,
+            seal_proof: other.seal_proof.into(),
+            sealed_cid: other.sealed_cid,
+            deal_ids: other.deal_ids,
+            activation: other.activation,
+            expiration: other.expiration,
+            deal_weight: other.deal_weight,
+            verified_deal_weight: other.verified_deal_weight,
+            initial_pledge: other.initial_pledge.into(),
+            expected_day_reward: other.expected_day_reward.into(),
+            expected_storage_pledge: other.expected_storage_pledge.into(),
+            replaced_sector_age: ChainEpoch::default(),
+            replaced_day_reward: TokenAmount::default(),
+            sector_key_cid: None,
+            simple_qa_power: false,
+        }
+    }
 }
 
 lotus_json_with_self!(SectorOnChainInfo);
