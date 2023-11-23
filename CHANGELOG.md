@@ -45,6 +45,8 @@
   `Filecoin.GetParentMessages` lotus-compatible RPC API.
 - [#3735](https://github.com/ChainSafe/forest/pull/3735) Implement the
   `Filecoin.StateAccountKey` lotus-compatible RPC API.
+- [#3744](https://github.com/ChainSafe/forest/pull/3744) Implement the
+  `Filecoin.StateLookupID` lotus-compatible RPC API.
 - [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
   bootstrap node peer
 - [#3737](https://github.com/ChainSafe/forest/pull/3737) Added `--n-tipsets`
