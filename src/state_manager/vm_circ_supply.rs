@@ -36,7 +36,7 @@ const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
 
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
-pub(in crate::state_manager) struct GenesisInfo {
+pub struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state

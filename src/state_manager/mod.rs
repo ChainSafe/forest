@@ -53,7 +53,7 @@ use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, trace, warn};
-use vm_circ_supply::GenesisInfo;
+pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
