@@ -196,9 +196,9 @@ pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
 
     // Collect active sectors from each partition in each deadline.
     let mut active_sectors = vec![];
-    miner_state.for_each_deadline(policy, bs, |_dlidx, dl| {
-        dl.for_each(bs, |_partidx, part| {
-            active_sectors.push(part.active_sectors());
+    miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
+        deadline.for_each(bs, |_partidx, partition| {
+            active_sectors.push(partition.active_sectors());
             Ok(())
         })
     })?;
