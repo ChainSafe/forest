@@ -994,12 +994,16 @@ where
 
         let mut faults = Vec::new();
 
-        state.for_each_deadline(&self.chain_config.policy, self.blockstore(), |_, part| {
-            part.for_each(self.blockstore(), |_, dl| {
-                faults.push(dl.faulty_sectors().clone());
-                Ok(())
-            })
-        })?;
+        state.for_each_deadline(
+            &self.chain_config.policy,
+            self.blockstore(),
+            |_, deadline| {
+                deadline.for_each(self.blockstore(), |_, partition| {
+                    faults.push(partition.faulty_sectors().clone());
+                    Ok(())
+                })
+            },
+        )?;
 
         Ok(BitField::union(faults.iter()))
     }
