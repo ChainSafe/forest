@@ -124,6 +124,8 @@
 use crate::ipld::{json::IpldJson, Ipld};
 use derive_more::From;
 use fil_actor_interface::power::Claim;
+use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
@@ -498,6 +500,19 @@ impl HasLotusJson for Ipld {
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         IpldJson(self)
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        lotus_json.0
+    }
+}
+
+impl HasLotusJson for BitField {
+    type LotusJson = BitFieldJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        BitFieldJson(self)
     }
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         lotus_json.0

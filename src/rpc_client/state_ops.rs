@@ -16,6 +16,7 @@ use crate::{
 };
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use libipld_core::ipld::Ipld;
 
@@ -55,6 +56,10 @@ impl ApiInfo {
 
     pub fn state_network_name_req() -> RpcRequest<String> {
         RpcRequest::new(STATE_NETWORK_NAME, ())
+    }
+
+    pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
+        RpcRequest::new(STATE_MINER_FAULTS, (miner, tsk))
     }
 
     pub fn state_miner_power_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
