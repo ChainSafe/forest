@@ -25,7 +25,7 @@ pub(in crate::state_migration) struct MigrationJob<BS: Blockstore> {
 impl<BS: Blockstore> MigrationJob<BS> {
     pub(in crate::state_migration) fn run(
         &self,
-        store: &Arc<BS>,
+        store: &BS,
         prior_epoch: ChainEpoch,
         cache: MigrationCache,
     ) -> anyhow::Result<Option<MigrationJobOutput>> {
