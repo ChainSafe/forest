@@ -1122,13 +1122,14 @@ where
             _ => {
                 let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
-                let state =
-                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())?;
-
-                if let Ok(address) =
-                    state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                if let Ok(state) =
+                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
                 {
-                    return Ok(address);
+                    if let Ok(address) = state
+                        .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                    {
+                        return Ok(address);
+                    }
                 }
 
                 // If that fails, compute the tip-set and try again.
