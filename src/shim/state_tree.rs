@@ -309,7 +309,7 @@ where
                     .with_context(|| format!("failed to find actor: {addr}"))?;
 
                 // if state.Version() >= types.StateTreeVersion5
-                if matches!(self, Self::FvmV4(_) | Self::FvmV3(_)) {
+                if !matches!(self, Self::FvmV2(_) | Self::V0(_)) {
                     if let Some(address) = actor.delegated_address {
                         return Ok(address.into());
                     }
