@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::ops::{Deref, DerefMut};
 
+use crate::lotus_json::lotus_json_with_self;
+
 use super::fvm_shared_latest::version::NetworkVersion as NetworkVersion_latest;
 pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
@@ -28,6 +30,8 @@ use serde::{Deserialize, Serialize};
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct NetworkVersion(pub NetworkVersion_latest);
+
+lotus_json_with_self!(NetworkVersion);
 
 impl NetworkVersion {
     pub const V0: Self = Self(NetworkVersion_latest::new(0));
