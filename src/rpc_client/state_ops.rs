@@ -58,7 +58,7 @@ impl ApiInfo {
         RpcRequest::new(STATE_NETWORK_NAME, ())
     }
 
-    pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<Vec<BitField>> {
+    pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
         RpcRequest::new(STATE_MINER_FAULTS, (miner, tsk))
     }
 

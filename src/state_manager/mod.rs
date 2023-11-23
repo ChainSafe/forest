@@ -985,7 +985,7 @@ where
         self: &Arc<Self>,
         addr: &Address,
         ts: &Arc<Tipset>,
-    ) -> Result<Vec<BitField>, Error> {
+    ) -> Result<BitField, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
@@ -1001,7 +1001,7 @@ where
             })
         })?;
 
-        Ok(faults)
+        Ok(BitField::union(faults.iter()))
     }
 
     /// Retrieves miner power.
