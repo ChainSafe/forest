@@ -5,9 +5,11 @@ RUN apt-get update && apt-get install -y ca-certificates build-essential clang o
 
 WORKDIR /lotus
 
-# Use a specific commit of Lotus to support NV21 Watermelon Fix 2 on devnet.
-RUN git clone --depth 1 --branch asr/devnet https://github.com/filecoin-project/lotus.git . && \
-    git checkout 56c80a10d6ba1a7
+RUN git clone --depth 1 --branch v1.25.0 https://github.com/filecoin-project/lotus.git .
+
+# Update the schedules to have the migration faster than it is by default.
+COPY update-schedules.diff .
+RUN git apply update-schedules.diff
 
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \

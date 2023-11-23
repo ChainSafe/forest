@@ -62,7 +62,7 @@ fil_actor_power_state = "7.0.0"
 fil_actor_reward_state = "7.0.0"
 fil_actor_system_state = "7.0.0"
 fil_actor_verifreg_state = "7.0.0"
-fil_actors_shared = "7.0.0"
+fil_actors_shared = { version = "7.0.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
