@@ -1120,7 +1120,7 @@ where
             BLS | Secp256k1 | Delegated => Ok(address),
             Actor => anyhow::bail!("cannot resolve actor address to key address"),
             _ => {
-                let ts = ts.unwrap_or(self.chain_store().heaviest_tipset());
+                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 let state =
                     StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())?;
