@@ -19,7 +19,7 @@ mod tests {
     use tokio::{select, task::JoinSet};
 
     const TIMEOUT: Duration = Duration::from_secs(5);
-    const N_SERVER: usize = 10;
+    const N_SERVER: usize = 100;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_manager_e2e_test() {
@@ -108,7 +108,7 @@ mod tests {
         store: TestStore,
     ) -> anyhow::Result<()> {
         let request_manager = swarm.behaviour().request_manager();
-        let mut outbound_request_rx_stream = request_manager.outbound_request_rx().stream().fuse();
+        let mut outbound_request_stream = request_manager.outbound_request_stream().fuse();
         let mut swarm_stream = swarm.fuse();
 
         loop {
@@ -122,7 +122,7 @@ mod tests {
                         store.as_ref(),
                     );
                 },
-                request_opt = outbound_request_rx_stream.next() => if let Some((peer, request)) = request_opt {
+                request_opt = outbound_request_stream.next() => if let Some((peer, request)) = request_opt {
                     swarm_stream.get_mut().behaviour_mut().send_request(&peer, request);
                 },
             }

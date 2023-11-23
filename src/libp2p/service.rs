@@ -286,10 +286,8 @@ where
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
-        let mut bitswap_outbound_request_rx_stream = bitswap_request_manager
-            .outbound_request_rx()
-            .stream()
-            .fuse();
+        let mut bitswap_outbound_request_stream =
+            bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -340,7 +338,7 @@ where
                         }
                     }
                 },
-                bitswap_outbound_request_opt = bitswap_outbound_request_rx_stream.next() => {
+                bitswap_outbound_request_opt = bitswap_outbound_request_stream.next() => {
                     if let Some((peer, request)) = bitswap_outbound_request_opt {
                         let bitswap = &mut swarm_stream.get_mut().behaviour_mut().bitswap;
                         bitswap.send_request(&peer, request);

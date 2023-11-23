@@ -7,7 +7,7 @@ use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{MarketDeal, MessageLookup, RPCState};
+use crate::rpc_api::data_types::{ApiActorState, MarketDeal, MessageLookup, RPCState};
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
@@ -83,6 +83,23 @@ pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
 ) -> Result<NetworkVersion, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
+}
+
+/// gets the public key address of the given ID address
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
+pub(in crate::rpc) async fn state_account_key<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Address>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let ts_opt = data.chain_store.load_tipset(&tipset_keys)?;
+    Ok(LotusJson(
+        data.state_manager
+            .resolve_to_deterministic_address(address, ts_opt)
+            .await?,
+    ))
 }
 
 pub(crate) async fn state_get_actor<DB: Blockstore>(
@@ -394,4 +411,28 @@ pub(in crate::rpc) async fn state_get_randomness_from_beacon<
         &entropy,
     )?;
     Ok(LotusJson(value.to_vec()))
+}
+
+/// Get read state
+pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<ApiActorState>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("Actor address could not be resolved")?;
+    let blk = data
+        .state_manager
+        .blockstore()
+        .get(&actor.state)?
+        .ok_or("Failed to get block from blockstore")?;
+    let state = fvm_ipld_encoding::from_slice::<Vec<Cid>>(&blk)?[0];
+
+    Ok(LotusJson(ApiActorState::new(
+        actor.balance.clone().into(),
+        actor.code,
+        Ipld::Link(state),
+    )))
 }
