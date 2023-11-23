@@ -308,7 +308,8 @@ where
                     .get_actor(&addr)?
                     .with_context(|| format!("failed to find actor: {addr}"))?;
 
-                // if state.Version() >= types.StateTreeVersion5
+                // A workaround to implement `if state.Version() >= types.StateTreeVersion5`
+                // When state tree version is not available in rust APIs
                 if !matches!(self, Self::FvmV2(_) | Self::V0(_)) {
                     if let Some(address) = actor.delegated_address {
                         return Ok(address.into());
