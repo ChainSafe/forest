@@ -115,7 +115,9 @@ where
     let ret = data
         .state_manager
         .lookup_id(&address, ts.as_ref())?
-        .context("Not found")?;
+        .with_context(|| {
+            format!("Failed to lookup the id address for address: {address} and tipset keys: {tipset_keys}")
+        })?;
     Ok(LotusJson(ret))
 }
 
