@@ -403,10 +403,15 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
             initial_pledge: other.initial_pledge.into(),
             expected_day_reward: other.expected_day_reward.into(),
             expected_storage_pledge: other.expected_storage_pledge.into(),
-            replaced_sector_age: ChainEpoch::default(),
+            replaced_sector_age: other.replaced_sector_age,
+            // `replaced_day_reward` has to be zero and Lemmih cannot figure out
+            // why. Lotus casts all `SectorOnChainInfo` structs to the miner-v9
+            // version which clears some fields (like `simple_qa_power`) but it
+            // shouldn't clear `replaced_day_reward`. Oh well, maybe one day
+            // Lemmih will figure it out.
             replaced_day_reward: TokenAmount::default(),
-            sector_key_cid: None,
-            simple_qa_power: false,
+            sector_key_cid: other.sector_key_cid,
+            simple_qa_power: other.simple_qa_power,
         }
     }
 }
