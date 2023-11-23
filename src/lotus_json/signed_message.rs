@@ -44,7 +44,7 @@ impl HasLotusJson for SignedMessage {
                         "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
                     },
                 },
-                "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
+                "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"}
             }),
             SignedMessage {
                 message: crate::shim::message::Message::default(),

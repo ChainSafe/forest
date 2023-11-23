@@ -86,8 +86,10 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
+    access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
     access.insert(state_api::STATE_FETCH_ROOT, Access::Read);
     access.insert(state_api::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
+    access.insert(state_api::STATE_READ_STATE, Access::Read);
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
@@ -238,6 +240,7 @@ pub mod state_api {
     pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
     pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
     pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
+    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
     pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
     pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
     pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";

@@ -17,7 +17,7 @@ impl HasLotusJson for KeyInfo {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
-                "Type": "bls",
+                "Type": 2,
                 "PrivateKey": "aGVsbG8gd29ybGQh"
             }),
             Self::new(

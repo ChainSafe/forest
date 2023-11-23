@@ -19,7 +19,7 @@ mod tests {
     use tokio::{select, task::JoinSet};
 
     const TIMEOUT: Duration = Duration::from_secs(5);
-    const N_SERVER: usize = 10;
+    const N_SERVER: usize = 100;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_manager_e2e_test() {
@@ -96,7 +96,7 @@ mod tests {
             BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
         });
         let peer_id = *swarm.local_peer_id();
-        let (peer_addr, _) = swarm.listen().await;
+        let (peer_addr, _) = swarm.listen().with_memory_addr_external().await;
 
         Ok((swarm, peer_id, peer_addr))
     }
@@ -106,7 +106,7 @@ mod tests {
         store: TestStore,
     ) -> anyhow::Result<()> {
         let request_manager = swarm.behaviour().request_manager();
-        let mut outbound_request_rx_stream = request_manager.outbound_request_rx().stream().fuse();
+        let mut outbound_request_stream = request_manager.outbound_request_stream().fuse();
         let mut swarm_stream = swarm.fuse();
 
         loop {
@@ -120,7 +120,7 @@ mod tests {
                         store.as_ref(),
                     );
                 },
-                request_opt = outbound_request_rx_stream.next() => if let Some((peer, request)) = request_opt {
+                request_opt = outbound_request_stream.next() => if let Some((peer, request)) = request_opt {
                     swarm_stream.get_mut().behaviour_mut().send_request(&peer, request);
                 },
             }
@@ -129,9 +129,7 @@ mod tests {
 
     fn handle_swarm_event(
         swarm: &mut Swarm<BitswapBehaviour>,
-        swarm_event_opt: Option<
-            SwarmEvent<BitswapBehaviourEvent, libp2p::swarm::THandlerErr<BitswapBehaviour>>,
-        >,
+        swarm_event_opt: Option<SwarmEvent<BitswapBehaviourEvent>>,
         store: &impl BitswapStoreRead,
     ) -> anyhow::Result<()> {
         if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {

@@ -28,8 +28,7 @@ use libp2p::{
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
-    noise, ping,
-    request_response::{self, RequestId, ResponseChannel},
+    noise, ping, request_response,
     swarm::{self, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
@@ -108,22 +107,22 @@ pub enum NetworkEvent {
         request: HelloRequest,
     },
     HelloRequestOutbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     HelloResponseInbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     ChainExchangeRequestOutbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     ChainExchangeResponseInbound {
-        request_id: RequestId,
+        request_id: request_response::OutboundRequestId,
     },
     ChainExchangeRequestInbound {
-        request_id: RequestId,
+        request_id: request_response::InboundRequestId,
     },
     ChainExchangeResponseOutbound {
-        request_id: RequestId,
+        request_id: request_response::InboundRequestId,
     },
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
@@ -286,10 +285,8 @@ where
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
-        let mut bitswap_outbound_request_rx_stream = bitswap_request_manager
-            .outbound_request_rx()
-            .stream()
-            .fuse();
+        let mut bitswap_outbound_request_stream =
+            bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -339,7 +336,7 @@ where
                         }
                     }
                 },
-                bitswap_outbound_request_opt = bitswap_outbound_request_rx_stream.next() => {
+                bitswap_outbound_request_opt = bitswap_outbound_request_stream.next() => {
                     if let Some((peer, request)) = bitswap_outbound_request_opt {
                         let bitswap = &mut swarm_stream.get_mut().behaviour_mut().bitswap;
                         bitswap.send_request(&peer, request);
@@ -650,16 +647,10 @@ async fn handle_hello_event(
             peer,
             error: _,
         } => {
-            hello.on_error(&request_id);
+            hello.on_outbound_failure(&request_id);
             peer_manager.mark_peer_bad(peer).await;
         }
-        request_response::Event::InboundFailure {
-            request_id,
-            peer: _,
-            error: _,
-        } => {
-            hello.on_error(&request_id);
-        }
+        request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),
     }
 }
@@ -697,8 +688,8 @@ async fn handle_chain_exchange_event<DB>(
     db: &Arc<ChainStore<DB>>,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
-        RequestId,
-        ResponseChannel<ChainExchangeResponse>,
+        request_response::InboundRequestId,
+        request_response::ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
 ) where
@@ -781,8 +772,8 @@ async fn handle_forest_behaviour_event<DB>(
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
     cx_response_tx: Sender<(
-        RequestId,
-        ResponseChannel<ChainExchangeResponse>,
+        request_response::InboundRequestId,
+        request_response::ResponseChannel<ChainExchangeResponse>,
         ChainExchangeResponse,
     )>,
     pubsub_block_str: &str,
