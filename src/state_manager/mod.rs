@@ -1135,6 +1135,35 @@ where
         )
     }
 
+    pub async fn resolve_to_deterministic_address(
+        self: &Arc<Self>,
+        address: Address,
+        ts: Option<Arc<Tipset>>,
+    ) -> anyhow::Result<Address> {
+        use crate::shim::address::Protocol::*;
+        match address.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(address),
+            Actor => anyhow::bail!("cannot resolve actor address to key address"),
+            _ => {
+                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
+                // First try to resolve the actor in the parent state, so we don't have to compute anything.
+                let state =
+                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())?;
+
+                if let Ok(address) =
+                    state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                {
+                    return Ok(address);
+                }
+
+                // If that fails, compute the tip-set and try again.
+                let (state_root, _) = self.tipset_state(&ts).await?;
+                let state = StateTree::new_from_root(self.chain_store().db.clone(), &state_root)?;
+                state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+            }
+        }
+    }
+
     fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
         ChainRand::new(
             self.chain_config.clone(),

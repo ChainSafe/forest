@@ -291,6 +291,37 @@ where
             StateTree::V0(_) => bail!("StateTree::set_actor not supported on old state trees"),
         }
     }
+
+    /// Returns the public key type of
+    /// address(`BLS`/`SECP256K1`) of an actor identified by `addr`,
+    /// or its delegated address.
+    pub fn resolve_to_deterministic_addr(
+        &self,
+        store: &impl Blockstore,
+        addr: Address,
+    ) -> anyhow::Result<Address> {
+        use crate::shim::address::Protocol::*;
+        match addr.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(addr),
+            _ => {
+                let actor = self
+                    .get_actor(&addr)?
+                    .with_context(|| format!("failed to find actor: {addr}"))?;
+
+                // A workaround to implement `if state.Version() >= types.StateTreeVersion5`
+                // When state tree version is not available in rust APIs
+                if !matches!(self, Self::FvmV2(_) | Self::V0(_)) {
+                    if let Some(address) = actor.delegated_address {
+                        return Ok(address.into());
+                    }
+                }
+
+                let account_state =
+                    fil_actor_interface::account::State::load(store, actor.code, actor.state)?;
+                Ok(account_state.pubkey_address().into())
+            }
+        }
+    }
 }
 
 /// `Newtype` to wrap different versions of `fvm::state_tree::ActorState`
