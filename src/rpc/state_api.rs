@@ -20,6 +20,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
 use fil_actor_interface::{market, miner};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
@@ -149,14 +150,24 @@ pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
 ) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
     let bs = data.state_manager.blockstore();
     let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
     let actor = data
         .state_manager
         .get_actor(&miner, *ts.parent_state())?
         .ok_or("Miner actor address could not be resolved")?;
     let miner_state = miner::State::load(bs, actor.code, actor.state)?;
 
+    // Collect active sectors from each partition in each deadline.
+    let mut active_sectors = vec![];
+    miner_state.for_each_deadline(policy, bs, |_dlidx, dl| {
+        dl.for_each(bs, |_partidx, part| {
+            active_sectors.push(part.active_sectors());
+            Ok(())
+        })
+    })?;
+
     let sectors = miner_state
-        .load_sectors(bs, None)?
+        .load_sectors(bs, Some(&BitField::union(&active_sectors)))?
         .into_iter()
         .map(SectorOnChainInfo::from)
         .collect::<Vec<_>>();
