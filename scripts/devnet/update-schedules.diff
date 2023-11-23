@@ -1,5 +1,5 @@
 diff --git a/build/params_2k.go b/build/params_2k.go
-index df1b1bedb..10b9f4fed 100644
+index 4826d421d..1b4e7fb7d 100644
 --- a/build/params_2k.go
 +++ b/build/params_2k.go
 @@ -65,7 +65,7 @@ var UpgradeLightningHeight = abi.ChainEpoch(-22)
@@ -7,7 +7,7 @@ index df1b1bedb..10b9f4fed 100644
  var UpgradeThunderHeight = abi.ChainEpoch(-23)
  
 -var UpgradeWatermelonHeight = abi.ChainEpoch(200)
-+var UpgradeWatermelonHeight = abi.ChainEpoch(5)
++var UpgradeWatermelonHeight = abi.ChainEpoch(10)
  
  // This fix upgrade only ran on calibrationnet
  const UpgradeWatermelonFixHeight = -100

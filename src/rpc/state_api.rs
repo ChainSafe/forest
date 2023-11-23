@@ -20,6 +20,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_interface::market;
 use fil_actor_interface::miner::MinerPower;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
@@ -102,6 +103,25 @@ where
     ))
 }
 
+/// retrieves the ID address of the given address
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
+pub(in crate::rpc) async fn state_lookup_id<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Address>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let ts = data.chain_store.load_required_tipset(&tipset_keys)?;
+    let ret = data
+        .state_manager
+        .lookup_id(&address, ts.as_ref())?
+        .with_context(|| {
+            format!("Failed to lookup the id address for address: {address} and tipset keys: {tipset_keys}")
+        })?;
+    Ok(LotusJson(ret))
+}
+
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
@@ -174,6 +194,22 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
         .miner_power(&address, &tipset)
         .map(|res| res.into())
         .map_err(|e| e.into())
+}
+
+/// looks up the miner power of the given address.
+pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<BitField>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+
+    data.state_manager
+        .miner_faults(&address, &ts)
+        .map_err(|e| e.into())
+        .map(|r| r.into())
 }
 
 /// returns the message receipt for the given message

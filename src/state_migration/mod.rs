@@ -6,7 +6,7 @@ use std::sync::{
     Arc,
 };
 
-use crate::networks::{ChainConfig, Height};
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
 use crate::utils::misc::reveal_three_trees;
@@ -42,7 +42,7 @@ where
         (Height::Watermelon, nv21::run_migration::<DB>),
     ];
 
-    if chain_config.network.is_testnet() {
+    if chain_config.network == NetworkChain::Calibnet {
         mappings.push((Height::WatermelonFix, nv21fix::run_migration::<DB>));
         mappings.push((Height::WatermelonFix2, nv21fix2::run_migration::<DB>));
     }
