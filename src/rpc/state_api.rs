@@ -102,6 +102,23 @@ where
     ))
 }
 
+/// retrieves the ID address of the given address
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
+pub(in crate::rpc) async fn state_lookup_id<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Address>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let ts = data.chain_store.load_required_tipset(&tipset_keys)?;
+    let ret = data
+        .state_manager
+        .lookup_id(&address, ts.as_ref())?
+        .context("Not found")?;
+    Ok(LotusJson(ret))
+}
+
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,

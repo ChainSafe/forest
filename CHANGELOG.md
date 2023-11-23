@@ -48,7 +48,7 @@
 - [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
   bootstrap node peer
 - [#3737](https://github.com/ChainSafe/forest/pull/3737) Added `--n-tipsets`
-  option to `forest-tool api compre`
+  option to `forest-tool api compare`
 
 ### Changed
 
