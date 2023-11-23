@@ -38,6 +38,9 @@ pub enum ApiCommands {
         /// Cancel test run on the first failure
         #[arg(long)]
         fail_fast: bool,
+        #[arg(short, long, default_value = "20")]
+        /// The number of tipsets to use to generate test cases.
+        n_tipsets: usize,
     },
 }
 
@@ -50,7 +53,8 @@ impl ApiCommands {
                 snapshot_files,
                 filter,
                 fail_fast,
-            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast).await?,
+                n_tipsets,
+            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast, n_tipsets).await?,
         }
         Ok(())
     }
@@ -307,9 +311,8 @@ fn wallet_tests() -> Vec<RpcTest> {
 }
 
 // Extract tests that use chain-specific data such as block CIDs or message
-// CIDs. Right now, only the last 20 tipsets are used. It would be nice to
-// sample a greater range.
-fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
+// CIDs. Right now, only the last `n_tipsets` tipsets are used.
+fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
     let root_tsk = shared_tipset.key().clone();
@@ -317,7 +320,7 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
     tests.extend(state_tests(&shared_tipset));
 
     let mut seen = CidHashSet::default();
-    for tipset in shared_tipset.chain(&store).take(20) {
+    for tipset in shared_tipset.chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
         ));
@@ -339,6 +342,10 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                         msg.from(),
                         root_tsk.clone(),
                     )));
+                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                        msg.from(),
+                        Default::default(),
+                    )));
                 }
             }
             for msg in secp_messages {
@@ -349,6 +356,10 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
                         root_tsk.clone(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                        msg.from(),
+                        Default::default(),
                     )));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
@@ -395,6 +406,7 @@ async fn compare_apis(
     snapshot_files: Vec<PathBuf>,
     filter: String,
     fail_fast: bool,
+    n_tipsets: usize,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -408,7 +420,7 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store)?);
+        tests.extend(snapshot_tests(&store, n_tipsets)?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);
