@@ -480,9 +480,13 @@ pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync +
     Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, u64, TipsetKeys)>>,
 ) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
-    let info = data
-        .state_manager
-        .miner_sector_info(&addr, sector_no, &ts)?;
 
-    Ok(LotusJson(info.into()))
+    Ok(LotusJson(
+        data.state_manager
+            .get_all_sectors(&addr, &ts)?
+            .into_iter()
+            .find(|info| info.sector_number == sector_no)
+            .map(SectorOnChainInfo::from)
+            .ok_or(format!("Info for sector number {sector_no} not found"))?,
+    ))
 }
