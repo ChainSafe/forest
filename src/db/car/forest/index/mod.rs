@@ -409,6 +409,7 @@ impl Writer {
             mut writer: impl AsyncWrite,
             data: impl Writeable,
         ) -> io::Result<()> {
+            buf.clear();
             data.write_to(&mut *buf)?;
             pin!(writer).write_all(buf).await
         }
