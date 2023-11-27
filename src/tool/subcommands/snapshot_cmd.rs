@@ -758,7 +758,7 @@ mod structured {
             "tg": gc.total().round_up(),
             "cg": gc.compute_gas().round_up(),
             "sg": gc.other_gas().round_up(),
-            "tt": null,
+            "tt": gc.elapsed().as_nanos(),
         })
     }
 
