@@ -526,7 +526,7 @@ mod structured {
             },
             "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json),
             // Only include timing fields for an easier diff with lotus
-            "Duration": LotusJson(duration.as_secs_f32()),
+            "Duration": duration.as_secs_f64(),
         }))
     }
 
