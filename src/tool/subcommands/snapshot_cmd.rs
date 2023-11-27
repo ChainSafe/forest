@@ -436,7 +436,12 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         &MultiEngine::default(),
         tipset,
         Some(|ctx: &MessageCallbackCtx| {
-            message_calls.push((ctx.message.clone(), ctx.apply_ret.clone(), ctx.at));
+            message_calls.push((
+                ctx.message.clone(),
+                ctx.apply_ret.clone(),
+                ctx.at,
+                ctx.duration,
+            ));
             anyhow::Ok(())
         }),
         match json {
@@ -476,16 +481,17 @@ mod structured {
     };
     use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
     use itertools::Either;
+    use std::time::Duration;
 
     pub fn json(
         state_root: Cid,
-        contexts: Vec<(ChainMessage, ApplyRet, CalledAt)>,
+        contexts: Vec<(ChainMessage, ApplyRet, CalledAt, Duration)>,
     ) -> anyhow::Result<serde_json::Value> {
         Ok(json!({
         "Root": LotusJson(state_root),
         "Trace": contexts
             .into_iter()
-            .map(|(message, apply_ret, called_at)| call_json(message, apply_ret, called_at))
+            .map(|(message, apply_ret, called_at, duration)| call_json(message, apply_ret, called_at, duration))
             .collect::<Result<Vec<_>, _>>()?
         }))
     }
@@ -494,6 +500,7 @@ mod structured {
         chain_message: ChainMessage,
         apply_ret: ApplyRet,
         called_at: CalledAt,
+        duration: Duration,
     ) -> anyhow::Result<serde_json::Value> {
         use crate::lotus_json::Stringify;
 
@@ -519,7 +526,7 @@ mod structured {
             },
             "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json),
             // Only include timing fields for an easier diff with lotus
-            "Duration": null,
+            "Duration": LotusJson(duration.as_secs_f32()),
         }))
     }
 
@@ -574,6 +581,7 @@ mod structured {
                 | ExecutionEvent::CallAbort(_)
                 | ExecutionEvent::CallError(_) => return Err(BuildCallTreeError::UnexpectedReturn),
                 ExecutionEvent::Log(_ignored) => {}
+                ExecutionEvent::InvokeActor(_cid) => {}
                 ExecutionEvent::Unknown(u) => {
                     return Err(BuildCallTreeError::UnrecognisedEvent(Box::new(u)))
                 }
@@ -719,6 +727,7 @@ mod structured {
                     ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
                     ExecutionEvent::Log(_ignored) => None,
+                    ExecutionEvent::InvokeActor(_cid) => None,
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
                     //       So that BuildCallTreeError::UnrecognisedEvent is never constructed
                     //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554

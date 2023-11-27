@@ -53,6 +53,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{to_vec, RawBytes};
 use fvm_shared2::clock::ChainEpoch;
 use num::Zero;
+use std::time::{Duration, Instant};
 
 pub(in crate::interpreter) type ForestMachineV2<DB> =
     DefaultMachine_v2<Arc<DB>, ForestExternsV2<DB>>;
@@ -71,6 +72,8 @@ type ForestKernelV4<DB> =
 type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
+
+type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -323,7 +326,7 @@ where
         }
         .into();
 
-        let ret = self.apply_implicit_message(&cron_msg)?;
+        let (ret, duration) = self.apply_implicit_message(&cron_msg)?;
         if let Some(err) = ret.failure_info() {
             anyhow::bail!("failed to apply block cron message: {}", err);
         }
@@ -334,6 +337,7 @@ where
                 message: &ChainMessage::Unsigned(cron_msg),
                 apply_ret: &ret,
                 at: CalledAt::Cron,
+                duration,
             })?;
         }
         Ok(())
@@ -362,7 +366,7 @@ where
                 if processed.contains(&cid) {
                     return Ok(());
                 }
-                let ret = self.apply_message(message)?;
+                let (ret, duration) = self.apply_message(message)?;
 
                 if let Some(cb) = &mut callback {
                     cb(&MessageCallbackCtx {
@@ -370,6 +374,7 @@ where
                         message,
                         apply_ret: &ret,
                         at: CalledAt::Applied,
+                        duration,
                     })?;
                 }
 
@@ -392,7 +397,7 @@ where
             if let Some(rew_msg) =
                 self.reward_message(epoch, block.miner, block.win_count, penalty, gas_reward)?
             {
-                let ret = self.apply_implicit_message(&rew_msg)?;
+                let (ret, duration) = self.apply_implicit_message(&rew_msg)?;
                 if let Some(err) = ret.failure_info() {
                     anyhow::bail!(
                         "failed to apply reward message for miner {}: {}",
@@ -414,6 +419,7 @@ where
                         message: &ChainMessage::Unsigned(rew_msg),
                         apply_ret: &ret,
                         at: CalledAt::Reward,
+                        duration,
                     })?
                 }
             }
@@ -427,42 +433,32 @@ where
     }
 
     /// Applies single message through VM and returns result from execution.
-    pub fn apply_implicit_message(&mut self, msg: &Message) -> anyhow::Result<ApplyRet> {
+    pub fn apply_implicit_message(&mut self, msg: &Message) -> ApplyResult {
+        let start = Instant::now();
+
         // raw_length is not used for Implicit messages.
         let raw_length = to_vec(msg).expect("encoding error").len();
 
-        match self {
-            VM::VM2(fvm_executor) => {
-                let ret = fvm_executor.execute_message(
-                    msg.into(),
-                    fvm2::executor::ApplyKind::Implicit,
-                    raw_length,
-                )?;
-                Ok(ret.into())
-            }
-            VM::VM3(fvm_executor) => {
-                let ret = fvm_executor.execute_message(
-                    msg.into(),
-                    fvm3::executor::ApplyKind::Implicit,
-                    raw_length,
-                )?;
-                Ok(ret.into())
-            }
-            VM::VM4(fvm_executor) => {
-                let ret = fvm_executor.execute_message(
-                    msg.into(),
-                    fvm4::executor::ApplyKind::Implicit,
-                    raw_length,
-                )?;
-                Ok(ret.into())
-            }
-        }
+        let ret = match self {
+            VM::VM2(fvm_executor) => fvm_executor
+                .execute_message(msg.into(), fvm2::executor::ApplyKind::Implicit, raw_length)?
+                .into(),
+            VM::VM3(fvm_executor) => fvm_executor
+                .execute_message(msg.into(), fvm3::executor::ApplyKind::Implicit, raw_length)?
+                .into(),
+            VM::VM4(fvm_executor) => fvm_executor
+                .execute_message(msg.into(), fvm4::executor::ApplyKind::Implicit, raw_length)?
+                .into(),
+        };
+        Ok((ret, start.elapsed()))
     }
 
     /// Applies the state transition for a single message.
     /// Returns `ApplyRet` structure which contains the message receipt and some
     /// meta data.
-    pub fn apply_message(&mut self, msg: &ChainMessage) -> anyhow::Result<ApplyRet> {
+    pub fn apply_message(&mut self, msg: &ChainMessage) -> ApplyResult {
+        let start = Instant::now();
+
         // Basic validity check
         msg.message().check()?;
 
@@ -509,6 +505,7 @@ where
                 ret.into()
             }
         };
+        let duration = start.elapsed();
 
         let exit_code = ret.msg_receipt().exit_code();
 
@@ -516,7 +513,7 @@ where
             tracing::debug!(?exit_code, "VM message execution failure.")
         }
 
-        Ok(ret)
+        Ok((ret, duration))
     }
 
     fn reward_message(
@@ -556,6 +553,7 @@ pub struct MessageCallbackCtx<'a> {
     pub message: &'a ChainMessage,
     pub apply_ret: &'a ApplyRet,
     pub at: CalledAt,
+    pub duration: Duration,
 }
 
 #[derive(Debug, Clone, Copy)]

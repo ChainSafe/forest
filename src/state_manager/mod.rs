@@ -409,7 +409,7 @@ where
             .get_actor(&msg.from, *bstate)?
             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
         msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(msg)?;
+        let (apply_ret, _) = vm.apply_implicit_message(msg)?;
         trace!(
             "gas limit {:},gas premium{:?},value {:?}",
             msg.gas_limit,
@@ -487,7 +487,7 @@ where
             .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
         message.set_sequence(from_actor.sequence);
 
-        let ret = vm.apply_message(message)?;
+        let (ret, _) = vm.apply_message(message)?;
 
         Ok(InvocResult {
             msg: message.message().clone(),
