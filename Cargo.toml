@@ -17,7 +17,7 @@ async-fs = "2"
 async-recursion = "1.0"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
-axum = { version = "0.6", features = ['ws'] }
+axum = { version = "0.7", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
 bigdecimal = "0.4.0"
