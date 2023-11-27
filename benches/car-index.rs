@@ -7,6 +7,7 @@ use forest_filecoin::benchmark_private::{
     cid::CidCborExt as _,
     forest::index::{self, hash, NonMaximalU64},
 };
+use futures::executor::block_on;
 use positioned_io::{ReadAt, Size};
 use std::{hint::black_box, num::NonZeroUsize};
 
@@ -27,10 +28,12 @@ fn bench_car_index(c: &mut Criterion) {
 
     let subject = {
         let mut v = vec![];
-        index::Builder::from_iter(reference.clone())
-            .into_writer()
-            .write_into(&mut v)
-            .unwrap();
+        block_on(
+            index::Builder::from_iter(reference.clone())
+                .into_writer()
+                .write_into_async(&mut v),
+        )
+        .unwrap();
         index::Reader::new(v).unwrap()
     };
 

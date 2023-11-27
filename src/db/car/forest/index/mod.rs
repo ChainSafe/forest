@@ -77,7 +77,9 @@ use std::{
     io::{self, Read, Write},
     iter,
     num::NonZeroUsize,
+    pin::pin,
 };
+use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 
 #[cfg(not(any(test, feature = "benchmark-private")))]
 mod hash;
@@ -406,6 +408,33 @@ impl Writer {
         }
         Ok(())
     }
+    pub async fn write_into_async(self, writer: impl AsyncWrite) -> io::Result<()> {
+        let mut buf = vec![];
+        let mut writer = pin!(writer);
+        let Self {
+            version,
+            header,
+            slots,
+        } = self;
+        /// Bridge between our sync [`Writeable`] trait, and async writing code
+        async fn write_via_buf(
+            buf: &mut Vec<u8>,
+            mut writer: impl AsyncWrite,
+            data: impl Writeable,
+        ) -> io::Result<()> {
+            data.write_to(&mut *buf)?;
+            pin!(writer).write_all(buf).await
+        }
+        write_via_buf(&mut buf, &mut writer, version).await?;
+        write_via_buf(&mut buf, &mut writer, &header).await?;
+        for slot in Self::slots(
+            header.initial_buckets.try_into().unwrap(),
+            slots.iter().copied(),
+        ) {
+            write_via_buf(&mut buf, &mut writer, slot).await?;
+        }
+        Ok(())
+    }
 }
 
 fn initial_width(slots_len: usize, load_factor: f64) -> Option<NonZeroUsize> {
@@ -650,6 +679,7 @@ mod tests {
     use super::*;
     use ahash::{HashMap, HashSet};
     use cid::Cid;
+    use futures::executor::block_on;
     use tap::Tap as _;
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
@@ -661,7 +691,7 @@ mod tests {
                 }))
                 .into_writer();
             let expected_len = writer.written_len();
-            writer.write_into(&mut *v)?;
+            block_on(writer.write_into_async(&mut *v))?;
             assert_eq!(expected_len as usize, v.len());
             Ok(())
         }))
@@ -688,7 +718,7 @@ mod tests {
                 }))
                 .into_writer();
             let expected_len = writer.written_len();
-            writer.write_into(&mut *v)?;
+            block_on(writer.write_into_async(&mut *v))?;
             assert_eq!(expected_len as usize, v.len());
             Ok(())
         }))

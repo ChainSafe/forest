@@ -284,9 +284,7 @@ impl Encoder {
         // Create index
         let writer = builder.into_writer();
         write_skip_frame_header_async(&mut sink, writer.written_len().try_into().unwrap()).await?;
-        tokio::task::block_in_place(|| {
-            writer.write_into(tokio_util::io::SyncIoBridge::new(&mut sink))
-        })?;
+        writer.write_into_async(&mut sink).await?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
