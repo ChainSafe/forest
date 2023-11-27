@@ -331,7 +331,7 @@ impl ApiActorState {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
     pub sector_number: SectorNumber,
@@ -389,26 +389,31 @@ pub struct SectorOnChainInfo {
     pub simple_qa_power: bool,
 }
 
-lotus_json_with_self!(SectorOnChainInfo);
-
 impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
-    fn from(info: fil_actor_interface::miner::SectorOnChainInfo) -> Self {
+    fn from(other: fil_actor_interface::miner::SectorOnChainInfo) -> Self {
         SectorOnChainInfo {
-            sector_number: info.sector_number,
-            seal_proof: info.seal_proof.into(),
-            sealed_cid: info.sealed_cid,
-            deal_ids: info.deal_ids,
-            activation: info.activation,
-            expiration: info.expiration,
-            deal_weight: info.deal_weight,
-            verified_deal_weight: info.verified_deal_weight,
-            initial_pledge: info.initial_pledge.into(),
-            expected_day_reward: info.expected_day_reward.into(),
-            expected_storage_pledge: info.expected_storage_pledge.into(),
-            replaced_sector_age: info.replaced_sector_age,
-            replaced_day_reward: info.replaced_day_reward.into(),
-            sector_key_cid: info.sector_key_cid,
-            simple_qa_power: info.simple_qa_power,
+            sector_number: other.sector_number,
+            seal_proof: other.seal_proof.into(),
+            sealed_cid: other.sealed_cid,
+            deal_ids: other.deal_ids,
+            activation: other.activation,
+            expiration: other.expiration,
+            deal_weight: other.deal_weight,
+            verified_deal_weight: other.verified_deal_weight,
+            initial_pledge: other.initial_pledge.into(),
+            expected_day_reward: other.expected_day_reward.into(),
+            expected_storage_pledge: other.expected_storage_pledge.into(),
+            replaced_sector_age: other.replaced_sector_age,
+            // `replaced_day_reward` has to be zero and Lemmih cannot figure out
+            // why. Lotus casts all `SectorOnChainInfo` structs to the miner-v9
+            // version which clears some fields (like `simple_qa_power`) but it
+            // shouldn't clear `replaced_day_reward`. Oh well, maybe one day
+            // Lemmih will figure it out.
+            replaced_day_reward: TokenAmount::default(),
+            sector_key_cid: other.sector_key_cid,
+            simple_qa_power: other.simple_qa_power,
         }
     }
 }
+
+lotus_json_with_self!(SectorOnChainInfo);
