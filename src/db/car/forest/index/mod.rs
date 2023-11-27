@@ -38,7 +38,7 @@
 //!   We insert padding [`Slot::Empty`]s to ensure each entry is at or after its
 //!   [`ideal_slot_ix`](hash::ideal_slot_ix).
 //! - We sort the [hashes](NonMaximalU64) from lowest to highest, so lookups can
-//!   scan forwards from the [`ideal_slot_ix`] to find the hash they're looking for.
+//!   scan forwards from the [`ideal_slot_ix`](hash::ideal_slot_ix) to find the hash they're looking for.
 //!   This is called _linear probing_.
 //! - We have two types of collisions.
 //!   Both must be handled by callers of [`Reader::get`].
