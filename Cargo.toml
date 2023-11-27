@@ -207,11 +207,11 @@ libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-respo
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
-proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1.0.70", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.186"
+ra_ap_syntax = "0.0.187"
 regex-automata = "0.4"
 syn = { version = "2.0.38", default-features = false, features = [
   "full",
