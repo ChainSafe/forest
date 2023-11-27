@@ -233,7 +233,7 @@ where
 }
 
 pub async fn write_skip_frame_header_async(
-    writer: &mut (impl AsyncWrite + Unpin),
+    mut writer: impl AsyncWrite + Unpin,
     data_len: u32,
 ) -> std::io::Result<()> {
     writer.write_all(&[0x50, 0x2A, 0x4D, 0x18]).await?;
