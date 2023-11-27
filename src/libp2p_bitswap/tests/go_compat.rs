@@ -21,7 +21,7 @@ mod tests {
     const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
     const GO_APP_DIR: &str = "src/libp2p_bitswap/tests/go-app";
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn bitswap_go_compat_test() {
         bitswap_go_compat_test_impl().await.unwrap()
     }
