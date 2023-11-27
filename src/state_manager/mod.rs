@@ -361,7 +361,7 @@ where
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
-        Ok(state.load_sectors(self.blockstore(), None)?)
+        state.load_sectors(self.blockstore(), None)
     }
 }
 
