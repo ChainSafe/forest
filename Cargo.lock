@@ -2609,10 +2609,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_account_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "frc42_macros",
+ "fvm_ipld_encoding",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_cron_state"
 version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d57e69fe90132c026a31b71191f4501ac7c3645b83854672dbf3502b5e3983a"
+dependencies = [
+ "fvm_ipld_encoding",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_cron_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2629,7 +2658,24 @@ version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6abab42040150c617ea11ce078a022768deb411fc6997948365ac5a71c315839"
 dependencies = [
- "fil_actors_shared",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_macros",
+ "fvm_ipld_encoding",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_datacap_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2644,11 +2690,10 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "7.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdca6fdc2958ec10d2df91187040e133c1082e549e76dd48485f3d376fc5fe38"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
 dependencies = [
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 3.6.0",
@@ -2669,7 +2714,27 @@ checksum = "dcb07a69e8592b1a0c0ff3df5861d3e96948889ca5bb7bd8806b53e17cd84ee0"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_macros",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_init_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2685,23 +2750,22 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "7.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da58b3554350a2d853d7f04d2d4086e0d71f2dd325a65f32a90e793453570284"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_account_state",
- "fil_actor_cron_state",
- "fil_actor_datacap_state",
+ "fil_actor_account_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actor_cron_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actor_datacap_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "fil_actor_evm_state",
- "fil_actor_init_state",
- "fil_actor_market_state",
- "fil_actor_miner_state",
+ "fil_actor_init_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actor_market_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actor_miner_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "fil_actor_multisig_state",
- "fil_actor_power_state",
- "fil_actor_reward_state",
- "fil_actor_system_state",
- "fil_actors_shared",
+ "fil_actor_power_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actor_reward_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actor_system_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2726,8 +2790,32 @@ checksum = "761799579c53e74a107288cb1c7874f8da1677fee60a4df2bb5b99b72c0fff95"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actor_verifreg_state",
- "fil_actors_shared",
+ "fil_actor_verifreg_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_macros",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "libipld-core",
+ "num-bigint",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_market_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actor_verifreg_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -2752,8 +2840,37 @@ dependencies = [
  "anyhow",
  "bitflags 2.4.1",
  "cid",
- "fil_actor_verifreg_state",
- "fil_actors_shared",
+ "fil_actor_verifreg_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_macros",
+ "fvm_ipld_amt",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "itertools 0.11.0",
+ "lazy_static",
+ "multihash 0.18.1",
+ "num-bigint",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
+name = "fil_actor_miner_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "anyhow",
+ "bitflags 2.4.1",
+ "cid",
+ "fil_actor_verifreg_state 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
@@ -2776,12 +2893,11 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "7.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36fd0ae1ea98c86103ac736d6c490ec5ccaff6183bf21a2c10766c497ab8ed8e"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2804,7 +2920,29 @@ checksum = "3dbc73f2dbcc2551eb8496aea427c8b1b473a0d2188605603d26b9bb03495e02"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_macros",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "integer-encoding",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_power_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2836,10 +2974,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fil_actor_reward_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "fvm_ipld_encoding",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "lazy_static",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "fil_actor_system_state"
 version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe168e5bfe8edd800932704dc9c140f1e99b90c98f3d4b2a614c0c5d74c203be"
+dependencies = [
+ "cid",
+ "fvm_ipld_encoding",
+ "fvm_shared 2.6.0",
+ "fvm_shared 4.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_system_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2858,7 +3025,26 @@ checksum = "f39168d9136f0eba9c36349dd51900ca255d6485f2512f20a0501e8fe25863c3"
 dependencies = [
  "anyhow",
  "cid",
- "fil_actors_shared",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "frc42_macros",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "num-derive",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
+name = "fil_actor_verifreg_state"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+dependencies = [
+ "anyhow",
+ "cid",
+ "fil_actors_shared 7.0.0 (git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields)",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2875,6 +3061,37 @@ name = "fil_actors_shared"
 version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b41ab92dd8ec5a4b1b5cf4a12946c70c927ac6f7fcca21fb913b4db05d6b90c8"
+dependencies = [
+ "anyhow",
+ "cid",
+ "filecoin-proofs-api",
+ "fvm_ipld_amt",
+ "fvm_ipld_bitfield",
+ "fvm_ipld_blockstore",
+ "fvm_ipld_encoding",
+ "fvm_ipld_hamt 0.9.0",
+ "fvm_shared 2.6.0",
+ "fvm_shared 3.6.0",
+ "fvm_shared 4.0.0",
+ "integer-encoding",
+ "itertools 0.11.0",
+ "multihash 0.18.1",
+ "num",
+ "num-bigint",
+ "num-derive",
+ "num-traits",
+ "paste",
+ "serde",
+ "serde_repr",
+ "sha2 0.10.8",
+ "thiserror",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
+name = "fil_actors_shared"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
 dependencies = [
  "anyhow",
  "cid",
@@ -3078,18 +3295,18 @@ dependencies = [
  "dialoguer",
  "digest 0.10.7",
  "directories",
- "fil_actor_account_state",
- "fil_actor_cron_state",
- "fil_actor_datacap_state",
- "fil_actor_init_state",
+ "fil_actor_account_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_cron_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_datacap_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_init_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fil_actor_interface",
- "fil_actor_market_state",
- "fil_actor_miner_state",
- "fil_actor_power_state",
- "fil_actor_reward_state",
- "fil_actor_system_state",
- "fil_actor_verifreg_state",
- "fil_actors_shared",
+ "fil_actor_market_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_miner_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_power_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_reward_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_system_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actor_verifreg_state 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fil_actors_shared 7.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "filecoin-proofs-api",
  "flume 0.11.0",
  "fs_extra",
