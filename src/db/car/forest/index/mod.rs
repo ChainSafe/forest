@@ -190,11 +190,13 @@ where
 }
 
 #[cfg_vis(feature = "benchmark-private", pub)]
+#[allow(unused)] // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3565
 struct Iter<R> {
     inner: R,
     positions: iter::StepBy<std::ops::Range<u64>>,
 }
 
+#[allow(unused)] // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3565
 impl<R> Iterator for Iter<R>
 where
     R: ReadAt + Size,
@@ -213,6 +215,7 @@ where
     R: ReadAt + Size,
 {
     #[cfg_vis(feature = "benchmark-private", pub)]
+    #[allow(unused)] // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3565
     fn iter(&self) -> io::Result<Iter<&R>> {
         let end = self.inner.size()?.ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "couldn't get end of table size")
