@@ -113,4 +113,12 @@ impl ApiInfo {
     ) -> RpcRequest<Ipld> {
         RpcRequest::new(STATE_DECODE_PARAMS, (recipient, method_number, params, tsk))
     }
+
+    pub fn state_sector_get_info_req(
+        addr: Address,
+        sector_no: i64,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<SectorOnChainInfo> {
+        RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
+    }
 }

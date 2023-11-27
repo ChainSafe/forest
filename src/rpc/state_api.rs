@@ -7,7 +7,9 @@ use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{ApiActorState, MarketDeal, MessageLookup, RPCState};
+use crate::rpc_api::data_types::{
+    ApiActorState, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
+};
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
@@ -470,4 +472,12 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
         actor.code,
         Ipld::Link(state),
     )))
+}
+
+/// Get state sector info
+pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, i64, TipsetKeys)>>,
+) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
+    unimplemented!()
 }
