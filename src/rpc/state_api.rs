@@ -474,10 +474,15 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
     )))
 }
 
-/// Get state sector info
+/// Get state sector info using sector no
 pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, i64, TipsetKeys)>>,
+    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, u64, TipsetKeys)>>,
 ) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
-    unimplemented!()
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let info = data
+        .state_manager
+        .miner_sector_info(&addr, sector_no, &ts)?;
+
+    Ok(LotusJson(info.into()))
 }

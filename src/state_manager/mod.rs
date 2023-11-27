@@ -37,6 +37,7 @@ use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -347,6 +348,26 @@ where
         }
 
         Ok(None)
+    }
+
+    // Returns on-chain info for the specified sector number
+    pub fn miner_sector_info(
+        self: &Arc<Self>,
+        addr: &Address,
+        sector_no: u64,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<SectorOnChainInfo, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+        let sectors = state.load_sectors(self.blockstore(), None)?;
+        sectors
+            .iter()
+            .find(|s| s.sector_number == sector_no)
+            .map(|s| s.clone())
+            .ok_or_else(|| Error::State(format!("Info for sector no {sector_no} not found")))
     }
 }
 

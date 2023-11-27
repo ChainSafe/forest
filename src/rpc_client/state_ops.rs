@@ -116,7 +116,7 @@ impl ApiInfo {
 
     pub fn state_sector_get_info_req(
         addr: Address,
-        sector_no: i64,
+        sector_no: u64,
         tsk: TipsetKeys,
     ) -> RpcRequest<SectorOnChainInfo> {
         RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
