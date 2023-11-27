@@ -392,23 +392,7 @@ impl Writer {
             .pad_using(min_slots, |_ix| Slot::Empty)
             .chain(iter::once(Slot::Empty))
     }
-    pub fn write_into(self, mut writer: impl Write) -> io::Result<()> {
-        let Self {
-            version,
-            header,
-            slots,
-        } = self;
-        version.write_to(&mut writer)?;
-        header.write_to(&mut writer)?;
-        for slot in Self::slots(
-            header.initial_buckets.try_into().unwrap(),
-            slots.iter().copied(),
-        ) {
-            slot.write_to(&mut writer)?
-        }
-        Ok(())
-    }
-    pub async fn write_into_async(self, writer: impl AsyncWrite) -> io::Result<()> {
+    pub async fn write_into(self, writer: impl AsyncWrite) -> io::Result<()> {
         let mut buf = vec![];
         let mut writer = pin!(writer);
         let Self {
@@ -691,7 +675,7 @@ mod tests {
                 }))
                 .into_writer();
             let expected_len = writer.written_len();
-            block_on(writer.write_into_async(&mut *v))?;
+            block_on(writer.write_into(&mut *v))?;
             assert_eq!(expected_len as usize, v.len());
             Ok(())
         }))
@@ -718,7 +702,7 @@ mod tests {
                 }))
                 .into_writer();
             let expected_len = writer.written_len();
-            block_on(writer.write_into_async(&mut *v))?;
+            block_on(writer.write_into(&mut *v))?;
             assert_eq!(expected_len as usize, v.len());
             Ok(())
         }))

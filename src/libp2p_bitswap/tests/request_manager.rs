@@ -21,7 +21,7 @@ mod tests {
     const TIMEOUT: Duration = Duration::from_secs(5);
     const N_SERVER: usize = 100;
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn request_manager_e2e_test() {
         let block_exist = new_random_block().unwrap();
         let block_not_exist = new_random_block().unwrap();

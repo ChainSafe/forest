@@ -592,7 +592,7 @@ mod tests {
         ts.genesis(&db).unwrap().timestamp()
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn export() {
         let output_path = TempDir::new().unwrap();
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();

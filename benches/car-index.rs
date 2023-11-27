@@ -31,7 +31,7 @@ fn bench_car_index(c: &mut Criterion) {
         block_on(
             index::Builder::from_iter(reference.clone())
                 .into_writer()
-                .write_into_async(&mut v),
+                .write_into(&mut v),
         )
         .unwrap();
         index::Reader::new(v).unwrap()
