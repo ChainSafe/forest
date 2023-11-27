@@ -46,9 +46,10 @@ use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
 use std::time::Duration;
-use std::{cell::RefCell, cmp, net::TcpListener, path::PathBuf, sync::Arc};
+use std::{cell::RefCell, cmp, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
+    net::TcpListener,
     signal::{
         ctrl_c,
         unix::{signal, SignalKind},
@@ -197,9 +198,12 @@ pub(super) async fn start(
 
     if config.client.enable_metrics_endpoint {
         // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address).context(
-            format!("could not bind to {}", config.client.metrics_address),
-        )?;
+        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
+            .await
+            .context(format!(
+                "could not bind to {}",
+                config.client.metrics_address
+            ))?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
@@ -337,8 +341,9 @@ pub(super) async fn start(
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen =
-            std::net::TcpListener::bind(config.client.rpc_address).context(format!(
+        let rpc_listen = tokio::net::TcpListener::bind(config.client.rpc_address)
+            .await
+            .context(format!(
                 "could not bind to rpc address {}",
                 config.client.rpc_address
             ))?;

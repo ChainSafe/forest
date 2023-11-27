@@ -9,8 +9,9 @@ use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use once_cell::sync::Lazy;
 use prometheus::core::{AtomicU64, GenericCounterVec, Opts};
 use prometheus::{Encoder, TextEncoder};
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::{net::TcpListener, path::PathBuf};
+use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tracing::warn;
 
@@ -66,10 +67,10 @@ where
         .route("/metrics", get(collect_prometheus_metrics))
         .route("/stats/db", get(collect_db_metrics::<DB>))
         .with_state(db);
-    let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
+    //let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
     // Wait for server to exit
-    Ok(server.await?)
+    Ok(axum::serve(prometheus_listener, app.into_make_service()).await?)
 }
 
 async fn collect_prometheus_metrics() -> impl IntoResponse {
