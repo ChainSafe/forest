@@ -86,7 +86,7 @@ indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
-itertools = "0.11.0"
+itertools = "0.12.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "9"
 kanal = "0.1.0-pre8"
@@ -131,7 +131,7 @@ parity-db = { version = "0.4.6", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4.3.1"
 pin-project-lite = "0.2"
-positioned-io = "0.3.2"
+positioned-io = "0.3.3"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.22"
@@ -176,7 +176,7 @@ ticker = "0.1"
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-util = { version = "0.7.9", features = ["compat"] }
+tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tracing = "0.1"
 tracing-appender = "0.2"
@@ -186,7 +186,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.7", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 walkdir = "2"
-zerocopy = { version = "0.7.9", features = ["derive"] }
 zstd = "0.13"
 
 [target.'cfg(unix)'.dependencies]

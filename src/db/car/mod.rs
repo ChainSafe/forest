@@ -10,7 +10,6 @@ pub use forest::ForestCar;
 pub use many::ManyCar;
 pub use plain::PlainCar;
 
-use crate::utils::db::car_index::FrameOffset;
 use ahash::HashMap;
 use cid::Cid;
 use lru::LruCache;
@@ -22,6 +21,8 @@ impl<X: ReadAt + Size + Send + Sync + 'static> RandomAccessFileReader for X {}
 /// Multiple `.forest.car.zst` archives may use the same cache, each with a
 /// unique cache key.
 pub type CacheKey = u64;
+
+type FrameOffset = u64;
 
 pub struct ZstdFrameCache {
     /// Maximum size in bytes. Pages will be evicted if the total size of the

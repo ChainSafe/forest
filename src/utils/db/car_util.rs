@@ -40,13 +40,14 @@ pub fn dedup_block_stream(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::block_on;
     use crate::utils::db::car_stream::CarWriter;
     use ahash::HashSet;
     use async_compression::tokio::write::ZstdEncoder;
     use cid::multihash;
     use cid::multihash::MultihashDigest;
     use cid::Cid;
-    use futures::executor::{block_on, block_on_stream};
+    use futures::executor::block_on_stream;
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
     use itertools::Itertools;
