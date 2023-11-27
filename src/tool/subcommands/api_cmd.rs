@@ -200,6 +200,10 @@ fn auth_tests() -> Vec<RpcTest> {
     vec![]
 }
 
+fn beacon_tests() -> Vec<RpcTest> {
+    vec![RpcTest::identity(ApiInfo::beacon_get_entry_req(10101))]
+}
+
 fn chain_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
@@ -428,6 +432,7 @@ async fn compare_apis(
 
     tests.extend(common_tests());
     tests.extend(auth_tests());
+    tests.extend(beacon_tests());
     tests.extend(chain_tests());
     tests.extend(mpool_tests());
     tests.extend(net_tests());
