@@ -23,23 +23,30 @@
 //! - `O(log(n))` time complexity for searches with binary search.
 //!   (We could try to amortise this by doing an initial scan for checkpoints,
 //!   but seeking backwards in the file may still be penalised by the OS).
-//! - Variable length, possibly large entries on disk.
+//! - Variable length, possibly large entries on disk, which balloons our size
+//!   and/or implementation complexity.
 //!
-//! We can address this by using a hash table with linear probing.
-//! This is a linear array of equal-length [`Slot`]s.
+//! We can address this by using an open-addressed hash table with linear probing.
+//! - "hash table": Have a linear array
+//!
+//! We create a linear array of equal-length [`Slot`]s.
 //! - [hashing](hash::summary) the [`Cid`] gives us a fixed length entry.
 //! - A [`hash::ideal_slot_ix`] gives us a likely location to find the entry,
 //!   given a table size.
-//!   That is, a hash in a collection of length 10 has a different `ideal_slot_ix`
-//!   than if the same hash were in a collection of length 20.
-//! - We have two types of collisions:
-//!   - Hash collisions.
+//!   (That is, a hash in a collection of length 10 has a different `ideal_slot_ix`
+//!   than if the same hash were in a collection of length 20.)
+//!   We insert padding [`Slot::Empty`]s to ensure each entry is at or after its
+//!   [`ideal_slot_ix`](hash::ideal_slot_ix).
+//! - We sort the [hashes](NonMaximalU64) from lowest to highest, so lookups can
+//!   scan forwards from the [`ideal_slot_ix`] to find the hash they're looking for.
+//!   This is called _linear probing_.
+//! - We have two types of collisions.
+//!   Both must be handled by callers of [`Reader::get`].
+//!   - Hash collisions, where two different [`Cid`]s have the same hash.
 //!   - [`hash::ideal_slot_ix`] collisions.
-//!
-//!   We use linear probing, which means that colliding entries are always
-//!   concatenated - seeking forward to the next entry will yield any collisions.
 //! - A slot is always found at or within [`V1Header::longest_distance`] after its
 //!   [`hash::ideal_slot_ix`].
+//!   This is calculated at construction time.
 //!
 //! So the layout on disk is as follows:
 //!
@@ -646,8 +653,6 @@ mod tests {
     use tap::Tap as _;
 
     /// [`Reader`] should behave like a [`HashMap`], with a caveat for collisions.
-    ///
-    /// Empty [`HashSet`]s act as a lookup for a non-existent key.
     fn do_hashmap_of_cids(reference: HashMap<Cid, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
             let writer =
@@ -667,7 +672,12 @@ mod tests {
         }
     }
 
-    /// Like [`do_hashmap_of_cids`], but operates on hashes instead of [`Cid`]s.
+    /// [`Reader`] should behave like a [`HashMap<Hash, HashSet<FrameOffset>>`](HashMap).
+    /// What does that mean?
+    ///
+    /// `HashSet<FrameOffset>` are the expected candidate frame offsets for a given hash.
+    /// They
+    ///
     ///
     /// Additionally checks [`Reader::iter`]
     fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
@@ -685,7 +695,7 @@ mod tests {
         .unwrap();
         for (hash, expected) in &reference {
             let actual = subject.get_by_hash(*hash).unwrap().into_iter().collect();
-            assert!(expected.is_subset(&actual))
+            assert!(expected.is_subset(&actual)) // collisions
         }
 
         let via_iter = subject
