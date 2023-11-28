@@ -283,6 +283,11 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::state_network_version_req(
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_sector_get_info_req(
+            *shared_block.miner_address(),
+            101,
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 
