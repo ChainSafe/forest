@@ -21,7 +21,6 @@ use std::str::FromStr;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::net::global_http_client;
-use http::StatusCode;
 use jsonrpc_v2::{Id, RequestObject, V2};
 use serde::Deserialize;
 use tracing::debug;
@@ -103,12 +102,12 @@ impl ApiInfo {
 
         let request = global_http_client().post(api_url).json(&rpc_req);
         let request = match self.token.as_ref() {
-            Some(token) => request.header(http::header::AUTHORIZATION, token),
+            Some(token) => request.header(http0::header::AUTHORIZATION, token),
             _ => request,
         };
 
         let response = request.send().await?;
-        if response.status() == StatusCode::NOT_FOUND {
+        if response.status() == http0::StatusCode::NOT_FOUND {
             return Err(JsonRpcError::METHOD_NOT_FOUND);
         }
         let rpc_res: JsonRpcResponse<T::LotusJson> = response.json().await?;
