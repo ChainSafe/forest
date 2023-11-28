@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::utils::reqwest_resume::get;
+use axum::body::Body;
 use axum::response::IntoResponse;
 use bytes::Bytes;
 use const_random::const_random;
-use futures::stream::StreamExt;
+use futures::stream::{self};
 use http_range_header::parse_range_header;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::Range;
+use std::time::Duration;
 use tokio::net::TcpListener;
+use tokio_stream::StreamExt as _;
 
 const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
@@ -36,17 +39,23 @@ async fn handle_request(headers: http::HeaderMap) -> impl IntoResponse {
     let range = headers
         .get(http::header::RANGE)
         .map_or(0..CHUNK_LEN, get_range);
-    println!("range: {range:?}");
-    let (status_code, data) = if range.is_empty() {
-        (http::StatusCode::RANGE_NOT_SATISFIABLE, Bytes::default())
+
+    let (status_code, body) = if range.is_empty() {
+        (http::StatusCode::RANGE_NOT_SATISFIABLE, Body::empty())
     } else {
         let mut subset: Bytes = RANDOM_BYTES[range.clone()].into();
         subset.truncate(CHUNK_LEN);
-        (http::StatusCode::PARTIAL_CONTENT, subset)
+        (
+            http::StatusCode::PARTIAL_CONTENT,
+            Body::from_stream(
+                stream::iter([anyhow::Ok(subset), Err(anyhow::anyhow!("Unexpected EOF"))])
+                    .throttle(Duration::from_millis(100)),
+            ),
+        )
     };
 
     let response_headers = [(http::header::ACCEPT_RANGES, "bytes")];
-    (status_code, response_headers, data)
+    (status_code, response_headers, body)
 }
 
 async fn create_listener() -> TcpListener {
