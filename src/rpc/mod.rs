@@ -115,6 +115,7 @@ where
             .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
+            .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
@@ -125,6 +126,7 @@ where
                 state_get_randomness_from_beacon::<DB>,
             )
             .with_method(STATE_READ_STATE, state_read_state::<DB>)
+            .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)

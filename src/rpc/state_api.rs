@@ -7,7 +7,9 @@ use crate::cid_collections::CidHashSet;
 use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{ApiActorState, MarketDeal, MessageLookup, RPCState};
+use crate::rpc_api::data_types::{
+    ApiActorState, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
+};
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
@@ -18,8 +20,7 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
-use fil_actor_interface::market;
-use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::{market, miner, miner::MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -178,6 +179,37 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
         Ok(())
     })?;
     Ok(out)
+}
+
+pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+
+    // Collect active sectors from each partition in each deadline.
+    let mut active_sectors = vec![];
+    miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
+        deadline.for_each(bs, |_partidx, partition| {
+            active_sectors.push(partition.active_sectors());
+            Ok(())
+        })
+    })?;
+
+    let sectors = miner_state
+        .load_sectors(bs, Some(&BitField::union(&active_sectors)))?
+        .into_iter()
+        .map(SectorOnChainInfo::from)
+        .collect::<Vec<_>>();
+
+    Ok(LotusJson(sectors))
 }
 
 /// looks up the miner power of the given address.
@@ -470,4 +502,21 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
         actor.code,
         Ipld::Link(state),
     )))
+}
+
+/// Get state sector info using sector no
+pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, u64, TipsetKeys)>>,
+) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    Ok(LotusJson(
+        data.state_manager
+            .get_all_sectors(&addr, &ts)?
+            .into_iter()
+            .find(|info| info.sector_number == sector_no)
+            .map(SectorOnChainInfo::from)
+            .ok_or(format!("Info for sector number {sector_no} not found"))?,
+    ))
 }
