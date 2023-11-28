@@ -78,7 +78,8 @@ fvm_shared4 = { package = "fvm_shared", version = "~4.0.0", features = ["testing
 gethostname = "0.4"
 git-version = "0.3"
 hex = { version = "0.4", features = ["serde"] }
-http = "0.2.8"
+http = "1.0"
+http0 = { package = "http", version = "0.2" }
 human-repr = "1.0"
 humantime = "2.1.0"
 hyper = "0.14"

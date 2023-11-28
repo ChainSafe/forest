@@ -3165,6 +3165,7 @@ dependencies = [
  "git-version",
  "hex",
  "http 0.2.11",
+ "http 1.0.0",
  "http-range-header",
  "human-repr",
  "humantime",

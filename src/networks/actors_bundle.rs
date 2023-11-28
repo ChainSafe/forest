@@ -138,7 +138,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use http::StatusCode;
+    use http0::StatusCode;
     use reqwest::Response;
     use std::time::Duration;
 
