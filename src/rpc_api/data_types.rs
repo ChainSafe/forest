@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::beacon::BeaconSchedule;
@@ -36,13 +37,13 @@ use fil_actor_interface::{
 };
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::serde_bytes;
 use fvm_ipld_encoding::BytesDe;
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use libipld_core::ipld::Ipld;
+use libp2p::PeerId;
 use num_bigint::BigInt;
 use parking_lot::RwLock as SyncRwLock;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
@@ -194,6 +195,42 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
+const EMPTY_ADDRESS_VALUE: &str = "<empty>";
+
+/// This wrapper is needed, because of a
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct AddressOrEmpty(pub Option<Address>);
+
+impl Serialize for AddressOrEmpty {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let address_bytes = match self.0 {
+            Some(addr) => addr.to_string(),
+            None => EMPTY_ADDRESS_VALUE.to_string(),
+        };
+
+        s.collect_str(&address_bytes)
+    }
+}
+
+impl<'de> Deserialize<'de> for AddressOrEmpty {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let address_str = String::deserialize(deserializer)?;
+        if address_str.eq(EMPTY_ADDRESS_VALUE) {
+            return Ok(Self(None));
+        }
+
+        Address::from_str(&address_str)
+            .map_err(de::Error::custom)
+            .map(|addr| Self(Some(addr)))
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfoLotusJson {
@@ -201,18 +238,17 @@ pub struct MinerInfoLotusJson {
     pub owner: Address,
     #[serde(with = "crate::lotus_json")]
     pub worker: Address,
-    #[serde(with = "crate::lotus_json")]
-    pub new_worker: Option<Address>,
+    pub new_worker: AddressOrEmpty,
     #[serde(with = "crate::lotus_json")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
-    #[serde(with = "crate::lotus_json")]
-    pub peer_id: Vec<u8>,
+    //#[serde(with = "crate::lotus_json")]
+    pub peer_id: Option<PeerId>,
     #[serde(with = "crate::lotus_json")]
     pub multiaddrs: Vec<Vec<u8>>,
-    pub window_post_proof_type: fvm_shared2::sector::RegisteredPoStProof,
+    pub window_po_st_proof_type: fvm_shared2::sector::RegisteredPoStProof,
     pub sector_size: fvm_shared2::sector::SectorSize,
-    pub window_post_partition_sectors: u64,
+    pub window_po_st_partition_sectors: u64,
     pub consensus_fault_elapsed: ChainEpoch,
     #[serde(with = "crate::lotus_json")]
     pub pending_owner_address: Option<Address>,
@@ -233,21 +269,23 @@ impl HasLotusJson for MinerInfo {
         MinerInfoLotusJson {
             owner: self.owner.into(),
             worker: self.worker.into(),
-            new_worker: self.new_worker.map(|a| a.into()),
+            new_worker: AddressOrEmpty(self.new_worker.map(|addr| addr.into())),
             control_addresses: self
                 .control_addresses
                 .into_iter()
                 .map(|a| a.into())
                 .collect(),
             worker_change_epoch: self.worker_change_epoch,
-            peer_id: self.peer_id,
+            peer_id: PeerId::try_from(self.peer_id).ok(),
             multiaddrs: self.multiaddrs.into_iter().map(|addr| addr.0).collect(),
-            window_post_proof_type: self.window_post_proof_type,
+            window_po_st_proof_type: self.window_post_proof_type,
             sector_size: self.sector_size,
-            window_post_partition_sectors: self.window_post_partition_sectors,
+            window_po_st_partition_sectors: self.window_post_partition_sectors,
             consensus_fault_elapsed: self.consensus_fault_elapsed,
-
-            pending_owner_address: self.pending_owner_address.map(|addr| addr.into()),
+            // NOTE: In Lotus this field is never set for any of the versions, so we have to ignore
+            // it too.
+            // See: https://github.com/filecoin-project/lotus/blob/b6a77dfafcf0110e95840fca15a775ed663836d8/chain/actors/builtin/miner/v12.go#L370.
+            pending_owner_address: None,
             beneficiary: self.beneficiary.into(),
             beneficiary_term: self.beneficiary_term,
             pending_beneficiary_term: self.pending_beneficiary_term.map(|term| term.into()),
@@ -257,25 +295,25 @@ impl HasLotusJson for MinerInfo {
         MinerInfo {
             owner: lotus_json.owner.into(),
             worker: lotus_json.worker.into(),
-            new_worker: lotus_json.new_worker.map(|a| a.into()),
+            new_worker: lotus_json.new_worker.0.map(|addr| addr.into()),
             control_addresses: lotus_json
                 .control_addresses
                 .into_iter()
                 .map(|a| a.into())
                 .collect(),
             worker_change_epoch: lotus_json.worker_change_epoch,
-            peer_id: lotus_json.peer_id,
+            peer_id: lotus_json.peer_id.unwrap_or(PeerId::random()).to_bytes(),
             multiaddrs: lotus_json
                 .multiaddrs
                 .into_iter()
                 .map(|addr| BytesDe(addr))
                 .collect(),
-            window_post_proof_type: lotus_json.window_post_proof_type,
+            window_post_proof_type: lotus_json.window_po_st_proof_type,
             sector_size: lotus_json.sector_size,
-            window_post_partition_sectors: lotus_json.window_post_partition_sectors,
+            window_post_partition_sectors: lotus_json.window_po_st_partition_sectors,
             consensus_fault_elapsed: lotus_json.consensus_fault_elapsed,
-
-            pending_owner_address: lotus_json.pending_owner_address.map(|addr| addr.into()),
+            // Ignore this field as it is never set on Lotus side.
+            pending_owner_address: None,
             beneficiary: lotus_json.beneficiary.into(),
             beneficiary_term: lotus_json.beneficiary_term.into(),
             pending_beneficiary_term: lotus_json.pending_beneficiary_term.map(|term| term.into()),
