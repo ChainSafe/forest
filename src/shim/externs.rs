@@ -13,7 +13,7 @@ pub struct RandWrapper<T> {
     pub chain_rand: T,
 }
 
-pub trait Rand {
+pub trait Rand: Send + Sync {
     fn get_chain_randomness(&self, round: ChainEpoch_v2) -> anyhow::Result<[u8; 32]>;
     fn get_beacon_randomness(&self, round: ChainEpoch_v2) -> anyhow::Result<[u8; 32]>;
 }

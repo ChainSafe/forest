@@ -29,21 +29,30 @@ use anyhow::bail;
 use cid::Cid;
 use fil_actor_interface::{cron, reward, AwardBlockRewardParams};
 use fvm2::{
-    executor::{DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2},
+    executor::{
+        DefaultExecutor as DefaultExecutor_v2, Executor as Executor_v2,
+        ThreadedExecutor as ThreadedExecutor_v2,
+    },
     machine::{
         DefaultMachine as DefaultMachine_v2, Machine as Machine_v2,
         NetworkConfig as NetworkConfig_v2,
     },
 };
 use fvm3::{
-    executor::{DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3},
+    executor::{
+        DefaultExecutor as DefaultExecutor_v3, Executor as Executor_v3,
+        ThreadedExecutor as ThreadedExecutor_v3,
+    },
     machine::{
         DefaultMachine as DefaultMachine_v3, Machine as Machine_v3,
         NetworkConfig as NetworkConfig_v3,
     },
 };
 use fvm4::{
-    executor::{DefaultExecutor as DefaultExecutor_v4, Executor as Executor_v4},
+    executor::{
+        DefaultExecutor as DefaultExecutor_v4, Executor as Executor_v4,
+        ThreadedExecutor as ThreadedExecutor_v4,
+    },
     machine::{
         DefaultMachine as DefaultMachine_v4, Machine as Machine_v4,
         NetworkConfig as NetworkConfig_v4,
@@ -68,9 +77,9 @@ type ForestKernelV3<DB> =
 type ForestKernelV4<DB> =
     fvm4::DefaultKernel<fvm4::call_manager::DefaultCallManager<ForestMachineV4<DB>>>;
 
-type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
-type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
-type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
+type ForestExecutorV2<DB> = ThreadedExecutor_v2<DefaultExecutor_v2<ForestKernelV2<DB>>>;
+type ForestExecutorV3<DB> = ThreadedExecutor_v3<DefaultExecutor_v3<ForestKernelV3<DB>>>;
+type ForestExecutorV4<DB> = ThreadedExecutor_v4<DefaultExecutor_v4<ForestKernelV4<DB>>>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
@@ -207,7 +216,8 @@ where
                     chain_config,
                 ),
             )?;
-            let exec: ForestExecutorV4<DB> = DefaultExecutor_v4::new(engine, fvm)?;
+            let exec: ForestExecutorV4<DB> =
+                ThreadedExecutor_v4(DefaultExecutor_v4::new(engine, fvm)?);
             Ok(VM::VM4(exec))
         } else if network_version >= NetworkVersion::V18 {
             let mut config = NetworkConfig_v3::new(network_version.into());
@@ -235,7 +245,8 @@ where
                     chain_config,
                 ),
             )?;
-            let exec: ForestExecutorV3<DB> = DefaultExecutor_v3::new(engine, fvm)?;
+            let exec: ForestExecutorV3<DB> =
+                ThreadedExecutor_v3(DefaultExecutor_v3::new(engine, fvm)?);
             Ok(VM::VM3(exec))
         } else {
             let config = NetworkConfig_v2::new(network_version.into());
@@ -258,7 +269,7 @@ where
                     chain_config,
                 ),
             )?;
-            let exec: ForestExecutorV2<DB> = DefaultExecutor_v2::new(fvm);
+            let exec: ForestExecutorV2<DB> = ThreadedExecutor_v2(DefaultExecutor_v2::new(fvm));
             Ok(VM::VM2(exec))
         }
     }
@@ -276,12 +287,14 @@ where
     pub fn get_actor(&self, addr: &Address) -> Result<Option<ActorState>, anyhow::Error> {
         match self {
             VM::VM2(fvm_executor) => Ok(fvm_executor
+                .0
                 .state_tree()
                 .get_actor(&addr.into())?
                 .map(ActorState::from)),
             VM::VM3(fvm_executor) => {
-                if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
+                if let Some(id) = fvm_executor.0.state_tree().lookup_id(&addr.into())? {
                     Ok(fvm_executor
+                        .0
                         .state_tree()
                         .get_actor(id)?
                         .map(ActorState::from))
@@ -290,8 +303,9 @@ where
                 }
             }
             VM::VM4(fvm_executor) => {
-                if let Some(id) = fvm_executor.state_tree().lookup_id(&addr.into())? {
+                if let Some(id) = fvm_executor.0.state_tree().lookup_id(&addr.into())? {
                     Ok(fvm_executor
+                        .0
                         .state_tree()
                         .get_actor(id)?
                         .map(ActorState::from))
@@ -476,7 +490,7 @@ where
                     raw_length,
                 )?;
 
-                if fvm_executor.externs().bail() {
+                if fvm_executor.0.externs().bail() {
                     bail!("encountered a database lookup error");
                 }
 
@@ -489,7 +503,7 @@ where
                     raw_length,
                 )?;
 
-                if fvm_executor.externs().bail() {
+                if fvm_executor.0.externs().bail() {
                     bail!("encountered a database lookup error");
                 }
 
@@ -502,7 +516,7 @@ where
                     raw_length,
                 )?;
 
-                if fvm_executor.externs().bail() {
+                if fvm_executor.0.externs().bail() {
                     bail!("encountered a database lookup error");
                 }
 

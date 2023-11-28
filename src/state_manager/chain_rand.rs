@@ -169,7 +169,7 @@ where
 
 impl<DB> Rand for ChainRand<DB>
 where
-    DB: Blockstore,
+    DB: Blockstore + Send + Sync,
 {
     fn get_chain_randomness(&self, round: ChainEpoch) -> anyhow::Result<[u8; 32]> {
         self.get_chain_randomness_v2(round)

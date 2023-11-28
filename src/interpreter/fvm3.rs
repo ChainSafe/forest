@@ -35,7 +35,7 @@ use tracing::error;
 use crate::interpreter::resolve_to_key_addr;
 
 pub struct ForestExterns<DB> {
-    rand: Box<dyn Rand>,
+    rand: Box<dyn Rand + Send + Sync>,
     heaviest_tipset: Arc<Tipset>,
     epoch: ChainEpoch,
     root: Cid,
@@ -46,7 +46,7 @@ pub struct ForestExterns<DB> {
 
 impl<DB: Blockstore + Send + Sync + 'static> ForestExterns<DB> {
     pub fn new(
-        rand: impl Rand + 'static,
+        rand: impl Rand + Send + Sync + 'static,
         heaviest_tipset: Arc<Tipset>,
         epoch: ChainEpoch,
         root: Cid,
