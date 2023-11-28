@@ -220,6 +220,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
+        RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
     ]
 }
 
