@@ -6,7 +6,7 @@ use axum::body::Body;
 use axum::response::IntoResponse;
 use bytes::Bytes;
 use const_random::const_random;
-use futures::stream::{self};
+use futures::stream;
 use http_range_header::parse_range_header;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::Range;
@@ -82,7 +82,7 @@ async fn test_resumable_get() {
     let addr = listener.local_addr().unwrap();
     create_flaky_server(listener);
 
-    let resp = get(reqwest::Url::parse(&format!("http://{addr}/")).unwrap())
+    let resp = get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
         .await
         .unwrap();
 
@@ -92,7 +92,7 @@ async fn test_resumable_get() {
         .collect::<Vec<Bytes>>()
         .await
         .concat();
-    assert_eq!(&RANDOM_BYTES[..], &data[..]);
+    assert_eq!(Bytes::from_static(&RANDOM_BYTES), data);
 }
 
 #[tokio::test]
@@ -101,7 +101,7 @@ async fn test_non_resumable_get() {
     let addr = listener.local_addr().unwrap();
     create_flaky_server(listener);
 
-    let resp = reqwest::get(reqwest::Url::parse(&format!("http://{addr}/")).unwrap())
+    let resp = reqwest::get(reqwest::Url::parse(&format!("http://{addr}")).unwrap())
         .await
         .unwrap();
 
