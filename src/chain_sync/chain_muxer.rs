@@ -376,8 +376,7 @@ where
                 ) {
                     network
                         .peer_manager()
-                        .update_peer_head(source, tipset.into())
-                        .await;
+                        .update_peer_head(source, tipset.into());
                 }
 
                 return Ok(None);
