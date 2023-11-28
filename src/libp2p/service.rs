@@ -431,7 +431,7 @@ async fn handle_network_message(
             response_channel,
             epoch,
         } => {
-            let validate_peer: Option<Arc<ValidatePeerCallback>> = if let Some(epoch) = epoch {
+            let peer_validator: Option<Arc<ValidatePeerCallback>> = if let Some(epoch) = epoch {
                 let peer_manager = Arc::clone(peer_manager);
                 Some(Arc::new(move |peer| {
                     peer_manager
@@ -448,7 +448,7 @@ async fn handle_network_message(
                 cid,
                 BITSWAP_TIMEOUT,
                 Some(response_channel),
-                validate_peer,
+                peer_validator,
             );
         }
         NetworkMessage::JSONRPCRequest { method } => {
