@@ -35,6 +35,10 @@
 
 ### Fixed
 
+## Forest 0.16.3 "Tempura"
+
+### Fixed
+
 - [#3751](https://github.com/ChainSafe/forest/pull/3751) Workaround for
   performance bug that prevents Forest from syncing to the network.
 
