@@ -67,7 +67,6 @@ where
         .route("/metrics", get(collect_prometheus_metrics))
         .route("/stats/db", get(collect_db_metrics::<DB>))
         .with_state(db);
-    //let server = axum::Server::from_tcp(prometheus_listener)?.serve(app.into_make_service());
 
     // Wait for server to exit
     Ok(axum::serve(prometheus_listener, app.into_make_service()).await?)

@@ -154,7 +154,6 @@ where
         .with_state(rpc_server);
 
     info!("Ready for RPC connections");
-    //let server = axum::Server::from_tcp(rpc_endpoint)?.serve(app.into_make_service());
     axum::serve(rpc_endpoint, app.into_make_service()).await?;
 
     info!("Stopped accepting RPC connections");
