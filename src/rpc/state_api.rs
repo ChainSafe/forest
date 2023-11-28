@@ -503,3 +503,20 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
         Ipld::Link(state),
     )))
 }
+
+/// Get state sector info using sector no
+pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, u64, TipsetKeys)>>,
+) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    Ok(LotusJson(
+        data.state_manager
+            .get_all_sectors(&addr, &ts)?
+            .into_iter()
+            .find(|info| info.sector_number == sector_no)
+            .map(SectorOnChainInfo::from)
+            .ok_or(format!("Info for sector number {sector_no} not found"))?,
+    ))
+}
