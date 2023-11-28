@@ -7,7 +7,8 @@ use std::{
 };
 
 use crate::libp2p_bitswap::{
-    request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
+    request_manager::{BitswapRequestManager, ValidatePeerCallback},
+    BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
@@ -430,22 +431,24 @@ async fn handle_network_message(
             response_channel,
             epoch,
         } => {
+            let validate_peer: Option<Arc<ValidatePeerCallback>> = if let Some(epoch) = epoch {
+                let peer_manager = Arc::clone(peer_manager);
+                Some(Arc::new(move |peer| {
+                    peer_manager
+                        .get_peer_head_epoch(&peer)
+                        .map(|peer_head_epoch| peer_head_epoch >= epoch)
+                        .unwrap_or_default()
+                }))
+            } else {
+                None
+            };
+
             bitswap_request_manager.get_block(
                 store,
                 cid,
                 BITSWAP_TIMEOUT,
                 Some(response_channel),
-                if let Some(epoch) = epoch {
-                    let peer_manager = Arc::clone(peer_manager);
-                    Some(Arc::new(move |peer| {
-                        peer_manager
-                            .get_peer_head_epoch(&peer)
-                            .map(|peer_head_epoch| peer_head_epoch >= epoch)
-                            .unwrap_or_default()
-                    }))
-                } else {
-                    None
-                },
+                validate_peer,
             );
         }
         NetworkMessage::JSONRPCRequest { method } => {

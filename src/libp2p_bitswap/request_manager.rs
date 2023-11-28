@@ -21,6 +21,8 @@ use crate::libp2p_bitswap::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
+pub type ValidatePeerCallback = dyn Fn(PeerId) -> bool + Send + Sync;
+
 #[derive(Debug, Clone)]
 struct ResponseChannels {
     block_have: flume::Sender<PeerId>,
@@ -120,7 +122,7 @@ impl BitswapRequestManager {
         cid: Cid,
         timeout: Duration,
         responder: Option<flume::Sender<bool>>,
-        validate_peer: Option<Arc<dyn Fn(PeerId) -> bool + Send + Sync>>,
+        validate_peer: Option<Arc<ValidatePeerCallback>>,
     ) {
         let start = Instant::now();
         let timer = metrics::GET_BLOCK_TIME.start_timer();
@@ -163,7 +165,7 @@ impl BitswapRequestManager {
         store: Arc<impl BitswapStoreReadWrite>,
         cid: Cid,
         deadline: Instant,
-        validate_peer: Option<Arc<dyn Fn(PeerId) -> bool + Send + Sync>>,
+        validate_peer: Option<Arc<ValidatePeerCallback>>,
     ) -> bool {
         // Fail fast here when the given `cid` is being processed by other tasks
         if self.response_channels.read().contains_key(&cid) {
