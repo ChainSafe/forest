@@ -197,7 +197,8 @@ impl HasLotusJson for ApiMessage {
 
 const EMPTY_ADDRESS_VALUE: &str = "<empty>";
 
-/// This wrapper is needed, because of a
+/// This wrapper is needed, because of a bug in Lotus. It tries to serialize an empty address
+/// which results in `<empty>` string values.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
 
