@@ -224,6 +224,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
+        RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
     ]
 }
 
@@ -285,6 +286,11 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::state_network_version_req(
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::state_sector_get_info_req(
+            *shared_block.miner_address(),
+            101,
             shared_tipset.key().clone(),
         )),
     ]
