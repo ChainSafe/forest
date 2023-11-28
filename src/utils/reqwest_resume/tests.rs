@@ -7,8 +7,9 @@ use bytes::Bytes;
 use const_random::const_random;
 use futures::stream::StreamExt;
 use http_range_header::parse_range_header;
-use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::Range;
+use tokio::net::TcpListener;
 
 const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
@@ -48,20 +49,19 @@ async fn handle_request(headers: http::HeaderMap) -> impl IntoResponse {
     (status_code, response_headers, data)
 }
 
-fn create_listener() -> TcpListener {
+async fn create_listener() -> TcpListener {
     TcpListener::bind(SocketAddr::new(
         Ipv4Addr::LOCALHOST.into(),
         0, /* OS-assigned */
     ))
+    .await
     .unwrap()
 }
 
 fn create_flaky_server(listener: TcpListener) {
     tokio::task::spawn(async move {
         let app = axum::Router::new().route("/", axum::routing::get(handle_request));
-        axum::Server::from_tcp(listener)
-            .unwrap()
-            .serve(app.into_make_service())
+        axum::serve(listener, app.into_make_service())
             .await
             .unwrap()
     });
@@ -69,7 +69,7 @@ fn create_flaky_server(listener: TcpListener) {
 
 #[tokio::test]
 async fn test_resumable_get() {
-    let listener = create_listener();
+    let listener = create_listener().await;
     let addr = listener.local_addr().unwrap();
     create_flaky_server(listener);
 
@@ -88,7 +88,7 @@ async fn test_resumable_get() {
 
 #[tokio::test]
 async fn test_non_resumable_get() {
-    let listener = create_listener();
+    let listener = create_listener().await;
     let addr = listener.local_addr().unwrap();
     create_flaky_server(listener);
 

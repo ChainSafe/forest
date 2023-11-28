@@ -16,7 +16,7 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
-use std::{net::TcpListener, sync::Arc};
+use std::sync::Arc;
 
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, gas_api::*,
@@ -25,6 +25,7 @@ use crate::rpc_api::{
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use tokio::net::TcpListener;
 use tokio::sync::mpsc::Sender;
 use tracing::info;
 
@@ -153,8 +154,7 @@ where
         .with_state(rpc_server);
 
     info!("Ready for RPC connections");
-    let server = axum::Server::from_tcp(rpc_endpoint)?.serve(app.into_make_service());
-    server.await?;
+    axum::serve(rpc_endpoint, app.into_make_service()).await?;
 
     info!("Stopped accepting RPC connections");
 

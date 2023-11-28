@@ -21,6 +21,8 @@ use crate::libp2p_bitswap::{event_handlers::*, *};
 
 const BITSWAP_BLOCK_REQUEST_INTERVAL: Duration = Duration::from_millis(500);
 
+pub type ValidatePeerCallback = dyn Fn(PeerId) -> bool + Send + Sync;
+
 #[derive(Debug, Clone)]
 struct ResponseChannels {
     block_have: flume::Sender<PeerId>,
@@ -29,7 +31,6 @@ struct ResponseChannels {
 
 /// Request manager implementation that is optimized for Filecoin network
 /// usage
-#[derive(Debug)]
 pub struct BitswapRequestManager {
     // channel for outbound `have` requests
     outbound_have_request_tx: flume::Sender<(PeerId, Cid)>,
@@ -121,6 +122,7 @@ impl BitswapRequestManager {
         cid: Cid,
         timeout: Duration,
         responder: Option<flume::Sender<bool>>,
+        validate_peer: Option<Arc<ValidatePeerCallback>>,
     ) {
         let start = Instant::now();
         let timer = metrics::GET_BLOCK_TIME.start_timer();
@@ -129,10 +131,11 @@ impl BitswapRequestManager {
             let mut success = store.contains(&cid).unwrap_or_default();
             if !success {
                 let deadline = start.checked_add(timeout).expect("Infallible");
-                success =
-                    task::spawn_blocking(move || self.get_block_sync(store_cloned, cid, deadline))
-                        .await
-                        .unwrap_or_default();
+                success = task::spawn_blocking(move || {
+                    self.get_block_sync(store_cloned, cid, deadline, validate_peer)
+                })
+                .await
+                .unwrap_or_default();
                 // Spin check db when `get_block_sync` fails fast,
                 // which means there is other task actually processing the same `cid`
                 while !success && Instant::now() < deadline {
@@ -162,6 +165,7 @@ impl BitswapRequestManager {
         store: Arc<impl BitswapStoreReadWrite>,
         cid: Cid,
         deadline: Instant,
+        validate_peer: Option<Arc<ValidatePeerCallback>>,
     ) -> bool {
         // Fail fast here when the given `cid` is being processed by other tasks
         if self.response_channels.read().contains_key(&cid) {
@@ -178,7 +182,22 @@ impl BitswapRequestManager {
             self.response_channels.write().insert(cid, channels);
         }
 
-        for &peer in self.peers.read().iter() {
+        let peers: Vec<_> = self.peers.read().iter().cloned().collect();
+        let validated_peers: Vec<_> = peers
+            .iter()
+            .filter(|&&p| validate_peer.as_ref().map(|f| f(p)).unwrap_or(true))
+            .cloned()
+            .collect();
+
+        debug!("Found {} valid peers for {cid}", validated_peers.len());
+        let selected_peers = if validated_peers.is_empty() {
+            // Fallback to all peers
+            peers
+        } else {
+            validated_peers
+        };
+
+        for peer in selected_peers {
             if let Err(e) = self.outbound_have_request_tx.send((peer, cid)) {
                 warn!("{e}");
             }
