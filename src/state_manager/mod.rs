@@ -39,8 +39,10 @@ use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
 use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -349,6 +351,20 @@ where
         }
 
         Ok(None)
+    }
+
+    // Returns all sectors
+    pub fn get_all_sectors(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        state.load_sectors(self.blockstore(), None)
     }
 }
 
@@ -1006,6 +1022,34 @@ where
         Ok(out)
     }
 
+    /// Retrieves miner faults.
+    pub fn miner_faults(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<BitField, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        let mut faults = Vec::new();
+
+        state.for_each_deadline(
+            &self.chain_config.policy,
+            self.blockstore(),
+            |_, deadline| {
+                deadline.for_each(self.blockstore(), |_, partition| {
+                    faults.push(partition.faulty_sectors().clone());
+                    Ok(())
+                })
+            },
+        )?;
+
+        Ok(BitField::union(faults.iter()))
+    }
+
     /// Retrieves miner power.
     pub fn miner_power(
         self: &Arc<Self>,
@@ -1135,6 +1179,36 @@ where
             &self.engine,
             tipsets,
         )
+    }
+
+    pub async fn resolve_to_deterministic_address(
+        self: &Arc<Self>,
+        address: Address,
+        ts: Option<Arc<Tipset>>,
+    ) -> anyhow::Result<Address> {
+        use crate::shim::address::Protocol::*;
+        match address.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(address),
+            Actor => anyhow::bail!("cannot resolve actor address to key address"),
+            _ => {
+                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
+                // First try to resolve the actor in the parent state, so we don't have to compute anything.
+                if let Ok(state) =
+                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
+                {
+                    if let Ok(address) = state
+                        .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                    {
+                        return Ok(address);
+                    }
+                }
+
+                // If that fails, compute the tip-set and try again.
+                let (state_root, _) = self.tipset_state(&ts).await?;
+                let state = StateTree::new_from_root(self.chain_store().db.clone(), &state_root)?;
+                state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+            }
+        }
     }
 
     fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
