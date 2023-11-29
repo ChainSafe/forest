@@ -64,8 +64,6 @@
 //! ├──────────────┤ <- Zstd skip frame header)
 //! ```
 
-#[cfg_vis(feature = "benchmark-private", pub)]
-use self::util::NonMaximalU64;
 use byteorder::{LittleEndian, ReadBytesExt as _, WriteBytesExt as _};
 use cfg_vis::cfg_vis;
 use cid::Cid;
@@ -73,19 +71,75 @@ use itertools::Itertools as _;
 use positioned_io::{ReadAt, Size};
 use smallvec::{smallvec, SmallVec};
 use std::{
-    cmp,
+    cmp::{self, Ordering},
     io::{self, Read, Write},
     iter,
     num::NonZeroUsize,
     pin::pin,
 };
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
+use util::FlattenSorted;
+#[cfg_vis(feature = "benchmark-private", pub)]
+use util::NonMaximalU64;
 
 #[cfg(not(any(test, feature = "benchmark-private")))]
 mod hash;
 #[cfg(any(test, feature = "benchmark-private"))]
 pub mod hash;
 mod util;
+
+fn extrude<E>(
+    slots_with_pre_padding: impl IntoIterator<Item = Result<(usize, OccupiedSlot), E>>,
+) -> impl Iterator<Item = Result<Slot, E>> {
+    slots_with_pre_padding
+        .into_iter()
+        .map_ok(|(pre, occ)| {
+            iter::repeat(Slot::Empty)
+                .take(pre)
+                .chain(iter::once(Slot::Occupied(occ)))
+        })
+        .flatten_ok()
+}
+
+pub fn merge<'a, R>(indices: impl IntoIterator<Item = &'a Reader<R>>) -> io::Result<()>
+where
+    R: ReadAt + Size + 'a,
+{
+    let indices = indices.into_iter().collect::<Vec<_>>();
+    let initial_width = usize::try_from(
+        indices
+            .iter()
+            .map(|it| it.header.initial_buckets)
+            .sum::<u64>(),
+    )
+    .map_err(io::Error::other)
+    .and_then(|it| NonZeroUsize::new(it).ok_or(io::Error::other("cannot merge empty indices")))?;
+    let indices = indices
+        .into_iter()
+        .map(|reader| {
+            reader.iter().map(|iter| {
+                iter.flat_map(|maybe_slot| match maybe_slot {
+                    Err(e) => Some(Err(e)),
+                    Ok(Slot::Empty) => None,
+                    Ok(Slot::Occupied(occupied)) => Some(Ok(occupied)),
+                })
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut count = 0usize;
+    let mut total_padding = 0;
+    let mut longest_distance = 0;
+
+    FlattenSorted::new_by(indices, |l, r| match (l, r) {
+        (Ok(l), Ok(r)) => Ord::cmp(l, r),
+        // bubble errors up
+        (Err(_), _) => Ordering::Less,
+        (_, Err(_)) => Ordering::Greater,
+    })
+    .map_ok(|it| {});
+    panic!()
+}
 
 /// Reader for the `.forest.car.zst`'s embedded index.
 ///
@@ -191,13 +245,11 @@ where
 }
 
 #[cfg_vis(feature = "benchmark-private", pub)]
-#[allow(unused)] // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3565
 struct Iter<R> {
     inner: R,
     positions: iter::StepBy<std::ops::Range<u64>>,
 }
 
-#[allow(unused)] // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3565
 impl<R> Iterator for Iter<R>
 where
     R: ReadAt + Size,
@@ -216,7 +268,6 @@ where
     R: ReadAt + Size,
 {
     #[cfg_vis(feature = "benchmark-private", pub)]
-    #[allow(unused)] // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3565
     fn iter(&self) -> io::Result<Iter<&R>> {
         let end = self.inner.size()?.ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "couldn't get end of table size")
