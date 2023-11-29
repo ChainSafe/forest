@@ -76,7 +76,7 @@ type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
-const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
+pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;
 
 /// Contains all messages to process through the VM as well as miner information
 /// for block rewards.

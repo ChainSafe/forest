@@ -4,7 +4,7 @@
 pub mod chain_rand;
 mod errors;
 mod metrics;
-mod utils;
+pub mod utils;
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::state_migration::run_state_migrations;
@@ -20,13 +20,15 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
-use crate::interpreter::{BlockMessages, CalledAt};
+use crate::interpreter::{
+    resolve_to_key_addr, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::shim::clock::ChainEpoch;
+use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    clock::ChainEpoch,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
     message::Message,
@@ -36,8 +38,9 @@ use crate::shim::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actor_interface::miner::MinerPower;
+
 use fil_actor_interface::miner::SectorOnChainInfo;
+use fil_actor_interface::miner::{MinerInfo, MinerPower};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -54,7 +57,8 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
+use utils::structured;
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -173,7 +177,7 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -389,56 +393,97 @@ where
     #[instrument(skip(self, rand))]
     fn call_raw(
         self: &Arc<Self>,
-        msg: &mut Message,
+        msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> StateCallResult {
-        let bstate = tipset.parent_state();
-        let bheight = tipset.epoch();
+    ) -> Result<ApiInvocResult, Error> {
+        let mut msg = msg.clone();
+
+        let state_cid = tipset.parent_state();
+
+        let tipset_messages = self
+            .chain_store()
+            .messages_for_tipset(tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+
+        let prior_messsages = tipset_messages
+            .iter()
+            .filter(|msg| msg.message().from() == msg.from());
+
+        // Handle state forks
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
-                state_tree_root: *bstate,
-                epoch: bheight,
+                state_tree_root: *state_cid,
+                epoch: height,
                 rand: Box::new(rand),
-                base_fee: TokenAmount::zero(),
+                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
                 circ_supply: genesis_info.get_circulating_supply(
-                    bheight,
+                    height,
                     &self.blockstore_owned(),
-                    bstate,
+                    state_cid,
                 )?,
                 chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
-            VMTrace::NotTraced,
+            VMTrace::Traced,
         )?;
 
-        if msg.gas_limit == 0 {
-            msg.gas_limit = 10000000000;
+        for m in prior_messsages {
+            vm.apply_message(m)?;
         }
 
-        let actor = self
-            .get_actor(&msg.from, *bstate)?
-            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-        msg.sequence = actor.sequence;
-        let (apply_ret, _) = vm.apply_implicit_message(msg)?;
-        trace!(
-            "gas limit {:},gas premium{:?},value {:?}",
-            msg.gas_limit,
-            msg.gas_premium,
-            msg.value
-        );
-        if let Some(err) = &apply_ret.failure_info() {
-            warn!("chain call failed: {:?}", err);
-        }
+        // <<<<<<< HEAD
+        //         let actor = self
+        //             .get_actor(&msg.from, *bstate)?
+        //             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
+        //         msg.sequence = actor.sequence;
+        //         let (apply_ret, _) = vm.apply_implicit_message(msg)?;
+        //         trace!(
+        //             "gas limit {:},gas premium{:?},value {:?}",
+        //             msg.gas_limit,
+        //             msg.gas_premium,
+        //             msg.value
+        //         );
+        //         if let Some(err) = &apply_ret.failure_info() {
+        //             warn!("chain call failed: {:?}", err);
+        //         }
+        // =======
+        // We flush to get the VM's view of the state tree after applying the above messages
+        // This is needed to get the correct nonce from the actor state to match the VM
+        let state_cid = vm.flush()?;
+        //>>>>>>> main
 
-        Ok(InvocResult {
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+
+        let from_actor = state
+            .get_actor(&msg.from())?
+            .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
+        msg.set_sequence(from_actor.sequence);
+
+        // If the fee cap is set to zero, make gas free
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        // Implicit messages need to set a special gas limit
+        let mut msg = msg.clone();
+        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
+
+        let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
+
+        Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            error: apply_ret.failure_info(),
+            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            error: apply_ret.failure_info().unwrap_or_default(),
+            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+            gas_cost: MessageGasCost::default(),
+            execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
         })
     }
 
@@ -446,9 +491,9 @@ where
     /// changes.
     pub fn call(
         self: &Arc<Self>,
-        message: &mut Message,
+        message: &Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)
@@ -995,6 +1040,19 @@ where
         Ok(out)
     }
 
+    /// Retrieves miner info.
+    pub fn miner_info(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<MinerInfo, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        Ok(state.info(self.blockstore())?)
+    }
     /// Retrieves miner faults.
     pub fn miner_faults(
         self: &Arc<Self>,

@@ -330,7 +330,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     tests.extend(state_tests(&shared_tipset));
 
     let mut seen = CidHashSet::default();
-    for tipset in shared_tipset.chain(&store).take(n_tipsets) {
+    for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
         ));
@@ -393,6 +393,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     }
                 }
             }
+            tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
                 *block.miner_address(),
                 tipset.key().clone(),
@@ -404,7 +408,23 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
         }
         tests.push(RpcTest::basic(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),
-        )))
+        )));
+
+        for block in tipset.blocks() {
+            let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
+            for msg in secp_messages {
+                tests.push(RpcTest::identity(ApiInfo::state_call_req(
+                    msg.message().clone(),
+                    shared_tipset.key().clone(),
+                )));
+            }
+            for msg in bls_messages {
+                tests.push(RpcTest::identity(ApiInfo::state_call_req(
+                    msg.clone(),
+                    shared_tipset.key().clone(),
+                )));
+            }
+        }
     }
     Ok(tests)
 }

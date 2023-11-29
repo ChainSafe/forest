@@ -237,3 +237,239 @@ mod test {
         assert!(!is_valid_for_sending(NetworkVersion::V18, &actor));
     }
 }
+
+/// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
+pub mod structured {
+    use crate::rpc_api::data_types::{ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
+    use std::collections::VecDeque;
+
+    use crate::shim::{
+        address::Address,
+        error::ExitCode,
+        gas::GasCharge,
+        kernel::SyscallError,
+        trace::{Call, CallReturn, ExecutionEvent},
+    };
+    use cid::Cid;
+    use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
+    use itertools::Either;
+
+    enum CallTreeReturn {
+        Return(CallReturn),
+        Abort(ExitCode),
+        Error(SyscallError),
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    pub enum BuildExecutionTraceError {
+        #[error("every ExecutionEvent::Return | ExecutionEvent::CallError should be preceded by an ExecutionEvent::Call, but this one wasn't")]
+        UnexpectedReturn,
+        #[error("every ExecutionEvent::Call should have a corresponding ExecutionEvent::Return, but this one didn't")]
+        NoReturn,
+        #[error("unrecognised ExecutionEvent variant: {0:?}")]
+        UnrecognisedEvent(Box<dyn std::fmt::Debug + Send + Sync + 'static>),
+    }
+
+    /// Construct a single [`ExecutionTrace`]s from a linear array of [`ExecutionEvent`](fvm4::trace::ExecutionEvent)s.
+    ///
+    /// This function is so-called because it similar to the parse step in a traditional compiler:
+    /// ```text
+    /// text --lex-->     tokens     --parse-->   AST
+    ///               ExecutionEvent --parse--> ExecutionTrace
+    /// ```
+    ///
+    /// This function is notable in that [`GasCharge`](fvm4::gas::GasCharge)s which precede a [`ExecutionTrace`] at the root level
+    /// are attributed to that node.
+    ///
+    /// We call this "front loading", and is copied from [this (rather obscure) code in `filecoin-ffi`](https://github.com/filecoin-project/filecoin-ffi/blob/v1.23.0/rust/src/fvm/machine.rs#L209)
+    ///
+    /// ```text
+    /// GasCharge GasCharge Call GasCharge Call CallError CallReturn
+    /// ────┬──── ────┬──── ─┬── ────┬──── ─┬── ───┬───── ────┬─────
+    ///     │         │      │       │      │      │          │
+    ///     │         │      │       │      └─(T)──┘          │
+    ///     │         │      └───────┴───(T)───┴──────────────┘
+    ///     └─────────┴──────────────────►│
+    ///     ("front loaded" GasCharges)   │
+    ///                                  (T)
+    ///
+    /// (T): a ExecutionTrace node
+    /// ```
+    ///
+    /// Multiple call trees and trailing gas will be warned and ignored.
+    /// If no call tree is found, returns [`Ok(None)`]
+    pub fn parse_events(
+        events: Vec<ExecutionEvent>,
+    ) -> anyhow::Result<Option<ExecutionTrace>, BuildExecutionTraceError> {
+        let mut events = VecDeque::from(events);
+        let mut front_load_me = vec![];
+        let mut call_trees = vec![];
+
+        // we don't use a `for` loop so we can pass events them to inner parsers
+        while let Some(event) = events.pop_front() {
+            match event {
+                ExecutionEvent::GasCharge(gc) => front_load_me.push(gc),
+                ExecutionEvent::Call(call) => call_trees.push(ExecutionTrace::parse(call, {
+                    // if ExecutionTrace::parse took impl Iterator<Item = ExecutionEvent>
+                    // the compiler would infinitely recurse trying to resolve
+                    // &mut &mut &mut ..: Iterator
+                    // so use a VecDeque instead
+                    for gc in front_load_me.drain(..).rev() {
+                        events.push_front(ExecutionEvent::GasCharge(gc))
+                    }
+                    &mut events
+                })?),
+                ExecutionEvent::CallReturn(_)
+                | ExecutionEvent::CallAbort(_)
+                | ExecutionEvent::CallError(_) => {
+                    return Err(BuildExecutionTraceError::UnexpectedReturn)
+                }
+                ExecutionEvent::Log(_ignored) => {}
+                ExecutionEvent::InvokeActor(_cid) => {}
+                ExecutionEvent::Unknown(u) => {
+                    return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)))
+                }
+            }
+        }
+
+        if !front_load_me.is_empty() {
+            tracing::warn!(
+                "vm tracing: ignoring {} trailing gas charges",
+                front_load_me.len()
+            );
+        }
+
+        match call_trees.len() {
+            0 => Ok(None),
+            1 => Ok(Some(call_trees.remove(0))),
+            many => {
+                tracing::warn!(
+                    "vm tracing: ignoring {} call trees at the root level",
+                    many - 1
+                );
+                Ok(Some(call_trees.remove(0)))
+            }
+        }
+    }
+
+    impl ExecutionTrace {
+        /// ```text
+        ///    events: GasCharge Call CallError CallReturn ...
+        ///            ────┬──── ─┬── ───┬───── ────┬─────
+        ///                │      │      │          │
+        /// ┌──────┐       │      └─(T)──┘          │
+        /// │ Call ├───────┴───(T)───┴──────────────┘
+        /// └──────┘            |                   ▲
+        ///                     ▼                   │
+        ///              Returned ExecutionTrace    │
+        ///                                     parsing end
+        /// ```
+        fn parse(
+            call: Call,
+            events: &mut VecDeque<ExecutionEvent>,
+        ) -> Result<ExecutionTrace, BuildExecutionTraceError> {
+            let mut gas_charges = vec![];
+            let mut subcalls = vec![];
+            let mut code_cid = Default::default();
+
+            // we don't use a for loop over `events` so we can pass them to recursive calls
+            while let Some(event) = events.pop_front() {
+                let found_return = match event {
+                    ExecutionEvent::GasCharge(gc) => {
+                        gas_charges.push(to_gas_trace(gc));
+                        None
+                    }
+                    ExecutionEvent::Call(call) => {
+                        subcalls.push(Self::parse(call, events)?);
+                        None
+                    }
+                    ExecutionEvent::CallReturn(ret) => Some(CallTreeReturn::Return(ret)),
+                    ExecutionEvent::CallAbort(ab) => Some(CallTreeReturn::Abort(ab)),
+                    ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
+                    ExecutionEvent::Log(_ignored) => None,
+                    ExecutionEvent::InvokeActor(cid) => {
+                        code_cid = cid;
+                        None
+                    }
+                    // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
+                    //       So that BuildExecutionTraceError::UnrecognisedEvent is never constructed
+                    //       But that lint is not yet stabilised: https://github.com/rust-lang/rust/issues/89554
+                    ExecutionEvent::Unknown(u) => {
+                        return Err(BuildExecutionTraceError::UnrecognisedEvent(Box::new(u)))
+                    }
+                };
+
+                // commonise the return branch
+                if let Some(ret) = found_return {
+                    return Ok(ExecutionTrace {
+                        msg: to_message_trace(call, code_cid),
+                        msg_rct: to_return_trace(ret),
+                        gas_charges,
+                        subcalls,
+                    });
+                }
+            }
+
+            Err(BuildExecutionTraceError::NoReturn)
+        }
+    }
+
+    fn to_message_trace(call: Call, code_cid: Cid) -> MessageTrace {
+        let (bytes, codec) = to_bytes_codec(call.params);
+        MessageTrace {
+            from: Address::new_id(call.from),
+            to: call.to,
+            value: call.value,
+            method: call.method_num,
+            params: bytes,
+            params_codec: codec,
+            gas_limit: call.gas_limit,
+            read_only: call.read_only,
+            code_cid,
+        }
+    }
+
+    fn to_return_trace(ret: CallTreeReturn) -> ReturnTrace {
+        match ret {
+            CallTreeReturn::Return(return_code) => {
+                let exit_code = return_code.exit_code.unwrap_or(0.into());
+                let (bytes, codec) = to_bytes_codec(return_code.data);
+                ReturnTrace {
+                    exit_code,
+                    r#return: bytes,
+                    return_codec: codec,
+                }
+            }
+            CallTreeReturn::Abort(exit_code) => ReturnTrace {
+                exit_code,
+                r#return: RawBytes::default(),
+                return_codec: 0,
+            },
+            CallTreeReturn::Error(_syscall_error) => ReturnTrace {
+                exit_code: ExitCode::from(0),
+                r#return: RawBytes::default(),
+                return_codec: 0,
+            },
+        }
+    }
+
+    fn to_bytes_codec(data: Either<RawBytes, Option<IpldBlock>>) -> (RawBytes, u64) {
+        match data {
+            Either::Left(l) => (l, 0),
+            Either::Right(r) => match r {
+                Some(b) => (RawBytes::from(b.data), b.codec),
+                None => (RawBytes::default(), 0),
+            },
+        }
+    }
+
+    fn to_gas_trace(gc: GasCharge) -> GasTrace {
+        GasTrace {
+            name: gc.name().into(),
+            total_gas: gc.total().round_up(),
+            compute_gas: gc.compute_gas().round_up(),
+            storage_gas: gc.other_gas().round_up(),
+            time_taken: 0,
+        }
+    }
+}
