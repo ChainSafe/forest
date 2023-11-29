@@ -116,7 +116,8 @@ pub struct MessageLookup {
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
-    pub return_dec: IpldJson,
+    #[serde(with = "crate::lotus_json")]
+    pub return_dec: Ipld,
 }
 
 lotus_json_with_self!(MessageLookup);
