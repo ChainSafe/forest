@@ -312,7 +312,7 @@ impl HasLotusJson for MinerInfo {
             // Ignore this field as it is never set on Lotus side.
             pending_owner_address: None,
             beneficiary: lotus_json.beneficiary.into(),
-            beneficiary_term: lotus_json.beneficiary_term.into(),
+            beneficiary_term: lotus_json.beneficiary_term,
             pending_beneficiary_term: lotus_json.pending_beneficiary_term,
         }
     }
