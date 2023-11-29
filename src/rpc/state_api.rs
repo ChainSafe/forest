@@ -4,7 +4,6 @@
 
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
-use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
@@ -296,7 +295,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: cid,
-        return_dec: IpldJson(ipld),
+        return_dec: ipld,
     })
 }
 

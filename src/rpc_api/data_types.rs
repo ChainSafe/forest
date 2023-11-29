@@ -8,7 +8,6 @@ use crate::beacon::BeaconSchedule;
 use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
-use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
