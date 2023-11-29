@@ -31,7 +31,7 @@ const INT_JSON_KEY: &str = "int";
 const FLOAT_JSON_KEY: &str = "float";
 
 /// Wrapper for serializing and de-serializing a IPLD from JSON.
-#[derive(Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(transparent)]
 pub struct IpldJson(#[serde(with = "self")] pub Ipld);
 

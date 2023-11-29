@@ -4,6 +4,7 @@
 
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
+use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
@@ -280,7 +281,7 @@ pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'st
 pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((cid, confidence))): Params<LotusJson<(Cid, i64)>>,
-) -> Result<LotusJson<MessageLookup>, JsonRpcError> {
+) -> Result<MessageLookup, JsonRpcError> {
     let state_manager = &data.state_manager;
     let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
@@ -295,9 +296,8 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: cid,
-        return_dec: ipld,
-    }
-    .into())
+        return_dec: IpldJson(ipld),
+    })
 }
 
 // Sample CIDs (useful for testing):
