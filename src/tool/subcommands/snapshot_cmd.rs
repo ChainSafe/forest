@@ -525,8 +525,7 @@ mod structured {
                 "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
             },
             "ExecutionTrace": parse_events(apply_ret.exec_trace())?.map(CallTree::json),
-            // Only include timing fields for an easier diff with lotus
-            "Duration": duration.as_secs_f64(),
+            "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
         }))
     }
 
