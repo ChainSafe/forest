@@ -101,6 +101,10 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_READ_OBJ, (cid,))
     }
 
+    pub fn chain_has_obj_req(cid: Cid) -> RpcRequest<bool> {
+        RpcRequest::new(CHAIN_HAS_OBJ, (cid,))
+    }
+
     pub async fn chain_get_min_base_fee(
         &self,
         basefee_lookback: u32,

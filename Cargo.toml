@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.16.2"
+version = "0.16.3"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -17,7 +17,7 @@ async-fs = "2"
 async-recursion = "1.0"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
-axum = { version = "0.6", features = ['ws'] }
+axum = { version = "0.7", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
 bigdecimal = "0.4.0"
@@ -62,7 +62,6 @@ fil_actor_power_state = "8.0.0"
 fil_actor_reward_state = "8.0.0"
 fil_actor_system_state = "8.0.0"
 fil_actor_verifreg_state = "8.0.0"
-fil_actors_shared = { version = "8.0.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
@@ -78,15 +77,15 @@ fvm_shared4 = { package = "fvm_shared", version = "~4.0.0", features = ["testing
 gethostname = "0.4"
 git-version = "0.3"
 hex = { version = "0.4", features = ["serde"] }
-http = "0.2.8"
+http = "1.0"
+http0 = { package = "http", version = "0.2" }
 human-repr = "1.0"
 humantime = "2.1.0"
-hyper = "0.14"
 indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
-itertools = "0.11.0"
+itertools = "0.12.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "9"
 kanal = "0.1.0-pre8"
@@ -119,7 +118,7 @@ mimalloc = { version = "0.1.39", optional = true, default-features = false }
 multiaddr = "0.18"
 multimap = "0.9.0"
 nom = "7.1.3"
-nonempty = "0.8.0"
+nonempty = "0.9.0"
 nonzero_ext = "0.3.0"
 num = "0.4.0"
 num-bigint = "0.4"
@@ -132,7 +131,7 @@ parity-db = { version = "0.4.6", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
 pathfinding = "4.3.1"
 pin-project-lite = "0.2"
-positioned-io = "0.3.2"
+positioned-io = "0.3.3"
 pretty_assertions = "1.3.0"
 prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.22"
@@ -177,17 +176,16 @@ ticker = "0.1"
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-util = { version = "0.7.9", features = ["compat"] }
+tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7.1"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-unsigned-varint = { version = "0.7", features = ["codec"] }
+unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 walkdir = "2"
-zerocopy = { version = "0.7.9", features = ["derive"] }
 zstd = "0.13"
 
 [target.'cfg(unix)'.dependencies]
@@ -208,11 +206,11 @@ libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-respo
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
-proc-macro2 = { version = "1.0.68", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1.0.70", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.183"
+ra_ap_syntax = "0.0.187"
 regex-automata = "0.4"
 syn = { version = "2.0.38", default-features = false, features = [
   "full",

@@ -39,10 +39,11 @@ Make a pull request with the following changes:
 - Verify that the new release contains assets for both Linux and macOS (the
   assets are automatically generated and should show up after 30 minutes to an
   hour).
+- 🔁 If it's a new stable release (and not a backport), tag the version as
+  `latest` with the [retag action][6].
 - Verify that the new release is available in the GitHub Container Registry. Use
-  `docker pull ghcr.io/chainsafe/forest:<version>`. If it's a new stable release
-  (and not a backport), tag the image as `latest` with the [retag action][6].
-  Verify the tags in the [packages][7] list.
+  `docker pull ghcr.io/chainsafe/forest:<version>`. Verify the tags in the
+  [packages][7] list.
 
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml
