@@ -19,7 +19,11 @@ use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
-use fil_actor_interface::{market, miner, miner::{MinerInfo, MinerPower}};
+use cid::Cid;
+use fil_actor_interface::{
+    market, miner,
+    miner::{MinerInfo, MinerPower},
+};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -192,7 +196,7 @@ pub(in crate::rpc) async fn state_miner_info<DB: Blockstore + Send + Sync + 'sta
     Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
 }
 
-  pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
+pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
 ) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {

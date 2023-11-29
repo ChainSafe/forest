@@ -37,8 +37,8 @@ use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
 
-use fil_actor_interface::miner::{MinerInfo, MinerPower};
 use fil_actor_interface::miner::SectorOnChainInfo;
+use fil_actor_interface::miner::{MinerInfo, MinerPower};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -1008,8 +1008,8 @@ where
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         Ok(state.info(self.blockstore())?)
-  }
-  /// Retrieves miner faults.
+    }
+    /// Retrieves miner faults.
     pub fn miner_faults(
         self: &Arc<Self>,
         addr: &Address,

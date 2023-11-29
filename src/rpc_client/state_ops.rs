@@ -60,8 +60,8 @@ impl ApiInfo {
 
     pub fn state_miner_info_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerInfo> {
         RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
-  }
-  pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
+    }
+    pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
         RpcRequest::new(STATE_MINER_FAULTS, (miner, tsk))
     }
 

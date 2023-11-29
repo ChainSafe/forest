@@ -52,6 +52,7 @@ dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 fil_actor_account_state = "8.0.0"
+fil_actors_shared = { version = "8.0.0", features = ["json"] }
 fil_actor_cron_state = "8.0.0"
 fil_actor_datacap_state = "8.0.0"
 fil_actor_init_state = "8.0.0"
