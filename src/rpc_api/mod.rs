@@ -251,6 +251,8 @@ pub mod state_api {
     pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
     pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
+    pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
+    pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 }
 
 /// Gas API

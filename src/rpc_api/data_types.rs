@@ -8,7 +8,6 @@ use crate::beacon::BeaconSchedule;
 use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
-use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
@@ -106,7 +105,7 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
     #[serde(with = "crate::lotus_json")]
@@ -116,8 +115,11 @@ pub struct MessageLookup {
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
-    pub return_dec: IpldJson,
+    #[serde(with = "crate::lotus_json")]
+    pub return_dec: Ipld,
 }
+
+lotus_json_with_self!(MessageLookup);
 
 // Net API
 #[derive(Serialize, Deserialize)]

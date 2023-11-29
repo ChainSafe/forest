@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, ApiInvocResult, SectorOnChainInfo},
+        data_types::{ApiActorState, ApiInvocResult, MessageLookup, SectorOnChainInfo},
         state_api::*,
     },
     shim::{
@@ -128,5 +128,21 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<SectorOnChainInfo> {
         RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
+    }
+
+    // FIXME: StateWaitMsg API gets stuck in forest
+    // pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
+    //     RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence))
+    // }
+
+    pub fn state_search_msg_req(msg_cid: Cid) -> RpcRequest<Option<MessageLookup>> {
+        RpcRequest::new(STATE_SEARCH_MSG, (msg_cid,))
+    }
+
+    pub fn state_search_msg_limited_req(
+        msg_cid: Cid,
+        limit_epoch: i64,
+    ) -> RpcRequest<Option<MessageLookup>> {
+        RpcRequest::new(STATE_SEARCH_MSG_LIMITED, (msg_cid, limit_epoch))
     }
 }
