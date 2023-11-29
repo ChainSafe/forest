@@ -52,7 +52,6 @@ dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 fil_actor_account_state = "8.0.0"
-fil_actors_shared = { version = "8.0.0", features = ["json"] }
 fil_actor_cron_state = "8.0.0"
 fil_actor_datacap_state = "8.0.0"
 fil_actor_init_state = "8.0.0"
@@ -63,6 +62,7 @@ fil_actor_power_state = "8.0.0"
 fil_actor_reward_state = "8.0.0"
 fil_actor_system_state = "8.0.0"
 fil_actor_verifreg_state = "8.0.0"
+fil_actors_shared = { version = "8.0.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
