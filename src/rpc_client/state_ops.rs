@@ -74,6 +74,18 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
     }
 
+    pub fn state_get_randomness_from_tickets_req(
+        tsk: TipsetKeys,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: Vec<u8>,
+    ) -> RpcRequest<Vec<u8>> {
+        RpcRequest::new(
+            STATE_GET_RANDOMNESS_FROM_TICKETS,
+            (personalization as i64, rand_epoch, entropy, tsk),
+        )
+    }
+
     pub fn state_get_randomness_from_beacon_req(
         tsk: TipsetKeys,
         personalization: DomainSeparationTag,
