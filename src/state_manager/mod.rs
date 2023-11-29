@@ -1003,7 +1003,7 @@ where
         ts: &Arc<Tipset>,
     ) -> Result<MinerInfo, Error> {
         let actor = self
-            .get_actor(&addr, *ts.parent_state())?
+            .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 

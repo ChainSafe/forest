@@ -289,7 +289,7 @@ impl HasLotusJson for MinerInfo {
             pending_owner_address: None,
             beneficiary: self.beneficiary.into(),
             beneficiary_term: self.beneficiary_term,
-            pending_beneficiary_term: self.pending_beneficiary_term.map(|term| term.into()),
+            pending_beneficiary_term: self.pending_beneficiary_term,
         }
     }
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
@@ -304,11 +304,7 @@ impl HasLotusJson for MinerInfo {
                 .collect(),
             worker_change_epoch: lotus_json.worker_change_epoch,
             peer_id: lotus_json.peer_id.unwrap_or(PeerId::random()).to_bytes(),
-            multiaddrs: lotus_json
-                .multiaddrs
-                .into_iter()
-                .map(|addr| BytesDe(addr))
-                .collect(),
+            multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
             window_post_proof_type: lotus_json.window_po_st_proof_type,
             sector_size: lotus_json.sector_size,
             window_post_partition_sectors: lotus_json.window_po_st_partition_sectors,
@@ -317,7 +313,7 @@ impl HasLotusJson for MinerInfo {
             pending_owner_address: None,
             beneficiary: lotus_json.beneficiary.into(),
             beneficiary_term: lotus_json.beneficiary_term.into(),
-            pending_beneficiary_term: lotus_json.pending_beneficiary_term.map(|term| term.into()),
+            pending_beneficiary_term: lotus_json.pending_beneficiary_term,
         }
     }
 }
