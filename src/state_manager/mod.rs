@@ -439,26 +439,9 @@ where
             vm.apply_message(m)?;
         }
 
-        // <<<<<<< HEAD
-        //         let actor = self
-        //             .get_actor(&msg.from, *bstate)?
-        //             .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-        //         msg.sequence = actor.sequence;
-        //         let (apply_ret, _) = vm.apply_implicit_message(msg)?;
-        //         trace!(
-        //             "gas limit {:},gas premium{:?},value {:?}",
-        //             msg.gas_limit,
-        //             msg.gas_premium,
-        //             msg.value
-        //         );
-        //         if let Some(err) = &apply_ret.failure_info() {
-        //             warn!("chain call failed: {:?}", err);
-        //         }
-        // =======
         // We flush to get the VM's view of the state tree after applying the above messages
         // This is needed to get the correct nonce from the actor state to match the VM
         let state_cid = vm.flush()?;
-        //>>>>>>> main
 
         let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
 
