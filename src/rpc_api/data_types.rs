@@ -197,7 +197,7 @@ impl HasLotusJson for ApiMessage {
 
 const EMPTY_ADDRESS_VALUE: &str = "<empty>";
 
-/// This wrapper is needed, because of a bug in Lotus.
+/// This wrapper is needed because of a bug in Lotus.
 /// See: <https://github.com/filecoin-project/lotus/issues/11461>.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
