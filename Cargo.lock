@@ -2597,8 +2597,9 @@ checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27ddb14bbd955bc48da3456dd88f580ac3574dea4ce55d16ef71a2c573ccf05b"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2612,8 +2613,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "403b6f0b799077fea06dcb8bc5182e2ce9bc9951cfb901b4ce17e4da4ca02b5f"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2626,8 +2628,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9af748b98a9aa2bcb7ddef37d712dfa93ddf99d63d5c34a626713dd5143fbd63"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2643,8 +2646,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83d5a0afa43eac23411b1b241b27d18f7803a41b71a3f4c7f8b29ecff00cde7c"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2662,8 +2666,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62646d024b6a3afeee8383bdecb5b7c2b732665f1b85db8b9eb62838c5ff2021"
 dependencies = [
  "anyhow",
  "cid",
@@ -2682,8 +2687,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5170ce61b93fc014e21fed5534e7722d3bb7a9a9bb67bfaa361984aa1cf26f6b"
 dependencies = [
  "anyhow",
  "cid",
@@ -2717,8 +2723,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45583bde69b812dc43f70ec039bde3595f6b777ab42019667447f44084e9c020"
 dependencies = [
  "anyhow",
  "cid",
@@ -2741,8 +2748,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9361600194943dbd2b1188c5464bd44703d6a9d7918057d9c39af59cf53b3278"
 dependencies = [
  "anyhow",
  "bitflags 2.4.1",
@@ -2770,8 +2778,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b863ad9050a6caaeb8ab7ff6a515bb8ce129b6c4d6a96743d256126164f341c9"
 dependencies = [
  "anyhow",
  "cid",
@@ -2792,8 +2801,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "275c4b34af3eabf5a15673a2e733c37b788acf61a4e4dc9e1410887b6d2bf21e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2814,8 +2824,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12575ce6a16bf567ac43f8a38dabfe2c46f786b3fba8688bdcd59584f4b38066"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2829,8 +2840,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835b15959db5895fbd4aadb877162ff396ab44c56a6d98f172ba0a544af29c99"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2843,8 +2855,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c5b9adcb1dfcdb6cc9cabded9dd4b11a5c0ffba30c8936eb3ae0309a593ea39"
 dependencies = [
  "anyhow",
  "cid",
@@ -2862,8 +2875,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "7.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?branch=ru/chore/miner-info-fields#95bd07ac8576d2d3503c338d8376f23d7e50ed09"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7279b08b47c86912b11b8ed35c7c28564775954769471c3189a9a5f927efd8b"
 dependencies = [
  "anyhow",
  "cid",
