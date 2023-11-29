@@ -198,7 +198,7 @@ impl HasLotusJson for ApiMessage {
 const EMPTY_ADDRESS_VALUE: &str = "<empty>";
 
 /// This wrapper is needed, because of a bug in Lotus.
-/// See: https://github.com/filecoin-project/lotus/issues/11461.
+/// See: <https://github.com/filecoin-project/lotus/issues/11461>.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
 
@@ -285,7 +285,7 @@ impl HasLotusJson for MinerInfo {
             consensus_fault_elapsed: self.consensus_fault_elapsed,
             // NOTE: In Lotus this field is never set for any of the versions, so we have to ignore
             // it too.
-            // See: https://github.com/filecoin-project/lotus/blob/b6a77dfafcf0110e95840fca15a775ed663836d8/chain/actors/builtin/miner/v12.go#L370.
+            // See: <https://github.com/filecoin-project/lotus/blob/b6a77dfafcf0110e95840fca15a775ed663836d8/chain/actors/builtin/miner/v12.go#L370>.
             pending_owner_address: None,
             beneficiary: self.beneficiary.into(),
             beneficiary_term: self.beneficiary_term,
