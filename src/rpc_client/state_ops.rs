@@ -61,7 +61,7 @@ impl ApiInfo {
     pub fn state_miner_info_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerInfo> {
         RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
     }
-  
+
     pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<ApiInvocResult> {
         RpcRequest::new(STATE_CALL, (message, tsk))
     }
