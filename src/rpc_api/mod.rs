@@ -47,6 +47,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
+    access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
+    access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
 
     // Message Pool API
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
@@ -78,11 +80,20 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_GET_ACTOR, Access::Read);
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
+    access.insert(state_api::STATE_MINER_INFO, Access::Read);
+    access.insert(state_api::STATE_MINER_ACTIVE_SECTORS, Access::Read);
+    access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
+    access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
+    access.insert(state_api::STATE_LOOKUP_ID, Access::Read);
     access.insert(state_api::STATE_FETCH_ROOT, Access::Read);
+    access.insert(state_api::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
+    access.insert(state_api::STATE_READ_STATE, Access::Read);
+    access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
@@ -102,11 +113,6 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
 
-    // DB API
-    access.insert(db_api::DB_GC, Access::Write);
-
-    // Progress API
-    access.insert(progress_api::GET_PROGRESS, Access::Read);
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
 
@@ -131,6 +137,8 @@ pub mod auth_api {
     use serde::{Deserialize, Serialize};
     use serde_with::{serde_as, DurationSeconds};
 
+    use crate::lotus_json::lotus_json_with_self;
+
     pub const AUTH_NEW: &str = "Filecoin.AuthNew";
     #[serde_as]
     #[derive(Deserialize, Serialize)]
@@ -139,40 +147,26 @@ pub mod auth_api {
         #[serde_as(as = "DurationSeconds<i64>")]
         pub token_exp: Duration,
     }
-    pub type AuthNewResult = Vec<u8>;
+    lotus_json_with_self!(AuthNewParams);
 
     pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
-    pub type AuthVerifyParams = (String,);
-    pub type AuthVerifyResult = Vec<String>;
 }
 
 /// Beacon API
 pub mod beacon_api {
-    use crate::beacon::BeaconEntry;
-    use crate::lotus_json::LotusJson;
-    use crate::shim::clock::ChainEpoch;
-
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
-    pub type BeaconGetEntryParams = (ChainEpoch,);
-    pub type BeaconGetEntryResult = LotusJson<BeaconEntry>;
 }
 
 /// Chain API
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
-    use crate::lotus_json::LotusJson;
+    use crate::blocks::TipsetKeys;
+    use crate::lotus_json::lotus_json_with_self;
     use crate::shim::clock::ChainEpoch;
-    use crate::shim::message::Message;
-    use cid::Cid;
     use serde::{Deserialize, Serialize};
 
-    use crate::rpc_api::data_types::BlockMessages;
-
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
-    pub type ChainGetMessageParams = (LotusJson<Cid>,);
-    pub type ChainGetMessageResult = LotusJson<Message>;
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
 
@@ -187,267 +181,106 @@ pub mod chain_api {
         pub dry_run: bool,
     }
 
+    lotus_json_with_self!(ChainExportParams);
+
     pub type ChainExportResult = Option<String>;
 
     pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
-    pub type ChainReadObjParams = (LotusJson<Cid>,);
-    pub type ChainReadObjResult = String;
-
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
-    pub type ChainHasObjParams = (LotusJson<Cid>,);
-    pub type ChainHasObjResult = bool;
-
     pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
-    pub type ChainGetBlockMessagesParams = (LotusJson<Cid>,);
-    pub type ChainGetBlockMessagesResult = BlockMessages;
-
-    pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipsetByHeight";
-    pub type ChainGetTipsetByHeightParams = (ChainEpoch, TipsetKeys);
-    pub type ChainGetTipsetByHeightResult = LotusJson<Tipset>;
-
+    pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
-    pub type ChainGetGenesisParams = ();
-    pub type ChainGetGenesisResult = Option<LotusJson<Tipset>>;
-
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
-    pub type ChainHeadParams = ();
-    pub type ChainHeadResult = LotusJson<Tipset>;
-
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
-    pub type ChainGetBlockParams = (LotusJson<Cid>,);
-    pub type ChainGetBlockResult = LotusJson<BlockHeader>;
-
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
-    pub type ChainGetTipSetParams = (LotusJson<TipsetKeys>,);
-    pub type ChainGetTipSetResult = LotusJson<Tipset>;
-
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
-    pub type ChainSetHeadParams = (TipsetKeys,);
-    pub type ChainSetHeadResult = ();
-
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
-    pub type ChainGetMinBaseFeeParams = (u32,);
-    pub type ChainGetMinBaseFeeResult = String;
+    pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+    pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
 }
 
 /// Message Pool API
 pub mod mpool_api {
-    use cid::Cid;
-
-    use crate::rpc_api::data_types::MessageSendSpec;
-    use crate::shim::message::Message;
-    use crate::{lotus_json::LotusJson, message::SignedMessage};
-
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-    pub type MpoolPendingParams = (LotusJson<Vec<Cid>>,);
-    pub type MpoolPendingResult = LotusJson<Vec<SignedMessage>>;
-
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-    pub type MpoolPushParams = (LotusJson<SignedMessage>,);
-    pub type MpoolPushResult = LotusJson<Cid>;
-
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-    pub type MpoolPushMessageParams = (LotusJson<Message>, Option<MessageSendSpec>);
-    pub type MpoolPushMessageResult = LotusJson<SignedMessage>;
 }
 
 /// Sync API
 pub mod sync_api {
-
-    use cid::Cid;
-
-    use crate::{lotus_json::LotusJson, rpc_api::data_types::RPCSyncState};
-
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-    pub type SyncCheckBadParams = (LotusJson<Cid>,);
-    pub type SyncCheckBadResult = String;
-
     pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-    pub type SyncMarkBadParams = (LotusJson<Cid>,);
-    pub type SyncMarkBadResult = ();
-
     pub const SYNC_STATE: &str = "Filecoin.SyncState";
-    pub type SyncStateParams = ();
-    pub type SyncStateResult = RPCSyncState;
 }
 
 /// Wallet API
 pub mod wallet_api {
-    use crate::key_management::KeyInfo;
-    use crate::lotus_json::LotusJson;
-    use crate::shim::address::Address;
-    use crate::shim::crypto::{Signature, SignatureType};
-
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-    pub type WalletBalanceParams = (String,);
-    pub type WalletBalanceResult = String;
-
     pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-    pub type WalletDefaultAddressParams = ();
-    pub type WalletDefaultAddressResult = Option<String>;
-
     pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-    pub type WalletExportParams = (String,);
-    pub type WalletExportResult = LotusJson<KeyInfo>;
-
     pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-    pub type WalletHasParams = (String,);
-    pub type WalletHasResult = bool;
-
     pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-    pub type WalletImportParams = LotusJson<Vec<KeyInfo>>;
-    pub type WalletImportResult = String;
-
     pub const WALLET_LIST: &str = "Filecoin.WalletList";
-    pub type WalletListParams = ();
-    pub type WalletListResult = LotusJson<Vec<Address>>;
-
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-    pub type WalletNewParams = (LotusJson<SignatureType>,);
-    pub type WalletNewResult = String;
-
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-    pub type WalletSetDefaultParams = (LotusJson<Address>,);
-    pub type WalletSetDefaultResult = ();
-
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-    pub type WalletSignParams = (LotusJson<Address>, Vec<u8>);
-    pub type WalletSignResult = LotusJson<Signature>;
-
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub type WalletVerifyParams = (LotusJson<Address>, Vec<u8>, LotusJson<Signature>);
-    pub type WalletVerifyResult = bool;
-
     pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
-    pub type WalletDeleteParams = (String,);
-    pub type WalletDeleteResult = ();
 }
 
 /// State API
 pub mod state_api {
-    use std::path::PathBuf;
-
-    use crate::blocks::TipsetKeys;
-    use crate::lotus_json::LotusJson;
-    use crate::shim::address::Address;
-    use crate::shim::executor::Receipt;
-    use crate::shim::message::Message;
-    use crate::shim::{state_tree::ActorState, version::NetworkVersion};
-    use crate::state_manager::{InvocResult, MarketBalance};
-    use ahash::HashMap;
-    use cid::Cid;
-
-    use crate::rpc_api::data_types::{MarketDeal, MessageLookup};
-
     pub const STATE_CALL: &str = "Filecoin.StateCall";
-    pub type StateCallParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
-    pub type StateCallResult = InvocResult;
-
     pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-    pub type StateReplayParams = (LotusJson<Cid>, LotusJson<TipsetKeys>);
-    pub type StateReplayResult = InvocResult;
-
     pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
-    pub type StateNetworkNameParams = ();
-    pub type StateNetworkNameResult = String;
-
     pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
-    pub type StateNetworkVersionParams = (LotusJson<TipsetKeys>,);
-    pub type StateNetworkVersionResult = NetworkVersion;
-
     pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-    pub type StateGetActorParams = (LotusJson<Address>, LotusJson<TipsetKeys>);
-    pub type StateGetActorResult = LotusJson<Option<ActorState>>;
-
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-    pub type StateMarketBalanceParams = (LotusJson<Address>, LotusJson<TipsetKeys>);
-    pub type StateMarketBalanceResult = MarketBalance;
-
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-    pub type StateMarketDealsParams = (LotusJson<TipsetKeys>,);
-    pub type StateMarketDealsResult = HashMap<String, MarketDeal>;
-
+    pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
+    pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
+    pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
-    pub type StateGetReceiptParams = (LotusJson<Cid>, LotusJson<TipsetKeys>);
-    pub type StateGetReceiptResult = LotusJson<Receipt>;
-
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-    pub type StateWaitMsgParams = (LotusJson<Cid>, i64);
-    pub type StateWaitMsgResult = MessageLookup;
-
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
-    pub type StateFetchRootParams = (LotusJson<Cid>, Option<PathBuf>);
-    pub type StateFetchRootResult = String;
+    pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
+    pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
+    pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
+    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
+    pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
+    pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
+    pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
+    pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
 }
 
 /// Gas API
 pub mod gas_api {
-    use crate::blocks::TipsetKeys;
-    use crate::lotus_json::LotusJson;
-
-    use crate::rpc_api::data_types::MessageSendSpec;
-    use crate::shim::address::Address;
-    use crate::shim::message::Message;
-
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub type GasEstimateFeeCapParams = (LotusJson<Message>, i64, LotusJson<TipsetKeys>);
-    pub type GasEstimateFeeCapResult = String;
-
     pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-    pub type GasEstimateGasPremiumParams = (u64, LotusJson<Address>, i64, LotusJson<TipsetKeys>);
-    pub type GasEstimateGasPremiumResult = String;
-
     pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-    pub type GasEstimateGasLimitParams = (LotusJson<Message>, LotusJson<TipsetKeys>);
-    pub type GasEstimateGasLimitResult = i64;
-
     pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
-    pub type GasEstimateMessageGasParams = (
-        LotusJson<Message>,
-        Option<MessageSendSpec>,
-        LotusJson<TipsetKeys>,
-    );
-    pub type GasEstimateMessageGasResult = LotusJson<Message>;
 }
 
 /// Common API
 pub mod common_api {
-    use chrono::Utc;
-
-    use super::data_types::APIVersion;
-
     pub const VERSION: &str = "Filecoin.Version";
-    pub type VersionParams = ();
-    pub type VersionResult = APIVersion;
-
     pub const SHUTDOWN: &str = "Filecoin.Shutdown";
-    pub type ShutdownParams = ();
-    pub type ShutdownResult = ();
-
     pub const START_TIME: &str = "Filecoin.StartTime";
-    #[allow(unused)] // https://github.com/ChainSafe/forest/issues/3029
-    pub type StartTimeParams = ();
-    pub type StartTimeResult = chrono::DateTime<Utc>;
+    pub const DISCOVER: &str = "Filecoin.Discover";
+    pub const SESSION: &str = "Filecoin.Session";
 }
 
 /// Net API
 pub mod net_api {
     use serde::{Deserialize, Serialize};
 
-    use crate::rpc_api::data_types::AddrInfo;
+    use crate::lotus_json::lotus_json_with_self;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-    pub type NetAddrsListenParams = ();
-    pub type NetAddrsListenResult = AddrInfo;
 
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
-    pub type NetPeersParams = ();
-    pub type NetPeersResult = Vec<AddrInfo>;
 
     pub const NET_INFO: &str = "Filecoin.NetInfo";
-    pub type NetInfoParams = ();
 
     #[derive(Debug, Default, Serialize, Deserialize)]
     pub struct NetInfoResult {
@@ -458,6 +291,7 @@ pub mod net_api {
         pub num_pending_outgoing: u32,
         pub num_established: u32,
     }
+    lotus_json_with_self!(NetInfoResult);
 
     impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
         fn from(i: libp2p::swarm::NetworkInfo) -> Self {
@@ -474,42 +308,17 @@ pub mod net_api {
     }
 
     pub const NET_CONNECT: &str = "Filecoin.NetConnect";
-    pub type NetConnectParams = (AddrInfo,);
-    pub type NetConnectResult = ();
-
     pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
-    pub type NetDisconnectParams = (String,);
-    pub type NetDisconnectResult = ();
-}
-
-/// DB API
-pub mod db_api {
-    pub const DB_GC: &str = "Filecoin.DatabaseGarbageCollection";
-    pub type DBGCParams = ();
-    pub type DBGCResult = ();
-}
-
-/// Progress API
-pub mod progress_api {
-    use serde::{Deserialize, Serialize};
-
-    pub const GET_PROGRESS: &str = "Filecoin.GetProgress";
-    pub type GetProgressParams = (GetProgressType,);
-    pub type GetProgressResult = (u64, u64);
-
-    #[derive(Serialize, Deserialize)]
-    pub enum GetProgressType {
-        DatabaseGarbageCollection,
-    }
 }
 
 /// Node API
 pub mod node_api {
     pub const NODE_STATUS: &str = "Filecoin.NodeStatus";
-    pub type NodeStatusParams = ();
     pub type NodeStatusResult = NodeStatus;
 
     use serde::{Deserialize, Serialize};
+
+    use crate::lotus_json::lotus_json_with_self;
 
     #[derive(Debug, Serialize, Deserialize, Default)]
     pub struct NodeSyncStatus {
@@ -535,4 +344,6 @@ pub mod node_api {
         pub peer_status: NodePeerStatus,
         pub chain_status: NodeChainStatus,
     }
+
+    lotus_json_with_self!(NodeStatus);
 }

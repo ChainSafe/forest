@@ -33,7 +33,7 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 2880 * 21;
 pub const ETH_CHAIN_ID: u64 = 314;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -148,6 +148,15 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 21]> = Lazy::new(|| {
             height: Height::Thunder,
             epoch: 2_809_800 + LIGHTNING_ROLLOVER_PERIOD,
             bundle: None,
+        },
+        HeightInfo {
+            height: Height::Watermelon,
+            // 2023-12-12T13:30:00Z
+            epoch: 3_469_380,
+            bundle: Some(
+                Cid::try_from("bafy2bzaceapkgfggvxyllnmuogtwasmsv5qi2qzhc2aybockd6kag2g5lzaio")
+                    .unwrap(),
+            ),
         },
     ]
 });

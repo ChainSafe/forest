@@ -88,8 +88,18 @@ pub(in crate::state_migration) trait PostMigrator<BS: Blockstore>:
     fn post_migrate_state(&self, store: &BS, actors_out: &mut StateTree<BS>) -> anyhow::Result<()>;
 }
 
+/// Trait defining the interface for actor migration verifier.
+pub(in crate::state_migration) trait PostMigrationCheck<BS: Blockstore>:
+    Send + Sync
+{
+    fn post_migrate_check(&self, store: &BS, actors_out: &StateTree<BS>) -> anyhow::Result<()>;
+}
+
 /// Sized wrapper of [`PostMigrator`].
 pub(in crate::state_migration) type PostMigratorArc<BS> = Arc<dyn PostMigrator<BS>>;
+
+/// Sized wrapper of [`PostMigrationCheck`].
+pub(in crate::state_migration) type PostMigrationCheckArc<BS> = Arc<dyn PostMigrationCheck<BS>>;
 
 /// Trait that migrates from one data structure to another, similar to
 /// [`std::convert::TryInto`] trait but taking an extra block store parameter

@@ -51,6 +51,7 @@ use syn::visit::Visit;
 use tracing::{debug, info, trace};
 
 #[test]
+#[ignore = "https://github.com/ChainSafe/forest/issues/3665"]
 fn lint() {
     use tracing_subscriber::{filter::LevelFilter, util::SubscriberInitExt as _};
     let _guard = tracing_subscriber::fmt()

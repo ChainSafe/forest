@@ -14,11 +14,7 @@ mod tests {
         Cid,
     };
     use libp2p::{
-        core,
-        futures::StreamExt,
-        identity, noise, request_response,
-        swarm::{self, SwarmEvent},
-        tcp, yamux, PeerId, Swarm, Transport,
+        futures::StreamExt, noise, request_response, swarm::SwarmEvent, tcp, yamux, SwarmBuilder,
     };
 
     const TIMEOUT: Duration = Duration::from_secs(60);
@@ -31,21 +27,19 @@ mod tests {
     }
 
     async fn bitswap_go_compat_test_impl() -> anyhow::Result<()> {
-        let id_keys = identity::Keypair::generate_ed25519();
-        let peer_id = PeerId::from(id_keys.public());
-        let transport = tcp::tokio::Transport::default()
-            .upgrade(core::upgrade::Version::V1)
-            .authenticate(noise::Config::new(&id_keys)?)
-            .multiplex(yamux::Config::default())
-            .timeout(TIMEOUT)
-            .boxed();
-        let behaviour = BitswapBehaviour::new(&["/test/ipfs/bitswap/1.2.0"], Default::default());
-        let mut swarm = Swarm::new(
-            transport,
-            behaviour,
-            peer_id,
-            swarm::Config::with_tokio_executor(),
-        );
+        let mut swarm = SwarmBuilder::with_new_identity()
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default().port_reuse(true).nodelay(true),
+                noise::Config::new,
+                yamux::Config::default,
+            )?
+            .with_behaviour(|_keypair| {
+                BitswapBehaviour::new(&["/test/ipfs/bitswap/1.2.0"], Default::default())
+            })?
+            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(TIMEOUT))
+            .build();
+        let peer_id = *swarm.local_peer_id();
         swarm.listen_on(LISTEN_ADDR.parse()?)?;
         let expected_inbound_request_cid_str = "bitswap_request_from_go";
         let expected_inbound_request_cid = Cid::new_v0(

@@ -10,7 +10,7 @@ use crate::chain::{
     ChainStore,
 };
 use crate::interpreter::errors::Error;
-use crate::networks::ChainConfig;
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address, gas::price_list_by_network_version, state_tree::StateTree,
     version::NetworkVersion,
@@ -181,11 +181,34 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
                 h2
             );
         };
+
         let bh_1 = from_slice_with_fallback::<BlockHeader>(h1)?;
         let bh_2 = from_slice_with_fallback::<BlockHeader>(h2)?;
 
         if bh_1.cid() == bh_2.cid() {
             bail!("no consensus fault: submitted blocks are the same");
+        }
+
+        // This is a workaround for the broken calibnet chain. See:
+        // https://github.com/filecoin-project/lotus/pull/11399
+        // Basically we relax the consensus fault checks around the WatermelonFix epoch.
+        if self.chain_config.network == NetworkChain::Calibnet {
+            let watermelonfix_height = self
+                .chain_config
+                .height_infos
+                .get(Height::WatermelonFix as usize)
+                .context("Missing WatermelonFix for calibnet")?
+                .epoch;
+
+            let finality = self.chain_config.policy.chain_finality;
+
+            let is_near_upgrade = |epoch| {
+                epoch > watermelonfix_height - finality && epoch < watermelonfix_height + finality
+            };
+
+            if is_near_upgrade(bh_1.epoch()) || is_near_upgrade(bh_2.epoch()) {
+                return Ok((None, total_gas));
+            }
         }
 
         // (1) check conditions necessary to any consensus fault

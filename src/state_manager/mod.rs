@@ -4,7 +4,8 @@
 pub mod chain_rand;
 mod errors;
 mod metrics;
-mod utils;
+pub mod utils;
+use crate::chain_sync::SyncConfig;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
@@ -19,13 +20,15 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
-use crate::interpreter::{BlockMessages, CalledAt};
+use crate::interpreter::{
+    resolve_to_key_addr, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::shim::clock::ChainEpoch;
+use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    clock::ChainEpoch,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
     message::Message,
@@ -35,8 +38,12 @@ use crate::shim::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
+
+use fil_actor_interface::miner::SectorOnChainInfo;
+use fil_actor_interface::miner::{MinerInfo, MinerPower};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -50,7 +57,8 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
+use utils::structured;
 use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -169,7 +177,7 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -204,6 +212,7 @@ pub struct StateManager<DB> {
     // store it here is because it has a look-up cache.
     beacon: Arc<crate::beacon::BeaconSchedule>,
     chain_config: Arc<ChainConfig>,
+    sync_config: Arc<SyncConfig>,
     engine: crate::shim::machine::MultiEngine,
 }
 
@@ -217,6 +226,7 @@ where
     pub fn new(
         cs: Arc<ChainStore<DB>>,
         chain_config: Arc<ChainConfig>,
+        sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
@@ -226,6 +236,7 @@ where
             cache: TipsetStateCache::new(),
             beacon,
             chain_config,
+            sync_config,
             engine: crate::shim::machine::MultiEngine::default(),
         })
     }
@@ -239,8 +250,12 @@ where
         self.chain_config.network_version(epoch)
     }
 
-    pub fn chain_config(&self) -> Arc<ChainConfig> {
-        Arc::clone(&self.chain_config)
+    pub fn chain_config(&self) -> &Arc<ChainConfig> {
+        &self.chain_config
+    }
+
+    pub fn sync_config(&self) -> &Arc<SyncConfig> {
+        &self.sync_config
     }
 
     /// Gets actor from given [`Cid`], if it exists.
@@ -338,6 +353,20 @@ where
 
         Ok(None)
     }
+
+    // Returns all sectors
+    pub fn get_all_sectors(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        state.load_sectors(self.blockstore(), None)
+    }
 }
 
 impl<DB> StateManager<DB>
@@ -364,56 +393,80 @@ where
     #[instrument(skip(self, rand))]
     fn call_raw(
         self: &Arc<Self>,
-        msg: &mut Message,
+        msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> StateCallResult {
-        let bstate = tipset.parent_state();
-        let bheight = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
+    ) -> Result<ApiInvocResult, Error> {
+        let mut msg = msg.clone();
+
+        let state_cid = tipset.parent_state();
+
+        let tipset_messages = self
+            .chain_store()
+            .messages_for_tipset(tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+
+        let prior_messsages = tipset_messages
+            .iter()
+            .filter(|msg| msg.message().from() == msg.from());
+
+        // Handle state forks
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        let height = tipset.epoch();
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
-                state_tree_root: *bstate,
-                epoch: bheight,
+                state_tree_root: *state_cid,
+                epoch: height,
                 rand: Box::new(rand),
-                base_fee: TokenAmount::zero(),
+                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
                 circ_supply: genesis_info.get_circulating_supply(
-                    bheight,
+                    height,
                     &self.blockstore_owned(),
-                    bstate,
+                    state_cid,
                 )?,
-                chain_config: self.chain_config(),
+                chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
-            VMTrace::NotTraced,
+            VMTrace::Traced,
         )?;
 
-        if msg.gas_limit == 0 {
-            msg.gas_limit = 10000000000;
+        for m in prior_messsages {
+            vm.apply_message(m)?;
         }
 
-        let actor = self
-            .get_actor(&msg.from, *bstate)?
-            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-        msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(msg)?;
-        trace!(
-            "gas limit {:},gas premium{:?},value {:?}",
-            msg.gas_limit,
-            msg.gas_premium,
-            msg.value
-        );
-        if let Some(err) = &apply_ret.failure_info() {
-            warn!("chain call failed: {:?}", err);
-        }
+        // We flush to get the VM's view of the state tree after applying the above messages
+        // This is needed to get the correct nonce from the actor state to match the VM
+        let state_cid = vm.flush()?;
 
-        Ok(InvocResult {
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+
+        let from_actor = state
+            .get_actor(&msg.from())?
+            .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
+        msg.set_sequence(from_actor.sequence);
+
+        // If the fee cap is set to zero, make gas free
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        // Implicit messages need to set a special gas limit
+        let mut msg = msg.clone();
+        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
+
+        let apply_ret = vm.apply_implicit_message(&msg)?;
+
+        Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            error: apply_ret.failure_info(),
+            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            error: apply_ret.failure_info().unwrap_or_default(),
+            duration: 0,
+            gas_cost: MessageGasCost::default(),
+            execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
         })
     }
 
@@ -421,9 +474,9 @@ where
     /// changes.
     pub fn call(
         self: &Arc<Self>,
-        message: &mut Message,
+        message: &Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)
@@ -447,7 +500,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(&self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&ts),
@@ -460,7 +513,7 @@ where
                     &self.blockstore_owned(),
                     &st,
                 )?,
-                chain_config: self.chain_config(),
+                chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: ts.min_timestamp(),
             },
@@ -657,7 +710,7 @@ where
         // Load parent state.
         let pts = self
             .cs
-            .tipset_from_keys(tipset.parents())
+            .load_required_tipset(tipset.parents())
             .map_err(|err| Error::Other(err.to_string()))?;
         let messages = self
             .cs
@@ -723,11 +776,14 @@ where
                 }
             }
 
-            let tipset = self.cs.tipset_from_keys(current.parents()).map_err(|err| {
-                Error::Other(format!(
-                    "failed to load tipset during msg wait searchback: {err:}"
-                ))
-            })?;
+            let tipset = self
+                .cs
+                .load_required_tipset(current.parents())
+                .map_err(|err| {
+                    Error::Other(format!(
+                        "failed to load tipset during msg wait searchback: {err:}"
+                    ))
+                })?;
             let r = self.tipset_executed_message(
                 &tipset,
                 *message_cid,
@@ -967,6 +1023,68 @@ where
         Ok(out)
     }
 
+    /// Retrieves miner info.
+    pub fn miner_info(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<MinerInfo, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        Ok(state.info(self.blockstore())?)
+    }
+    /// Retrieves miner faults.
+    pub fn miner_faults(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<BitField, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        let mut faults = Vec::new();
+
+        state.for_each_deadline(
+            &self.chain_config.policy,
+            self.blockstore(),
+            |_, deadline| {
+                deadline.for_each(self.blockstore(), |_, partition| {
+                    faults.push(partition.faulty_sectors().clone());
+                    Ok(())
+                })
+            },
+        )?;
+
+        Ok(BitField::union(faults.iter()))
+    }
+
+    /// Retrieves miner power.
+    pub fn miner_power(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<MinerPower, Error> {
+        if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
+            return Ok(MinerPower {
+                miner_power,
+                total_power,
+                has_min_power: true,
+            });
+        }
+
+        Ok(MinerPower {
+            has_min_power: false,
+            miner_power: Default::default(),
+            total_power: Default::default(),
+        })
+    }
+
     /// Similar to `resolve_to_key_addr` in the `forest_vm` [`crate::state_manager`] but does not
     /// allow `Actor` type of addresses. Uses `ts` to generate the VM state.
     pub async fn resolve_to_key_addr(
@@ -1054,7 +1172,7 @@ where
         let tipsets = itertools::unfold(Some(end), |tipset| {
             let child = tipset.take()?;
             // if this has parents, unfold them in the next iteration
-            *tipset = self.cs.tipset_from_keys(child.parents()).ok();
+            *tipset = self.cs.load_required_tipset(child.parents()).ok();
             Some(child)
         })
         .take_while(|tipset| tipset.epoch() >= *epochs.start());
@@ -1070,11 +1188,41 @@ where
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
-            self.chain_config(),
+            self.chain_config().clone(),
             self.beacon_schedule(),
             &self.engine,
             tipsets,
         )
+    }
+
+    pub async fn resolve_to_deterministic_address(
+        self: &Arc<Self>,
+        address: Address,
+        ts: Option<Arc<Tipset>>,
+    ) -> anyhow::Result<Address> {
+        use crate::shim::address::Protocol::*;
+        match address.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(address),
+            Actor => anyhow::bail!("cannot resolve actor address to key address"),
+            _ => {
+                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
+                // First try to resolve the actor in the parent state, so we don't have to compute anything.
+                if let Ok(state) =
+                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
+                {
+                    if let Ok(address) = state
+                        .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                    {
+                        return Ok(address);
+                    }
+                }
+
+                // If that fails, compute the tip-set and try again.
+                let (state_root, _) = self.tipset_state(&ts).await?;
+                let state = StateTree::new_from_root(self.chain_store().db.clone(), &state_root)?;
+                state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+            }
+        }
     }
 
     fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {

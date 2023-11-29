@@ -46,6 +46,7 @@ impl ApplyRet {
             ApplyRet::V3(v3) => v3.failure_info.as_ref().map(|failure| failure.to_string()),
             ApplyRet::V4(v4) => v4.failure_info.as_ref().map(|failure| failure.to_string()),
         }
+        .map(|e| format!("{} (RetCode={})", e, self.msg_receipt().exit_code()))
     }
 
     pub fn miner_tip(&self) -> TokenAmount {

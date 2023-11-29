@@ -6,10 +6,10 @@ use std::sync::{
     Arc,
 };
 
-use crate::networks::{ChainConfig, Height};
+use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::state_tree::StateRoot;
-use crate::utils::misc::reveal_five_trees;
+use crate::utils::misc::reveal_three_trees;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -19,6 +19,8 @@ mod nv17;
 mod nv18;
 mod nv19;
 mod nv21;
+mod nv21fix;
+mod nv21fix2;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -33,12 +35,17 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
-    let mappings: [(_, RunMigration<DB>); 4] = [
+    let mut mappings: Vec<(_, RunMigration<DB>)> = vec![
         (Height::Shark, nv17::run_migration::<DB>),
         (Height::Hygge, nv18::run_migration::<DB>),
         (Height::Lightning, nv19::run_migration::<DB>),
         (Height::Watermelon, nv21::run_migration::<DB>),
     ];
+
+    if chain_config.network == NetworkChain::Calibnet {
+        mappings.push((Height::WatermelonFix, nv21fix::run_migration::<DB>));
+        mappings.push((Height::WatermelonFix2, nv21fix2::run_migration::<DB>));
+    }
 
     // Make sure bundle is defined.
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
@@ -71,7 +78,7 @@ where
                 .map(|sr| format!("{}", sr.actors))
                 .unwrap_or_default();
             if new_state != *parent_state {
-                reveal_five_trees();
+                reveal_three_trees();
                 tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}s.");
             } else {
                 anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}s.");

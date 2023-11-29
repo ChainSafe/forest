@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use libp2p::{
-    request_response::{self, ProtocolSupport, RequestId},
+    request_response::{self, OutboundRequestId, ProtocolSupport},
     swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
@@ -42,7 +42,7 @@ impl BitswapBehaviour {
     }
 
     /// Sends a [`BitswapRequest`] to a peer
-    pub fn send_request(&mut self, peer: &PeerId, request: BitswapRequest) -> RequestId {
+    pub fn send_request(&mut self, peer: &PeerId, request: BitswapRequest) -> OutboundRequestId {
         if request.cancel {
             metrics::message_counter_outbound_request_cancel().inc();
         } else {
@@ -56,7 +56,11 @@ impl BitswapBehaviour {
     }
 
     /// Sends a [`BitswapResponse`] to a peer
-    pub fn send_response(&mut self, peer: &PeerId, response: (Cid, BitswapResponse)) -> RequestId {
+    pub fn send_response(
+        &mut self,
+        peer: &PeerId,
+        response: (Cid, BitswapResponse),
+    ) -> OutboundRequestId {
         match response.1 {
             BitswapResponse::Have(..) => metrics::message_counter_outbound_response_have().inc(),
             BitswapResponse::Block(..) => metrics::message_counter_outbound_response_block().inc(),
@@ -173,7 +177,7 @@ impl NetworkBehaviour for BitswapBehaviour {
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm) {
         match &event {
             FromSwarm::ConnectionEstablished(e) => {
                 self.request_manager.on_peer_connected(e.peer_id);
@@ -190,8 +194,7 @@ impl NetworkBehaviour for BitswapBehaviour {
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl PollParameters,
     ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
-        self.inner_mut().poll(cx, params)
+        self.inner_mut().poll(cx)
     }
 }

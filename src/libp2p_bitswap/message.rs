@@ -1,8 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use pb::bitswap_pb;
-use protobuf::{EnumOrUnknown, Message};
+use super::bitswap_pb::mod_Message::{mod_Wantlist::WantType, BlockPresenceType, Wantlist};
 use serde::{Deserialize, Serialize};
 
 use crate::libp2p_bitswap::{prefix::Prefix, *};
@@ -14,38 +13,21 @@ pub enum RequestType {
     Block,
 }
 
-impl From<bitswap_pb::message::wantlist::WantType> for RequestType {
-    fn from(value: bitswap_pb::message::wantlist::WantType) -> Self {
+impl From<WantType> for RequestType {
+    fn from(value: WantType) -> Self {
         match value {
-            bitswap_pb::message::wantlist::WantType::Have => RequestType::Have,
-            bitswap_pb::message::wantlist::WantType::Block => RequestType::Block,
+            WantType::Have => RequestType::Have,
+            WantType::Block => RequestType::Block,
         }
     }
 }
 
-impl TryFrom<EnumOrUnknown<bitswap_pb::message::wantlist::WantType>> for RequestType {
-    type Error = i32;
-
-    fn try_from(
-        value: EnumOrUnknown<bitswap_pb::message::wantlist::WantType>,
-    ) -> Result<Self, Self::Error> {
-        value.enum_value().map(Into::into)
-    }
-}
-
-impl From<RequestType> for bitswap_pb::message::wantlist::WantType {
+impl From<RequestType> for WantType {
     fn from(value: RequestType) -> Self {
         match value {
-            RequestType::Have => bitswap_pb::message::wantlist::WantType::Have,
-            RequestType::Block => bitswap_pb::message::wantlist::WantType::Block,
+            RequestType::Have => WantType::Have,
+            RequestType::Block => WantType::Block,
         }
-    }
-}
-
-impl From<RequestType> for EnumOrUnknown<bitswap_pb::message::wantlist::WantType> {
-    fn from(value: RequestType) -> Self {
-        let want_type: bitswap_pb::message::wantlist::WantType = value.into();
-        want_type.into()
     }
 }
 
@@ -109,8 +91,8 @@ pub enum BitswapMessage {
 }
 
 impl BitswapMessage {
-    pub fn to_bytes(&self) -> IOResult<Vec<u8>> {
-        let mut msg = bitswap_pb::Message::new();
+    pub fn into_proto(self) -> IOResult<bitswap_pb::Message> {
+        let mut msg = bitswap_pb::Message::default();
         match self {
             Self::Request(BitswapRequest {
                 ty,
@@ -118,42 +100,37 @@ impl BitswapMessage {
                 send_dont_have,
                 cancel,
             }) => {
-                let mut wantlist = bitswap_pb::message::Wantlist::new();
+                let wantlist = Wantlist {
+                    entries: vec![bitswap_pb::mod_Message::mod_Wantlist::Entry {
+                        block: cid.to_bytes(),
+                        wantType: ty.into(),
+                        sendDontHave: send_dont_have,
+                        cancel,
+                        priority: 1,
+                    }],
+                    ..Default::default()
+                };
 
-                wantlist.entries.push({
-                    let mut entry = bitswap_pb::message::wantlist::Entry::new();
-                    entry.block = cid.to_bytes();
-                    entry.wantType = (*ty).into();
-                    entry.sendDontHave = *send_dont_have;
-                    entry.cancel = *cancel;
-                    entry.priority = 1;
-                    entry
-                });
-
-                msg.wantlist = Some(wantlist).into();
+                msg.wantlist = Some(wantlist);
             }
             Self::Response(cid, BitswapResponse::Have(have)) => {
-                let mut block_presence = bitswap_pb::message::BlockPresence::new();
-
-                block_presence.cid = cid.to_bytes();
-                block_presence.type_ = if *have {
-                    bitswap_pb::message::BlockPresenceType::Have
-                } else {
-                    bitswap_pb::message::BlockPresenceType::DontHave
-                }
-                .into();
-
-                msg.blockPresences.push(block_presence);
+                msg.blockPresences
+                    .push(bitswap_pb::mod_Message::BlockPresence {
+                        cid: cid.to_bytes(),
+                        type_pb: if have {
+                            BlockPresenceType::Have
+                        } else {
+                            BlockPresenceType::DontHave
+                        },
+                    });
             }
             Self::Response(cid, BitswapResponse::Block(bytes)) => {
-                let mut payload = bitswap_pb::message::Block::new();
-
-                payload.prefix = Prefix::from(cid).to_bytes();
-                payload.data = bytes.to_vec();
-
-                msg.payload.push(payload);
+                msg.payload.push(bitswap_pb::mod_Message::Block {
+                    prefix: Prefix::from(&cid).to_bytes(),
+                    data: bytes,
+                });
             }
         }
-        msg.write_to_bytes().map_err(map_io_err)
+        Ok(msg)
     }
 }

@@ -5,11 +5,16 @@ pub mod car;
 mod memory;
 pub mod parity_db;
 pub mod parity_db_config;
-pub mod rolling;
+
+mod gc;
+pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;
+
+use ahash::HashSet;
 use anyhow::Context as _;
+use cid::multihash;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
@@ -17,8 +22,6 @@ use std::sync::Arc;
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKeys`]
     pub const HEAD_KEY: &str = "head";
-    /// Estimated number of IPLD records in the database. This is expected to be a `usize`
-    pub const ESTIMATED_RECORDS_KEY: &str = "estimated_reachable_records";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
 }
@@ -102,10 +105,34 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
     }
 }
 
+/// A trait to facilitate mark-and-sweep garbage collection.
+///
+/// NOTE: Since there is no real need for generics here right now - the 'key' type is specified to
+/// avoid wrapping it.
+pub trait GarbageCollectable {
+    /// Gets all the keys currently in the database.
+    ///
+    /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too
+    /// much time and memory.
+    fn get_keys(&self) -> anyhow::Result<HashSet<u32>>;
+
+    /// Removes all the keys marked for deletion.
+    ///
+    /// # Arguments
+    ///
+    /// * `keys` - A set of keys to be removed from the database.
+    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()>;
+}
+
+/// A function that converts a [`multihash::MultihashGeneric`] digest into a `u32` representation.
+/// We don't care about collisions here as main use-case is garbage collection.
+pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<S>) -> u32 {
+    let digest = hash.digest();
+    u32::from_le_bytes(digest[0..4].try_into().expect("shouldn't fail"))
+}
+
 pub mod db_engine {
     use std::path::{Path, PathBuf};
-
-    use crate::db::rolling::*;
 
     use super::db_mode::choose_db;
 
@@ -117,14 +144,11 @@ pub mod db_engine {
         choose_db(chain_data_root)
     }
 
-    pub(in crate::db) fn open_db(path: &Path, config: &DbConfig) -> anyhow::Result<Db> {
-        Db::open(path, config).map_err(Into::into)
-    }
-
-    pub fn open_proxy_db(db_root: PathBuf, db_config: DbConfig) -> anyhow::Result<RollingDB> {
-        RollingDB::load_or_create(db_root, db_config)
+    pub fn open_db(path: PathBuf, config: DbConfig) -> anyhow::Result<Db> {
+        Db::open(path, &config).map_err(Into::into)
     }
 }
+
 #[cfg(test)]
 mod tests {
     pub mod db_utils;

@@ -45,6 +45,7 @@ pub type SectorNumber = fvm_shared3::sector::SectorNumber;
     Copy,
     derive_more::From,
     derive_more::Into,
+    Eq,
     PartialEq,
     Debug,
 )]

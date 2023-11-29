@@ -7,14 +7,12 @@ mod config;
 use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
-use crate::networks::{ChainConfig, NetworkChain};
-use crate::utils::{
-    io::{read_file_to_string, read_toml, ProgressBarVisibility},
-    misc::LoggingColor,
-};
+use crate::cli_shared::read_config;
+use crate::networks::NetworkChain;
+use crate::utils::io::read_file_to_string;
+use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
@@ -93,11 +91,11 @@ pub struct CliOpts {
     /// pre-loaded database
     #[arg(long)]
     pub skip_load: Option<bool>,
-    /// Number of tipsets requested over chain exchange (default is 200)
+    /// Number of tipsets requested over one chain exchange (default is 8)
     #[arg(long)]
-    pub req_window: Option<i64>,
+    pub req_window: Option<usize>,
     /// Number of tipsets to include in the sample that determines what the
-    /// network head is
+    /// network head is (default is 5)
     #[arg(long)]
     pub tipset_sample_size: Option<u8>,
     /// Amount of Peers we want to be connected to (default is 75)
@@ -119,10 +117,6 @@ pub struct CliOpts {
     /// Enable or disable colored logging in `stdout`
     #[arg(long, default_value = "auto")]
     pub color: LoggingColor,
-    /// Display progress bars mode [always, never, auto]. Auto will display if
-    /// TTY.
-    #[arg(long)]
-    pub show_progress_bars: Option<ProgressBarVisibility>,
     /// Turn on tokio-console support for debugging
     #[arg(long)]
     pub tokio_console: bool,
@@ -150,29 +144,14 @@ pub struct CliOpts {
     /// Check your command-line options and configuration file if one is used
     #[arg(long)]
     pub dry_run: bool,
+    /// Skip loading actors from the actors bundle.
+    #[arg(long)]
+    pub skip_load_actors: bool,
 }
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let path = find_config_path(&self.config);
-        let mut cfg: Config = match &path {
-            Some(path) => {
-                // Read from config file
-                let toml = read_file_to_string(path.to_path_buf())?;
-                // Parse and return the configuration file
-                read_toml(&toml)?
-            }
-            None => Config::default(),
-        };
-
-        if let Some(chain) = &self.chain {
-            // override the chain configuration
-            cfg.chain = Arc::new(ChainConfig::from_chain(chain));
-        } else {
-            // override any custom changes to the chain configuration based on the used
-            // network.
-            cfg.chain = Arc::new(ChainConfig::from_chain(&cfg.chain.network));
-        }
+        let (path, mut cfg) = read_config(&self.config, &self.chain)?;
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
@@ -226,10 +205,6 @@ impl CliOpts {
             cfg.client.skip_load = skip_load;
         }
 
-        if let Some(show_progress_bars) = self.show_progress_bars {
-            cfg.client.show_progress_bars = show_progress_bars;
-        }
-
         cfg.network.kademlia = self.kademlia.unwrap_or(cfg.network.kademlia);
         cfg.network.mdns = self.mdns.unwrap_or(cfg.network.mdns);
         if let Some(target_peer_count) = self.target_peer_count {
@@ -238,8 +213,8 @@ impl CliOpts {
         // (where to find these flags, should be easy to do with structops)
 
         // check and set syncing configurations
-        if let Some(req_window) = &self.req_window {
-            cfg.sync.req_window = req_window.to_owned();
+        if let Some(req_window) = self.req_window {
+            cfg.sync.request_window = req_window;
         }
         if let Some(tipset_sample_size) = self.tipset_sample_size {
             cfg.sync.tipset_sample_size = tipset_sample_size.into();
@@ -247,6 +222,8 @@ impl CliOpts {
         if let Some(encrypt_keystore) = self.encrypt_keystore {
             cfg.client.encrypt_keystore = encrypt_keystore;
         }
+
+        cfg.client.load_actors = !self.skip_load_actors;
 
         Ok((cfg, path))
     }
@@ -260,6 +237,7 @@ pub struct CliRpcOpts {
     pub token: Option<String>,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ConfigPath {
     Cli(PathBuf),
     Env(PathBuf),

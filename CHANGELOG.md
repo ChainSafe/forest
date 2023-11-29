@@ -29,6 +29,153 @@
 
 ### Added
 
+- [#3720](https://github.com/ChainSafe/forest/pull/3750) Implement the
+  `Filecoin.StateMinerInfo` lotus-compatible RPC API.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.3 "Tempura"
+
+### Fixed
+
+- [#3751](https://github.com/ChainSafe/forest/pull/3751) Workaround for
+  performance bug that prevents Forest from syncing to the network.
+
+## Forest 0.16.2 "November Rain"
+
+### Breaking
+
+### Added
+
+- [#3749](https://github.com/ChainSafe/forest/pull/3749) Implement the
+  `Filecoin.StateSectorGetInfo` lotus-compatible RPC API.
+- [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
+  `Filecoin.GetParentMessages` lotus-compatible RPC API.
+- [#3726](https://github.com/ChainSafe/forest/pull/3726) Implement the
+  `Filecoin.StateMinerFaults` lotus-compatible RPC API.
+- [#3735](https://github.com/ChainSafe/forest/pull/3735) Implement the
+  `Filecoin.StateAccountKey` lotus-compatible RPC API.
+- [#3744](https://github.com/ChainSafe/forest/pull/3744) Implement the
+  `Filecoin.StateLookupID` lotus-compatible RPC API.
+- [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
+  bootstrap node peer
+- [#3737](https://github.com/ChainSafe/forest/pull/3737) Added `--n-tipsets`
+  option to `forest-tool api compare`
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.1 "(Re)Fresh(ed)Melon"
+
+This is yet another mandatory upgrade for calibration network, containing the
+2nd fix for the `WatermelonFix` upgrade. See this
+[update](https://github.com/filecoin-project/community/discussions/74#discussioncomment-7591806)
+for reference.
+
+### Breaking
+
+### Added
+
+- [#3718](https://github.com/ChainSafe/forest/issues/3718) Added support for the
+  2nd NV21 calibration network fix. See this
+  [update](https://github.com/filecoin-project/community/discussions/74#discussioncomment-7591806)
+  for details.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.0 "Rottenmelon"
+
+This is a mandatory upgrade for calibration network, containing fix for the
+`WatermelonFix` upgrade. See
+[Lotus release](https://github.com/filecoin-project/lotus/releases/tag/v1.24.0-rc5)
+for reference.
+
+### Breaking
+
+### Added
+
+### Changed
+
+- [#3072](https://github.com/ChainSafe/forest/issues/3072) Implemented
+  mark-and-sweep GC, removing GC progress reports along with the corresponding
+  RPC endpoint.
+
+### Removed
+
+### Fixed
+
+- [#3540](https://github.com/ChainSafe/forest/issues/3540) Fix forest-cli sync
+  wait to ensure that Forest is in the follow mode.
+- [#3686](https://github.com/ChainSafe/forest/issues/3686) Fix regression when
+  using `forest-tool db` subcommands and a `--chain` flag different from
+  mainnet.
+
+- [#3694](https://github.com/ChainSafe/forest/pull/3694) Calibration
+  WatermelonFix recovery fix.
+
+## Forest v0.15.2 "Defenestration"
+
+### Breaking
+
+### Added
+
+- [#3632](https://github.com/ChainSafe/forest/issues/3632) Added an upgrade/fix
+  for calibration network that will go live at epoch 1070494.
+
+- [#3674](https://github.com/ChainSafe/forest/pull/3674) Added a tentative
+  mainnet Watermelon upgrade with the
+  [12.0.0-rc.2](https://github.com/filecoin-project/builtin-actors/releases/tag/v12.0.0-rc.2)
+  bundle.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest v0.15.1
+
+Forest v0.15.1 is a service release with support for the v0.14.1 database.
+
+### Breaking
+
+### Added
+
+- [#3662](https://github.com/ChainSafe/forest/pull/3662) Add `--filter` and
+  `--fail-fast` flags to `forest-tool api compare`.
+- [#3670](https://github.com/ChainSafe/forest/pull/3670) Implement the
+  `Filecoin.ChainGetMessagesInTipset` lotus-compatible RPC API.
+
+### Changed
+
+### Removed
+
+- [#3363](https://github.com/ChainSafe/forest/issues/3363) Remove hidden
+  `forest-cli` commands used for helping users to migrate on `forest-tool` and
+  `forest-wallet`.
+
+### Fixed
+
+## Forest v0.15.0 "Buttress"
+
+Forest v0.15.0 is a service release containing minor bug fixes and small
+usability improvements.
+
+### Breaking
+
+### Added
+
 - [#3591](https://github.com/ChainSafe/forest/pull/3591) Add
   `forest-tool car validate` command for checking non-filecoin invariants in CAR
   files.
@@ -37,13 +184,22 @@
 - [#3609](https://github.com/ChainSafe/forest/pull/3609) Add `--no-metrics`
   option to `forest` for controlling the availability of the metrics Prometheus
   server.
+- [#3613](https://github.com/ChainSafe/forest/pull/3613) Add `--expire-in`
+  parameter to token commands.
+- [#3584](https://github.com/ChainSafe/forest/issues/3584) Add
+  `forest-tool api compare` command for testing RPC compatibility.
 
 ### Changed
+
+- [#3614](https://github.com/ChainSafe/forest/issues/3614) Moved downloading
+  bundle to runtime.
 
 ### Removed
 
 - [#3589](https://github.com/ChainSafe/forest/pull/3589) Remove
   `forest-cli state diff` command. Replaced by `forest-tool archive diff`.
+- [#3615](https://github.com/ChainSafe/forest/pull/3615) Remove `chain` section
+  from forest configuration files.
 
 ### Fixed
 

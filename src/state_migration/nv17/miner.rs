@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::NetworkChain;
 use crate::shim::{address::Address, piece::PieceInfo};
 use crate::utils::db::CborStoreExt;
 use ahash::HashMap;
@@ -26,7 +26,7 @@ use super::super::common::{
 };
 
 pub struct MinerMigrator {
-    network: NetworkChain,
+    chain: NetworkChain,
     out_code: Cid,
     market_proposals: Cid,
     empty_deadline_v8_cid: Cid,
@@ -39,7 +39,7 @@ pub(super) fn miner_migrator<BS>(
     out_code: Cid,
     store: &Arc<BS>,
     market_proposals: Cid,
-    chain_config: &ChainConfig,
+    chain: NetworkChain,
 ) -> anyhow::Result<Arc<dyn ActorMigration<BS> + Send + Sync>>
 where
     BS: Blockstore + Send + Sync,
@@ -48,7 +48,7 @@ where
         fil_actor_miner_state::v8::Deadline::new(store)?;
     let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
 
-    let policy = match &chain_config.network {
+    let policy = match chain {
         NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
         NetworkChain::Calibnet => fil_actors_shared::v8::runtime::Policy::calibnet(),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
@@ -60,7 +60,7 @@ where
     let empty_deadline_v9 = fil_actor_miner_state::v9::Deadline::new(store)?;
     let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
 
-    let policy = match &chain_config.network {
+    let policy = match chain {
         NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
         NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
@@ -70,7 +70,7 @@ where
     let empty_deadlines_v9_cid = store.put_cbor_default(&empty_deadlines_v9)?;
 
     Ok(Arc::new(MinerMigrator {
-        network: chain_config.network.clone(),
+        chain,
         out_code,
         market_proposals,
         empty_deadline_v8_cid,
@@ -254,7 +254,7 @@ impl MinerMigrator {
                 .get_cbor(deadlines)?
                 .context("Failed to get in_deadlines")?;
 
-            let policy = match &self.network {
+            let policy = match &self.chain {
                 NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
                 NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
                 NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
@@ -362,7 +362,7 @@ fn sectors_amt_key(cid: &Cid) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::networks::Height;
+    use crate::networks::{ChainConfig, Height};
     use crate::shim::bigint::BigInt;
     use crate::shim::{
         econ::TokenAmount,

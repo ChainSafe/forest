@@ -12,52 +12,41 @@ mod tests {
         multihash::{self, MultihashDigest},
         Block, Cid,
     };
-    use libp2p::{
-        core,
-        identity::Keypair,
-        multiaddr::Protocol,
-        noise,
-        swarm::{self, SwarmEvent},
-        tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
-    };
+    use libp2p::{multiaddr::Protocol, swarm::SwarmEvent, Multiaddr, PeerId, Swarm};
+    use libp2p_swarm_test::SwarmExt;
     use parking_lot::RwLock;
     use rand::{rngs::OsRng, Rng};
     use tokio::{select, task::JoinSet};
 
     const TIMEOUT: Duration = Duration::from_secs(5);
-    const LISTEN_ADDR: &str = "/ip4/127.0.0.1/tcp/0";
-    const N_SERVER: usize = 10;
+    const N_SERVER: usize = 100;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn request_manager_e2e_test() {
-        request_manager_e2e_test_mpl().await.unwrap();
-    }
-
-    async fn request_manager_e2e_test_mpl() -> anyhow::Result<()> {
-        let block_exist = new_random_block()?;
-        let block_not_exist = new_random_block()?;
+        let block_exist = new_random_block().unwrap();
+        let block_not_exist = new_random_block().unwrap();
 
         // 1. Set up N servers, one of them have `block_exist` in its store
         let mut joinset = JoinSet::new();
         let mut server_addr_vec = vec![];
         let server_index_with_block = OsRng.gen_range(0..N_SERVER);
         for i in 0..N_SERVER {
-            let (server, server_peer_id, server_peer_addr) = create_swarm().await?;
+            let (server, server_peer_id, server_peer_addr) = create_swarm().await.unwrap();
             println!("Server peer id: {server_peer_id}, address: {server_peer_addr}");
             server_addr_vec.push(server_peer_addr.with(Protocol::P2p(server_peer_id)));
 
             let server_store = TestStore::default();
             if i == server_index_with_block {
-                server_store.insert(&block_exist)?;
+                server_store.insert(&block_exist).unwrap();
             }
             joinset.spawn(run_swarm_loop(server, server_store));
         }
 
-        let (mut client, client_peer_id, client_peer_addr) = create_swarm().await?;
+        let (mut client, client_peer_id, client_peer_addr) = create_swarm().await.unwrap();
         println!("Client peer id: {client_peer_id}, address: {client_peer_addr}");
         // 2. Connect the client to all servers
         for addr in server_addr_vec {
-            client.dial(addr)?;
+            client.dial(addr).unwrap();
         }
 
         let client_request_manager = client.behaviour().request_manager();
@@ -74,14 +63,15 @@ mod tests {
                 *block_not_exist.cid(),
                 TIMEOUT,
                 Some(request_tx),
+                None,
             );
             // Use a small timeout here
             tokio::task::spawn_blocking(move || request_rx.recv_timeout(Duration::from_secs(1)))
-                .await?
+                .await.unwrap()
                 .expect_err(
                     "Should timeout, it does not fail fast (atm) in this case to reduce code complexity.",
                 );
-            assert!(!client_store.contains(block_not_exist.cid())?);
+            assert!(!client_store.contains(block_not_exist.cid()).unwrap());
         }
 
         // 4. Get a block that exists on one of the servers
@@ -92,39 +82,23 @@ mod tests {
                 *block_exist.cid(),
                 TIMEOUT,
                 Some(request_tx),
+                Some(Arc::new(|_: PeerId| true)),
             );
-            let success =
-                tokio::task::spawn_blocking(move || request_rx.recv_timeout(TIMEOUT)).await??;
+            let success = tokio::task::spawn_blocking(move || request_rx.recv_timeout(TIMEOUT))
+                .await
+                .unwrap()
+                .unwrap();
             assert!(success);
-            assert!(client_store.contains(block_exist.cid())?);
+            assert!(client_store.contains(block_exist.cid()).unwrap());
         }
-
-        Ok(())
     }
 
     async fn create_swarm() -> anyhow::Result<(Swarm<BitswapBehaviour>, PeerId, Multiaddr)> {
-        let id_keys = Keypair::generate_ed25519();
-        let peer_id = PeerId::from(id_keys.public());
-        let transport = tcp::tokio::Transport::default()
-            .upgrade(core::upgrade::Version::V1)
-            .authenticate(noise::Config::new(&id_keys)?)
-            .multiplex(yamux::Config::default())
-            .timeout(TIMEOUT)
-            .boxed();
-        let behaviour = BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default());
-        let mut swarm = Swarm::new(
-            transport,
-            behaviour,
-            peer_id,
-            swarm::Config::with_tokio_executor(),
-        );
-        swarm.listen_on(LISTEN_ADDR.parse()?)?;
-        let peer_addr = loop {
-            let event = swarm.select_next_some().await;
-            if let SwarmEvent::NewListenAddr { address, .. } = event {
-                break address;
-            }
-        };
+        let mut swarm = Swarm::new_ephemeral(|_| {
+            BitswapBehaviour::new(&["/test/ipfs/bitswap/1.0.0"], Default::default())
+        });
+        let peer_id = *swarm.local_peer_id();
+        let (peer_addr, _) = swarm.listen().with_memory_addr_external().await;
 
         Ok((swarm, peer_id, peer_addr))
     }
@@ -134,7 +108,7 @@ mod tests {
         store: TestStore,
     ) -> anyhow::Result<()> {
         let request_manager = swarm.behaviour().request_manager();
-        let mut outbound_request_rx_stream = request_manager.outbound_request_rx().stream().fuse();
+        let mut outbound_request_stream = request_manager.outbound_request_stream().fuse();
         let mut swarm_stream = swarm.fuse();
 
         loop {
@@ -148,7 +122,7 @@ mod tests {
                         store.as_ref(),
                     );
                 },
-                request_opt = outbound_request_rx_stream.next() => if let Some((peer, request)) = request_opt {
+                request_opt = outbound_request_stream.next() => if let Some((peer, request)) = request_opt {
                     swarm_stream.get_mut().behaviour_mut().send_request(&peer, request);
                 },
             }
@@ -157,9 +131,7 @@ mod tests {
 
     fn handle_swarm_event(
         swarm: &mut Swarm<BitswapBehaviour>,
-        swarm_event_opt: Option<
-            SwarmEvent<BitswapBehaviourEvent, libp2p::swarm::THandlerErr<BitswapBehaviour>>,
-        >,
+        swarm_event_opt: Option<SwarmEvent<BitswapBehaviourEvent>>,
         store: &impl BitswapStoreRead,
     ) -> anyhow::Result<()> {
         if let Some(SwarmEvent::Behaviour(event)) = swarm_event_opt {

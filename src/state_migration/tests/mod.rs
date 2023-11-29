@@ -94,7 +94,7 @@ async fn test_state_migration(
                 )).timeout(timeout).send().await.unwrap();
                 let reader = response
                     .bytes_stream()
-                    .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
+                    .map_err(std::io::Error::other)
                     .into_async_read();
                 let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await.unwrap());
                 futures::io::copy(reader, &mut writer).await.unwrap();
@@ -111,7 +111,7 @@ async fn test_state_migration(
     let store = Arc::new(
         crate::db::car::plain::PlainCar::new(RandomAccessFile::open(&car_path).unwrap()).unwrap(),
     );
-    load_actor_bundles(&store).await.unwrap();
+    load_actor_bundles(&store, &network).await.unwrap();
 
     let chain_config = Arc::new(ChainConfig::from_chain(&network));
     let height_info = &chain_config.height_infos[height as usize];

@@ -6,7 +6,6 @@ pub mod wallet_cmd;
 use crate::cli_shared::cli::{CliRpcOpts, HELP_MESSAGE};
 use crate::utils::version::FOREST_VERSION_STRING;
 use clap::Parser;
-use jsonrpc_v2::Error as JsonRpcError;
 
 /// Command-line options for the `forest-wallet` binary
 #[derive(Parser)]
@@ -18,12 +17,4 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,
-}
-
-/// Pretty-print a JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
-    match serde_json::to_string(&e) {
-        Ok(err_msg) => anyhow::Error::msg(err_msg),
-        Err(err) => err.into(),
-    }
 }

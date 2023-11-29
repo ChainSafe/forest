@@ -208,12 +208,9 @@ async fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> 
         debug!("Parameter file {:?} is ok", path);
         Ok(())
     } else {
-        Err(io::Error::new(
-            ErrorKind::Other,
-            format!(
-                "Checksum mismatch in param file {:?}. ({} != {})",
-                path, str_sum, info.digest
-            ),
-        ))
+        Err(io::Error::other(format!(
+            "Checksum mismatch in param file {:?}. ({} != {})",
+            path, str_sum, info.digest
+        )))
     }
 }

@@ -113,7 +113,10 @@ mod tests {
 
     #[test]
     fn test_out_of_band_mmap_read() {
-        let temp_file = tempfile::NamedTempFile::new_in(".").unwrap();
+        let temp_file = tempfile::Builder::new()
+            .tempfile()
+            .unwrap()
+            .into_temp_path();
         let mmap = Mmap::map(&fs::File::open(&temp_file).unwrap()).unwrap();
 
         let mut buffer = [];

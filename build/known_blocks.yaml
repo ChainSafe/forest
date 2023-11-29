@@ -7,6 +7,7 @@
 #
 # This file was generated with `forest-tool archive checkpoints`
 calibnet:
+  1036800: bafy2bzacebf4yhvzo7m7tildpdedlgefk2v6yfxisejtnlzqjivvpoozsar3y
   950400: bafy2bzacea6kur76wsgfcb5tbwktd3m6ufdw74xiyysx7dz7gmnwjtjfab4u2
   864000: bafy2bzaced5fi2ubnxbqjvklmyogbccrcqmikrl2roki7cteysxmmy7xzkfxm
   777600: bafy2bzacebsptf37bw45wuqcao2xddtxe2w5hpzypc7rkeqo7zinpjx7p4keo
@@ -19,6 +20,7 @@ calibnet:
   172800: bafy2bzacebluce5la2lbyjlgmup6mx4xytnnilsf4oy6v4omon2ivyduqwlsq
   86400: bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 mainnet:
+  3283200: bafy2bzaceamvrkv6nooeqfm4wtkverhuket64kz6mahxxwmsh2rowtwdv32wc
   3196800: bafy2bzacedyayogrrumxhwithpujilvmbzrnnxq46iqjymuamobvkigsbu6ty
   3110400: bafy2bzacecwhsfx3h2akomyitj5eeghejguzi2fnqkwsqhydacth5ruzpydbq
   3024000: bafy2bzaceavcpsm7faklkyjwyuyetmwb6yn6uq7a2pqyqkbynb2iykud6bfau

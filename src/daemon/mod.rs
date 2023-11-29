@@ -17,14 +17,15 @@ use crate::cli_shared::{
 
 use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
 use crate::db::car::ManyCar;
-use crate::db::db_engine::{db_root, open_proxy_db};
-use crate::db::rolling::DbGarbageCollector;
+use crate::db::db_engine::{db_root, open_db};
+use crate::db::MarkAndSweep;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
-use crate::libp2p::{Libp2pConfig, Libp2pService, PeerId, PeerManager};
+use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
+use crate::networks::ChainConfig;
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -44,9 +45,11 @@ use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
 use std::path::Path;
-use std::{cell::RefCell, net::TcpListener, path::PathBuf, sync::Arc};
+use std::time::Duration;
+use std::{cell::RefCell, cmp, path::PathBuf, sync::Arc};
 use tempfile::{Builder, TempPath};
 use tokio::{
+    net::TcpListener,
     signal::{
         ctrl_c,
         unix::{signal, SignalKind},
@@ -130,13 +133,17 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
     result
 }
 
+// Garbage collection interval, currently set at 10 hours.
+const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
+
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
 ) -> anyhow::Result<()> {
-    if config.chain.is_testnet() {
+    let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
+    if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
 
@@ -149,11 +156,6 @@ pub(super) async fn start(
     let start_time = chrono::Utc::now();
     let path: PathBuf = config.client.data_dir.join("libp2p");
     let net_keypair = crate::libp2p::keypair::get_or_create_keypair(&path)?;
-
-    // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
-    // peer's multiaddress. Useful if others want to use this node to bootstrap
-    // from.
-    info!("PeerId: {}", PeerId::from(net_keypair.public()));
 
     let mut keystore = load_or_create_keystore(&config).await?;
 
@@ -175,13 +177,14 @@ pub(super) async fn start(
     }
 
     let db_root_dir = db_root(&chain_data_path)?;
-    let db = Arc::new(ManyCar::new(Arc::new(open_proxy_db(
-        db_root_dir.clone(),
-        config.db_config().clone(),
-    )?)));
+    let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
+    let db = Arc::new(ManyCar::new(db_writer.clone()));
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
-    load_actor_bundles(&db).await?;
+
+    if config.client.load_actors {
+        load_actor_bundles(&db, &config.chain).await?;
+    }
 
     let mut services = JoinSet::new();
 
@@ -195,9 +198,12 @@ pub(super) async fn start(
 
     if config.client.enable_metrics_endpoint {
         // Start Prometheus server port
-        let prometheus_listener = TcpListener::bind(config.client.metrics_address).context(
-            format!("could not bind to {}", config.client.metrics_address),
-        )?;
+        let prometheus_listener = TcpListener::bind(config.client.metrics_address)
+            .await
+            .context(format!(
+                "could not bind to {}",
+                config.client.metrics_address
+            ))?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
@@ -216,7 +222,7 @@ pub(super) async fn start(
     //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
-        config.chain.genesis_bytes(),
+        chain_config.genesis_bytes(),
         &db,
     )
     .await?;
@@ -225,37 +231,38 @@ pub(super) async fn start(
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
         db.writer().clone(),
-        config.chain.clone(),
+        chain_config.clone(),
         genesis_header.clone(),
     )?);
 
-    let db_garbage_collector = {
-        let db = db.clone();
-        let chain_store = chain_store.clone();
-        let get_tipset = move || chain_store.heaviest_tipset().as_ref().clone();
-        Arc::new(DbGarbageCollector::new(
-            db,
-            config.chain.policy.chain_finality,
-            config.chain.recent_state_roots,
-            get_tipset,
-        ))
-    };
-
     if !opts.no_gc {
-        services.spawn({
-            let db_garbage_collector = db_garbage_collector.clone();
-            async move { db_garbage_collector.collect_loop_passive().await }
-        });
+        let mut db_garbage_collector = {
+            let chain_store = chain_store.clone();
+            let depth = cmp::max(
+                chain_config.policy.chain_finality * 2,
+                config.sync.recent_state_roots,
+            );
+
+            let get_heaviest_tipset = Box::new(move || chain_store.heaviest_tipset());
+
+            MarkAndSweep::new(
+                db_writer,
+                get_heaviest_tipset,
+                depth,
+                Duration::from_secs(chain_config.block_delay_secs as u64),
+            )
+        };
+        services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
     }
-    services.spawn({
-        let db_garbage_collector = db_garbage_collector.clone();
-        async move { db_garbage_collector.collect_loop_event().await }
-    });
 
     let publisher = chain_store.publisher();
 
     // Initialize StateManager
-    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&config.chain))?;
+    let sm = StateManager::new(
+        Arc::clone(&chain_store),
+        Arc::clone(&chain_config),
+        Arc::new(config.sync.clone()),
+    )?;
 
     let state_manager = Arc::new(sm);
 
@@ -267,7 +274,7 @@ pub(super) async fn start(
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
-        let bootstrap_peers = config.chain.bootstrap_peers.clone();
+        let bootstrap_peers = chain_config.bootstrap_peers.clone();
 
         Config {
             network: Libp2pConfig {
@@ -297,7 +304,8 @@ pub(super) async fn start(
         net_keypair,
         &network_name,
         genesis_cid,
-    )?;
+    )
+    .await?;
 
     let network_rx = p2p_service.network_receiver();
     let network_send = p2p_service.network_sender();
@@ -309,7 +317,7 @@ pub(super) async fn start(
         network_name.clone(),
         network_send.clone(),
         MpoolConfig::load_config(db.writer().as_ref())?,
-        state_manager.chain_config(),
+        state_manager.chain_config().clone(),
         &mut services,
     )?;
 
@@ -325,7 +333,6 @@ pub(super) async fn start(
         Arc::new(Tipset::from(genesis_header)),
         tipset_sink,
         tipset_stream,
-        config.sync.clone(),
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
@@ -334,8 +341,9 @@ pub(super) async fn start(
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen =
-            std::net::TcpListener::bind(config.client.rpc_address).context(format!(
+        let rpc_listen = tokio::net::TcpListener::bind(config.client.rpc_address)
+            .await
+            .context(format!(
                 "could not bind to rpc address {}",
                 config.client.rpc_address
             ))?;
@@ -343,7 +351,6 @@ pub(super) async fn start(
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
-        let gc_event_tx = db_garbage_collector.get_tx();
         services.spawn(async move {
             info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
             let beacon = Arc::new(
@@ -363,7 +370,6 @@ pub(super) async fn start(
                     start_time,
                     beacon,
                     chain_store: rpc_chain_store,
-                    gc_event_tx,
                 }),
                 rpc_listen,
                 FOREST_VERSION_STRING.as_str(),
@@ -391,6 +397,7 @@ pub(super) async fn start(
     if config.client.snapshot_path.is_none() {
         set_snapshot_path_if_needed(
             &mut config,
+            &chain_config,
             epoch,
             opts.auto_download_snapshot,
             &db_root_dir,
@@ -456,6 +463,7 @@ pub(super) async fn start(
 /// An [`Err`] should be considered fatal.
 async fn set_snapshot_path_if_needed(
     config: &mut Config,
+    chain_config: &ChainConfig,
     epoch: ChainEpoch,
     auto_download_snapshot: bool,
     download_directory: &Path,
@@ -468,10 +476,10 @@ async fn set_snapshot_path_if_needed(
     }
 
     let vendor = snapshot::TrustedVendor::default();
-    let chain = &config.chain.network;
+    let chain = &config.chain;
 
     // What height is our chain at right now, and what network version does that correspond to?
-    let network_version = config.chain.network_version(epoch);
+    let network_version = chain_config.network_version(epoch);
     let network_version_is_small = network_version < NetworkVersion::V16;
 
     // We don't support small network versions (we can't validate from e.g genesis).
@@ -490,10 +498,9 @@ async fn set_snapshot_path_if_needed(
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
             let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
-            let (num_bytes, _path) =
-                crate::cli_shared::snapshot::peek(vendor, &config.chain.network)
-                    .await
-                    .context("couldn't get snapshot size")?;
+            let (num_bytes, _path) = crate::cli_shared::snapshot::peek(vendor, chain)
+                .await
+                .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
             // then let `Confirm` handle the second.
             println!("Forest requires a snapshot to sync with the network, but automatic fetching is disabled.");

@@ -42,6 +42,12 @@ use crate::chain_sync::{
     validation::{TipsetValidationError, TipsetValidator},
 };
 
+// Sync the messages for one or many tipsets @ a time
+// Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
+const DEFAULT_REQUEST_WINDOW: usize = 8;
+const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 5;
+const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
+
 pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
 
 type ChainMuxerFuture<T, E> = Pin<Box<dyn Future<Output = Result<T, E>> + Send>>;
@@ -75,7 +81,11 @@ pub enum ChainMuxerError {
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SyncConfig {
     /// Request window length for tipsets during chain exchange
-    pub req_window: i64,
+    #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
+    pub request_window: usize,
+    /// Number of recent state roots to keep in the database after `sync`
+    /// and to include in the exported snapshot.
+    pub recent_state_roots: i64,
     /// Sample size of tipsets to acquire before determining what the network
     /// head is
     #[cfg_attr(test, arbitrary(gen(|g| u32::arbitrary(g) as _)))]
@@ -85,8 +95,9 @@ pub struct SyncConfig {
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {
-            req_window: 200,
-            tipset_sample_size: 5,
+            request_window: DEFAULT_REQUEST_WINDOW,
+            recent_state_roots: DEFAULT_RECENT_STATE_ROOTS,
+            tipset_sample_size: DEFAULT_TIPSET_SAMPLE_SIZE,
         }
     }
 }
@@ -149,9 +160,6 @@ pub struct ChainMuxer<DB, M> {
 
     /// Tipset channel receiver
     tipset_receiver: flume::Receiver<Arc<Tipset>>,
-
-    /// Syncing configurations
-    sync_config: SyncConfig,
 }
 
 impl<DB, M> ChainMuxer<DB, M>
@@ -169,7 +177,6 @@ where
         genesis: Arc<Tipset>,
         tipset_sender: flume::Sender<Arc<Tipset>>,
         tipset_receiver: flume::Receiver<Arc<Tipset>>,
-        cfg: SyncConfig,
     ) -> Result<Self, ChainMuxerError> {
         let network =
             SyncNetworkContext::new(network_send, peer_manager, state_manager.blockstore_owned());
@@ -179,13 +186,12 @@ where
             worker_state: Default::default(),
             network,
             genesis,
-            state_manager,
             bad_blocks: Arc::new(BadBlockCache::default()),
             net_handler: network_rx,
             mpool,
             tipset_sender,
             tipset_receiver,
-            sync_config: cfg,
+            state_manager,
         })
     }
 
@@ -223,7 +229,7 @@ where
     ) -> Result<FullTipset, ChainMuxerError> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
-        let ts = chain_store.tipset_from_keys(&tipset_keys)?;
+        let ts = chain_store.load_required_tipset(&tipset_keys)?;
         for header in ts.blocks() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
@@ -249,7 +255,7 @@ where
     ) {
         // Query the heaviest TipSet from the store
         let heaviest = chain_store.heaviest_tipset();
-        if network.peer_manager().is_peer_new(&peer_id).await {
+        if network.peer_manager().is_peer_new(&peer_id) {
             // Since the peer is new, send them a hello request
             let request = HelloRequest {
                 heaviest_tip_set: heaviest.cids(),
@@ -272,17 +278,17 @@ where
             // Update the peer metadata based on the response
             match response {
                 Some(_) => {
-                    network.peer_manager().log_success(peer_id, dur).await;
+                    network.peer_manager().log_success(peer_id, dur);
                 }
                 None => {
-                    network.peer_manager().log_failure(peer_id, dur).await;
+                    network.peer_manager().log_failure(peer_id, dur);
                 }
             }
         }
     }
 
     async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
-        network.peer_manager().remove_peer(&peer_id).await;
+        network.peer_manager().remove_peer(&peer_id);
     }
 
     async fn gossipsub_block_to_full_tipset(
@@ -307,14 +313,14 @@ where
         let bls_messages: Vec<_> = block
             .bls_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<Message>(m))
+            .map(|m| network.bitswap_get::<Message>(m, Some(epoch)))
             .collect();
 
         // Get secp_messages in the store or over Bitswap
         let secp_messages: Vec<_> = block
             .secpk_messages
             .into_iter()
-            .map(|m| network.bitswap_get::<SignedMessage>(m))
+            .map(|m| network.bitswap_get::<SignedMessage>(m, Some(epoch)))
             .collect();
 
         let (bls_messages, secp_messages) =
@@ -411,10 +417,12 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::PEER_DISCONNECTED])
                     .inc();
-                // Unset heaviest tipset for disconnected peers
-                metrics::PEER_TIPSET_EPOCH
-                    .with_label_values(&[peer_id.to_string().as_str()])
-                    .set(-1);
+                // Remove peer id labels for disconnected peers
+                if let Err(e) =
+                    metrics::PEER_TIPSET_EPOCH.remove_label_values(&[peer_id.to_string().as_str()])
+                {
+                    debug!("{e}");
+                }
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -503,8 +511,7 @@ where
         // Update the peer head
         network
             .peer_manager()
-            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()))
-            .await;
+            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
         metrics::PEER_TIPSET_EPOCH
             .with_label_values(&[source.to_string().as_str()])
             .set(tipset.epoch());
@@ -519,7 +526,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let tipset_sample_size = self.sync_config.tipset_sample_size;
+        let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
         let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let evaluator = async move {
@@ -839,7 +846,7 @@ where
         loop {
             match self.state {
                 ChainMuxerState::Idle => {
-                    if self.sync_config.tipset_sample_size == 0 {
+                    if self.state_manager.sync_config().tipset_sample_size == 0 {
                         // A standalone node might use this option to not be stuck waiting for P2P
                         // messages.
                         info!("Skip evaluating network head, assume in-sync.");
@@ -908,7 +915,14 @@ where
                         metrics::FOLLOW_NETWORK_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
                     }
-                    Poll::Pending => return Poll::Pending,
+                    Poll::Pending => {
+                        let tp_tracker = self.worker_state.clone();
+                        tp_tracker
+                            .write()
+                            .set_stage(crate::chain_sync::SyncStage::Complete);
+
+                        return Poll::Pending;
+                    }
                 },
             }
         }

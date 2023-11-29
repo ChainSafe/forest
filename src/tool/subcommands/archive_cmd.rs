@@ -1,6 +1,31 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Archives are key-value pairs encoded as
+//! [CAR files](https://ipld.io/specs/transport/car/carv1/). The key-value pairs
+//! represent a directed, acyclic graph (DAG). This graph is often a subset of a larger
+//! graph and references to missing keys are common.
+//!
+//! Each graph contains blocks, messages, state trees, and miscellaneous data
+//! such as compiled `WASM` code. The amount of data differs greatly in different
+//! kinds of archives. While there are no fixed definitions, there are three
+//! common kind of archives:
+//! - A full archive contains a complete graph with no missing nodes. These
+//!   archives are large (14 TiB for Filecoin's mainnet) and only used in special
+//!   situations.
+//! - A lite-archive typically has roughly 3 million blocks, 2000 complete sets of
+//!   state-roots, and 2000 sets of messages. These archives usually take up
+//!   roughly 100 GiB.
+//! - A diff-archive contains the subset of nodes that are _not_ shared by two
+//!   other archives. These archives are much smaller but can rarely be used on
+//!   their own. They are typically merged with other archives before use.
+//!
+//! The sub-commands in this module manipulate archive files without needing a
+//! running Forest-daemon or a separate database. Operations are carried out
+//! directly on CAR files.
+//!
+//! Additional reading: [`crate::db::car::plain`]
+
 use crate::blocks::Tipset;
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
@@ -20,6 +45,7 @@ use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use anyhow::{bail, Context as _};
 use chrono::NaiveDateTime;
+use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use futures::TryStreamExt;
@@ -159,6 +185,7 @@ pub struct ArchiveInfo {
     epoch: ChainEpoch,
     tipsets: ChainEpoch,
     messages: ChainEpoch,
+    root: Tipset,
 }
 
 impl std::fmt::Display for ArchiveInfo {
@@ -167,7 +194,14 @@ impl std::fmt::Display for ArchiveInfo {
         writeln!(f, "Network:       {}", self.network)?;
         writeln!(f, "Epoch:         {}", self.epoch)?;
         writeln!(f, "State-roots:   {}", self.epoch - self.tipsets + 1)?;
-        write!(f, "Messages sets: {}", self.epoch - self.messages + 1)?;
+        writeln!(f, "Messages sets: {}", self.epoch - self.messages + 1)?;
+        let root_cids_string = self
+            .root
+            .cids()
+            .iter()
+            .map(Cid::to_string)
+            .join("\n               ");
+        write!(f, "Root CIDs:     {root_cids_string}",)?;
         Ok(())
     }
 }
@@ -191,7 +225,7 @@ impl ArchiveInfo {
 
         let tipsets = root.clone().chain(&store);
 
-        let windowed = (std::iter::once(root).chain(tipsets)).tuple_windows();
+        let windowed = (std::iter::once(root.clone()).chain(tipsets)).tuple_windows();
 
         let mut network: String = "unknown".into();
         let mut lowest_stateroot_epoch = root_epoch;
@@ -254,6 +288,7 @@ impl ArchiveInfo {
             epoch: root_epoch,
             tipsets: lowest_stateroot_epoch,
             messages: lowest_message_epoch,
+            root,
         })
     }
 }

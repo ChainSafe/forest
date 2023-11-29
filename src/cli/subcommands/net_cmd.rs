@@ -3,13 +3,12 @@
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::rpc_api::data_types::AddrInfo;
-use crate::rpc_client::net_ops::*;
+use crate::rpc_client::ApiInfo;
 use ahash::HashSet;
 use cid::multibase;
 use clap::Subcommand;
 use itertools::Itertools;
 
-use super::{handle_rpc_err, print_stdout, Config};
 use crate::cli::subcommands::cli_error_and_die;
 
 #[derive(Debug, Subcommand)]
@@ -33,24 +32,20 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
-                let info = net_addrs_listen((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let info = api.net_addrs_listen().await?;
                 let addresses: Vec<String> = info
                     .addrs
                     .iter()
                     .map(|addr| format!("{}/p2p/{}", addr, info.id))
                     .collect();
-                print_stdout(addresses.join("\n"));
+                println!("{}", addresses.join("\n"));
                 Ok(())
             }
             Self::Info => {
-                let info = net_info((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let info = api.net_info().await?;
                 println!("forest libp2p swarm info:");
                 println!("num peers: {}", info.num_peers);
                 println!("num connections: {}", info.num_connections);
@@ -61,9 +56,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Peers => {
-                let addrs = net_peers((), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let addrs = api.net_peers().await?;
                 let output: Vec<String> = addrs
                     .into_iter()
                     .filter_map(|info| {
@@ -84,7 +77,7 @@ impl NetCommands {
                         Some(format!("{}, [{}]", info.id, addresses.join(", ")))
                     })
                     .collect();
-                print_stdout(output.join("\n"));
+                println!("{}", output.join("\n"));
                 Ok(())
             }
             Self::Connect { address } => {
@@ -114,16 +107,12 @@ impl NetCommands {
                     addrs,
                 };
 
-                net_connect((addr_info,), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                api.net_connect(addr_info).await?;
                 println!("connect {id}: success");
                 Ok(())
             }
             Self::Disconnect { id } => {
-                net_disconnect((id.to_owned(),), &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                api.net_disconnect(id.to_owned()).await?;
                 println!("disconnect {id}: success");
                 Ok(())
             }

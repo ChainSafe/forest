@@ -3,7 +3,9 @@
 
 use ahash::HashMap;
 use libp2p::{
-    request_response::{self, OutboundFailure, ProtocolSupport, RequestId, ResponseChannel},
+    request_response::{
+        self, OutboundFailure, OutboundRequestId, ProtocolSupport, ResponseChannel,
+    },
     swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
@@ -16,8 +18,10 @@ type InnerBehaviour = request_response::Behaviour<ChainExchangeCodec>;
 
 pub struct ChainExchangeBehaviour {
     inner: InnerBehaviour,
-    response_channels:
-        HashMap<RequestId, flume::Sender<Result<ChainExchangeResponse, RequestResponseError>>>,
+    response_channels: HashMap<
+        OutboundRequestId,
+        flume::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
+    >,
 }
 
 impl ChainExchangeBehaviour {
@@ -26,7 +30,7 @@ impl ChainExchangeBehaviour {
         peer: &PeerId,
         request: ChainExchangeRequest,
         response_channel: flume::Sender<Result<ChainExchangeResponse, RequestResponseError>>,
-    ) -> RequestId {
+    ) -> OutboundRequestId {
         let request_id = self.inner.send_request(peer, request);
         self.response_channels.insert(request_id, response_channel);
         self.track_metrics();
@@ -43,7 +47,7 @@ impl ChainExchangeBehaviour {
 
     pub async fn handle_inbound_response(
         &mut self,
-        request_id: &RequestId,
+        request_id: &OutboundRequestId,
         response: ChainExchangeResponse,
     ) {
         if let Some(channel) = self.response_channels.remove(request_id) {
@@ -57,7 +61,7 @@ impl ChainExchangeBehaviour {
         }
     }
 
-    pub fn on_outbound_error(&mut self, request_id: &RequestId, error: OutboundFailure) {
+    pub fn on_outbound_error(&mut self, request_id: &OutboundRequestId, error: OutboundFailure) {
         self.track_metrics();
         if let Some(tx) = self.response_channels.remove(request_id) {
             if let Err(err) = tx.send(Err(error.into())) {
@@ -155,15 +159,14 @@ impl NetworkBehaviour for ChainExchangeBehaviour {
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm) {
         self.inner.on_swarm_event(event)
     }
 
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl PollParameters,
     ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
-        self.inner.poll(cx, params)
+        self.inner.poll(cx)
     }
 }

@@ -21,17 +21,6 @@ use std::{pin::Pin, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
 
-// TODO(elmattic): https://github.com/ChainSafe/forest/issues/3363
-//                 Remove this function and hidden commands
-/// Function used to bail on usage of migrated commands
-pub fn bail_moved_cmd(subcommand: &str, command: &str) -> anyhow::Result<()> {
-    anyhow::bail!(
-        "Invalid subcommand: forest-cli {}. It has been moved to {}.",
-        subcommand,
-        command
-    )
-}
-
 /// Keep running the future created by `make_fut` until the timeout or retry
 /// limit in `args` is reached.
 /// `F` _must_ be cancel safe.

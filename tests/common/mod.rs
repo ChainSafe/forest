@@ -29,6 +29,7 @@ impl CommonArgs for Command {
             .arg("--metrics-address")
             .arg("127.0.0.1:0")
             .arg("--exit-after-init")
+            .arg("--skip-load-actors")
     }
 }
 
@@ -52,7 +53,7 @@ pub fn create_tmp_config() -> (PathBuf, TempDir) {
 [client]
 data_dir = "{}"
 
-[chain.network]
+[chain]
 type = "calibnet"
 "#,
         temp_dir.path().display()

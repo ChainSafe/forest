@@ -10,7 +10,6 @@ use libp2p::{
         self, IdentTopic as Topic, MessageAuthenticity, MessageId, PublishError, SubscriptionError,
         ValidationMode,
     },
-    identify,
     identity::{Keypair, PeerId},
     kad::QueryId,
     metrics::{Metrics, Recorder},
@@ -18,7 +17,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     Multiaddr,
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
@@ -28,6 +27,8 @@ use crate::libp2p::{
     hello::HelloBehaviour,
 };
 
+use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent};
+
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
 /// for a Filecoin node.
 #[derive(NetworkBehaviour)]
@@ -35,7 +36,6 @@ pub(in crate::libp2p) struct ForestBehaviour {
     gossipsub: gossipsub::Behaviour,
     discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
-    identify: identify::Behaviour,
     connection_limits: connection_limits::Behaviour,
     pub(super) blocked_peers: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,
     pub(super) hello: HelloBehaviour,
@@ -48,7 +48,11 @@ impl Recorder<ForestBehaviourEvent> for Metrics {
         match event {
             ForestBehaviourEvent::Gossipsub(e) => self.record(e),
             ForestBehaviourEvent::Ping(ping_event) => self.record(ping_event),
-            ForestBehaviourEvent::Identify(id_event) => self.record(id_event),
+            ForestBehaviourEvent::Discovery(DiscoveryEvent::Discovery(e)) => match e.as_ref() {
+                DerivedDiscoveryBehaviourEvent::Identify(e) => self.record(e),
+                DerivedDiscoveryBehaviourEvent::Kademlia(e) => self.record(e),
+                _ => {}
+            },
             _ => {}
         }
     }
@@ -95,31 +99,44 @@ impl ForestBehaviour {
             warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
         }
 
-        let mut discovery_config = DiscoveryConfig::new(local_key.public(), network_name);
-        discovery_config
+        let discovery = DiscoveryConfig::new(local_key.public(), network_name)
             .with_mdns(config.mdns)
             .with_kademlia(config.kademlia)
-            .with_user_defined(config.bootstrap_peers.clone())
-            .target_peer_count(config.target_peer_count as u64);
+            .with_user_defined(config.bootstrap_peers.clone())?
+            .target_peer_count(config.target_peer_count as u64)
+            .finish()?;
 
+        const MAX_ESTABLISHED_PER_PEER: u32 = 4;
         let connection_limits = connection_limits::Behaviour::new(
             connection_limits::ConnectionLimits::default()
-                .with_max_pending_incoming(Some(4096))
-                .with_max_pending_outgoing(Some(8192))
-                .with_max_established_incoming(Some(8192))
-                .with_max_established_outgoing(Some(8192))
-                .with_max_established_per_peer(Some(5)),
+                .with_max_pending_incoming(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_pending_outgoing(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_established_incoming(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_established_outgoing(Some(
+                    config
+                        .target_peer_count
+                        .saturating_mul(MAX_ESTABLISHED_PER_PEER),
+                ))
+                .with_max_established_per_peer(Some(MAX_ESTABLISHED_PER_PEER)),
         );
 
-        warn!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
+        info!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
         Ok(ForestBehaviour {
             gossipsub,
-            discovery: discovery_config.finish()?,
+            discovery,
             ping: Default::default(),
-            identify: identify::Behaviour::new(
-                identify::Config::new("ipfs/0.1.0".into(), local_key.public())
-                    .with_agent_version(format!("forest-{}", FOREST_VERSION_STRING.as_str())),
-            ),
             connection_limits,
             blocked_peers: Default::default(),
             bitswap,

@@ -184,6 +184,7 @@ async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Res
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
+    s.join_workers().await?;
 
     Ok(())
 }

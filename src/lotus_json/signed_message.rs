@@ -16,6 +16,13 @@ pub struct SignedMessageLotusJson {
     cid: LotusJson<Option<Cid>>,
 }
 
+impl SignedMessageLotusJson {
+    pub fn with_cid(mut self, cid: Cid) -> Self {
+        self.cid = LotusJson(Some(cid));
+        self
+    }
+}
+
 impl HasLotusJson for SignedMessage {
     type LotusJson = SignedMessageLotusJson;
 
@@ -37,7 +44,7 @@ impl HasLotusJson for SignedMessage {
                         "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
                     },
                 },
-                "Signature": {"Type": "bls", "Data": "aGVsbG8gd29ybGQh"}
+                "Signature": {"Type": 2, "Data": "aGVsbG8gd29ybGQh"}
             }),
             SignedMessage {
                 message: crate::shim::message::Message::default(),

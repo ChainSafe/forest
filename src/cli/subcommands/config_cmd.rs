@@ -10,17 +10,17 @@ use crate::cli::subcommands::Config;
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommands {
-    /// Dump current configuration to standard output
+    /// Dump default configuration to standard output
     Dump,
 }
 
 impl ConfigCommands {
-    pub fn run<W: Write + Unpin>(self, config: &Config, sink: &mut W) -> anyhow::Result<()> {
+    pub fn run<W: Write + Unpin>(self, sink: &mut W) -> anyhow::Result<()> {
         match self {
             Self::Dump => writeln!(
                 sink,
                 "{}",
-                toml::to_string(config)
+                toml::to_string(&Config::default())
                     .context("Could not convert configuration to TOML format")?
             )
             .context("Failed to write the configuration"),
@@ -37,9 +37,7 @@ mod tests {
         let expected_config = Config::default();
         let mut sink = std::io::BufWriter::new(Vec::new());
 
-        ConfigCommands::Dump
-            .run(&expected_config, &mut sink)
-            .unwrap();
+        ConfigCommands::Dump.run(&mut sink).unwrap();
 
         let actual_config: Config = toml::from_str(std::str::from_utf8(sink.buffer()).unwrap())
             .expect("Invalid configuration!");

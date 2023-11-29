@@ -3,13 +3,11 @@
 
 use super::*;
 use crate::blocks::TipsetKeys;
-use crate::cli::subcommands::{cli_error_and_die, handle_rpc_err};
+use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::rpc_api::chain_api::ChainExportParams;
-use crate::rpc_client::{chain_ops::*, state_network_name};
-use crate::utils::bail_moved_cmd;
-use anyhow::{bail, Context as _};
+use crate::rpc_client::ApiInfo;
+use anyhow::Context as _;
 use chrono::NaiveDateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
@@ -37,46 +35,10 @@ pub enum SnapshotCommands {
         #[arg(short, long)]
         depth: Option<crate::chain::ChainEpochDelta>,
     },
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Fetch {
-        #[arg(short, long, default_value = ".")]
-        directory: PathBuf,
-        #[arg(short, long, value_enum, default_value_t = snapshot::TrustedVendor::default())]
-        vendor: snapshot::TrustedVendor,
-    },
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Validate {
-        #[arg(long, default_value_t = 2000)]
-        check_links: u32,
-        #[arg(long)]
-        check_network: Option<crate::networks::NetworkChain>,
-        #[arg(long, default_value_t = 60)]
-        check_stateroots: u32,
-        #[arg(required = true)]
-        snapshot_files: Vec<PathBuf>,
-    },
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    Compress {
-        source: PathBuf,
-        #[arg(short, long, default_value = ".")]
-        output_path: PathBuf,
-        #[arg(long, default_value_t = 3)]
-        compression_level: u16,
-        #[arg(long, default_value_t = DEFAULT_FOREST_CAR_FRAME_SIZE)]
-        frame_size: usize,
-        #[arg(long, default_value_t = false)]
-        force: bool,
-    },
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, config: Config) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -85,24 +47,16 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = match chain_head(&config.client.rpc_token).await {
-                    Ok(LotusJson(head)) => head,
-                    Err(_) => cli_error_and_die("Could not get network head", 1),
-                };
+                let chain_head = api.chain_head().await?;
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let chain_name = state_network_name((), &config.client.rpc_token)
-                    .await
-                    .map(|name| crate::daemon::get_actual_chain_name(&name).to_string())
-                    .map_err(handle_rpc_err)?;
+                let raw_network_name = api.state_network_name().await?;
+                let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
-                let LotusJson(tipset) = chain_get_tipset_by_height(
-                    (epoch, TipsetKeys::default()),
-                    &config.client.rpc_token,
-                )
-                .await
-                .map_err(handle_rpc_err)?;
+                let tipset = api
+                    .chain_get_tipset_by_height(epoch, TipsetKeys::default())
+                    .await?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
@@ -125,20 +79,12 @@ impl SnapshotCommands {
 
                 let params = ChainExportParams {
                     epoch,
-                    recent_roots: depth.unwrap_or(config.chain.recent_state_roots),
+                    recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: chain_head.key().clone(),
                     skip_checksum,
                     dry_run,
                 };
-
-                let finality = config.chain.policy.chain_finality.min(epoch);
-                if params.recent_roots < finality {
-                    bail!(
-                        "For {}, depth has to be at least {finality}.",
-                        config.chain.network
-                    );
-                }
 
                 let handle = tokio::spawn({
                     let tmp_file = temp_path.to_owned();
@@ -167,9 +113,7 @@ impl SnapshotCommands {
                     }
                 });
 
-                let hash_result = chain_export(params, &config.client.rpc_token)
-                    .await
-                    .map_err(handle_rpc_err)?;
+                let hash_result = api.chain_export(params).await?;
 
                 handle.abort();
                 let _ = handle.await;
@@ -181,13 +125,6 @@ impl SnapshotCommands {
 
                 println!("Export completed.");
                 Ok(())
-            }
-            Self::Fetch { .. } => bail_moved_cmd("snapshot fetch", "forest-tool snapshot fetch"),
-            Self::Validate { .. } => {
-                bail_moved_cmd("snapshot validate", "forest-tool snapshot validate")
-            }
-            Self::Compress { .. } => {
-                bail_moved_cmd("snapshot compress", "forest-tool snapshot compress")
             }
         }
     }

@@ -36,19 +36,16 @@ HeightInfo {
 }
 ```
 
-- adding the bundle cid and url to the `ACTOR_BUNDLES` in the
-  `src/networks/mod.rs`.
+- adding the bundle manifest cid and url to the `ACTOR_BUNDLES` in the
+  `src/networks/actors_bundle.rs`.
+
+- ensuring the bundle is mirrored in Forest's DO space under
+  `https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/actors/`.
 
 ```rust
-ActorBundleInfo{
-    manifest: Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy").unwrap(),
-    url: Url::parse("https://github.com/filecoin-project/builtin-actors/releases/download/v9.0.3/builtin-actors-calibrationnet.car").unwrap(),
+"bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo" @ "v11.0.0" for "mainnet",
 },
 ```
-
-- regenerate a merged actor bundle with
-  `forest-tool state-migration actor-bundle` and replace
-  `assets/actor_bundles.car.zst`
 
 ### Implement the migration
 

@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 
+use crate::db::migration::v0_16_0::Migration0_15_2_0_16_0;
 use anyhow::bail;
 use anyhow::Context as _;
 use itertools::Itertools;
@@ -36,8 +37,6 @@ pub(super) trait MigrationOperation {
     /// Performs post-migration checks. This is the place to check if the migration database is
     /// ready to be used by Forest and renamed into a versioned database.
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()>;
-    /// Returns the name of the temporary database that will be created during the migration.
-    fn temporary_db_name(&self) -> String;
 }
 
 /// Migrations map. The key is the starting version and the value is the tuple of the target version
@@ -78,6 +77,14 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 create_migrations!(
     "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
     "0.13.0" -> "0.14.0" @ MigrationVoid,
+    "0.14.0" -> "0.14.1" @ MigrationVoid,
+    "0.14.1" -> "0.15.0" @ MigrationVoid,
+    "0.15.0" -> "0.15.1" @ MigrationVoid,
+    "0.15.1" -> "0.15.2" @ MigrationVoid,
+    "0.15.2" -> "0.16.0" @ Migration0_15_2_0_16_0,
+    "0.16.0" -> "0.16.1" @ MigrationVoid,
+    "0.16.1" -> "0.16.2" @ MigrationVoid,
+    "0.16.2" -> "0.16.3" @ MigrationVoid,
 );
 
 pub struct Migration {
@@ -195,6 +202,7 @@ fn create_migration_chain_from_migrations(
 mod tests {
     use std::fs;
 
+    use crate::db::migration::migration_map::temporary_db_name;
     use tempfile::TempDir;
 
     use super::*;
@@ -275,10 +283,6 @@ mod tests {
             Self: Sized,
         {
             Self {}
-        }
-
-        fn temporary_db_name(&self) -> String {
-            "".into()
         }
     }
 
@@ -421,13 +425,13 @@ mod tests {
         }
 
         fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
-            let temp_db_path = chain_data_path.join(self.temporary_db_name());
+            let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
             fs::create_dir(&temp_db_path).unwrap();
             Ok(temp_db_path)
         }
 
         fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()> {
-            let path = chain_data_path.join(self.temporary_db_name());
+            let path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
             if !path.exists() {
                 anyhow::bail!("{} does not exist", path.display());
             }
@@ -439,10 +443,6 @@ mod tests {
             Self: Sized,
         {
             Self { from, to }
-        }
-
-        fn temporary_db_name(&self) -> String {
-            format!("migration_{}_{}", self.from, self.to).replace('.', "_")
         }
     }
 
@@ -469,4 +469,9 @@ mod tests {
         fs::create_dir(temp_dir.path().join("migration_0_1_0_0_2_0")).unwrap();
         assert!(migration.post_checks(temp_dir.path()).is_ok());
     }
+}
+
+/// Returns the name of the temporary database that will be created during the migration.
+pub(crate) fn temporary_db_name(from: &Version, to: &Version) -> String {
+    format!("migration_{}_{}", from, to).replace('.', "_")
 }

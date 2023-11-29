@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod mmap;
-pub mod progress_bar;
 pub mod progress_log;
 mod tempfile;
 mod writer_checksum;
@@ -14,7 +13,6 @@ use std::{
 };
 
 pub use mmap::{EitherMmapOrRandomAccessFile, Mmap};
-pub use progress_bar::{ProgressBar, ProgressBarVisibility};
 pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;
 

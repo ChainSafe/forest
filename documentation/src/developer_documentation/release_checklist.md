@@ -39,13 +39,16 @@ Make a pull request with the following changes:
 - Verify that the new release contains assets for both Linux and macOS (the
   assets are automatically generated and should show up after 30 minutes to an
   hour).
+- 🔁 If it's a new stable release (and not a backport), tag the version as
+  `latest` with the [retag action][6].
 - Verify that the new release is available in the GitHub Container Registry. Use
-  `docker pull ghcr.io/chainsafe/forest:<version>` and ensure that it is present
-  in the [packages][6] list with the `latest` tag.
+  `docker pull ghcr.io/chainsafe/forest:<version>`. Verify the tags in the
+  [packages][7] list.
 
 [1]: https://keepachangelog.com/en/1.0.0/
 [2]: https://github.com/ChainSafe/forest/blob/main/Cargo.toml
 [3]: https://doc.rust-lang.org/cargo/reference/publishing.html
 [4]: https://github.com/ChainSafe/forest/releases/new
 [5]: https://github.com/ChainSafe/forest/blob/main/CHANGELOG.md
-[6]: https://github.com/ChainSafe/forest/pkgs/container/forest
+[6]: https://github.com/ChainSafe/forest/actions/workflows/docker-latest-tag.yml
+[7]: https://github.com/ChainSafe/forest/pkgs/container/forest

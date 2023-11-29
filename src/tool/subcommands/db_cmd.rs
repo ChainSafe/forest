@@ -1,9 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::read_config;
 use crate::cli::subcommands::prompt_confirm;
-use crate::cli_shared::chain_path;
+use crate::cli_shared::{chain_path, read_config};
 use crate::db::db_engine::db_root;
 use crate::networks::NetworkChain;
 use clap::Subcommand;
@@ -40,7 +39,7 @@ impl DBCommands {
             Self::Stats { config, chain } => {
                 use human_repr::HumanCount;
 
-                let config = read_config(config, chain)?;
+                let (_, config) = read_config(config, chain)?;
 
                 let dir = db_root(&chain_path(&config))?;
                 println!("Database path: {}", dir.display());
@@ -53,7 +52,7 @@ impl DBCommands {
                 config,
                 chain,
             } => {
-                let config = read_config(config, chain)?;
+                let (_, config) = read_config(config, chain)?;
 
                 let dir = chain_path(&config);
                 if !dir.is_dir() {

@@ -6,7 +6,6 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
-mod archive_cmd;
 mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
@@ -21,26 +20,21 @@ mod snapshot_cmd;
 mod state_cmd;
 mod sync_cmd;
 
-use std::io::{self, Write};
+use std::io::Write;
 
 use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
-use crate::lotus_json::LotusJson;
 use crate::utils::version::FOREST_VERSION_STRING;
-use cid::Cid;
 use clap::Parser;
-use jsonrpc_v2::Error as JsonRpcError;
 use serde::Serialize;
-use std::path::PathBuf;
 use tracing::error;
 
 pub(super) use self::{
-    archive_cmd::ArchiveCommands, attach_cmd::AttachCommand, auth_cmd::AuthCommands,
-    chain_cmd::ChainCommands, config_cmd::ConfigCommands, db_cmd::DBCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands,
+    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
+    config_cmd::ConfigCommands, db_cmd::DBCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -56,80 +50,9 @@ pub struct Cli {
     pub cmd: Subcommand,
 }
 
-// This subcommand is hidden and only here to help users migrating to forest-tool
-#[derive(Debug, clap::Args)]
-pub struct FetchCommands {
-    #[arg(short, long)]
-    all: bool,
-    #[arg(short, long)]
-    keys: bool,
-    #[arg(short, long)]
-    dry_run: bool,
-    params_size: Option<String>,
-}
-
-// Those subcommands are hidden and only here to help users migrating to forest-wallet
-#[derive(Debug, clap::Subcommand)]
-pub enum WalletCommands {
-    New {
-        #[arg(default_value = "secp256k1")]
-        signature_type: String,
-    },
-    Balance {
-        address: String,
-    },
-    Default,
-    Export {
-        address: String,
-    },
-    Has {
-        key: String,
-    },
-    Import {
-        path: Option<String>,
-    },
-    List {
-        #[arg(long, alias = "exact-balance", short_alias = 'e')]
-        no_round: bool,
-        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
-        no_abbrev: bool,
-    },
-    SetDefault {
-        key: String,
-    },
-    Sign {
-        #[arg(short)]
-        message: String,
-        #[arg(short)]
-        address: String,
-    },
-    Verify {
-        #[arg(short)]
-        address: String,
-        #[arg(short)]
-        message: String,
-        #[arg(short)]
-        signature: String,
-    },
-}
-
-// This subcommand is hidden and only here to help users migrating to forest-tool
-#[derive(Debug, clap::Subcommand)]
-pub enum CarCommands {
-    Concat {
-        car_files: Vec<PathBuf>,
-        #[arg(short, long)]
-        output: PathBuf,
-    },
-}
-
 /// Forest binary sub-commands available.
 #[derive(clap::Subcommand, Debug)]
 pub enum Subcommand {
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true, name = "fetch-params")]
-    Fetch(FetchCommands),
-
     /// Interact with Filecoin blockchain
     #[command(subcommand)]
     Chain(ChainCommands),
@@ -141,11 +64,6 @@ pub enum Subcommand {
     /// Manage P2P network
     #[command(subcommand)]
     Net(NetCommands),
-
-    // Those subcommands are hidden and only here to help users migrating to forest-wallet
-    #[command(hide = true)]
-    #[command(subcommand)]
-    Wallet(WalletCommands),
 
     /// Inspect or interact with the chain synchronizer
     #[command(subcommand)]
@@ -167,10 +85,6 @@ pub enum Subcommand {
     #[command(subcommand)]
     Snapshot(SnapshotCommands),
 
-    /// Manage archives
-    #[command(subcommand)]
-    Archive(ArchiveCommands),
-
     /// Send funds between accounts
     Send(SendCommand),
 
@@ -187,19 +101,6 @@ pub enum Subcommand {
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
-
-    // This subcommand is hidden and only here to help users migrating to forest-tool
-    #[command(hide = true)]
-    #[command(subcommand)]
-    Car(CarCommands),
-}
-
-/// Pretty-print a JSON-RPC error and exit
-pub(super) fn handle_rpc_err(e: JsonRpcError) -> anyhow::Error {
-    match serde_json::to_string(&e) {
-        Ok(err_msg) => anyhow::Error::msg(err_msg),
-        Err(err) => err.into(),
-    }
 }
 
 /// Format a vector to a prettified string
@@ -214,63 +115,25 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
     std::process::exit(code);
 }
 
-/// Prints a plain HTTP JSON-RPC response result
-pub(super) fn print_rpc_res(res: Result<String, JsonRpcError>) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
-    println!("{}", &obj);
-    Ok(())
-}
-
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_pretty<T: Serialize>(
-    res: Result<T, JsonRpcError>,
-) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
+pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
     println!("{}", serde_json::to_string_pretty(&obj)?);
     Ok(())
 }
 
 /// Prints a tipset from a HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_cids(
-    res: Result<LotusJson<Tipset>, JsonRpcError>,
-) -> anyhow::Result<()> {
-    let tipset = res.map_err(handle_rpc_err)?.into_inner();
-    println!(
-        "{}",
-        serde_json::to_string_pretty(
-            &tipset
-                .cids()
-                .iter()
-                .map(|cid: &Cid| cid.to_string())
-                .collect::<Vec<_>>()
-        )?
-    );
+pub(super) fn print_rpc_res_cids(tipset: Tipset) -> anyhow::Result<()> {
+    for cid in &tipset.cids() {
+        println!("{cid}");
+    }
+
     Ok(())
 }
 
 /// Prints a bytes HTTP JSON-RPC response result
-pub(super) fn print_rpc_res_bytes(res: Result<Vec<u8>, JsonRpcError>) -> anyhow::Result<()> {
-    let obj = res.map_err(handle_rpc_err)?;
-    println!(
-        "{}",
-        String::from_utf8(obj).map_err(|e| handle_rpc_err(e.into()))?
-    );
+pub(super) fn print_rpc_res_bytes(obj: Vec<u8>) -> anyhow::Result<()> {
+    println!("{}", String::from_utf8(obj)?);
     Ok(())
-}
-
-/// Prints a string HTTP JSON-RPC response result to a buffered `stdout`
-pub(super) fn print_stdout(out: String) {
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    handle
-        .write_all(out.as_bytes())
-        .map_err(|e| handle_rpc_err(e.into()))
-        .unwrap();
-
-    handle
-        .write("\n".as_bytes())
-        .map_err(|e| handle_rpc_err(e.into()))
-        .unwrap();
 }
 
 pub fn prompt_confirm() -> bool {

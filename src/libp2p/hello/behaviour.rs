@@ -3,7 +3,7 @@
 
 use ahash::HashMap;
 use libp2p::{
-    request_response::{self, ProtocolSupport, RequestId, ResponseChannel},
+    request_response::{self, OutboundRequestId, ProtocolSupport, ResponseChannel},
     swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
@@ -16,7 +16,7 @@ type InnerBehaviour = request_response::Behaviour<HelloCodec>;
 
 pub struct HelloBehaviour {
     inner: InnerBehaviour,
-    response_channels: HashMap<RequestId, flume::Sender<HelloResponse>>,
+    response_channels: HashMap<OutboundRequestId, flume::Sender<HelloResponse>>,
 }
 
 impl HelloBehaviour {
@@ -25,7 +25,7 @@ impl HelloBehaviour {
         peer: &PeerId,
         request: HelloRequest,
         response_channel: flume::Sender<HelloResponse>,
-    ) -> RequestId {
+    ) -> OutboundRequestId {
         let request_id = self.inner.send_request(peer, request);
         self.response_channels.insert(request_id, response_channel);
         self.track_metrics();
@@ -40,7 +40,11 @@ impl HelloBehaviour {
         self.inner.send_response(channel, response)
     }
 
-    pub async fn handle_response(&mut self, request_id: &RequestId, response: HelloResponse) {
+    pub async fn handle_response(
+        &mut self,
+        request_id: &OutboundRequestId,
+        response: HelloResponse,
+    ) {
         if let Some(channel) = self.response_channels.remove(request_id) {
             self.track_metrics();
             if let Err(err) = channel.send_async(response).await {
@@ -49,7 +53,7 @@ impl HelloBehaviour {
         }
     }
 
-    pub fn on_error(&mut self, request_id: &RequestId) {
+    pub fn on_outbound_failure(&mut self, request_id: &OutboundRequestId) {
         if self.response_channels.remove(request_id).is_some() {
             self.track_metrics();
         }
@@ -140,15 +144,14 @@ impl NetworkBehaviour for HelloBehaviour {
             .on_connection_handler_event(peer_id, connection_id, event)
     }
 
-    fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
+    fn on_swarm_event(&mut self, event: FromSwarm) {
         self.inner.on_swarm_event(event)
     }
 
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-        params: &mut impl PollParameters,
     ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
-        self.inner.poll(cx, params)
+        self.inner.poll(cx)
     }
 }

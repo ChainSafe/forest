@@ -99,3 +99,5 @@ VRF
 WebAssembly
 WebSocket
 zstd
+ParityDB
+benchmark/GD

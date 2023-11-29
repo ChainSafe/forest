@@ -132,7 +132,7 @@ where
                 }
             }
 
-            rand_ts = self.chain_index.load_tipset(rand_ts.parents())?;
+            rand_ts = self.chain_index.load_required_tipset(rand_ts.parents())?;
         }
 
         bail!(
@@ -191,6 +191,23 @@ pub fn draw_randomness(
     state.write_i64::<BigEndian>(pers)?;
     let vrf_digest = digest(rbase);
     state.write_all(&vrf_digest)?;
+    state.write_i64::<BigEndian>(round)?;
+    state.write_all(entropy)?;
+    let mut ret = [0u8; 32];
+    ret.clone_from_slice(state.finalize().as_bytes());
+    Ok(ret)
+}
+
+/// Computes a pseudo random 32 byte `Vec` from digest
+pub fn draw_randomness_from_digest(
+    digest: &[u8; 32],
+    pers: i64,
+    round: ChainEpoch,
+    entropy: &[u8],
+) -> anyhow::Result<[u8; 32]> {
+    let mut state = Params::new().hash_length(32).to_state();
+    state.write_i64::<BigEndian>(pers)?;
+    state.write_all(digest)?;
     state.write_i64::<BigEndian>(round)?;
     state.write_all(entropy)?;
     let mut ret = [0u8; 32];

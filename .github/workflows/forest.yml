@@ -37,7 +37,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -57,7 +56,6 @@ jobs:
         continue-on-error: true
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -79,7 +77,6 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - run: ./assets/ci_download.sh
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@v0.0.3
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
@@ -87,7 +84,7 @@ jobs:
       - name: Install Apt Dependencies
         run: |
           sudo make install-deps
-      - run: cargo publish --dry-run --allow-dirty # assets are not pulled by git-lfs thus the repo is dirty.
+      - run: cargo publish --dry-run
 
   # cli-specific tests
   forest-cli-check:
@@ -231,6 +228,54 @@ jobs:
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
 
+  # Calibnet checks with discovery disabled
+  calibnet-no-discovery-checks:
+    needs:
+      - build-ubuntu
+    name: Calibnet no discovery checks
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - run: ./scripts/tests/calibnet_no_discovery_check.sh
+        timeout-minutes: 10
+
+  # Calibnet kademlia discovery checks
+  calibnet-kademlia-checks:
+    # Disable until stateless mode is back
+    if: false
+    needs:
+      - build-ubuntu
+    name: Calibnet kademlia checks
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - run: ./scripts/tests/calibnet_kademlia_check.sh
+        timeout-minutes: 10
+
   db-migration-checks:
     needs:
       - build-ubuntu
@@ -250,6 +295,25 @@ jobs:
       - name: Database migration checks
         run: ./scripts/tests/calibnet_db_migration.sh
 
+  db-migration-checks-car-db:
+    needs:
+      - build-ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: Database migration checks with car_db folder
+        run: ./scripts/tests/calibnet_db_migration_car_db.sh
+
   local-devnet-check:
     name: Devnet checks
     runs-on: ubuntu-latest
@@ -265,6 +329,5 @@ jobs:
         run: ./scripts/devnet/ci_setup.sh
       - name: Devnet check
         run: ./scripts/devnet/ci_check.sh
-      - name: Dump docker logs on failure
-        if: failure()
+      - name: Dump docker logs
         uses: jwalton/gh-docker-logs@v2
