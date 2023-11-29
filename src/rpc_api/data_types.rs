@@ -100,17 +100,59 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+pub struct MessageLookupLotusJson {
+    pub receipt: LotusJson<Receipt>,
+    #[serde(rename = "TipSet")]
+    pub tipset: LotusJson<TipsetKeys>,
+    pub height: LotusJson<i64>,
+    pub message: LotusJson<Cid>,
+    pub return_dec: IpldJson,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct MessageLookup {
-    #[serde(with = "crate::lotus_json")]
     pub receipt: Receipt,
-    #[serde(rename = "TipSet", with = "crate::lotus_json")]
     pub tipset: TipsetKeys,
     pub height: i64,
-    #[serde(with = "crate::lotus_json")]
     pub message: Cid,
-    pub return_dec: IpldJson,
+    pub return_dec: Ipld,
+}
+
+impl HasLotusJson for MessageLookup {
+    type LotusJson = MessageLookupLotusJson;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        Self::LotusJson {
+            receipt: self.receipt.into(),
+            tipset: self.tipset.into(),
+            height: self.height.into(),
+            message: self.message.into(),
+            return_dec: IpldJson(self.return_dec),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let Self::LotusJson {
+            receipt,
+            tipset,
+            height,
+            message,
+            return_dec,
+        } = lotus_json;
+        Self {
+            receipt: receipt.into_inner(),
+            tipset: tipset.into_inner(),
+            height: height.into_inner(),
+            message: message.into_inner(),
+            return_dec: return_dec.0,
+        }
+    }
 }
 
 // Net API
