@@ -2594,7 +2594,8 @@ checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2608,7 +2609,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2621,7 +2623,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2637,7 +2640,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2655,7 +2659,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
@@ -2674,7 +2679,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
@@ -2708,7 +2714,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
@@ -2731,7 +2738,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "bitflags 2.4.1",
@@ -2759,7 +2767,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
@@ -2780,7 +2789,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
@@ -2801,7 +2811,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2815,7 +2826,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2828,7 +2840,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
@@ -2846,7 +2859,8 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "7.0.0-rc.5"
+version = "7.0.0"
+source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=elmattic/support-circulating-supply#c7e54463f3174a345e5cc3b05f592616a2e6a982"
 dependencies = [
  "anyhow",
  "cid",
