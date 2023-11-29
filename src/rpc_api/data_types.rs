@@ -20,6 +20,7 @@ use crate::shim::{
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
+    error::ExitCode,
     executor::Receipt,
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
@@ -37,7 +38,7 @@ use fil_actor_interface::{
 };
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::BytesDe;
+use fvm_ipld_encoding::{BytesDe, RawBytes};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
@@ -622,3 +623,130 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
 }
 
 lotus_json_with_self!(SectorOnChainInfo);
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiInvocResult {
+    #[serde(with = "crate::lotus_json")]
+    pub msg: Message,
+    #[serde(with = "crate::lotus_json")]
+    pub msg_cid: Cid,
+    #[serde(with = "crate::lotus_json")]
+    pub msg_rct: Option<Receipt>,
+    pub error: String,
+    pub duration: u64,
+    #[serde(with = "crate::lotus_json")]
+    pub gas_cost: MessageGasCost,
+    #[serde(with = "crate::lotus_json")]
+    pub execution_trace: Option<ExecutionTrace>,
+}
+
+lotus_json_with_self!(ApiInvocResult);
+
+impl PartialEq for ApiInvocResult {
+    /// Ignore [`Self::duration`] as it is implementation-dependent
+    fn eq(&self, other: &Self) -> bool {
+        self.msg == other.msg
+            && self.msg_cid == other.msg_cid
+            && self.msg_rct == other.msg_rct
+            && self.error == other.error
+            && self.gas_cost == other.gas_cost
+            && self.execution_trace == other.execution_trace
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageGasCost {
+    #[serde(with = "crate::lotus_json")]
+    pub message: Option<Cid>,
+    #[serde(with = "crate::lotus_json")]
+    pub gas_used: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub base_fee_burn: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub over_estimation_burn: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub miner_penalty: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub miner_tip: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub refund: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub total_cost: TokenAmount,
+}
+
+lotus_json_with_self!(MessageGasCost);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExecutionTrace {
+    #[serde(with = "crate::lotus_json")]
+    pub msg: MessageTrace,
+    #[serde(with = "crate::lotus_json")]
+    pub msg_rct: ReturnTrace,
+    #[serde(with = "crate::lotus_json")]
+    pub gas_charges: Vec<GasTrace>,
+    #[serde(with = "crate::lotus_json")]
+    pub subcalls: Vec<ExecutionTrace>,
+}
+
+lotus_json_with_self!(ExecutionTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageTrace {
+    #[serde(with = "crate::lotus_json")]
+    pub from: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub to: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub value: TokenAmount,
+    pub method: u64,
+    #[serde(with = "crate::lotus_json")]
+    pub params: RawBytes,
+    pub params_codec: u64,
+    pub gas_limit: Option<u64>,
+    pub read_only: Option<bool>,
+    #[serde(with = "crate::lotus_json")]
+    pub code_cid: Cid,
+}
+
+lotus_json_with_self!(MessageTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ReturnTrace {
+    pub exit_code: ExitCode,
+    #[serde(with = "crate::lotus_json")]
+    pub r#return: RawBytes,
+    pub return_codec: u64,
+}
+
+lotus_json_with_self!(ReturnTrace);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct GasTrace {
+    pub name: String,
+    #[serde(rename = "tg")]
+    pub total_gas: u64,
+    #[serde(rename = "cg")]
+    pub compute_gas: u64,
+    #[serde(rename = "sg")]
+    pub storage_gas: u64,
+    #[serde(rename = "tt")]
+    pub time_taken: u64,
+}
+
+lotus_json_with_self!(GasTrace);
+
+impl PartialEq for GasTrace {
+    /// Ignore [`Self::total_gas`] as it is implementation-dependent
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.total_gas == other.total_gas
+            && self.compute_gas == other.compute_gas
+            && self.storage_gas == other.storage_gas
+    }
+}
