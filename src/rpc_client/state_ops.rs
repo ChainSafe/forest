@@ -6,12 +6,12 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, SectorOnChainInfo},
+        data_types::{ApiActorState, ApiInvocResult, SectorOnChainInfo},
         state_api::*,
     },
     shim::{
-        address::Address, clock::ChainEpoch, econ::TokenAmount, message::MethodNum,
-        state_tree::ActorState, version::NetworkVersion,
+        address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message,
+        message::MethodNum, state_tree::ActorState, version::NetworkVersion,
     },
 };
 use cid::Cid;
@@ -56,6 +56,10 @@ impl ApiInfo {
 
     pub fn state_network_name_req() -> RpcRequest<String> {
         RpcRequest::new(STATE_NETWORK_NAME, ())
+    }
+
+    pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<ApiInvocResult> {
+        RpcRequest::new(STATE_CALL, (message, tsk))
     }
 
     pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
