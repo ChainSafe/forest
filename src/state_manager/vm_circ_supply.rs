@@ -13,6 +13,9 @@ use crate::shim::{
 };
 use anyhow::Context as _;
 use cid::Cid;
+use fil_actor_interface::{
+    is_account_actor, is_eth_account_actor, is_evm_actor, is_paych_actor, is_placeholder_actor,
+};
 use fil_actor_interface::{market, power, reward};
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
@@ -65,7 +68,7 @@ impl GenesisInfo {
     }
 
     // Allows generation of the current circulating supply
-    pub fn get_circulating_supply<DB: Blockstore>(
+    pub fn get_vm_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
         db: &Arc<DB>,
@@ -87,6 +90,43 @@ impl GenesisInfo {
         );
 
         Ok(fil_circulating)
+    }
+
+    pub fn get_circulating_supply<DB: Blockstore>(
+        &self,
+        height: ChainEpoch,
+        db: &Arc<DB>,
+        root: &Cid,
+    ) -> Result<TokenAmount, anyhow::Error> {
+        let mut circ = TokenAmount::default();
+        let mut un_circ = TokenAmount::default();
+
+        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
+
+        state_tree.for_each(|addr: Address, actor: &ActorState| {
+            if !actor.balance.is_zero() {
+                if is_account_actor(&actor.code)
+                    || is_paych_actor(&actor.code)
+                    || is_eth_account_actor(&actor.code)
+                    || is_evm_actor(&actor.code)
+                    || is_placeholder_actor(&actor.code)
+                {
+                    circ += actor.balance.clone().into();
+                } else {
+                    // TODO:
+                    // storage
+                    // multisig
+                    // default
+                }
+                //
+            } else {
+                // Do nothing for zero-balance actors
+                ()
+            }
+            Ok(())
+        })?;
+
+        Ok(circ)
     }
 }
 

@@ -51,18 +51,18 @@ derive_more = "0.99.17"
 dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
-fil_actor_account_state = "7.0.0-rc.5"
-fil_actor_cron_state = "7.0.0-rc.5"
-fil_actor_datacap_state = "7.0.0-rc.5"
-fil_actor_init_state = "7.0.0-rc.5"
-fil_actor_interface = "7.0.0-rc.5"
-fil_actor_market_state = "7.0.0-rc.5"
-fil_actor_miner_state = "7.0.0-rc.5"
-fil_actor_power_state = "7.0.0-rc.5"
-fil_actor_reward_state = "7.0.0-rc.5"
-fil_actor_system_state = "7.0.0-rc.5"
-fil_actor_verifreg_state = "7.0.0-rc.5"
-fil_actors_shared = "7.0.0-rc.5"
+fil_actor_account_state = { path = "../fil-actor-states/actors/account" }
+fil_actor_cron_state = { path = "../fil-actor-states/actors/cron" }
+fil_actor_datacap_state = { path = "../fil-actor-states/actors/datacap" }
+fil_actor_init_state = { path = "../fil-actor-states/actors/init" }
+fil_actor_interface = { path = "../fil-actor-states/fil_actor_interface" }
+fil_actor_market_state = { path = "../fil-actor-states/actors/market" }
+fil_actor_miner_state = { path = "../fil-actor-states/actors/miner" }
+fil_actor_power_state = { path = "../fil-actor-states/actors/power" }
+fil_actor_reward_state = { path = "../fil-actor-states/actors/reward" }
+fil_actor_system_state = { path = "../fil-actor-states/actors/system" }
+fil_actor_verifreg_state = { path = "../fil-actor-states/actors/verifreg" }
+fil_actors_shared = { path = "../fil-actor-states/fil_actors_shared" }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"

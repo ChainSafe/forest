@@ -387,7 +387,7 @@ where
                 epoch: bheight,
                 rand: Box::new(rand),
                 base_fee: TokenAmount::zero(),
-                circ_supply: genesis_info.get_circulating_supply(
+                circ_supply: genesis_info.get_vm_circulating_supply(
                     bheight,
                     &self.blockstore_owned(),
                     bstate,
@@ -464,7 +464,7 @@ where
                 epoch,
                 rand: Box::new(chain_rand),
                 base_fee: ts.blocks()[0].parent_base_fee().clone(),
-                circ_supply: genesis_info.get_circulating_supply(
+                circ_supply: genesis_info.get_vm_circulating_supply(
                     epoch,
                     &self.blockstore_owned(),
                     &st,
@@ -1287,7 +1287,7 @@ where
     let genesis_info = GenesisInfo::from_chain_config(&chain_config);
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
-            genesis_info.get_circulating_supply(epoch, &chain_index.db, &state_root)?;
+            genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),
