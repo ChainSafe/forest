@@ -258,6 +258,12 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::SYSTEM_ACTOR,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
+            shared_tipset.key().clone(),
+            DomainSeparationTag::ElectionProofProduction,
+            shared_tipset.epoch(),
+            "dead beef".as_bytes().to_vec(),
+        )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
             shared_tipset.key().clone(),
             DomainSeparationTag::ElectionProofProduction,

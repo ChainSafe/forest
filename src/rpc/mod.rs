@@ -124,6 +124,10 @@ where
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
             .with_method(
+                STATE_GET_RANDOMNESS_FROM_TICKETS,
+                state_get_randomness_from_tickets::<DB>,
+            )
+            .with_method(
                 STATE_GET_RANDOMNESS_FROM_BEACON,
                 state_get_randomness_from_beacon::<DB>,
             )
