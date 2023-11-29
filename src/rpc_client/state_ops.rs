@@ -6,16 +6,16 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, MessageLookup, SectorOnChainInfo},
+        data_types::{ApiActorState, ApiInvocResult, MessageLookup, SectorOnChainInfo},
         state_api::*,
     },
     shim::{
-        address::Address, clock::ChainEpoch, econ::TokenAmount, message::MethodNum,
-        state_tree::ActorState, version::NetworkVersion,
+        address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message,
+        message::MethodNum, state_tree::ActorState, version::NetworkVersion,
     },
 };
 use cid::Cid;
-use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::miner::{MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use libipld_core::ipld::Ipld;
@@ -56,6 +56,14 @@ impl ApiInfo {
 
     pub fn state_network_name_req() -> RpcRequest<String> {
         RpcRequest::new(STATE_NETWORK_NAME, ())
+    }
+
+    pub fn state_miner_info_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerInfo> {
+        RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
+    }
+
+    pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<ApiInvocResult> {
+        RpcRequest::new(STATE_CALL, (message, tsk))
     }
 
     pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
@@ -122,7 +130,7 @@ impl ApiInfo {
         RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
     }
 
-    // FIXME: StateWaitMsg API stuck in forest
+    // FIXME: StateWaitMsg API gets stuck in forest
     // pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
     //     RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence))
     // }

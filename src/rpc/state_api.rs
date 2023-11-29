@@ -7,7 +7,7 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
+    ApiActorState, ApiInvocResult, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
@@ -19,7 +19,10 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
-use fil_actor_interface::{market, miner, miner::MinerPower};
+use fil_actor_interface::{
+    market, miner,
+    miner::{MinerInfo, MinerPower},
+};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -36,14 +39,16 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
-) -> Result<InvocResult, JsonRpcError> {
+    Params(LotusJson((message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
+) -> Result<ApiInvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
         .load_required_tipset(&key)?;
-    Ok(state_manager.call(&mut message, Some(tipset))?)
+    // Handle expensive fork error?
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+    Ok(state_manager.call(&message, Some(tipset))?)
 }
 
 /// returns the result of executing the indicated message, assuming it was
@@ -178,6 +183,18 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
         Ok(())
     })?;
     Ok(out)
+}
+
+/// looks up the miner info of the given address.
+pub(in crate::rpc) async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<MinerInfo>, JsonRpcError> {
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+    Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
 }
 
 pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
