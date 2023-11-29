@@ -35,12 +35,21 @@
 
 ### Fixed
 
+## Forest 0.16.3 "Tempura"
+
+### Fixed
+
+- [#3751](https://github.com/ChainSafe/forest/pull/3751) Workaround for
+  performance bug that prevents Forest from syncing to the network.
+
 ## Forest 0.16.2 "November Rain"
 
 ### Breaking
 
 ### Added
 
+- [#3749](https://github.com/ChainSafe/forest/pull/3749) Implement the
+  `Filecoin.StateSectorGetInfo` lotus-compatible RPC API.
 - [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
   `Filecoin.GetParentMessages` lotus-compatible RPC API.
 - [#3726](https://github.com/ChainSafe/forest/pull/3726) Implement the

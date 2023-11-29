@@ -29,7 +29,7 @@
 //!             └─────────┘
 //! ```
 //!
-//! Looking up a block uses a [`crate::utils::db::car_index::CarIndex`] to find
+//! Looking up a block uses an [`index::Reader`] to find
 //! the right z-frame. The frame is then decoded and each block is linearly
 //! scanned until a match is found. Decoded (and scanned) z-frames are stored in
 //! a lru-cache for faster repeat retrievals.
@@ -49,7 +49,7 @@
 use super::{CacheKey, ZstdFrameCache};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::db::car::plain::write_skip_frame_header_async;
-use crate::utils::db::car_index::{CarIndex, CarIndexBuilder, FrameOffset, Hash};
+use crate::db::car::RandomAccessFileReader;
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
 use crate::utils::encoding::from_slice_with_fallback;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -72,10 +72,15 @@ use std::{
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio_util::codec::{Decoder, Encoder as _};
 use unsigned_varint::codec::UviBytes;
+#[cfg(feature = "benchmark-private")]
+pub mod index;
+#[cfg(not(feature = "benchmark-private"))]
+mod index;
 
 pub const FOREST_CAR_FILE_EXTENSION: &str = ".forest.car.zst";
 pub const DEFAULT_FOREST_CAR_FRAME_SIZE: usize = 8000_usize.next_power_of_two();
 pub const DEFAULT_FOREST_CAR_COMPRESSION_LEVEL: u16 = zstd::DEFAULT_COMPRESSION_LEVEL as _;
+const ZSTD_SKIP_FRAME_LEN: u64 = 8;
 
 pub trait ReaderGen<V>: Fn() -> io::Result<V> + Send + Sync + 'static {}
 impl<ReaderT, X: Fn() -> io::Result<ReaderT> + Send + Sync + 'static> ReaderGen<ReaderT> for X {}
@@ -84,21 +89,21 @@ pub struct ForestCar<ReaderT> {
     // Multiple `ForestCar` structures may share the same cache. The cache key is used to identify
     // the origin of a cached z-frame.
     cache_key: CacheKey,
-    indexed: CarIndex<ReaderT>,
+    indexed: index::Reader<positioned_io::Slice<ReaderT>>,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
     roots: Vec<Cid>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
-    pub fn new(reader: ReaderT) -> io::Result<Self> {
+    pub fn new(reader: ReaderT) -> io::Result<ForestCar<ReaderT>> {
         let (header, footer) = Self::validate_car(&reader)?;
 
-        let index = CarIndex::open(reader, footer.index)?;
+        let indexed = index::Reader::new(positioned_io::Slice::new(reader, footer.index, None))?;
 
         Ok(ForestCar {
             cache_key: 0,
-            indexed: index,
+            indexed,
             frame_cache: Arc::new(Mutex::new(ZstdFrameCache::default())),
             write_cache: Arc::new(RwLock::new(ahash::HashMap::default())),
             roots: header.roots,
@@ -143,15 +148,16 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
-        fn any_reader<ReaderT: super::RandomAccessFileReader>(
-            reader: ReaderT,
-        ) -> Box<dyn super::RandomAccessFileReader> {
-            Box::new(reader)
-        }
-
         ForestCar {
             cache_key: self.cache_key,
-            indexed: self.indexed.map_reader(any_reader),
+            indexed: self.indexed.map(|slice| {
+                let offset = slice.offset();
+                positioned_io::Slice::new(
+                    Box::new(slice.into_inner()) as Box<dyn RandomAccessFileReader>,
+                    offset,
+                    None,
+                )
+            }),
             frame_cache: self.frame_cache,
             write_cache: self.write_cache,
             roots: self.roots,
@@ -186,8 +192,7 @@ where
         }
 
         let indexed = &self.indexed;
-        for position in indexed.lookup(*k)?.into_iter() {
-            let reader = indexed.reader();
+        for position in indexed.get(*k)?.into_iter() {
             let cache_query = self.frame_cache.lock().get(position, self.cache_key, *k);
             match cache_query {
                 // Frame cache hit, found value.
@@ -196,7 +201,8 @@ where
                 Some(None) => {}
                 None => {
                     // Decode entire frame into memory, "position" arg is the frame start offset.
-                    let cursor = Cursor::new_pos(reader, position);
+                    let entire_file = indexed.reader().get_ref(); // escape the positioned_io::Slice
+                    let cursor = Cursor::new_pos(entire_file, position);
                     let mut zstd_frame = decode_zstd_single_frame(cursor)?;
                     // Parse all key-value pairs and insert them into a map
                     let mut block_map = HashMap::new();
@@ -247,7 +253,7 @@ pub struct Encoder {}
 
 impl Encoder {
     pub async fn write(
-        sink: &mut (impl AsyncWrite + Unpin),
+        mut sink: impl AsyncWrite + Unpin,
         roots: Vec<Cid>,
         mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> + Unpin,
     ) -> anyhow::Result<()> {
@@ -268,24 +274,21 @@ impl Encoder {
         offset += header_len;
 
         // Write seekable zstd and collect a mapping of CIDs to frame_offset+data_offset.
-        let mut cid_mapping = Vec::new();
+        let mut builder = index::Builder::new();
         while let Some((cids, zstd_frame)) = stream.try_next().await? {
-            for cid in cids {
-                cid_mapping.push((Hash::from(cid), offset as FrameOffset));
-            }
+            builder.extend(cids.into_iter().map(|cid| (cid, offset as u64)));
             sink.write_all(&zstd_frame).await?;
-            offset += zstd_frame.len();
+            offset += zstd_frame.len()
         }
 
         // Create index
-        let index_offset = offset as u64 + 8;
-        let builder = CarIndexBuilder::new(cid_mapping.into_iter());
-        write_skip_frame_header_async(sink, builder.encoded_len()).await?;
-        builder.write_async(sink).await?;
+        let writer = builder.into_writer();
+        write_skip_frame_header_async(&mut sink, writer.written_len().try_into().unwrap()).await?;
+        writer.write_into(&mut sink).await?;
 
         // Write ForestCAR.zst footer, it's a valid ZSTD skip-frame
         let footer = ForestCarFooter {
-            index: index_offset,
+            index: offset as u64 + ZSTD_SKIP_FRAME_LEN,
         };
         sink.write_all(&footer.to_le_bytes()).await?;
         Ok(())
@@ -418,7 +421,7 @@ impl ForestCarFooter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::executor::block_on;
+    use crate::block_on;
     use quickcheck_macros::quickcheck;
 
     fn mk_encoded_car(
@@ -499,7 +502,7 @@ mod tests {
         // A and B are _not_ the same...
         assert_ne!(cid_a, cid_b);
         // ... but they map to the same hash:
-        assert_eq!(Hash::from(cid_a), Hash::from(cid_b));
+        assert_eq!(index::hash::summary(&cid_a), index::hash::summary(&cid_b));
 
         // For testing purposes, we ignore that the data doesn't map to the
         // CIDs.

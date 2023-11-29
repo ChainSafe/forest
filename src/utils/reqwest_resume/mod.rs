@@ -12,7 +12,6 @@
 
 use bytes::Bytes;
 use futures::{ready, FutureExt as _, Stream, TryFutureExt as _};
-use hyper::header::{self, HeaderMap, HeaderValue};
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -74,8 +73,8 @@ impl RequestBuilder {
         };
         let accept_byte_ranges = response
             .headers()
-            .get(header::ACCEPT_RANGES)
-            .map(HeaderValue::as_bytes)
+            .get(http0::header::ACCEPT_RANGES)
+            .map(http0::HeaderValue::as_bytes)
             == Some(b"bytes");
         let resp = Response {
             client,
@@ -140,10 +139,10 @@ impl Stream for Decoder {
                         break Poll::Ready(Some(Err(err)));
                     }
                     let builder = self.client.request(self.method.clone(), self.url.clone());
-                    let mut headers = HeaderMap::new();
-                    let value = HeaderValue::from_str(&std::format!("bytes={}-", self.pos))
+                    let mut headers = http0::HeaderMap::new();
+                    let value = http0::HeaderValue::from_str(&std::format!("bytes={}-", self.pos))
                         .expect("unreachable");
-                    headers.insert(header::RANGE, value);
+                    headers.insert(http0::header::RANGE, value);
                     let builder = builder.headers(headers);
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
                     self.decoder = Box::pin(
