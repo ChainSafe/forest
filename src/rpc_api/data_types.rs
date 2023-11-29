@@ -629,10 +629,8 @@ lotus_json_with_self!(SectorOnChainInfo);
 #[serde(rename_all = "PascalCase")]
 pub struct ApiDeadline {
     #[serde(with = "crate::lotus_json")]
-    #[serde(rename = "PostSubmissions")]
     pub post_submissions: BitField,
     #[serde(with = "crate::lotus_json")]
-    #[serde(rename = "DisputableProofCount")]
     pub disputable_proof_count: u64,
 }
 
