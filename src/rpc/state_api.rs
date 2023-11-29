@@ -8,7 +8,8 @@ use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
+    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
+    SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
@@ -37,14 +38,16 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
-) -> Result<InvocResult, JsonRpcError> {
+    Params(LotusJson((message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
+) -> Result<ApiInvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
         .load_required_tipset(&key)?;
-    Ok(state_manager.call(&mut message, Some(tipset))?)
+    // Handle expensive fork error?
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+    Ok(state_manager.call(&message, Some(tipset))?)
 }
 
 /// returns the result of executing the indicated message, assuming it was
