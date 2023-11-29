@@ -21,7 +21,10 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
-use fil_actor_interface::{market, miner, miner::MinerPower};
+use fil_actor_interface::{
+    market, miner,
+    miner::{MinerInfo, MinerPower},
+};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -182,6 +185,18 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
         Ok(())
     })?;
     Ok(out)
+}
+
+/// looks up the miner info of the given address.
+pub(in crate::rpc) async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<MinerInfo>, JsonRpcError> {
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+    Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
 }
 
 pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(

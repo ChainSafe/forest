@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3720](https://github.com/ChainSafe/forest/pull/3750) Implement the
+  `Filecoin.StateMinerInfo` lotus-compatible RPC API.
+
 ### Changed
 
 ### Removed
