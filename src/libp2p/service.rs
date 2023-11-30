@@ -7,7 +7,8 @@ use std::{
 };
 
 use crate::libp2p_bitswap::{
-    request_manager::BitswapRequestManager, BitswapStoreRead, BitswapStoreReadWrite,
+    request_manager::{BitswapRequestManager, ValidatePeerCallback},
+    BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
@@ -158,6 +159,7 @@ pub enum NetworkMessage {
     BitswapRequest {
         cid: Cid,
         response_channel: flume::Sender<bool>,
+        epoch: Option<i64>,
     },
     JSONRPCRequest {
         method: NetRPCMethods,
@@ -285,10 +287,8 @@ where
         let (cx_response_tx, cx_response_rx) = flume::unbounded();
 
         let mut cx_response_rx_stream = cx_response_rx.stream().fuse();
-        let mut bitswap_outbound_request_rx_stream = bitswap_request_manager
-            .outbound_request_rx()
-            .stream()
-            .fuse();
+        let mut bitswap_outbound_request_stream =
+            bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
         let mut libp2p_registry = Default::default();
         let metrics = Metrics::new(&mut libp2p_registry);
@@ -322,7 +322,8 @@ where
                             self.cs.clone(),
                             bitswap_request_manager.clone(),
                             message,
-                            &self.network_sender_out).await;
+                            &self.network_sender_out,
+                            &self.peer_manager).await;
                     }
                     None => { break; }
                 },
@@ -338,7 +339,7 @@ where
                         }
                     }
                 },
-                bitswap_outbound_request_opt = bitswap_outbound_request_rx_stream.next() => {
+                bitswap_outbound_request_opt = bitswap_outbound_request_stream.next() => {
                     if let Some((peer, request)) = bitswap_outbound_request_opt {
                         let bitswap = &mut swarm_stream.get_mut().behaviour_mut().bitswap;
                         bitswap.send_request(&peer, request);
@@ -385,6 +386,7 @@ async fn handle_network_message(
     bitswap_request_manager: Arc<BitswapRequestManager>,
     message: NetworkMessage,
     network_sender_out: &Sender<NetworkEvent>,
+    peer_manager: &Arc<PeerManager>,
 ) {
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
@@ -427,8 +429,27 @@ async fn handle_network_message(
         NetworkMessage::BitswapRequest {
             cid,
             response_channel,
+            epoch,
         } => {
-            bitswap_request_manager.get_block(store, cid, BITSWAP_TIMEOUT, Some(response_channel));
+            let peer_validator: Option<Arc<ValidatePeerCallback>> = if let Some(epoch) = epoch {
+                let peer_manager = Arc::clone(peer_manager);
+                Some(Arc::new(move |peer| {
+                    peer_manager
+                        .get_peer_head_epoch(&peer)
+                        .map(|peer_head_epoch| peer_head_epoch >= epoch)
+                        .unwrap_or_default()
+                }))
+            } else {
+                None
+            };
+
+            bitswap_request_manager.get_block(
+                store,
+                cid,
+                BITSWAP_TIMEOUT,
+                Some(response_channel),
+                peer_validator,
+            );
         }
         NetworkMessage::JSONRPCRequest { method } => {
             match method {
@@ -650,7 +671,7 @@ async fn handle_hello_event(
             error: _,
         } => {
             hello.on_outbound_failure(&request_id);
-            peer_manager.mark_peer_bad(peer).await;
+            peer_manager.mark_peer_bad(peer);
         }
         request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),

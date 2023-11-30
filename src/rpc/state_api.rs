@@ -4,10 +4,12 @@
 
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
-use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{ApiActorState, MarketDeal, MessageLookup, RPCState};
+use crate::rpc_api::data_types::{
+    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
+    SectorOnChainInfo,
+};
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
@@ -19,8 +21,11 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
-use fil_actor_interface::market;
-use fil_actor_interface::miner::MinerPower;
+use fil_actor_interface::{
+    market, miner,
+    miner::{MinerInfo, MinerPower},
+};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
@@ -36,14 +41,16 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((mut message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
-) -> Result<InvocResult, JsonRpcError> {
+    Params(LotusJson((message, key))): Params<LotusJson<(Message, TipsetKeys)>>,
+) -> Result<ApiInvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
         .load_required_tipset(&key)?;
-    Ok(state_manager.call(&mut message, Some(tipset))?)
+    // Handle expensive fork error?
+    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+    Ok(state_manager.call(&message, Some(tipset))?)
 }
 
 /// returns the result of executing the indicated message, assuming it was
@@ -84,6 +91,42 @@ pub(in crate::rpc) async fn state_get_network_version<DB: Blockstore>(
 ) -> Result<NetworkVersion, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
+}
+
+/// gets the public key address of the given ID address
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
+pub(in crate::rpc) async fn state_account_key<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Address>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let ts_opt = data.chain_store.load_tipset(&tipset_keys)?;
+    Ok(LotusJson(
+        data.state_manager
+            .resolve_to_deterministic_address(address, ts_opt)
+            .await?,
+    ))
+}
+
+/// retrieves the ID address of the given address
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
+pub(in crate::rpc) async fn state_lookup_id<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Address>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let ts = data.chain_store.load_required_tipset(&tipset_keys)?;
+    let ret = data
+        .state_manager
+        .lookup_id(&address, ts.as_ref())?
+        .with_context(|| {
+            format!("Failed to lookup the id address for address: {address} and tipset keys: {tipset_keys}")
+        })?;
+    Ok(LotusJson(ret))
 }
 
 pub(crate) async fn state_get_actor<DB: Blockstore>(
@@ -144,6 +187,49 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
     Ok(out)
 }
 
+/// looks up the miner info of the given address.
+pub(in crate::rpc) async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<MinerInfo>, JsonRpcError> {
+    let tipset = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+    Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
+}
+
+pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+
+    // Collect active sectors from each partition in each deadline.
+    let mut active_sectors = vec![];
+    miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
+        deadline.for_each(bs, |_partidx, partition| {
+            active_sectors.push(partition.active_sectors());
+            Ok(())
+        })
+    })?;
+
+    let sectors = miner_state
+        .load_sectors(bs, Some(&BitField::union(&active_sectors)))?
+        .into_iter()
+        .map(SectorOnChainInfo::from)
+        .collect::<Vec<_>>();
+
+    Ok(LotusJson(sectors))
+}
+
 /// looks up the miner power of the given address.
 pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
@@ -158,6 +244,45 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
         .miner_power(&address, &tipset)
         .map(|res| res.into())
         .map_err(|e| e.into())
+}
+
+pub(in crate::rpc) async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<ApiDeadline>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let store = data.state_manager.blockstore();
+    let state = miner::State::load(store, actor.code, actor.state)?;
+    let mut res = Vec::new();
+    state.for_each_deadline(policy, store, |_idx, deadline| {
+        res.push(ApiDeadline {
+            post_submissions: deadline.partitions_posted(),
+            disputable_proof_count: deadline.disputable_proof_count(store)?,
+        });
+        Ok(())
+    })?;
+    Ok(LotusJson(res))
+}
+
+/// looks up the miner power of the given address.
+pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<BitField>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&key)?;
+
+    data.state_manager
+        .miner_faults(&address, &ts)
+        .map_err(|e| e.into())
+        .map(|r| r.into())
 }
 
 /// returns the message receipt for the given message
@@ -195,7 +320,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: cid,
-        return_dec: IpldJson(ipld),
+        return_dec: ipld,
     })
 }
 
@@ -321,6 +446,7 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
                         network_send.send(NetworkMessage::BitswapRequest {
                             cid,
                             response_channel: tx,
+                            epoch: None,
                         })?;
                         // Bitswap requests do not fail. They are just ignored if no-one has
                         // the requested data. Here we arbitrary decide to only wait for
@@ -369,6 +495,31 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
 // inlined, the mutex guard isn't dropped early enough.
 fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
     mutex.lock().pop()
+}
+
+/// Get randomness from tickets
+pub(in crate::rpc) async fn state_get_randomness_from_tickets<
+    DB: Blockstore + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
+        LotusJson<RandomnessParams>,
+    >,
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let tipset = state_manager.chain_store().load_required_tipset(&tsk)?;
+    let chain_config = state_manager.chain_config();
+    let chain_index = &data.chain_store.chain_index;
+    let beacon = state_manager.beacon_schedule();
+    let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
+    let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
+    let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
+        &digest,
+        personalization,
+        rand_epoch,
+        &entropy,
+    )?;
+    Ok(LotusJson(value.to_vec()))
 }
 
 /// Get randomness from beacon
@@ -438,4 +589,21 @@ pub(in crate::rpc) async fn state_circulating_supply<DB: Blockstore + Send + Syn
         genesis_info.get_circulating_supply(height, &state_manager.blockstore_owned(), root)?;
 
     Ok(LotusJson(supply))
+}
+
+/// Get state sector info using sector no
+pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, u64, TipsetKeys)>>,
+) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    Ok(LotusJson(
+        data.state_manager
+            .get_all_sectors(&addr, &ts)?
+            .into_iter()
+            .find(|info| info.sector_number == sector_no)
+            .map(SectorOnChainInfo::from)
+            .ok_or(format!("Info for sector number {sector_no} not found"))?,
+    ))
 }

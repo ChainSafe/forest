@@ -13,9 +13,6 @@ on:
   pull_request:
     branches:
       - main
-  pull_request_target:
-    branches:
-      - main
 
 env:
   CACHE_TIMEOUT_MINUTES: 5

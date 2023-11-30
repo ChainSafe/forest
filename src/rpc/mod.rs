@@ -16,7 +16,7 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
-use std::{net::TcpListener, sync::Arc};
+use std::sync::Arc;
 
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, gas_api::*,
@@ -25,6 +25,7 @@ use crate::rpc_api::{
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use tokio::net::TcpListener;
 use tokio::sync::mpsc::Sender;
 use tracing::info;
 
@@ -110,19 +111,30 @@ where
             .with_method(STATE_REPLAY, state_replay::<DB>)
             .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
             .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
+            .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)
+            .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)
             .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
+            .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
+            .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
+            .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
+            .with_method(
+                STATE_GET_RANDOMNESS_FROM_TICKETS,
+                state_get_randomness_from_tickets::<DB>,
+            )
             .with_method(
                 STATE_GET_RANDOMNESS_FROM_BEACON,
                 state_get_randomness_from_beacon::<DB>,
             )
             .with_method(STATE_READ_STATE, state_read_state::<DB>)
             .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
+            .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
@@ -149,8 +161,7 @@ where
         .with_state(rpc_server);
 
     info!("Ready for RPC connections");
-    let server = axum::Server::from_tcp(rpc_endpoint)?.serve(app.into_make_service());
-    server.await?;
+    axum::serve(rpc_endpoint, app.into_make_service()).await?;
 
     info!("Stopped accepting RPC connections");
 

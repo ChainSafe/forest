@@ -29,11 +29,21 @@
 
 ### Added
 
+- [#3720](https://github.com/ChainSafe/forest/pull/3750) Implement the
+  `Filecoin.StateMinerInfo` lotus-compatible RPC API.
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+## Forest 0.16.3 "Tempura"
+
+### Fixed
+
+- [#3751](https://github.com/ChainSafe/forest/pull/3751) Workaround for
+  performance bug that prevents Forest from syncing to the network.
 
 ## Forest 0.16.2 "November Rain"
 
@@ -41,10 +51,20 @@
 
 ### Added
 
+- [#3749](https://github.com/ChainSafe/forest/pull/3749) Implement the
+  `Filecoin.StateSectorGetInfo` lotus-compatible RPC API.
 - [#3720](https://github.com/ChainSafe/forest/pull/3720) Implement the
   `Filecoin.GetParentMessages` lotus-compatible RPC API.
+- [#3726](https://github.com/ChainSafe/forest/pull/3726) Implement the
+  `Filecoin.StateMinerFaults` lotus-compatible RPC API.
+- [#3735](https://github.com/ChainSafe/forest/pull/3735) Implement the
+  `Filecoin.StateAccountKey` lotus-compatible RPC API.
+- [#3744](https://github.com/ChainSafe/forest/pull/3744) Implement the
+  `Filecoin.StateLookupID` lotus-compatible RPC API.
 - [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
   bootstrap node peer
+- [#3737](https://github.com/ChainSafe/forest/pull/3737) Added `--n-tipsets`
+  option to `forest-tool api compare`
 
 ### Changed
 

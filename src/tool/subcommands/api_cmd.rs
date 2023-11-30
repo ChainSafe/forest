@@ -38,6 +38,9 @@ pub enum ApiCommands {
         /// Cancel test run on the first failure
         #[arg(long)]
         fail_fast: bool,
+        #[arg(short, long, default_value = "20")]
+        /// The number of tipsets to use to generate test cases.
+        n_tipsets: usize,
     },
 }
 
@@ -50,7 +53,8 @@ impl ApiCommands {
                 snapshot_files,
                 filter,
                 fail_fast,
-            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast).await?,
+                n_tipsets,
+            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast, n_tipsets).await?,
         }
         Ok(())
     }
@@ -196,6 +200,10 @@ fn auth_tests() -> Vec<RpcTest> {
     vec![]
 }
 
+fn beacon_tests() -> Vec<RpcTest> {
+    vec![RpcTest::identity(ApiInfo::beacon_get_entry_req(10101))]
+}
+
 fn chain_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
@@ -216,6 +224,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
+        RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
     ]
 }
 
@@ -249,6 +258,12 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::SYSTEM_ACTOR,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
+            shared_tipset.key().clone(),
+            DomainSeparationTag::ElectionProofProduction,
+            shared_tipset.epoch(),
+            "dead beef".as_bytes().to_vec(),
+        )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
             shared_tipset.key().clone(),
             DomainSeparationTag::ElectionProofProduction,
@@ -279,6 +294,11 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::state_network_version_req(
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_sector_get_info_req(
+            *shared_block.miner_address(),
+            101,
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 
@@ -307,17 +327,17 @@ fn wallet_tests() -> Vec<RpcTest> {
 }
 
 // Extract tests that use chain-specific data such as block CIDs or message
-// CIDs. Right now, only the last 20 tipsets are used. It would be nice to
-// sample a greater range.
-fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
+// CIDs. Right now, only the last `n_tipsets` tipsets are used.
+fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
+    let shared_tipset_epoch = shared_tipset.epoch();
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
 
     let mut seen = CidHashSet::default();
-    for tipset in shared_tipset.chain(&store).take(20) {
+    for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
         ));
@@ -327,6 +347,10 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
             )));
             tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
                 *block.cid(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
+                *block.miner_address(),
+                root_tsk.clone(),
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
@@ -339,6 +363,24 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                         msg.from(),
                         root_tsk.clone(),
                     )));
+                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                        msg.from(),
+                        Default::default(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
+                        msg.from(),
+                        root_tsk.clone(),
+                    )));
+                    // FIXME: StateWaitMsg API gets stuck in forest
+                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    //     msg.cid()?,
+                    //     0,
+                    // )));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        msg.cid()?,
+                        shared_tipset_epoch - n_tipsets as i64,
+                    )));
                 }
             }
             for msg in secp_messages {
@@ -350,6 +392,24 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                         msg.from(),
                         root_tsk.clone(),
                     )));
+                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                        msg.from(),
+                        Default::default(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
+                        msg.from(),
+                        root_tsk.clone(),
+                    )));
+                    // FIXME: StateWaitMsg API gets stuck in forest
+                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    //     msg.cid()?,
+                    //     0,
+                    // )));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        msg.cid()?,
+                        shared_tipset_epoch - n_tipsets as i64,
+                    )));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
@@ -360,14 +420,42 @@ fn snapshot_tests(store: &ManyCar) -> anyhow::Result<Vec<RpcTest>> {
                     }
                 }
             }
+            tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )))
         }
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),
-        )))
+        )));
+
+        for block in tipset.blocks() {
+            let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
+            for msg in secp_messages {
+                tests.push(RpcTest::identity(ApiInfo::state_call_req(
+                    msg.message().clone(),
+                    shared_tipset.key().clone(),
+                )));
+            }
+            for msg in bls_messages {
+                tests.push(RpcTest::identity(ApiInfo::state_call_req(
+                    msg.clone(),
+                    shared_tipset.key().clone(),
+                )));
+            }
+        }
     }
     Ok(tests)
 }
@@ -395,11 +483,13 @@ async fn compare_apis(
     snapshot_files: Vec<PathBuf>,
     filter: String,
     fail_fast: bool,
+    n_tipsets: usize,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
     tests.extend(common_tests());
     tests.extend(auth_tests());
+    tests.extend(beacon_tests());
     tests.extend(chain_tests());
     tests.extend(mpool_tests());
     tests.extend(net_tests());
@@ -408,7 +498,7 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store)?);
+        tests.extend(snapshot_tests(&store, n_tipsets)?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);

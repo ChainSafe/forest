@@ -4,7 +4,7 @@
 pub mod chain_rand;
 mod errors;
 mod metrics;
-mod utils;
+pub mod utils;
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::state_migration::run_state_migrations;
@@ -20,13 +20,15 @@ use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
-use crate::interpreter::{resolve_to_key_addr, ExecutionContext, VM};
-use crate::interpreter::{BlockMessages, CalledAt};
+use crate::interpreter::{
+    resolve_to_key_addr, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::shim::clock::ChainEpoch;
+use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    clock::ChainEpoch,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
     message::Message,
@@ -36,9 +38,12 @@ use crate::shim::{
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
-use fil_actor_interface::miner::MinerPower;
+
+use fil_actor_interface::miner::SectorOnChainInfo;
+use fil_actor_interface::miner::{MinerInfo, MinerPower};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -52,7 +57,8 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, warn};
+use utils::structured;
 pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -171,7 +177,7 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -347,6 +353,20 @@ where
 
         Ok(None)
     }
+
+    // Returns all sectors
+    pub fn get_all_sectors(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        state.load_sectors(self.blockstore(), None)
+    }
 }
 
 impl<DB> StateManager<DB>
@@ -373,56 +393,80 @@ where
     #[instrument(skip(self, rand))]
     fn call_raw(
         self: &Arc<Self>,
-        msg: &mut Message,
+        msg: &Message,
         rand: ChainRand<DB>,
         tipset: &Arc<Tipset>,
-    ) -> StateCallResult {
-        let bstate = tipset.parent_state();
-        let bheight = tipset.epoch();
+    ) -> Result<ApiInvocResult, Error> {
+        let mut msg = msg.clone();
+
+        let state_cid = tipset.parent_state();
+
+        let tipset_messages = self
+            .chain_store()
+            .messages_for_tipset(tipset)
+            .map_err(|err| Error::Other(err.to_string()))?;
+
+        let prior_messsages = tipset_messages
+            .iter()
+            .filter(|msg| msg.message().from() == msg.from());
+
+        // Handle state forks
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        let height = tipset.epoch();
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
-                state_tree_root: *bstate,
-                epoch: bheight,
+                state_tree_root: *state_cid,
+                epoch: height,
                 rand: Box::new(rand),
-                base_fee: TokenAmount::zero(),
+                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
-                    bheight,
+                    height,
                     &self.blockstore_owned(),
-                    bstate,
+                    state_cid,
                 )?,
                 chain_config: self.chain_config().clone(),
                 chain_index: Arc::clone(&self.chain_store().chain_index),
                 timestamp: tipset.min_timestamp(),
             },
             &self.engine,
-            VMTrace::NotTraced,
+            VMTrace::Traced,
         )?;
 
-        if msg.gas_limit == 0 {
-            msg.gas_limit = 10000000000;
+        for m in prior_messsages {
+            vm.apply_message(m)?;
         }
 
-        let actor = self
-            .get_actor(&msg.from, *bstate)?
-            .ok_or_else(|| Error::Other("Could not get actor".to_string()))?;
-        msg.sequence = actor.sequence;
-        let apply_ret = vm.apply_implicit_message(msg)?;
-        trace!(
-            "gas limit {:},gas premium{:?},value {:?}",
-            msg.gas_limit,
-            msg.gas_premium,
-            msg.value
-        );
-        if let Some(err) = &apply_ret.failure_info() {
-            warn!("chain call failed: {:?}", err);
-        }
+        // We flush to get the VM's view of the state tree after applying the above messages
+        // This is needed to get the correct nonce from the actor state to match the VM
+        let state_cid = vm.flush()?;
 
-        Ok(InvocResult {
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+
+        let from_actor = state
+            .get_actor(&msg.from())?
+            .ok_or_else(|| anyhow::anyhow!("actor not found"))?;
+        msg.set_sequence(from_actor.sequence);
+
+        // If the fee cap is set to zero, make gas free
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+
+        // Implicit messages need to set a special gas limit
+        let mut msg = msg.clone();
+        msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
+
+        let apply_ret = vm.apply_implicit_message(&msg)?;
+
+        Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            error: apply_ret.failure_info(),
+            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            error: apply_ret.failure_info().unwrap_or_default(),
+            duration: 0,
+            gas_cost: MessageGasCost::default(),
+            execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
         })
     }
 
@@ -430,9 +474,9 @@ where
     /// changes.
     pub fn call(
         self: &Arc<Self>,
-        message: &mut Message,
+        message: &Message,
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<ApiInvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let chain_rand = self.chain_rand(Arc::clone(&ts));
         self.call_raw(message, chain_rand, &ts)
@@ -457,36 +501,40 @@ where
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
-        let mut vm = VM::new(
-            ExecutionContext {
-                heaviest_tipset: Arc::clone(&ts),
-                state_tree_root: st,
-                epoch,
-                rand: Box::new(chain_rand),
-                base_fee: ts.blocks()[0].parent_base_fee().clone(),
-                circ_supply: genesis_info.get_vm_circulating_supply(
+        // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+        // FVM, but that introduces some constraints, and possible deadlocks.
+        let ret = stacker::grow(64 << 20, || -> anyhow::Result<ApplyRet> {
+            let mut vm = VM::new(
+                ExecutionContext {
+                    heaviest_tipset: Arc::clone(&ts),
+                    state_tree_root: st,
                     epoch,
-                    &self.blockstore_owned(),
-                    &st,
-                )?,
-                chain_config: self.chain_config().clone(),
-                chain_index: Arc::clone(&self.chain_store().chain_index),
-                timestamp: ts.min_timestamp(),
-            },
-            &self.engine,
-            VMTrace::NotTraced,
-        )?;
+                    rand: Box::new(chain_rand),
+                    base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                    circ_supply: genesis_info.get_vm_circulating_supply(
+                        epoch,
+                        &self.blockstore_owned(),
+                        &st,
+                    )?,
+                    chain_config: self.chain_config().clone(),
+                    chain_index: Arc::clone(&self.chain_store().chain_index),
+                    timestamp: ts.min_timestamp(),
+                },
+                &self.engine,
+                VMTrace::NotTraced,
+            )?;
 
-        for msg in prior_messages {
-            vm.apply_message(msg)?;
-        }
-        let from_actor = vm
-            .get_actor(&message.from())
-            .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
-            .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
-        message.set_sequence(from_actor.sequence);
+            for msg in prior_messages {
+                vm.apply_message(msg)?;
+            }
+            let from_actor = vm
+                .get_actor(&message.from())
+                .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
+                .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+            message.set_sequence(from_actor.sequence);
 
-        let ret = vm.apply_message(message)?;
+            vm.apply_message(message)
+        })?;
 
         Ok(InvocResult {
             msg: message.message().clone(),
@@ -979,6 +1027,47 @@ where
         Ok(out)
     }
 
+    /// Retrieves miner info.
+    pub fn miner_info(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<MinerInfo, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        Ok(state.info(self.blockstore())?)
+    }
+    /// Retrieves miner faults.
+    pub fn miner_faults(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<BitField, Error> {
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        let mut faults = Vec::new();
+
+        state.for_each_deadline(
+            &self.chain_config.policy,
+            self.blockstore(),
+            |_, deadline| {
+                deadline.for_each(self.blockstore(), |_, partition| {
+                    faults.push(partition.faulty_sectors().clone());
+                    Ok(())
+                })
+            },
+        )?;
+
+        Ok(BitField::union(faults.iter()))
+    }
+
     /// Retrieves miner power.
     pub fn miner_power(
         self: &Arc<Self>,
@@ -1108,6 +1197,36 @@ where
             &self.engine,
             tipsets,
         )
+    }
+
+    pub async fn resolve_to_deterministic_address(
+        self: &Arc<Self>,
+        address: Address,
+        ts: Option<Arc<Tipset>>,
+    ) -> anyhow::Result<Address> {
+        use crate::shim::address::Protocol::*;
+        match address.protocol() {
+            BLS | Secp256k1 | Delegated => Ok(address),
+            Actor => anyhow::bail!("cannot resolve actor address to key address"),
+            _ => {
+                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
+                // First try to resolve the actor in the parent state, so we don't have to compute anything.
+                if let Ok(state) =
+                    StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
+                {
+                    if let Ok(address) = state
+                        .resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+                    {
+                        return Ok(address);
+                    }
+                }
+
+                // If that fails, compute the tip-set and try again.
+                let (state_root, _) = self.tipset_state(&ts).await?;
+                let state = StateTree::new_from_root(self.chain_store().db.clone(), &state_root)?;
+                state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
+            }
+        }
     }
 
     fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
@@ -1314,13 +1433,17 @@ where
         if epoch_i > parent_epoch {
             // step 2: running cron for any null-tipsets
             let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
-            let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
-            // run cron for null rounds if any
-            if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                error!("Beginning of epoch cron failed to run: {}", e);
-            }
 
-            parent_state = vm.flush()?;
+            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+            // FVM, but that introduces some constraints, and possible deadlocks.
+            parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
+                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
+                // run cron for null rounds if any
+                if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
+                    error!("Beginning of epoch cron failed to run: {}", e);
+                }
+                vm.flush()
+            })?;
         }
 
         // step 3: run migrations
@@ -1334,14 +1457,18 @@ where
     let block_messages = BlockMessages::for_tipset(&chain_index.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
-    let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
+    // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+    // FVM, but that introduces some constraints, and possible deadlocks.
+    stacker::grow(64 << 20, || -> anyhow::Result<(Cid, Cid)> {
+        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
-    // step 4: apply tipset messages
-    let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
+        // step 4: apply tipset messages
+        let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
-    // step 5: construct receipt root from receipts and flush the state-tree
-    let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
-    let state_root = vm.flush()?;
+        // step 5: construct receipt root from receipts and flush the state-tree
+        let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
+        let state_root = vm.flush()?;
 
-    Ok((state_root, receipt_root))
+        Ok((state_root, receipt_root))
+    })
 }
