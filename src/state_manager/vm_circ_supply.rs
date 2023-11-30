@@ -107,7 +107,25 @@ impl GenesisInfo {
         state_tree.for_each(|addr: Address, actor: &ActorState| {
             let actor_balance = TokenAmount::from(actor.balance.clone());
             if !actor_balance.is_zero() {
-                if is_account_actor(&actor.code)
+                if addr == Address::INIT_ACTOR
+                    || addr == Address::REWARD_ACTOR
+                    || addr == Address::VERIFIED_REGISTRY_ACTOR
+                    // The power actor itself should never receive funds
+                    || addr == Address::POWER_ACTOR
+                    || addr == Address::SYSTEM_ACTOR
+                    || addr == Address::CRON_ACTOR
+                    || addr == Address::BURNT_FUNDS_ACTOR
+                    // TODO: Saft address?
+                    || addr == Address::RESERVE_ACTOR
+                    || addr == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
+                {
+                    un_circ += actor_balance.clone();
+                } else if addr == Address::MARKET_ACTOR {
+                    let ms = market::State::load(&db, actor.code, actor.state)?;
+                    let locked_balance: TokenAmount = ms.total_locked().into();
+                    circ += actor_balance - &locked_balance.clone();
+                    un_circ += locked_balance;
+                } else if is_account_actor(&actor.code)
                     || is_paych_actor(&actor.code)
                     || is_eth_account_actor(&actor.code)
                     || is_evm_actor(&actor.code)
