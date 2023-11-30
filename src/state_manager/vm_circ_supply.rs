@@ -115,7 +115,7 @@ impl GenesisInfo {
                     || addr == Address::SYSTEM_ACTOR
                     || addr == Address::CRON_ACTOR
                     || addr == Address::BURNT_FUNDS_ACTOR
-                    // TODO: Saft address?
+                    || addr == Address::SAFT_ACTOR
                     || addr == Address::RESERVE_ACTOR
                     || addr == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
                 {
@@ -123,7 +123,7 @@ impl GenesisInfo {
                 } else if addr == Address::MARKET_ACTOR {
                     let ms = market::State::load(&db, actor.code, actor.state)?;
                     let locked_balance: TokenAmount = ms.total_locked().into();
-                    circ += actor_balance - &locked_balance.clone();
+                    circ += actor_balance - &locked_balance;
                     un_circ += locked_balance;
                 } else if is_account_actor(&actor.code)
                     || is_paych_actor(&actor.code)
@@ -150,7 +150,7 @@ impl GenesisInfo {
                     let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
                     let avail_balance = actor_balance.clone() - &locked_balance;
                     circ += avail_balance.max(TokenAmount::zero());
-                    un_circ += actor_balance.clone() - &locked_balance;
+                    un_circ += actor_balance.min(locked_balance);
                 }
             } else {
                 // Do nothing for zero-balance actors

@@ -8,9 +8,8 @@ use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{ApiActorState, MarketDeal, MessageLookup, RPCState};
-use crate::shim::econ::TokenAmount;
 use crate::shim::{
-    address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
+    address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
