@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3748](https://github.com/ChainSafe/forest/pull/3748) Add timing for each
+  message and gas charge in the JSON output of
+  `forest-tool snapshot compute-state` and `Filecoin.StateCall` RPC API.
 - [#3720](https://github.com/ChainSafe/forest/pull/3750) Implement the
   `Filecoin.StateMinerInfo` lotus-compatible RPC API.
 

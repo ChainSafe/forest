@@ -436,7 +436,12 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         &MultiEngine::default(),
         tipset,
         Some(|ctx: &MessageCallbackCtx| {
-            message_calls.push((ctx.message.clone(), ctx.apply_ret.clone(), ctx.at));
+            message_calls.push((
+                ctx.message.clone(),
+                ctx.apply_ret.clone(),
+                ctx.at,
+                ctx.duration,
+            ));
             anyhow::Ok(())
         }),
         match json {
@@ -465,16 +470,17 @@ mod structured {
         message::{ChainMessage, Message as _},
         shim::executor::ApplyRet,
     };
+    use std::time::Duration;
 
     pub fn json(
         state_root: Cid,
-        contexts: Vec<(ChainMessage, ApplyRet, CalledAt)>,
+        contexts: Vec<(ChainMessage, ApplyRet, CalledAt, Duration)>,
     ) -> anyhow::Result<serde_json::Value> {
         Ok(json!({
         "Root": LotusJson(state_root),
         "Trace": contexts
             .into_iter()
-            .map(|(message, apply_ret, called_at)| call_json(message, apply_ret, called_at))
+            .map(|(message, apply_ret, called_at, duration)| call_json(message, apply_ret, called_at, duration))
             .collect::<Result<Vec<_>, _>>()?
         }))
     }
@@ -483,6 +489,7 @@ mod structured {
         chain_message: ChainMessage,
         apply_ret: ApplyRet,
         called_at: CalledAt,
+        duration: Duration,
     ) -> anyhow::Result<serde_json::Value> {
         use crate::lotus_json::Stringify;
 
@@ -507,8 +514,7 @@ mod structured {
                 "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
             },
             "ExecutionTrace": LotusJson(structured::parse_events(apply_ret.exec_trace())?),
-            // Only include timing fields for an easier diff with lotus
-            "Duration": null,
+            "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
         }))
     }
 }
