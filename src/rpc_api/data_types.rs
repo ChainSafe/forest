@@ -764,7 +764,7 @@ impl PartialEq for GasTrace {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct CirculatingSupply {
     #[serde(with = "crate::lotus_json")]

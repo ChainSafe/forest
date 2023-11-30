@@ -45,7 +45,7 @@ pub(in crate::state_manager) struct GenesisInfo {
 
     /// Heights epoch
     ignition_height: ChainEpoch,
-    actors_v2_height: ChainEpoch,
+    pub actors_v2_height: ChainEpoch,
     calico_height: ChainEpoch,
 }
 
@@ -118,7 +118,7 @@ fn get_actor_state<DB: Blockstore>(
         .with_context(|| format!("Failed to get Actor for address {addr}"))
 }
 
-fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
+pub fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount {
     let mut return_value = TokenAmount::default();
 
     let pre_ignition = &genesis_info.vesting.genesis;
@@ -149,7 +149,9 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     return_value
 }
 
-fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+pub fn get_fil_mined<DB: Blockstore>(
+    state_tree: &StateTree<DB>,
+) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
         .get_actor(&Address::REWARD_ACTOR)?
         .context("Reward actor address could not be resolved")?;
@@ -158,7 +160,7 @@ fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmou
     Ok(state.into_total_storage_power_reward().into())
 }
 
-fn get_fil_market_locked<DB: Blockstore>(
+pub fn get_fil_market_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
@@ -169,7 +171,7 @@ fn get_fil_market_locked<DB: Blockstore>(
     Ok(state.total_locked().into())
 }
 
-fn get_fil_power_locked<DB: Blockstore>(
+pub fn get_fil_power_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let actor = state_tree
@@ -180,7 +182,7 @@ fn get_fil_power_locked<DB: Blockstore>(
     Ok(state.into_total_locked().into())
 }
 
-fn get_fil_reserve_disbursed<DB: Blockstore>(
+pub fn get_fil_reserve_disbursed<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let fil_reserved: TokenAmount = TokenAmount::from_whole(300_000_000);
@@ -190,7 +192,7 @@ fn get_fil_reserve_disbursed<DB: Blockstore>(
     Ok(TokenAmount::from(&*fil_reserved - &reserve_actor.balance))
 }
 
-fn get_fil_locked<DB: Blockstore>(
+pub fn get_fil_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
 ) -> Result<TokenAmount, anyhow::Error> {
     let market_locked = get_fil_market_locked(state_tree)?;
@@ -198,7 +200,9 @@ fn get_fil_locked<DB: Blockstore>(
     Ok(power_locked + market_locked)
 }
 
-fn get_fil_burnt<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
+pub fn get_fil_burnt<DB: Blockstore>(
+    state_tree: &StateTree<DB>,
+) -> Result<TokenAmount, anyhow::Error> {
     let burnt_actor = get_actor_state(state_tree, &Address::BURNT_FUNDS_ACTOR)?;
 
     Ok(TokenAmount::from(&burnt_actor.balance))

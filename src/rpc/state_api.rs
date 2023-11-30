@@ -12,7 +12,7 @@ use crate::rpc_api::data_types::{
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
-    state_tree::ActorState, version::NetworkVersion,
+    state_tree::ActorState, state_tree::StateTree, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::{InvocResult, MarketBalance};
@@ -593,5 +593,13 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
     data: Data<RPCState<DB>>,
     Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
 ) -> Result<LotusJson<CirculatingSupply>, JsonRpcError> {
-    todo!()
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    let state_tree =
+        StateTree::new_from_root(data.state_manager.blockstore_owned(), ts.parent_state())?;
+
+    Ok(LotusJson(
+        data.state_manager
+            .get_vm_circulating_supply_detailed(ts.epoch(), &state_tree)?,
+    ))
 }
