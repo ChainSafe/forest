@@ -36,6 +36,7 @@ use fil_actor_interface::{
     power::Claim,
 };
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
@@ -626,6 +627,16 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
 
 lotus_json_with_self!(SectorOnChainInfo);
 
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDeadline {
+    #[serde(with = "crate::lotus_json")]
+    pub post_submissions: BitField,
+    #[serde(with = "crate::lotus_json")]
+    pub disputable_proof_count: u64,
+}
+
+lotus_json_with_self!(ApiDeadline);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {

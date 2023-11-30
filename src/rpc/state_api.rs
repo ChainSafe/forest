@@ -7,7 +7,8 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiInvocResult, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
+    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
+    SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
@@ -242,6 +243,29 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
         .miner_power(&address, &tipset)
         .map(|res| res.into())
         .map_err(|e| e.into())
+}
+
+pub(in crate::rpc) async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<ApiDeadline>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let store = data.state_manager.blockstore();
+    let state = miner::State::load(store, actor.code, actor.state)?;
+    let mut res = Vec::new();
+    state.for_each_deadline(policy, store, |_idx, deadline| {
+        res.push(ApiDeadline {
+            post_submissions: deadline.partitions_posted(),
+            disputable_proof_count: deadline.disputable_proof_count(store)?,
+        });
+        Ok(())
+    })?;
+    Ok(LotusJson(res))
 }
 
 /// looks up the miner power of the given address.

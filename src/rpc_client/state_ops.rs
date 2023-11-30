@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, ApiInvocResult, MessageLookup, SectorOnChainInfo},
+        data_types::{
+            ApiActorState, ApiDeadline, ApiInvocResult, MessageLookup, SectorOnChainInfo,
+        },
         state_api::*,
     },
     shim::{
@@ -72,6 +74,13 @@ impl ApiInfo {
 
     pub fn state_miner_power_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
         RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
+    }
+
+    pub fn state_miner_deadlines_req(
+        miner: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Vec<ApiDeadline>> {
+        RpcRequest::new(STATE_MINER_DEADLINES, (miner, tsk))
     }
 
     pub fn state_get_randomness_from_tickets_req(
