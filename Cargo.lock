@@ -2140,9 +2140,9 @@ dependencies = [
 
 [[package]]
 name = "deprecate-until"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ec2e2a2d0c79afd023be50309ecf010f20bf4a2761f15e264f4ac9516aff58b"
+checksum = "7a3767f826efbbe5a5ae093920b58b43b01734202be697e1354914e862e8e704"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6414,9 +6414,9 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pathfinding"
-version = "4.3.3"
+version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a373a9925b8361b790cf53bc286dbc87736335427537ff438f53445eb41a526d"
+checksum = "752866d4511516a35883728309499db42696f388263586b70659a5461e641db5"
 dependencies = [
  "deprecate-until",
  "fixedbitset",
