@@ -107,50 +107,56 @@ impl GenesisInfo {
         state_tree.for_each(|addr: Address, actor: &ActorState| {
             let actor_balance = TokenAmount::from(actor.balance.clone());
             if !actor_balance.is_zero() {
-                if addr == Address::INIT_ACTOR
-                    || addr == Address::REWARD_ACTOR
-                    || addr == Address::VERIFIED_REGISTRY_ACTOR
+                match addr {
+                    Address::INIT_ACTOR
+                    | Address::REWARD_ACTOR
+                    | Address::VERIFIED_REGISTRY_ACTOR
                     // The power actor itself should never receive funds
-                    || addr == Address::POWER_ACTOR
-                    || addr == Address::SYSTEM_ACTOR
-                    || addr == Address::CRON_ACTOR
-                    || addr == Address::BURNT_FUNDS_ACTOR
-                    || addr == Address::SAFT_ACTOR
-                    || addr == Address::RESERVE_ACTOR
-                    || addr == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
-                {
-                    un_circ += actor_balance;
-                } else if addr == Address::MARKET_ACTOR {
-                    let ms = market::State::load(&db, actor.code, actor.state)?;
-                    let locked_balance: TokenAmount = ms.total_locked().into();
-                    circ += actor_balance - &locked_balance;
-                    un_circ += locked_balance;
-                } else if is_account_actor(&actor.code)
+                    | Address::POWER_ACTOR
+                    | Address::SYSTEM_ACTOR
+                    | Address::CRON_ACTOR
+                    | Address::BURNT_FUNDS_ACTOR
+                    | Address::SAFT_ACTOR
+                    | Address::RESERVE_ACTOR
+                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR => {
+                        un_circ += actor_balance;
+                    }
+                    Address::MARKET_ACTOR => {
+                        let ms = market::State::load(&db, actor.code, actor.state)?;
+
+                        let locked_balance: TokenAmount = ms.total_locked().into();
+                        circ += actor_balance - &locked_balance;
+                        un_circ += locked_balance;
+                    }
+                    _ if is_account_actor(&actor.code)
                     || is_paych_actor(&actor.code)
                     || is_eth_account_actor(&actor.code)
                     || is_evm_actor(&actor.code)
-                    || is_placeholder_actor(&actor.code)
-                {
-                    circ += actor_balance;
-                } else if is_miner_actor(&actor.code) {
-                    let ms = miner::State::load(&db, actor.code, actor.state)?;
+                    || is_placeholder_actor(&actor.code) => {
+                        circ += actor_balance;
+                    },
+                    _ if is_miner_actor(&actor.code) => {
+                        let ms = miner::State::load(&db, actor.code, actor.state)?;
 
-                    if let Ok(avail_balance) = ms.available_balance(actor.balance.atto()) {
-                        let avail_balance = TokenAmount::from(avail_balance);
-                        circ += avail_balance.clone();
-                        un_circ += actor_balance.clone() - &avail_balance;
-                    } else {
-                        // Assume any error is because the miner state is "broken" (lower actor balance than locked funds)
-                        // In this case, the actor's entire balance is considered "uncirculating"
-                        un_circ += actor_balance;
+                        if let Ok(avail_balance) = ms.available_balance(actor.balance.atto()) {
+                            let avail_balance = TokenAmount::from(avail_balance);
+                            circ += avail_balance.clone();
+                            un_circ += actor_balance.clone() - &avail_balance;
+                        } else {
+                            // Assume any error is because the miner state is "broken" (lower actor balance than locked funds)
+                            // In this case, the actor's entire balance is considered "uncirculating"
+                            un_circ += actor_balance;
+                        }
                     }
-                } else if is_multisig_actor(&actor.code) {
-                    let ms = multisig::State::load(&db, actor.code, actor.state)?;
+                    _ if is_multisig_actor(&actor.code) => {
+                        let ms = multisig::State::load(&db, actor.code, actor.state)?;
 
-                    let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
-                    let avail_balance = actor_balance.clone() - &locked_balance;
-                    circ += avail_balance.max(TokenAmount::zero());
-                    un_circ += actor_balance.min(locked_balance);
+                        let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
+                        let avail_balance = actor_balance.clone() - &locked_balance;
+                        circ += avail_balance.max(TokenAmount::zero());
+                        un_circ += actor_balance.min(locked_balance);
+                    }
+                    _ => bail!("unexpected actor: {:?}", actor),
                 }
             } else {
                 // Do nothing for zero-balance actors
