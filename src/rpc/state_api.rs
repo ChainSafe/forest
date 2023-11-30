@@ -7,8 +7,8 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
-    SectorOnChainInfo,
+    ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageLookup,
+    RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
@@ -585,4 +585,13 @@ pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync +
             .map(SectorOnChainInfo::from)
             .ok_or(format!("Info for sector number {sector_no} not found"))?,
     ))
+}
+
+pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
+    DB: Blockstore + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<CirculatingSupply>, JsonRpcError> {
+    todo!()
 }
