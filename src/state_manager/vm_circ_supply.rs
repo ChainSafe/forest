@@ -14,9 +14,10 @@ use crate::shim::{
 use anyhow::Context as _;
 use cid::Cid;
 use fil_actor_interface::{
-    is_account_actor, is_eth_account_actor, is_evm_actor, is_paych_actor, is_placeholder_actor,
+    is_account_actor, is_eth_account_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
+    is_paych_actor, is_placeholder_actor,
 };
-use fil_actor_interface::{market, power, reward};
+use fil_actor_interface::{market, miner, multisig, power, reward};
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
 
@@ -104,21 +105,35 @@ impl GenesisInfo {
         let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
 
         state_tree.for_each(|addr: Address, actor: &ActorState| {
-            if !actor.balance.is_zero() {
+            let actor_balance = TokenAmount::from(actor.balance.clone());
+            if !actor_balance.is_zero() {
                 if is_account_actor(&actor.code)
                     || is_paych_actor(&actor.code)
                     || is_eth_account_actor(&actor.code)
                     || is_evm_actor(&actor.code)
                     || is_placeholder_actor(&actor.code)
                 {
-                    circ += actor.balance.clone().into();
-                } else {
-                    // TODO:
-                    // storage
-                    // multisig
-                    // default
+                    circ += actor_balance.clone();
+                } else if is_miner_actor(&actor.code) {
+                    let ms = miner::State::load(&db, actor.code, actor.state)?;
+
+                    if let Ok(avail_balance) = ms.available_balance(actor.balance.atto()) {
+                        let avail_balance = TokenAmount::from(avail_balance);
+                        circ += avail_balance.clone();
+                        un_circ += actor_balance.clone() - &avail_balance;
+                    } else {
+                        // Assume any error is because the miner state is "broken" (lower actor balance than locked funds)
+                        // In this case, the actor's entire balance is considered "uncirculating"
+                        un_circ += actor_balance.clone();
+                    }
+                } else if is_multisig_actor(&actor.code) {
+                    let ms = multisig::State::load(&db, actor.code, actor.state)?;
+
+                    let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
+                    let avail_balance = actor_balance.clone() - &locked_balance;
+                    circ += avail_balance.max(TokenAmount::zero());
+                    un_circ += actor_balance.clone() - &locked_balance;
                 }
-                //
             } else {
                 // Do nothing for zero-balance actors
                 ()
