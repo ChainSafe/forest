@@ -4,11 +4,11 @@
 
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
-use crate::ipld::json::IpldJson;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiInvocResult, MarketDeal, MessageLookup, RPCState, SectorOnChainInfo,
+    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
+    SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
@@ -245,6 +245,29 @@ pub(in crate::rpc) async fn state_miner_power<DB: Blockstore + Send + Sync + 'st
         .map_err(|e| e.into())
 }
 
+pub(in crate::rpc) async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<ApiDeadline>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let store = data.state_manager.blockstore();
+    let state = miner::State::load(store, actor.code, actor.state)?;
+    let mut res = Vec::new();
+    state.for_each_deadline(policy, store, |_idx, deadline| {
+        res.push(ApiDeadline {
+            post_submissions: deadline.partitions_posted(),
+            disputable_proof_count: deadline.disputable_proof_count(store)?,
+        });
+        Ok(())
+    })?;
+    Ok(LotusJson(res))
+}
+
 /// looks up the miner power of the given address.
 pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
@@ -296,7 +319,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: cid,
-        return_dec: IpldJson(ipld),
+        return_dec: ipld,
     })
 }
 
@@ -471,6 +494,31 @@ pub(in crate::rpc) async fn state_fetch_root<DB: Blockstore + Sync + Send + 'sta
 // inlined, the mutex guard isn't dropped early enough.
 fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
     mutex.lock().pop()
+}
+
+/// Get randomness from tickets
+pub(in crate::rpc) async fn state_get_randomness_from_tickets<
+    DB: Blockstore + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
+        LotusJson<RandomnessParams>,
+    >,
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let tipset = state_manager.chain_store().load_required_tipset(&tsk)?;
+    let chain_config = state_manager.chain_config();
+    let chain_index = &data.chain_store.chain_index;
+    let beacon = state_manager.beacon_schedule();
+    let chain_rand = ChainRand::new(chain_config.clone(), tipset, chain_index.clone(), beacon);
+    let digest = chain_rand.get_chain_randomness(rand_epoch, false)?;
+    let value = crate::state_manager::chain_rand::draw_randomness_from_digest(
+        &digest,
+        personalization,
+        rand_epoch,
+        &entropy,
+    )?;
+    Ok(LotusJson(value.to_vec()))
 }
 
 /// Get randomness from beacon

@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, ApiInvocResult, SectorOnChainInfo},
+        data_types::{
+            ApiActorState, ApiDeadline, ApiInvocResult, MessageLookup, SectorOnChainInfo,
+        },
         state_api::*,
     },
     shim::{
@@ -74,6 +76,25 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
     }
 
+    pub fn state_miner_deadlines_req(
+        miner: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Vec<ApiDeadline>> {
+        RpcRequest::new(STATE_MINER_DEADLINES, (miner, tsk))
+    }
+
+    pub fn state_get_randomness_from_tickets_req(
+        tsk: TipsetKeys,
+        personalization: DomainSeparationTag,
+        rand_epoch: ChainEpoch,
+        entropy: Vec<u8>,
+    ) -> RpcRequest<Vec<u8>> {
+        RpcRequest::new(
+            STATE_GET_RANDOMNESS_FROM_TICKETS,
+            (personalization as i64, rand_epoch, entropy, tsk),
+        )
+    }
+
     pub fn state_get_randomness_from_beacon_req(
         tsk: TipsetKeys,
         personalization: DomainSeparationTag,
@@ -128,5 +149,21 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<SectorOnChainInfo> {
         RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
+    }
+
+    // FIXME: StateWaitMsg API gets stuck in forest
+    // pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
+    //     RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence))
+    // }
+
+    pub fn state_search_msg_req(msg_cid: Cid) -> RpcRequest<Option<MessageLookup>> {
+        RpcRequest::new(STATE_SEARCH_MSG, (msg_cid,))
+    }
+
+    pub fn state_search_msg_limited_req(
+        msg_cid: Cid,
+        limit_epoch: i64,
+    ) -> RpcRequest<Option<MessageLookup>> {
+        RpcRequest::new(STATE_SEARCH_MSG_LIMITED, (msg_cid, limit_epoch))
     }
 }

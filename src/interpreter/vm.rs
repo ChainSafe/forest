@@ -73,7 +73,7 @@ type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
 type ForestExecutorV4<DB> = DefaultExecutor_v4<ForestKernelV4<DB>>;
 
-type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
+pub type ApplyResult = anyhow::Result<(ApplyRet, Duration)>;
 
 /// Comes from <https://github.com/filecoin-project/lotus/blob/v1.23.2/chain/vm/fvm.go#L473>
 pub const IMPLICIT_MESSAGE_GAS_LIMIT: i64 = i64::MAX / 2;

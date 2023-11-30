@@ -21,7 +21,8 @@ use crate::chain::{
     ChainStore, HeadChange,
 };
 use crate::interpreter::{
-    resolve_to_key_addr, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
+    IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -501,36 +502,41 @@ where
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
-        let mut vm = VM::new(
-            ExecutionContext {
-                heaviest_tipset: Arc::clone(&ts),
-                state_tree_root: st,
-                epoch,
-                rand: Box::new(chain_rand),
-                base_fee: ts.blocks()[0].parent_base_fee().clone(),
-                circ_supply: genesis_info.get_circulating_supply(
+
+        // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+        // FVM, but that introduces some constraints, and possible deadlocks.
+        let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
+            let mut vm = VM::new(
+                ExecutionContext {
+                    heaviest_tipset: Arc::clone(&ts),
+                    state_tree_root: st,
                     epoch,
-                    &self.blockstore_owned(),
-                    &st,
-                )?,
-                chain_config: self.chain_config().clone(),
-                chain_index: Arc::clone(&self.chain_store().chain_index),
-                timestamp: ts.min_timestamp(),
-            },
-            &self.engine,
-            VMTrace::NotTraced,
-        )?;
+                    rand: Box::new(chain_rand),
+                    base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                    circ_supply: genesis_info.get_circulating_supply(
+                        epoch,
+                        &self.blockstore_owned(),
+                        &st,
+                    )?,
+                    chain_config: self.chain_config().clone(),
+                    chain_index: Arc::clone(&self.chain_store().chain_index),
+                    timestamp: ts.min_timestamp(),
+                },
+                &self.engine,
+                VMTrace::NotTraced,
+            )?;
 
-        for msg in prior_messages {
-            vm.apply_message(msg)?;
-        }
-        let from_actor = vm
-            .get_actor(&message.from())
-            .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
-            .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
-        message.set_sequence(from_actor.sequence);
+            for msg in prior_messages {
+                vm.apply_message(msg)?;
+            }
+            let from_actor = vm
+                .get_actor(&message.from())
+                .map_err(|e| Error::Other(format!("Could not get actor from state: {e}")))?
+                .ok_or_else(|| Error::Other("cant find actor in state tree".to_string()))?;
+            message.set_sequence(from_actor.sequence);
 
-        let (ret, _) = vm.apply_message(message)?;
+            vm.apply_message(message)
+        })?;
 
         Ok(InvocResult {
             msg: message.message().clone(),
@@ -1429,13 +1435,17 @@ where
         if epoch_i > parent_epoch {
             // step 2: running cron for any null-tipsets
             let timestamp = genesis_timestamp + ((EPOCH_DURATION_SECONDS * epoch_i) as u64);
-            let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
-            // run cron for null rounds if any
-            if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                error!("Beginning of epoch cron failed to run: {}", e);
-            }
 
-            parent_state = vm.flush()?;
+            // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+            // FVM, but that introduces some constraints, and possible deadlocks.
+            parent_state = stacker::grow(64 << 20, || -> anyhow::Result<Cid> {
+                let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
+                // run cron for null rounds if any
+                if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
+                    error!("Beginning of epoch cron failed to run: {}", e);
+                }
+                vm.flush()
+            })?;
         }
 
         // step 3: run migrations
@@ -1449,14 +1459,18 @@ where
     let block_messages = BlockMessages::for_tipset(&chain_index.db, &tipset)
         .map_err(|e| Error::Other(e.to_string()))?;
 
-    let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
+    // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
+    // FVM, but that introduces some constraints, and possible deadlocks.
+    stacker::grow(64 << 20, || -> anyhow::Result<(Cid, Cid)> {
+        let mut vm = create_vm(parent_state, epoch, tipset.min_timestamp())?;
 
-    // step 4: apply tipset messages
-    let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
+        // step 4: apply tipset messages
+        let receipts = vm.apply_block_messages(&block_messages, epoch, callback)?;
 
-    // step 5: construct receipt root from receipts and flush the state-tree
-    let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
-    let state_root = vm.flush()?;
+        // step 5: construct receipt root from receipts and flush the state-tree
+        let receipt_root = Amt::new_from_iter(&chain_index.db, receipts)?;
+        let state_root = vm.flush()?;
 
-    Ok((state_root, receipt_root))
+        Ok((state_root, receipt_root))
+    })
 }

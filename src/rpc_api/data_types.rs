@@ -8,7 +8,6 @@ use crate::beacon::BeaconSchedule;
 use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
-use crate::ipld::json::IpldJson;
 use crate::key_management::KeyStore;
 pub use crate::libp2p::{Multiaddr, Protocol};
 use crate::libp2p::{Multihash, NetworkMessage};
@@ -37,6 +36,7 @@ use fil_actor_interface::{
     power::Claim,
 };
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
@@ -106,7 +106,7 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
     #[serde(with = "crate::lotus_json")]
@@ -116,8 +116,11 @@ pub struct MessageLookup {
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
-    pub return_dec: IpldJson,
+    #[serde(with = "crate::lotus_json")]
+    pub return_dec: Ipld,
 }
+
+lotus_json_with_self!(MessageLookup);
 
 // Net API
 #[derive(Serialize, Deserialize)]
@@ -624,6 +627,16 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
 
 lotus_json_with_self!(SectorOnChainInfo);
 
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDeadline {
+    #[serde(with = "crate::lotus_json")]
+    pub post_submissions: BitField,
+    #[serde(with = "crate::lotus_json")]
+    pub disputable_proof_count: u64,
+}
+
+lotus_json_with_self!(ApiDeadline);
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
