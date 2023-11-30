@@ -92,6 +92,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
     access.insert(state_api::STATE_LOOKUP_ID, Access::Read);
     access.insert(state_api::STATE_FETCH_ROOT, Access::Read);
+    access.insert(state_api::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(state_api::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
     access.insert(state_api::STATE_READ_STATE, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
@@ -245,6 +246,7 @@ pub mod state_api {
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
+    pub const STATE_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.StateGetRandomnessFromTickets";
     pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
     pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
     pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
@@ -253,6 +255,8 @@ pub mod state_api {
     pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
     pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
+    pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
+    pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 }
 
 /// Gas API

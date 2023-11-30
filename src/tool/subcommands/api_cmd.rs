@@ -258,6 +258,12 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::SYSTEM_ACTOR,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
+            shared_tipset.key().clone(),
+            DomainSeparationTag::ElectionProofProduction,
+            shared_tipset.epoch(),
+            "dead beef".as_bytes().to_vec(),
+        )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
             shared_tipset.key().clone(),
             DomainSeparationTag::ElectionProofProduction,
@@ -325,6 +331,7 @@ fn wallet_tests() -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
+    let shared_tipset_epoch = shared_tipset.epoch();
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
@@ -364,6 +371,16 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
+                    // FIXME: StateWaitMsg API gets stuck in forest
+                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    //     msg.cid()?,
+                    //     0,
+                    // )));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        msg.cid()?,
+                        shared_tipset_epoch - n_tipsets as i64,
+                    )));
                 }
             }
             for msg in secp_messages {
@@ -382,6 +399,16 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                         msg.from(),
                         root_tsk.clone(),
+                    )));
+                    // FIXME: StateWaitMsg API gets stuck in forest
+                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    //     msg.cid()?,
+                    //     0,
+                    // )));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
+                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        msg.cid()?,
+                        shared_tipset_epoch - n_tipsets as i64,
                     )));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
