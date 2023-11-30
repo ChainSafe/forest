@@ -119,7 +119,7 @@ impl GenesisInfo {
                     || addr == Address::RESERVE_ACTOR
                     || addr == Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR
                 {
-                    un_circ += actor_balance.clone();
+                    un_circ += actor_balance;
                 } else if addr == Address::MARKET_ACTOR {
                     let ms = market::State::load(&db, actor.code, actor.state)?;
                     let locked_balance: TokenAmount = ms.total_locked().into();
@@ -131,7 +131,7 @@ impl GenesisInfo {
                     || is_evm_actor(&actor.code)
                     || is_placeholder_actor(&actor.code)
                 {
-                    circ += actor_balance.clone();
+                    circ += actor_balance;
                 } else if is_miner_actor(&actor.code) {
                     let ms = miner::State::load(&db, actor.code, actor.state)?;
 
@@ -142,7 +142,7 @@ impl GenesisInfo {
                     } else {
                         // Assume any error is because the miner state is "broken" (lower actor balance than locked funds)
                         // In this case, the actor's entire balance is considered "uncirculating"
-                        un_circ += actor_balance.clone();
+                        un_circ += actor_balance;
                     }
                 } else if is_multisig_actor(&actor.code) {
                     let ms = multisig::State::load(&db, actor.code, actor.state)?;
