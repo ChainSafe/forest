@@ -8,10 +8,10 @@ use crate::networks::{ChainConfig, Height};
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
-    econ::TokenAmount,
+    econ::{TokenAmount, TOTAL_FILECOIN},
     state_tree::{ActorState, StateTree},
 };
-use anyhow::Context as _;
+use anyhow::{bail, Context as _};
 use cid::Cid;
 use fil_actor_interface::{
     is_account_actor, is_eth_account_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
@@ -154,10 +154,18 @@ impl GenesisInfo {
                 }
             } else {
                 // Do nothing for zero-balance actors
-                ()
             }
             Ok(())
         })?;
+
+        let total = circ.clone() + un_circ;
+        if total != *TOTAL_FILECOIN {
+            bail!(
+                "total filecoin didn't add to expected amount: {} != {}",
+                total,
+                *TOTAL_FILECOIN
+            );
+        }
 
         Ok(circ)
     }
