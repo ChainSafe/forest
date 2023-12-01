@@ -162,8 +162,8 @@ impl Version {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiMessage {
-    cid: Cid,
-    message: Message,
+    pub cid: Cid,
+    pub message: Message,
 }
 
 impl ApiMessage {
@@ -401,8 +401,11 @@ impl HasLotusJson for PendingBeneficiaryChange {
 #[serde(rename_all = "PascalCase")]
 pub struct ApiReceipt {
     pub exit_code: ExitCode,
+    #[serde(rename = "Return")]
+    #[serde(with = "crate::lotus_json")]
     pub return_data: RawBytes,
     pub gas_used: u64,
+    #[serde(with = "crate::lotus_json")]
     pub events_root: Option<Cid>,
 }
 
