@@ -36,10 +36,10 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use crate::state_manager::vm_circ_supply::GenesisInfo;
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
+use vm_circ_supply::GenesisInfo;
 
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower};

@@ -12,7 +12,7 @@ use crate::rpc_api::data_types::{
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
-    state_tree::ActorState, state_tree::StateTree, version::NetworkVersion,
+    state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::vm_circ_supply::GenesisInfo;
