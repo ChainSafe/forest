@@ -9,15 +9,17 @@ use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
-use crate::rpc_api::data_types::ApiMessage;
+use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
     data_types::{BlockMessages, RPCState},
 };
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
@@ -56,6 +58,28 @@ pub(in crate::rpc) async fn chain_get_parent_message<DB: Blockstore>(
         let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
         Ok(LotusJson(messages))
     }
+}
+
+pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((block_cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
+    let store = data.state_manager.blockstore();
+    let block_header: BlockHeader = store
+        .get_cbor(&block_cid)?
+        .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
+    let amt = Amt::<Receipt, _>::load(block_header.message_receipts(), store)?;
+    let mut receipts = Vec::new();
+    amt.for_each(|_, r| {
+        receipts.push(ApiReceipt {
+            exit_code: r.exit_code().into(),
+            return_data: r.return_data(),
+            gas_used: r.gas_used(),
+            events_root: r.events_root(),
+        });
+        Ok(())
+    })?;
+    Ok(LotusJson(receipts))
 }
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(

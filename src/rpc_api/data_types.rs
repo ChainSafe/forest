@@ -397,6 +397,16 @@ impl HasLotusJson for PendingBeneficiaryChange {
         }
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiReceipt {
+    pub exit_code: ExitCode,
+    pub return_data: RawBytes,
+    pub gas_used: u64,
+    pub events_root: Option<Cid>,
+}
+
+lotus_json_with_self!(ApiReceipt);
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

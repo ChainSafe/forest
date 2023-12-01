@@ -348,6 +348,9 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
                 *block.cid(),
             )));
+            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_receipt_req(
+                *block.cid(),
+            )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 *block.miner_address(),
                 root_tsk.clone(),

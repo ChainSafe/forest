@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::data_types::ApiMessage;
+use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::shim::message::Message;
 use crate::{
     blocks::{BlockHeader, Tipset, TipsetKeys},
@@ -123,5 +123,9 @@ impl ApiInfo {
 
     pub fn chain_get_parent_messages_req(block_cid: Cid) -> RpcRequest<Vec<ApiMessage>> {
         RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
+    }
+
+    pub fn chain_get_parent_receipt_req(block_cid: Cid) -> RpcRequest<Vec<ApiReceipt>> {
+        RpcRequest::new(CHAIN_GET_PARENT_RECEIPTS, (block_cid,))
     }
 }
