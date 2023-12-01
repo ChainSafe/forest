@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::fmt::{Debug, Display};
 
-pub use super::fvm_latest::gas::{Gas as Gas_latest, GasCharge as GasCharge_latest};
+pub use super::fvm_latest::gas::{
+    Gas as Gas_latest, GasCharge as GasCharge_latest, GasDuration as GasDuration_latest,
+};
 use fvm2::gas::{
     price_list_by_network_version as price_list_by_network_version_v2, Gas as GasV2,
     GasCharge as GasChargeV2, PriceList as PriceListV2,
@@ -21,6 +23,9 @@ use crate::shim::version::NetworkVersion;
 
 #[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Copy, Clone, Default)]
 pub struct Gas(Gas_latest);
+
+#[derive(Clone, Default)]
+pub struct GasDuration(GasDuration_latest);
 
 impl Debug for Gas {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -55,6 +60,16 @@ impl Gas {
 
     pub fn round_up(&self) -> u64 {
         self.0.round_up()
+    }
+}
+
+impl GasDuration {
+    pub fn as_nanos(&self) -> u64 {
+        if let Some(duration) = self.0.get() {
+            duration.as_nanos().clamp(0, u64::MAX as u128) as u64
+        } else {
+            0
+        }
     }
 }
 
@@ -111,6 +126,9 @@ impl GasCharge {
     }
     pub fn other_gas(&self) -> Gas {
         self.0.other_gas.into()
+    }
+    pub fn elapsed(&self) -> GasDuration {
+        self.0.elapsed.clone().into()
     }
 }
 
@@ -169,6 +187,12 @@ impl From<GasCharge> for GasChargeV3 {
 impl From<GasCharge> for GasChargeV4 {
     fn from(value: GasCharge) -> Self {
         value.0
+    }
+}
+
+impl From<GasDurationV4> for GasDuration {
+    fn from(value: GasDurationV4) -> Self {
+        GasDuration(value)
     }
 }
 
