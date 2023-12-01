@@ -52,8 +52,6 @@ Forest.
 Forest does not yet support mining and none of the mining-related RPC calls will
 be implemented in the foreseeable future.
 
-Forest does not support any v1 methods yets.
-
 ## Gateway
 
 The `lotus-gateway` executable is a reverse-proxy that sanitizes RPC calls
