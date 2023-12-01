@@ -41,7 +41,7 @@ use chain_rand::ChainRand;
 use cid::Cid;
 
 use fil_actor_interface::miner::SectorOnChainInfo;
-use fil_actor_interface::miner::{MinerInfo, MinerPower};
+use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -1048,26 +1048,7 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> Result<BitField, Error> {
-        let actor = self
-            .get_actor(addr, *ts.parent_state())?
-            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
-
-        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
-
-        let mut faults = Vec::new();
-
-        state.for_each_deadline(
-            &self.chain_config.policy,
-            self.blockstore(),
-            |_, deadline| {
-                deadline.for_each(self.blockstore(), |_, partition| {
-                    faults.push(partition.faulty_sectors().clone());
-                    Ok(())
-                })
-            },
-        )?;
-
-        Ok(BitField::union(faults.iter()))
+        self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
     /// Retrieves miner recoveries.
     pub fn miner_recoveries(
@@ -1075,7 +1056,16 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> Result<BitField, Error> {
-        // TODO: avoid code duplication
+        // TODO: replace with `recovering_sectors()` once `fil-actor-states` v10 is here
+        self.all_partition_sectors(addr, ts, |partition| partition.live_sectors())
+    }
+
+    fn all_partition_sectors(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+        get_sector: impl Fn(Partition<'_>) -> BitField,
+    ) -> Result<BitField, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
@@ -1089,8 +1079,7 @@ where
             self.blockstore(),
             |_, deadline| {
                 deadline.for_each(self.blockstore(), |_, partition| {
-                    // TODO: replace with `recovering_sectors()`
-                    partitions.push(partition.live_sectors().clone());
+                    partitions.push(get_sector(partition));
                     Ok(())
                 })
             },
