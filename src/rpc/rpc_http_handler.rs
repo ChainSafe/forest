@@ -10,6 +10,12 @@ use crate::rpc::rpc_util::{
     call_rpc_str, check_permissions, get_auth_header, is_streaming_method, is_v1_method,
 };
 
+// Lotus exposes two versions of its RPC API: v0 and v1. Version 0 is almost a
+// subset of version 1 (some methods such as `BeaconGetEntry` are only in v0 and
+// not in v1). Forest deviates from Lotus in this regard and our v1 API is
+// strictly a superset of the v0 API.
+//
+// This HTTP handler rejects RPC calls if they're not v0 methods.
 pub async fn rpc_v0_http_handler(
     headers: HeaderMap,
     rpc_server: axum::extract::State<JsonRpcServerState>,
@@ -28,6 +34,7 @@ pub async fn rpc_v0_http_handler(
     }
 }
 
+// This HTTP handler accepts both v0 and v1 RPC calls.
 pub async fn rpc_http_handler(
     headers: HeaderMap,
     axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
