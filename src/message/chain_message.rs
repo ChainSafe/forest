@@ -32,6 +32,10 @@ impl ChainMessage {
             ChainMessage::Signed(msg) => msg.cid(),
         }
     }
+
+    pub fn equal_call(&self, other: &Self) -> bool {
+        self.message().equal_call(other.message())
+    }
 }
 
 impl MessageTrait for ChainMessage {

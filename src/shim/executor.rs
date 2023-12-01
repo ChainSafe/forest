@@ -107,6 +107,8 @@ impl ApplyRet {
 }
 
 #[derive(PartialEq, Clone, Debug)]
+// #[derive(PartialEq, Clone, Debug, Deserialize, Serialize)]
+// #[serde(untagged)]
 pub enum Receipt {
     V2(Receipt_v2),
     V3(Receipt_v3),
@@ -131,7 +133,13 @@ impl<'de> Deserialize<'de> for Receipt {
     where
         D: Deserializer<'de>,
     {
-        Receipt_v2::deserialize(deserializer).map(Receipt::V2)
+        // if let Ok(r) = Receipt_v2::deserialize(deserializer).map(Receipt::V2) {
+        //     Ok(r)
+        // } else if let Ok(r) = Receipt_v3::deserialize(deserializer).map(Receipt::V3) {
+        //     Ok(r)
+        // } else {
+        Receipt_v4::deserialize(deserializer).map(Receipt::V4)
+        // }
     }
 }
 

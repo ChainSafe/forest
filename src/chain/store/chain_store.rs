@@ -18,7 +18,7 @@ use crate::shim::{
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
+use fil_actors_shared::fvm_ipld_amt::Amtv0;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use parking_lot::Mutex;
@@ -391,7 +391,7 @@ fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
     DB: Blockstore,
 {
-    let amt = Amt::<Cid, _>::load(root, db)?;
+    let amt = Amtv0::<Cid, _>::load(root, db)?;
 
     let mut cids = Vec::new();
     for i in 0..amt.count() {
@@ -493,9 +493,8 @@ pub fn get_parent_reciept<DB>(
 where
     DB: Blockstore,
 {
-    let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i as u64)?;
-    Ok(receipts.cloned())
+    let amt = Amtv0::load(block_header.message_receipts(), db)?;
+    Ok(amt.get(i as u64)?.cloned())
 }
 
 pub mod headchange_json {

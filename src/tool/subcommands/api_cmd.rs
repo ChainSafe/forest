@@ -372,10 +372,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         root_tsk.clone(),
                     )));
                     // FIXME: StateWaitMsg API gets stuck in forest
-                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
-                    //     msg.cid()?,
-                    //     0,
-                    // )));
+                    tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                        msg.cid()?,
+                        0,
+                    )));
+                    println!("state_wait_msg_req: {} at {}", msg.cid()?, tipset.epoch());
+                    // break 'll;
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
                         msg.cid()?,
@@ -401,10 +403,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         root_tsk.clone(),
                     )));
                     // FIXME: StateWaitMsg API gets stuck in forest
-                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
-                    //     msg.cid()?,
-                    //     0,
-                    // )));
+                    tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                        msg.cid()?,
+                        0,
+                    )));
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
                         msg.cid()?,
