@@ -284,6 +284,14 @@ pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 's
         .map(|r| r.into())
 }
 
+pub(in crate::rpc) async fn state_miner_recoveries<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<BitField>, JsonRpcError> {
+    // TODO
+    Ok(LotusJson(BitField::default()))
+}
+
 /// returns the message receipt for the given message
 pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
