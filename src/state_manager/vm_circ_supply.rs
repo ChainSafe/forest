@@ -46,7 +46,7 @@ pub struct GenesisInfo {
 
     /// Heights epoch
     ignition_height: ChainEpoch,
-    pub actors_v2_height: ChainEpoch,
+    actors_v2_height: ChainEpoch,
     calico_height: ChainEpoch,
 }
 
@@ -72,22 +72,9 @@ impl GenesisInfo {
         db: &Arc<DB>,
         root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
-        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
-        let fil_vested = get_fil_vested(self, height);
-        let fil_mined = get_fil_mined(&state_tree)?;
-        let fil_burnt = get_fil_burnt(&state_tree)?;
-        let fil_locked = get_fil_locked(&state_tree)?;
-        let fil_reserve_distributed = if height > self.actors_v2_height {
-            get_fil_reserve_disbursed(&state_tree)?
-        } else {
-            TokenAmount::default()
-        };
-        let fil_circulating = TokenAmount::max(
-            &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
-            TokenAmount::default(),
-        );
+        let detailed = self.get_vm_circulating_supply_detailed(height, db, root)?;
 
-        Ok(fil_circulating)
+        Ok(detailed.fil_circulating)
     }
 
     pub fn get_vm_circulating_supply_detailed<DB: Blockstore>(
