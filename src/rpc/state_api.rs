@@ -7,14 +7,15 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
-    SectorOnChainInfo,
+    ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageLookup,
+    RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
+use crate::state_manager::vm_circ_supply::GenesisInfo;
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
@@ -585,4 +586,21 @@ pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync +
             .map(SectorOnChainInfo::from)
             .ok_or(format!("Info for sector number {sector_no} not found"))?,
     ))
+}
+
+pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
+    DB: Blockstore + Send + Sync + 'static,
+>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<CirculatingSupply>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
+
+    Ok(LotusJson(genesis_info.get_vm_circulating_supply_detailed(
+        ts.epoch(),
+        &data.state_manager.blockstore_owned(),
+        ts.parent_state(),
+    )?))
 }

@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
+use crate::rpc_api::data_types::CirculatingSupply;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
@@ -36,7 +37,7 @@ const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
 
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
-pub(in crate::state_manager) struct GenesisInfo {
+pub struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
@@ -71,22 +72,40 @@ impl GenesisInfo {
         db: &Arc<DB>,
         root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
+        let detailed = self.get_vm_circulating_supply_detailed(height, db, root)?;
+
+        Ok(detailed.fil_circulating)
+    }
+
+    pub fn get_vm_circulating_supply_detailed<DB: Blockstore>(
+        &self,
+        height: ChainEpoch,
+        db: &Arc<DB>,
+        root: &Cid,
+    ) -> anyhow::Result<CirculatingSupply> {
         let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
+
         let fil_vested = get_fil_vested(self, height);
         let fil_mined = get_fil_mined(&state_tree)?;
         let fil_burnt = get_fil_burnt(&state_tree)?;
         let fil_locked = get_fil_locked(&state_tree)?;
-        let fil_reserve_distributed = if height > self.actors_v2_height {
+        let fil_reserve_disbursed = if height > self.actors_v2_height {
             get_fil_reserve_disbursed(&state_tree)?
         } else {
             TokenAmount::default()
         };
         let fil_circulating = TokenAmount::max(
-            &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
+            &fil_vested + &fil_mined + &fil_reserve_disbursed - &fil_burnt - &fil_locked,
             TokenAmount::default(),
         );
-
-        Ok(fil_circulating)
+        Ok(CirculatingSupply {
+            fil_vested,
+            fil_mined,
+            fil_burnt,
+            fil_locked,
+            fil_circulating,
+            fil_reserve_disbursed,
+        })
     }
 }
 
