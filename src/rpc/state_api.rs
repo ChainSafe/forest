@@ -15,6 +15,7 @@ use crate::shim::{
     state_tree::ActorState, state_tree::StateTree, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
+use crate::state_manager::vm_circ_supply::GenesisInfo;
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
@@ -595,11 +596,11 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
 ) -> Result<LotusJson<CirculatingSupply>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
 
-    let state_tree =
-        StateTree::new_from_root(data.state_manager.blockstore_owned(), ts.parent_state())?;
+    let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
 
-    Ok(LotusJson(
-        data.state_manager
-            .get_vm_circulating_supply_detailed(ts.epoch(), &state_tree)?,
-    ))
+    Ok(LotusJson(genesis_info.get_vm_circulating_supply_detailed(
+        ts.epoch(),
+        &data.state_manager.blockstore_owned(),
+        ts.parent_state(),
+    )?))
 }

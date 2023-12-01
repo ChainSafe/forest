@@ -12,7 +12,7 @@ use anyhow::{bail, Context as _};
 use fil_actor_interface::init::{self, State};
 use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
-mod vm_circ_supply;
+pub mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKeys};
@@ -26,7 +26,7 @@ use crate::interpreter::{
 };
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, CirculatingSupply, MessageGasCost};
+use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     clock::ChainEpoch,
@@ -36,9 +36,7 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
-use crate::state_manager::vm_circ_supply::{
-    get_fil_burnt, get_fil_locked, get_fil_mined, get_fil_reserve_disbursed, get_fil_vested,
-};
+use crate::state_manager::vm_circ_supply::GenesisInfo;
 use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
@@ -63,7 +61,6 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 use utils::structured;
-use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -370,36 +367,6 @@ where
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
         state.load_sectors(self.blockstore(), None)
-    }
-
-    pub fn get_vm_circulating_supply_detailed(
-        self: &Arc<Self>,
-        height: ChainEpoch,
-        state_tree: &StateTree<DB>,
-    ) -> anyhow::Result<CirculatingSupply> {
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
-
-        let fil_vested = get_fil_vested(&genesis_info, height);
-        let fil_mined = get_fil_mined(state_tree)?;
-        let fil_burnt = get_fil_burnt(state_tree)?;
-        let fil_locked = get_fil_locked(state_tree)?;
-        let fil_reserve_disbursed = if height > genesis_info.actors_v2_height {
-            get_fil_reserve_disbursed(state_tree)?
-        } else {
-            TokenAmount::default()
-        };
-        let fil_circulating = TokenAmount::max(
-            &fil_vested + &fil_mined + &fil_reserve_disbursed - &fil_burnt - &fil_locked,
-            TokenAmount::default(),
-        );
-        Ok(CirculatingSupply {
-            fil_vested,
-            fil_mined,
-            fil_burnt,
-            fil_locked,
-            fil_circulating,
-            fil_reserve_disbursed,
-        })
     }
 }
 
