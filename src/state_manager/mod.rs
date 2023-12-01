@@ -1069,6 +1069,35 @@ where
 
         Ok(BitField::union(faults.iter()))
     }
+    /// Retrieves miner recoveries.
+    pub fn miner_recoveries(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<BitField, Error> {
+        // TODO: avoid code duplication
+        let actor = self
+            .get_actor(addr, *ts.parent_state())?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        let mut partitions = Vec::new();
+
+        state.for_each_deadline(
+            &self.chain_config.policy,
+            self.blockstore(),
+            |_, deadline| {
+                deadline.for_each(self.blockstore(), |_, partition| {
+                    // TODO: replace with `recovering_sectors()`
+                    partitions.push(partition.live_sectors().clone());
+                    Ok(())
+                })
+            },
+        )?;
+
+        Ok(BitField::union(partitions.iter()))
+    }
 
     /// Retrieves miner power.
     pub fn miner_power(
