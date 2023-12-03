@@ -71,6 +71,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet_api::WALLET_NEW, Access::Write);
     access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
     access.insert(wallet_api::WALLET_SIGN, Access::Sign);
+    access.insert(wallet_api::WALLET_VALIDATE_ADDRESS, Access::Read);
     access.insert(wallet_api::WALLET_VERIFY, Access::Read);
     access.insert(wallet_api::WALLET_DELETE, Access::Write);
 
@@ -230,6 +231,7 @@ pub mod wallet_api {
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
+    pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
     pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
 }
