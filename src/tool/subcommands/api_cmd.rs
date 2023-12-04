@@ -327,7 +327,10 @@ fn wallet_tests() -> Vec<RpcTest> {
 }
 
 fn eth_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(ApiInfo::eth_block_number_req())]
+    vec![
+        RpcTest::identity(ApiInfo::eth_block_number_req()),
+        RpcTest::identity(ApiInfo::eth_chain_id_req()),
+    ]
 }
 
 // Extract tests that use chain-specific data such as block CIDs or message
@@ -441,7 +444,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 tipset.key().clone(),
             )))
         }
-        tests.push(RpcTest::basic(ApiInfo::state_circulating_supply_req(
+        tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),
         )));
         tests.push(RpcTest::identity(
