@@ -12,7 +12,7 @@ use anyhow::{bail, Context as _};
 use fil_actor_interface::init::{self, State};
 use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
-mod vm_circ_supply;
+pub mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::BeaconSchedule;
 use crate::blocks::{Tipset, TipsetKeys};
