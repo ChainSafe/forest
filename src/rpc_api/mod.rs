@@ -124,8 +124,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(node_api::NODE_STATUS, Access::Read);
 
     // Eth API
-    access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
+    access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
 
     access
 });
