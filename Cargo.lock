@@ -1281,6 +1281,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbor4ii"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59b4c883b9cc4757b061600d39001d4d0232bece4a3174696cf8f58a14db107d"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3116,7 +3125,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "cargo_metadata",
- "cbor4ii",
+ "cbor4ii 0.3.2",
  "cfg-if",
  "cfg-vis",
  "chrono",
@@ -7793,7 +7802,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e880e0b1f9c7a8db874642c1217f7e19b29e325f24ab9f0fcb11818adec7f01"
 dependencies = [
- "cbor4ii",
+ "cbor4ii 0.2.14",
  "cid",
  "scopeguard",
  "serde",
