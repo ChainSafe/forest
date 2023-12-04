@@ -1055,8 +1055,7 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> Result<BitField, Error> {
-        // TODO: replace with `recovering_sectors()` once `fil-actor-states` v10 is here
-        self.all_partition_sectors(addr, ts, |partition| partition.live_sectors())
+        self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
