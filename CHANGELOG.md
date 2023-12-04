@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#3745](https://github.com/ChainSafe/forest/pull/3745) Implement the
+  `Filecoin.StateCirculatingSupply` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3773) Implement the
   `Filecoin.StateVMCirculatingSupplyInternal` lotus-compatible RPC API.
 - [#3748](https://github.com/ChainSafe/forest/pull/3748) Add timing for each

@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="380" height="269" src="documentation/src/img/forest_logo.png">
+  <img width="748" height="243" src="documentation/src/img/forest_logo.png">
 </p>
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)

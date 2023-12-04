@@ -20,9 +20,19 @@ mod wallet_api;
 use std::sync::Arc;
 
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState,
-    eth_api::ETH_BLOCK_NUMBER, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
-    state_api::*, sync_api::*, wallet_api::*,
+    auth_api::*,
+    beacon_api::*,
+    chain_api::*,
+    common_api::*,
+    data_types::RPCState,
+    eth_api::{ETH_BLOCK_NUMBER, ETH_CHAIN_ID},
+    gas_api::*,
+    mpool_api::*,
+    net_api::*,
+    node_api::NODE_STATUS,
+    state_api::*,
+    sync_api::*,
+    wallet_api::*,
 };
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
@@ -135,6 +145,7 @@ where
                 state_get_randomness_from_beacon::<DB>,
             )
             .with_method(STATE_READ_STATE, state_read_state::<DB>)
+            .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
             .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
             .with_method(
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
@@ -159,6 +170,7 @@ where
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
+            .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .finish_unwrapped(),
     );
 

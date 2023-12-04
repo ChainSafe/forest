@@ -11,7 +11,7 @@ use crate::rpc_api::data_types::{
     RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
-    address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
+    address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
@@ -569,6 +569,26 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
         actor.code,
         Ipld::Link(state),
     )))
+}
+
+pub(in crate::rpc) async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    let height = ts.epoch();
+
+    let state_manager = &data.state_manager;
+
+    let root = ts.parent_state();
+
+    let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
+
+    let supply =
+        genesis_info.get_circulating_supply(height, &state_manager.blockstore_owned(), root)?;
+
+    Ok(LotusJson(supply))
 }
 
 /// Get state sector info using sector no
