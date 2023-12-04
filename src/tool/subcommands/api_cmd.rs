@@ -437,7 +437,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 tipset.key().clone(),
             )))
         }
-        tests.push(RpcTest::basic(ApiInfo::state_circulating_supply_req(
+        tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),
         )));
         tests.push(RpcTest::identity(
