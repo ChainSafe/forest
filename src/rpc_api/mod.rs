@@ -122,6 +122,9 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
 
+    // Eth API
+    access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
+
     access
 });
 
@@ -358,4 +361,9 @@ pub mod node_api {
     }
 
     lotus_json_with_self!(NodeStatus);
+}
+
+// Eth API
+pub mod eth_api {
+    pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
 }

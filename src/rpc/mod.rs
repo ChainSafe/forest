@@ -5,6 +5,7 @@ mod auth_api;
 mod beacon_api;
 mod chain_api;
 mod common_api;
+mod eth_api;
 mod gas_api;
 mod mpool_api;
 mod net_api;
@@ -19,8 +20,9 @@ mod wallet_api;
 use std::sync::Arc;
 
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, gas_api::*,
-    mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
+    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState,
+    eth_api::ETH_BLOCK_NUMBER, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
+    state_api::*, sync_api::*, wallet_api::*,
 };
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
@@ -32,7 +34,7 @@ use tracing::info;
 use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{shutdown, start_time, version},
-    rpc_http_handler::rpc_http_handler,
+    rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
 };
@@ -155,12 +157,15 @@ where
             .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
             // Node API
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
+            // Eth API
+            .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .finish_unwrapped(),
     );
 
     let app = axum::Router::new()
         .route("/rpc/v0", get(rpc_ws_handler))
-        .route("/rpc/v0", post(rpc_http_handler))
+        .route("/rpc/v0", post(rpc_v0_http_handler))
+        .route("/rpc/v1", post(rpc_http_handler))
         .with_state(rpc_server);
 
     info!("Ready for RPC connections");
