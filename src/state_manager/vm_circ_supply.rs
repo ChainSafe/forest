@@ -112,6 +112,7 @@ impl GenesisInfo {
         })
     }
 
+    // This can be a lengthy operation
     pub fn get_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
