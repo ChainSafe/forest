@@ -710,11 +710,6 @@ where
         message: &ChainMessage,
         allow_replaced: bool,
     ) -> Result<Option<Receipt>, Error> {
-        println!(
-            "Start tipset_executed_message at epoch {} for msg {}",
-            tipset.epoch(),
-            message.cid().unwrap()
-        );
         if tipset.epoch() == 0 {
             return Ok(None);
         }
@@ -729,7 +724,7 @@ where
             .cs
             .messages_for_tipset(&pts)
             .map_err(|err| Error::Other(err.to_string()))?;
-        let filtered: Vec<_> = messages
+        messages
             .iter()
             .enumerate()
             // iterate in reverse because we going backwards through the chain
@@ -739,11 +734,7 @@ where
                     && s.from() == message_from_address
                     && s.equal_call(message)
             })
-            .collect();
-        println!("messages: {}, {}", messages.len(), filtered.len(),);
-        filtered.into_iter()
             .map(|(index, m)| {
-                println!("tipset_executed_message: {}", m.cid().unwrap_or_default());
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
                         "found message with equal nonce and call params but different CID. wanted {}, found: {}, nonce: {}, from: {}",
@@ -753,22 +744,12 @@ where
                         message.from(),
                     )))
                 } else {
-                    println!("tipset_executed_message: get_parent_reciept, {}, {}, {}",
-                        tipset.blocks().first().unwrap().cid(),
-                        tipset.blocks().first().unwrap().message_receipts(),
-                        index);
-                    let rct = crate::chain::get_parent_reciept(
+                    crate::chain::get_parent_reciept(
                         self.blockstore(),
                         tipset.blocks().first().unwrap(),
                         index,
                     )
-                    .map_err(|err| Error::Other(err.to_string()));
-                    match &rct {
-                        Ok(Some(_)) =>  println!("tipset_executed_message: get_parent_reciept: Some"),
-                        Ok(None) =>  println!("tipset_executed_message: get_parent_reciept: None"),
-                        Err(e) =>  println!("tipset_executed_message: get_parent_reciept: Err: {e}"),
-                    }
-                    rct
+                    .map_err(|err| Error::Other(err.to_string()))
                 }
             })
             .next()
@@ -792,14 +773,9 @@ where
             .context("Failed to lookup id")
             .map_err(|e| Error::State(e.to_string()))?;
         loop {
-            println!("check_search: epoch: {}", current.epoch());
             if current.epoch() == 0 {
                 return Ok(None);
             }
-
-            // if current.epoch() < 1136510 {
-            //     return Ok(None);
-            // }
 
             let parent_tipset = self
                 .cs
@@ -814,12 +790,6 @@ where
                 .get_actor(&message_from_id, *parent_tipset.parent_state())
                 .map_err(|e| Error::State(e.to_string()))?;
 
-            println!(
-                "check_search: message_sequence: {message_sequence} parent_actor_state: {}, current_actor_state.sequence: {}, parent_actor_state.sequence: {}",
-                parent_actor_state.is_some(),
-                current_actor_state.sequence,
-                parent_actor_state.as_ref().map(|i| i.sequence).unwrap_or_default(),
-            );
             if parent_actor_state.is_none()
                 || (current_actor_state.sequence > message_sequence
                     && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
@@ -827,7 +797,6 @@ where
                 let receipt = self
                     .tipset_executed_message(current.as_ref(), message, true)?
                     .context("Failed to get receipt with tipset_executed_message")?;
-                println!("receipt: {receipt:?}");
                 return Ok(Some((current, receipt)));
             }
 
@@ -876,15 +845,11 @@ where
     ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
-        println!("Before get_chain_message");
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
-        println!("After get_chain_message");
         let current_tipset = self.cs.heaviest_tipset();
-        println!("Before tipset_executed_message");
         let maybe_message_reciept =
             self.tipset_executed_message(&current_tipset, &message, true)?;
-        println!("After tipset_executed_message");
         if let Some(r) = maybe_message_reciept {
             return Ok((Some(current_tipset.clone()), Some(r)));
         }
@@ -897,10 +862,8 @@ where
         let message_for_task = message.clone();
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
-            println!("Before search_back_for_message");
             let back_tuple =
                 sm_cloned.search_back_for_message(current_tipset, &message_for_task)?;
-            println!("After search_back_for_message: {}", back_tuple.is_some());
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
@@ -912,12 +875,9 @@ where
         let sm_cloned = Arc::clone(self);
 
         // Wait for message to be included in head change.
-        println!("Before subscriber_poll");
         let mut subscriber_poll = tokio::task::spawn(async move {
             loop {
-                let x = subscriber.recv().await;
-                println!("x: {x:?}");
-                match x {
+                match subscriber.recv().await {
                     Ok(subscriber) => match subscriber {
                         HeadChange::Apply(tipset) => {
                             if candidate_tipset
@@ -959,7 +919,6 @@ where
         })
         .fuse();
 
-        println!("Before search_back_poll");
         // Search backwards for message.
         let mut search_back_poll = tokio::task::spawn(async move {
             let back_tuple = task.await.map_err(|e| {
