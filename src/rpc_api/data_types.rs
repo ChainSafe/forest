@@ -786,3 +786,22 @@ impl PartialEq for GasTrace {
             && self.storage_gas == other.storage_gas
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CirculatingSupply {
+    #[serde(with = "crate::lotus_json")]
+    pub fil_vested: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub fil_mined: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub fil_burnt: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub fil_locked: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub fil_circulating: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub fil_reserve_disbursed: TokenAmount,
+}
+
+lotus_json_with_self!(CirculatingSupply);

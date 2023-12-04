@@ -12,7 +12,7 @@ use anyhow::{bail, Context as _};
 use fil_actor_interface::init::{self, State};
 use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
-mod vm_circ_supply;
+pub mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKeys};
@@ -21,7 +21,8 @@ use crate::chain::{
     ChainStore, HeadChange,
 };
 use crate::interpreter::{
-    resolve_to_key_addr, BlockMessages, CalledAt, ExecutionContext, IMPLICIT_MESSAGE_GAS_LIMIT, VM,
+    resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
+    IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
@@ -461,14 +462,14 @@ where
         let mut msg = msg.clone();
         msg.gas_limit = IMPLICIT_MESSAGE_GAS_LIMIT as u64;
 
-        let apply_ret = vm.apply_implicit_message(&msg)?;
+        let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
 
         Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
             msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
             error: apply_ret.failure_info().unwrap_or_default(),
-            duration: 0,
+            duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
             gas_cost: MessageGasCost::default(),
             execution_trace: structured::parse_events(apply_ret.exec_trace()).unwrap_or_default(),
         })
@@ -508,7 +509,7 @@ where
 
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
-        let ret = stacker::grow(64 << 20, || -> anyhow::Result<ApplyRet> {
+        let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
             let mut vm = VM::new(
                 ExecutionContext {
                     heaviest_tipset: Arc::clone(&ts),

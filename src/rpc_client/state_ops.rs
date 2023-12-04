@@ -8,7 +8,8 @@ use crate::{
     blocks::TipsetKeys,
     rpc_api::{
         data_types::{
-            ApiActorState, ApiDeadline, ApiInvocResult, MessageLookup, SectorOnChainInfo,
+            ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MessageLookup,
+            SectorOnChainInfo,
         },
         state_api::*,
     },
@@ -141,6 +142,12 @@ impl ApiInfo {
 
     pub fn state_circulating_supply_req(tsk: TipsetKeys) -> RpcRequest<TokenAmount> {
         RpcRequest::new(STATE_CIRCULATING_SUPPLY, (tsk,))
+    }
+
+    pub fn state_vm_circulating_supply_internal_req(
+        tsk: TipsetKeys,
+    ) -> RpcRequest<CirculatingSupply> {
+        RpcRequest::new(STATE_VM_CIRCULATING_SUPPLY_INTERNAL, (tsk,))
     }
 
     pub fn state_decode_params_req(

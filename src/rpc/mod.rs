@@ -135,6 +135,10 @@ where
             )
             .with_method(STATE_READ_STATE, state_read_state::<DB>)
             .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
+            .with_method(
+                STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
+                state_vm_circulating_supply_internal::<DB>,
+            )
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
