@@ -744,7 +744,7 @@ where
                         message.from(),
                     )))
                 } else {
-                    crate::chain::get_parent_reciept(
+                    crate::chain::get_parent_receipt(
                         self.blockstore(),
                         tipset.blocks().first().unwrap(),
                         index,

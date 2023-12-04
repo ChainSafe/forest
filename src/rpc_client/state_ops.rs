@@ -158,7 +158,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
     }
 
-    // FIXME: StateWaitMsg API gets stuck in forest
     pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
         RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence))
     }

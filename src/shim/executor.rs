@@ -12,7 +12,7 @@ use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
 pub use fvm_shared3::receipt::Receipt as Receipt_v3;
 use fvm_shared4::receipt::Receipt as Receipt_v4;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::Serialize;
 
 #[derive(Clone, Debug)]
 pub enum ApplyRet {
@@ -106,41 +106,14 @@ impl ApplyRet {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
-// #[derive(PartialEq, Clone, Debug, Deserialize, Serialize)]
-// #[serde(untagged)]
+// Note: it's impossible to properly derive Deserialize.
+// To deserialize into `Receipt`, refer to `fn get_parent_receipt`
+#[derive(PartialEq, Clone, Debug, Serialize)]
+#[serde(untagged)]
 pub enum Receipt {
     V2(Receipt_v2),
     V3(Receipt_v3),
     V4(Receipt_v4),
-}
-
-impl Serialize for Receipt {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Receipt::V2(v2) => v2.serialize(serializer),
-            Receipt::V3(v3) => v3.serialize(serializer),
-            Receipt::V4(v4) => v4.serialize(serializer),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Receipt {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        // if let Ok(r) = Receipt_v2::deserialize(deserializer).map(Receipt::V2) {
-        //     Ok(r)
-        // } else if let Ok(r) = Receipt_v3::deserialize(deserializer).map(Receipt::V3) {
-        //     Ok(r)
-        // } else {
-        Receipt_v4::deserialize(deserializer).map(Receipt::V4)
-        // }
-    }
 }
 
 impl Receipt {
@@ -198,6 +171,12 @@ impl quickcheck::Arbitrary for Receipt {
                 gas_used: u64,
                 events_root: Option<::cid::Cid>,
             },
+            V4 {
+                exit_code: u32,
+                return_data: Vec<u8>,
+                gas_used: u64,
+                events_root: Option<::cid::Cid>,
+            },
         }
         match Helper::arbitrary(g) {
             Helper::V2 {
@@ -220,6 +199,35 @@ impl quickcheck::Arbitrary for Receipt {
                 gas_used,
                 events_root,
             }),
+            Helper::V4 {
+                exit_code,
+                return_data,
+                gas_used,
+                events_root,
+            } => Self::V4(Receipt_v4 {
+                exit_code: exit_code.into(),
+                return_data: return_data.into(),
+                gas_used,
+                events_root,
+            }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn receipt_cbor_serde_serialize(receipt: Receipt) {
+        let encoded = fvm_ipld_encoding::to_vec(&receipt).unwrap();
+        let encoded2 = match &receipt {
+            Receipt::V2(v) => fvm_ipld_encoding::to_vec(v),
+            Receipt::V3(v) => fvm_ipld_encoding::to_vec(v),
+            Receipt::V4(v) => fvm_ipld_encoding::to_vec(v),
+        }
+        .unwrap();
+        assert_eq!(encoded, encoded2);
     }
 }

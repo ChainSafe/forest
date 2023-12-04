@@ -18,7 +18,7 @@ use crate::shim::{
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_amt::Amtv0;
+use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use parking_lot::Mutex;
@@ -391,7 +391,7 @@ fn read_amt_cids<DB>(db: &DB, root: &Cid) -> Result<Vec<Cid>, Error>
 where
     DB: Blockstore,
 {
-    let amt = Amtv0::<Cid, _>::load(root, db)?;
+    let amt = Amt::<Cid, _>::load(root, db)?;
 
     let mut cids = Vec::new();
     for i in 0..amt.count() {
@@ -485,7 +485,7 @@ where
 }
 
 /// Returns parent message receipt given `block_header` and message index.
-pub fn get_parent_reciept<DB>(
+pub fn get_parent_receipt<DB>(
     db: &DB,
     block_header: &BlockHeader,
     i: usize,
@@ -493,8 +493,15 @@ pub fn get_parent_reciept<DB>(
 where
     DB: Blockstore,
 {
-    let amt = Amtv0::load(block_header.message_receipts(), db)?;
-    Ok(amt.get(i as u64)?.cloned())
+    if let Ok(amt) = Amt::load(block_header.message_receipts(), db) {
+        let receipts = amt.get(i as u64)?;
+        Ok(receipts.cloned().map(Receipt::V2))
+    } else {
+        // Receipt_v4 and Receipt_v3 are identical, use v4 here
+        let amt = Amt::load(block_header.message_receipts(), db)?;
+        let receipts = amt.get(i as u64)?;
+        Ok(receipts.cloned().map(Receipt::V4))
+    }
 }
 
 pub mod headchange_json {
