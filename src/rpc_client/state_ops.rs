@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use crate::rpc_api::data_types::MiningBaseInfo;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
@@ -62,6 +63,14 @@ impl ApiInfo {
 
     pub fn state_miner_info_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerInfo> {
         RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
+    }
+
+    pub fn miner_get_base_info_req(
+        miner: Address,
+        epoch: ChainEpoch,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Option<MiningBaseInfo>> {
+        RpcRequest::new(MINER_GET_BASE_INFO, (miner, epoch, tsk))
     }
 
     pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<ApiInvocResult> {

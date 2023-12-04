@@ -7,8 +7,8 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, RPCState,
-    SectorOnChainInfo,
+    ApiActorState, ApiDeadline, ApiInvocResult, MarketDeal, MessageLookup, MiningBaseInfo,
+    RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
@@ -37,6 +37,20 @@ use tokio::task::JoinSet;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKeys);
 
+pub(in crate::rpc) async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address, epoch, tsk))): Params<LotusJson<(Address, ChainEpoch, TipsetKeys)>>,
+) -> anyhow::Result<LotusJson<Option<MiningBaseInfo>>> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
+
+    data.state_manager
+        .miner_get_base_info(data.state_manager.beacon_schedule(), ts, address, epoch)
+        .await
+        .map(|info| info.into())
+}
 /// runs the given message and returns its result without any persisted changes.
 pub(in crate::rpc) async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
