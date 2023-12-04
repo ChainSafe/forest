@@ -647,12 +647,12 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "810a80b128d70e6ed2bdf3fe8ed72c0ae56f5f5948d01c2753282dd92a84fce8"
+checksum = "202651474fe73c62d9e0a56c6133f7a0ff1dc1c8cf7a5b03381af2a26553ac9d"
 dependencies = [
  "async-trait",
- "axum-core 0.4.0",
+ "axum-core 0.4.1",
  "base64 0.21.5",
  "bytes",
  "futures-util",
@@ -700,9 +700,9 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de0ddc355eab88f4955090a823715df47acf0b7660aab7a69ad5ce6301ee3b73"
+checksum = "77cb22c689c44d4c07b0ab44ebc25d69d8ae601a2f28fb8d672d344178fa17aa"
 dependencies = [
  "async-trait",
  "bytes",
@@ -3103,7 +3103,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "asynchronous-codec 0.6.2",
- "axum 0.7.1",
+ "axum 0.7.2",
  "backoff",
  "base64 0.21.5",
  "bigdecimal",
@@ -7095,15 +7095,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f029ab26beaeda3da184820e204922b777b3f241e9c3e98c5c30a54b808c8856"
+checksum = "92d33758724f997689f84146e5401e28d875a061804f861f113696f44f5232aa"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18bc82f7890f27cef04fe30f7b90b67d0f2f5a3f35f76e0673f414d13853c8d4"
+checksum = "170c541dd764e43aee757ab5373c6060a61eb51eaee547a07abeaaa3d9e5b0ae"
 dependencies = [
  "drop_bomb",
  "ra_ap_limit",
@@ -7112,9 +7112,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_profile"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27126f51580da16f508a14444765e01c9f7350f400651d0ba75101e6822c608b"
+checksum = "5f3e5c7a740c70d02096ba7040ab49440cfaa0304ecb59662900ba45d9bb714f"
 dependencies = [
  "cfg-if",
  "countme",
@@ -7127,9 +7127,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_rustc-dependencies"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baa9b547e6ab7490e919ee00011264b6d3e2feca4c368920365447da04051f3c"
+checksum = "140081557062ad363fc7b36339b6f5b3613c3214ec1c4cf8810c6c0942bc27d6"
 dependencies = [
  "ra-ap-rustc_abi",
  "ra-ap-rustc_index",
@@ -7139,9 +7139,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a60497c2c16d52af78580bf15d1abd4cc20dcae457480d3063cf3d4ef25bc34f"
+checksum = "2e80fb2ff88b31fa35cde89ae13ea7c9ada97c7a2c778dcafef530a267658000"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7153,9 +7153,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc7a1e7d79d7661c5ed16539a7c8cb6d59949329a194a3138f8b8b4f2a96a27c"
+checksum = "318d289049a835f05b70b965f0ad1991bfcf9a82a454fb776b0dcfef7d10c38e"
 dependencies = [
  "cov-mark",
  "either",
@@ -7175,9 +7175,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.187"
+version = "0.0.188"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b297ad1365877157611f5dcb6dc86a89e3e11cb2d35fcb23622d9703603d10b2"
+checksum = "2e4b2c874d2f4c4e638810181899fb8741ce1da952068b9f494f9882083cda66"
 dependencies = [
  "itertools 0.12.0",
  "text-size",
@@ -8085,9 +8085,9 @@ checksum = "826167069c09b99d56f31e9ae5c99049e932a98c9dc2dac47645b08dbbf76ba7"
 
 [[package]]
 name = "slotmap"
-version = "1.0.6"
+version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1e08e261d0e8f5c43123b7adf3e4ca1690d655377ac93a03b2c9d3e98de1342"
+checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
 dependencies = [
  "version_check",
 ]
