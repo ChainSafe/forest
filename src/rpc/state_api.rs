@@ -282,7 +282,7 @@ pub(in crate::rpc) async fn state_miner_proving_deadline<DB: Blockstore + Send +
         .ok_or("Miner actor address could not be resolved")?;
     let store = data.state_manager.blockstore();
     let state = miner::State::load(store, actor.code, actor.state)?;
-    Ok(LotusJson(state.deadline_info(&policy, ts.epoch())))
+    Ok(LotusJson(state.deadline_info(policy, ts.epoch())))
 }
 
 /// looks up the miner power of the given address.
