@@ -60,7 +60,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 use utils::structured;
-use vm_circ_supply::GenesisInfo;
+pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -423,7 +423,7 @@ where
                 epoch: height,
                 rand: Box::new(rand),
                 base_fee: tipset.blocks()[0].parent_base_fee().clone(),
-                circ_supply: genesis_info.get_circulating_supply(
+                circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
                     state_cid,
@@ -502,7 +502,6 @@ where
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
-
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
         let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
@@ -513,7 +512,7 @@ where
                     epoch,
                     rand: Box::new(chain_rand),
                     base_fee: ts.blocks()[0].parent_base_fee().clone(),
-                    circ_supply: genesis_info.get_circulating_supply(
+                    circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
                         &st,
@@ -1426,7 +1425,7 @@ where
     let genesis_info = GenesisInfo::from_chain_config(&chain_config);
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
-            genesis_info.get_circulating_supply(epoch, &chain_index.db, &state_root)?;
+            genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),
