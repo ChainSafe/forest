@@ -13,6 +13,7 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
+use crate::eth::{Address as EthAddress, BlockNumberOrHash};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
@@ -327,7 +328,13 @@ fn wallet_tests() -> Vec<RpcTest> {
 }
 
 fn eth_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(ApiInfo::eth_chain_id_req())]
+    vec![
+        RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::default(),
+        )),
+    ]
 }
 
 // Extract tests that use chain-specific data such as block CIDs or message
