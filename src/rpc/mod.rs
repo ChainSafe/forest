@@ -21,7 +21,7 @@ use std::sync::Arc;
 
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState,
-    eth_api::ETH_ACCOUNTS, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
+    eth_api::{ETH_ACCOUNTS, ETH_CHAIN_ID}, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
     state_api::*, sync_api::*, wallet_api::*,
 };
 use axum::routing::{get, post};
@@ -121,8 +121,13 @@ where
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
+            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(
+                STATE_MINER_PROVING_DEADLINE,
+                state_miner_proving_deadline::<DB>,
+            )
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
@@ -159,6 +164,7 @@ where
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
             .with_method(ETH_ACCOUNTS, eth_api::eth_accounts::<DB>)
+            .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .finish_unwrapped(),
     );
 
