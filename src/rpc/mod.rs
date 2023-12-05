@@ -163,7 +163,7 @@ where
             // Node API
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
-            .with_method(ETH_ACCOUNTS, eth_api::eth_accounts::<DB>)
+            .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .finish_unwrapped(),
     );

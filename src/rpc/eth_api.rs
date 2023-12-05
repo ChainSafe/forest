@@ -5,10 +5,11 @@
 use crate::rpc_api::data_types::RPCState;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
+use crate::lotus_json::LotusJson;
 
 // EthAccounts will always return [] since we don't expect Forest to manage private keys
-pub(in crate::rpc) async fn eth_accounts<DB: Blockstore>() -> Result<String, JsonRpcError> {
-    Ok("[]".to_string())
+pub(in crate::rpc) async fn eth_accounts() -> Result<LotusJson<String>, JsonRpcError> {
+    Ok(LotusJson("[]".to_string()))
 }
 
 pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
