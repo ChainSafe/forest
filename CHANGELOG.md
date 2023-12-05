@@ -40,6 +40,8 @@
   `forest-tool snapshot compute-state` and `Filecoin.StateCall` RPC API.
 - [#3720](https://github.com/ChainSafe/forest/pull/3750) Implement the
   `Filecoin.StateMinerInfo` lotus-compatible RPC API.
+- [#1670](https://github.com/ChainSafe/forest/issues/1670) Support Butterflynet
+  🦋.
 
 ### Changed
 

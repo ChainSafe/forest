@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::make_butterfly_policy;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -56,6 +57,9 @@ impl<BS: Blockstore> StateMigration<BS> {
                 fil_actors_shared::v11::runtime::Policy::calibnet(),
                 fil_actors_shared::v12::runtime::Policy::calibnet(),
             ),
+            NetworkChain::Butterflynet => {
+                (make_butterfly_policy!(v11), make_butterfly_policy!(v12))
+            }
             NetworkChain::Devnet(_) => {
                 let mut policy_old = fil_actors_shared::v11::runtime::Policy::mainnet();
                 policy_old.minimum_consensus_power = 2048.into();
