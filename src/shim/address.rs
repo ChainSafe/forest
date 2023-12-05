@@ -122,6 +122,7 @@ impl Address {
     pub const VERIFIED_REGISTRY_ACTOR: Address = Address::new_id(6);
     pub const DATACAP_TOKEN_ACTOR: Address = Address::new_id(7);
     pub const ETHEREUM_ACCOUNT_MANAGER_ACTOR: Address = Address::new_id(10);
+    pub const SAFT_ACTOR: Address = Address::new_id(122);
     pub const RESERVE_ACTOR: Address = Address::new_id(90);
     pub const CHAOS_ACTOR: Address = Address::new_id(98);
     pub const BURNT_FUNDS_ACTOR: Address = Address::new_id(99);

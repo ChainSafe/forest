@@ -96,6 +96,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(state_api::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
     access.insert(state_api::STATE_READ_STATE, Access::Read);
+    access.insert(state_api::STATE_CIRCULATING_SUPPLY, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
     access.insert(
         state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
@@ -122,6 +123,9 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
+
+    // Eth API
+    access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
 
     access
 });
@@ -360,4 +364,9 @@ pub mod node_api {
     }
 
     lotus_json_with_self!(NodeStatus);
+}
+
+// Eth API
+pub mod eth_api {
+    pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
 }
