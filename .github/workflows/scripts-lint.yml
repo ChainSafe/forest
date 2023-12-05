@@ -33,7 +33,7 @@ jobs:
           ruby-version: '3.0'
       - name: Run rubocop
         run: |
-          gem install rubocop --no-document
+          gem install rubocop -v 1.57 --no-document
           rubocop scripts/
   run-js-linters:
     runs-on: ubuntu-latest

@@ -5,15 +5,20 @@ use std::sync::Arc;
 
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
+use crate::rpc_api::data_types::CirculatingSupply;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
-    econ::TokenAmount,
+    econ::{TokenAmount, TOTAL_FILECOIN},
     state_tree::{ActorState, StateTree},
 };
-use anyhow::Context as _;
+use anyhow::{bail, Context as _};
 use cid::Cid;
-use fil_actor_interface::{market, power, reward};
+use fil_actor_interface::{
+    is_account_actor, is_eth_account_actor, is_evm_actor, is_miner_actor, is_multisig_actor,
+    is_paych_actor, is_placeholder_actor,
+};
+use fil_actor_interface::{market, miner, multisig, power, reward};
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
 
@@ -36,7 +41,7 @@ const CALICO_VESTING: [(ChainEpoch, usize); 6] = [
 
 /// Genesis information used when calculating circulating supply.
 #[derive(Default, Clone)]
-pub(in crate::state_manager) struct GenesisInfo {
+pub struct GenesisInfo {
     vesting: GenesisInfoVesting,
 
     /// info about the Accounts in the genesis state
@@ -65,28 +70,130 @@ impl GenesisInfo {
     }
 
     // Allows generation of the current circulating supply
+    pub fn get_vm_circulating_supply<DB: Blockstore>(
+        &self,
+        height: ChainEpoch,
+        db: &Arc<DB>,
+        root: &Cid,
+    ) -> Result<TokenAmount, anyhow::Error> {
+        let detailed = self.get_vm_circulating_supply_detailed(height, db, root)?;
+
+        Ok(detailed.fil_circulating)
+    }
+
+    pub fn get_vm_circulating_supply_detailed<DB: Blockstore>(
+        &self,
+        height: ChainEpoch,
+        db: &Arc<DB>,
+        root: &Cid,
+    ) -> anyhow::Result<CirculatingSupply> {
+        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
+
+        let fil_vested = get_fil_vested(self, height);
+        let fil_mined = get_fil_mined(&state_tree)?;
+        let fil_burnt = get_fil_burnt(&state_tree)?;
+        let fil_locked = get_fil_locked(&state_tree)?;
+        let fil_reserve_disbursed = if height > self.actors_v2_height {
+            get_fil_reserve_disbursed(&state_tree)?
+        } else {
+            TokenAmount::default()
+        };
+        let fil_circulating = TokenAmount::max(
+            &fil_vested + &fil_mined + &fil_reserve_disbursed - &fil_burnt - &fil_locked,
+            TokenAmount::default(),
+        );
+        Ok(CirculatingSupply {
+            fil_vested,
+            fil_mined,
+            fil_burnt,
+            fil_locked,
+            fil_circulating,
+            fil_reserve_disbursed,
+        })
+    }
+
+    // This can be a lengthy operation
     pub fn get_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
         db: &Arc<DB>,
         root: &Cid,
     ) -> Result<TokenAmount, anyhow::Error> {
-        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
-        let fil_vested = get_fil_vested(self, height);
-        let fil_mined = get_fil_mined(&state_tree)?;
-        let fil_burnt = get_fil_burnt(&state_tree)?;
-        let fil_locked = get_fil_locked(&state_tree)?;
-        let fil_reserve_distributed = if height > self.actors_v2_height {
-            get_fil_reserve_disbursed(&state_tree)?
-        } else {
-            TokenAmount::default()
-        };
-        let fil_circulating = TokenAmount::max(
-            &fil_vested + &fil_mined + &fil_reserve_distributed - &fil_burnt - &fil_locked,
-            TokenAmount::default(),
-        );
+        let mut circ = TokenAmount::default();
+        let mut un_circ = TokenAmount::default();
 
-        Ok(fil_circulating)
+        let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
+
+        state_tree.for_each(|addr: Address, actor: &ActorState| {
+            let actor_balance = TokenAmount::from(actor.balance.clone());
+            if !actor_balance.is_zero() {
+                match addr {
+                    Address::INIT_ACTOR
+                    | Address::REWARD_ACTOR
+                    | Address::VERIFIED_REGISTRY_ACTOR
+                    // The power actor itself should never receive funds
+                    | Address::POWER_ACTOR
+                    | Address::SYSTEM_ACTOR
+                    | Address::CRON_ACTOR
+                    | Address::BURNT_FUNDS_ACTOR
+                    | Address::SAFT_ACTOR
+                    | Address::RESERVE_ACTOR
+                    | Address::ETHEREUM_ACCOUNT_MANAGER_ACTOR => {
+                        un_circ += actor_balance;
+                    }
+                    Address::MARKET_ACTOR => {
+                        let ms = market::State::load(&db, actor.code, actor.state)?;
+
+                        let locked_balance: TokenAmount = ms.total_locked().into();
+                        circ += actor_balance - &locked_balance;
+                        un_circ += locked_balance;
+                    }
+                    _ if is_account_actor(&actor.code)
+                    || is_paych_actor(&actor.code)
+                    || is_eth_account_actor(&actor.code)
+                    || is_evm_actor(&actor.code)
+                    || is_placeholder_actor(&actor.code) => {
+                        circ += actor_balance;
+                    },
+                    _ if is_miner_actor(&actor.code) => {
+                        let ms = miner::State::load(&db, actor.code, actor.state)?;
+
+                        if let Ok(avail_balance) = ms.available_balance(actor.balance.atto()) {
+                            let avail_balance = TokenAmount::from(avail_balance);
+                            circ += avail_balance.clone();
+                            un_circ += actor_balance.clone() - &avail_balance;
+                        } else {
+                            // Assume any error is because the miner state is "broken" (lower actor balance than locked funds)
+                            // In this case, the actor's entire balance is considered "uncirculating"
+                            un_circ += actor_balance;
+                        }
+                    }
+                    _ if is_multisig_actor(&actor.code) => {
+                        let ms = multisig::State::load(&db, actor.code, actor.state)?;
+
+                        let locked_balance: TokenAmount = ms.locked_balance(height)?.into();
+                        let avail_balance = actor_balance.clone() - &locked_balance;
+                        circ += avail_balance.max(TokenAmount::zero());
+                        un_circ += actor_balance.min(locked_balance);
+                    }
+                    _ => bail!("unexpected actor: {:?}", actor),
+                }
+            } else {
+                // Do nothing for zero-balance actors
+            }
+            Ok(())
+        })?;
+
+        let total = circ.clone() + un_circ;
+        if total != *TOTAL_FILECOIN {
+            bail!(
+                "total filecoin didn't add to expected amount: {} != {}",
+                total,
+                *TOTAL_FILECOIN
+            );
+        }
+
+        Ok(circ)
     }
 }
 

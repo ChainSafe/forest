@@ -6,7 +6,10 @@ use std::path::PathBuf;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
-        data_types::{ApiActorState, ApiInvocResult, MessageLookup, SectorOnChainInfo},
+        data_types::{
+            ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MessageLookup,
+            SectorOnChainInfo,
+        },
         state_api::*,
     },
     shim::{
@@ -15,7 +18,7 @@ use crate::{
     },
 };
 use cid::Cid;
-use fil_actor_interface::miner::{MinerInfo, MinerPower};
+use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use libipld_core::ipld::Ipld;
@@ -70,8 +73,26 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_FAULTS, (miner, tsk))
     }
 
+    pub fn state_miner_recoveries_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
+        RpcRequest::new(STATE_MINER_RECOVERIES, (miner, tsk))
+    }
+
     pub fn state_miner_power_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
         RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
+    }
+
+    pub fn state_miner_deadlines_req(
+        miner: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Vec<ApiDeadline>> {
+        RpcRequest::new(STATE_MINER_DEADLINES, (miner, tsk))
+    }
+
+    pub fn state_miner_proving_deadline_req(
+        miner: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<DeadlineInfo> {
+        RpcRequest::new(STATE_MINER_PROVING_DEADLINE, (miner, tsk))
     }
 
     pub fn state_get_randomness_from_tickets_req(
@@ -123,6 +144,12 @@ impl ApiInfo {
 
     pub fn state_circulating_supply_req(tsk: TipsetKeys) -> RpcRequest<TokenAmount> {
         RpcRequest::new(STATE_CIRCULATING_SUPPLY, (tsk,))
+    }
+
+    pub fn state_vm_circulating_supply_internal_req(
+        tsk: TipsetKeys,
+    ) -> RpcRequest<CirculatingSupply> {
+        RpcRequest::new(STATE_VM_CIRCULATING_SUPPLY_INTERNAL, (tsk,))
     }
 
     pub fn state_decode_params_req(

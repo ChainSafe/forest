@@ -469,7 +469,7 @@ pub mod structured {
             total_gas: gc.total().round_up(),
             compute_gas: gc.compute_gas().round_up(),
             storage_gas: gc.other_gas().round_up(),
-            time_taken: 0,
+            time_taken: gc.elapsed().as_nanos(),
         }
     }
 }
