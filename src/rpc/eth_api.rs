@@ -6,19 +6,19 @@ use crate::rpc_api::data_types::RPCState;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 
-// EthAccounts will always return [] since we don't expect Forest to manage private keys
 pub(in crate::rpc) async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
+    // EthAccounts will always return [] since we don't expect Forest to manage private keys
     Ok(vec![])
 }
 
-// `eth_block_number` needs to return the height of the latest committed tipset.
-// Ethereum clients expect all transactions included in this block to have execution outputs.
-// This is the parent of the head tipset. The head tipset is speculative, has not been
-// recognized by the network, and its messages are only included, not executed.
-// See https://github.com/filecoin-project/ref-fvm/issues/1135.
 pub(in crate::rpc) async fn eth_block_number<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
+    // `eth_block_number` needs to return the height of the latest committed tipset.
+    // Ethereum clients expect all transactions included in this block to have execution outputs.
+    // This is the parent of the head tipset. The head tipset is speculative, has not been
+    // recognized by the network, and its messages are only included, not executed.
+    // See https://github.com/filecoin-project/ref-fvm/issues/1135.
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
     if heaviest.epoch() == 0 {
         // We're at genesis.
