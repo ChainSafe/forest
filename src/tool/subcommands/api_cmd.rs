@@ -327,7 +327,10 @@ fn wallet_tests() -> Vec<RpcTest> {
 }
 
 fn eth_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(ApiInfo::eth_chain_id_req())]
+    vec![
+        RpcTest::identity(ApiInfo::eth_block_number_req()),
+        RpcTest::identity(ApiInfo::eth_chain_id_req()),
+    ]
 }
 
 // Extract tests that use chain-specific data such as block CIDs or message
