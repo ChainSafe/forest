@@ -25,7 +25,7 @@ use crate::rpc_api::{
     chain_api::*,
     common_api::*,
     data_types::RPCState,
-    eth_api::{ETH_ACCOUNTS,ETH_BLOCK_NUMBER, ETH_CHAIN_ID},
+    eth_api::{ETH_ACCOUNTS, ETH_BLOCK_NUMBER, ETH_CHAIN_ID},
     gas_api::*,
     mpool_api::*,
     net_api::*,

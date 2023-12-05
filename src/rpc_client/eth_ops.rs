@@ -6,7 +6,7 @@ use crate::rpc_api::eth_api::{ETH_ACCOUNTS, ETH_BLOCK_NUMBER, ETH_CHAIN_ID};
 use super::{ApiInfo, RpcRequest};
 
 impl ApiInfo {
-    pub fn eth_accounts_req() -> RpcRequest<String> {
+    pub fn eth_accounts_req() -> RpcRequest<Vec<String>> {
         RpcRequest::new_v1(ETH_ACCOUNTS, ())
     }
 
