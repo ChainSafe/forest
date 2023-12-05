@@ -83,6 +83,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_INFO, Access::Read);
     access.insert(state_api::STATE_MINER_ACTIVE_SECTORS, Access::Read);
     access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
     access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
@@ -250,6 +251,7 @@ pub mod state_api {
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
     pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
     pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
+    pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
     pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";

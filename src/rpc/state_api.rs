@@ -301,6 +301,21 @@ pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 's
         .map(|r| r.into())
 }
 
+pub(in crate::rpc) async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<BitField>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
+
+    data.state_manager
+        .miner_recoveries(&miner, &ts)
+        .map_err(|e| e.into())
+        .map(|r| r.into())
+}
+
 /// returns the message receipt for the given message
 pub(in crate::rpc) async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,

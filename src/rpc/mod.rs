@@ -121,6 +121,7 @@ where
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
+            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
             .with_method(
