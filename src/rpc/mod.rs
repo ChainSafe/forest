@@ -140,6 +140,7 @@ where
                 state_get_randomness_from_beacon::<DB>,
             )
             .with_method(STATE_READ_STATE, state_read_state::<DB>)
+            .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
             .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
             .with_method(
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
