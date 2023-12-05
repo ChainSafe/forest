@@ -25,7 +25,7 @@ use crate::rpc_api::{
     chain_api::*,
     common_api::*,
     data_types::RPCState,
-    eth_api::{ETH_ACCOUNTS, ETH_CHAIN_ID},
+    eth_api::{ETH_ACCOUNTS,ETH_BLOCK_NUMBER, ETH_CHAIN_ID},
     gas_api::*,
     mpool_api::*,
     net_api::*,
@@ -175,6 +175,7 @@ where
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
             .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
+            .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .finish_unwrapped(),
     );
