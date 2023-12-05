@@ -326,6 +326,13 @@ fn wallet_tests() -> Vec<RpcTest> {
     ]
 }
 
+fn eth_tests() -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity(ApiInfo::eth_block_number_req()),
+        RpcTest::identity(ApiInfo::eth_chain_id_req()),
+    ]
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
@@ -430,12 +437,22 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.miner_address(),
                 tipset.key().clone(),
             )));
+            tests.push(RpcTest::identity(
+                ApiInfo::state_miner_proving_deadline_req(
+                    *block.miner_address(),
+                    tipset.key().clone(),
+                ),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 *block.miner_address(),
                 tipset.key().clone(),
-            )))
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
         }
-        tests.push(RpcTest::basic(ApiInfo::state_circulating_supply_req(
+        tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),
         )));
         tests.push(RpcTest::identity(
@@ -496,6 +513,7 @@ async fn compare_apis(
     tests.extend(net_tests());
     tests.extend(node_tests());
     tests.extend(wallet_tests());
+    tests.extend(eth_tests());
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;

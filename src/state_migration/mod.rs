@@ -35,17 +35,37 @@ pub fn run_state_migrations<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
-    let mut mappings: Vec<(_, RunMigration<DB>)> = vec![
-        (Height::Shark, nv17::run_migration::<DB>),
-        (Height::Hygge, nv18::run_migration::<DB>),
-        (Height::Lightning, nv19::run_migration::<DB>),
-        (Height::Watermelon, nv21::run_migration::<DB>),
-    ];
-
-    if chain_config.network == NetworkChain::Calibnet {
-        mappings.push((Height::WatermelonFix, nv21fix::run_migration::<DB>));
-        mappings.push((Height::WatermelonFix2, nv21fix2::run_migration::<DB>));
-    }
+    let mappings: Vec<(_, RunMigration<DB>)> = match chain_config.network {
+        NetworkChain::Mainnet => {
+            vec![
+                (Height::Shark, nv17::run_migration::<DB>),
+                (Height::Hygge, nv18::run_migration::<DB>),
+                (Height::Lightning, nv19::run_migration::<DB>),
+                (Height::Watermelon, nv21::run_migration::<DB>),
+            ]
+        }
+        NetworkChain::Calibnet => {
+            vec![
+                (Height::Shark, nv17::run_migration::<DB>),
+                (Height::Hygge, nv18::run_migration::<DB>),
+                (Height::Lightning, nv19::run_migration::<DB>),
+                (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::WatermelonFix, nv21fix::run_migration::<DB>),
+                (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
+            ]
+        }
+        NetworkChain::Butterflynet => {
+            vec![(Height::Watermelon, nv21::run_migration::<DB>)]
+        }
+        NetworkChain::Devnet(_) => {
+            vec![
+                (Height::Shark, nv17::run_migration::<DB>),
+                (Height::Hygge, nv18::run_migration::<DB>),
+                (Height::Lightning, nv19::run_migration::<DB>),
+                (Height::Watermelon, nv21::run_migration::<DB>),
+            ]
+        }
+    };
 
     // Make sure bundle is defined.
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);

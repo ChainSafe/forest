@@ -41,7 +41,7 @@ use chain_rand::ChainRand;
 use cid::Cid;
 
 use fil_actor_interface::miner::SectorOnChainInfo;
-use fil_actor_interface::miner::{MinerInfo, MinerPower};
+use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -60,7 +60,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 use utils::structured;
-use vm_circ_supply::GenesisInfo;
+pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -423,7 +423,7 @@ where
                 epoch: height,
                 rand: Box::new(rand),
                 base_fee: tipset.blocks()[0].parent_base_fee().clone(),
-                circ_supply: genesis_info.get_circulating_supply(
+                circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
                     state_cid,
@@ -502,7 +502,6 @@ where
         // "next" tipset
         let epoch = ts.epoch() + 1;
         let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
-
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
         let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
@@ -513,7 +512,7 @@ where
                     epoch,
                     rand: Box::new(chain_rand),
                     base_fee: ts.blocks()[0].parent_base_fee().clone(),
-                    circ_supply: genesis_info.get_circulating_supply(
+                    circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
                         &st,
@@ -1039,26 +1038,43 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> Result<BitField, Error> {
+        self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
+    }
+    /// Retrieves miner recoveries.
+    pub fn miner_recoveries(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<BitField, Error> {
+        self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
+    }
+
+    fn all_partition_sectors(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+        get_sector: impl Fn(Partition<'_>) -> BitField,
+    ) -> Result<BitField, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
-        let mut faults = Vec::new();
+        let mut partitions = Vec::new();
 
         state.for_each_deadline(
             &self.chain_config.policy,
             self.blockstore(),
             |_, deadline| {
                 deadline.for_each(self.blockstore(), |_, partition| {
-                    faults.push(partition.faulty_sectors().clone());
+                    partitions.push(get_sector(partition));
                     Ok(())
                 })
             },
         )?;
 
-        Ok(BitField::union(faults.iter()))
+        Ok(BitField::union(partitions.iter()))
     }
 
     /// Retrieves miner power.
@@ -1399,7 +1415,7 @@ where
     let genesis_info = GenesisInfo::from_chain_config(&chain_config);
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
-            genesis_info.get_circulating_supply(epoch, &chain_index.db, &state_root)?;
+            genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;
         VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(&tipset),

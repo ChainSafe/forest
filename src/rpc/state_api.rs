@@ -11,7 +11,7 @@ use crate::rpc_api::data_types::{
     RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
-    address::Address, clock::ChainEpoch, executor::Receipt, message::Message,
+    address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
@@ -21,6 +21,7 @@ use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use cid::Cid;
+use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
@@ -269,6 +270,21 @@ pub(in crate::rpc) async fn state_miner_deadlines<DB: Blockstore + Send + Sync +
     Ok(LotusJson(res))
 }
 
+pub(in crate::rpc) async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<DeadlineInfo>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let store = data.state_manager.blockstore();
+    let state = miner::State::load(store, actor.code, actor.state)?;
+    Ok(LotusJson(state.deadline_info(policy, ts.epoch())))
+}
+
 /// looks up the miner power of the given address.
 pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
@@ -281,6 +297,21 @@ pub(in crate::rpc) async fn state_miner_faults<DB: Blockstore + Send + Sync + 's
 
     data.state_manager
         .miner_faults(&address, &ts)
+        .map_err(|e| e.into())
+        .map(|r| r.into())
+}
+
+pub(in crate::rpc) async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<BitField>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
+
+    data.state_manager
+        .miner_recoveries(&miner, &ts)
         .map_err(|e| e.into())
         .map(|r| r.into())
 }
@@ -570,6 +601,26 @@ pub(in crate::rpc) async fn state_read_state<DB: Blockstore + Send + Sync + 'sta
         actor.code,
         Ipld::Link(state),
     )))
+}
+
+pub(in crate::rpc) async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    let height = ts.epoch();
+
+    let state_manager = &data.state_manager;
+
+    let root = ts.parent_state();
+
+    let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
+
+    let supply =
+        genesis_info.get_circulating_supply(height, &state_manager.blockstore_owned(), root)?;
+
+    Ok(LotusJson(supply))
 }
 
 /// Get state sector info using sector no

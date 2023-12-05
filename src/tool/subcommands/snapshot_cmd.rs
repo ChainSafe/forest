@@ -11,7 +11,7 @@ use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::ipld::recurse_links_hash;
-use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::fvm_shared_latest::address::Network;
@@ -316,6 +316,8 @@ fn query_network(ts: &Tipset, db: impl Blockstore) -> anyhow::Result<NetworkChai
             Ok(NetworkChain::Calibnet)
         } else if block_cid == *mainnet::GENESIS_CID {
             Ok(NetworkChain::Mainnet)
+        } else if block_cid == *butterflynet::GENESIS_CID {
+            Ok(NetworkChain::Butterflynet)
         } else {
             bail!("Unrecognizable genesis block");
         }
