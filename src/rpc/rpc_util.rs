@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_api::{
-    auth_api::*, check_access, data_types::JsonRpcServerState, eth_api::{ETH_ACCOUNTS, ETH_CHAIN_ID},
+    auth_api::*,
+    check_access,
+    data_types::JsonRpcServerState,
+    eth_api::{ETH_ACCOUNTS, ETH_CHAIN_ID},
     ACCESS_MAP,
 };
 use http::{HeaderMap, HeaderValue, StatusCode};

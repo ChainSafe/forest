@@ -20,9 +20,19 @@ mod wallet_api;
 use std::sync::Arc;
 
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState,
-    eth_api::{ETH_ACCOUNTS, ETH_CHAIN_ID}, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
-    state_api::*, sync_api::*, wallet_api::*,
+    auth_api::*,
+    beacon_api::*,
+    chain_api::*,
+    common_api::*,
+    data_types::RPCState,
+    eth_api::{ETH_ACCOUNTS, ETH_CHAIN_ID},
+    gas_api::*,
+    mpool_api::*,
+    net_api::*,
+    node_api::NODE_STATUS,
+    state_api::*,
+    sync_api::*,
+    wallet_api::*,
 };
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
