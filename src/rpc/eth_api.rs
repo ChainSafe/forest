@@ -6,7 +6,7 @@ use crate::rpc_api::data_types::RPCState;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
 
-// eth_blockNumber needs to return the height of the latest committed tipset.
+// `eth_block_number` needs to return the height of the latest committed tipset.
 // Ethereum clients expect all transactions included in this block to have execution outputs.
 // This is the parent of the head tipset. The head tipset is speculative, has not been
 // recognized by the network, and its messages are only included, not executed.
