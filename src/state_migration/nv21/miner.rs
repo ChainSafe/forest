@@ -164,8 +164,7 @@ impl MinerMigrator {
                     let info = in_sectors
                         .get(diff.key)?
                         .context("Failed to get info from in_sectors")?;
-                    prev_out_sectors
-                        .set(diff.key, TypeMigrator::migrate_type(info.clone(), store)?)?;
+                    prev_out_sectors.set(diff.key, TypeMigrator::migrate_type(info, store)?)?;
                 }
             };
         }
@@ -187,7 +186,7 @@ impl MinerMigrator {
             );
 
         in_array.for_each(|key, info_v11| {
-            out_array.set(key, TypeMigrator::migrate_type(info_v11.clone(), store)?)?;
+            out_array.set(key, TypeMigrator::migrate_type(info_v11, store)?)?;
             Ok(())
         })?;
 

@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::sync::Arc;
+use std::num::NonZeroUsize;
+use std::sync::atomic::AtomicU64;
 
 use crate::cid_collections::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
@@ -66,7 +67,7 @@ impl<BS: Blockstore> StateMigration<BS> {
 impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
     pub(in crate::state_migration) fn migrate_state_tree(
         &self,
-        store: &Arc<BS>,
+        store: &BS,
         prior_epoch: ChainEpoch,
         actors_in: StateTree<BS>,
         mut actors_out: StateTree<BS>,
@@ -76,21 +77,16 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             verifier.verify_migration(store, &self.migrations, &actors_in)?;
         }
 
-        // we need at least 3 threads for the migration to work
-        let threads = num_cpus::get().max(3);
-        let chan_size = threads / 2;
-        let cache = MigrationCache::default();
-
-        tracing::info!("Using {threads} threads for migration and channel size of {chan_size}",);
-
+        let cache = MigrationCache::new(NonZeroUsize::new(10_000).expect("infallible"));
         let pool = rayon::ThreadPoolBuilder::new()
             .thread_name(|id| format!("state migration thread: {id}"))
-            .num_threads(threads)
+            .num_threads(3) // minimum needed, more doesn't increase performance in any way
             .build()?;
 
-        let (state_tx, state_rx) = crossbeam_channel::bounded(chan_size);
-        let (job_tx, job_rx) = crossbeam_channel::bounded(chan_size);
+        let (state_tx, state_rx) = crossbeam_channel::bounded(1);
+        let (job_tx, job_rx) = crossbeam_channel::bounded(1);
 
+        let job_counter = AtomicU64::new(0);
         pool.scope(|s| {
             s.spawn(move |_| {
                 actors_in
@@ -141,6 +137,11 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                                 "Failed setting new actor state at given address: {address}, Reason: {e}"
                             )
                         });
+                    job_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let job_counter = job_counter.load(std::sync::atomic::Ordering::Relaxed);
+                    if job_counter % 100_000 == 0 {
+                        tracing::info!("Processed {job_counter} actors", job_counter = job_counter);
+                    }
                 }
             }
         });
