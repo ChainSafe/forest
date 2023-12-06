@@ -29,6 +29,18 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.4 "Speedy Gonzales"
+
+### Breaking
+
+### Added
+
 - [#3779](https://github.com/ChainSafe/forest/pull/3779) Implement the
   `Filecoin.StateMinerRecoveries` lotus-compatible RPC API.
 - [#3745](https://github.com/ChainSafe/forest/pull/3745) Implement the
