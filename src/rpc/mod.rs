@@ -43,7 +43,7 @@ use tracing::info;
 
 use crate::rpc::{
     beacon_api::beacon_get_entry,
-    common_api::{shutdown, start_time, version},
+    common_api::{session, shutdown, start_time, version},
     rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
@@ -163,6 +163,7 @@ where
             .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
             // Common API
             .with_method(VERSION, move || version(block_delay, forest_version))
+            .with_method(SESSION, session)
             .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
             .with_method(START_TIME, start_time::<DB>)
             // Net API

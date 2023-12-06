@@ -187,6 +187,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4"] }
 walkdir = "2"
 zstd = "0.13"
 
