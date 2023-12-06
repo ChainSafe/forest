@@ -4,10 +4,9 @@
 //! Common code that's shared across all migration code.
 //! Each network upgrade / state migration code lives in their own module.
 
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::shim::{address::Address, clock::ChainEpoch, econ::TokenAmount, state_tree::StateTree};
-use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -17,36 +16,43 @@ pub(in crate::state_migration) mod migrators;
 mod state_migration;
 pub(in crate::state_migration) mod verifier;
 
+use lru::LruCache;
 use parking_lot::RwLock;
 pub(in crate::state_migration) use state_migration::StateMigration;
 pub(in crate::state_migration) type Migrator<BS> = Arc<dyn ActorMigration<BS> + Send + Sync>;
 
 /// Cache of existing CID to CID migrations for an actor.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(in crate::state_migration) struct MigrationCache {
-    cache: Arc<RwLock<HashMap<String, Cid>>>,
+    cache: Arc<RwLock<LruCache<String, Cid>>>,
 }
 
 impl MigrationCache {
+    pub fn new(size: NonZeroUsize) -> Self {
+        Self {
+            cache: Arc::new(RwLock::new(LruCache::new(size))),
+        }
+    }
+
     pub fn get(&self, key: &str) -> Option<Cid> {
-        self.cache.read().get(key).cloned()
+        self.cache.write().get(key).cloned()
     }
 
     pub fn get_or_insert_with<F>(&self, key: String, f: F) -> anyhow::Result<Cid>
     where
         F: FnOnce() -> anyhow::Result<Cid>,
     {
-        if self.cache.read().contains_key(&key) {
-            Ok(self.cache.read().get(&key).cloned().unwrap())
+        if self.cache.read().contains(&key) {
+            Ok(self.cache.write().get(&key).cloned().unwrap())
         } else {
             let v = f()?;
-            self.cache.write().insert(key, v);
+            self.cache.write().put(key, v);
             Ok(v)
         }
     }
 
     pub fn insert(&self, key: String, value: Cid) {
-        self.cache.write().insert(key, value);
+        self.cache.write().put(key, value);
     }
 }
 
@@ -114,13 +120,15 @@ pub(in crate::state_migration) struct TypeMigrator;
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroUsize;
+
     use super::MigrationCache;
     use crate::utils::cid::CidCborExt;
     use cid::Cid;
 
     #[test]
     fn test_migration_cache() {
-        let cache = MigrationCache::default();
+        let cache = MigrationCache::new(NonZeroUsize::new(10).unwrap());
         let cid = Cid::from_cbor_blake2b256(&42).unwrap();
         cache.insert("Cthulhu".to_owned(), cid);
         assert_eq!(cache.get("Cthulhu"), Some(cid));
