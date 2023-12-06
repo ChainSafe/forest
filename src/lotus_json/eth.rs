@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::eth::{Address, BlockNumberOrHash, Hash};
+use crate::eth::{Address, BlockNumberOrHash, Hash, Predefined};
 
 impl HasLotusJson for Address {
     type LotusJson = String;
@@ -12,11 +12,11 @@ impl HasLotusJson for Address {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        format!("{:#x}", self)
+        format!("{:#x}", self.0)
     }
 
     fn from_lotus_json(address: Self::LotusJson) -> Self {
-        Hash::from_str(&address).unwrap()
+        Address(Hash::from_str(&address).unwrap())
     }
 }
 
@@ -42,6 +42,11 @@ impl HasLotusJson for BlockNumberOrHash {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        unimplemented!()
+        Self {
+            predefined_block: Some(Predefined::Latest),
+            block_number: None,
+            block_hash: None,
+            require_canonical: false,
+        }
     }
 }

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::eth::{Address, BlockNumberOrHash};
+use crate::eth::{Address, BigInt, BlockNumberOrHash};
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::RPCState;
+use crate::shim::state_tree::StateTree;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
@@ -55,6 +56,20 @@ pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, block_number))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
 ) -> Result<String, JsonRpcError> {
-    // TODO
-    Ok("0".to_string())
+    let fil_addr = address.to_filecoin_address()?;
+
+    let ts = data.state_manager.chain_store().heaviest_tipset();
+
+    let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), ts.parent_state())?;
+
+    let actor = state
+        .get_actor(&fil_addr)
+        .map_err(|e| JsonRpcError::Provided {
+            code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
+            message: "Failed to retrieve actor",
+        })?
+        .ok_or_else(|| JsonRpcError::INTERNAL_ERROR)?;
+
+    let balance = BigInt(actor.balance.atto().clone());
+    Ok(balance.to_string())
 }
