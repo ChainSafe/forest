@@ -734,6 +734,9 @@ where
                     && s.equal_call(message)
             })
             .map(|(index, m)| {
+                // A replacing message is a message with a different CID, 
+                // any of Gas values, and different signature, but with all 
+                // other parameters matching (source/destination, nonce, params, etc.)
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
                         "found message with equal nonce and call params but different CID. wanted {}, found: {}, nonce: {}, from: {}",
