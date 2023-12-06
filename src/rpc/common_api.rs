@@ -11,7 +11,7 @@ use tokio::sync::mpsc::Sender;
 
 use uuid::Uuid;
 
-static SESSION_UUID: Lazy<Uuid> = Lazy::new(|| Uuid::new_v4());
+static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
 /// The session UUID uniquely identifies the API node.
 pub(in crate::rpc) async fn session() -> Result<String, JsonRpcError> {
