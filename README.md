@@ -3,7 +3,6 @@
 </p>
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
-[![Codecov](https://img.shields.io/codecov/c/gh/ChainSafe/forest?style=for-the-badge&token=1OHO2CSD17)](https://codecov.io/gh/ChainSafe/forest)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
 [![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
 [![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)

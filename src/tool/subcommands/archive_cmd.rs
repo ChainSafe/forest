@@ -37,7 +37,7 @@ use crate::db::car::ManyCar;
 use crate::db::car::{AnyCar, RandomAccessFileReader};
 use crate::interpreter::VMTrace;
 use crate::ipld::{stream_graph, unordered_stream_graph};
-use crate::networks::{calibnet, mainnet, ChainConfig, NetworkChain};
+use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::{ChainEpoch, EPOCHS_IN_DAY, EPOCH_DURATION_SECONDS};
 use crate::shim::fvm_shared_latest::address::Network;
@@ -263,6 +263,8 @@ impl ArchiveInfo {
                     network = "calibnet".into();
                 } else if tipset.min_ticket_block().cid() == &*mainnet::GENESIS_CID {
                     network = "mainnet".into();
+                } else if tipset.min_ticket_block().cid() == &*butterflynet::GENESIS_CID {
+                    network = "butterflynet".into();
                 }
             }
 
@@ -277,6 +279,8 @@ impl ArchiveInfo {
                     network = "calibnet".into();
                 } else if genesis_block.cid() == &*mainnet::GENESIS_CID {
                     network = "mainnet".into();
+                } else if genesis_block.cid() == &*butterflynet::GENESIS_CID {
+                    network = "butterflynet".into();
                 }
                 break;
             }

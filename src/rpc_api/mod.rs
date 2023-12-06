@@ -83,8 +83,10 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_INFO, Access::Read);
     access.insert(state_api::STATE_MINER_ACTIVE_SECTORS, Access::Read);
     access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
+    access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
@@ -110,6 +112,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Common API
     access.insert(common_api::VERSION, Access::Read);
+    access.insert(common_api::SESSION, Access::Read);
     access.insert(common_api::SHUTDOWN, Access::Admin);
     access.insert(common_api::START_TIME, Access::Read);
 
@@ -124,6 +127,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(node_api::NODE_STATUS, Access::Read);
 
     // Eth API
+    access.insert(eth_api::ETH_ACCOUNTS, Access::Read);
+    access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
 
@@ -250,8 +255,10 @@ pub mod state_api {
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
     pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
     pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
+    pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
+    pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
@@ -367,6 +374,8 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
+    pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
+    pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
 }

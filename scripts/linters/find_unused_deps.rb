@@ -20,14 +20,14 @@ Dir.glob('**/*.toml').each do |file|
   crate_dir = File.dirname(file)
   toml = TomlRB.load_file(file)
   crates = Set.new
-  toml['dependencies']&.each do |crate_name, _|
+  toml['dependencies']&.each_key do |crate_name|
     crates.add crate_name
   end
-  toml['dev-dependencies']&.each do |crate_name, _|
+  toml['dev-dependencies']&.each_key do |crate_name|
     crates.add crate_name
   end
   if toml['workspace']
-    toml['workspace']['dependencies']&.each do |crate_name, _|
+    toml['workspace']['dependencies']&.each_key do |crate_name|
       crates.add crate_name
     end
   end

@@ -329,6 +329,8 @@ fn wallet_tests() -> Vec<RpcTest> {
 
 fn eth_tests() -> Vec<RpcTest> {
     vec![
+        RpcTest::identity(ApiInfo::eth_accounts_req()),
+        RpcTest::identity(ApiInfo::eth_block_number_req()),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
@@ -443,10 +445,20 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.miner_address(),
                 tipset.key().clone(),
             )));
+            tests.push(RpcTest::identity(
+                ApiInfo::state_miner_proving_deadline_req(
+                    *block.miner_address(),
+                    tipset.key().clone(),
+                ),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 *block.miner_address(),
                 tipset.key().clone(),
-            )))
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
         }
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),

@@ -5,8 +5,18 @@
 use crate::rpc_api::data_types::{APIVersion, RPCState, Version};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
+use once_cell::sync::Lazy;
 use semver::Version as SemVer;
 use tokio::sync::mpsc::Sender;
+
+use uuid::Uuid;
+
+static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
+
+/// The session UUID uniquely identifies the API node.
+pub(in crate::rpc) async fn session() -> Result<String, JsonRpcError> {
+    Ok(SESSION_UUID.to_string())
+}
 
 pub(in crate::rpc) async fn version(
     block_delay: u64,

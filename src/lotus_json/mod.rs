@@ -123,7 +123,7 @@
 
 use crate::ipld::{json::IpldJson, Ipld};
 use derive_more::From;
-use fil_actor_interface::power::Claim;
+use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
 use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
@@ -389,6 +389,7 @@ lotus_json_with_self!(
     (),
     std::path::PathBuf,
     bool,
+    DeadlineInfo,
 );
 
 #[derive(Default, Debug, Serialize, Deserialize)]
