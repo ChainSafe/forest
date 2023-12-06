@@ -356,6 +356,62 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
     })
 }
 
+/// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsg>
+pub(in crate::rpc) async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<MessageLookup, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let (tipset, receipt) = state_manager
+        .search_for_message(None, cid, None)
+        .await?
+        .with_context(|| format!("message {cid} not found."))?;
+
+    let ipld: Ipld = if let Ok(ipld) = receipt.return_data().deserialize() {
+        ipld
+    } else {
+        Ipld::Null
+    };
+
+    Ok(MessageLookup {
+        receipt,
+        tipset: tipset.key().clone(),
+        height: tipset.epoch(),
+        message: cid,
+        return_dec: Some(ipld),
+    })
+}
+
+/// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsgLimited>
+pub(in crate::rpc) async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((cid, look_back_limit))): Params<LotusJson<(Cid, i64)>>,
+) -> Result<MessageLookup, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let (tipset, receipt) = state_manager
+        .search_for_message(None, cid, Some(look_back_limit))
+        .await?
+        .with_context(|| {
+            format!("message {cid} not found within the last {look_back_limit} epochs")
+        })?;
+
+    let ipld: Ipld = if let Ok(ipld) = receipt.return_data().deserialize() {
+        ipld
+    } else {
+        Ipld::Null
+    };
+
+    Ok(MessageLookup {
+        receipt,
+        tipset: tipset.key().clone(),
+        height: tipset.epoch(),
+        message: cid,
+        return_dec: Some(ipld),
+    })
+}
+
 // Sample CIDs (useful for testing):
 //   Mainnet:
 //     1,594,681 bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm OhSnap upgrade

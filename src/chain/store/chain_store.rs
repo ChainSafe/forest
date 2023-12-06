@@ -494,14 +494,15 @@ where
     DB: Blockstore,
 {
     if let Ok(amt) = Amt::load(block_header.message_receipts(), db) {
-        let receipts = amt.get(i as u64)?;
-        Ok(receipts.cloned().map(Receipt::V2))
-    } else {
-        // Receipt_v4 and Receipt_v3 are identical, use v4 here
-        let amt = Amt::load(block_header.message_receipts(), db)?;
-        let receipts = amt.get(i as u64)?;
-        Ok(receipts.cloned().map(Receipt::V4))
+        if let Ok(receipts) = amt.get(i as u64) {
+            return Ok(receipts.cloned().map(Receipt::V2));
+        }
     }
+
+    // Receipt_v4 and Receipt_v3 are identical, use v4 here
+    let amt = Amt::load(block_header.message_receipts(), db)?;
+    let receipts = amt.get(i as u64)?;
+    Ok(receipts.cloned().map(Receipt::V4))
 }
 
 pub mod headchange_json {

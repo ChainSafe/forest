@@ -339,7 +339,6 @@ fn eth_tests() -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
-    let shared_tipset_epoch = shared_tipset.epoch();
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
@@ -386,7 +385,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
                         msg.cid()?,
-                        shared_tipset_epoch - n_tipsets as i64,
+                        800,
                     )));
                 }
             }
@@ -414,7 +413,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
                     tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
                         msg.cid()?,
-                        shared_tipset_epoch - n_tipsets as i64,
+                        800,
                     )));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
