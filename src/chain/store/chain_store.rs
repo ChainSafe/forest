@@ -493,6 +493,7 @@ pub fn get_parent_receipt<DB>(
 where
     DB: Blockstore,
 {
+    // Try Receipt_v2 first
     if let Ok(amt) = Amt::load(block_header.message_receipts(), db) {
         if let Ok(receipts) = amt.get(i as u64) {
             return Ok(receipts.cloned().map(Receipt::V2));
