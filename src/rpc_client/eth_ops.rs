@@ -3,7 +3,7 @@
 
 use crate::rpc_api::eth_api::*;
 
-use crate::eth::{Address, BlockNumberOrHash};
+use crate::eth::{Address, BigInt, BlockNumberOrHash};
 
 use super::{ApiInfo, RpcRequest};
 
@@ -22,8 +22,8 @@ impl ApiInfo {
 
     pub fn eth_get_balance_req(
         address: Address,
-        block_or_hash: BlockNumberOrHash,
-    ) -> RpcRequest<String> {
-        RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_or_hash))
+        block_param: BlockNumberOrHash,
+    ) -> RpcRequest<BigInt> {
+        RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_param))
     }
 }
