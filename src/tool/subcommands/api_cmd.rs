@@ -355,7 +355,10 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_block_number(shared_tipset.epoch() as u64),
         )),
-        //
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch() as u64),
+        )),
     ]
 }
 
