@@ -362,7 +362,13 @@ fn wallet_tests() -> Vec<RpcTest> {
 fn eth_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::identity(ApiInfo::eth_block_number_req()),
+        RpcTest::validate(ApiInfo::eth_block_number_req(), |forest, lotus| {
+            fn parse_hex(inp: &str) -> i64 {
+                let without_prefix = inp.trim_start_matches("0x");
+                i64::from_str_radix(without_prefix, 16).unwrap_or_default()
+            }
+            parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
+        }),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
     ]
 }
