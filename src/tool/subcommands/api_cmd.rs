@@ -580,18 +580,13 @@ async fn compare_apis(
     let mut results = HashMap::default();
 
     for test in tests.into_iter() {
-        match run_ignored {
-            RunIgnored::Default => {
-                if test.ignore.is_some() {
-                    continue;
-                }
-            }
-            RunIgnored::IgnoredOnly => {
-                if test.ignore.is_none() {
-                    continue;
-                }
-            }
-            RunIgnored::All => {}
+        // By default, do not run ignored tests.
+        if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
+            continue;
+        }
+        // If in `IgnoreOnly` mode, only run ignored tests.
+        if matches!(run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
+            continue;
         }
         if !test.request.method_name.contains(&filter) {
             continue;
