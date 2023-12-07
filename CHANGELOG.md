@@ -54,6 +54,8 @@
   `Filecoin.StateMinerInfo` lotus-compatible RPC API.
 - [#1670](https://github.com/ChainSafe/forest/issues/1670) Support Butterflynet
   🦋.
+- [#3806](https://github.com/ChainSafe/forest/pull/3806) Implement the
+  `Filecoin.EthGasPrice` lotus-compatible RPC API.
 
 ### Changed
 
