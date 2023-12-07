@@ -59,8 +59,14 @@ impl HasLotusJson for BlockNumberOrHash {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        let predefined = match lotus_json.as_str() {
+            "earliest" => Some(Predefined::Earliest),
+            "pending" => Some(Predefined::Pending),
+            "latest" => Some(Predefined::Latest),
+            _ => None,
+        };
         Self {
-            predefined_block: Some(Predefined::Latest),
+            predefined_block: predefined,
             block_number: None,
             block_hash: None,
             require_canonical: false,
