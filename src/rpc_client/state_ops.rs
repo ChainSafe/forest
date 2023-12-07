@@ -8,7 +8,7 @@ use crate::{
     rpc_api::{
         data_types::{
             ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MessageLookup,
-            SectorOnChainInfo,
+            MinerSectors, SectorOnChainInfo,
         },
         state_api::*,
     },
@@ -128,6 +128,13 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<Vec<SectorOnChainInfo>> {
         RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
+    }
+
+    pub fn state_miner_sector_count_req(
+        actor: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<MinerSectors> {
+        RpcRequest::new(STATE_MINER_SECTOR_COUNT, (actor, tsk))
     }
 
     pub fn state_lookup_id_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Option<Address>> {

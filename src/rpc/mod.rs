@@ -130,6 +130,7 @@ where
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)

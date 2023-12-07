@@ -782,3 +782,23 @@ pub struct CirculatingSupply {
 }
 
 lotus_json_with_self!(CirculatingSupply);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct MinerSectors {
+    live: usize,
+    active: usize,
+    faulty: usize,
+}
+
+impl MinerSectors {
+    pub fn new(live: usize, active: usize, faulty: usize) -> Self {
+        Self {
+            live,
+            active,
+            faulty,
+        }
+    }
+}
+
+lotus_json_with_self!(MinerSectors);
