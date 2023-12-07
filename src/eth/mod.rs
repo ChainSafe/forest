@@ -32,7 +32,7 @@ impl Address {
         } else {
             Ok(FilecoinAddress::new_delegated(
                 FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
-                &self.0.as_bytes(),
+                self.0.as_bytes(),
             )?)
         }
     }
