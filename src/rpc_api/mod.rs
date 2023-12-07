@@ -113,6 +113,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Common API
     access.insert(common_api::VERSION, Access::Read);
+    access.insert(common_api::SESSION, Access::Read);
     access.insert(common_api::SHUTDOWN, Access::Admin);
     access.insert(common_api::START_TIME, Access::Read);
 
@@ -127,6 +128,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(node_api::NODE_STATUS, Access::Read);
 
     // Eth API
+    access.insert(eth_api::ETH_ACCOUNTS, Access::Read);
     access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
 
@@ -373,6 +375,7 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
+    pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
     pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
 }
