@@ -331,7 +331,8 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_accounts_req()),
         RpcTest::identity(ApiInfo::eth_block_number_req()),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
-        RpcTest::identity(ApiInfo::eth_gas_price_req()),
+        // There is randomness in the result of this API
+        RpcTest::basic(ApiInfo::eth_gas_price_req()),
     ]
 }
 
