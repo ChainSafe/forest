@@ -15,7 +15,7 @@ pub struct Address(pub ethereum_types::Address);
 pub struct BigInt(pub num::BigInt);
 
 #[derive(Default, Clone)]
-pub struct Hash(pub ethereum_types::H160);
+pub struct Hash(pub ethereum_types::H256);
 
 #[derive(Default, Clone)]
 pub enum Predefined {
@@ -67,7 +67,7 @@ impl FromStr for Hash {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Hash(ethereum_types::H160::from_str(s)?))
+        Ok(Hash(ethereum_types::H256::from_str(s)?))
     }
 }
 
@@ -119,6 +119,15 @@ impl BlockNumberOrHash {
             predefined_block: None,
             block_number: Some(number),
             block_hash: None,
+            require_canonical: false,
+        }
+    }
+
+    pub fn from_block_hash(hash: Hash) -> Self {
+        Self {
+            predefined_block: None,
+            block_number: None,
+            block_hash: Some(hash),
             require_canonical: false,
         }
     }

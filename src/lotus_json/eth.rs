@@ -57,6 +57,9 @@ impl HasLotusJson for BlockNumberOrHash {
         if let Some(number) = block_number {
             return format!("0x{:x}", number);
         }
+        if let Some(block_hash) = block_hash {
+            return format!("0x{:x}", block_hash.0);
+        }
         unimplemented!()
     }
 
