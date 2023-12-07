@@ -184,4 +184,8 @@ impl ApiInfo {
     ) -> RpcRequest<Option<MessageLookup>> {
         RpcRequest::new(STATE_SEARCH_MSG_LIMITED, (msg_cid, limit_epoch))
     }
+
+    pub fn state_list_miners_req(tsk: TipsetKeys) -> RpcRequest<Vec<Address>> {
+        RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
 }

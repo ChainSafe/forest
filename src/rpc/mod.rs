@@ -134,6 +134,7 @@ where
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
             .with_method(
                 STATE_MINER_PROVING_DEADLINE,
                 state_miner_proving_deadline::<DB>,

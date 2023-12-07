@@ -25,6 +25,7 @@ use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
+    power,
 };
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
@@ -654,4 +655,28 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
         &data.state_manager.blockstore_owned(),
         ts.parent_state(),
     )?))
+}
+
+pub(in crate::rpc) async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
+    let store = data.state_manager.blockstore();
+    let actor = data
+        .state_manager
+        .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
+        .ok_or("Power actor not found".to_string())?;
+
+    let state = power::State::load(store, actor.code, actor.state)?;
+    let miners = state
+        .list_all_miners(store)?
+        .iter()
+        .map(|addr| addr.into())
+        .collect();
+
+    Ok(LotusJson(miners))
 }
