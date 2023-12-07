@@ -346,11 +346,16 @@ fn eth_tests() -> Vec<RpcTest> {
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Earliest),
         )),
+    ]
+}
+
+fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            // TODO: use head epoch instead
-            BlockNumberOrHash::from_block_number(1154210),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch() as u64),
         )),
+        //
     ]
 }
 
@@ -363,6 +368,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
+    tests.extend(eth_tests_with_tipset(&shared_tipset));
 
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
