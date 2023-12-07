@@ -58,7 +58,6 @@ pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
     ))
 }
 
-//     Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKeys)>>,
 pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
