@@ -74,7 +74,7 @@ pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
             code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
             message: "Failed to retrieve actor",
         })?
-        .ok_or_else(|| JsonRpcError::INTERNAL_ERROR)?;
+        .ok_or(JsonRpcError::INTERNAL_ERROR)?;
 
     let balance = BigInt(actor.balance.atto().clone());
     Ok(LotusJson(balance))
