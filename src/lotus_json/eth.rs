@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::eth::{Address, BlockNumberOrHash, Hash, Predefined};
+use crate::eth::{Address, BigInt, BlockNumberOrHash, Hash, Predefined};
+use num::traits::Num;
 
 impl HasLotusJson for Address {
     type LotusJson = String;
@@ -17,6 +18,22 @@ impl HasLotusJson for Address {
 
     fn from_lotus_json(address: Self::LotusJson) -> Self {
         Address(Hash::from_str(&address).unwrap())
+    }
+}
+
+impl HasLotusJson for BigInt {
+    type LotusJson = String;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![(json!("0x0"), BigInt::default())]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        format!("0x{:x}", self.0)
+    }
+
+    fn from_lotus_json(big_int: Self::LotusJson) -> Self {
+        BigInt(num::BigInt::from_str_radix(&big_int.as_str()[2..], 16).unwrap())
     }
 }
 

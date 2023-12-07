@@ -55,7 +55,7 @@ pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
 pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, block_number))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
-) -> Result<String, JsonRpcError> {
+) -> Result<LotusJson<BigInt>, JsonRpcError> {
     let fil_addr = address.to_filecoin_address()?;
 
     let ts = data.state_manager.chain_store().heaviest_tipset();
@@ -71,5 +71,5 @@ pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
         .ok_or_else(|| JsonRpcError::INTERNAL_ERROR)?;
 
     let balance = BigInt(actor.balance.atto().clone());
-    Ok(balance.to_string())
+    Ok(LotusJson(balance))
 }
