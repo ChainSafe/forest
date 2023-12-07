@@ -113,6 +113,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Common API
     access.insert(common_api::VERSION, Access::Read);
+    access.insert(common_api::SESSION, Access::Read);
     access.insert(common_api::SHUTDOWN, Access::Admin);
     access.insert(common_api::START_TIME, Access::Read);
 
