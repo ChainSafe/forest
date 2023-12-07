@@ -8,6 +8,8 @@ use cid::{
 };
 use std::{fmt, str::FromStr};
 
+const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
 #[derive(Default, Clone)]
 pub struct Address(pub ethereum_types::Address);
 
@@ -28,8 +30,13 @@ pub enum Predefined {
 impl Address {
     pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
         if self.is_masked_id() {
-            unimplemented!()
+            // This is a masked ID address.
+            let bytes: [u8; 8] =
+                core::array::from_fn(|i| self.0.as_fixed_bytes()[MASKED_ID_PREFIX.len() + i]);
+            Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
         } else {
+            // Otherwise, translate the address into an address controlled by the
+            // Ethereum Address Manager.
             Ok(FilecoinAddress::new_delegated(
                 FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
                 self.0.as_bytes(),
@@ -37,9 +44,8 @@ impl Address {
         }
     }
 
-    pub fn is_masked_id(&self) -> bool {
-        // TODO
-        false
+    fn is_masked_id(&self) -> bool {
+        self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
     }
 }
 
