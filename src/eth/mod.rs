@@ -63,9 +63,7 @@ impl Hash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
         let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
-        let cid = Cid::new(cid::Version::V1, fvm_ipld_encoding::DAG_CBOR, mh);
-        // TODO: remove unwrap
-        cid.unwrap()
+        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
     }
 }
 
