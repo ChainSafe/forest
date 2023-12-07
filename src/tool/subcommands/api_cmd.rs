@@ -331,6 +331,7 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_accounts_req()),
         RpcTest::identity(ApiInfo::eth_block_number_req()),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        RpcTest::identity(ApiInfo::eth_gas_price_req()),
     ]
 }
 

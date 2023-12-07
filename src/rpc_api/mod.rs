@@ -130,6 +130,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_ACCOUNTS, Access::Read);
     access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
+    access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
 
     access
 });
@@ -376,4 +377,5 @@ pub mod eth_api {
     pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
     pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
+    pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
 }
