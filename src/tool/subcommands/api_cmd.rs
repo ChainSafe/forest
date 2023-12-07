@@ -42,7 +42,7 @@ pub enum ApiCommands {
         #[arg(short, long, default_value = "20")]
         /// The number of tipsets to use to generate test cases.
         n_tipsets: usize,
-        #[arg(long, value_enum)]
+        #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
     },
