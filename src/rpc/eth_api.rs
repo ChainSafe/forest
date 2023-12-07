@@ -4,8 +4,9 @@
 
 use std::sync::Arc;
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
+use crate::cid_collections::FrozenCidVec;
 use crate::eth::{Address, BigInt, BlockNumberOrHash, Predefined};
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::RPCState;
@@ -107,9 +108,24 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         )?;
         return Ok(ts);
     } else if let Some(block_hash) = block_param.block_hash {
-        //chain.chain_index.load_tipset();
-        ()
+        let tsk = TipsetKeys {
+            cids: FrozenCidVec::from_iter([block_hash.to_cid()]),
+        };
+        let ts = chain.chain_index.load_required_tipset(&tsk)?;
+        // verify that the tipset is in the canonical chain
+        if block_param.require_canonical {
+            // walk up the current chain (our head) until we reach ts.epoch()
+            let walk_ts = chain.chain_index.tipset_by_height(
+                ts.epoch(),
+                head,
+                ResolveNullTipset::TakeOlder,
+            )?;
+            // verify that it equals the expected tipset
+            if walk_ts != ts {
+                bail!("tipset is not canonical");
+            }
+        }
+        return Ok(ts);
     }
-
     bail!("invalid block param");
 }

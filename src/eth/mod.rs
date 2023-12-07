@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::address::Address as FilecoinAddress;
+use cid::{
+    multihash::{self, MultihashDigest},
+    Cid,
+};
 use std::{fmt, str::FromStr};
 
 #[derive(Default, Clone)]
@@ -10,7 +14,8 @@ pub struct Address(pub ethereum_types::Address);
 #[derive(Default, Clone, PartialEq)]
 pub struct BigInt(pub num::BigInt);
 
-pub type Hash = ethereum_types::H160;
+#[derive(Default, Clone)]
+pub struct Hash(pub ethereum_types::H160);
 
 #[derive(Default, Clone)]
 pub enum Predefined {
@@ -45,6 +50,24 @@ impl FromStr for Address {
         Ok(Address(
             ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
         ))
+    }
+}
+
+impl Hash {
+    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+    pub fn to_cid(&self) -> cid::Cid {
+        let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
+        let cid = Cid::new(cid::Version::V1, fvm_ipld_encoding::DAG_CBOR, mh);
+        // TODO: remove unwrap
+        cid.unwrap()
+    }
+}
+
+impl FromStr for Hash {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Hash(ethereum_types::H160::from_str(s)?))
     }
 }
 
@@ -86,6 +109,15 @@ impl BlockNumberOrHash {
         Self {
             predefined_block: Some(predefined),
             block_number: None,
+            block_hash: None,
+            require_canonical: false,
+        }
+    }
+
+    pub fn from_block_number(number: u64) -> Self {
+        Self {
+            predefined_block: None,
+            block_number: Some(number),
             block_hash: None,
             require_canonical: false,
         }

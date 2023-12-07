@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::eth::{Address, BigInt, BlockNumberOrHash, Hash, Predefined};
+use crate::eth::{Address, BigInt, BlockNumberOrHash, Predefined};
 use num::traits::Num;
 
 impl HasLotusJson for Address {
@@ -17,7 +17,7 @@ impl HasLotusJson for Address {
     }
 
     fn from_lotus_json(address: Self::LotusJson) -> Self {
-        Address(Hash::from_str(&address).unwrap())
+        Address::from_str(&address).unwrap()
     }
 }
 
@@ -52,10 +52,12 @@ impl HasLotusJson for BlockNumberOrHash {
             require_canonical,
         } = self;
         if let Some(value) = predefined_block {
-            value.to_string()
-        } else {
-            unimplemented!()
+            return value.to_string();
         }
+        if let Some(number) = block_number {
+            return format!("0x{:x}", number);
+        }
+        unimplemented!()
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
@@ -65,9 +67,19 @@ impl HasLotusJson for BlockNumberOrHash {
             "latest" => Some(Predefined::Latest),
             _ => None,
         };
+
+        let number = if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
+            if let Ok(number) = u64::from_str_radix(&lotus_json[2..], 16) {
+                Some(number)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         Self {
             predefined_block: predefined,
-            block_number: None,
+            block_number: number,
             block_hash: None,
             require_canonical: false,
         }
