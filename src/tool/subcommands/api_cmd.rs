@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::HashMap;
-use clap::Subcommand;
-use clap::ValueEnum;
+use clap::{Subcommand, ValueEnum};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
