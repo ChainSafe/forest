@@ -49,7 +49,7 @@ impl HasLotusJson for BlockNumberOrHash {
             predefined_block,
             block_number,
             block_hash,
-            require_canonical,
+            require_canonical: _,
         } = self;
         if let Some(value) = predefined_block {
             return value.to_string();

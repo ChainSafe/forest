@@ -70,7 +70,7 @@ pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
 
     let actor = state
         .get_actor(&fil_addr)
-        .map_err(|e| JsonRpcError::Provided {
+        .map_err(|_e| JsonRpcError::Provided {
             code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
             message: "Failed to retrieve actor",
         })?
@@ -100,11 +100,9 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         if height > head.epoch() - 1 {
             bail!("requested a future epoch (beyond \"latest\")");
         }
-        let ts = chain.chain_index.tipset_by_height(
-            height as i64,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let ts = chain
+            .chain_index
+            .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
         return Ok(ts);
     } else if let Some(block_hash) = block_param.block_hash {
         let tsk = TipsetKeys {

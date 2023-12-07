@@ -122,13 +122,4 @@ impl BlockNumberOrHash {
             require_canonical: false,
         }
     }
-
-    pub fn from_block_hash(hash: Hash) -> Self {
-        Self {
-            predefined_block: None,
-            block_number: None,
-            block_hash: Some(hash),
-            require_canonical: false,
-        }
-    }
 }
