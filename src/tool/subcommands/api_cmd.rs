@@ -3,6 +3,7 @@
 
 use ahash::HashMap;
 use clap::Subcommand;
+use clap::ValueEnum;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
@@ -41,6 +42,9 @@ pub enum ApiCommands {
         #[arg(short, long, default_value = "20")]
         /// The number of tipsets to use to generate test cases.
         n_tipsets: usize,
+        #[arg(long, value_enum)]
+        /// Behavior for tests marked as 'ignored'.
+        run_ignored: RunIgnored,
     },
 }
 
@@ -54,10 +58,30 @@ impl ApiCommands {
                 filter,
                 fail_fast,
                 n_tipsets,
-            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast, n_tipsets).await?,
+                run_ignored,
+            } => {
+                compare_apis(
+                    forest,
+                    lotus,
+                    snapshot_files,
+                    filter,
+                    fail_fast,
+                    n_tipsets,
+                    run_ignored,
+                )
+                .await?
+            }
         }
         Ok(())
     }
+}
+
+#[derive(ValueEnum, Debug, Clone)] // ArgEnum here
+#[clap(rename_all = "kebab_case")]
+pub enum RunIgnored {
+    Default,
+    IgnoredOnly,
+    All,
 }
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -93,6 +117,7 @@ struct RpcTest {
     request: RpcRequest,
     check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
     check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
+    ignore: Option<&'static str>,
 }
 
 impl RpcTest {
@@ -106,6 +131,7 @@ impl RpcTest {
             request: request.lower(),
             check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
             check_semantics: Box::new(|_, _| true),
+            ignore: None,
         }
     }
 
@@ -129,7 +155,13 @@ impl RpcTest {
                     })
                 })
             }),
+            ignore: None,
         }
+    }
+
+    fn ignore(mut self, msg: &'static str) -> Self {
+        self.ignore = Some(msg);
+        self
     }
 
     // Check that an endpoint exist and that Forest returns exactly the same
@@ -189,7 +221,7 @@ fn common_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(ApiInfo::version_req()),
         RpcTest::basic(ApiInfo::start_time_req()),
-        RpcTest::basic(ApiInfo::discover_req()),
+        RpcTest::basic(ApiInfo::discover_req()).ignore("Not implemented yet"),
         RpcTest::basic(ApiInfo::session_req()),
     ]
 }
@@ -238,7 +270,8 @@ fn net_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
-        RpcTest::basic(ApiInfo::net_info_req()),
+        RpcTest::basic(ApiInfo::net_info_req())
+            .ignore("Not implemented in Lotus. Why do we even have this method?"),
     ]
 }
 
@@ -384,11 +417,17 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     //     msg.cid()?,
                     //     0,
                     // )));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
-                        msg.cid()?,
-                        shared_tipset_epoch - n_tipsets as i64,
-                    )));
+                    tests.push(
+                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                            .ignore("Not implemented yet"),
+                    );
+                    tests.push(
+                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                            msg.cid()?,
+                            shared_tipset_epoch - n_tipsets as i64,
+                        ))
+                        .ignore("Not implemented yet"),
+                    );
                 }
             }
             for msg in secp_messages {
@@ -413,18 +452,24 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     //     msg.cid()?,
                     //     0,
                     // )));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
-                        msg.cid()?,
-                        shared_tipset_epoch - n_tipsets as i64,
-                    )));
+                    tests.push(
+                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                            .ignore("Not implemented yet"),
+                    );
+                    tests.push(
+                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                            msg.cid()?,
+                            shared_tipset_epoch - n_tipsets as i64,
+                        ))
+                        .ignore("Not implemented yet"),
+                    );
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
                             root_tsk.clone(),
-                        )));
+                        )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
                     }
                 }
             }
@@ -505,6 +550,7 @@ async fn compare_apis(
     filter: String,
     fail_fast: bool,
     n_tipsets: usize,
+    run_ignored: RunIgnored,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -528,6 +574,19 @@ async fn compare_apis(
     let mut results = HashMap::default();
 
     for test in tests.into_iter() {
+        match run_ignored {
+            RunIgnored::Default => {
+                if test.ignore.is_some() {
+                    continue;
+                }
+            }
+            RunIgnored::IgnoredOnly => {
+                if test.ignore.is_none() {
+                    continue;
+                }
+            }
+            RunIgnored::All => {}
+        }
         if !test.request.method_name.contains(&filter) {
             continue;
         }
