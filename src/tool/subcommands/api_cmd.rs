@@ -76,7 +76,7 @@ impl ApiCommands {
     }
 }
 
-#[derive(ValueEnum, Debug, Clone)] // ArgEnum here
+#[derive(ValueEnum, Debug, Clone)]
 #[clap(rename_all = "kebab_case")]
 pub enum RunIgnored {
     Default,
