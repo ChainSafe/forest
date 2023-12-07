@@ -43,7 +43,7 @@ pub enum ApiCommands {
         /// The number of tipsets to use to generate test cases.
         n_tipsets: usize,
         #[arg(long, value_enum)]
-        /// Behavior for tests marked as 'ignored'.
+        /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
     },
 }
