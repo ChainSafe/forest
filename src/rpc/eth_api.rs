@@ -4,12 +4,13 @@
 
 use std::ops::Add;
 
-use crate::rpc_api::data_types::RPCState;
+use super::gas_api;
+use crate::rpc_api::{data_types::RPCState, eth_api::*};
 use anyhow::Context;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
-
-use super::gas_api;
+use num_bigint::BigInt;
+use num_traits::Zero as _;
 
 pub(in crate::rpc) async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
@@ -55,7 +56,7 @@ pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
 
 pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-) -> Result<String, JsonRpcError> {
+) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts
         .blocks()
@@ -64,8 +65,8 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
     let base_fee = block0.parent_base_fee();
     if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
         let gas_price = base_fee.add(premium);
-        Ok(format!("0x{:x}", gas_price.atto()))
+        Ok(GasPriceResult(gas_price.atto().clone()))
     } else {
-        Ok(format!("0x0"))
+        Ok(GasPriceResult(BigInt::zero()))
     }
 }

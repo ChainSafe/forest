@@ -374,8 +374,58 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
+    use num_bigint::BigInt;
+    use serde::{Deserialize, Serialize};
+
+    use crate::lotus_json::lotus_json_with_self;
+
     pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
     pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
+
+    #[derive(Debug, Deserialize, Serialize, Default)]
+    pub struct GasPriceResult(#[serde(with = "stringify")] pub BigInt);
+
+    pub mod stringify {
+        use super::*;
+        use num_traits::Num as _;
+        use serde::{Deserializer, Serializer};
+
+        pub fn serialize<S>(value: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(format!("0x{value:x}").as_str())
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s = String::deserialize(deserializer)?;
+            if s.len() > 2 && &s[..2] == "0x" {
+                BigInt::from_str_radix(&s[2..], 16).map_err(serde::de::Error::custom)
+            } else {
+                Err(serde::de::Error::custom("Invalid hex"))
+            }
+        }
+    }
+
+    lotus_json_with_self!(GasPriceResult);
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use quickcheck_macros::quickcheck;
+
+        #[quickcheck]
+        fn gas_price_result_serde_roundtrip(i: u128) {
+            let r = GasPriceResult(i.into());
+            let encoded = serde_json::to_string(&r).unwrap();
+            assert_eq!(encoded, format!("\"0x{i:x}\""));
+            let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(r.0, decoded.0);
+        }
+    }
 }
