@@ -181,8 +181,6 @@ impl RpcTest {
     ) -> (EndpointStatus, EndpointStatus) {
         let forest_resp = forest_api.call(self.request.clone()).await;
         let lotus_resp = lotus_api.call(self.request.clone()).await;
-        println!("f {:?}", forest_resp);
-        println!("l {:?}", lotus_resp);
 
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
