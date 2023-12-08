@@ -491,7 +491,7 @@ pub mod eth_api {
     #[derive(Clone)]
     pub enum BlockNumberOrHash {
         PredefinedBlock(Predefined),
-        BlockNumber(u64),
+        BlockNumber(i64),
         BlockHash(Hash, bool),
     }
 
@@ -500,7 +500,7 @@ pub mod eth_api {
             Self::PredefinedBlock(predefined)
         }
 
-        pub fn from_block_number(number: u64) -> Self {
+        pub fn from_block_number(number: i64) -> Self {
             Self::BlockNumber(number)
         }
     }
@@ -529,7 +529,7 @@ pub mod eth_api {
             };
 
             if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
-                if let Ok(number) = u64::from_str_radix(&lotus_json[2..], 16) {
+                if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
                     return Self::BlockNumber(number);
                 }
             }

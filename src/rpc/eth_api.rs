@@ -114,7 +114,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             }
         },
         BlockNumberOrHash::BlockNumber(number) => {
-            let height = ChainEpoch::from(number as i64); // TODO: check conversion
+            let height = ChainEpoch::from(number);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
             }
