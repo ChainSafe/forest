@@ -86,43 +86,45 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
 
-    if let Some(predefined) = block_param.predefined_block {
-        match predefined {
+    match block_param {
+        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
             Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
-            Predefined::Pending => return Ok(head),
+            Predefined::Pending => Ok(head),
             Predefined::Latest => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
-                return Ok(parent);
+                Ok(parent)
             }
-        }
-    } else if let Some(block_number) = block_param.block_number {
-        let height = ChainEpoch::from(block_number as i64); // TODO: check conversion
-        if height > head.epoch() - 1 {
-            bail!("requested a future epoch (beyond \"latest\")");
-        }
-        let ts = chain
-            .chain_index
-            .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
-        return Ok(ts);
-    } else if let Some(block_hash) = block_param.block_hash {
-        let tsk = TipsetKeys {
-            cids: FrozenCidVec::from_iter([block_hash.to_cid()]),
-        };
-        let ts = chain.chain_index.load_required_tipset(&tsk)?;
-        // verify that the tipset is in the canonical chain
-        if block_param.require_canonical {
-            // walk up the current chain (our head) until we reach ts.epoch()
-            let walk_ts = chain.chain_index.tipset_by_height(
-                ts.epoch(),
-                head,
-                ResolveNullTipset::TakeOlder,
-            )?;
-            // verify that it equals the expected tipset
-            if walk_ts != ts {
-                bail!("tipset is not canonical");
+        },
+        BlockNumberOrHash::BlockNumber(number) => {
+            let height = ChainEpoch::from(number as i64); // TODO: check conversion
+            if height > head.epoch() - 1 {
+                bail!("requested a future epoch (beyond \"latest\")");
             }
+            let ts =
+                chain
+                    .chain_index
+                    .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
+            Ok(ts)
         }
-        return Ok(ts);
+        BlockNumberOrHash::BlockHash(hash, require_canonical) => {
+            let tsk = TipsetKeys {
+                cids: FrozenCidVec::from_iter([hash.to_cid()]),
+            };
+            let ts = chain.chain_index.load_required_tipset(&tsk)?;
+            // verify that the tipset is in the canonical chain
+            if require_canonical {
+                // walk up the current chain (our head) until we reach ts.epoch()
+                let walk_ts = chain.chain_index.tipset_by_height(
+                    ts.epoch(),
+                    head,
+                    ResolveNullTipset::TakeOlder,
+                )?;
+                // verify that it equals the expected tipset
+                if walk_ts != ts {
+                    bail!("tipset is not canonical");
+                }
+            }
+            Ok(ts)
+        }
     }
-    bail!("invalid block param");
 }

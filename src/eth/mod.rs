@@ -100,30 +100,20 @@ impl fmt::Display for Predefined {
     }
 }
 
-#[derive(Default, Clone)]
-pub struct BlockNumberOrHash {
-    pub predefined_block: Option<Predefined>,
-    pub block_number: Option<u64>,
-    pub block_hash: Option<Hash>,
-    pub require_canonical: bool,
+#[allow(dead_code)]
+#[derive(Clone)]
+pub enum BlockNumberOrHash {
+    PredefinedBlock(Predefined),
+    BlockNumber(u64),
+    BlockHash(Hash, bool),
 }
 
 impl BlockNumberOrHash {
     pub fn from_predefined(predefined: Predefined) -> Self {
-        Self {
-            predefined_block: Some(predefined),
-            block_number: None,
-            block_hash: None,
-            require_canonical: false,
-        }
+        Self::PredefinedBlock(predefined)
     }
 
     pub fn from_block_number(number: u64) -> Self {
-        Self {
-            predefined_block: None,
-            block_number: Some(number),
-            block_hash: None,
-            require_canonical: false,
-        }
+        Self::BlockNumber(number)
     }
 }

@@ -45,46 +45,27 @@ impl HasLotusJson for BlockNumberOrHash {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let Self {
-            predefined_block,
-            block_number,
-            block_hash,
-            require_canonical: _,
-        } = self;
-        if let Some(value) = predefined_block {
-            return value.to_string();
+        match self {
+            Self::PredefinedBlock(predefined) => predefined.to_string(),
+            Self::BlockNumber(number) => format!("0x{:x}", number),
+            Self::BlockHash(hash, _require_canonical) => format!("0x{:x}", hash.0),
         }
-        if let Some(number) = block_number {
-            return format!("0x{:x}", number);
-        }
-        if let Some(block_hash) = block_hash {
-            return format!("0x{:x}", block_hash.0);
-        }
-        unimplemented!()
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        let predefined = match lotus_json.as_str() {
-            "earliest" => Some(Predefined::Earliest),
-            "pending" => Some(Predefined::Pending),
-            "latest" => Some(Predefined::Latest),
-            _ => None,
+        match lotus_json.as_str() {
+            "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
+            "pending" => return Self::PredefinedBlock(Predefined::Pending),
+            "latest" => return Self::PredefinedBlock(Predefined::Latest),
+            _ => (),
         };
 
-        let number = if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
+        if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
             if let Ok(number) = u64::from_str_radix(&lotus_json[2..], 16) {
-                Some(number)
-            } else {
-                None
+                return Self::BlockNumber(number);
             }
-        } else {
-            None
-        };
-        Self {
-            predefined_block: predefined,
-            block_number: number,
-            block_hash: None,
-            require_canonical: false,
         }
+
+        Self::PredefinedBlock(Predefined::Latest)
     }
 }
