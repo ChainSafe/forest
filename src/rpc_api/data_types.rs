@@ -4,7 +4,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::beacon::BeaconSchedule;
+use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
@@ -14,6 +14,7 @@ use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -406,6 +407,28 @@ pub struct MinerPowerLotusJson {
     total_power: LotusJson<Claim>,
     has_min_power: bool,
 }
+
+// Note: kept the name in line with Lotus implementation for cross-referencing simplicity.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfo {
+    #[serde(with = "crate::lotus_json")]
+    pub miner_power: crate::shim::sector::StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    pub network_power: fvm_shared2::sector::StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: Vec<SectorInfo>,
+    #[serde(with = "crate::lotus_json")]
+    pub worker_key: Address,
+    pub sector_size: fvm_shared2::sector::SectorSize,
+    #[serde(with = "crate::lotus_json")]
+    pub prev_beacon_entry: BeaconEntry,
+    #[serde(with = "crate::lotus_json")]
+    pub beacon_entries: Vec<BeaconEntry>,
+    pub eligible_for_mining: bool,
+}
+
+lotus_json_with_self!(MiningBaseInfo);
 
 impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
