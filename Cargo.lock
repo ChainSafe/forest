@@ -3090,7 +3090,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.16.3"
+version = "0.16.4"
 dependencies = [
  "ahash",
  "anes",
@@ -3268,6 +3268,7 @@ dependencies = [
  "tracing-subscriber",
  "unsigned-varint 0.8.0",
  "url",
+ "uuid",
  "walkdir",
  "zstd",
 ]
@@ -4796,11 +4797,12 @@ dependencies = [
 
 [[package]]
 name = "jsonwebtoken"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "155c4d7e39ad04c172c5e3a99c434ea3b4a7ba7960b38ecd562b270b097cce09"
+checksum = "5c7ea04a7c5c055c175f189b6dc6ba036fd62306b58c66c9f6389036c503a3f4"
 dependencies = [
  "base64 0.21.5",
+ "js-sys",
  "pem",
  "ring 0.17.5",
  "serde",
@@ -9269,6 +9271,9 @@ name = "uuid"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "valuable"
