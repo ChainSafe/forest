@@ -8,13 +8,28 @@ use crate::blocks::TipsetKeys;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
-use crate::shim::{address::Protocol, message::Message};
+use crate::shim::{
+    address::{Address, Protocol},
+    message::Message,
+};
+
 use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 use super::gas_api::estimate_message_gas;
+
+/// Gets next nonce for the specified sender.
+pub(in crate::rpc) async fn mpool_get_nonce<DB>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((address,))): Params<LotusJson<(Address,)>>,
+) -> Result<u64, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    Ok(data.mpool.get_sequence(&address)?)
+}
 
 /// Return `Vec` of pending messages in `mpool`
 pub(in crate::rpc) async fn mpool_pending<DB>(

@@ -498,6 +498,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         ))
                         .ignore("Not implemented yet"),
                     );
+                    tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
@@ -536,6 +537,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )));

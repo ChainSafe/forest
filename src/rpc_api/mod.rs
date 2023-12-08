@@ -51,6 +51,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
 
     // Message Pool API
+    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
     access.insert(mpool_api::MPOOL_PUSH, Access::Write);
     access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
@@ -100,6 +101,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_READ_STATE, Access::Read);
     access.insert(state_api::STATE_CIRCULATING_SUPPLY, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
+    access.insert(state_api::STATE_MINER_SECTOR_COUNT, Access::Read);
     access.insert(
         state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
         Access::Read,
@@ -218,6 +220,7 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
+    pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
@@ -275,6 +278,7 @@ pub mod state_api {
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
     pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
     pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
+    pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
     pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
         "Filecoin.StateVMCirculatingSupplyInternal";
 }
