@@ -282,7 +282,7 @@ impl<T> RpcRequest<T> {
     }
 
     pub fn new_v1<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
-        let x = RpcRequest {
+        RpcRequest {
             method_name,
             params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
                 serde_json::Value::String(
@@ -292,9 +292,6 @@ impl<T> RpcRequest<T> {
             result_type: PhantomData,
             rpc_endpoint: "rpc/v1",
         };
-        dbg!("method_name: {:?}", &x.method_name);
-        dbg!("params: {:?}", &x.params);
-        x
     }
 
     // Discard type information about the response.

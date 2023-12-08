@@ -4,6 +4,7 @@
 
 use std::{ops::Add, sync::Arc};
 
+use super::gas_api;
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
@@ -11,8 +12,6 @@ use crate::eth::{Address, BigInt as EthBigInt, BlockNumberOrHash, Predefined};
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-
-use super::gas_api;
 
 use anyhow::{bail, Context};
 use fvm_ipld_blockstore::Blockstore;
