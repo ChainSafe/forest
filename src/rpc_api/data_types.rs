@@ -413,7 +413,7 @@ pub struct MinerPowerLotusJson {
 #[serde(rename_all = "PascalCase")]
 pub struct MiningBaseInfo {
     #[serde(with = "crate::lotus_json")]
-    pub miner_power: fvm_shared2::sector::StoragePower,
+    pub miner_power: crate::shim::sector::StoragePower,
     #[serde(with = "crate::lotus_json")]
     pub network_power: fvm_shared2::sector::StoragePower,
     #[serde(with = "crate::lotus_json")]
