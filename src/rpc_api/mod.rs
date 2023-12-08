@@ -534,6 +534,7 @@ pub mod eth_api {
                 }
             }
 
+            // Return some default value if we can't convert
             Self::PredefinedBlock(Predefined::Latest)
         }
     }
