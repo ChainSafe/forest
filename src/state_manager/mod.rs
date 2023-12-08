@@ -1184,7 +1184,7 @@ where
 
         let (miner_power, total_power) = self
             .get_power(&lb_state_root, Some(&addr))?
-            .ok_or_else(|| Error::State("failed to get power".to_string()))?;
+            .context("failed to get power")?;
 
         let info = miner_state.info(self.blockstore())?;
 
