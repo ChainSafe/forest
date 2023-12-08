@@ -376,7 +376,7 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
-    use std::str::FromStr;
+    use std::{fmt, str::FromStr};
 
     use cid::{
         multihash::{self, MultihashDigest},
@@ -474,6 +474,76 @@ pub mod eth_api {
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Ok(Hash(ethereum_types::H256::from_str(s)?))
+        }
+    }
+
+    #[derive(Default, Clone)]
+    pub enum Predefined {
+        Earliest,
+        Pending,
+        #[default]
+        Latest,
+    }
+
+    impl fmt::Display for Predefined {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let s = match self {
+                Predefined::Earliest => "earliest",
+                Predefined::Pending => "pending",
+                Predefined::Latest => "latest",
+            };
+            write!(f, "{}", s)
+        }
+    }
+
+    #[allow(dead_code)]
+    #[derive(Clone)]
+    pub enum BlockNumberOrHash {
+        PredefinedBlock(Predefined),
+        BlockNumber(u64),
+        BlockHash(Hash, bool),
+    }
+
+    impl BlockNumberOrHash {
+        pub fn from_predefined(predefined: Predefined) -> Self {
+            Self::PredefinedBlock(predefined)
+        }
+
+        pub fn from_block_number(number: u64) -> Self {
+            Self::BlockNumber(number)
+        }
+    }
+
+    impl HasLotusJson for BlockNumberOrHash {
+        type LotusJson = String;
+
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            match self {
+                Self::PredefinedBlock(predefined) => predefined.to_string(),
+                Self::BlockNumber(number) => format!("0x{:x}", number),
+                Self::BlockHash(hash, _require_canonical) => format!("0x{:x}", hash.0),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json.as_str() {
+                "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
+                "pending" => return Self::PredefinedBlock(Predefined::Pending),
+                "latest" => return Self::PredefinedBlock(Predefined::Latest),
+                _ => (),
+            };
+
+            if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
+                if let Ok(number) = u64::from_str_radix(&lotus_json[2..], 16) {
+                    return Self::BlockNumber(number);
+                }
+            }
+
+            Self::PredefinedBlock(Predefined::Latest)
         }
     }
 

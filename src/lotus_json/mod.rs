@@ -201,7 +201,6 @@ decl_and_test!(
 );
 
 mod cid; // can't make snapshots of generic type
-mod eth;
 mod opt; // can't make snapshots of generic type
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module

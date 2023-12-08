@@ -41,7 +41,6 @@ mod cli_shared;
 mod daemon;
 mod db;
 mod documentation;
-mod eth;
 mod fil_cns;
 mod genesis;
 mod interpreter;
