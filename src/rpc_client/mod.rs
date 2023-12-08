@@ -291,7 +291,7 @@ impl<T> RpcRequest<T> {
             ),
             result_type: PhantomData,
             rpc_endpoint: "rpc/v1",
-        };
+        }
     }
 
     // Discard type information about the response.
