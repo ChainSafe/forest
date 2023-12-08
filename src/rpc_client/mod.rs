@@ -5,6 +5,7 @@ pub mod auth_ops;
 pub mod beacon_ops;
 pub mod chain_ops;
 pub mod common_ops;
+pub mod eth_ops;
 pub mod mpool_ops;
 pub mod net_ops;
 pub mod node_ops;
@@ -30,7 +31,6 @@ pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
 pub const DEFAULT_PROTOCOL: &str = "http";
-pub const RPC_ENDPOINT: &str = "rpc/v0";
 
 pub use self::{
     auth_ops::*, chain_ops::*, common_ops::*, mpool_ops::*, net_ops::*, state_ops::*, sync_ops::*,
@@ -96,7 +96,7 @@ impl ApiInfo {
             .with_id(0)
             .finish();
 
-        let api_url = multiaddress_to_url(&self.multiaddr);
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -202,7 +202,7 @@ struct Url {
 }
 
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
+fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> String {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
@@ -248,7 +248,7 @@ fn multiaddress_to_url(multiaddr: &Multiaddr) -> String {
     // Format, print and return the URL
     let url = format!(
         "{}://{}:{}/{}",
-        addr.protocol, addr.host, addr.port, RPC_ENDPOINT
+        addr.protocol, addr.host, addr.port, endpoint
     );
 
     url
@@ -264,6 +264,7 @@ pub struct RpcRequest<T = serde_json::Value> {
     pub method_name: &'static str,
     params: serde_json::Value,
     result_type: PhantomData<T>,
+    rpc_endpoint: &'static str,
 }
 
 impl<T> RpcRequest<T> {
@@ -276,6 +277,20 @@ impl<T> RpcRequest<T> {
                 ),
             ),
             result_type: PhantomData,
+            rpc_endpoint: "rpc/v0",
+        }
+    }
+
+    pub fn new_v1<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
+        RpcRequest {
+            method_name,
+            params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
+                serde_json::Value::String(
+                    "INTERNAL ERROR: Parameters could not be serialized as JSON".to_string(),
+                ),
+            ),
+            result_type: PhantomData,
+            rpc_endpoint: "rpc/v1",
         }
     }
 
@@ -285,6 +300,7 @@ impl<T> RpcRequest<T> {
             method_name: self.method_name,
             params: self.params,
             result_type: PhantomData,
+            rpc_endpoint: self.rpc_endpoint,
         }
     }
 }

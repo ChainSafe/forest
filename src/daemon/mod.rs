@@ -25,7 +25,7 @@ use crate::key_management::{
 };
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use crate::networks::ChainConfig;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -222,7 +222,7 @@ pub(super) async fn start(
     //   initialized
     let genesis_header = read_genesis_header(
         config.client.genesis_file.as_ref(),
-        chain_config.genesis_bytes(),
+        chain_config.genesis_bytes(&db).await?.as_deref(),
         &db,
     )
     .await?;
@@ -269,7 +269,7 @@ pub(super) async fn start(
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
-
+    display_chain_logo(&config.chain);
     let (tipset_sink, tipset_stream) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
@@ -707,4 +707,17 @@ fn create_password(prompt: &str) -> dialoguer::Result<String> {
             "Error: the passwords do not match. Try again or press Ctrl+C to abort.",
         )
         .interact_on(&term)
+}
+
+/// Displays the network logo/ASCII art if available.
+fn display_chain_logo(chain: &NetworkChain) {
+    let logo = match chain {
+        NetworkChain::Butterflynet => {
+            Some(include_str!("../../build/ascii-art/butterfly").to_string())
+        }
+        _ => None,
+    };
+    if let Some(logo) = logo {
+        info!("\n{logo}");
+    }
 }

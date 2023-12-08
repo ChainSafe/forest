@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
+use crate::db::SettingsStore;
+use crate::make_butterfly_policy;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
@@ -19,6 +21,7 @@ pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
 
 mod drand;
 
+pub mod butterflynet;
 pub mod calibnet;
 pub mod devnet;
 pub mod mainnet;
@@ -35,6 +38,7 @@ pub enum NetworkChain {
     #[default]
     Mainnet,
     Calibnet,
+    Butterflynet,
     Devnet(String),
 }
 
@@ -45,6 +49,7 @@ impl FromStr for NetworkChain {
         match s {
             "mainnet" => Ok(NetworkChain::Mainnet),
             "calibnet" | "calibrationnet" => Ok(NetworkChain::Calibnet),
+            "butterflynet" => Ok(NetworkChain::Butterflynet),
             name => Ok(NetworkChain::Devnet(name.to_owned())),
         }
     }
@@ -55,6 +60,7 @@ impl Display for NetworkChain {
         match self {
             NetworkChain::Mainnet => write!(f, "mainnet"),
             NetworkChain::Calibnet => write!(f, "calibnet"),
+            NetworkChain::Butterflynet => write!(f, "Butterflynet"),
             NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
     }
@@ -64,14 +70,14 @@ impl NetworkChain {
     /// Returns [`NetworkChain::Calibnet`] or [`NetworkChain::Mainnet`] if `cid`
     /// is the hard-coded genesis CID for either of those networks.
     pub fn from_genesis(cid: &Cid) -> Option<Self> {
-        match (
-            *calibnet::GENESIS_CID == *cid,
-            *mainnet::GENESIS_CID == *cid,
-        ) {
-            (true, true) => unreachable!(),
-            (true, false) => Some(Self::Calibnet),
-            (false, true) => Some(Self::Mainnet),
-            (false, false) => None,
+        if cid == &*mainnet::GENESIS_CID {
+            Some(Self::Mainnet)
+        } else if cid == &*calibnet::GENESIS_CID {
+            Some(Self::Calibnet)
+        } else if cid == &*butterflynet::GENESIS_CID {
+            Some(Self::Butterflynet)
+        } else {
+            None
         }
     }
 
@@ -260,10 +266,26 @@ impl ChainConfig {
         }
     }
 
+    pub fn butterflynet() -> Self {
+        use butterflynet::*;
+
+        Self {
+            network: NetworkChain::Butterflynet,
+            genesis_cid: Some(GENESIS_CID.to_string()),
+            bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
+            block_delay_secs: EPOCH_DURATION_SECONDS as u32,
+            propagation_delay_secs: 6,
+            height_infos: HEIGHT_INFOS.to_vec(),
+            policy: make_butterfly_policy!(v10),
+            eth_chain_id: ETH_CHAIN_ID as u32,
+        }
+    }
+
     pub fn from_chain(network_chain: &NetworkChain) -> Self {
         match network_chain {
             NetworkChain::Mainnet => Self::mainnet(),
             NetworkChain::Calibnet => Self::calibnet(),
+            NetworkChain::Butterflynet => Self::butterflynet(),
             NetworkChain::Devnet(name) => Self {
                 network: NetworkChain::Devnet(name.clone()),
                 ..Self::devnet()
@@ -286,6 +308,7 @@ impl ChainConfig {
         let ds_iter = match self.network {
             NetworkChain::Mainnet => mainnet::DRAND_SCHEDULE.iter(),
             NetworkChain::Calibnet => calibnet::DRAND_SCHEDULE.iter(),
+            NetworkChain::Butterflynet => butterflynet::DRAND_SCHEDULE.iter(),
             NetworkChain::Devnet(_) => devnet::DRAND_SCHEDULE.iter(),
         };
 
@@ -311,12 +334,17 @@ impl ChainConfig {
             .unwrap_or(0)
     }
 
-    pub fn genesis_bytes(&self) -> Option<&[u8]> {
-        match self.network {
-            NetworkChain::Mainnet => Some(mainnet::DEFAULT_GENESIS),
-            NetworkChain::Calibnet => Some(calibnet::DEFAULT_GENESIS),
+    pub async fn genesis_bytes<DB: SettingsStore>(
+        &self,
+        db: &DB,
+    ) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(match self.network {
+            NetworkChain::Mainnet => Some(mainnet::DEFAULT_GENESIS.to_vec()),
+            NetworkChain::Calibnet => Some(calibnet::DEFAULT_GENESIS.to_vec()),
+            // Butterflynet genesis is not hardcoded in the binary, for size reasons.
+            NetworkChain::Butterflynet => Some(butterflynet::fetch_genesis(db).await?),
             NetworkChain::Devnet(_) => None,
-        }
+        })
     }
 
     pub fn is_testnet(&self) -> bool {

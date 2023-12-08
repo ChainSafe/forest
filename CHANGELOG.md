@@ -31,6 +31,25 @@
 
 - [#3773](https://github.com/ChainSafe/forest/pull/3786) Implement the
   `Filecoin.MinerGetBaseInfo` lotus-compatible RPC API.
+- [#3807](https://github.com/ChainSafe/forest/pull/3807) Add `--run-ignored`
+  flag to `forest-tool api compare`.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.4 "Speedy Gonzales"
+
+### Breaking
+
+### Added
+
+- [#3779](https://github.com/ChainSafe/forest/pull/3779) Implement the
+  `Filecoin.StateMinerRecoveries` lotus-compatible RPC API.
+- [#3745](https://github.com/ChainSafe/forest/pull/3745) Implement the
+  `Filecoin.StateCirculatingSupply` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3773) Implement the
   `Filecoin.StateVMCirculatingSupplyInternal` lotus-compatible RPC API.
 - [#3748](https://github.com/ChainSafe/forest/pull/3748) Add timing for each
@@ -38,6 +57,8 @@
   `forest-tool snapshot compute-state` and `Filecoin.StateCall` RPC API.
 - [#3720](https://github.com/ChainSafe/forest/pull/3750) Implement the
   `Filecoin.StateMinerInfo` lotus-compatible RPC API.
+- [#1670](https://github.com/ChainSafe/forest/issues/1670) Support Butterflynet
+  🦋.
 
 ### Changed
 

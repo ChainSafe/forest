@@ -11,7 +11,8 @@ are listed here:
 The current status of compatibility can be checked by comparing a running Forest
 node with a running Lotus node:
 
-1. Build Lotus with support for Calibnet and sync to HEAD.
+1. Build Lotus with support for Calibnet and sync to HEAD. Run Lotus with
+   `LOTUS_FEVM_ENABLEETHRPC=1` to enable the Eth RPC methods.
 2. Run Forest against Calibnet and sync to HEAD.
 3. Run `forest-tool api compare`
 
@@ -50,8 +51,6 @@ Forest.
 
 Forest does not yet support mining and none of the mining-related RPC calls will
 be implemented in the foreseeable future.
-
-Forest does not support any v1 methods yets.
 
 ## Gateway
 
