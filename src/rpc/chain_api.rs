@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use std::sync::Arc;
-
 use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
@@ -15,15 +13,18 @@ use crate::rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use crate::shim::clock::ChainEpoch;
+use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
@@ -69,24 +70,21 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
     if block_header.epoch() == 0 {
         Ok(LotusJson(vec![]))
     } else {
-        let tipset = Tipset::load_required(store, block_header.parents())?;
-        let messages = load_api_messages_from_tipset(store, &tipset)?;
-        let receipts: Result<Vec<ApiReceipt>, JsonRpcError> = messages
-            .iter()
-            .map(|msg| {
-                let msg_receipt = data
-                    .state_manager
-                    .get_receipt(tipset.clone().into(), msg.cid)?;
-                Ok(ApiReceipt {
-                    exit_code: msg_receipt.exit_code().into(),
-                    return_data: msg_receipt.return_data(),
-                    gas_used: msg_receipt.gas_used(),
-                    events_root: msg_receipt.events_root(),
-                })
-            })
-            .collect();
-
-        Ok(LotusJson(receipts?))
+        let mut receipts = Vec::new();
+        let amt = Amt::<Receipt, _>::load(block_header.message_receipts(), store).expect(&format!(
+            "Could not load message receipt from cid {}",
+            block_header.message_receipts()
+        ));
+        amt.for_each(|_, receipt| {
+            receipts.push(ApiReceipt {
+                exit_code: receipt.exit_code().into(),
+                return_data: receipt.return_data(),
+                gas_used: receipt.gas_used(),
+                events_root: receipt.events_root(),
+            });
+            Ok(())
+        })?;
+        Ok(LotusJson(receipts))
     }
 }
 
