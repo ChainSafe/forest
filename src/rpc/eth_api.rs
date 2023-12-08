@@ -2,9 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::rpc_api::data_types::RPCState;
+use std::ops::Add;
+
+use super::gas_api;
+use crate::rpc_api::{data_types::RPCState, eth_api::*};
+use anyhow::Context;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError};
+use num_bigint::BigInt;
+use num_traits::Zero as _;
 
 pub(in crate::rpc) async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
@@ -46,4 +52,21 @@ pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
         "0x{:x}",
         data.state_manager.chain_config().eth_chain_id
     ))
+}
+
+pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+) -> Result<GasPriceResult, JsonRpcError> {
+    let ts = data.state_manager.chain_store().heaviest_tipset();
+    let block0 = ts
+        .blocks()
+        .first()
+        .context("Failed to get the first block")?;
+    let base_fee = block0.parent_base_fee();
+    if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
+        let gas_price = base_fee.add(premium);
+        Ok(GasPriceResult(gas_price.atto().clone()))
+    } else {
+        Ok(GasPriceResult(BigInt::zero()))
+    }
 }

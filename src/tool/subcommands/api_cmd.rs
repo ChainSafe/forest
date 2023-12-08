@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::HashMap;
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
@@ -15,6 +15,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
+use crate::rpc_api::data_types::MessageLookup;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
@@ -41,6 +42,9 @@ pub enum ApiCommands {
         #[arg(short, long, default_value = "20")]
         /// The number of tipsets to use to generate test cases.
         n_tipsets: usize,
+        #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
+        /// Behavior for tests marked as `ignored`.
+        run_ignored: RunIgnored,
     },
 }
 
@@ -54,10 +58,30 @@ impl ApiCommands {
                 filter,
                 fail_fast,
                 n_tipsets,
-            } => compare_apis(forest, lotus, snapshot_files, filter, fail_fast, n_tipsets).await?,
+                run_ignored,
+            } => {
+                compare_apis(
+                    forest,
+                    lotus,
+                    snapshot_files,
+                    filter,
+                    fail_fast,
+                    n_tipsets,
+                    run_ignored,
+                )
+                .await?
+            }
         }
         Ok(())
     }
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+#[clap(rename_all = "kebab_case")]
+pub enum RunIgnored {
+    Default,
+    IgnoredOnly,
+    All,
 }
 
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -93,6 +117,7 @@ struct RpcTest {
     request: RpcRequest,
     check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
     check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
+    ignore: Option<&'static str>,
 }
 
 impl RpcTest {
@@ -106,6 +131,7 @@ impl RpcTest {
             request: request.lower(),
             check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
             check_semantics: Box::new(|_, _| true),
+            ignore: None,
         }
     }
 
@@ -129,7 +155,13 @@ impl RpcTest {
                     })
                 })
             }),
+            ignore: None,
         }
+    }
+
+    fn ignore(mut self, msg: &'static str) -> Self {
+        self.ignore = Some(msg);
+        self
     }
 
     // Check that an endpoint exist and that Forest returns exactly the same
@@ -189,7 +221,7 @@ fn common_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(ApiInfo::version_req()),
         RpcTest::basic(ApiInfo::start_time_req()),
-        RpcTest::basic(ApiInfo::discover_req()),
+        RpcTest::basic(ApiInfo::discover_req()).ignore("Not implemented yet"),
         RpcTest::basic(ApiInfo::session_req()),
     ]
 }
@@ -238,7 +270,8 @@ fn net_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
-        RpcTest::basic(ApiInfo::net_info_req()),
+        RpcTest::basic(ApiInfo::net_info_req())
+            .ignore("Not implemented in Lotus. Why do we even have this method?"),
     ]
 }
 
@@ -329,8 +362,16 @@ fn wallet_tests() -> Vec<RpcTest> {
 fn eth_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::identity(ApiInfo::eth_block_number_req()),
+        RpcTest::validate(ApiInfo::eth_block_number_req(), |forest, lotus| {
+            fn parse_hex(inp: &str) -> i64 {
+                let without_prefix = inp.trim_start_matches("0x");
+                i64::from_str_radix(without_prefix, 16).unwrap_or_default()
+            }
+            parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
+        }),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        // There is randomness in the result of this API
+        RpcTest::basic(ApiInfo::eth_gas_price_req()),
     ]
 }
 
@@ -378,15 +419,16 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
                         msg.cid()?,
                         0,
                     )));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                         msg.cid()?,
-                        800,
                     )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                 }
             }
             for msg in secp_messages {
@@ -406,22 +448,24 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
                         msg.cid()?,
                         0,
                     )));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?)));
-                    tests.push(RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                         msg.cid()?,
-                        800,
                     )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
+
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
                             root_tsk.clone(),
-                        )));
+                        )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
                     }
                 }
             }
@@ -445,6 +489,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
+                *block.miner_address(),
+                block.epoch(),
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
@@ -502,6 +551,7 @@ async fn compare_apis(
     filter: String,
     fail_fast: bool,
     n_tipsets: usize,
+    run_ignored: RunIgnored,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -525,6 +575,14 @@ async fn compare_apis(
     let mut results = HashMap::default();
 
     for test in tests.into_iter() {
+        // By default, do not run ignored tests.
+        if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
+            continue;
+        }
+        // If in `IgnoreOnly` mode, only run ignored tests.
+        if matches!(run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
+            continue;
+        }
         if !test.request.method_name.contains(&filter) {
             continue;
         }
@@ -565,4 +623,16 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     }
 
     builder.build().with(Style::markdown()).to_string()
+}
+
+fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        if let Some(json) = forest.as_mut() {
+            json.return_dec = None;
+        }
+        if let Some(json) = lotus.as_mut() {
+            json.return_dec = None;
+        }
+        forest == lotus
+    })
 }
