@@ -385,32 +385,7 @@ pub mod eth_api {
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
 
     #[derive(Debug, Deserialize, Serialize, Default)]
-    pub struct GasPriceResult(#[serde(with = "stringify")] pub BigInt);
-
-    pub mod stringify {
-        use super::*;
-        use num_traits::Num as _;
-        use serde::{Deserializer, Serializer};
-
-        pub fn serialize<S>(value: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            serializer.serialize_str(format!("0x{value:x}").as_str())
-        }
-
-        pub fn deserialize<'de, D>(deserializer: D) -> Result<BigInt, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            let s = String::deserialize(deserializer)?;
-            if s.len() > 2 && &s[..2] == "0x" {
-                BigInt::from_str_radix(&s[2..], 16).map_err(serde::de::Error::custom)
-            } else {
-                Err(serde::de::Error::custom("Invalid hex"))
-            }
-        }
-    }
+    pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub BigInt);
 
     lotus_json_with_self!(GasPriceResult);
 
