@@ -15,6 +15,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
+use crate::rpc_api::data_types::MessageLookup;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
@@ -418,17 +419,20 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
                         msg.cid()?,
                         0,
                     )));
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
                     );
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(msg.cid()?, 800))
-                            .ignore("Not implemented yet"),
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
+                            msg.cid()?,
+                            800,
+                        ))
+                        .ignore("Not implemented yet"),
                     );
                 }
             }
@@ -449,17 +453,20 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
+                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
                         msg.cid()?,
                         0,
                     )));
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
                     );
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(msg.cid()?, 800))
-                            .ignore("Not implemented yet"),
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
+                            msg.cid()?,
+                            800,
+                        ))
+                        .ignore("Not implemented yet"),
                     );
 
                     if !msg.params().is_empty() {
@@ -626,4 +633,16 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     }
 
     builder.build().with(Style::markdown()).to_string()
+}
+
+fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        if let Some(json) = forest.as_mut() {
+            json.return_dec = None;
+        }
+        if let Some(json) = lotus.as_mut() {
+            json.return_dec = None;
+        }
+        forest == lotus
+    })
 }
