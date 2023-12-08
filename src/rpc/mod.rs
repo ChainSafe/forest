@@ -89,6 +89,7 @@ where
                 chain_api::chain_get_parent_message::<DB>,
             )
             // Message Pool API
+            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
             .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
