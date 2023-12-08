@@ -29,6 +29,13 @@
 
 ### Added
 
+- [#3773](https://github.com/ChainSafe/forest/pull/3786) Implement the
+  `Filecoin.MinerGetBaseInfo` lotus-compatible RPC API.
+- [#3807](https://github.com/ChainSafe/forest/pull/3807) Add `--run-ignored`
+  flag to `forest-tool api compare`.
+- [#3806](https://github.com/ChainSafe/forest/pull/3806) Implement the
+  `Filecoin.EthGasPrice` lotus-compatible RPC API.
+
 ### Changed
 
 ### Removed
