@@ -64,23 +64,6 @@ impl FromStr for Hash {
     }
 }
 
-impl fmt::Display for BigInt {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "0x{:x}", self.0)
-    }
-}
-
-#[derive(Default, Clone, PartialEq)]
-pub struct BigInt(pub num::BigInt);
-
-impl FromStr for BigInt {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(BigInt(num::BigInt::from_str(s)?))
-    }
-}
-
 #[derive(Default, Clone)]
 pub enum Predefined {
     Earliest,

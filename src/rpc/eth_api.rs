@@ -8,9 +8,9 @@ use super::gas_api;
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
-use crate::eth::{Address, BigInt as EthBigInt, BlockNumberOrHash, Predefined};
+use crate::eth::{Address, BlockNumberOrHash, Predefined};
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::{data_types::RPCState, eth_api::*};
+use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
 use anyhow::{bail, Context};
@@ -81,7 +81,7 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
 pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
-) -> Result<LotusJson<EthBigInt>, JsonRpcError> {
+) -> Result<EthBigInt, JsonRpcError> {
     let fil_addr = address.to_filecoin_address()?;
 
     let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
@@ -96,8 +96,7 @@ pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
         })?
         .ok_or(JsonRpcError::INTERNAL_ERROR)?;
 
-    let balance = EthBigInt(actor.balance.atto().clone());
-    Ok(LotusJson(balance))
+    Ok(EthBigInt(actor.balance.atto().clone()))
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(

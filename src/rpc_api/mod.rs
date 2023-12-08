@@ -376,7 +376,7 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
-    use num_bigint::BigInt;
+    use num_bigint;
     use serde::{Deserialize, Serialize};
 
     use crate::lotus_json::lotus_json_with_self;
@@ -388,9 +388,14 @@ pub mod eth_api {
     pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
 
     #[derive(Debug, Deserialize, Serialize, Default)]
-    pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub BigInt);
+    pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(GasPriceResult);
+
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default)]
+    pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
+
+    lotus_json_with_self!(BigInt);
 
     #[cfg(test)]
     mod test {
