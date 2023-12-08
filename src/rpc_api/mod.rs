@@ -378,6 +378,10 @@ pub mod node_api {
 pub mod eth_api {
     use std::str::FromStr;
 
+    use cid::{
+        multihash::{self, MultihashDigest},
+        Cid,
+    };
     use num_bigint;
     use serde::{Deserialize, Serialize};
 
@@ -451,6 +455,25 @@ pub mod eth_api {
             Ok(Address(
                 ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
             ))
+        }
+    }
+
+    #[derive(Default, Clone)]
+    pub struct Hash(pub ethereum_types::H256);
+
+    impl Hash {
+        // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+        pub fn to_cid(&self) -> cid::Cid {
+            let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
+            Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+        }
+    }
+
+    impl FromStr for Hash {
+        type Err = anyhow::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(Hash(ethereum_types::H256::from_str(s)?))
         }
     }
 
