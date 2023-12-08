@@ -406,25 +406,12 @@ pub mod eth_api {
 
     lotus_json_with_self!(BigInt);
 
-    #[derive(PartialEq, Debug, Default, Clone)]
-    pub struct Address(pub ethereum_types::Address);
+    #[derive(Debug, Deserialize, Serialize, Default, Clone)]
+    pub struct Address(
+        #[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Address,
+    );
 
-    impl HasLotusJson for Address {
-        type LotusJson = String;
-
-        fn snapshots() -> Vec<(serde_json::Value, Self)> {
-            vec![]
-        }
-
-        fn into_lotus_json(self) -> Self::LotusJson {
-            format!("{:#x}", self.0)
-        }
-
-        fn from_lotus_json(address: Self::LotusJson) -> Self {
-            // TODO: remove unwrap
-            Address::from_str(&address).unwrap()
-        }
-    }
+    lotus_json_with_self!(Address);
 
     impl Address {
         pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
