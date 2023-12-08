@@ -125,7 +125,7 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
     }
 
-    pub fn chain_get_parent_receipt_req(block_cid: Cid) -> RpcRequest<Vec<ApiReceipt>> {
+    pub fn chain_get_parent_receipts_req(block_cid: Cid) -> RpcRequest<Vec<ApiReceipt>> {
         RpcRequest::new(CHAIN_GET_PARENT_RECEIPTS, (block_cid,))
     }
 }
