@@ -2,19 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use std::sync::Arc;
+use std::{ops::Add, sync::Arc};
 
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
-use crate::eth::{Address, BigInt, BlockNumberOrHash, Predefined};
+use crate::eth::{Address, BigInt as EthBigInt, BlockNumberOrHash, Predefined};
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::RPCState;
+use crate::rpc_api::{data_types::RPCState, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::bail;
+use super::gas_api;
+
+use anyhow::{bail, Context};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use num_bigint::BigInt;
+use num_traits::Zero as _;
 
 pub(in crate::rpc) async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
@@ -58,10 +62,27 @@ pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
     ))
 }
 
+pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+) -> Result<GasPriceResult, JsonRpcError> {
+    let ts = data.state_manager.chain_store().heaviest_tipset();
+    let block0 = ts
+        .blocks()
+        .first()
+        .context("Failed to get the first block")?;
+    let base_fee = block0.parent_base_fee();
+    if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
+        let gas_price = base_fee.add(premium);
+        Ok(GasPriceResult(gas_price.atto().clone()))
+    } else {
+        Ok(GasPriceResult(BigInt::zero()))
+    }
+}
+
 pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
-) -> Result<LotusJson<BigInt>, JsonRpcError> {
+) -> Result<LotusJson<EthBigInt>, JsonRpcError> {
     let fil_addr = address.to_filecoin_address()?;
 
     let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
@@ -76,7 +97,7 @@ pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
         })?
         .ok_or(JsonRpcError::INTERNAL_ERROR)?;
 
-    let balance = BigInt(actor.balance.atto().clone());
+    let balance = EthBigInt(actor.balance.atto().clone());
     Ok(LotusJson(balance))
 }
 

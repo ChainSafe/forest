@@ -370,6 +370,8 @@ fn eth_tests() -> Vec<RpcTest> {
             parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
         }),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        // There is randomness in the result of this API
+        RpcTest::basic(ApiInfo::eth_gas_price_req()),
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Latest),
@@ -525,6 +527,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
+                *block.miner_address(),
+                block.epoch(),
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(

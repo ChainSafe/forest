@@ -119,6 +119,7 @@ where
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
+            .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
@@ -168,6 +169,7 @@ where
             .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
+            .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
             .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
             .finish_unwrapped(),
     );

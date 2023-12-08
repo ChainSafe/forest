@@ -289,6 +289,35 @@ pub mod stringify {
     }
 }
 
+/// Usage: `#[serde(with = "hexify")]`
+pub mod hexify {
+    use super::*;
+    use num_traits::Num;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Num + std::fmt::LowerHex,
+        S: Serializer,
+    {
+        serializer.serialize_str(format!("0x{value:x}").as_str())
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: Num,
+        <T as Num>::FromStrRadixErr: std::fmt::Display,
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s.len() > 2 && &s[..2] == "0x" {
+            T::from_str_radix(&s[2..], 16).map_err(serde::de::Error::custom)
+        } else {
+            Err(serde::de::Error::custom("Invalid hex"))
+        }
+    }
+}
+
 /// Usage: `#[serde(with = "base64_standard")]`
 pub mod base64_standard {
     use super::*;

@@ -20,6 +20,10 @@ impl ApiInfo {
         RpcRequest::new_v1(ETH_CHAIN_ID, ())
     }
 
+    pub fn eth_gas_price_req() -> RpcRequest<String> {
+        RpcRequest::new_v1(ETH_GAS_PRICE, ())
+    }
+
     pub fn eth_get_balance_req(
         address: Address,
         block_param: BlockNumberOrHash,
