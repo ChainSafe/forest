@@ -369,6 +369,8 @@ fn eth_tests() -> Vec<RpcTest> {
             parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
         }),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        // There is randomness in the result of this API
+        RpcTest::basic(ApiInfo::eth_gas_price_req()),
     ]
 }
 
