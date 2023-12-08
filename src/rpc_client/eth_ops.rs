@@ -3,7 +3,7 @@
 
 use crate::rpc_api::eth_api::*;
 
-use crate::eth::{Address, BlockNumberOrHash};
+use crate::eth::BlockNumberOrHash;
 
 use super::{ApiInfo, RpcRequest};
 

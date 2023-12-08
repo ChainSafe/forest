@@ -376,16 +376,21 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
+    use std::str::FromStr;
+
     use num_bigint;
     use serde::{Deserialize, Serialize};
 
-    use crate::lotus_json::lotus_json_with_self;
+    use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
+    use crate::shim::address::Address as FilecoinAddress;
 
     pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
     pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
     pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
+
+    const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     #[derive(Debug, Deserialize, Serialize, Default)]
     pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
@@ -396,6 +401,58 @@ pub mod eth_api {
     pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(BigInt);
+
+    #[derive(PartialEq, Debug, Default, Clone)]
+    pub struct Address(pub ethereum_types::Address);
+
+    impl HasLotusJson for Address {
+        type LotusJson = String;
+
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            format!("{:#x}", self.0)
+        }
+
+        fn from_lotus_json(address: Self::LotusJson) -> Self {
+            // TODO: remove unwrap
+            Address::from_str(&address).unwrap()
+        }
+    }
+
+    impl Address {
+        pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
+            if self.is_masked_id() {
+                // This is a masked ID address.
+                let bytes: [u8; 8] =
+                    core::array::from_fn(|i| self.0.as_fixed_bytes()[MASKED_ID_PREFIX.len() + i]);
+                Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
+            } else {
+                // Otherwise, translate the address into an address controlled by the
+                // Ethereum Address Manager.
+                Ok(FilecoinAddress::new_delegated(
+                    FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
+                    self.0.as_bytes(),
+                )?)
+            }
+        }
+
+        fn is_masked_id(&self) -> bool {
+            self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
+        }
+    }
+
+    impl FromStr for Address {
+        type Err = anyhow::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(Address(
+                ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
+            ))
+        }
+    }
 
     #[cfg(test)]
     mod test {
