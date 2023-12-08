@@ -13,22 +13,21 @@
 use std::process::{Command, Stdio};
 use std::collections::HashMap;
 use serde_json::Value;
-use std::thread;
-use std::thread::sleep;
-use std::time::Duration;
-use std::sync::mpsc;
 
 // TODO: containerize script.
 
 fn main() {
-    let metrics = vec!["car-streaming", "forest-encoding", "graph-traversal"];
+    //let metrics = vec!["car-streaming", "forest-encoding", "graph-traversal"];
 
-    println!("Starting benchmarking script");
-    let snapshot = match_snapshot();
-    println!("Compiling current branch");
-    compile_current_branch();
-    println!("Running benchmarks for current branch");
-    run_benchmarks(metrics, snapshot);    
+    //println!("Starting benchmarking script");
+    //let snapshot = match_snapshot();
+    //println!("Compiling current branch");
+    //compile_current_branch();
+    //println!("Running benchmarks for current branch");
+    //run_benchmarks(metrics, snapshot);
+    println!("Fetching latest binary");
+    fetch_latest_binary();
+    get_bin_dir();
 }
 
 fn download_snapshot() -> String {
@@ -101,7 +100,7 @@ fn generic_benchmark(benchmark: String, snapshot: String) -> String {
     // TODO: may need to change `gtime` to `time` before merging. May also need to modify logic 
     // based on deployment. `gtime` writes output to `stderr`, so we need to pipe
     // `stderr` to capture the output there.
-    let tool_child = Command::new("gtime")
+    let tool_child = Command::new("/usr/bin/time")
         .arg("-f")
         .arg("\"%E %M\"")
         .arg("forest-tool")
@@ -110,7 +109,7 @@ fn generic_benchmark(benchmark: String, snapshot: String) -> String {
         .arg(snapshot)
         .stderr(Stdio::piped())
         .spawn()
-        .unwrap_or_else(|_| panic!("Failed to run {} benchmark.", benchmark));
+        .unwrap_or_else(|e| panic!("Failed to run {} benchmark: {}", benchmark, e));
     let output = tool_child
         .wait_with_output()
         .unwrap_or_else(|_| panic!("Failed to wait on {} benchmark step.", benchmark));
@@ -122,4 +121,77 @@ fn format_output_string<'a>(unformatted_string: String) -> Vec<String> {
     let unformatted_string = unformatted_string.strip_prefix("\"").unwrap();
     let formatted_string = unformatted_string.strip_suffix("\"\n").unwrap();
     formatted_string.split(" ").collect::<Vec<&str>>().iter().map(|s| s.to_string()).collect()
+}
+
+fn fetch_latest_binary() {
+    // Return a list of releases which are parsed into JSON and filtered.
+    let list_assets = Command::new("curl")
+        .arg("-L")
+        .arg("-H")
+        .arg("Accept: application/vnd.github+json")
+        .arg("-H")
+        .arg("X-GitHub-Api-Version: 2022-11-28")
+        .arg("https://api.github.com/repos/ChainSafe/forest/releases/latest")
+        .output()
+        .expect("Failed to fetch asset list.");
+    let input = std::str::from_utf8(&list_assets.stdout).expect("Failed to convert `curl` output to string.");
+    let value: Value = serde_json::from_str(input).unwrap();
+
+    // Capture appropriate download URL and binary name for use later. Also trim leading/trailing double quotes before passing as arguments to commands.
+    let mut download_url = String::new();
+    let mut name = String::new();
+    for i in 0..value.as_object().unwrap().len() {
+        if let Some(val) = value.as_object().unwrap().get("assets").unwrap().get(i) {
+            // TODO: change to Linux binary before merging
+            if val.as_object().unwrap().get("browser_download_url").unwrap().to_string().contains("macos") {
+                download_url = val.as_object().unwrap().get("browser_download_url").unwrap().to_string();
+                name = val.as_object().unwrap().get("name").unwrap().to_string();
+            }
+        }
+    }
+    let download_url = download_url.strip_prefix("\"").unwrap();
+    let download_url = download_url.strip_suffix("\"").unwrap();
+    let name = name.strip_prefix("\"").unwrap();
+    let name = name.strip_suffix("\"").unwrap();
+
+    println!("Downloading latest binary {} from: {}", name, download_url);
+    // Download the compressed binaries and unzip them.
+    // TODO?: retry on error?
+    let _download_zip_file = Command::new("wget")
+        .arg(download_url)
+        .output()
+        .expect("Failed to fetch compressed binaries.");
+    let _unzip_command = Command::new("unzip")
+        .arg(name)
+        .output()
+        .expect("Failed to unzip binaries.");
+}
+
+fn get_bin_dir() {
+    // Command to list all the files in the current directory.
+    let lis_dir_command = Command::new("find")
+        .arg(".")
+        .arg("!")
+        .arg("-name")
+        .arg(".")
+        .arg("-prune")
+        .arg("-type")
+        .arg("d")
+        .output()
+        .expect("ls command failed to execute");
+    // Convert the bytes output to a string and split it into a vector of strings.
+    let dir_output = std::str::from_utf8(&list_dir_command.stdout).expect("Failed to convert `ls` output to string.").split("\n").collect::<Vec<&str>>();
+    // Filter the vector to only include snapshots.
+    let matching_bin_dir = dir_output.iter().filter(|s| s.contains("forest-")).collect::<Vec<&&str>>();
+    // `ls` automatically sorts the snapshots, so take the last one (most recent); if none exists, download one.
+    let directory = match matching_bin_dir.last() {
+        Some(directory) => {
+            println!("Matching binary found. Using binary: {}", binary);
+            binary.to_string()
+        },
+        None => {
+            panic!("No matching binary found. Downloading binary");
+        },
+    };
+    println!("binary: {}", binary);
 }
