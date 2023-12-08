@@ -786,13 +786,13 @@ lotus_json_with_self!(CirculatingSupply);
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerSectors {
-    live: usize,
-    active: usize,
-    faulty: usize,
+    live: u64,
+    active: u64,
+    faulty: u64,
 }
 
 impl MinerSectors {
-    pub fn new(live: usize, active: usize, faulty: usize) -> Self {
+    pub fn new(live: u64, active: u64, faulty: u64) -> Self {
         Self {
             live,
             active,

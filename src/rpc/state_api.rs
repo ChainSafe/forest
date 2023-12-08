@@ -245,20 +245,23 @@ pub(in crate::rpc) async fn state_miner_sector_count<DB: Blockstore>(
         .ok_or("Miner actor address could not be resolved")?;
     let miner_state = miner::State::load(bs, actor.code, actor.state)?;
 
-    // Collect live, active and faulty sectors from each partition in each deadline.
-    let mut live_sectors = vec![];
-    let mut active_sectors = vec![];
-    let mut faulty_sectors = vec![];
+    // Collect live, active and faulty sectors count from each partition in each deadline.
+    let mut live_count = 0;
+    let mut active_count = 0;
+    let mut faulty_count = 0;
     miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
         deadline.for_each(bs, |_partidx, partition| {
-            active_sectors.push(partition.active_sectors());
-            live_sectors.push(partition.live_sectors());
-            faulty_sectors.push(partition.faulty_sectors().clone());
+            live_count += partition.live_sectors().len();
+            active_count += partition.active_sectors().len();
+            faulty_count += partition.faulty_sectors().len();
             Ok(())
         })
     })?;
-
-    Ok(LotusJson(MinerSectors::new(live_sectors.len() , active_sectors.len(), faulty_sectors.len())))
+    Ok(LotusJson(MinerSectors::new(
+        live_count,
+        active_count,
+        faulty_count,
+    )))
 }
 
 /// looks up the miner power of the given address.
