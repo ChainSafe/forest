@@ -636,12 +636,15 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
 }
 
 fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+    use libipld_core::ipld::Ipld;
+
     RpcTest::validate(req, |mut forest, mut lotus| {
+        // FIXME: https://github.com/ChainSafe/forest/issues/3784
         if let Some(json) = forest.as_mut() {
-            json.return_dec = None;
+            json.return_dec = Ipld::Null;
         }
         if let Some(json) = lotus.as_mut() {
-            json.return_dec = None;
+            json.return_dec = Ipld::Null;
         }
         forest == lotus
     })

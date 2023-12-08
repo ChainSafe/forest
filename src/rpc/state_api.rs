@@ -366,7 +366,7 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
         tipset: tipset.key().clone(),
         height: tipset.epoch(),
         message: cid,
-        return_dec: Some(ipld),
+        return_dec: ipld,
     })
 }
 

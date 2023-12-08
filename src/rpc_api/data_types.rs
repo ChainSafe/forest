@@ -117,10 +117,8 @@ pub struct MessageLookup {
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
-    // FIXME: https://github.com/ChainSafe/forest/issues/3784
-    // #[serde(with = "crate::lotus_json")]
-    #[serde(skip)]
-    pub return_dec: Option<Ipld>,
+    #[serde(with = "crate::lotus_json")]
+    pub return_dec: Ipld,
 }
 
 lotus_json_with_self!(MessageLookup);
