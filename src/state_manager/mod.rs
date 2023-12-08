@@ -1158,7 +1158,7 @@ where
 
         let actor = self
             .get_actor(&addr, *tipset.parent_state())?
-            .ok_or_else(|| Error::State("miner actor does not exist".to_string()))?;
+            .context("miner actor does not exist")?;
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
