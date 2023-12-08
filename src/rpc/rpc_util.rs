@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_api::{
-    auth_api::*,
-    check_access,
-    data_types::JsonRpcServerState,
-    eth_api::{ETH_ACCOUNTS, ETH_BLOCK_NUMBER, ETH_CHAIN_ID},
-    ACCESS_MAP,
+    auth_api::*, check_access, data_types::JsonRpcServerState, eth_api::*, ACCESS_MAP,
 };
 use http::{HeaderMap, HeaderValue, StatusCode};
 use serde::de::DeserializeOwned;
@@ -45,7 +41,7 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
-const V1_METHODS: [&str; 3] = [ETH_ACCOUNTS, ETH_BLOCK_NUMBER, ETH_CHAIN_ID];
+const V1_METHODS: [&str; 4] = [ETH_ACCOUNTS, ETH_BLOCK_NUMBER, ETH_CHAIN_ID, ETH_GAS_PRICE];
 
 pub fn is_v1_method(method_name: &str) -> bool {
     V1_METHODS.contains(&method_name)

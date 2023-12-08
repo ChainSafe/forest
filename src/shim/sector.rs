@@ -18,6 +18,7 @@ use num_derive::FromPrimitive;
 use std::ops::Deref;
 
 pub use fvm_shared3::sector::StoragePower;
+use serde::{Deserialize, Serialize};
 
 pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 
@@ -104,7 +105,9 @@ impl quickcheck::Arbitrary for RegisteredSealProof {
 
 /// Represents a shim over `SectorInfo` from `fvm_shared` with convenience
 /// methods to convert to an older version of the type
-#[derive(PartialEq, Debug, Clone, derive_more::From, derive_more::Into)]
+#[derive(
+    Eq, PartialEq, Debug, Clone, derive_more::From, derive_more::Into, Serialize, Deserialize,
+)]
 pub struct SectorInfo(SectorInfoV3);
 
 #[cfg(test)]

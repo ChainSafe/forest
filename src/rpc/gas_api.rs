@@ -59,7 +59,7 @@ pub(in crate::rpc) async fn gas_estimate_gas_premium<DB: Blockstore>(
         .map(|n| TokenAmount::to_string(&n))
 }
 
-async fn estimate_gas_premium<DB: Blockstore>(
+pub async fn estimate_gas_premium<DB: Blockstore>(
     data: &Data<RPCState<DB>>,
     mut nblocksincl: u64,
 ) -> Result<TokenAmount, JsonRpcError> {
