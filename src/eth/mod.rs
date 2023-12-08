@@ -13,20 +13,6 @@ const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 #[derive(Default, Clone)]
 pub struct Address(pub ethereum_types::Address);
 
-#[derive(Default, Clone, PartialEq)]
-pub struct BigInt(pub num::BigInt);
-
-#[derive(Default, Clone)]
-pub struct Hash(pub ethereum_types::H256);
-
-#[derive(Default, Clone)]
-pub enum Predefined {
-    Earliest,
-    Pending,
-    #[default]
-    Latest,
-}
-
 impl Address {
     pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
         if self.is_masked_id() {
@@ -59,6 +45,9 @@ impl FromStr for Address {
     }
 }
 
+#[derive(Default, Clone)]
+pub struct Hash(pub ethereum_types::H256);
+
 impl Hash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
@@ -81,12 +70,23 @@ impl fmt::Display for BigInt {
     }
 }
 
+#[derive(Default, Clone, PartialEq)]
+pub struct BigInt(pub num::BigInt);
+
 impl FromStr for BigInt {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(BigInt(num::BigInt::from_str(s)?))
     }
+}
+
+#[derive(Default, Clone)]
+pub enum Predefined {
+    Earliest,
+    Pending,
+    #[default]
+    Latest,
 }
 
 impl fmt::Display for Predefined {
