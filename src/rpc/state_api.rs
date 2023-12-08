@@ -8,7 +8,7 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
     ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageLookup,
-    MiningBaseInfo, RPCState, SectorOnChainInfo,
+    MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
@@ -244,6 +244,39 @@ pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
         .collect::<Vec<_>>();
 
     Ok(LotusJson(sectors))
+}
+
+// Returns the number of sectors in a miner's sector set and proving set
+pub(in crate::rpc) async fn state_miner_sector_count<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<MinerSectors>, JsonRpcError> {
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+
+    // Collect live, active and faulty sectors count from each partition in each deadline.
+    let mut live_count = 0;
+    let mut active_count = 0;
+    let mut faulty_count = 0;
+    miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
+        deadline.for_each(bs, |_partidx, partition| {
+            live_count += partition.live_sectors().len();
+            active_count += partition.active_sectors().len();
+            faulty_count += partition.faulty_sectors().len();
+            Ok(())
+        })
+    })?;
+    Ok(LotusJson(MinerSectors::new(
+        live_count,
+        active_count,
+        faulty_count,
+    )))
 }
 
 /// looks up the miner power of the given address.

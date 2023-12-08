@@ -512,6 +512,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.miner_address(),
                 tipset.key().clone(),
             )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
         }
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().clone(),
