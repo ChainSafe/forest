@@ -13,13 +13,13 @@ use crate::rpc_api::{
     data_types::{BlockMessages, RPCState},
 };
 use crate::shim::clock::ChainEpoch;
-use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use fvm_shared4::receipt::Receipt;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
@@ -74,10 +74,10 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
         if let Ok(amt) = Amt::<Receipt, _>::load(block_header.message_receipts(), store) {
             amt.for_each(|_, receipt| {
                 receipts.push(ApiReceipt {
-                    exit_code: receipt.exit_code().into(),
-                    return_data: receipt.return_data(),
-                    gas_used: receipt.gas_used(),
-                    events_root: receipt.events_root(),
+                    exit_code: receipt.exit_code.into(),
+                    return_data: receipt.return_data.clone(),
+                    gas_used: receipt.gas_used,
+                    events_root: receipt.events_root,
                 });
                 Ok(())
             })?;
