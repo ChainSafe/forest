@@ -90,6 +90,7 @@ where
             )
             .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
+            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
             .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
@@ -122,10 +123,12 @@ where
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
             .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
             .with_method(
                 STATE_MINER_PROVING_DEADLINE,
                 state_miner_proving_deadline::<DB>,

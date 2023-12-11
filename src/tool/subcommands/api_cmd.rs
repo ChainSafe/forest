@@ -326,6 +326,7 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::state_network_version_req(
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
             *shared_block.miner_address(),
             101,
@@ -473,6 +474,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         ))
                         .ignore("Not implemented yet"),
                     );
+                    tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
@@ -511,6 +513,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )));
