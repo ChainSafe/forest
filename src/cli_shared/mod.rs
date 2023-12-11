@@ -59,6 +59,14 @@ mod tests {
     }
 
     #[test]
+    fn read_config_butterflynet_override() {
+        let (config_path, config) = read_config(&None, &Some(NetworkChain::Butterflynet)).unwrap();
+
+        assert!(config_path.is_none());
+        assert_eq!(config.chain, NetworkChain::Butterflynet);
+    }
+
+    #[test]
     fn read_config_with_path() {
         let default_config = Config::default();
         let path: PathBuf = "config.toml".into();

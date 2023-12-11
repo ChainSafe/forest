@@ -52,6 +52,7 @@ where
         NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
         NetworkChain::Calibnet => fil_actors_shared::v8::runtime::Policy::calibnet(),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
+        NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
     };
     let empty_deadlines_v8 =
         fil_actor_miner_state::v8::Deadlines::new(&policy, empty_deadline_v8_cid);
@@ -64,6 +65,7 @@ where
         NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
         NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
+        NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
     };
     let empty_deadlines_v9 =
         fil_actor_miner_state::v9::Deadlines::new(&policy, empty_deadline_v9_cid);
@@ -258,6 +260,7 @@ impl MinerMigrator {
                 NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
                 NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
                 NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
+                NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
             };
             let mut out_deadlines =
                 fil_actor_miner_state::v9::Deadlines::new(&policy, self.empty_deadline_v9_cid);

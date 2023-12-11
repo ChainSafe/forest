@@ -10,7 +10,6 @@ mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
-mod db_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
@@ -32,7 +31,7 @@ use tracing::error;
 
 pub(super) use self::{
     attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    config_cmd::ConfigCommands, db_cmd::DBCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    config_cmd::ConfigCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
     send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
     state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
@@ -91,10 +90,6 @@ pub enum Subcommand {
     /// Print node info
     #[command(subcommand)]
     Info(InfoCommand),
-
-    /// Database management
-    #[command(subcommand)]
-    DB(DBCommands),
 
     /// Attach to daemon via a JavaScript console
     Attach(AttachCommand),

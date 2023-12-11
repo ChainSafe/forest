@@ -173,7 +173,10 @@ pub fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result
         (TrustedVendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
         (TrustedVendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
         (TrustedVendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
-        (TrustedVendor::Forest | TrustedVendor::Filops, NetworkChain::Devnet(_)) => {
+        (
+            TrustedVendor::Forest | TrustedVendor::Filops,
+            NetworkChain::Butterflynet | NetworkChain::Devnet(_),
+        ) => {
             bail!("unsupported chain {chain}")
         }
     };

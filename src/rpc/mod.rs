@@ -20,9 +20,9 @@ mod wallet_api;
 use std::sync::Arc;
 
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState,
-    eth_api::ETH_CHAIN_ID, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
-    state_api::*, sync_api::*, wallet_api::*,
+    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
+    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
+    wallet_api::*,
 };
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
@@ -33,7 +33,7 @@ use tracing::info;
 
 use crate::rpc::{
     beacon_api::beacon_get_entry,
-    common_api::{shutdown, start_time, version},
+    common_api::{session, shutdown, start_time, version},
     rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
     rpc_ws_handler::rpc_ws_handler,
     state_api::*,
@@ -89,6 +89,7 @@ where
                 chain_api::chain_get_parent_message::<DB>,
             )
             // Message Pool API
+            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
             .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
@@ -120,10 +121,18 @@ where
             .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
             .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
+            .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
+            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
+            .with_method(
+                STATE_MINER_PROVING_DEADLINE,
+                state_miner_proving_deadline::<DB>,
+            )
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
@@ -149,6 +158,7 @@ where
             .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
             // Common API
             .with_method(VERSION, move || version(block_delay, forest_version))
+            .with_method(SESSION, session)
             .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
             .with_method(START_TIME, start_time::<DB>)
             // Net API
@@ -160,7 +170,10 @@ where
             // Node API
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
+            .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
+            .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
+            .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
             .finish_unwrapped(),
     );
 

@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.16.3"
+version = "0.16.4"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -51,18 +51,18 @@ derive_more = "0.99.17"
 dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
-fil_actor_account_state = "9.0.0"
-fil_actor_cron_state = "9.0.0"
-fil_actor_datacap_state = "9.0.0"
-fil_actor_init_state = "9.0.0"
-fil_actor_interface = "9.0.0"
-fil_actor_market_state = "9.0.0"
-fil_actor_miner_state = "9.0.0"
-fil_actor_power_state = "9.0.0"
-fil_actor_reward_state = "9.0.0"
-fil_actor_system_state = "9.0.0"
-fil_actor_verifreg_state = "9.0.0"
-fil_actors_shared = { version = "9.0.0", features = ["json"] }
+fil_actor_account_state = "9.2.0"
+fil_actor_cron_state = "9.2.0"
+fil_actor_datacap_state = "9.2.0"
+fil_actor_init_state = "9.2.0"
+fil_actor_interface = "9.2.0"
+fil_actor_market_state = "9.2.0"
+fil_actor_miner_state = "9.2.0"
+fil_actor_power_state = "9.2.0"
+fil_actor_reward_state = "9.2.0"
+fil_actor_system_state = "9.2.0"
+fil_actor_verifreg_state = "9.2.0"
+fil_actors_shared = { version = "9.2.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
@@ -187,6 +187,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4"] }
 walkdir = "2"
 zstd = "0.13"
 

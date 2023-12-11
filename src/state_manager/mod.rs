@@ -14,7 +14,7 @@ use rayon::prelude::ParallelBridge;
 pub use utils::is_valid_for_sending;
 pub mod vm_circ_supply;
 pub use self::errors::*;
-use crate::beacon::BeaconSchedule;
+use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
@@ -26,13 +26,14 @@ use crate::interpreter::{
 };
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost};
+use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
     address::{Address, Payload, Protocol, BLS_PUB_LEN},
     clock::ChainEpoch,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
     message::Message,
+    randomness::Randomness,
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
@@ -40,14 +41,17 @@ use ahash::{HashMap, HashMapExt};
 use chain_rand::ChainRand;
 use cid::Cid;
 
+use crate::state_manager::chain_rand::draw_randomness;
 use fil_actor_interface::miner::SectorOnChainInfo;
-use fil_actor_interface::miner::{MinerInfo, MinerPower};
+use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
+use fil_actors_shared::v12::runtime::DomainSeparationTag;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::to_vec;
 use itertools::Itertools as _;
 use lru::LruCache;
 use nonzero_ext::nonzero;
@@ -1047,26 +1051,43 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> Result<BitField, Error> {
+        self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
+    }
+    /// Retrieves miner recoveries.
+    pub fn miner_recoveries(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> Result<BitField, Error> {
+        self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
+    }
+
+    fn all_partition_sectors(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+        get_sector: impl Fn(Partition<'_>) -> BitField,
+    ) -> Result<BitField, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
-        let mut faults = Vec::new();
+        let mut partitions = Vec::new();
 
         state.for_each_deadline(
             &self.chain_config.policy,
             self.blockstore(),
             |_, deadline| {
                 deadline.for_each(self.blockstore(), |_, partition| {
-                    faults.push(partition.faulty_sectors().clone());
+                    partitions.push(get_sector(partition));
                     Ok(())
                 })
             },
         )?;
 
-        Ok(BitField::union(faults.iter()))
+        Ok(BitField::union(partitions.iter()))
     }
 
     /// Retrieves miner power.
@@ -1119,6 +1140,85 @@ where
         let state = StateTree::new_from_root(self.blockstore_owned(), &st)?;
 
         resolve_to_key_addr(&state, self.blockstore(), addr)
+    }
+
+    pub async fn miner_get_base_info(
+        self: &Arc<Self>,
+        beacon_schedule: Arc<BeaconSchedule>,
+        tipset: Arc<Tipset>,
+        addr: Address,
+        epoch: ChainEpoch,
+    ) -> anyhow::Result<Option<MiningBaseInfo>> {
+        let prev_beacon = self
+            .chain_store()
+            .chain_index
+            .latest_beacon_entry(&tipset)?;
+
+        let entries: Vec<BeaconEntry> = beacon_schedule
+            .beacon_entries_for_block(
+                self.chain_config.network_version(epoch),
+                epoch,
+                tipset.epoch(),
+                &prev_beacon,
+            )
+            .await?;
+
+        let base = entries.last().unwrap_or(&prev_beacon);
+
+        let (lb_tipset, lb_state_root) = ChainStore::get_lookback_tipset_for_round(
+            self.cs.chain_index.clone(),
+            self.chain_config.clone(),
+            tipset.clone(),
+            epoch,
+        )?;
+
+        let actor = self
+            .get_actor(&addr, *tipset.parent_state())?
+            .context("miner actor does not exist")?;
+
+        let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
+
+        let addr_buf = to_vec(&addr)?;
+        let rand = draw_randomness(
+            base.data(),
+            DomainSeparationTag::WinningPoStChallengeSeed as i64,
+            epoch,
+            &addr_buf,
+        )?;
+
+        let network_version = self.chain_config.network_version(tipset.epoch());
+        let sectors = self.get_sectors_for_winning_post(
+            &lb_state_root,
+            network_version,
+            &addr,
+            Randomness::new(rand.to_vec()),
+        )?;
+
+        if sectors.is_empty() {
+            return Ok(None);
+        }
+
+        let (miner_power, total_power) = self
+            .get_power(&lb_state_root, Some(&addr))?
+            .context("failed to get power")?;
+
+        let info = miner_state.info(self.blockstore())?;
+
+        let worker_key = self
+            .resolve_to_deterministic_address(info.worker.into(), Some(tipset.clone()))
+            .await?;
+        let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
+
+        Ok(Some(MiningBaseInfo {
+            miner_power: miner_power.quality_adj_power,
+            network_power: total_power.quality_adj_power,
+            sectors,
+            worker_key,
+            sector_size: info.sector_size,
+            prev_beacon_entry: prev_beacon,
+            beacon_entries: entries,
+            eligible_for_mining: eligible,
+        }))
     }
 
     /// Checks power actor state for if miner meets consensus minimum

@@ -51,6 +51,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
 
     // Message Pool API
+    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
     access.insert(mpool_api::MPOOL_PUSH, Access::Write);
     access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
@@ -82,10 +83,13 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
     access.insert(state_api::STATE_MINER_INFO, Access::Read);
+    access.insert(state_api::MINER_GET_BASE_INFO, Access::Read);
     access.insert(state_api::STATE_MINER_ACTIVE_SECTORS, Access::Read);
     access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
+    access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
@@ -98,6 +102,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_READ_STATE, Access::Read);
     access.insert(state_api::STATE_CIRCULATING_SUPPLY, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
+    access.insert(state_api::STATE_LIST_MINERS, Access::Read);
+    access.insert(state_api::STATE_MINER_SECTOR_COUNT, Access::Read);
     access.insert(
         state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
         Access::Read,
@@ -111,6 +117,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
 
     // Common API
     access.insert(common_api::VERSION, Access::Read);
+    access.insert(common_api::SESSION, Access::Read);
     access.insert(common_api::SHUTDOWN, Access::Admin);
     access.insert(common_api::START_TIME, Access::Read);
 
@@ -125,7 +132,10 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(node_api::NODE_STATUS, Access::Read);
 
     // Eth API
+    access.insert(eth_api::ETH_ACCOUNTS, Access::Read);
+    access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
+    access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
 
     access
 });
@@ -212,6 +222,7 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
+    pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
@@ -250,9 +261,12 @@ pub mod state_api {
     pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
     pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
     pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
+    pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
     pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
+    pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
+    pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
@@ -267,6 +281,8 @@ pub mod state_api {
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
     pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
     pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
+    pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
+    pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
     pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
         "Filecoin.StateVMCirculatingSupplyInternal";
 }
@@ -368,5 +384,33 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
+    use num_bigint::BigInt;
+    use serde::{Deserialize, Serialize};
+
+    use crate::lotus_json::lotus_json_with_self;
+
+    pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
+    pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
+    pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
+
+    #[derive(Debug, Deserialize, Serialize, Default)]
+    pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub BigInt);
+
+    lotus_json_with_self!(GasPriceResult);
+
+    #[cfg(test)]
+    mod test {
+        use super::*;
+        use quickcheck_macros::quickcheck;
+
+        #[quickcheck]
+        fn gas_price_result_serde_roundtrip(i: u128) {
+            let r = GasPriceResult(i.into());
+            let encoded = serde_json::to_string(&r).unwrap();
+            assert_eq!(encoded, format!("\"0x{i:x}\""));
+            let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(r.0, decoded.0);
+        }
+    }
 }

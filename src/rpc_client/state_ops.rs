@@ -3,12 +3,13 @@
 
 use std::path::PathBuf;
 
+use crate::rpc_api::data_types::MiningBaseInfo;
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
         data_types::{
             ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MessageLookup,
-            SectorOnChainInfo,
+            MinerSectors, SectorOnChainInfo,
         },
         state_api::*,
     },
@@ -18,7 +19,7 @@ use crate::{
     },
 };
 use cid::Cid;
-use fil_actor_interface::miner::{MinerInfo, MinerPower};
+use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use libipld_core::ipld::Ipld;
@@ -65,12 +66,24 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
     }
 
+    pub fn miner_get_base_info_req(
+        miner: Address,
+        epoch: ChainEpoch,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Option<MiningBaseInfo>> {
+        RpcRequest::new(MINER_GET_BASE_INFO, (miner, epoch, tsk))
+    }
+
     pub fn state_call_req(message: Message, tsk: TipsetKeys) -> RpcRequest<ApiInvocResult> {
         RpcRequest::new(STATE_CALL, (message, tsk))
     }
 
     pub fn state_miner_faults_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
         RpcRequest::new(STATE_MINER_FAULTS, (miner, tsk))
+    }
+
+    pub fn state_miner_recoveries_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<BitField> {
+        RpcRequest::new(STATE_MINER_RECOVERIES, (miner, tsk))
     }
 
     pub fn state_miner_power_req(miner: Address, tsk: TipsetKeys) -> RpcRequest<MinerPower> {
@@ -82,6 +95,13 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<Vec<ApiDeadline>> {
         RpcRequest::new(STATE_MINER_DEADLINES, (miner, tsk))
+    }
+
+    pub fn state_miner_proving_deadline_req(
+        miner: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<DeadlineInfo> {
+        RpcRequest::new(STATE_MINER_PROVING_DEADLINE, (miner, tsk))
     }
 
     pub fn state_get_randomness_from_tickets_req(
@@ -117,6 +137,13 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<Vec<SectorOnChainInfo>> {
         RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
+    }
+
+    pub fn state_miner_sector_count_req(
+        actor: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<MinerSectors> {
+        RpcRequest::new(STATE_MINER_SECTOR_COUNT, (actor, tsk))
     }
 
     pub fn state_lookup_id_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Option<Address>> {
@@ -172,5 +199,9 @@ impl ApiInfo {
         limit_epoch: i64,
     ) -> RpcRequest<Option<MessageLookup>> {
         RpcRequest::new(STATE_SEARCH_MSG_LIMITED, (msg_cid, limit_epoch))
+    }
+
+    pub fn state_list_miners_req(tsk: TipsetKeys) -> RpcRequest<Vec<Address>> {
+        RpcRequest::new(STATE_LIST_MINERS, (tsk,))
     }
 }

@@ -123,7 +123,7 @@
 
 use crate::ipld::{json::IpldJson, Ipld};
 use derive_more::From;
-use fil_actor_interface::power::Claim;
+use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
 use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
@@ -288,6 +288,35 @@ pub mod stringify {
     }
 }
 
+/// Usage: `#[serde(with = "hexify")]`
+pub mod hexify {
+    use super::*;
+    use num_traits::Num;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Num + std::fmt::LowerHex,
+        S: Serializer,
+    {
+        serializer.serialize_str(format!("0x{value:x}").as_str())
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: Num,
+        <T as Num>::FromStrRadixErr: std::fmt::Display,
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s.len() > 2 && &s[..2] == "0x" {
+            T::from_str_radix(&s[2..], 16).map_err(serde::de::Error::custom)
+        } else {
+            Err(serde::de::Error::custom("Invalid hex"))
+        }
+    }
+}
+
 /// Usage: `#[serde(with = "base64_standard")]`
 pub mod base64_standard {
     use super::*;
@@ -388,6 +417,7 @@ lotus_json_with_self!(
     (),
     std::path::PathBuf,
     bool,
+    DeadlineInfo,
 );
 
 #[derive(Default, Debug, Serialize, Deserialize)]
