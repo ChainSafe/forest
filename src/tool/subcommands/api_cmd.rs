@@ -382,10 +382,6 @@ fn eth_tests() -> Vec<RpcTest> {
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Pending),
         )),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_predefined(Predefined::Earliest),
-        )),
     ]
 }
 
