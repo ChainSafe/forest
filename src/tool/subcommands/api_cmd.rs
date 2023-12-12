@@ -192,6 +192,10 @@ impl RpcTest {
                 };
                 (forest_status, EndpointStatus::Valid)
             }
+            (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
+                // Both forest and lotus have the same error, consider it as valid
+                (EndpointStatus::Valid, EndpointStatus::Valid)
+            }
             (forest_resp, lotus_resp) => {
                 let forest_status =
                     forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {

@@ -71,17 +71,27 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
         Ok(LotusJson(vec![]))
     } else {
         let mut receipts = Vec::new();
-        if let Ok(amt) = Amt::<Receipt, _>::load(block_header.message_receipts(), store) {
-            amt.for_each(|_, receipt| {
-                receipts.push(ApiReceipt {
-                    exit_code: receipt.exit_code.into(),
-                    return_data: receipt.return_data.clone(),
-                    gas_used: receipt.gas_used,
-                    events_root: receipt.events_root,
-                });
-                Ok(())
+        let amt =
+            Amt::<Receipt, _>::load(block_header.message_receipts(), store).map_err(|_| {
+                JsonRpcError::Full {
+                    code: 1,
+                    message: format!(
+                        "failed to root: ipld: could not find {}",
+                        block_header.message_receipts()
+                    ),
+                    data: None,
+                }
             })?;
-        }
+
+        amt.for_each(|_, receipt| {
+            receipts.push(ApiReceipt {
+                exit_code: receipt.exit_code.into(),
+                return_data: receipt.return_data.clone(),
+                gas_used: receipt.gas_used,
+                events_root: receipt.events_root,
+            });
+            Ok(())
+        })?;
         Ok(LotusJson(receipts))
     }
 }
