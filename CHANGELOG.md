@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#3802](https://github.com/ChainSafe/forest/pull/3802) Implement the
+  `Filecoin.EthGetBalance` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3811) Implement the
   `Filecoin.MpoolGetNonce` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3786) Implement the
