@@ -15,6 +15,8 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
+use crate::rpc_api::eth_api::Address as EthAddress;
+use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
@@ -372,6 +374,27 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        )),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        )),
+    ]
+}
+
+fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        )),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        )),
     ]
 }
 
@@ -384,6 +407,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
+    tests.extend(eth_tests_with_tipset(&shared_tipset));
 
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {

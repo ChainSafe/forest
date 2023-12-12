@@ -173,6 +173,7 @@ where
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
+            .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
             .finish_unwrapped(),
     );
 

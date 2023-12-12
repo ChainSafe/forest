@@ -288,6 +288,32 @@ pub mod stringify {
     }
 }
 
+/// Usage: `#[serde(with = "hexify_bytes")]`
+pub mod hexify_bytes {
+    use super::*;
+
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Display + std::fmt::LowerHex,
+        S: Serializer,
+    {
+        // `ethereum_types` crate serializes bytes as compressed addresses, i.e. `0xff00…03ec`
+        // so we can't just use `serializer.collect_str` here
+        serializer.serialize_str(&format!("{:#x}", value))
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
 /// Usage: `#[serde(with = "hexify")]`
 pub mod hexify {
     use super::*;
