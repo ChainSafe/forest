@@ -164,8 +164,8 @@ impl Version {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiMessage {
-    pub cid: Cid,
-    pub message: Message,
+    cid: Cid,
+    message: Message,
 }
 
 impl ApiMessage {
