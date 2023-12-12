@@ -1293,7 +1293,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3a2c3bf5fc10fe2ca157564fbe08a4cb2b0a7d2ff3fe2f9683e65d5e7c7859c"
 dependencies = [
- "proc-macro-crate",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -2492,6 +2492,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethbloom"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c22d4b5885b6aa2fe5e8b9329fb8d232bf739e434e6b87347c63bdd00c120f60"
+dependencies = [
+ "crunchy",
+ "fixed-hash",
+ "impl-rlp",
+ "impl-serde",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
+dependencies = [
+ "ethbloom",
+ "fixed-hash",
+ "impl-rlp",
+ "impl-serde",
+ "primitive-types",
+ "uint",
+]
+
+[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2647,9 +2674,9 @@ checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d5bec77ffcb673f252729fc4c9bf55aeaed916eab7e84cdd45959a86a730b16"
+checksum = "ecce7591c36c85152d2a1f78d984dd1a511dfa83139e13763c4c55c995a6711e"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2663,9 +2690,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33053223621297d5690bed5d614603aeb23ca977d5d18f905cfee93789ccec6d"
+checksum = "95159c757924a948eed97a0ec4f82ca4feb29880d3b403525e77a7ffb7c7be9c"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2678,9 +2705,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19ddba821a0156cb255053fda36d2ef797afabd7e77180b20ed2e325a3169126"
+checksum = "ba0d0cae38608677d44b9b92711ca929db60ab28ce73cd0ea6809e37f1b2c767"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2696,9 +2723,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a13c8b8e530e418807679ef08805bd8ec06e9d9a61d62c479bdd9a5ce118412"
+checksum = "56d661ebd7b78dc8a3c555dee050b6b40e7cf5fff2ada32acf485f422074d111"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2716,9 +2743,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9118acb8bc351c2a6a97d6d0280db625824cc1d91653b6171e560b93e8ab8e12"
+checksum = "0177db6816f92d86f9c5c8f9ee2f5bebbce8f917c866ecbc56d7ae5a27bd4b39"
 dependencies = [
  "anyhow",
  "cid",
@@ -2737,9 +2764,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9913362eff67800e313e4433775af6d4f43a6dce0e82ac60c5cfb2ffaf390685"
+checksum = "0c3f62bd9ceae82a73a37b1288e98c0304e6f218fbbebf2ac6d4118ea99bf17a"
 dependencies = [
  "anyhow",
  "cid",
@@ -2773,9 +2800,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4caa4a3a7ffd0071a1d2a2b0d872bc0a98c593b91d7afaace6955e559caaa69"
+checksum = "6d62a71b6f27fb7a0870d4b379dc419533c58d6dcd18daf521a79dec09068577"
 dependencies = [
  "anyhow",
  "cid",
@@ -2798,9 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e761a0a743ebb65ceac3d5e6f80cd8c2ed1795172b6d2563da764f12e84bd29"
+checksum = "04e669f289a1c664bf59af04be00fbcc8d83ba881ba40a852db7ad308196ae40"
 dependencies = [
  "anyhow",
  "bitflags 2.4.1",
@@ -2828,9 +2855,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14ef21d77555e0870bb8d8853ea0cf9e5c3aa2859a8b56660c6beed9a78fbdd4"
+checksum = "01833ad1853e1c8401e1e464e243109a654cc10b19c59b78bdc494b5a52d873e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2851,9 +2878,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4753f07ddc0567e01a44cbfdd5992ba866aa589a50c5bc67624a5bbb14fb163a"
+checksum = "69c6d47213eaec08b4ec973ecf382df31c24585fc5db72a2e75cc71270d19086"
 dependencies = [
  "anyhow",
  "cid",
@@ -2874,9 +2901,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1a6cd405ae57ba21071844e378f5f71fe6666e692a224d9890e08afeaa3f462"
+checksum = "3578e97f6b84c5ff76da73566a4e07ef0c4aed65f0f20ab01c07e1b7aa9bd2a9"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2890,9 +2917,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88cdc105681e227a30f5ce0b5a6768e32712fbd6f64574425975955ec5d25bac"
+checksum = "b2fbe9bacea7d33e6e715c93548ac839a5b45bb59ca48eaee008be8c65352fa2"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2905,9 +2932,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "435edf99de104d55f10c67a0b72dcc95165b2ef3bfc2237086a6dc69a45f9dd7"
+checksum = "82f5caa3ce5548cbac26a5bf0b0e92a54d217e46b177f2008db24550fa7638fc"
 dependencies = [
  "anyhow",
  "cid",
@@ -2925,9 +2952,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "9.1.0"
+version = "9.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e538eaf163bf18d78c302d5a0358076fcef2ed80f8a836c87c7b120961a78e79"
+checksum = "5dfc3560498f184cf24aea8370c00cd3e303e2a2c50d274a75bda62fea15273b"
 dependencies = [
  "anyhow",
  "cid",
@@ -3025,6 +3052,18 @@ dependencies = [
  "lazy_static",
  "serde",
  "storage-proofs-core",
+]
+
+[[package]]
+name = "fixed-hash"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
+dependencies = [
+ "byteorder",
+ "rand",
+ "rustc-hex",
+ "static_assertions",
 ]
 
 [[package]]
@@ -3131,6 +3170,7 @@ dependencies = [
  "dialoguer",
  "digest 0.10.7",
  "directories",
+ "ethereum-types",
  "fil_actor_account_state",
  "fil_actor_cron_state",
  "fil_actor_datacap_state",
@@ -4574,6 +4614,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "impl-codec"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba6a270039626615617f3f36d15fc827041df3b78c439da2cadfa47455a77f2f"
+dependencies = [
+ "parity-scale-codec",
+]
+
+[[package]]
+name = "impl-rlp"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f28220f89297a075ddc7245cd538076ee98b01f2a9c23a53a4f1105d5a322808"
+dependencies = [
+ "rlp",
+]
+
+[[package]]
+name = "impl-serde"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc88fc67028ae3db0c853baa36269d398d5f45b6982f95549ff5def78c935cd"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "impl-trait-for-tuples"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11d7a9f6330b71fea57921c9b61c47ee6e84f72d394754eff6163ae67e7395eb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4889,7 +4967,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d5ba3a729b72973e456a1812b0afe2e176a376c1836cc1528e9fc98ae8cb838"
 dependencies = [
- "proc-macro-crate",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -5851,7 +5929,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc076939022111618a5026d3be019fd8b366e76314538ff9a1b59ffbcbf98bcd"
 dependencies = [
- "proc-macro-crate",
+ "proc-macro-crate 1.3.1",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -6210,7 +6288,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96667db765a921f7b295ffee8b60472b686a51d4f21c2ee4ffdb94c7013b65a6"
 dependencies = [
- "proc-macro-crate",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.39",
@@ -6324,6 +6402,32 @@ dependencies = [
  "rand",
  "siphasher",
  "snap",
+]
+
+[[package]]
+name = "parity-scale-codec"
+version = "3.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "881331e34fa842a2fb61cc2db9643a8fedc615e47cfcc52597d1af0db9a7e8fe"
+dependencies = [
+ "arrayvec 0.7.4",
+ "bitvec",
+ "byte-slice-cast",
+ "impl-trait-for-tuples",
+ "parity-scale-codec-derive",
+ "serde",
+]
+
+[[package]]
+name = "parity-scale-codec-derive"
+version = "3.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be30eaf4b0a9fba5336683b38de57bb86d179a35862ba6bfcf57625d006bde5b"
+dependencies = [
+ "proc-macro-crate 2.0.0",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -6740,6 +6844,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "primitive-types"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b34d9fd68ae0b74a41b21c03c2f62847aa0ffea044eee893b4c140b37e244e2"
+dependencies = [
+ "fixed-hash",
+ "impl-codec",
+ "impl-rlp",
+ "impl-serde",
+ "uint",
+]
+
+[[package]]
 name = "proc-macro-crate"
 version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6747,6 +6864,15 @@ checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
 dependencies = [
  "once_cell",
  "toml_edit 0.19.15",
+]
+
+[[package]]
+name = "proc-macro-crate"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e8366a6159044a37876a2b9817124296703c586a5c92e2c53751fa06d8d43e8"
+dependencies = [
+ "toml_edit 0.20.7",
 ]
 
 [[package]]
@@ -7484,6 +7610,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rlp"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb919243f34364b6bd2fc10ef797edbfa75f33c252e7998527479c6d6b47e1ec"
+dependencies = [
+ "bytes",
+ "rustc-hex",
+]
+
+[[package]]
 name = "rowan"
 version = "0.15.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7546,6 +7682,12 @@ name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
+
+[[package]]
+name = "rustc-hex"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustc_version"
@@ -8861,6 +9003,17 @@ name = "toml_edit"
 version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
+dependencies = [
+ "indexmap 2.1.0",
+ "toml_datetime",
+ "winnow",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.20.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70f427fce4d84c72b5b732388bf4a9f4531b53f74e2887e3ecb2481f68f66d81"
 dependencies = [
  "indexmap 2.1.0",
  "toml_datetime",

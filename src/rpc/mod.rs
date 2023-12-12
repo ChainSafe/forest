@@ -89,6 +89,7 @@ where
                 chain_api::chain_get_parent_message::<DB>,
             )
             // Message Pool API
+            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
             .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
@@ -126,6 +127,7 @@ where
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
             .with_method(
                 STATE_MINER_PROVING_DEADLINE,
                 state_miner_proving_deadline::<DB>,
@@ -171,6 +173,7 @@ where
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
+            .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
             .with_method(
                 STATE_MARKET_STORAGE_DEAL,
                 eth_api::state_market_storage_deal::<DB>,

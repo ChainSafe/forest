@@ -51,6 +51,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
 
     // Message Pool API
+    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
     access.insert(mpool_api::MPOOL_PUSH, Access::Write);
     access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
@@ -100,6 +101,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_READ_STATE, Access::Read);
     access.insert(state_api::STATE_CIRCULATING_SUPPLY, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
+    access.insert(state_api::STATE_LIST_MINERS, Access::Read);
     access.insert(state_api::STATE_MINER_SECTOR_COUNT, Access::Read);
     access.insert(
         state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
@@ -133,6 +135,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
+    access.insert(eth_api::ETH_GET_BALANCE, Access::Read);    
     access.insert(eth_api::STATE_MARKET_STORAGE_DEAL, Access::Read);
 
     access
@@ -220,6 +223,7 @@ pub mod chain_api {
 
 /// Message Pool API
 pub mod mpool_api {
+    pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
@@ -277,6 +281,7 @@ pub mod state_api {
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
     pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
     pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
+    pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
     pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
     pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
         "Filecoin.StateVMCirculatingSupplyInternal";
@@ -379,21 +384,165 @@ pub mod node_api {
 
 // Eth API
 pub mod eth_api {
-    use num_bigint::BigInt;
+    use std::{fmt, str::FromStr};
+
+    use cid::{
+        multihash::{self, MultihashDigest},
+        Cid,
+    };
+    use num_bigint;
     use serde::{Deserialize, Serialize};
 
-    use crate::lotus_json::lotus_json_with_self;
+    use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
+    use crate::shim::address::Address as FilecoinAddress;
 
     pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
     pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
+    pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
     pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
 
+    const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
     #[derive(Debug, Deserialize, Serialize, Default)]
-    pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub BigInt);
+    pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(GasPriceResult);
+
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default)]
+    pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
+
+    lotus_json_with_self!(BigInt);
+
+    #[derive(Debug, Deserialize, Serialize, Default, Clone)]
+    pub struct Address(
+        #[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Address,
+    );
+
+    lotus_json_with_self!(Address);
+
+    impl Address {
+        pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
+            if self.is_masked_id() {
+                // This is a masked ID address.
+                let bytes: [u8; 8] =
+                    core::array::from_fn(|i| self.0.as_fixed_bytes()[MASKED_ID_PREFIX.len() + i]);
+                Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
+            } else {
+                // Otherwise, translate the address into an address controlled by the
+                // Ethereum Address Manager.
+                Ok(FilecoinAddress::new_delegated(
+                    FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
+                    self.0.as_bytes(),
+                )?)
+            }
+        }
+
+        fn is_masked_id(&self) -> bool {
+            self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
+        }
+    }
+
+    impl FromStr for Address {
+        type Err = anyhow::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(Address(
+                ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
+            ))
+        }
+    }
+
+    #[derive(Default, Clone)]
+    pub struct Hash(pub ethereum_types::H256);
+
+    impl Hash {
+        // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+        pub fn to_cid(&self) -> cid::Cid {
+            let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
+            Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+        }
+    }
+
+    impl FromStr for Hash {
+        type Err = anyhow::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(Hash(ethereum_types::H256::from_str(s)?))
+        }
+    }
+
+    #[derive(Default, Clone)]
+    pub enum Predefined {
+        Earliest,
+        Pending,
+        #[default]
+        Latest,
+    }
+
+    impl fmt::Display for Predefined {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let s = match self {
+                Predefined::Earliest => "earliest",
+                Predefined::Pending => "pending",
+                Predefined::Latest => "latest",
+            };
+            write!(f, "{}", s)
+        }
+    }
+
+    #[allow(dead_code)]
+    #[derive(Clone)]
+    pub enum BlockNumberOrHash {
+        PredefinedBlock(Predefined),
+        BlockNumber(i64),
+        BlockHash(Hash, bool),
+    }
+
+    impl BlockNumberOrHash {
+        pub fn from_predefined(predefined: Predefined) -> Self {
+            Self::PredefinedBlock(predefined)
+        }
+
+        pub fn from_block_number(number: i64) -> Self {
+            Self::BlockNumber(number)
+        }
+    }
+
+    impl HasLotusJson for BlockNumberOrHash {
+        type LotusJson = String;
+
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            match self {
+                Self::PredefinedBlock(predefined) => predefined.to_string(),
+                Self::BlockNumber(number) => format!("0x{:x}", number),
+                Self::BlockHash(hash, _require_canonical) => format!("0x{:x}", hash.0),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json.as_str() {
+                "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
+                "pending" => return Self::PredefinedBlock(Predefined::Pending),
+                "latest" => return Self::PredefinedBlock(Predefined::Latest),
+                _ => (),
+            };
+
+            if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
+                if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
+                    return Self::BlockNumber(number);
+                }
+            }
+
+            // Return some default value if we can't convert
+            Self::PredefinedBlock(Predefined::Latest)
+        }
+    }
 
     #[cfg(test)]
     mod test {

@@ -23,6 +23,13 @@ impl ApiInfo {
         RpcRequest::new_v1(ETH_GAS_PRICE, ())
     }
 
+    pub fn eth_get_balance_req(
+        address: Address,
+        block_param: BlockNumberOrHash,
+    ) -> RpcRequest<BigInt> {
+        RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_param))
+    }
+
     pub fn state_market_storage_deal_req(deal_id: u64, tsk: TipsetKeys) -> RpcRequest<MarketDeal> {
         RpcRequest::new_v1(STATE_MARKET_STORAGE_DEAL, (deal_id, tsk))
     }
