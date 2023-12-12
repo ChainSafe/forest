@@ -150,6 +150,7 @@ where
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
                 state_vm_circulating_supply_internal::<DB>,
             )
+            .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
