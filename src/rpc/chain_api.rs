@@ -68,6 +68,9 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
     let mut receipts = Vec::new();
+    if block_header.epoch() == 0 {
+        return Ok(LotusJson(vec![]));
+    }
     let amt = Amt::<Receipt, _>::load(block_header.message_receipts(), store).map_err(|_| {
         JsonRpcError::Full {
             code: 1,
