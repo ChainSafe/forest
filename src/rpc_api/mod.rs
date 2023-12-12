@@ -103,6 +103,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
     access.insert(state_api::STATE_LIST_MINERS, Access::Read);
     access.insert(state_api::STATE_MINER_SECTOR_COUNT, Access::Read);
+    access.insert(state_api::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
     access.insert(
         state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
         Access::Read,
@@ -281,6 +282,7 @@ pub mod state_api {
     pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
     pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
     pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
+    pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
     pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
         "Filecoin.StateVMCirculatingSupplyInternal";
 }

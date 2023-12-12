@@ -23,6 +23,7 @@ use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use libipld_core::ipld::Ipld;
+use num_bigint::BigInt;
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
@@ -156,6 +157,13 @@ impl ApiInfo {
 
     pub fn state_account_key_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Address> {
         RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
+    }
+
+    pub fn state_verified_client_status(
+        addr: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<Option<BigInt>> {
+        RpcRequest::new(STATE_VERIFIED_CLIENT_STATUS, (addr, tsk))
     }
 
     pub fn state_circulating_supply_req(tsk: TipsetKeys) -> RpcRequest<TokenAmount> {

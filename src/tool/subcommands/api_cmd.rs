@@ -145,7 +145,11 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_syntax: Box::new(|value| {
+                // TODO: Remove debug before merging.
+                println!("{}", value);
+                serde_json::from_value::<T::LotusJson>(value).is_ok()
+            }),
             check_semantics: Box::new(move |forest_json, lotus_json| {
                 serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
                     serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
@@ -408,6 +412,17 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
+
+    // Those proven hard to verify as most of the time both lotus and forest return 'null'. So it's
+    // hardcoded.
+    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
+        Address::VERIFIED_REGISTRY_ACTOR,
+        shared_tipset.key().clone(),
+    )));
+    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
+        Address::DATACAP_TOKEN_ACTOR,
+        shared_tipset.key().clone(),
+    )));
 
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {

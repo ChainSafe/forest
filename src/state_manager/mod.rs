@@ -45,6 +45,7 @@ use crate::state_manager::chain_rand::draw_randomness;
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
+use fil_actor_verifreg_state::v12::DataCap;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
@@ -1298,6 +1299,28 @@ where
             &self.engine,
             tipsets,
         )
+    }
+
+    pub fn verified_client_status(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Option<DataCap>> {
+        let id = self.lookup_id(addr, ts)?.expect("actor not found");
+        let network_version = self.get_network_version(ts.epoch());
+
+        // This is a copy of Lotus code, we need to treat all the actors below version 9
+        // differently. Which maps to network below version 17.
+        // if (network_version.0 as u32) < 17 {
+        // It does not seem to actually matter what `root_key` is specified here, just use the
+        // available address.
+        let state = fil_actor_verifreg_state::v12::State::new(self.blockstore(), addr.into())?;
+        let vcap = state.get_verifier_cap(self.blockstore(), &id.into())?;
+        return Ok(vcap);
+        // }
+
+        // let state = fil_actor_datacap_state::v12::State::
+        // Ok(())
     }
 
     pub async fn resolve_to_deterministic_address(
