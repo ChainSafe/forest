@@ -67,33 +67,32 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
     let block_header: BlockHeader = store
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
+    let mut receipts = Vec::new();
     if block_header.epoch() == 0 {
-        Ok(LotusJson(vec![]))
-    } else {
-        let mut receipts = Vec::new();
-        let amt =
-            Amt::<Receipt, _>::load(block_header.message_receipts(), store).map_err(|_| {
-                JsonRpcError::Full {
-                    code: 1,
-                    message: format!(
-                        "failed to root: ipld: could not find {}",
-                        block_header.message_receipts()
-                    ),
-                    data: None,
-                }
-            })?;
+        return Ok(LotusJson(vec![]));
+    };
+    let amt = Amt::<Receipt, _>::load(block_header.message_receipts(), store).map_err(|_| {
+        JsonRpcError::Full {
+            code: 1,
+            message: format!(
+                "failed to root: ipld: could not find {}",
+                block_header.message_receipts()
+            ),
+            data: None,
+        }
+    })?;
 
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
-                gas_used: receipt.gas_used,
-                events_root: receipt.events_root,
-            });
-            Ok(())
-        })?;
-        Ok(LotusJson(receipts))
-    }
+    amt.for_each(|_, receipt| {
+        receipts.push(ApiReceipt {
+            exit_code: receipt.exit_code.into(),
+            return_data: receipt.return_data.clone(),
+            gas_used: receipt.gas_used,
+            events_root: receipt.events_root,
+        });
+        Ok(())
+    })?;
+
+    Ok(LotusJson(receipts))
 }
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
