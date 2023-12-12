@@ -371,6 +371,10 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
+        RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+            5432,
+            TipsetKeys::default(),
+        )),
     ]
 }
 

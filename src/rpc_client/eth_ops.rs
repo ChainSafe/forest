@@ -1,7 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::eth_api::*;
+use crate::rpc_api::data_types::MarketDeal;
+use crate::{blocks::TipsetKeys, rpc_api::eth_api::*};
 
 use super::{ApiInfo, RpcRequest};
 
@@ -20,5 +21,9 @@ impl ApiInfo {
 
     pub fn eth_gas_price_req() -> RpcRequest<String> {
         RpcRequest::new_v1(ETH_GAS_PRICE, ())
+    }
+
+    pub fn state_market_storage_deal_req(deal_id: u64, tsk: TipsetKeys) -> RpcRequest<MarketDeal> {
+        RpcRequest::new_v1(STATE_MARKET_STORAGE_DEAL, (deal_id, tsk))
     }
 }

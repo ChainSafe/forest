@@ -133,6 +133,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
+    access.insert(eth_api::STATE_MARKET_STORAGE_DEAL, Access::Read);
 
     access
 });
@@ -387,6 +388,7 @@ pub mod eth_api {
     pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
+    pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
 
     #[derive(Debug, Deserialize, Serialize, Default)]
     pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub BigInt);

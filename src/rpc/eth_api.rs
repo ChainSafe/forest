@@ -5,10 +5,14 @@
 use std::ops::Add;
 
 use super::gas_api;
+use crate::blocks::TipsetKeys;
+use crate::lotus_json::LotusJson;
+use crate::rpc::state_api::state_market_deals;
+use crate::rpc_api::data_types::MarketDeal;
 use crate::rpc_api::{data_types::RPCState, eth_api::*};
 use anyhow::Context;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError};
+use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
@@ -69,4 +73,16 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
     } else {
         Ok(GasPriceResult(BigInt::zero()))
     }
+}
+
+pub(in crate::rpc) async fn state_market_storage_deal<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((deal_id, tsk))): Params<LotusJson<(u64, TipsetKeys)>>,
+) -> Result<MarketDeal, JsonRpcError> {
+    Ok(state_market_deals(data, Params(LotusJson((tsk,))))
+        .await?
+        .into_iter()
+        .find(|d| d.0 == deal_id.to_string())
+        .ok_or("Deal not found")?
+        .1)
 }

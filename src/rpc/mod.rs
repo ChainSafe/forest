@@ -171,6 +171,10 @@ where
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
+            .with_method(
+                STATE_MARKET_STORAGE_DEAL,
+                eth_api::state_market_storage_deal::<DB>,
+            )
             .finish_unwrapped(),
     );
 
