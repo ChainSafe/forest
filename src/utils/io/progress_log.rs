@@ -156,12 +156,14 @@ impl Progress {
         };
 
         if let Some(total) = self.total_items {
-            output += " / ";
-            output += &match self.item_type {
-                ItemType::Bytes => human_bytes(total as f64),
-                ItemType::Items => format!("{}", total),
-            };
-            output += &format!(", {:0}%", self.completed_items * 100 / total);
+            if total > 0 {
+                output += " / ";
+                output += &match self.item_type {
+                    ItemType::Bytes => human_bytes(total as f64),
+                    ItemType::Items => format!("{}", total),
+                };
+                output += &format!(", {:0}%", self.completed_items * 100 / total);
+            }
         }
 
         let diff = self.completed_items - self.last_logged_items;
