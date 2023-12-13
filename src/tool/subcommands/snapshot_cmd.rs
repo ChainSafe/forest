@@ -98,7 +98,7 @@ pub enum SnapshotCommands {
     /// the messages at EPOCH, and prints the resulting hash of the state of the world.
     ///
     /// If --json is supplied, details about each message execution will printed.
-    #[command(about = "Compute the state CID at a given epoch")]
+    #[command(about = "Compute the state hash at a given epoch")]
     ComputeState {
         /// Path to a snapshot CAR, which may be zstd compressed
         snapshot: PathBuf,
