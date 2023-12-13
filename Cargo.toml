@@ -83,6 +83,7 @@ http = "1.0"
 http0 = { package = "http", version = "0.2" }
 human-repr = "1.0"
 humantime = "2.1.0"
+human_bytes = "0.4"
 indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
