@@ -26,6 +26,10 @@ use jsonrpc_v2::{Id, RequestObject, V2};
 use serde::Deserialize;
 use tracing::debug;
 
+use futures_util::SinkExt;
+use tokio_tungstenite::tungstenite::Message as WSMessage;
+use tokio_tungstenite::tungstenite::{client::IntoClientRequest, connect};
+
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
@@ -117,6 +121,59 @@ impl ApiInfo {
             JsonRpcResponse::Error { error, .. } => Err(error),
         }
     }
+
+    pub async fn ws_call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+        let rpc_req = RequestObject::request()
+            .with_method(req.method_name)
+            .with_params(req.params)
+            .with_id(0)
+            .finish();
+
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+
+        dbg!(&api_url);
+
+        let ws_url = url::Url::from_str(&api_url).unwrap();
+
+        dbg!(&ws_url);
+
+        // --lotus /ip4/127.0.0.0/tcp/1234/ws
+        let ws_url: url::Url = "ws://127.0.0.0:1234/rpc/v0".parse().unwrap();
+        let tls = open_tls_stream(&ws_url).await;
+
+        dbg!(&tls);
+
+        // dbg!(&ws_url);
+
+        // debug!("Using JSON-RPC v2 WS URL: {}", &ws_url);
+
+        // let (ws, _) =
+        //     tokio_tungstenite::client_async(ws_url.clone().into_client_request().unwrap(), tls)
+        //         .await
+        //         .unwrap();
+
+        Err(JsonRpcError::METHOD_NOT_FOUND)
+    }
+}
+
+async fn open_tls_stream(ws_url: &url::Url) -> tokio_native_tls::TlsStream<tokio::net::TcpStream> {
+    let mut connector = tokio_native_tls::native_tls::TlsConnector::builder();
+    //connector.max_protocol_version(None);
+
+    // These certs should be shared between the reqwest and tungstenite clients
+    let tls_ca: Vec<tokio_native_tls::native_tls::Certificate> = Vec::new();
+
+    tls_ca.iter().for_each(|ca| {
+        connector.add_root_certificate(ca.clone());
+    });
+
+    let connector = connector.build().unwrap();
+    let connector: tokio_native_tls::TlsConnector = connector.into();
+    let addrs = ws_url.socket_addrs(|| None).unwrap();
+    dbg!(&addrs);
+    let stream = tokio::net::TcpStream::connect(&*addrs).await.unwrap();
+    let stream = connector.connect(ws_url.as_str(), stream).await.unwrap();
+    stream
 }
 
 /// Error object in a response
@@ -238,6 +295,12 @@ fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> String {
                 }
                 Protocol::Https => {
                     addr.protocol = "https".to_string();
+                }
+                Protocol::Ws(..) => {
+                    addr.protocol = "ws".to_string();
+                }
+                Protocol::Wss(..) => {
+                    addr.protocol = "wss".to_string();
                 }
                 _ => {}
             };

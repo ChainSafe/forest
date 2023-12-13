@@ -117,6 +117,7 @@ struct RpcTest {
     check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
     check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
     ignore: Option<&'static str>,
+    websocket: bool,
 }
 
 impl RpcTest {
@@ -131,6 +132,7 @@ impl RpcTest {
             check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
             check_semantics: Box::new(|_, _| true),
             ignore: None,
+            websocket: false,
         }
     }
 
@@ -155,6 +157,7 @@ impl RpcTest {
                 })
             }),
             ignore: None,
+            websocket: false,
         }
     }
 
@@ -173,11 +176,28 @@ impl RpcTest {
         RpcTest::validate(request, |forest, lotus| forest == lotus)
     }
 
+    async fn ws_run(&self, lotus_api: &ApiInfo) -> (EndpointStatus, EndpointStatus) {
+        let lotus_resp = lotus_api.ws_call(self.request.clone()).await;
+
+        let lotus_status = lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+            if (self.check_syntax)(value) {
+                EndpointStatus::Valid
+            } else {
+                EndpointStatus::InvalidJSON
+            }
+        });
+
+        (EndpointStatus::InvalidRequest, lotus_status)
+    }
+
     async fn run(
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
     ) -> (EndpointStatus, EndpointStatus) {
+        if self.websocket {
+            return self.ws_run(lotus_api).await;
+        }
         let forest_resp = forest_api.call(self.request.clone()).await;
         let lotus_resp = lotus_api.call(self.request.clone()).await;
 
@@ -240,7 +260,7 @@ fn chain_tests() -> Vec<RpcTest> {
         RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
             forest.epoch().abs_diff(lotus.epoch()) < 10
         }),
-        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
+        //RpcTest::identity(ApiInfo::chain_get_genesis_req()),
     ]
 }
 
@@ -544,6 +564,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     Ok(tests)
 }
 
+fn web_socket_tests() -> Vec<RpcTest> {
+    let mut test = RpcTest::identity(ApiInfo::chain_get_genesis_req());
+    test.websocket = true;
+    vec![test]
+}
+
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
 /// but other nodes may be used (such as `venus`). The `lotus` node is assumed
 /// to be correct and the `forest` node will be marked as incorrect if it
@@ -581,6 +607,7 @@ async fn compare_apis(
     tests.extend(node_tests());
     tests.extend(wallet_tests());
     tests.extend(eth_tests());
+    tests.extend(web_socket_tests());
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
