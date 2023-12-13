@@ -138,6 +138,8 @@ impl Progress {
         self.emit_log_if_required();
     }
 
+    // Example output:
+    //
     // Bytes, with total: 12.4 MiB / 1.2 GiB, 1%, 1.5 MiB/s, elapsed time: 8m 12s
     // Bytes, without total: 12.4 MiB, 1.5 MiB/s, elapsed time: 8m 12s
     // Items, with total: 12 / 1200, 1%, 1.5 items/s, elapsed time: 8m 12s
