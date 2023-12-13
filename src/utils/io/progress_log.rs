@@ -171,7 +171,7 @@ impl Progress {
         let diff = self.completed_items - self.last_logged_items;
         output += &match self.item_type {
             ItemType::Bytes => format!(", {}/s", human_bytes(diff as f64)),
-            ItemType::Items => format!(", {} items/s", diff),
+            ItemType::Items => format!(", {diff} items/s"),
         };
 
         output += &format!(", elapsed time: {}", elapsed_duration);
