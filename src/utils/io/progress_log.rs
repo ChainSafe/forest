@@ -160,7 +160,7 @@ impl Progress {
                 output += " / ";
                 output += &match self.item_type {
                     ItemType::Bytes => human_bytes(total as f64),
-                    ItemType::Items => format!("{}", total),
+                    ItemType::Items => total.to_string(),
                 };
                 output += &format!(", {:0}%", self.completed_items * 100 / total);
             }
