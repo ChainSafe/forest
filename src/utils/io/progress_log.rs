@@ -174,7 +174,7 @@ impl Progress {
             ItemType::Items => format!(", {diff} items/s"),
         };
 
-        output += &format!(", elapsed time: {}", elapsed_duration);
+        output += &format!(", elapsed time: {elapsed_duration}");
 
         output
     }
