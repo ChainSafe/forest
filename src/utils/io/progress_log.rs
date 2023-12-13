@@ -145,19 +145,17 @@ impl Progress {
     // Items, with total: 12 / 1200, 1%, 1.5 items/s, elapsed time: 8m 12s
     // Items, without total: 12, 1.5 items/s, elapsed time: 8m 12s
     fn msg(&self, now: Instant) -> String {
+        let message = &self.message;
         let elapsed_secs = (now - self.start).as_secs_f64();
         let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
 
-        let mut output = String::new();
-
-        output += &format!("{} ", self.message);
-
-        output += &match self.item_type {
+        let at = match self.item_type {
             ItemType::Bytes => human_bytes(self.completed_items as f64),
             ItemType::Items => self.completed_items.to_string(),
         };
 
-        if let Some(total) = self.total_items {
+        let total = if let Some(total) = self.total_items {
+            let mut output = String::new();
             if total > 0 {
                 output += " / ";
                 output += &match self.item_type {
@@ -166,17 +164,18 @@ impl Progress {
                 };
                 output += &format!(", {:0}%", self.completed_items * 100 / total);
             }
-        }
-
-        let diff = self.completed_items - self.last_logged_items;
-        output += &match self.item_type {
-            ItemType::Bytes => format!(", {}/s", human_bytes(diff as f64)),
-            ItemType::Items => format!(", {diff} items/s"),
+            output
+        } else {
+            String::new()
         };
 
-        output += &format!(", elapsed time: {elapsed_duration}");
+        let diff = self.completed_items - self.last_logged_items;
+        let speed = match self.item_type {
+            ItemType::Bytes => format!("{}/s", human_bytes(diff as f64)),
+            ItemType::Items => format!("{diff} items/s"),
+        };
 
-        output
+        format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}")
     }
 
     fn emit_log_if_required(&mut self) {
