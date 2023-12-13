@@ -214,9 +214,9 @@ proc-macro2 = { version = "1.0.70", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.188"
+ra_ap_syntax = "0.0.189"
 regex-automata = "0.4"
-syn = { version = "2.0.38", default-features = false, features = [
+syn = { version = "2.0.40", default-features = false, features = [
   "full",
   "parsing",
   "visit",
