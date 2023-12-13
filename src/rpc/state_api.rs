@@ -680,11 +680,11 @@ pub(in crate::rpc) async fn msig_get_available_balance<DB: Blockstore + Send + S
     let actor = data
         .state_manager
         .get_actor(&addr, *ts.parent_state())?
-        .ok_or("MultiSig actor not found".to_string())?;
-    let actor_balance = TokenAmount::from(actor.balance.clone());
+        .ok_or("MultiSig actor not found")?;
+    let actor_balance = TokenAmount::from(&actor.balance);
     let ms = multisig::State::load(&store, actor.code, actor.state)?;
     let locked_balance = ms.locked_balance(height)?.into();
-    let avail_balance = actor_balance.clone() - &locked_balance;
+    let avail_balance = &actor_balance - locked_balance;
     Ok(LotusJson(avail_balance))
 }
 
