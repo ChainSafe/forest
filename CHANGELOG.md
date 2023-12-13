@@ -42,6 +42,9 @@
 
 ### Changed
 
+- [#3819](https://github.com/ChainSafe/forest/pull/3819) Make progress messages
+  more human-readable.
+
 ### Removed
 
 ### Fixed
