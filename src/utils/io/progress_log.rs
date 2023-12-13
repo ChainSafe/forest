@@ -151,8 +151,8 @@ impl Progress {
         output += &format!("{} ", self.message);
 
         output += &match self.item_type {
-            ItemType::Bytes => format!("{}", human_bytes(self.completed_items as f64)),
-            ItemType::Items => format!("{}", self.completed_items),
+            ItemType::Bytes => human_bytes(self.completed_items as f64),
+            ItemType::Items => self.completed_items.to_string(),
         };
 
         if let Some(total) = self.total_items {
