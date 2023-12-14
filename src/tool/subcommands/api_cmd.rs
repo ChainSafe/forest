@@ -1,14 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
-use clap::{Subcommand, ValueEnum};
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use serde::de::DeserializeOwned;
-use std::path::PathBuf;
-use std::str::FromStr;
-use tabled::{builder::Builder, settings::Style};
-
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
@@ -20,6 +12,14 @@ use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
+use ahash::HashMap;
+use clap::{Subcommand, ValueEnum};
+use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use serde::de::DeserializeOwned;
+use std::path::PathBuf;
+use std::str::FromStr;
+use tabled::{builder::Builder, settings::Style};
+use tokio::sync::mpsc;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -113,13 +113,15 @@ impl EndpointStatus {
         }
     }
 }
-
 struct RpcTest {
     request: RpcRequest,
-    check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
-    check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
+    check_syntax: Box<dyn Fn(serde_json::Value) -> bool + Send + 'static>,
+    check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + 'static>,
     ignore: Option<&'static str>,
 }
+
+unsafe impl Send for RpcTest {}
+unsafe impl Sync for RpcTest {}
 
 impl RpcTest {
     // Check that an endpoint exist and that both the Lotus and Forest JSON
@@ -138,7 +140,10 @@ impl RpcTest {
 
     // Check that an endpoint exist, has the same JSON schema, and do custom
     // validation over both responses.
-    fn validate<T>(request: RpcRequest<T>, validate: impl Fn(T, T) -> bool + 'static) -> RpcTest
+    fn validate<T>(
+        request: RpcRequest<T>,
+        validate: impl Fn(T, T) -> bool + Send + 'static,
+    ) -> RpcTest
     where
         T: HasLotusJson,
         T::LotusJson: DeserializeOwned,
@@ -613,9 +618,23 @@ async fn compare_apis(
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    let mut results = HashMap::default();
+    run_tests_parallel(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+}
 
+async fn run_tests_parallel(
+    tests: Vec<RpcTest>,
+    forest: &ApiInfo,
+    lotus: &ApiInfo,
+    filter: String,
+    _fail_fast: bool,
+    run_ignored: RunIgnored,
+) -> anyhow::Result<()> {
+    let (tx, mut rx) = mpsc::channel(1000); // Adjust the buffer size as needed
+    let mut handles = vec![];
     for test in tests.into_iter() {
+        let forest = forest.clone();
+        let lotus = lotus.clone();
+
         // By default, do not run ignored tests.
         if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
@@ -627,18 +646,28 @@ async fn compare_apis(
         if !test.request.method_name.contains(&filter) {
             continue;
         }
-        let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
-        results
-            .entry((test.request.method_name, forest_status, lotus_status))
-            .and_modify(|v| *v += 1)
-            .or_insert(1u32);
-        if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-            && fail_fast
-        {
-            break;
-        }
+        let tx1 = tx.clone();
+        let handle = tokio::spawn(async move {
+            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            tx1.send((test.request.method_name, forest_status, lotus_status))
+                .await
+                .expect("Could not send test results.");
+        });
+        handles.push(handle);
+    }
+    drop(tx);
+    for handle in handles {
+        handle.await?
     }
 
+    // Collect and process test results from the channel
+    let mut results = HashMap::default();
+    while let Some((method_name, forest_status, lotus_status)) = rx.recv().await {
+        results
+            .entry((method_name, forest_status, lotus_status))
+            .and_modify(|v| *v += 1)
+            .or_insert(1u32);
+    }
     let mut results = results.into_iter().collect::<Vec<_>>();
     results.sort();
     println!("{}", format_as_markdown(&results));
