@@ -180,7 +180,7 @@ tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-native-tls = "0.3.1"
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-tungstenite = "0.21.0"
+tokio-tungstenite = "0.20.1"
 tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tracing = "0.1"

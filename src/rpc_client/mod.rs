@@ -26,9 +26,9 @@ use jsonrpc_v2::{Id, RequestObject, V2};
 use serde::Deserialize;
 use tracing::debug;
 
-use futures_util::SinkExt;
-use tokio_tungstenite::tungstenite::Message as WSMessage;
-use tokio_tungstenite::tungstenite::{client::IntoClientRequest, connect};
+use futures_util::{SinkExt, StreamExt};
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -131,49 +131,41 @@ impl ApiInfo {
 
         let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
 
-        dbg!(&api_url);
+        debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
         let ws_url = url::Url::from_str(&api_url).unwrap();
 
-        dbg!(&ws_url);
+        let host = ws_url.host_str().expect("Invalid host in WebSocket URL");
 
-        // --lotus /ip4/127.0.0.0/tcp/1234/ws
-        let ws_url: url::Url = "ws://127.0.0.0:1234/rpc/v0".parse().unwrap();
-        let tls = open_tls_stream(&ws_url).await;
+        let request = tungstenite::http::Request::builder()
+            .method("GET")
+            .uri(ws_url.to_string())
+            .header("Host", host)
+            .header("Upgrade", "websocket")
+            .header("Connection", "upgrade")
+            .header("Sec-Websocket-Key", "key123")
+            .header("Sec-Websocket-Version", "13")
+            .body(())
+            .unwrap();
 
-        dbg!(&tls);
+        let (ws_stream, _) = connect_async(request).await.unwrap();
 
-        // dbg!(&ws_url);
+        let payload = serde_json::to_vec(&rpc_req).unwrap();
 
-        // debug!("Using JSON-RPC v2 WS URL: {}", &ws_url);
+        let (mut write, read) = ws_stream.split();
 
-        // let (ws, _) =
-        //     tokio_tungstenite::client_async(ws_url.clone().into_client_request().unwrap(), tls)
-        //         .await
-        //         .unwrap();
+        let res = write.send(WsMessage::Binary(payload)).await;
+        res.unwrap();
+
+        use std::str;
+        let s = read.for_each(|message| async {
+            let data = message.unwrap().into_data();
+            println!("=> {}", str::from_utf8(&data).unwrap());
+        });
+        s.await;
 
         Err(JsonRpcError::METHOD_NOT_FOUND)
     }
-}
-
-async fn open_tls_stream(ws_url: &url::Url) -> tokio_native_tls::TlsStream<tokio::net::TcpStream> {
-    let mut connector = tokio_native_tls::native_tls::TlsConnector::builder();
-    //connector.max_protocol_version(None);
-
-    // These certs should be shared between the reqwest and tungstenite clients
-    let tls_ca: Vec<tokio_native_tls::native_tls::Certificate> = Vec::new();
-
-    tls_ca.iter().for_each(|ca| {
-        connector.add_root_certificate(ca.clone());
-    });
-
-    let connector = connector.build().unwrap();
-    let connector: tokio_native_tls::TlsConnector = connector.into();
-    let addrs = ws_url.socket_addrs(|| None).unwrap();
-    dbg!(&addrs);
-    let stream = tokio::net::TcpStream::connect(&*addrs).await.unwrap();
-    let stream = connector.connect(ws_url.as_str(), stream).await.unwrap();
-    stream
 }
 
 /// Error object in a response
