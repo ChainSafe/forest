@@ -618,10 +618,10 @@ async fn compare_apis(
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests_parallel(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+    run_tests(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
 }
 
-async fn run_tests_parallel(
+async fn run_tests(
     tests: Vec<RpcTest>,
     forest: &ApiInfo,
     lotus: &ApiInfo,
@@ -629,7 +629,7 @@ async fn run_tests_parallel(
     _fail_fast: bool,
     run_ignored: RunIgnored,
 ) -> anyhow::Result<()> {
-    let (tx, mut rx) = mpsc::channel(1000); // Adjust the buffer size as needed
+    let (tx, mut rx) = mpsc::unbounded_channel();
     let mut handles = vec![];
     for test in tests.into_iter() {
         let forest = forest.clone();
@@ -650,14 +650,12 @@ async fn run_tests_parallel(
         let handle = tokio::spawn(async move {
             let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
             tx1.send((test.request.method_name, forest_status, lotus_status))
-                .await
-                .expect("Could not send test results.");
         });
         handles.push(handle);
     }
     drop(tx);
     for handle in handles {
-        handle.await?
+        handle.await??
     }
 
     // Collect and process test results from the channel
