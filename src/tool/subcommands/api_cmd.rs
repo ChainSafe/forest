@@ -338,6 +338,10 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             101,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::msig_get_available_balance_req(
+            Address::new_id(18101), // msig address id
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 
