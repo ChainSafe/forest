@@ -33,8 +33,7 @@
 //! ```
 //! # Future work
 //! - Add and move progressively to new API (Iterator, Streams), and removed deprecated usage of [`WithProgressRaw`]
-//! - Add support for bytes measure
-//! - Add a more accurate ETA, progress speed, etc
+//! - Add a more accurate ETA etc
 
 use human_bytes::human_bytes;
 use humantime::format_duration;
