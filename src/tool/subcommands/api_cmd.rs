@@ -626,7 +626,7 @@ async fn run_tests(
     forest: &ApiInfo,
     lotus: &ApiInfo,
     filter: String,
-    _fail_fast: bool,
+    fail_fast: bool,
     run_ignored: RunIgnored,
 ) -> anyhow::Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel();
@@ -654,18 +654,24 @@ async fn run_tests(
         handles.push(handle);
     }
     drop(tx);
+
+    let mut results = HashMap::default();
     for handle in handles {
-        handle.await??
+        handle.await??;
+        while let Some((method_name, forest_status, lotus_status)) = rx.recv().await {
+            results
+                .entry((method_name, forest_status, lotus_status))
+                .and_modify(|v| *v += 1)
+                .or_insert(1u32);
+            if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
+                && fail_fast
+            {
+                break;
+            }
+        }
     }
 
-    // Collect and process test results from the channel
-    let mut results = HashMap::default();
-    while let Some((method_name, forest_status, lotus_status)) = rx.recv().await {
-        results
-            .entry((method_name, forest_status, lotus_status))
-            .and_modify(|v| *v += 1)
-            .or_insert(1u32);
-    }
+    // Collect and display results in Markdown format
     let mut results = results.into_iter().collect::<Vec<_>>();
     results.sort();
     println!("{}", format_as_markdown(&results));
