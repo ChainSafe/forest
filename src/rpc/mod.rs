@@ -88,6 +88,7 @@ where
                 CHAIN_GET_PARENT_MESSAGES,
                 chain_api::chain_get_parent_message::<DB>,
             )
+            .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
             // Message Pool API
             .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
