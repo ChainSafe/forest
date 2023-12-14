@@ -1311,16 +1311,23 @@ where
 
         // This is a copy of Lotus code, we need to treat all the actors below version 9
         // differently. Which maps to network below version 17.
-        // if (network_version.0 as u32) < 17 {
-        // It does not seem to actually matter what `root_key` is specified here, just use the
-        // available address.
-        let state = fil_actor_verifreg_state::v12::State::new(self.blockstore(), addr.into())?;
-        let vcap = state.get_verifier_cap(self.blockstore(), &id.into())?;
-        return Ok(vcap);
-        // }
+        if (u32::from(network_version.0)) < 17 {
+            let act = self
+                .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
+                .map_err(|e| Error::State(e.to_string()))?
+                .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            let state = verifreg::State::load(self.blockstore(), act.code, act.state)?;
+            return state.verified_client_data_cap(self.blockstore(), id.into());
+        }
 
-        // let state = fil_actor_datacap_state::v12::State::
-        // Ok(())
+        let act = self
+            .get_actor(&Address::DATACAP_TOKEN_ACTOR, *ts.parent_state())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
+
+        state.verified_client_data_cap(self.blockstore(), id.into())
     }
 
     pub async fn resolve_to_deterministic_address(
