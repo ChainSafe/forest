@@ -199,6 +199,10 @@ impl RpcTest {
                 };
                 (forest_status, EndpointStatus::Valid)
             }
+            (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
+                // Both Forest and Lotus have the same error, consider it as valid
+                (EndpointStatus::Valid, EndpointStatus::Valid)
+            }
             (forest_resp, lotus_resp) => {
                 let forest_status =
                     forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
@@ -339,6 +343,10 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             101,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::msig_get_available_balance_req(
+            Address::new_id(18101), // msig address id
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 
@@ -424,6 +432,9 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
+                *block.cid(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_receipts_req(
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(

@@ -25,7 +25,7 @@ use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
-    power,
+    multisig, power,
 };
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
@@ -668,6 +668,24 @@ pub(in crate::rpc) async fn state_circulating_supply<DB: Blockstore + Send + Syn
         genesis_info.get_circulating_supply(height, &state_manager.blockstore_owned(), root)?;
 
     Ok(LotusJson(supply))
+}
+
+pub(in crate::rpc) async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let height = ts.epoch();
+    let store = data.state_manager.blockstore();
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("MultiSig actor not found")?;
+    let actor_balance = TokenAmount::from(&actor.balance);
+    let ms = multisig::State::load(&store, actor.code, actor.state)?;
+    let locked_balance = ms.locked_balance(height)?.into();
+    let avail_balance = &actor_balance - locked_balance;
+    Ok(LotusJson(avail_balance))
 }
 
 /// Get state sector info using sector no
