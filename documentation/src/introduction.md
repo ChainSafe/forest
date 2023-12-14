@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="380" height="269" src="./img/forest_logo.png">
+    <img height="269" src="./img/forest_logo.png">
 </p>
 
 [<img alt="build status" src="https://img.shields.io/circleci/build/gh/ChainSafe/forest/main?style=for-the-badge" height="20">](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
