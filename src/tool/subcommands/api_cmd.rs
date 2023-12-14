@@ -334,6 +334,7 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             101,
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_market_deals_req(shared_tipset.key().clone())),
     ]
 }
 

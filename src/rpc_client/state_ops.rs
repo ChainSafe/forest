@@ -8,8 +8,8 @@ use crate::{
     blocks::TipsetKeys,
     rpc_api::{
         data_types::{
-            ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MessageLookup,
-            MinerSectors, SectorOnChainInfo,
+            ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal,
+            MessageLookup, MinerSectors, SectorOnChainInfo,
         },
         state_api::*,
     },
@@ -203,5 +203,9 @@ impl ApiInfo {
 
     pub fn state_list_miners_req(tsk: TipsetKeys) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
+
+    pub fn state_market_deals_req(tsk: TipsetKeys) -> RpcRequest<Vec<MarketDeal>> {
+        RpcRequest::new(STATE_MARKET_DEALS, (tsk,))
     }
 }

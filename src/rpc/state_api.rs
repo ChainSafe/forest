@@ -194,8 +194,8 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
         out.insert(
             deal_id.to_string(),
             MarketDeal {
-                proposal: d.into(),
-                state: s.into(),
+                proposal: d,
+                state: s,
             },
         );
         Ok(())

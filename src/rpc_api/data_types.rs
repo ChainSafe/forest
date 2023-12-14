@@ -23,7 +23,6 @@ use crate::shim::{
     error::ExitCode,
     executor::Receipt,
     message::Message,
-    piece::PaddedPieceSize,
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
 };
@@ -104,62 +103,8 @@ lotus_json_with_self!(MessageSendSpec);
 #[derive(Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketDeal {
-    pub proposal: ShimDealProposal,
-    pub state: ShimDealState,
-}
-
-#[derive(Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct ShimDealProposal {
-    #[serde(rename = "PieceCID")]
-    pub piece_cid: Cid,
-    pub piece_size: PaddedPieceSize,
-    pub verified_deal: bool,
-    pub client: Address,
-    pub provider: Address,
-    // ! This is the field that requires unsafe unchecked utf8 deserialization
-    pub label: String,
-    pub start_epoch: ChainEpoch,
-    pub end_epoch: ChainEpoch,
-    pub storage_price_per_epoch: TokenAmount,
-    pub provider_collateral: TokenAmount,
-    pub client_collateral: TokenAmount,
-}
-
-impl From<DealProposal> for ShimDealProposal {
-    fn from(other: DealProposal) -> Self {
-        ShimDealProposal {
-            piece_cid: other.piece_cid,
-            piece_size: other.piece_size.into(),
-            verified_deal: other.verified_deal,
-            client: other.client.into(),
-            provider: other.provider.into(),
-            label: other.label,
-            start_epoch: other.start_epoch,
-            end_epoch: other.end_epoch,
-            storage_price_per_epoch: other.storage_price_per_epoch.into(),
-            provider_collateral: other.provider_collateral.into(),
-            client_collateral: other.client_collateral.into(),
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct ShimDealState {
-    pub sector_start_epoch: ChainEpoch, // -1 if not yet included in proven sector
-    pub last_updated_epoch: ChainEpoch, // -1 if deal state never updated
-    pub slash_epoch: ChainEpoch,        // -1 if deal never slashed
-}
-
-impl From<DealState> for ShimDealState {
-    fn from(other: DealState) -> Self {
-        ShimDealState {
-            sector_start_epoch: other.sector_start_epoch,
-            last_updated_epoch: other.last_updated_epoch,
-            slash_epoch: other.slash_epoch,
-        }
-    }
+    pub proposal: DealProposal,
+    pub state: DealState,
 }
 
 lotus_json_with_self!(MarketDeal);
