@@ -150,21 +150,24 @@ impl ApiInfo {
 
         let (ws_stream, _) = connect_async(request).await.unwrap();
 
+        let (mut write, mut read) = ws_stream.split();
+
         let payload = serde_json::to_vec(&rpc_req).unwrap();
 
-        let (mut write, read) = ws_stream.split();
+        write.send(WsMessage::Binary(payload)).await.unwrap();
 
-        let res = write.send(WsMessage::Binary(payload)).await;
-        res.unwrap();
-
-        use std::str;
-        let s = read.for_each(|message| async {
+        if let Some(message) = read.next().await {
             let data = message.unwrap().into_data();
-            println!("=> {}", str::from_utf8(&data).unwrap());
-        });
-        s.await;
+            let rpc_res: JsonRpcResponse<T::LotusJson> =
+                serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
-        Err(JsonRpcError::METHOD_NOT_FOUND)
+            match rpc_res {
+                JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
+                JsonRpcResponse::Error { error, .. } => Err(error),
+            }
+        } else {
+            Err(JsonRpcError::INVALID_REQUEST)
+        }
     }
 }
 
