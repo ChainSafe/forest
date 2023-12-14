@@ -18,6 +18,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 use tabled::{builder::Builder, settings::Style};
 use tokio::sync::mpsc;
 
@@ -115,13 +116,10 @@ impl EndpointStatus {
 }
 struct RpcTest {
     request: RpcRequest,
-    check_syntax: Box<dyn Fn(serde_json::Value) -> bool + Send + 'static>,
-    check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + 'static>,
+    check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
+    check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
 }
-
-unsafe impl Send for RpcTest {}
-unsafe impl Sync for RpcTest {}
 
 impl RpcTest {
     // Check that an endpoint exist and that both the Lotus and Forest JSON
@@ -132,8 +130,8 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
-            check_semantics: Box::new(|_, _| true),
+            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Arc::new(|_, _| true),
             ignore: None,
         }
     }
@@ -142,7 +140,7 @@ impl RpcTest {
     // validation over both responses.
     fn validate<T>(
         request: RpcRequest<T>,
-        validate: impl Fn(T, T) -> bool + Send + 'static,
+        validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> RpcTest
     where
         T: HasLotusJson,
@@ -150,8 +148,8 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
-            check_semantics: Box::new(move |forest_json, lotus_json| {
+            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Arc::new(move |forest_json, lotus_json| {
                 serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
                     serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
                         validate(
