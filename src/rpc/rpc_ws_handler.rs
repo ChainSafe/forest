@@ -82,6 +82,7 @@ async fn rpc_ws_handler_inner(
                     None
                 }
             }
+            // We should not need to support other kind of messages.
             _ => None,
         };
 
@@ -132,8 +133,6 @@ async fn rpc_ws_handler_inner(
                     }
                 }
             }
-        } else {
-            // TODO: add warning
         }
     }
     socket_active.store(false);
