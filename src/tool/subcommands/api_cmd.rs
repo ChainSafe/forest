@@ -618,6 +618,7 @@ fn websocket_tests() -> Vec<RpcTest> {
 /// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
 /// ```
 /// The number after a method name indicates how many times an RPC call was tested.
+#[allow(clippy::too_many_arguments)]
 async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
