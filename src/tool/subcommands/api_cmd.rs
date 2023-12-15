@@ -124,7 +124,6 @@ struct RpcTest {
     check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
     check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
     ignore: Option<&'static str>,
-    websocket: bool,
 }
 
 impl RpcTest {
@@ -139,7 +138,6 @@ impl RpcTest {
             check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
             check_semantics: Box::new(|_, _| true),
             ignore: None,
-            websocket: false,
         }
     }
 
@@ -164,7 +162,6 @@ impl RpcTest {
                 })
             }),
             ignore: None,
-            websocket: false,
         }
     }
 
@@ -187,8 +184,9 @@ impl RpcTest {
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
+        websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
-        let (forest_resp, lotus_resp) = if self.websocket {
+        let (forest_resp, lotus_resp) = if websocket {
             (
                 forest_api.ws_call(self.request.clone()).await,
                 lotus_api.ws_call(self.request.clone()).await,
@@ -648,9 +646,6 @@ async fn compare_apis(
 
     if websocket {
         tests.extend(websocket_tests());
-        for test in tests.iter_mut() {
-            test.websocket = true;
-        }
     }
 
     tests.sort_by_key(|test| test.request.method_name);
@@ -669,7 +664,7 @@ async fn compare_apis(
         if !test.request.method_name.contains(&filter) {
             continue;
         }
-        let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+        let (forest_status, lotus_status) = test.run(&forest, &lotus, websocket).await;
         results
             .entry((test.request.method_name, forest_status, lotus_status))
             .and_modify(|v| *v += 1)
