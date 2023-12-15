@@ -292,8 +292,8 @@ server, allowing you to chain some RPC command immediately after.
 
 ### Forest snapshot links
 
-- [calibration network](https://forest.chainsafe.io/calibnet/snapshot-latest)
-- [main network](https://forest.chainsafe.io/mainnet/snapshot-latest)
+- [calibration network](https://forest-archive.chainsafe.dev/latest/calibnet/)
+- [main network](https://forest-archive.chainsafe.dev/latest/mainnet/)
 
 ### Documentation
 

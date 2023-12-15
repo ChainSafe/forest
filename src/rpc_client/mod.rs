@@ -176,7 +176,7 @@ impl ApiInfo {
 }
 
 /// Error object in a response
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 pub struct JsonRpcError {
     pub code: i64,
     pub message: Cow<'static, str>,

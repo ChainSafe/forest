@@ -204,4 +204,11 @@ impl ApiInfo {
     pub fn state_list_miners_req(tsk: TipsetKeys) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MINERS, (tsk,))
     }
+
+    pub fn msig_get_available_balance_req(
+        addr: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<TokenAmount> {
+        RpcRequest::new(MSIG_GET_AVAILABLE_BALANCE, (addr, tsk))
+    }
 }

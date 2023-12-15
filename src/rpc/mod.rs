@@ -89,6 +89,7 @@ where
                 chain_api::chain_get_parent_message::<DB>,
             )
             .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
+            .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
             .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
@@ -151,6 +152,7 @@ where
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
                 state_vm_circulating_supply_internal::<DB>,
             )
+            .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
@@ -174,6 +176,7 @@ where
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
+            .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
             .finish_unwrapped(),
     );
 

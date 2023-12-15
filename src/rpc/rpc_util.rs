@@ -41,7 +41,13 @@ pub fn is_streaming_method(method_name: &str) -> bool {
     STREAMING_METHODS.contains(&method_name)
 }
 
-const V1_METHODS: [&str; 4] = [ETH_ACCOUNTS, ETH_BLOCK_NUMBER, ETH_CHAIN_ID, ETH_GAS_PRICE];
+const V1_METHODS: [&str; 5] = [
+    ETH_ACCOUNTS,
+    ETH_BLOCK_NUMBER,
+    ETH_CHAIN_ID,
+    ETH_GAS_PRICE,
+    ETH_GET_BALANCE,
+];
 
 pub fn is_v1_method(method_name: &str) -> bool {
     V1_METHODS.contains(&method_name)
