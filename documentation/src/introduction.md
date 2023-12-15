@@ -15,7 +15,6 @@
     <a href="https://twitter.com/ChainSafeth"><img alt="Twitter" src="https://img.shields.io/twitter/follow/chainsafeth?style=for-the-badge&color=1DA1F2"></a>
 </p>
 
-
 Forest is an implementation of [Filecoin](https://filecoin.io/) written in Rust.
 The implementation takes a modular approach to building a full Filecoin node in
 two parts — (i) building Filecoin’s security critical systems in Rust from the
