@@ -321,7 +321,7 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 }
 
 pub(crate) async fn chain_notify<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    _data: Data<RPCState<DB>>,
 ) -> Result<(), JsonRpcError> {
     Err(JsonRpcError::METHOD_NOT_FOUND)
 }

@@ -15,7 +15,7 @@ use crossbeam::atomic::AtomicCell;
 use futures::{stream::SplitSink, SinkExt, StreamExt};
 use http::{HeaderMap, HeaderValue};
 use tokio::sync::RwLock;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 use crate::rpc::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
 
