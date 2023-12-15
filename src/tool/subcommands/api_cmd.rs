@@ -44,6 +44,9 @@ pub enum ApiCommands {
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
+        /// Tests are run over WebSocket.
+        #[arg(long = "ws")]
+        websocket: bool,
     },
 }
 
@@ -58,6 +61,7 @@ impl ApiCommands {
                 fail_fast,
                 n_tipsets,
                 run_ignored,
+                websocket,
             } => {
                 compare_apis(
                     forest,
@@ -67,6 +71,7 @@ impl ApiCommands {
                     fail_fast,
                     n_tipsets,
                     run_ignored,
+                    websocket,
                 )
                 .await?
             }
@@ -557,13 +562,8 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     Ok(tests)
 }
 
-fn web_socket_tests() -> Vec<RpcTest> {
-    // let mut test = RpcTest::identity(ApiInfo::chain_get_genesis_req());
-    // test.websocket = true;
-    // let mut test2 = RpcTest::identity(ApiInfo::chain_head_req());
-    // test2.websocket = true;
-    let mut test = RpcTest::identity(ApiInfo::chain_notify_req());
-    test.websocket = true;
+fn websocket_tests() -> Vec<RpcTest> {
+    let test = RpcTest::identity(ApiInfo::chain_notify_req());
     vec![test]
 }
 
@@ -592,6 +592,7 @@ async fn compare_apis(
     fail_fast: bool,
     n_tipsets: usize,
     run_ignored: RunIgnored,
+    websocket: bool,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -604,11 +605,17 @@ async fn compare_apis(
     tests.extend(node_tests());
     tests.extend(wallet_tests());
     tests.extend(eth_tests());
-    tests.extend(web_socket_tests());
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
         tests.extend(snapshot_tests(&store, n_tipsets)?);
+    }
+
+    if websocket {
+        tests.extend(websocket_tests());
+        for test in tests.iter_mut() {
+            test.websocket = true;
+        }
     }
 
     tests.sort_by_key(|test| test.request.method_name);
