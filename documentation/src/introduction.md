@@ -2,12 +2,22 @@
     <img height="269" src="./img/forest_logo.png">
 </p>
 
-[<img alt="build status" src="https://img.shields.io/circleci/build/gh/ChainSafe/forest/main?style=for-the-badge" height="20">](https://app.circleci.com/pipelines/github/ChainSafe/forest?branch=main)
-[<img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge" height="20">](https://github.com/ChainSafe/forest/releases/latest)
-[<img alt="Apache License" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/Apache-2.0)
-[<img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" height="20">](https://opensource.org/licenses/MIT)
-[<img alt="Twitter" src="https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2" height="20">](https://twitter.com/ChainSafeth)
-[<img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord" height="20">](https://discord.gg/Q6A3YA2)
+<p align="center">
+    <a href="https://github.com/ChainSafe/forest/actions"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge"></a>
+    <a href="https://github.com/ChainSafe/forest/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge"></a>
+</p>
+<p align="center">
+    <a href="https://docs.forest.chainsafe.io"><img alt="Docs" src="https://img.shields.io/badge/doc-user_guide-green?style=for-the-badge"></a>
+    <a href="https://docs.forest.chainsafe.io/rustdoc/"><img alt="Rust Docs" src="https://img.shields.io/badge/doc-rust_docs-green?style=for-the-badge"></a>
+</p>
+ <p align="center">
+    <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE"><img alt="License Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge"></a>
+    <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT"><img alt="License MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge"></a>
+</p>
+<p align="center">
+    <a href="https://discord.gg/Q6A3YA2"><img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord"></a>
+    <a href="https://twitter.com/ChainSafeth"><img alt="Twitter" src="https://img.shields.io/twitter/follow/chainsafeth?style=for-the-badge&color=1DA1F2"></a>
+</p>
 
 Forest is an implementation of [Filecoin](https://filecoin.io/) written in Rust.
 The implementation takes a modular approach to building a full Filecoin node in
