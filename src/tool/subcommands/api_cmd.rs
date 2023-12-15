@@ -46,7 +46,7 @@ pub enum ApiCommands {
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
-        /// Api calls are handled over WebSocket connections.
+        /// API calls are handled over WebSocket connections.
         #[arg(long = "ws")]
         websocket: bool,
     },
