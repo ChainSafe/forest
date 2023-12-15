@@ -33,7 +33,7 @@ async fn rpc_ws_task(
         .await
         .map_err(|(_, e)| anyhow::Error::msg(e))?;
 
-    info!("RPC WS called method: {}", call_method);
+    debug!("RPC WS called method: {}", call_method);
     let response = call_rpc_str(rpc_server.clone(), rpc_call).await?;
     ws_sender
         .write()
