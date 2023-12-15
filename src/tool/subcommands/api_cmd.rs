@@ -665,7 +665,7 @@ async fn run_tests(
     drop(tx);
 
     let mut results = HashMap::default();
-    for handle in handles {
+    'outer: for handle in handles {
         handle.await??;
         while let Some((method_name, forest_status, lotus_status)) = rx.recv().await {
             results
@@ -675,7 +675,7 @@ async fn run_tests(
             if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
                 && fail_fast
             {
-                break;
+                break 'outer;
             }
         }
     }
