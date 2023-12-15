@@ -655,10 +655,10 @@ async fn run_tests(
         if !test.request.method_name.contains(&filter) {
             continue;
         }
-        let tx1 = tx.clone();
+        let sender = tx.clone();
         let handle = tokio::spawn(async move {
             let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
-            tx1.send((test.request.method_name, forest_status, lotus_status))
+            sender.send((test.request.method_name, forest_status, lotus_status))
         });
         handles.push(handle);
     }
