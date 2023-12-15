@@ -188,8 +188,7 @@ impl RpcTest {
     ) -> (EndpointStatus, EndpointStatus) {
         let (forest_resp, lotus_resp) = if self.websocket {
             (
-                // TODO: find out why it doesn't work for Forest
-                Err(JsonRpcError::INVALID_REQUEST),
+                forest_api.ws_call(self.request.clone()).await,
                 lotus_api.ws_call(self.request.clone()).await,
             )
         } else {

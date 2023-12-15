@@ -148,7 +148,9 @@ impl ApiInfo {
             .body(())
             .unwrap();
 
-        let (ws_stream, _) = connect_async(request).await.unwrap();
+        let (ws_stream, _) = connect_async(request)
+            .await
+            .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
 
         let (mut write, mut read) = ws_stream.split();
 
@@ -158,6 +160,8 @@ impl ApiInfo {
 
         if let Some(message) = read.next().await {
             let data = message.unwrap().into_data();
+            // use std::str;
+            // dbg!(str::from_utf8(&data).unwrap());
             let rpc_res: JsonRpcResponse<T::LotusJson> =
                 serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 

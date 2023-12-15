@@ -60,64 +60,80 @@ async fn rpc_ws_handler_inner(
     authorization_header: Option<HeaderValue>,
     rpc_server: JsonRpcServerState,
 ) {
-    info!("Accepted WS connection!");
+    debug!("Accepted WS connection!");
     let (sender, mut receiver) = socket.split();
     let ws_sender = Arc::new(RwLock::new(sender));
     let socket_active = Arc::new(AtomicCell::new(true));
     while let Some(Ok(message)) = receiver.next().await {
         debug!("Received new WS RPC message: {:?}", message);
-        if let Message::Text(request_text) = message {
-            debug!("WS RPC Request: {}", request_text);
-            if !request_text.is_empty() {
-                info!("RPC Request Received: {:?}", &request_text);
-                let authorization_header = authorization_header.clone();
-                let task_rpc_server = rpc_server.clone();
-                let task_socket_active = socket_active.clone();
-                let task_ws_sender = ws_sender.clone();
-                match serde_json::from_str(&request_text)
-                    as Result<jsonrpc_v2::RequestObject, serde_json::Error>
-                {
-                    Ok(rpc_call) => {
-                        tokio::task::spawn(async move {
-                            match rpc_ws_task(
-                                authorization_header,
-                                rpc_call,
-                                task_rpc_server,
-                                task_socket_active,
-                                task_ws_sender.clone(),
-                            )
-                            .await
-                            {
-                                Ok(_) => {
-                                    debug!("WS RPC task success.");
-                                }
-                                Err(e) => {
-                                    let msg = format!("WS RPC task error: {e}");
-                                    error!("{}", msg);
-                                    task_ws_sender
-                                        .write()
-                                        .await
-                                        .send(Message::Text(get_error_str(3, msg)))
-                                        .await
-                                        .unwrap();
-                                }
-                            }
-                        });
-                    }
-                    Err(e) => {
-                        let msg = format!("Error deserializing WS request payload: {e}");
-                        error!("{}", msg);
-                        if let Err(e) = task_ws_sender
-                            .write()
-                            .await
-                            .send(Message::Text(get_error_str(1, msg)))
-                            .await
+
+        let payload: Option<Result<jsonrpc_v2::RequestObject, serde_json::Error>> = match message {
+            Message::Text(request_text) => {
+                if !request_text.is_empty() {
+                    Some(serde_json::from_str(&request_text))
+                } else {
+                    None
+                }
+            }
+            Message::Binary(request_data) => {
+                if !request_data.is_empty() {
+                    Some(serde_json::from_slice(&request_data))
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        if let Some(request_obj) = payload {
+            debug!("RPC Request Received: {:?}", &request_obj);
+            let authorization_header = authorization_header.clone();
+            let task_rpc_server = rpc_server.clone();
+            let task_socket_active = socket_active.clone();
+            let task_ws_sender = ws_sender.clone();
+            match request_obj {
+                Ok(rpc_call) => {
+                    tokio::task::spawn(async move {
+                        match rpc_ws_task(
+                            authorization_header,
+                            rpc_call,
+                            task_rpc_server,
+                            task_socket_active,
+                            task_ws_sender.clone(),
+                        )
+                        .await
                         {
-                            warn!("{e}");
+                            Ok(_) => {
+                                debug!("WS RPC task success.");
+                            }
+                            Err(e) => {
+                                let msg = format!("WS RPC task error: {e}");
+                                error!("{}", msg);
+                                task_ws_sender
+                                    .write()
+                                    .await
+                                    .send(Message::Text(get_error_str(3, msg)))
+                                    .await
+                                    .unwrap();
+                            }
                         }
+                    });
+                }
+                Err(e) => {
+                    let msg = format!("Error deserializing WS request payload: {e}");
+                    error!("{}", msg);
+                    if let Err(e) = task_ws_sender
+                        .write()
+                        .await
+                        .send(Message::Text(get_error_str(1, msg)))
+                        .await
+                    {
+                        warn!("{e}");
                     }
                 }
             }
+        } else {
+            // TODO: add warning
         }
     }
     socket_active.store(false);
