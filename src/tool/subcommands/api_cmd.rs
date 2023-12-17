@@ -15,6 +15,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
+use crate::rpc_api::data_types::MessageFilter;
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
@@ -471,6 +472,14 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         ))
                         .ignore("Not implemented yet"),
                     );
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: Some(msg.from()),
+                            to: Some(msg.to()),
+                        },
+                        root_tsk.clone(),
+                        shared_tipset_epoch,
+                    )));
                 }
             }
             for msg in secp_messages {
@@ -507,6 +516,14 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         .ignore("Not implemented yet"),
                     );
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: None,
+                            to: Some(msg.to()),
+                        },
+                        root_tsk.clone(),
+                        shared_tipset_epoch,
+                    )));
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
