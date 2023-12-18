@@ -97,7 +97,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -120,7 +120,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -141,11 +141,11 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -168,11 +168,11 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -195,7 +195,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -218,7 +218,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -243,7 +243,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -266,7 +266,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -291,7 +291,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -310,7 +310,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -329,7 +329,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -349,7 +349,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
       - name: Devnet setup
