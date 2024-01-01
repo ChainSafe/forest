@@ -12,11 +12,9 @@ use std::{
     path::Path,
 };
 
-pub use mmap::{EitherMmapOrRandomAccessFile, Mmap};
+pub use mmap::EitherMmapOrRandomAccessFile;
 pub use progress_log::{WithProgress, WithProgressRaw};
 pub use writer_checksum::*;
-
-pub use self::tempfile::*;
 
 /// Restricts permissions on a file to user-only: 0600
 #[cfg(unix)]

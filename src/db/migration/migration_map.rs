@@ -199,6 +199,11 @@ fn create_migration_chain_from_migrations(
     Ok(result)
 }
 
+/// Returns the name of the temporary database that will be created during the migration.
+pub(crate) fn temporary_db_name(from: &Version, to: &Version) -> String {
+    format!("migration_{}_{}", from, to).replace('.', "_")
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -470,9 +475,4 @@ mod tests {
         fs::create_dir(temp_dir.path().join("migration_0_1_0_0_2_0")).unwrap();
         assert!(migration.post_checks(temp_dir.path()).is_ok());
     }
-}
-
-/// Returns the name of the temporary database that will be created during the migration.
-pub(crate) fn temporary_db_name(from: &Version, to: &Version) -> String {
-    format!("migration_{}_{}", from, to).replace('.', "_")
 }
