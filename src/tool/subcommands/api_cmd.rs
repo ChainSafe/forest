@@ -16,12 +16,13 @@ use crate::shim::crypto::Signature;
 use ahash::HashMap;
 use clap::{Subcommand, ValueEnum};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use tabled::{builder::Builder, settings::Style};
-use tokio::sync::mpsc;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -637,8 +638,7 @@ async fn run_tests(
     fail_fast: bool,
     run_ignored: RunIgnored,
 ) -> anyhow::Result<()> {
-    let (tx, mut rx) = mpsc::unbounded_channel();
-    let mut handles = vec![];
+    let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
         let forest = forest.clone();
         let lotus = lotus.clone();
@@ -654,28 +654,25 @@ async fn run_tests(
         if !test.request.method_name.contains(&filter) {
             continue;
         }
-        let sender = tx.clone();
-        let handle = tokio::spawn(async move {
+
+        let future = tokio::spawn(async move {
             let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
-            sender.send((test.request.method_name, forest_status, lotus_status))
+            (test.request.method_name, forest_status, lotus_status)
         });
-        handles.push(handle);
+
+        futures.push(future);
     }
-    drop(tx);
 
     let mut results = HashMap::default();
-    'outer: for handle in handles {
-        handle.await??;
-        while let Some((method_name, forest_status, lotus_status)) = rx.recv().await {
-            results
-                .entry((method_name, forest_status, lotus_status))
-                .and_modify(|v| *v += 1)
-                .or_insert(1u32);
-            if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-                && fail_fast
-            {
-                break 'outer;
-            }
+    while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
+        results
+            .entry((method_name, forest_status, lotus_status))
+            .and_modify(|v| *v += 1)
+            .or_insert(1u32);
+        if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
+            && fail_fast
+        {
+            break;
         }
     }
 
