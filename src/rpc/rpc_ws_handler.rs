@@ -51,7 +51,7 @@ async fn rpc_ws_task(
 // not in v1). Forest deviates from Lotus in this regard and our v1 API is
 // strictly a superset of the v0 API.
 //
-// This HTTP handler rejects RPC calls if they're not v0 methods.
+// This WS handler rejects RPC calls if they're not v0 methods.
 pub async fn rpc_v0_ws_handler(
     headers: HeaderMap,
     axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
