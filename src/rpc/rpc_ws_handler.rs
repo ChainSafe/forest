@@ -17,7 +17,9 @@ use http::{HeaderMap, HeaderValue};
 use tokio::sync::RwLock;
 use tracing::{debug, error, warn};
 
-use crate::rpc::rpc_util::{call_rpc_str, check_permissions, get_auth_header, get_error_str};
+use crate::rpc::rpc_util::{
+    call_rpc_str, check_permissions, get_auth_header, get_error_str, is_v1_method,
+};
 
 async fn rpc_ws_task(
     authorization_header: Option<HeaderValue>,
@@ -44,6 +46,23 @@ async fn rpc_ws_task(
     Ok(())
 }
 
+// Lotus exposes two versions of its RPC API: v0 and v1. Version 0 is almost a
+// subset of version 1 (some methods such as `BeaconGetEntry` are only in v0 and
+// not in v1). Forest deviates from Lotus in this regard and our v1 API is
+// strictly a superset of the v0 API.
+//
+// This HTTP handler rejects RPC calls if they're not v0 methods.
+pub async fn rpc_v0_ws_handler(
+    headers: HeaderMap,
+    axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
+    ws: WebSocketUpgrade,
+) -> impl IntoResponse {
+    let authorization_header = get_auth_header(headers);
+    ws.on_upgrade(move |socket| async {
+        rpc_ws_handler_inner(socket, authorization_header, rpc_server, true).await
+    })
+}
+
 pub async fn rpc_ws_handler(
     headers: HeaderMap,
     axum::extract::State(rpc_server): axum::extract::State<JsonRpcServerState>,
@@ -51,7 +70,7 @@ pub async fn rpc_ws_handler(
 ) -> impl IntoResponse {
     let authorization_header = get_auth_header(headers);
     ws.on_upgrade(move |socket| async {
-        rpc_ws_handler_inner(socket, authorization_header, rpc_server).await
+        rpc_ws_handler_inner(socket, authorization_header, rpc_server, false).await
     })
 }
 
@@ -59,6 +78,7 @@ async fn rpc_ws_handler_inner(
     socket: WebSocket,
     authorization_header: Option<HeaderValue>,
     rpc_server: JsonRpcServerState,
+    check_for_v1_methods: bool,
 ) {
     debug!("Accepted WS connection!");
     let (sender, mut receiver) = socket.split();
@@ -94,6 +114,16 @@ async fn rpc_ws_handler_inner(
             let task_ws_sender = ws_sender.clone();
             match request_obj {
                 Ok(rpc_call) => {
+                    if check_for_v1_methods && is_v1_method(rpc_call.method_ref()) {
+                        let msg = format!("This endpoint cannot handle v1 (unstable) methods");
+                        error!("{}", msg);
+                        return task_ws_sender
+                            .write()
+                            .await
+                            .send(Message::Text(get_error_str(3, msg)))
+                            .await
+                            .unwrap();
+                    }
                     tokio::task::spawn(async move {
                         match rpc_ws_task(
                             authorization_header,

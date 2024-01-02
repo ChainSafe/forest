@@ -35,7 +35,7 @@ use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
     rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
-    rpc_ws_handler::rpc_ws_handler,
+    rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
     state_api::*,
 };
 
@@ -181,8 +181,7 @@ where
     );
 
     let app = axum::Router::new()
-        .route("/rpc/v0", get(rpc_ws_handler))
-        // TODO: handle similar versioning logic than for http
+        .route("/rpc/v0", get(rpc_v0_ws_handler))
         .route("/rpc/v1", get(rpc_ws_handler))
         .route("/rpc/v0", post(rpc_v0_http_handler))
         .route("/rpc/v1", post(rpc_http_handler))
