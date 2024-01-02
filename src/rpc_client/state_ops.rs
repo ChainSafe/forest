@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use crate::rpc_api::data_types::MiningBaseInfo;
+use crate::rpc_api::data_types::{MiningBaseInfo, Transaction};
 use crate::{
     blocks::TipsetKeys,
     rpc_api::{
@@ -210,5 +210,9 @@ impl ApiInfo {
         tsk: TipsetKeys,
     ) -> RpcRequest<TokenAmount> {
         RpcRequest::new(MSIG_GET_AVAILABLE_BALANCE, (addr, tsk))
+    }
+
+    pub fn msig_get_pending_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Vec<Transaction>> {
+        RpcRequest::new(MSIG_GET_PENDING, (addr, tsk))
     }
 }

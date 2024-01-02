@@ -8,7 +8,7 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
     ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageLookup,
-    MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo,
+    MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
@@ -686,6 +686,33 @@ pub(in crate::rpc) async fn msig_get_available_balance<DB: Blockstore + Send + S
     let locked_balance = ms.locked_balance(height)?.into();
     let avail_balance = &actor_balance - locked_balance;
     Ok(LotusJson(avail_balance))
+}
+
+pub(in crate::rpc) async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<Transaction>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let store = data.state_manager.blockstore();
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("MultiSig actor not found")?;
+    let ms = multisig::State::load(&store, actor.code, actor.state)?;
+    let txns = ms
+        .get_pending_txn(store)?
+        .iter()
+        .map(|txn| Transaction {
+            id: txn.id,
+            to: txn.to.into(),
+            value: txn.value.clone().into(),
+            method: txn.method,
+            params: txn.params.clone(),
+            approved: txn.approved.iter().map(|item| item.into()).collect(),
+        })
+        .collect();
+
+    Ok(LotusJson(txns))
 }
 
 /// Get state sector info using sector no
