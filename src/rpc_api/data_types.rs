@@ -400,6 +400,23 @@ impl HasLotusJson for PendingBeneficiaryChange {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiReceipt {
+    // Exit status of message execution
+    pub exit_code: ExitCode,
+    // `Return` value if the exit code is zero
+    #[serde(rename = "Return")]
+    #[serde(with = "crate::lotus_json")]
+    pub return_data: RawBytes,
+    // Non-negative value of GasUsed
+    pub gas_used: u64,
+    #[serde(with = "crate::lotus_json")]
+    pub events_root: Option<Cid>,
+}
+
+lotus_json_with_self!(ApiReceipt);
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPowerLotusJson {
@@ -805,3 +822,23 @@ pub struct CirculatingSupply {
 }
 
 lotus_json_with_self!(CirculatingSupply);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct MinerSectors {
+    live: u64,
+    active: u64,
+    faulty: u64,
+}
+
+impl MinerSectors {
+    pub fn new(live: u64, active: u64, faulty: u64) -> Self {
+        Self {
+            live,
+            active,
+            faulty,
+        }
+    }
+}
+
+lotus_json_with_self!(MinerSectors);

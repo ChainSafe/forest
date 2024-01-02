@@ -52,7 +52,7 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: install nextest
@@ -85,7 +85,7 @@ jobs:
           timeout_minutes: 5
           max_attempts: 3
           command: sudo make install-deps
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
       - name: install nextest

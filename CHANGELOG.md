@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#3802](https://github.com/ChainSafe/forest/pull/3802) Implement the
+  `Filecoin.EthGetBalance` lotus-compatible RPC API.
+- [#3773](https://github.com/ChainSafe/forest/pull/3811) Implement the
+  `Filecoin.MpoolGetNonce` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3786) Implement the
   `Filecoin.MinerGetBaseInfo` lotus-compatible RPC API.
 - [#3807](https://github.com/ChainSafe/forest/pull/3807) Add `--run-ignored`
@@ -37,6 +41,9 @@
   `Filecoin.EthGasPrice` lotus-compatible RPC API.
 
 ### Changed
+
+- [#3819](https://github.com/ChainSafe/forest/pull/3819) Make progress messages
+  more human-readable.
 
 ### Removed
 
@@ -244,6 +251,9 @@ usability improvements.
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
+- [#3593](https://github.com/ChainSafe/forest/pull/3593): Add `--stateless` flag
+  to `forest`. In stateless mode, forest connects to the P2P network but does
+  not sync to HEAD.
 
 ### Changed
 

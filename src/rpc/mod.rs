@@ -88,7 +88,9 @@ where
                 CHAIN_GET_PARENT_MESSAGES,
                 chain_api::chain_get_parent_message::<DB>,
             )
+            .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
+            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             .with_method(MPOOL_PENDING, mpool_pending::<DB>)
             .with_method(MPOOL_PUSH, mpool_push::<DB>)
             .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
@@ -121,10 +123,12 @@ where
             .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
             .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
             .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
             .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
             .with_method(
                 STATE_MINER_PROVING_DEADLINE,
                 state_miner_proving_deadline::<DB>,
@@ -147,6 +151,7 @@ where
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
                 state_vm_circulating_supply_internal::<DB>,
             )
+            .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
@@ -170,6 +175,7 @@ where
             .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
             .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
             .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
+            .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
             .finish_unwrapped(),
     );
 

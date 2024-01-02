@@ -88,11 +88,9 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
         }
     };
 
-    Ok(tokio::io::BufReader::new(WithProgress::wrap_async_read(
-        "Loading",
-        stream,
-        content_length,
-    )))
+    Ok(tokio::io::BufReader::new(
+        WithProgress::wrap_async_read("Loading", stream, content_length).bytes(),
+    ))
 }
 
 pub async fn http_get(url: &Url) -> anyhow::Result<Response> {

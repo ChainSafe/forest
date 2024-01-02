@@ -9,7 +9,7 @@ use crate::{
     rpc_api::{
         data_types::{
             ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MessageLookup,
-            SectorOnChainInfo,
+            MinerSectors, SectorOnChainInfo,
         },
         state_api::*,
     },
@@ -139,6 +139,13 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
     }
 
+    pub fn state_miner_sector_count_req(
+        actor: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<MinerSectors> {
+        RpcRequest::new(STATE_MINER_SECTOR_COUNT, (actor, tsk))
+    }
+
     pub fn state_lookup_id_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Option<Address>> {
         RpcRequest::new(STATE_LOOKUP_ID, (addr, tsk))
     }
@@ -191,5 +198,16 @@ impl ApiInfo {
         limit_epoch: i64,
     ) -> RpcRequest<Option<MessageLookup>> {
         RpcRequest::new(STATE_SEARCH_MSG_LIMITED, (msg_cid, limit_epoch))
+    }
+
+    pub fn state_list_miners_req(tsk: TipsetKeys) -> RpcRequest<Vec<Address>> {
+        RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
+
+    pub fn msig_get_available_balance_req(
+        addr: Address,
+        tsk: TipsetKeys,
+    ) -> RpcRequest<TokenAmount> {
+        RpcRequest::new(MSIG_GET_AVAILABLE_BALANCE, (addr, tsk))
     }
 }

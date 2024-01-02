@@ -16,6 +16,8 @@ use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::rpc_api::data_types::MessageLookup;
+use crate::rpc_api::eth_api::Address as EthAddress;
+use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
@@ -193,6 +195,10 @@ impl RpcTest {
                 };
                 (forest_status, EndpointStatus::Valid)
             }
+            (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
+                // Both Forest and Lotus have the same error, consider it as valid
+                (EndpointStatus::Valid, EndpointStatus::Valid)
+            }
             (forest_resp, lotus_resp) => {
                 let forest_status =
                     forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
@@ -327,9 +333,14 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::state_network_version_req(
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
             *shared_block.miner_address(),
             101,
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::msig_get_available_balance_req(
+            Address::new_id(18101), // msig address id
             shared_tipset.key().clone(),
         )),
     ]
@@ -372,6 +383,27 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::from_predefined(Predefined::Latest),
+        )),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::from_predefined(Predefined::Pending),
+        )),
+    ]
+}
+
+fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        )),
+        RpcTest::identity(ApiInfo::eth_get_balance_req(
+            EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        )),
     ]
 }
 
@@ -383,6 +415,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
+    tests.extend(eth_tests_with_tipset(&shared_tipset));
 
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
@@ -394,6 +427,9 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
+                *block.cid(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_receipts_req(
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
@@ -468,6 +504,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         ))
                         .ignore("Not implemented yet"),
                     );
+                    tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
 
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
@@ -507,6 +544,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+                *block.miner_address(),
+                tipset.key().clone(),
+            )));
+            tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
                 *block.miner_address(),
                 tipset.key().clone(),
             )));
