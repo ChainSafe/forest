@@ -594,7 +594,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
 }
 
 fn websocket_tests() -> Vec<RpcTest> {
-    let test = RpcTest::identity(ApiInfo::chain_notify_req());
+    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
     vec![test]
 }
 
