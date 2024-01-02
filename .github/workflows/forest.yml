@@ -65,7 +65,7 @@ jobs:
           sudo make install-deps
       - name: Cargo Install
         run: make install
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: |
@@ -97,7 +97,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -120,7 +120,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -141,11 +141,11 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -168,11 +168,11 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -195,7 +195,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -218,7 +218,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -243,7 +243,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -266,7 +266,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -280,8 +280,6 @@ jobs:
 
   # Calibnet kademlia discovery checks
   calibnet-kademlia-checks:
-    # Disable until stateless mode is back
-    if: false
     needs:
       - build-ubuntu
     name: Calibnet kademlia checks
@@ -291,7 +289,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -310,7 +308,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -329,7 +327,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -349,7 +347,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
       - name: Devnet setup

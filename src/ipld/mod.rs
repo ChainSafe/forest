@@ -9,7 +9,6 @@ pub use libipld::Path;
 pub use libipld_core::ipld::Ipld;
 pub use util::*;
 
-pub use libipld_core::serde::{from_ipld, to_ipld};
 #[cfg(test)]
 mod tests {
     mod cbor_test;
