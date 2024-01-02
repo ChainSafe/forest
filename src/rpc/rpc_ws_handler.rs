@@ -78,7 +78,7 @@ async fn rpc_ws_handler_inner(
     socket: WebSocket,
     authorization_header: Option<HeaderValue>,
     rpc_server: JsonRpcServerState,
-    fail_on_v1_methods: bool,
+    reject_v1_methods: bool,
 ) {
     debug!("Accepted WS connection!");
     let (sender, mut receiver) = socket.split();
@@ -114,7 +114,7 @@ async fn rpc_ws_handler_inner(
             let task_ws_sender = ws_sender.clone();
             match request_obj {
                 Ok(rpc_call) => {
-                    if fail_on_v1_methods && is_v1_method(rpc_call.method_ref()) {
+                    if reject_v1_methods && is_v1_method(rpc_call.method_ref()) {
                         let msg = "This endpoint cannot handle v1 (unstable) methods".into();
                         error!("{}", msg);
                         return task_ws_sender
