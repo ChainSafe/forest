@@ -8,7 +8,7 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
     ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageLookup,
-    MiningBaseInfo, RPCState, SectorOnChainInfo,
+    MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
@@ -25,6 +25,7 @@ use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
+    multisig, power,
 };
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
@@ -243,6 +244,39 @@ pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
         .collect::<Vec<_>>();
 
     Ok(LotusJson(sectors))
+}
+
+// Returns the number of sectors in a miner's sector set and proving set
+pub(in crate::rpc) async fn state_miner_sector_count<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<MinerSectors>, JsonRpcError> {
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .ok_or("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+
+    // Collect live, active and faulty sectors count from each partition in each deadline.
+    let mut live_count = 0;
+    let mut active_count = 0;
+    let mut faulty_count = 0;
+    miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
+        deadline.for_each(bs, |_partidx, partition| {
+            live_count += partition.live_sectors().len();
+            active_count += partition.active_sectors().len();
+            faulty_count += partition.faulty_sectors().len();
+            Ok(())
+        })
+    })?;
+    Ok(LotusJson(MinerSectors::new(
+        live_count,
+        active_count,
+        faulty_count,
+    )))
 }
 
 /// looks up the miner power of the given address.
@@ -693,6 +727,24 @@ pub(in crate::rpc) async fn state_circulating_supply<DB: Blockstore + Send + Syn
     Ok(LotusJson(supply))
 }
 
+pub(in crate::rpc) async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let height = ts.epoch();
+    let store = data.state_manager.blockstore();
+    let actor = data
+        .state_manager
+        .get_actor(&addr, *ts.parent_state())?
+        .ok_or("MultiSig actor not found")?;
+    let actor_balance = TokenAmount::from(&actor.balance);
+    let ms = multisig::State::load(&store, actor.code, actor.state)?;
+    let locked_balance = ms.locked_balance(height)?.into();
+    let avail_balance = &actor_balance - locked_balance;
+    Ok(LotusJson(avail_balance))
+}
+
 /// Get state sector info using sector no
 pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
@@ -725,4 +777,28 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
         &data.state_manager.blockstore_owned(),
         ts.parent_state(),
     )?))
+}
+
+pub(in crate::rpc) async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset(&tsk)?;
+    let store = data.state_manager.blockstore();
+    let actor = data
+        .state_manager
+        .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
+        .ok_or("Power actor not found".to_string())?;
+
+    let state = power::State::load(store, actor.code, actor.state)?;
+    let miners = state
+        .list_all_miners(store)?
+        .iter()
+        .map(|addr| addr.into())
+        .collect();
+
+    Ok(LotusJson(miners))
 }

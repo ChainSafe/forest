@@ -4,9 +4,11 @@
 use super::trace::ExecutionEvent;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
+use fil_actors_shared::fvm_ipld_amt::Amtv0;
 use fvm2::executor::ApplyRet as ApplyRet_v2;
 use fvm3::executor::ApplyRet as ApplyRet_v3;
 use fvm4::executor::ApplyRet as ApplyRet_v4;
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::RawBytes;
 use fvm_shared2::receipt::Receipt as Receipt_v2;
 use fvm_shared3::error::ExitCode;
@@ -146,6 +148,24 @@ impl Receipt {
             Receipt::V3(v3) => v3.events_root,
             Receipt::V4(v4) => v4.events_root,
         }
+    }
+
+    pub fn get_receipt(
+        db: &impl Blockstore,
+        receipts: &Cid,
+        i: u64,
+    ) -> anyhow::Result<Option<Self>> {
+        // Try Receipt_v2 first
+        if let Ok(amt) = Amtv0::load(receipts, db) {
+            if let Ok(receipts) = amt.get(i) {
+                return Ok(receipts.cloned().map(Receipt::V2));
+            }
+        }
+
+        // Receipt_v4 and Receipt_v3 are identical, use v4 here
+        let amt = Amtv0::load(receipts, db)?;
+        let receipts = amt.get(i)?;
+        Ok(receipts.cloned().map(Receipt::V4))
     }
 }
 

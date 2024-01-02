@@ -485,25 +485,16 @@ where
 }
 
 /// Returns parent message receipt given `block_header` and message index.
-pub fn get_parent_receipt<DB>(
-    db: &DB,
+pub fn get_parent_receipt(
+    db: &impl Blockstore,
     block_header: &BlockHeader,
     i: usize,
-) -> Result<Option<Receipt>, Error>
-where
-    DB: Blockstore,
-{
-    // Try Receipt_v2 first
-    if let Ok(amt) = Amt::load(block_header.message_receipts(), db) {
-        if let Ok(receipts) = amt.get(i as u64) {
-            return Ok(receipts.cloned().map(Receipt::V2));
-        }
-    }
-
-    // Receipt_v4 and Receipt_v3 are identical, use v4 here
-    let amt = Amt::load(block_header.message_receipts(), db)?;
-    let receipts = amt.get(i as u64)?;
-    Ok(receipts.cloned().map(Receipt::V4))
+) -> Result<Option<Receipt>, Error> {
+    Ok(Receipt::get_receipt(
+        db,
+        block_header.message_receipts(),
+        i as u64,
+    )?)
 }
 
 pub mod headchange_json {

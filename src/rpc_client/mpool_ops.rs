@@ -4,6 +4,7 @@
 use crate::{
     message::SignedMessage,
     rpc_api::{data_types::MessageSendSpec, mpool_api::*},
+    shim::address::Address,
     shim::message::Message,
 };
 use cid::Cid;
@@ -11,6 +12,10 @@ use cid::Cid;
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
+    pub fn mpool_get_nonce_req(addr: Address) -> RpcRequest<u64> {
+        RpcRequest::new(MPOOL_GET_NONCE, (addr,))
+    }
+
     pub async fn mpool_push_message(
         &self,
         message: Message,
