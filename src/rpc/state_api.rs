@@ -389,11 +389,12 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
     let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
-    let ipld: Ipld = if receipt.return_data().bytes().is_empty() {
-        Ipld::Null
+    let ipld: Ipld = if let Ok(ipld) = receipt.return_data().deserialize() {
+        ipld
     } else {
-        receipt.return_data().deserialize()?
+        Ipld::Null
     };
+
     Ok(MessageLookup {
         receipt,
         tipset: tipset.key().clone(),

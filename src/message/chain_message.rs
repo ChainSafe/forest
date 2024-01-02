@@ -32,6 +32,15 @@ impl ChainMessage {
             ChainMessage::Signed(msg) => msg.cid(),
         }
     }
+
+    /// Tests if a message is equivalent to another replacing message.
+    /// A replacing message is a message with a different CID,
+    /// any of Gas values, and different signature, but with all
+    /// other parameters matching (source/destination, nonce, parameters, etc.)
+    /// See <https://github.com/filecoin-project/lotus/blob/813d133c24295629ef442fc3aa60e6e6b2101226/chain/types/message.go#L138>
+    pub fn equal_call(&self, other: &Self) -> bool {
+        self.message().equal_call(other.message())
+    }
 }
 
 impl MessageTrait for ChainMessage {
