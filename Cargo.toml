@@ -146,7 +146,7 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.5"
 regex = "1.9"
-reqwest = { version = "0.11.18", default-features = false, features = [
+reqwest = { version = "0.11.23", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
@@ -213,13 +213,13 @@ libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-respo
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
-proc-macro2 = { version = "1.0.70", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1.0.73", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.189"
+ra_ap_syntax = "0.0.190"
 regex-automata = "0.4"
-syn = { version = "2.0.40", default-features = false, features = [
+syn = { version = "2.0.43", default-features = false, features = [
   "full",
   "parsing",
   "visit",
