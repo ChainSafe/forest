@@ -752,7 +752,7 @@ where
                 } else {
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        tipset.blocks().first().unwrap(),
+                        &tipset.blocks()[0],
                         index,
                     )
                     .map_err(|err| Error::Other(err.to_string()))
