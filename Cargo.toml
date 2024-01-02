@@ -191,6 +191,7 @@ unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 uuid = { version = "1.6", features = ["v4"] }
 walkdir = "2"
+zerocopy = { version = "0.7.32", features = ["derive"] }
 zstd = "0.13"
 
 [target.'cfg(unix)'.dependencies]
@@ -206,6 +207,7 @@ cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
+hashers = "1.0.1"
 http-range-header = "0.4.0"
 libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 libp2p-swarm-test = "0.3"
@@ -217,6 +219,7 @@ quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
 ra_ap_syntax = "0.0.190"
 regex-automata = "0.4"
+siphasher = "1.0.0"
 syn = { version = "2.0.43", default-features = false, features = [
   "full",
   "parsing",

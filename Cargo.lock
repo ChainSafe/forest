@@ -3196,6 +3196,7 @@ dependencies = [
  "fvm_shared 4.0.0",
  "gethostname",
  "git-version",
+ "hashers",
  "hex",
  "http 0.2.11",
  "http 1.0.0",
@@ -3271,6 +3272,7 @@ dependencies = [
  "sha2 0.10.8",
  "shared_memory",
  "similar",
+ "siphasher 1.0.0",
  "slotmap",
  "smallvec",
  "smart-default",
@@ -3301,6 +3303,7 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
+ "zerocopy",
  "zstd",
 ]
 
@@ -4071,6 +4074,15 @@ checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
 dependencies = [
  "ahash",
  "allocator-api2",
+]
+
+[[package]]
+name = "hashers"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2bca93b15ea5a746f220e56587f71e73c6165eab783df9e26590069953e3c30"
+dependencies = [
+ "fxhash",
 ]
 
 [[package]]
@@ -6405,7 +6417,7 @@ dependencies = [
  "memmap2 0.5.10",
  "parking_lot",
  "rand",
- "siphasher",
+ "siphasher 0.3.11",
  "snap",
 ]
 
@@ -6612,7 +6624,7 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90fcb95eef784c2ac79119d1dd819e162b5da872ce6f3c3abe1e8ca1c082f72b"
 dependencies = [
- "siphasher",
+ "siphasher 0.3.11",
 ]
 
 [[package]]
@@ -8220,6 +8232,12 @@ name = "siphasher"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
+
+[[package]]
+name = "siphasher"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54ac45299ccbd390721be55b412d41931911f654fa99e2cb8bfb57184b2061fe"
 
 [[package]]
 name = "slab"
@@ -10349,6 +10367,7 @@ version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74d4d3961e53fa4c9a25a8637fc2bfaf2595b3d3ae34875568a5cf64787716be"
 dependencies = [
+ "byteorder",
  "zerocopy-derive",
 ]
 
