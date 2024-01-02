@@ -68,7 +68,7 @@ filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
 futures = "0.3"
-futures-util = "0.3.29"
+futures-util = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm4 = { package = "fvm", default-features = false, version = "~4.0.0", features = ["arb"] }
