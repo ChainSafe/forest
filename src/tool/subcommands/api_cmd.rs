@@ -15,6 +15,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
+use crate::rpc_api::data_types::MessageLookup;
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
@@ -411,7 +412,6 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
-    let shared_tipset_epoch = shared_tipset.epoch();
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
@@ -455,19 +455,18 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    // FIXME: StateWaitMsg API gets stuck in forest
-                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
-                    //     msg.cid()?,
-                    //     0,
-                    // )));
+                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
+                        msg.cid()?,
+                        0,
+                    )));
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
                     );
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
                             msg.cid()?,
-                            shared_tipset_epoch - n_tipsets as i64,
+                            800,
                         ))
                         .ignore("Not implemented yet"),
                     );
@@ -490,23 +489,23 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    // FIXME: StateWaitMsg API gets stuck in forest
-                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
-                    //     msg.cid()?,
-                    //     0,
-                    // )));
+                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
+                        msg.cid()?,
+                        0,
+                    )));
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
                     );
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
                             msg.cid()?,
-                            shared_tipset_epoch - n_tipsets as i64,
+                            800,
                         ))
                         .ignore("Not implemented yet"),
                     );
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
@@ -675,4 +674,19 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     }
 
     builder.build().with(Style::markdown()).to_string()
+}
+
+fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+    use libipld_core::ipld::Ipld;
+
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // FIXME: https://github.com/ChainSafe/forest/issues/3784
+        if let Some(json) = forest.as_mut() {
+            json.return_dec = Ipld::Null;
+        }
+        if let Some(json) = lotus.as_mut() {
+            json.return_dec = Ipld::Null;
+        }
+        forest == lotus
+    })
 }

@@ -183,6 +183,21 @@ impl Message {
         use crate::utils::cid::CidCborExt;
         cid::Cid::from_cbor_blake2b256(self)
     }
+
+    /// Tests if a message is equivalent to another replacing message.
+    /// A replacing message is a message with a different CID,
+    /// any of Gas values, and different signature, but with all
+    /// other parameters matching (source/destination, nonce, parameters, etc.)
+    /// See <https://github.com/filecoin-project/lotus/blob/813d133c24295629ef442fc3aa60e6e6b2101226/chain/types/message.go#L138>
+    pub fn equal_call(&self, other: &Self) -> bool {
+        self.version == other.version
+            && self.from == other.from
+            && self.to == other.to
+            && self.sequence == other.sequence
+            && self.value == other.value
+            && self.method_num == other.method_num
+            && self.params == other.params
+    }
 }
 
 impl Serialize for Message {
