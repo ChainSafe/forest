@@ -226,7 +226,6 @@ jobs:
       - build-ubuntu
     name: Wallet tests
     runs-on: ubuntu-latest
-    if: ${{ secrets.CALIBNET_WALLET != "" }}
     steps:
       # To help investigate transient test failures
       - run: lscpu
@@ -242,6 +241,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Wallet commands check
+        if: ${{ secrets.CALIBNET_WALLET != "" }}
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
         run: ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
