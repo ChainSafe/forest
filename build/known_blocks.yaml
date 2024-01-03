@@ -5,7 +5,7 @@
 # - https://filfox.info/en/block/bafy2bzacebnfm6dvxo7sm5thcxnv3kttoamb53uxycnvtdxgk5mh7d73qlly2
 # - https://calibration.filfox.info/en/block/bafy2bzacedhkkz76zdekpexha55b42eop42e24ajmajm26wws4nbvtq7louvu
 #
-# This file was generated with `forest-tool archive checkpoints`
+# This file is maintained monthly - see `CHECKPOINT_ISSUE_TEMPLATE.md`
 calibnet:
   1209600: bafy2bzaceas5s3gvtfnflgwwwyxh53drmm4rhirqe5s6wci37ndxxnu3y4ezy
   1123200: bafy2bzaceai2lxdmpwaw75dwtagyst4ldjysbdk6xmwvpfat7mgsypye3e5ns
