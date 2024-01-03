@@ -241,10 +241,12 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: Wallet commands check
-        if: ${{ secrets.CALIBNET_WALLET }} != ""
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
-        run: ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+          fi
 
   # Snapshot export checks
   calibnet-export-check:
