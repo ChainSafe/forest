@@ -226,6 +226,7 @@ jobs:
       - build-ubuntu
     name: Wallet tests
     runs-on: ubuntu-latest
+    if: ${{ secrets.CALIBNET_WALLET != "" }}
     steps:
       # To help investigate transient test failures
       - run: lscpu
