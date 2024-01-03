@@ -95,7 +95,7 @@ impl ApiInfo {
             .with_id(0)
             .finish();
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint).to_string();
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -130,16 +130,10 @@ impl ApiInfo {
 
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
-        let ws_url = url::Url::from_str(&api_url).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
-
-        let host = ws_url
-            .host_str()
-            .ok_or_else(|| JsonRpcError::INVALID_REQUEST)?;
-
         let request = tungstenite::http::Request::builder()
             .method("GET")
-            .uri(ws_url.to_string())
-            .header("Host", host)
+            .uri(api_url.to_string())
+            .header("Host", api_url.host)
             .header("Upgrade", "websocket")
             .header("Connection", "upgrade")
             .header("Sec-Websocket-Key", "key123")
@@ -261,16 +255,28 @@ struct Url {
     protocol: String,
     port: u16,
     host: String,
+    endpoint: String,
+}
+
+impl fmt::Display for Url {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}://{}:{}/{}",
+            self.protocol, self.host, self.port, self.endpoint
+        )
+    }
 }
 
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> String {
+fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
+            endpoint: endpoint.into(),
         },
         |mut addr, protocol| {
             match protocol {
@@ -313,13 +319,7 @@ fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> String {
         },
     );
 
-    // Format, print and return the URL
-    let url = format!(
-        "{}://{}:{}/{}",
-        addr.protocol, addr.host, addr.port, endpoint
-    );
-
-    url
+    addr
 }
 
 /// An `RpcRequest` is an at-rest description of a remote procedure call. It can
