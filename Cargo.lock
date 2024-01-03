@@ -3245,7 +3245,7 @@ dependencies = [
  "prometheus",
  "prometheus-client",
  "quick-protobuf",
- "quick-protobuf-codec 0.2.0",
+ "quick-protobuf-codec 0.3.1",
  "quickcheck",
  "quickcheck_async",
  "quickcheck_macros",
