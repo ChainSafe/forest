@@ -1,15 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
-use clap::{Subcommand, ValueEnum};
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use serde::de::DeserializeOwned;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::time::Duration;
-use tabled::{builder::Builder, settings::Style};
-
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
@@ -22,6 +13,17 @@ use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
+use ahash::HashMap;
+use clap::{Subcommand, ValueEnum};
+use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use serde::de::DeserializeOwned;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+use tabled::{builder::Builder, settings::Style};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -119,11 +121,10 @@ impl EndpointStatus {
         }
     }
 }
-
 struct RpcTest {
     request: RpcRequest,
-    check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
-    check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
+    check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
+    check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
 }
 
@@ -136,23 +137,26 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
-            check_semantics: Box::new(|_, _| true),
+            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Arc::new(|_, _| true),
             ignore: None,
         }
     }
 
     // Check that an endpoint exist, has the same JSON schema, and do custom
     // validation over both responses.
-    fn validate<T>(request: RpcRequest<T>, validate: impl Fn(T, T) -> bool + 'static) -> RpcTest
+    fn validate<T>(
+        request: RpcRequest<T>,
+        validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
+    ) -> RpcTest
     where
         T: HasLotusJson,
         T::LotusJson: DeserializeOwned,
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
-            check_semantics: Box::new(move |forest_json, lotus_json| {
+            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Arc::new(move |forest_json, lotus_json| {
                 serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
                     serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
                         validate(
@@ -633,9 +637,22 @@ async fn compare_apis(
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    let mut results = HashMap::default();
+    run_tests(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+}
 
+async fn run_tests(
+    tests: Vec<RpcTest>,
+    forest: &ApiInfo,
+    lotus: &ApiInfo,
+    filter: String,
+    fail_fast: bool,
+    run_ignored: RunIgnored,
+) -> anyhow::Result<()> {
+    let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
+        let forest = forest.clone();
+        let lotus = lotus.clone();
+
         // By default, do not run ignored tests.
         if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
@@ -647,9 +664,19 @@ async fn compare_apis(
         if !test.request.method_name.contains(&filter) {
             continue;
         }
-        let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+
+        let future = tokio::spawn(async move {
+            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            (test.request.method_name, forest_status, lotus_status)
+        });
+
+        futures.push(future);
+    }
+
+    let mut results = HashMap::default();
+    while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
         results
-            .entry((test.request.method_name, forest_status, lotus_status))
+            .entry((method_name, forest_status, lotus_status))
             .and_modify(|v| *v += 1)
             .or_insert(1u32);
         if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
@@ -659,6 +686,7 @@ async fn compare_apis(
         }
     }
 
+    // Collect and display results in Markdown format
     let mut results = results.into_iter().collect::<Vec<_>>();
     results.sort();
     println!("{}", format_as_markdown(&results));
@@ -669,7 +697,7 @@ async fn compare_apis(
 fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {
     let mut builder = Builder::default();
 
-    builder.set_header(["RPC Method", "Forest", "Lotus"]);
+    builder.push_record(["RPC Method", "Forest", "Lotus"]);
 
     for ((method, forest_status, lotus_status), n) in results {
         builder.push_record([
