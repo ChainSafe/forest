@@ -21,9 +21,6 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
-  SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
-  SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
-  SCCACHE_REGION: ${{ vars.SCCACHE_REGION }}
   AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
   AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
   RUSTC_WRAPPER: "sccache"
@@ -35,6 +32,14 @@ jobs:
     name: All lint checks
     runs-on: ubuntu-latest
     steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
+            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
+            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+          fi
       - name: Checkout Sources
         uses: actions/checkout@v4
         with:
