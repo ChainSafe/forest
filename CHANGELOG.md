@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3824](https://github.com/ChainSafe/forest/pull/3824) Add `--ws` flag to
+  `forest-tool api compare` to run all tests using WebSocket connections. Demote
+  WebSocket info logs to debug in Forest daemon.
 - [#3802](https://github.com/ChainSafe/forest/pull/3802) Implement the
   `Filecoin.EthGetBalance` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3811) Implement the
