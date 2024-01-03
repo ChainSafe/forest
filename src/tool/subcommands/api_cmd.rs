@@ -7,6 +7,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use serde::de::DeserializeOwned;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
 
 use crate::blocks::Tipset;
@@ -98,6 +99,7 @@ enum EndpointStatus {
     InvalidJSON,
     // Got response with the right JSON schema but it failed sanity checking
     InvalidResponse,
+    Timeout,
     Valid,
 }
 
@@ -109,7 +111,10 @@ impl EndpointStatus {
             EndpointStatus::MissingMethod
         } else if err.code == JsonRpcError::PARSE_ERROR.code {
             EndpointStatus::InvalidResponse
+        } else if err.code == 0 && err.message.contains("timed out") {
+            EndpointStatus::Timeout
         } else {
+            tracing::debug!("{err}");
             EndpointStatus::InternalServerError
         }
     }
@@ -174,6 +179,11 @@ impl RpcTest {
         T::LotusJson: DeserializeOwned,
     {
         RpcTest::validate(request, |forest, lotus| forest == lotus)
+    }
+
+    fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.request.set_timeout(timeout);
+        self
     }
 
     async fn run(
@@ -455,10 +465,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
-                        msg.cid()?,
-                        0,
-                    )));
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                            .with_timeout(Duration::from_secs(30)),
+                    );
                     tests.push(
                         validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
@@ -489,10 +499,10 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    tests.push(validate_message_lookup(ApiInfo::state_wait_msg_req(
-                        msg.cid()?,
-                        0,
-                    )));
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                            .with_timeout(Duration::from_secs(30)),
+                    );
                     tests.push(
                         validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
