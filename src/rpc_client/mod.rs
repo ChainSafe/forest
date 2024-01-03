@@ -124,13 +124,17 @@ impl ApiInfo {
             .with_id(0)
             .finish();
 
+        let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
+
         let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
 
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
-        let ws_url = url::Url::from_str(&api_url).unwrap();
+        let ws_url = url::Url::from_str(&api_url).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
 
-        let host = ws_url.host_str().expect("Invalid host in WebSocket URL");
+        let host = ws_url
+            .host_str()
+            .ok_or_else(|| JsonRpcError::INVALID_REQUEST)?;
 
         let request = tungstenite::http::Request::builder()
             .method("GET")
@@ -141,20 +145,16 @@ impl ApiInfo {
             .header("Sec-Websocket-Key", "key123")
             .header("Sec-Websocket-Version", "13")
             .body(())
-            .unwrap();
-
-        let (ws_stream, _) = connect_async(request)
-            .await
             .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
+
+        let (ws_stream, _) = connect_async(request).await?;
 
         let (mut write, mut read) = ws_stream.split();
 
-        let payload = serde_json::to_vec(&rpc_req).unwrap();
-
-        write.send(WsMessage::Binary(payload)).await.unwrap();
+        write.send(WsMessage::Binary(payload)).await?;
 
         if let Some(message) = read.next().await {
-            let data = message.unwrap().into_data();
+            let data = message?.into_data();
             let rpc_res: JsonRpcResponse<T::LotusJson> =
                 serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
@@ -214,6 +214,19 @@ impl std::fmt::Display for JsonRpcError {
 impl std::error::Error for JsonRpcError {
     fn description(&self) -> &str {
         &self.message
+    }
+}
+
+impl From<tungstenite::Error> for JsonRpcError {
+    fn from(tungstenite_error: tungstenite::Error) -> Self {
+        let status = match &tungstenite_error {
+            tungstenite::Error::Http(resp) => Some(resp.status()),
+            _ => None,
+        };
+        JsonRpcError {
+            code: status.map(|s| s.as_u16()).unwrap_or_default() as i64,
+            message: Cow::Owned(tungstenite_error.to_string()),
+        }
     }
 }
 
