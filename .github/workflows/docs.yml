@@ -55,9 +55,9 @@ jobs:
         run: make mdbook-build
       - name: Build vendored docs
         run: make vendored-docs
-        env:
-          CC: "sccache clang"
-          CXX: "sccache clang++"
+        # env:
+        #   CC: "sccache clang"
+        #   CXX: "sccache clang++"
       - name: Link Checker (Library Documentation)
         uses: lycheeverse/lychee-action@v1.8.0
         with:
