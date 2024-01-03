@@ -9,7 +9,7 @@ description = "Rust Filecoin implementation."
 
 [dependencies]
 ahash = "0.8"
-anes = "0.1.6"
+anes = "0.2"
 anyhow = "1.0"
 argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
@@ -153,7 +153,7 @@ reqwest = { version = "0.11.23", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
-rustyline = "12"
+rustyline = "13"
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -173,7 +173,7 @@ static_assertions = "1.1.0"
 statrs = "0.16"
 strum = { version = "0.25", features = ["derive"] }
 strum_macros = "0.25"
-tabled = "0.14"
+tabled = "0.15"
 tap = "1"
 tempfile = "3.4"
 thiserror = "1.0"
@@ -199,7 +199,7 @@ zstd = "0.13"
 termios = "0.3"
 
 [dev-dependencies]
-ariadne = "0.3.0"
+ariadne = "0.4.0"
 assert_cmd = "2"
 cargo_metadata = "0.18.0"
 const-random = "0.1.15"
