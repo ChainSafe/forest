@@ -383,14 +383,12 @@ fn eth_tests() -> Vec<RpcTest> {
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Pending),
         )),
-        RpcTest::identity(ApiInfo::state_market_storage_deal_req(
-            5432,
-            TipsetKeys::default(),
-        )),
     ]
 }
 
 fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let shared_block = shared_tipset.min_ticket_block();
+    // TODO: move the `get_state_miner_active_sectors` call here
     vec![
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
@@ -399,6 +397,10 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
             BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+        )),
+        RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+            *shared_block.miner_address(),
+            shared_tipset.key().clone(),
         )),
     ]
 }
