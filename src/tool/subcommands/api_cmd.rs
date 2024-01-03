@@ -51,7 +51,7 @@ pub enum ApiCommands {
         run_ignored: RunIgnored,
         /// API calls are handled over WebSocket connections.
         #[arg(long = "ws")]
-        websocket: bool,
+        use_websocket: bool,
     },
 }
 
@@ -66,7 +66,7 @@ impl ApiCommands {
                 fail_fast,
                 n_tipsets,
                 run_ignored,
-                websocket,
+                use_websocket,
             } => {
                 compare_apis(
                     forest,
@@ -76,7 +76,7 @@ impl ApiCommands {
                     fail_fast,
                     n_tipsets,
                     run_ignored,
-                    websocket,
+                    use_websocket,
                 )
                 .await?
             }
