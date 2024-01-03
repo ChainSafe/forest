@@ -687,7 +687,7 @@ async fn run_tests(
 fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {
     let mut builder = Builder::default();
 
-    builder.set_header(["RPC Method", "Forest", "Lotus"]);
+    builder.push_record(["RPC Method", "Forest", "Lotus"]);
 
     for ((method, forest_status, lotus_status), n) in results {
         builder.push_record([
