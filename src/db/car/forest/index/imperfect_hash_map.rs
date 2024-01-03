@@ -1,3 +1,13 @@
+//! This file implements an on-disk hashmap from keys to values.
+//! The map is "imperfect", in that [`Reader::get`] will expose hash collisions.
+//! That is, multiple values will be returned that were not inserted under a given key.
+//!
+//! Values implement [`AsBytes`] for de/serialization.
+//!
+//! Two pieces of information should be stored out-of-band:
+//! - [`Writer::nominal_length()`].
+//! - (Optional) [`Writer::longest_distance()`].
+
 use std::{
     cmp::{self, Ordering},
     fmt::{self, Debug},
@@ -229,7 +239,7 @@ pub struct Writer<T> {
 
 impl<T> fmt::Debug for Writer<T>
 where
-    T: Debug + Copy,
+    T: Debug + Copy, // #[derive(Debug)] misses the T: Copy bound
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Writer")
@@ -340,6 +350,27 @@ impl<I, V> Reader<I, V> {
 }
 
 impl<I, V, K, H> Reader<I, V, K, H> {
+    /// Get a reference to the inner io
+    pub fn get_io_ref(&self) -> &I {
+        &self.io
+    }
+    // a bit of a hack...
+    pub fn map_io<T>(self, f: impl FnOnce(I) -> T) -> Reader<T, V, K, H> {
+        let Self {
+            nominal_length,
+            io,
+            hasher,
+            longest_distance,
+            _phantom,
+        } = self;
+        Reader {
+            nominal_length,
+            io: f(io),
+            hasher,
+            longest_distance,
+            _phantom,
+        }
+    }
     pub fn nominal_length(&self) -> usize {
         self.nominal_length
             .map(NonZeroUsize::get)
@@ -362,6 +393,12 @@ impl<I, V, K, H> Reader<I, V, K, H> {
     {
         self.iter_slots().map_ok(|slot| slot.value)
     }
+    pub fn len(&self) -> io::Result<usize>
+    where
+        I: Size,
+    {
+        len::<Slot<V>>(&self.io)
+    }
     pub fn iter_slots(&self) -> impl Iterator<Item = io::Result<Slot<V>>> + '_
     where
         I: ReadAt + Size,
@@ -369,7 +406,7 @@ impl<I, V, K, H> Reader<I, V, K, H> {
     {
         // this `iter::once(..).map_ok(..).flatten_ok().map(..)` pattern allows us
         // to return a simple iterator, rather than an `io::Result<impl Iterator<..>>`
-        iter::once(len::<Slot<V>>(&self.io))
+        iter::once(self.len())
             .map_ok(|len| {
                 (0..len)
                     .map(|ix| match get_at::<Slot<V>>(&self.io, ix) {
@@ -605,10 +642,10 @@ pub fn len<T>(reader: impl Size) -> io::Result<usize> {
 
 #[cfg(test)]
 mod tests {
+    use ahash::{HashMap, HashSet};
     use hashers::null::{NullHasher, PassThroughHasher};
     use siphasher::sip::SipHasher24;
     use std::{
-        collections::{HashMap, HashSet},
         fmt::Debug,
         hash::{BuildHasher, BuildHasherDefault, Hash, Hasher},
     };

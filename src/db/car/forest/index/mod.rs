@@ -94,11 +94,8 @@ mod util;
 ///
 /// See [module documentation](mod@self) for more.
 pub struct Reader<R> {
-    inner: R,
-    table_offset: u64,
-    #[cfg(feature = "benchmark-private")]
-    pub header: V1Header,
-    #[cfg(not(feature = "benchmark-private"))]
+    #[allow(clippy::type_complexity)]
+    reader: imperfect_hash_map::Reader<util::Slice<R>, u64, Cid, fn(Cid) -> u64>,
     header: V1Header,
 }
 
@@ -115,114 +112,110 @@ where
             ));
         };
         let header = V1Header::read_from(&mut reader)?;
+        let offset = reader.position();
         Ok(Self {
-            table_offset: reader.position(),
-            inner: reader.into_inner(),
+            reader: imperfect_hash_map::Reader::new(
+                header.initial_buckets.try_into().map_err(|_| {
+                    io::Error::new(io::ErrorKind::Unsupported, "map has too many elements")
+                })?,
+                util::Slice::new(reader.into_inner(), offset, None),
+            )
+            .with_longest_distance(header.longest_distance.try_into().map_err(|_| {
+                io::Error::new(io::ErrorKind::Unsupported, "map has too many elements")
+            })?)
+            .with_hasher(hash::summary),
             header,
         })
     }
 
-    /// Look up possible frame offsets for a [`Cid`].
+    /// Look up _possible_ frame offsets for a [`Cid`].
     /// Returns `Ok([])` if no offsets are found, or [`Err(_)`] if the underlying
     /// IO fails.
     ///
     /// Does not allocate unless 2 or more CIDs have collided, see [module documentation](mod@self).
     ///
-    /// You MUST check the actual CID at the offset to see if it matches.
-    pub fn get(&self, key: Cid) -> io::Result<SmallVec<[u64; 1]>> {
-        self.get_by_hash(hash::summary(&key))
+    /// The look up is impoerfect - you MUST check the actual CID at the offset to see if it matches.
+    pub fn get(&self, key: Cid) -> io::Result<SmallVec<[u64; 1]>>
+    where
+        R: Size,
+    {
+        self.reader.get(key).collect()
     }
 
-    /// Jump to slot offset and scan downstream. All key-value pairs with a
-    /// matching key are guaranteed to appear before we encounter an empty slot.
-    #[cfg_vis(feature = "benchmark-private", pub)]
-    fn get_by_hash(&self, needle: NonMaximalU64) -> io::Result<SmallVec<[u64; 1]>> {
-        let Some(initial_buckets) =
-            NonZeroUsize::new(self.header.initial_buckets.try_into().unwrap())
-        else {
-            return Ok(smallvec![]); // empty table
-        };
-        let offset_in_table =
-            u64::try_from(hash::ideal_slot_ix(needle, initial_buckets)).unwrap() * RawSlot::LEN;
-        let mut haystack =
-            positioned_io::Cursor::new_pos(&self.inner, self.table_offset + offset_in_table);
-
-        let mut limit = self.header.longest_distance;
-        while let Slot::Occupied(OccupiedSlot { hash, frame_offset }) =
-            Slot::read_from(&mut haystack)?
-        {
-            if hash == needle {
-                let mut found = smallvec![frame_offset];
-                // The entries are sorted. Once we've found a matching key, all
-                // duplicate hash keys will be right next to it.
-                loop {
-                    match Slot::read_from(&mut haystack)? {
-                        Slot::Occupied(another) if another.hash == needle => {
-                            found.push(another.frame_offset)
-                        }
-                        Slot::Empty | Slot::Occupied(_) => return Ok(found),
-                    }
-                }
-            }
-            if limit == 0 {
-                // Even the biggest bucket does not have this many entries. We
-                // can safely return an empty result now.
-                return Ok(smallvec![]);
-            }
-            limit -= 1;
-        }
-        Ok(smallvec![]) // didn't find anything
+    #[cfg(feature = "benchmark-private")]
+    fn get_by_hash(&self, needle: u64) -> io::Result<SmallVec<[u64; 1]>>
+    where
+        R: Size,
+    {
+        self.reader.get_by_hash(needle).collect()
     }
 
     /// Gets a reference to the underlying reader.
     pub fn reader(&self) -> &R {
-        &self.inner
+        &self.reader.get_io_ref().io
+    }
+
+    /// Iterate the values
+    pub fn iter(&self) -> impl Iterator<Item = io::Result<u64>> + '_
+    where
+        R: Size,
+    {
+        self.reader.iter_values()
     }
 
     /// Replace the inner reader.
     /// It MUST point to the same underlying IO, else future calls to `get`
     /// will be incorrect.
+    // TODO(aatifsyed): having to plumb these through is such a smell
     pub fn map<T>(self, f: impl FnOnce(R) -> T) -> Reader<T> {
+        let Self { reader, header } = self;
         Reader {
-            inner: f(self.inner),
-            table_offset: self.table_offset,
-            header: self.header,
+            reader: reader.map_io(|it| {
+                let util::Slice { io, offset, limit } = it;
+                util::Slice {
+                    io: f(io),
+                    offset,
+                    limit,
+                }
+            }),
+            header,
         }
     }
 }
 
-#[cfg_vis(feature = "benchmark-private", pub)]
-struct Iter<R> {
-    inner: R,
-    positions: iter::StepBy<std::ops::Range<u64>>,
+pub struct Builder2 {
+    inner: imperfect_hash_map::Builder<Cid, u64, fn(Cid) -> u64>,
 }
 
-impl<R> Iterator for Iter<R>
-where
-    R: ReadAt + Size,
-{
-    type Item = io::Result<Slot>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.positions
-            .next()
-            .map(|pos| Slot::read_from(positioned_io::Cursor::new_pos(&self.inner, pos)))
+impl Extend<(Cid, u64)> for Builder2 {
+    fn extend<T: IntoIterator<Item = (Cid, u64)>>(&mut self, iter: T) {
+        self.inner.extend(iter)
     }
 }
 
-impl<R> Reader<R>
-where
-    R: ReadAt + Size,
-{
-    #[cfg_vis(feature = "benchmark-private", pub)]
-    fn iter(&self) -> io::Result<Iter<&R>> {
-        let end = self.inner.size()?.ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "couldn't get end of table size")
-        })?;
-        Ok(Iter {
-            inner: &self.inner,
-            positions: (self.table_offset..end).step_by(Slot::LEN.try_into().unwrap()),
-        })
+impl Builder2 {
+    pub fn new() -> Self {
+        Self {
+            inner: imperfect_hash_map::Builder::new(hash::summary)
+        }
+    }
+    pub fn into_writer(self) -> Writer2 {
+        Writer2 {
+            inner: self.inner.into_writer(DEFAULT_LOAD_FACTOR)
+        }
+    }
+}
+
+pub struct Writer2 {
+    inner: imperfect_hash_map::Writer<u64>
+}
+
+impl Writer2 {
+    pub fn written_len(&self) -> usize {
+        self.inner.written_len()
+    }
+    pub async fn write_into(self, writer: impl AsyncWrite) -> io::Result<()> {
+        let header 
     }
 }
 
@@ -312,7 +305,10 @@ impl Builder {
 
 impl Extend<(Cid, u64)> for Builder {
     fn extend<T: IntoIterator<Item = (Cid, u64)>>(&mut self, iter: T) {
-        self.extend(iter.into_iter().map(|(cid, u)| (hash::summary(&cid), u)))
+        self.extend(
+            iter.into_iter()
+                .map(|(cid, u)| (NonMaximalU64::fit(hash::summary(cid)), u)),
+        )
     }
 }
 
@@ -668,11 +664,13 @@ mod tests {
     ///
     ///
     /// Additionally checks [`Reader::iter`]
-    fn do_hashmap_of_hashes(reference: HashMap<NonMaximalU64, HashSet<u64>>) {
+    fn do_hashmap_of_hashes(reference: HashMap<u64, HashSet<u64>>) {
         let subject = Reader::new(write_to_vec(|v| {
             let writer =
                 Builder::from_iter(reference.clone().into_iter().flat_map(|(hash, offsets)| {
-                    offsets.into_iter().map(move |offset| (hash, offset))
+                    offsets.into_iter().map(move |offset| {
+                        (NonMaximalU64::fit(hash) /* old meets new */, offset)
+                    })
                 }))
                 .into_writer();
             let expected_len = writer.written_len();
@@ -688,7 +686,6 @@ mod tests {
 
         let via_iter = subject
             .iter()
-            .unwrap()
             .filter_map(|it| match it.unwrap() {
                 Slot::Empty => None,
                 Slot::Occupied(it) => Some(it),
