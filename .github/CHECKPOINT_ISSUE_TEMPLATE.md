@@ -1,25 +1,28 @@
 ---
-title: Create new snapshot checkpoints
+title: "cron: update known_blocks.yaml"
 labels: ["Enhancement", "Priority: 3 - Medium"]
 ---
 
 Forest uses checkpoints to improve performance when loading a snapshot. Without checkpoints, the blockchain has to be fully traversed to verify we have the right genesis block. Checkpoints short-circuit this search and shave off tens of minutes in boot time.
 
-Checkpoints have to be regularly updated, though, and this issue is automatically created once per month. To close this issue, follow the procedure for computing new checkpoint hashes and add them to the checkpoints yaml file.
+Checkpoints have to be regularly updated, though, and [this issue](/.github/CHECKPOINT_ISSUE_TEMPLATE.md) is [automatically created once per month](/.github/workflows/checkpoints.yml). Follow the procedure below to update [`build/known_blocks.yaml`](/build/known_blocks.yaml), and close this issue.
 
-How to compute a new checkpoint for calibnet:
+# Procedure
 
-1. Install `forest-tool`
-2. Download calibnet snapshot: `forest-tool snapshot fetch --chain calibnet`
-3. Decompress snapshot: `zstd -d forest_snapshot_calibnet_*.car.zst`
-4. Extract checkpoints: `forest-tool archive checkpoints forest_snapshot_calibnet_*.car`
-5. Put checkpoints in `build/known_blocks.yaml`
+```bash
+# Perform this for `calibnet` AND `mainnet`
+chain=calibnet
 
-For mainnet, run the same commands but use `--chain mainnet` instead of `--chain calibnet`.
+# download the latest snapshot.
+# =============================
+# - calibnet ~3G, ~1min on a droplet
+# - mainnet ~60G, ~15mins on a droplet
+aria2c https://forest-archive.chainsafe.dev/latest/$chain/ -o $chain
 
-Issue TODOs:
+# print out the checkpoints.
+# ==========================
+# The whole operation takes a long time, BUT you only need the first line or so.
+cargo run --bin forest-tool -- archive checkpoints $chain
 
-- [ ] Add calibnet checkpoint to the [yaml file][yaml].
-- [ ] Add mainnet checkpoint to the [yaml file][yaml].
-
-[yaml]: https://github.com/ChainSafe/forest/blob/main/blockchain/chain/src/store/known_checkpoints.yaml
+# Update `build/known_blocks.yaml` as appropriate...
+```
