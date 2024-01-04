@@ -16,13 +16,13 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
-use itertools::{Either, EitherOrBoth, Itertools};
+use itertools::{Either, Itertools};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
@@ -244,32 +244,32 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
-pub(in crate::rpc) enum Change {
+pub(in crate::rpc) enum PathChange {
     Revert(Arc<Tipset>),
     Apply(Arc<Tipset>),
 }
 
-/// Find the path between two tipsets, as a series of [`Change`]s.
+/// Find the path between two tipsets, as a series of [`PathChange`]s.
 ///
 /// ```text
 /// 0 - A - B - C - D
-///     ^~~~~~~~> apply C
+///     ^~~~~~~~> apply B, C
 ///
 /// 0 - A - B - C - D
-///     <~~~~~~~^ revert B
+///     <~~~~~~~^ revert C, B
 ///
-///     <~~~~~~~~ revert B
-/// 0 - A - B  - C - D
+///     <~~~~~~~~ revert C, B
+/// 0 - A - B  - C
 ///     |
 ///      -- B' - C'
-///      ~~~~~~~~> then apply B'
+///      ~~~~~~~~> then apply B', C'
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
 pub(in crate::rpc) async fn chain_get_path(
     data: Data<RPCState<impl Blockstore>>,
     Params(LotusJson((from, to))): Params<LotusJson<(TipsetKeys, TipsetKeys)>>,
-) -> Result<LotusJson<Vec<Change>>, JsonRpcError> {
+) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
     /// Climb the chain from `origin` to genesis, using `identifier` for error messages.
     fn lineage<'a>(
         origin: &TipsetKeys,
@@ -311,15 +311,15 @@ pub(in crate::rpc) async fn chain_get_path(
         .collect()
     }
 
-    // A - B  - C - D - E
-    // |                ^ `from`
+    // A - B  - C  - D - E
+    // |                 ^ `from`
     // |
-    //  -- B' - C'
-    //          ^ `to`
+    //  -- B' - C' - D'
+    //               ^ `to`
 
-    // D C B A
+    // E D C B A
     let mut from_lineage = lineage(&from, &data.chain_store, "from").peekable();
-    // C' B' A
+    // D' C' B' A
     let mut to_lineage = lineage(&to, &data.chain_store, "to").peekable();
 
     let common_height = cmp::min(
@@ -328,15 +328,16 @@ pub(in crate::rpc) async fn chain_get_path(
         to_lineage.peek().unwrap().as_deref().map(Tipset::epoch)?,
     );
 
-    //          |< common height
-    //              <~~~ reverts
-    // A - B  - C - D - E
-    // |        ^ `from`
+    //               |< common height
+    //
+    //               <~~~~ revert E
+    // A - B  - C  - D - E
+    // |             ^ `from`
     // |
-    //  -- B' - C'
-    //          ^ `to`
-    let mut reverts = scroll_to_height(&mut from_lineage, common_height)?;
-    let mut applies = scroll_to_height(&mut to_lineage, common_height)?;
+    //  -- B' - C' - D'
+    //               ^ `to`
+    let mut reverts /* E D C B */ = scroll_to_height(&mut from_lineage, common_height)?;
+    let mut applies /* D' C' B' */ = scroll_to_height(&mut to_lineage, common_height)?;
 
     // now decrease the heights in lockstep, until we're at the common ancestor
     for (from, to) in iter::zip(from_lineage, to_lineage) {
@@ -346,17 +347,17 @@ pub(in crate::rpc) async fn chain_get_path(
         match from == to {
             true => {
                 //     <~~~~~~~~~~~~~ reverts
-                // A - B  - C - D - E
+                // A - B  - C  - D - E
                 // |
-                //  -- B' - C'
-                //     <~~~~~ applies
+                //  -- B' - C' - D'
+                //     <~~~~~~~~~~ applies
 
                 // need to return the reverts E->B, then the applies B'->C'
                 return Ok(LotusJson(
                     reverts
                         .into_iter()
-                        .map(Change::Revert)
-                        .chain(applies.into_iter().rev().map(Change::Apply))
+                        .map(PathChange::Revert)
+                        .chain(applies.into_iter().rev().map(PathChange::Apply))
                         .collect(),
                 ));
             }
