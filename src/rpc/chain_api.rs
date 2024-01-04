@@ -4,6 +4,7 @@
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
+use crate::chain::ChainStore;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
@@ -15,15 +16,17 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
+use anyhow::{anyhow, Context};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
+use itertools::{Either, EitherOrBoth, Itertools};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
-use std::sync::Arc;
+use std::{cmp, iter, sync::Arc};
 use tokio::sync::Mutex;
 
 pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
@@ -239,6 +242,133 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
         cids,
     };
     Ok(ret)
+}
+
+pub(in crate::rpc) enum Change {
+    Revert(Arc<Tipset>),
+    Apply(Arc<Tipset>),
+}
+
+/// Find the path between two tipsets, as a series of [`Change`]s.
+///
+/// ```text
+/// 0 - A - B - C - D
+///     ^~~~~~~~> apply C
+///
+/// 0 - A - B - C - D
+///     <~~~~~~~^ revert B
+///
+///     <~~~~~~~~ revert B
+/// 0 - A - B  - C - D
+///     |
+///      -- B' - C'
+///      ~~~~~~~~> then apply B'
+/// ```
+///
+/// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
+pub(in crate::rpc) async fn chain_get_path(
+    data: Data<RPCState<impl Blockstore>>,
+    Params(LotusJson((from, to))): Params<LotusJson<(TipsetKeys, TipsetKeys)>>,
+) -> Result<LotusJson<Vec<Change>>, JsonRpcError> {
+    /// Climb the chain from `origin` to genesis, using `identifier` for error messages.
+    fn lineage<'a>(
+        origin: &TipsetKeys,
+        store: &'a ChainStore<impl Blockstore>,
+        identifier: &'a str,
+    ) -> impl Iterator<Item = anyhow::Result<Arc<Tipset>>> + 'a {
+        let origin = store
+            .load_required_tipset(origin)
+            .with_context(|| format!("origin `{identifier}` is not in the blockstore"));
+
+        iter::once(origin)
+            .map_ok(move /* store */ |origin| {
+                iter::successors(Some(Ok(origin)), move /* identifier */ |child| {
+                    let child = child.as_ref().ok()?; // fuse on error
+                    match child.epoch() == 0 {
+                        true => None, // reached genesis
+                        false => Some(store.load_required_tipset(child.parents()).with_context(
+                            || format!("parent of origin `{identifier}` is not in the blockstore"),
+                        )),
+                    }
+                })
+            })
+            .flat_map(|it| match it {
+                Ok(more) => Either::Left(more),
+                Err(err) => Either::Right(iter::once(Err(err))),
+            })
+    }
+
+    /// Assumes epochs decrement by one in `iter`
+    fn scroll_to_height(
+        iter: impl Iterator<Item = anyhow::Result<Arc<Tipset>>>,
+        height: i64,
+    ) -> anyhow::Result<Vec<Arc<Tipset>>> {
+        iter.take_while(|it| {
+            it.as_deref()
+                .map(|ts| ts.epoch() > height)
+                .unwrap_or(true /* bubble up errors */)
+        })
+        .collect()
+    }
+
+    // A - B  - C - D - E
+    // |                ^ `from`
+    // |
+    //  -- B' - C'
+    //          ^ `to`
+
+    // D C B A
+    let mut from_lineage = lineage(&from, &data.chain_store, "from").peekable();
+    // C' B' A
+    let mut to_lineage = lineage(&to, &data.chain_store, "to").peekable();
+
+    let common_height = cmp::min(
+        // fine to unwrap because `lineage` must at least return one item (which may be an error)
+        from_lineage.peek().unwrap().as_deref().map(Tipset::epoch)?,
+        to_lineage.peek().unwrap().as_deref().map(Tipset::epoch)?,
+    );
+
+    //          |< common height
+    //              <~~~ reverts
+    // A - B  - C - D - E
+    // |        ^ `from`
+    // |
+    //  -- B' - C'
+    //          ^ `to`
+    let mut reverts = scroll_to_height(&mut from_lineage, common_height)?;
+    let mut applies = scroll_to_height(&mut to_lineage, common_height)?;
+
+    // now decrease the heights in lockstep, until we're at the common ancestor
+    for (from, to) in iter::zip(from_lineage, to_lineage) {
+        let from = from?;
+        let to = to?;
+        assert_eq!(from.epoch(), to.epoch());
+        match from == to {
+            true => {
+                //     <~~~~~~~~~~~~~ reverts
+                // A - B  - C - D - E
+                // |
+                //  -- B' - C'
+                //     <~~~~~ applies
+
+                // need to return the reverts E->B, then the applies B'->C'
+                return Ok(LotusJson(
+                    reverts
+                        .into_iter()
+                        .map(Change::Revert)
+                        .chain(applies.into_iter().rev().map(Change::Apply))
+                        .collect(),
+                ));
+            }
+            false => {
+                reverts.push(from);
+                applies.push(to);
+                continue;
+            }
+        }
+    }
+
+    Err(JsonRpcError::from("no common ancestor found"))
 }
 
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
