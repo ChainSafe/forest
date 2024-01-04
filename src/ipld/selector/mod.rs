@@ -7,12 +7,11 @@ use std::ops::SubAssign;
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-#[cfg(test)]
-use Selector::*;
 
-pub use self::walk::*;
 #[cfg(test)]
 use super::Ipld;
+#[cfg(test)]
+use Selector::*;
 
 /// Selectors are expressions that identify and select a subset of data from an
 /// IPLD DAG. Selectors are themselves IPLD and can be serialized and

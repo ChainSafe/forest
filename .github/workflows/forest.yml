@@ -21,9 +21,6 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
-  SCCACHE_ENDPOINT: ${{ vars.SCCACHE_ENDPOINT }}
-  SCCACHE_BUCKET: ${{ vars.SCCACHE_BUCKET }}
-  SCCACHE_REGION: ${{ vars.SCCACHE_REGION }}
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   RUSTC_WRAPPER: "sccache"
@@ -35,6 +32,14 @@ jobs:
     name: Build MacOS
     runs-on: macos-latest
     steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "$AWS_ACCESS_KEY_ID" != "" ]]; then
+            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
+            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
+            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+          fi
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
@@ -48,6 +53,14 @@ jobs:
     name: Build Ubuntu
     runs-on: ubuntu-latest
     steps:
+      - name: Configure SCCache variables
+        run: |
+          # External PRs do not have access to 'vars' or 'secrets'.
+          if [[ "${{secrets.AWS_ACCESS_KEY_ID}}" != "" ]]; then
+            echo "SCCACHE_ENDPOINT=${{ vars.SCCACHE_ENDPOINT}}" >> $GITHUB_ENV
+            echo "SCCACHE_BUCKET=${{ vars.SCCACHE_BUCKET}}" >> $GITHUB_ENV
+            echo "SCCACHE_REGION=${{ vars.SCCACHE_REGION}}" >> $GITHUB_ENV
+          fi
       # To help investigate transient test failures
       - run: lscpu
       # find the nearest S3 space for storing cache files
@@ -65,7 +78,7 @@ jobs:
           sudo make install-deps
       - name: Cargo Install
         run: make install
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: |
@@ -97,7 +110,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -120,7 +133,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -141,11 +154,11 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -168,11 +181,11 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -195,7 +208,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -218,7 +231,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -230,7 +243,10 @@ jobs:
       - name: Wallet commands check
         env:
           CALIBNET_WALLET: ${{ secrets.CALIBNET_WALLET }}
-        run: ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+        run: |
+          if [[ "$CALIBNET_WALLET" != "" ]]; then
+            ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
+          fi
 
   # Snapshot export checks
   calibnet-export-check:
@@ -243,7 +259,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -266,7 +282,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -280,8 +296,6 @@ jobs:
 
   # Calibnet kademlia discovery checks
   calibnet-kademlia-checks:
-    # Disable until stateless mode is back
-    if: false
     needs:
       - build-ubuntu
     name: Calibnet kademlia checks
@@ -291,7 +305,7 @@ jobs:
       - run: lscpu
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -310,7 +324,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -329,7 +343,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
           path: ~/.cargo/bin
@@ -349,7 +363,7 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
       - name: Devnet setup

@@ -9,7 +9,7 @@ use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
-pub use crate::libp2p::{Multiaddr, Protocol};
+pub use crate::libp2p::Multiaddr;
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;

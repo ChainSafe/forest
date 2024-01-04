@@ -1,26 +1,29 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::HashMap;
-use clap::{Subcommand, ValueEnum};
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use serde::de::DeserializeOwned;
-use std::path::PathBuf;
-use std::str::FromStr;
-use tabled::{builder::Builder, settings::Style};
-
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
-use crate::rpc_api::data_types::MessageFilter;
+use crate::rpc_api::data_types::{MessageLookup, MessageFilter};
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
+use ahash::HashMap;
+use clap::{Subcommand, ValueEnum};
+use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use serde::de::DeserializeOwned;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+use tabled::{builder::Builder, settings::Style};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -98,6 +101,7 @@ enum EndpointStatus {
     InvalidJSON,
     // Got response with the right JSON schema but it failed sanity checking
     InvalidResponse,
+    Timeout,
     Valid,
 }
 
@@ -109,16 +113,18 @@ impl EndpointStatus {
             EndpointStatus::MissingMethod
         } else if err.code == JsonRpcError::PARSE_ERROR.code {
             EndpointStatus::InvalidResponse
+        } else if err.code == 0 && err.message.contains("timed out") {
+            EndpointStatus::Timeout
         } else {
+            tracing::debug!("{err}");
             EndpointStatus::InternalServerError
         }
     }
 }
-
 struct RpcTest {
     request: RpcRequest,
-    check_syntax: Box<dyn Fn(serde_json::Value) -> bool>,
-    check_semantics: Box<dyn Fn(serde_json::Value, serde_json::Value) -> bool>,
+    check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
+    check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
 }
 
@@ -131,23 +137,26 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
-            check_semantics: Box::new(|_, _| true),
+            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Arc::new(|_, _| true),
             ignore: None,
         }
     }
 
     // Check that an endpoint exist, has the same JSON schema, and do custom
     // validation over both responses.
-    fn validate<T>(request: RpcRequest<T>, validate: impl Fn(T, T) -> bool + 'static) -> RpcTest
+    fn validate<T>(
+        request: RpcRequest<T>,
+        validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
+    ) -> RpcTest
     where
         T: HasLotusJson,
         T::LotusJson: DeserializeOwned,
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Box::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
-            check_semantics: Box::new(move |forest_json, lotus_json| {
+            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_semantics: Arc::new(move |forest_json, lotus_json| {
                 serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
                     serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
                         validate(
@@ -174,6 +183,11 @@ impl RpcTest {
         T::LotusJson: DeserializeOwned,
     {
         RpcTest::validate(request, |forest, lotus| forest == lotus)
+    }
+
+    fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.request.set_timeout(timeout);
+        self
     }
 
     async fn run(
@@ -412,7 +426,6 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
-    let shared_tipset_epoch = shared_tipset.epoch();
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
@@ -456,19 +469,18 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    // FIXME: StateWaitMsg API gets stuck in forest
-                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
-                    //     msg.cid()?,
-                    //     0,
-                    // )));
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                            .with_timeout(Duration::from_secs(30)),
+                    );
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
                     );
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
                             msg.cid()?,
-                            shared_tipset_epoch - n_tipsets as i64,
+                            800,
                         ))
                         .ignore("Not implemented yet"),
                     );
@@ -499,19 +511,18 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         msg.from(),
                         root_tsk.clone(),
                     )));
-                    // FIXME: StateWaitMsg API gets stuck in forest
-                    // tests.push(RpcTest::identity(ApiInfo::state_wait_msg_req(
-                    //     msg.cid()?,
-                    //     0,
-                    // )));
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_req(msg.cid()?))
+                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                            .with_timeout(Duration::from_secs(30)),
+                    );
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
                             .ignore("Not implemented yet"),
                     );
                     tests.push(
-                        RpcTest::identity(ApiInfo::state_search_msg_limited_req(
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
                             msg.cid()?,
-                            shared_tipset_epoch - n_tipsets as i64,
+                            800,
                         ))
                         .ignore("Not implemented yet"),
                     );
@@ -524,6 +535,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         root_tsk.clone(),
                         shared_tipset_epoch,
                     )));
+
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
@@ -641,9 +653,22 @@ async fn compare_apis(
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    let mut results = HashMap::default();
+    run_tests(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+}
 
+async fn run_tests(
+    tests: Vec<RpcTest>,
+    forest: &ApiInfo,
+    lotus: &ApiInfo,
+    filter: String,
+    fail_fast: bool,
+    run_ignored: RunIgnored,
+) -> anyhow::Result<()> {
+    let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
+        let forest = forest.clone();
+        let lotus = lotus.clone();
+
         // By default, do not run ignored tests.
         if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
@@ -655,9 +680,19 @@ async fn compare_apis(
         if !test.request.method_name.contains(&filter) {
             continue;
         }
-        let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+
+        let future = tokio::spawn(async move {
+            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            (test.request.method_name, forest_status, lotus_status)
+        });
+
+        futures.push(future);
+    }
+
+    let mut results = HashMap::default();
+    while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
         results
-            .entry((test.request.method_name, forest_status, lotus_status))
+            .entry((method_name, forest_status, lotus_status))
             .and_modify(|v| *v += 1)
             .or_insert(1u32);
         if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
@@ -667,6 +702,7 @@ async fn compare_apis(
         }
     }
 
+    // Collect and display results in Markdown format
     let mut results = results.into_iter().collect::<Vec<_>>();
     results.sort();
     println!("{}", format_as_markdown(&results));
@@ -677,7 +713,7 @@ async fn compare_apis(
 fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {
     let mut builder = Builder::default();
 
-    builder.set_header(["RPC Method", "Forest", "Lotus"]);
+    builder.push_record(["RPC Method", "Forest", "Lotus"]);
 
     for ((method, forest_status, lotus_status), n) in results {
         builder.push_record([
@@ -692,4 +728,19 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     }
 
     builder.build().with(Style::markdown()).to_string()
+}
+
+fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+    use libipld_core::ipld::Ipld;
+
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // FIXME: https://github.com/ChainSafe/forest/issues/3784
+        if let Some(json) = forest.as_mut() {
+            json.return_dec = Ipld::Null;
+        }
+        if let Some(json) = lotus.as_mut() {
+            json.return_dec = Ipld::Null;
+        }
+        forest == lotus
+    })
 }

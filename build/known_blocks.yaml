@@ -5,8 +5,9 @@
 # - https://filfox.info/en/block/bafy2bzacebnfm6dvxo7sm5thcxnv3kttoamb53uxycnvtdxgk5mh7d73qlly2
 # - https://calibration.filfox.info/en/block/bafy2bzacedhkkz76zdekpexha55b42eop42e24ajmajm26wws4nbvtq7louvu
 #
-# This file was generated with `forest-tool archive checkpoints`
+# This file is maintained monthly - see `CHECKPOINT_ISSUE_TEMPLATE.md`
 calibnet:
+  1209600: bafy2bzaceas5s3gvtfnflgwwwyxh53drmm4rhirqe5s6wci37ndxxnu3y4ezy
   1123200: bafy2bzaceai2lxdmpwaw75dwtagyst4ldjysbdk6xmwvpfat7mgsypye3e5ns
   1036800: bafy2bzacebf4yhvzo7m7tildpdedlgefk2v6yfxisejtnlzqjivvpoozsar3y
   950400: bafy2bzacea6kur76wsgfcb5tbwktd3m6ufdw74xiyysx7dz7gmnwjtjfab4u2
@@ -21,6 +22,7 @@ calibnet:
   172800: bafy2bzacebluce5la2lbyjlgmup6mx4xytnnilsf4oy6v4omon2ivyduqwlsq
   86400: bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 mainnet:
+  3456000: bafy2bzacebbr5lfe4fgzj7wzqwmnzrpkohnpad7oha42niyjci5pgynreqxto
   3369600: bafy2bzaceas2eagrgmo6jm6lx5d75h6iof7vydvfhtofjpkdhcnp2nys5522u
   3283200: bafy2bzaceamvrkv6nooeqfm4wtkverhuket64kz6mahxxwmsh2rowtwdv32wc
   3196800: bafy2bzacedyayogrrumxhwithpujilvmbzrnnxq46iqjymuamobvkigsbu6ty
