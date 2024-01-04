@@ -485,17 +485,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                 }
             }
             for msg in secp_messages {
@@ -519,17 +514,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
 
                     if !msg.params().is_empty() {
