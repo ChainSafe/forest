@@ -22,7 +22,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
-use itertools::{Either, Itertools};
+use itertools::{Either, EitherOrBoth, Itertools};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
@@ -340,31 +340,39 @@ pub(in crate::rpc) async fn chain_get_path(
     let mut applies /* D' C' B' */ = scroll_to_height(&mut to_lineage, common_height)?;
 
     // now decrease the heights in lockstep, until we're at the common ancestor
-    for (from, to) in iter::zip(from_lineage, to_lineage) {
-        let from = from?;
-        let to = to?;
-        assert_eq!(from.epoch(), to.epoch());
-        match from == to {
-            true => {
-                //     <~~~~~~~~~~~~~ reverts
-                // A - B  - C  - D - E
-                // |
-                //  -- B' - C' - D'
-                //     <~~~~~~~~~~ applies
+    for step in from_lineage.zip_longest(to_lineage) {
+        match step {
+            EitherOrBoth::Both(from, to) => {
+                let from = from?;
+                let to = to?;
+                assert_eq!(from.epoch(), to.epoch());
+                match from == to {
+                    true => {
+                        //     <~~~~~~~~~~~~~ reverts
+                        // A - B  - C  - D - E
+                        // |
+                        //  -- B' - C' - D'
+                        //     <~~~~~~~~~~ applies
 
-                // need to return the reverts E->B, then the applies B'->C'
-                return Ok(LotusJson(
-                    reverts
-                        .into_iter()
-                        .map(PathChange::Revert)
-                        .chain(applies.into_iter().rev().map(PathChange::Apply))
-                        .collect(),
-                ));
+                        // need to return the reverts E->B, then the applies B'->C'
+                        return Ok(LotusJson(
+                            reverts
+                                .into_iter()
+                                .map(PathChange::Revert)
+                                .chain(applies.into_iter().rev().map(PathChange::Apply))
+                                .collect(),
+                        ));
+                    }
+                    false => {
+                        reverts.push(from);
+                        applies.push(to);
+                        continue;
+                    }
+                }
             }
-            false => {
-                reverts.push(from);
-                applies.push(to);
-                continue;
+            EitherOrBoth::Left(it) | EitherOrBoth::Right(it) => {
+                it?; // give a final error a chance to bubble up
+                break; // or hit the default error
             }
         }
     }
