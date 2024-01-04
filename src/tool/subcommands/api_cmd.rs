@@ -56,6 +56,14 @@ pub enum ApiCommands {
     },
 }
 
+struct ApiTestFlags {
+    filter: String,
+    fail_fast: bool,
+    n_tipsets: usize,
+    run_ignored: RunIgnored,
+    max_concurrent_requests: usize,
+}
+
 impl ApiCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
@@ -69,17 +77,15 @@ impl ApiCommands {
                 run_ignored,
                 max_concurrent_requests,
             } => {
-                compare_apis(
-                    forest,
-                    lotus,
-                    snapshot_files,
+                let config = ApiTestFlags {
                     filter,
                     fail_fast,
                     n_tipsets,
                     run_ignored,
                     max_concurrent_requests,
-                )
-                .await?
+                };
+
+                compare_apis(forest, lotus, snapshot_files, config).await?
             }
         }
         Ok(())
@@ -609,11 +615,7 @@ async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
     snapshot_files: Vec<PathBuf>,
-    filter: String,
-    fail_fast: bool,
-    n_tipsets: usize,
-    run_ignored: RunIgnored,
-    max_concurrent_requests: usize,
+    config: ApiTestFlags,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -629,47 +631,35 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store, n_tipsets)?);
+        tests.extend(snapshot_tests(&store, config.n_tipsets)?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(
-        tests,
-        &forest,
-        &lotus,
-        filter,
-        fail_fast,
-        run_ignored,
-        max_concurrent_requests,
-    )
-    .await
+    run_tests(tests, &forest, &lotus, &config).await
 }
 
 async fn run_tests(
     tests: Vec<RpcTest>,
     forest: &ApiInfo,
     lotus: &ApiInfo,
-    filter: String,
-    fail_fast: bool,
-    run_ignored: RunIgnored,
-    max_concurrent_requests: usize,
+    config: &ApiTestFlags,
 ) -> anyhow::Result<()> {
-    let semaphore = Arc::new(Semaphore::new(max_concurrent_requests));
+    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
         let forest = forest.clone();
         let lotus = lotus.clone();
 
         // By default, do not run ignored tests.
-        if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
+        if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
         }
         // If in `IgnoreOnly` mode, only run ignored tests.
-        if matches!(run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
+        if matches!(config.run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
             continue;
         }
-        if !test.request.method_name.contains(&filter) {
+        if !test.request.method_name.contains(&config.filter) {
             continue;
         }
 
@@ -691,7 +681,7 @@ async fn run_tests(
             .and_modify(|v| *v += 1)
             .or_insert(1u32);
         if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-            && fail_fast
+            && config.fail_fast
         {
             break;
         }
