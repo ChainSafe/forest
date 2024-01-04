@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use tabled::{builder::Builder, settings::Style};
+use tokio::sync::Semaphore;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -49,6 +50,9 @@ pub enum ApiCommands {
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
+        /// Maximum number of concurrent requests
+        #[arg(long, default_value = "8")]
+        max_concurrent_requests: usize,
     },
 }
 
@@ -63,6 +67,7 @@ impl ApiCommands {
                 fail_fast,
                 n_tipsets,
                 run_ignored,
+                max_concurrent_requests,
             } => {
                 compare_apis(
                     forest,
@@ -72,6 +77,7 @@ impl ApiCommands {
                     fail_fast,
                     n_tipsets,
                     run_ignored,
+                    max_concurrent_requests,
                 )
                 .await?
             }
@@ -607,6 +613,7 @@ async fn compare_apis(
     fail_fast: bool,
     n_tipsets: usize,
     run_ignored: RunIgnored,
+    max_concurrent_requests: usize,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -627,7 +634,16 @@ async fn compare_apis(
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+    run_tests(
+        tests,
+        &forest,
+        &lotus,
+        filter,
+        fail_fast,
+        run_ignored,
+        max_concurrent_requests,
+    )
+    .await
 }
 
 async fn run_tests(
@@ -637,7 +653,9 @@ async fn run_tests(
     filter: String,
     fail_fast: bool,
     run_ignored: RunIgnored,
+    max_concurrent_requests: usize,
 ) -> anyhow::Result<()> {
+    let semaphore = Arc::new(Semaphore::new(max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
         let forest = forest.clone();
@@ -655,8 +673,11 @@ async fn run_tests(
             continue;
         }
 
+        // Acquire a permit from the semaphore before spawning a test
+        let permit = semaphore.clone().acquire_owned().await?;
         let future = tokio::spawn(async move {
             let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });
 
