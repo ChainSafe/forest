@@ -74,7 +74,7 @@ impl NodeStatusInfo {
             SyncStatus::Behind
         };
 
-        let base_fee = head.min_ticket_block().parent_base_fee().clone();
+        let base_fee = head.min_ticket_block().parent_base_fee.clone();
 
         // blocks_per_tipset_last_finality = no of blocks till head / chain finality
         let health = 100. * blocks_per_tipset_last_finality / BLOCKS_PER_EPOCH as f64;
@@ -197,6 +197,7 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 
 #[cfg(test)]
 mod tests {
+    use crate::blocks::header::RawBlockHeader;
     use crate::blocks::{BlockHeader, Tipset};
     use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use crate::shim::{address::Address, econ::TokenAmount};
@@ -207,11 +208,11 @@ mod tests {
     use super::{NodeStatusInfo, SyncStatus};
 
     fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Arc<Tipset> {
-        let mock_header = BlockHeader::builder()
-            .miner_address(Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap())
-            .timestamp(seconds_since_unix_epoch)
-            .build()
-            .unwrap();
+        let mock_header = BlockHeader::new(RawBlockHeader {
+            miner_address: Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap(),
+            timestamp: seconds_since_unix_epoch,
+            ..Default::default()
+        });
         let tipset = Tipset::from(&mock_header);
 
         Arc::new(tipset)

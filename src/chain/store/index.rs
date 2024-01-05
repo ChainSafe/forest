@@ -160,7 +160,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
     pub fn latest_beacon_entry(&self, ts: &Tipset) -> Result<BeaconEntry, Error> {
         let check_for_beacon_entry = |ts: &Tipset| {
-            let cbe = ts.min_ticket_block().beacon_entries();
+            let cbe = &ts.min_ticket_block().beacon_entries;
             if let Some(entry) = cbe.last() {
                 return Ok(Some(entry.clone()));
             }
@@ -200,6 +200,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
+    use crate::blocks::header::RawBlockHeader;
     use crate::blocks::BlockHeader;
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt;
@@ -218,14 +219,12 @@ mod tests {
         // Use a static counter to give all tipsets a unique timestamp
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Tipset::from(
-            BlockHeader::builder()
-                .parents(parent.key().clone())
-                .epoch(epoch)
-                .timestamp(n)
-                .build()
-                .unwrap(),
-        )
+        Tipset::from(BlockHeader::new(RawBlockHeader {
+            parents: parent.key().clone(),
+            epoch,
+            timestamp: n,
+            ..Default::default()
+        }))
     }
 
     #[test]
