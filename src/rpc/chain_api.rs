@@ -536,6 +536,7 @@ mod tests {
         db::{MemoryDB, SettingsStore},
         genesis,
         networks::ChainConfig,
+        utils::db::car_util::load_car,
     };
     use futures::executor::block_on;
 
@@ -593,5 +594,26 @@ mod tests {
             .build()
             .unwrap();
         chain_store.put_tipset(&a.tipset()).unwrap(); // unknown power actor code...
+    }
+
+    // aria2c https://forest-archive.chainsafe.dev/calibnet/diff/forest_diff_calibnet_2022-11-02_height_0+3000.forest.car.zst
+    #[test]
+    fn test3k() {
+        let chain_store = ChainStore::<MemoryDB>::calibnet();
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            load_car(
+                chain_store.blockstore(),
+                tokio::io::BufReader::new(
+                    tokio::fs::File::open(
+                        "forest_diff_calibnet_2022-11-02_height_0+3000.forest.car",
+                    )
+                    .await
+                    .unwrap(),
+                ),
+            )
+            .await
+            .unwrap()
+        });
+        assert_eq!(chain_store.heaviest_tipset().epoch(), 3000); // fails...
     }
 }
