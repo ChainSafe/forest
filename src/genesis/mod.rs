@@ -35,7 +35,7 @@ where
         }
     };
 
-    info!("Initialized genesis: {}", genesis);
+    info!("Initialized genesis: {}", genesis.cid());
     Ok(genesis)
 }
 
