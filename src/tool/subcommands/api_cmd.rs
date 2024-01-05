@@ -57,6 +57,8 @@ pub enum ApiCommands {
     },
 }
 
+/// For more information about each flag, refer to the Forest documentation at:
+/// https://docs.forest.chainsafe.io/rustdoc/forest_filecoin/tool/subcommands/api_cmd/enum.ApiCommands.html
 struct ApiTestFlags {
     filter: String,
     fail_fast: bool,
