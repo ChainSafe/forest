@@ -18,7 +18,7 @@ use crate::blocks::TipsetKeys;
 ///
 /// This may be expanded to have [`smallvec`](https://docs.rs/smallvec/1.11.0/smallvec/index.html)-style indirection
 /// to save more on heap allocations.
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(transparent)] // treat the named field as anonymous, so we serialize equivalent to Vec<Cid>
 pub struct FrozenCidVec {
     inner: Box<[SmallCid]>,
@@ -45,7 +45,7 @@ impl FrozenCidVec {
 /// This is NOT intended as a general purpose type - other collections should use the variants
 /// of [`MaybeCompactedCid`], so that the discriminant is not repeated.
 #[cfg_vis::cfg_vis(doc, pub)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum SmallCid {
     Inline(CidV1DagCborBlake2b256),
     Indirect(Box<Uncompactable>),
