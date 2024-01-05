@@ -181,6 +181,7 @@ decl_and_test!(
     address for crate::shim::address::Address,
     beacon_entry for crate::beacon::BeaconEntry,
     big_int for num::BigInt,
+    block_header for crate::blocks::BlockHeader,
     election_proof for crate::blocks::ElectionProof,
     gossip_block for crate::blocks::GossipBlock,
     key_info for crate::key_management::KeyInfo,

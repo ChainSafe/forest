@@ -9,11 +9,11 @@ use crate::{
     shim::address::Address,
     shim::{crypto::Signature, econ::TokenAmount},
 };
-use cid::Cid;
+use ::cid::Cid;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-use super::{BlockHeader, RawBlockHeader};
+use crate::blocks::{header::RawBlockHeader, BlockHeader};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -72,29 +72,24 @@ impl HasLotusJson for BlockHeader {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        let Self {
-            uncached:
-                RawBlockHeader {
-                    miner_address,
-                    ticket,
-                    election_proof,
-                    beacon_entries,
-                    winning_post_proof,
-                    parents,
-                    weight,
-                    epoch,
-                    state_root,
-                    message_receipts,
-                    messages,
-                    bls_aggregate,
-                    timestamp,
-                    signature,
-                    fork_signal,
-                    parent_base_fee,
-                },
-            cid: _ignore_cached0,
-            signature_has_ever_been_checked: _ignore_cached1,
-        } = self;
+        let RawBlockHeader {
+            miner_address,
+            ticket,
+            election_proof,
+            beacon_entries,
+            winning_post_proof,
+            parents,
+            weight,
+            epoch,
+            state_root,
+            message_receipts,
+            messages,
+            bls_aggregate,
+            timestamp,
+            signature,
+            fork_signal,
+            parent_base_fee,
+        } = self.into_raw();
         Self::LotusJson {
             miner: miner_address.into(),
             ticket: ticket.into(),
@@ -152,17 +147,5 @@ impl HasLotusJson for BlockHeader {
             bls_aggregate: b_l_s_aggregate.into_inner(),
             parent_base_fee: parent_base_fee.into_inner(),
         })
-    }
-}
-
-#[test]
-fn snapshots() {
-    assert_all_snapshots::<BlockHeader>()
-}
-
-#[cfg(test)]
-quickcheck::quickcheck! {
-    fn quickcheck(val: BlockHeader) -> () {
-        assert_unchanged_via_json(val)
     }
 }
