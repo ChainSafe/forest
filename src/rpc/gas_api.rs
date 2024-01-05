@@ -36,7 +36,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 ) -> Result<TokenAmount, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
-    let parent_base_fee = ts.blocks()[0].parent_base_fee();
+    let parent_base_fee = &ts.blocks()[0].parent_base_fee;
     let increase_factor =
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
 

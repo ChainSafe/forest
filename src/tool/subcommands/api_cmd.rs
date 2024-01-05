@@ -346,11 +346,11 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             TipsetKeys::from_iter(Vec::new()),
         )),
         RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::state_lookup_id_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             shared_tipset.key().clone(),
         )),
         // This should return `Address::new_id(0xdeadbeef)`
@@ -363,7 +363,7 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             101,
             shared_tipset.key().clone(),
         )),
@@ -461,7 +461,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-                *block.miner_address(),
+                block.miner_address,
                 root_tsk.clone(),
             )));
 
@@ -535,38 +535,38 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(
                 ApiInfo::state_miner_proving_deadline_req(
-                    *block.miner_address(),
+                    block.miner_address,
                     tipset.key().clone(),
                 ),
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
-                *block.miner_address(),
-                block.epoch(),
+                block.miner_address,
+                block.epoch,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
         }

@@ -45,6 +45,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::beacon::{mock_beacon::MockBeacon, BeaconPoint, BeaconSchedule};
+    use crate::blocks::header::RawBlockHeader;
     use crate::blocks::{BlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::{SyncConfig, SyncStage};
@@ -76,11 +77,11 @@ mod tests {
         let chain_config = Arc::new(ChainConfig::default());
         let sync_config = Arc::new(SyncConfig::default());
 
-        let genesis_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .timestamp(7777)
-            .build()
-            .unwrap();
+        let genesis_header = BlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            timestamp: 7777,
+            ..Default::default()
+        });
 
         let cs_arc = Arc::new(
             ChainStore::new(db.clone(), db, chain_config.clone(), genesis_header).unwrap(),
