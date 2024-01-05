@@ -389,11 +389,55 @@ pub(in crate::rpc) async fn state_wait_msg<DB: Blockstore + Send + Sync + 'stati
     let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
     let tipset = tipset.ok_or("wait for msg returned empty tuple")?;
     let receipt = receipt.ok_or("wait for msg returned empty receipt")?;
-    let ipld: Ipld = if let Ok(ipld) = receipt.return_data().deserialize() {
-        ipld
-    } else {
-        Ipld::Null
-    };
+    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+
+    Ok(MessageLookup {
+        receipt,
+        tipset: tipset.key().clone(),
+        height: tipset.epoch(),
+        message: cid,
+        return_dec: ipld,
+    })
+}
+
+/// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsg>
+pub(in crate::rpc) async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
+) -> Result<MessageLookup, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let (tipset, receipt) = state_manager
+        .search_for_message(None, cid, None)
+        .await?
+        .with_context(|| format!("message {cid} not found."))?;
+
+    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+
+    Ok(MessageLookup {
+        receipt,
+        tipset: tipset.key().clone(),
+        height: tipset.epoch(),
+        message: cid,
+        return_dec: ipld,
+    })
+}
+
+/// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
+/// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsgLimited>
+pub(in crate::rpc) async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((cid, look_back_limit))): Params<LotusJson<(Cid, i64)>>,
+) -> Result<MessageLookup, JsonRpcError> {
+    let state_manager = &data.state_manager;
+    let (tipset, receipt) = state_manager
+        .search_for_message(None, cid, Some(look_back_limit))
+        .await?
+        .with_context(|| {
+            format!("message {cid} not found within the last {look_back_limit} epochs")
+        })?;
+
+    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
 
     Ok(MessageLookup {
         receipt,

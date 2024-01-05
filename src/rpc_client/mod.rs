@@ -18,6 +18,7 @@ use std::env;
 use std::fmt;
 use std::marker::PhantomData;
 use std::str::FromStr;
+use std::time::Duration;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
@@ -31,6 +32,7 @@ pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
 pub const DEFAULT_PROTOCOL: &str = "http";
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug)]
 pub struct ApiInfo {
@@ -95,7 +97,10 @@ impl ApiInfo {
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
-        let request = global_http_client().post(api_url).json(&rpc_req);
+        let request = global_http_client()
+            .post(api_url)
+            .timeout(req.timeout)
+            .json(&rpc_req);
         let request = match self.token.as_ref() {
             Some(token) => request.header(http0::header::AUTHORIZATION, token),
             _ => request,
@@ -260,6 +265,7 @@ pub struct RpcRequest<T = serde_json::Value> {
     params: serde_json::Value,
     result_type: PhantomData<T>,
     rpc_endpoint: &'static str,
+    timeout: Duration,
 }
 
 impl<T> RpcRequest<T> {
@@ -273,6 +279,7 @@ impl<T> RpcRequest<T> {
             ),
             result_type: PhantomData,
             rpc_endpoint: "rpc/v0",
+            timeout: DEFAULT_TIMEOUT,
         }
     }
 
@@ -286,7 +293,12 @@ impl<T> RpcRequest<T> {
             ),
             result_type: PhantomData,
             rpc_endpoint: "rpc/v1",
+            timeout: DEFAULT_TIMEOUT,
         }
+    }
+
+    pub fn set_timeout(&mut self, timeout: Duration) {
+        self.timeout = timeout;
     }
 
     // Discard type information about the response.
@@ -296,6 +308,7 @@ impl<T> RpcRequest<T> {
             params: self.params,
             result_type: PhantomData,
             rpc_endpoint: self.rpc_endpoint,
+            timeout: self.timeout,
         }
     }
 }
