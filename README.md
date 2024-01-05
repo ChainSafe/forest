@@ -1,15 +1,19 @@
 <p align="center">
-  <img width="748" height="243" src="documentation/src/img/forest_logo.png">
+  <img height="243" src="documentation/src/img/forest_logo.png">
 </p>
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge)](https://github.com/ChainSafe/forest/actions)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge)](https://github.com/ChainSafe/forest/releases/latest)
-[![forest book](https://img.shields.io/badge/doc-book-green?style=for-the-badge)](https://chainsafe.github.io/forest/)
-[![rustdoc@main](https://img.shields.io/badge/doc-rustdoc@main-green?style=for-the-badge)](https://chainsafe.github.io/forest/rustdoc/)
-[![License Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE)
-[![License MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT)
-[![Twitter](https://img.shields.io/twitter/follow/ChainSafeth.svg?style=for-the-badge&label=Twitter&color=1DA1F2)](https://twitter.com/ChainSafeth)
-[![Discord](https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord)](https://discord.gg/Q6A3YA2)
+<p align="center">
+    <a href="https://github.com/ChainSafe/forest/actions"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/ChainSafe/forest/forest.yml?style=for-the-badge"></a>
+    <a href="https://github.com/ChainSafe/forest/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ChainSafe/forest?style=for-the-badge"></a>
+    <a href="https://docs.forest.chainsafe.io"><img alt="Docs" src="https://img.shields.io/badge/doc-user_guide-green?style=for-the-badge"></a>
+    <a href="https://docs.forest.chainsafe.io/rustdoc/"><img alt="Rust Docs" src="https://img.shields.io/badge/doc-rust_docs-green?style=for-the-badge"></a>
+</p>
+ <p align="center">
+    <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-APACHE"><img alt="License Apache 2.0" src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge"></a>
+    <a href="https://github.com/ChainSafe/forest/blob/main/LICENSE-MIT"><img alt="License MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge"></a>
+    <a href="https://discord.gg/Q6A3YA2"><img alt="Discord" src="https://img.shields.io/discord/593655374469660673.svg?style=for-the-badge&label=Discord&logo=discord"></a>
+    <a href="https://twitter.com/ChainSafeth"><img alt="Twitter" src="https://img.shields.io/twitter/follow/chainsafeth?style=for-the-badge&color=1DA1F2"></a>
+</p>
 
 Forest is a [Filecoin] node written in [Rust]. With Forest, you can:
 
@@ -37,7 +41,7 @@ Docker - works on Linux, macOS and Windows.
 ```
 
 Next, run a Forest node in a CLI window. E.g.
-[Run calibration network](https://chainsafe.github.io/forest/docker.html#create-a-forest-node-running-calibration-network-then-list-all-connected-peers)
+[Run calibration network](https://docs.forest.chainsafe.io/docker.html#create-a-forest-node-running-calibration-network-then-list-all-connected-peers)
 
 Thereafter, in another terminal, you will be able to use the `forest-cli` binary
 directly by launching `bash` in the `forest` container:
@@ -298,7 +302,7 @@ server, allowing you to chain some RPC command immediately after.
 ### Documentation
 
 - [Forest Book]
-- [rust doc](https://chainsafe.github.io/forest/rustdoc/)
+- [rust doc](https://docs.forest.chainsafe.io/rustdoc/)
 
 ## Contributing
 
@@ -323,7 +327,7 @@ Forest is dual licensed under [MIT] + [Apache 2.0].
 [Filecoin]: https://filecoin.io/
 [Rust]: https://www.rust-lang.org/
 [Lotus]: https://lotus.filecoin.io/
-[Forest Book]: https://chainsafe.github.io/forest/
+[Forest Book]: https://docs.forest.chainsafe.io/
 [Forest Q&A]:
   https://github.com/ChainSafe/forest/discussions/categories/forest-q-a
 [CONTRIBUTING.md]: documentation/src/developer_documentation/contributing.md
