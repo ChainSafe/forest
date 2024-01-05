@@ -1,8 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt;
-
 use super::{ElectionProof, Error, Ticket, TipsetKeys};
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
@@ -347,12 +345,5 @@ impl BlockHeader {
         } else {
             Ok(None)
         }
-    }
-}
-
-/// human-readable string representation of a block CID
-impl fmt::Display for BlockHeader {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BlockHeader: {:?}", self.cid())
     }
 }
