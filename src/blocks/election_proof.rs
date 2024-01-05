@@ -134,7 +134,7 @@ impl Poiss {
 /// This is generated from hashing a partial ticket and using the hash to
 /// generate a value.
 #[derive(
-    Clone, Debug, PartialEq, PartialOrd, Eq, Default, Ord, Serialize_tuple, Deserialize_tuple,
+    Clone, Debug, PartialEq, PartialOrd, Eq, Default, Ord, Serialize_tuple, Deserialize_tuple, Hash,
 )]
 pub struct ElectionProof {
     pub win_count: i64,
