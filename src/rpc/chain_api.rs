@@ -380,6 +380,43 @@ pub(in crate::rpc) async fn chain_get_path(
     Err(JsonRpcError::from("no common ancestor found"))
 }
 
+#[test]
+fn test() {
+    use crate::{db::MemoryDB, genesis, networks::ChainConfig};
+    use futures::executor::block_on;
+
+    let db = Arc::new(MemoryDB::default());
+    let chain_config = ChainConfig::calibnet();
+    let genesis_bytes = block_on(chain_config.genesis_bytes(&db)).unwrap();
+    let genesis_block_header = block_on(genesis::read_genesis_header(
+        None,
+        genesis_bytes.as_deref(),
+        &db,
+    ))
+    .unwrap();
+    let genesis_tipset = Tipset::from(&genesis_block_header);
+    let chain_store = ChainStore::new(
+        db.clone(),
+        db.clone(),
+        Arc::new(ChainConfig::calibnet()),
+        genesis_block_header,
+    )
+    .unwrap();
+    //     1   2    3    4   5
+    //
+    // 0 - A - B  - C  - D - E
+    //     |                 ^ `from`
+    //     |
+    //      -- B' - C' - D'
+    //                   ^ `to`
+    let a = BlockHeader::builder()
+        .epoch(1)
+        .parents(genesis_tipset.key().clone())
+        .build()
+        .unwrap();
+    chain_store.put_tipset(&Tipset::from(a)).unwrap(); // unknown power actor code...
+}
+
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKey)>>,
