@@ -92,6 +92,7 @@ itertools = "0.12.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "9"
 kanal = "0.1.0-pre8"
+kubert-prometheus-process = "0.1"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
@@ -136,7 +137,6 @@ pathfinding = "4.4.0"
 pin-project-lite = "0.2"
 positioned-io = "0.3.3"
 pretty_assertions = "1.3.0"
-prometheus = { version = "0.13", features = ["process"] }
 prometheus-client = "0.22"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.2"

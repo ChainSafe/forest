@@ -7,7 +7,6 @@ use crate::db::DBStatistics;
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use prometheus::{Encoder, TextEncoder};
 use prometheus_client::{
     encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, histogram::Histogram},
@@ -43,13 +42,17 @@ pub async fn init_prometheus<DB>(
 where
     DB: DBStatistics + Send + Sync + 'static,
 {
-    // Add the DBCollector to the registry
-    {
-        let db_collector = crate::metrics::db::DBCollector::new(db_directory);
-        DEFAULT_REGISTRY
-            .write()
-            .register_collector(Box::new(db_collector));
+    // Add the process collector to the registry
+    if let Err(err) = kubert_prometheus_process::register(
+        DEFAULT_REGISTRY.write().sub_registry_with_prefix("process"),
+    ) {
+        warn!("Failed to register process metrics: {err}");
     }
+
+    // Add the DBCollector to the registry
+    DEFAULT_REGISTRY
+        .write()
+        .register_collector(Box::new(crate::metrics::db::DBCollector::new(db_directory)));
 
     // Create an configure HTTP server
     let app = Router::new()
@@ -62,18 +65,9 @@ where
 }
 
 async fn collect_prometheus_metrics() -> impl IntoResponse {
-    let registry = prometheus::default_registry();
-    let metric_families = registry.gather();
-    let mut metrics = vec![];
-
-    let encoder = TextEncoder::new();
-    encoder
-        .encode(&metric_families, &mut metrics)
-        .expect("Encoding Prometheus metrics must succeed.");
-
-    let mut text = String::new();
-    match prometheus_client::encoding::text::encode(&mut text, &DEFAULT_REGISTRY.read()) {
-        Ok(()) => metrics.extend_from_slice(text.as_bytes()),
+    let mut metrics = String::new();
+    match prometheus_client::encoding::text::encode(&mut metrics, &DEFAULT_REGISTRY.read()) {
+        Ok(()) => {}
         Err(e) => warn!("{e}"),
     };
 
