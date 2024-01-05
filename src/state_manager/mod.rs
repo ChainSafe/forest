@@ -234,7 +234,7 @@ where
         sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
         let genesis = cs.genesis();
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
         Ok(Self {
             cs,
@@ -426,7 +426,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
+                base_fee: tipset.blocks()[0].parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
@@ -515,7 +515,7 @@ where
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
-                    base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                    base_fee: ts.blocks()[0].parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
@@ -694,7 +694,7 @@ where
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
-            self.chain_store().genesis().timestamp(),
+            self.chain_store().genesis().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -1302,7 +1302,7 @@ where
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
-        let genesis_timestamp = self.chain_store().genesis().timestamp();
+        let genesis_timestamp = self.chain_store().genesis().timestamp;
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
@@ -1382,9 +1382,9 @@ where
                 VMTrace::NotTraced,
             )
             .context("couldn't compute tipset state")?;
-            let expected_receipt = child.min_ticket_block().message_receipts();
+            let expected_receipt = child.min_ticket_block().message_receipts;
             let expected_state = child.parent_state();
-            match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
+            match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
                 true => Ok(()),
                 false => {
                     error!(
@@ -1504,8 +1504,8 @@ where
         // block miner reference a valid miner in the state tree. Unless we create some
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
-        let message_receipts = tipset.min_ticket_block().message_receipts();
-        return Ok((*tipset.parent_state(), *message_receipts));
+        let message_receipts = tipset.min_ticket_block().message_receipts;
+        return Ok((*tipset.parent_state(), message_receipts));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1527,7 +1527,7 @@ where
                 state_tree_root: state_root,
                 epoch,
                 rand: Box::new(rand.clone()),
-                base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
+                base_fee: tipset.min_ticket_block().parent_base_fee.clone(),
                 circ_supply: circulating_supply,
                 chain_config: Arc::clone(&chain_config),
                 chain_index: Arc::clone(&chain_index),

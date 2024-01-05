@@ -68,7 +68,7 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
         .blocks()
         .first()
         .context("Failed to get the first block")?;
-    let base_fee = block0.parent_base_fee();
+    let base_fee = &block0.parent_base_fee;
     if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
         let gas_price = base_fee.add(premium);
         Ok(GasPriceResult(gas_price.atto().clone()))

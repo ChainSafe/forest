@@ -503,7 +503,7 @@ mod tests {
             .unwrap()
             .unwrap();
         let state =
-            StateTree::new_from_root(Arc::new(&forest_car), genesis_block.state_root()).unwrap();
+            StateTree::new_from_root(Arc::new(&forest_car), &genesis_block.state_root).unwrap();
         let init_act = state.get_actor(&init::ADDRESS.into()).unwrap().unwrap();
 
         let state = State::load(&forest_car, init_act.code, init_act.state).unwrap();

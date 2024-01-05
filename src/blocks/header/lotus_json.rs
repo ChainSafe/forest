@@ -92,8 +92,8 @@ impl HasLotusJson for BlockHeader {
                     fork_signal,
                     parent_base_fee,
                 },
-            cid,
-            signature_has_ever_been_checked,
+            cid: _ignore_cached0,
+            signature_has_ever_been_checked: _ignore_cached1,
         } = self;
         Self::LotusJson {
             miner: miner_address.into(),
