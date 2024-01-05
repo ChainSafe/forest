@@ -530,12 +530,15 @@ fn load_api_messages_from_tipset(
 /// ```
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc, slice};
+
     use super::*;
 
     use crate::{
+        chain,
         db::{MemoryDB, SettingsStore},
         genesis,
-        networks::ChainConfig,
+        networks::{calibnet, ChainConfig},
         utils::db::car_util::load_car,
     };
     use futures::executor::block_on;
@@ -547,6 +550,9 @@ mod tests {
         {
             let db = Arc::new(DB::default());
             let chain_config = ChainConfig::calibnet();
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(async { load_car(&db, calibnet::DEFAULT_GENESIS).await.unwrap() });
             let genesis_bytes = block_on(chain_config.genesis_bytes(&db)).unwrap();
             let genesis_block_header = block_on(genesis::read_genesis_header(
                 None,
@@ -585,6 +591,26 @@ mod tests {
         }
     }
 
+    struct TipsetTrailInner {
+        lanes: RefCell<Option<Vec<Vec<(i64, TipsetKeys)>>>>,
+    }
+
+    struct TipsetTrail {
+        inner: Rc<TipsetTrailInner>,
+        lane: usize,
+    }
+
+    impl TipsetTrail {
+        pub fn new(base: &Tipset) -> Self {
+            Self {
+                inner: Rc::new(TipsetTrailInner {
+                    lanes: RefCell::new(Some(vec![vec![(base.epoch(), base.key().clone())]])),
+                }),
+                lane: 0,
+            }
+        }
+    }
+
     #[test]
     fn test() {
         let chain_store = ChainStore::<MemoryDB>::calibnet();
@@ -593,7 +619,14 @@ mod tests {
             .parents(chain_store.genesis_tipset_key())
             .build()
             .unwrap();
-        chain_store.put_tipset(&a.tipset()).unwrap(); // unknown power actor code...
+        chain::persist_objects(chain_store.blockstore(), slice::from_ref(&a)).unwrap();
+        assert_eq!(
+            chain_store.load_tipset(&a.tipset_keys()).unwrap().unwrap(),
+            Arc::new(a.tipset())
+        );
+        // chain_store
+        //     .set_heaviest_tipset(Arc::new(a.tipset()))
+        //     .unwrap(); // succeeds, but maybe not what we want
     }
 
     // aria2c https://forest-archive.chainsafe.dev/calibnet/diff/forest_diff_calibnet_2022-11-02_height_0+3000.forest.car.zst
