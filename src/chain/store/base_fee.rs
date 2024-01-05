@@ -87,7 +87,7 @@ where
     }
 
     // Compute next base fee based on the current gas limit and parent base fee.
-    let parent_base_fee = ts.blocks()[0].parent_base_fee();
+    let parent_base_fee = &ts.blocks()[0].parent_base_fee;
     Ok(compute_next_base_fee(
         parent_base_fee,
         total_limit,
@@ -99,6 +99,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::blocks::header::RawBlockHeader;
     use crate::blocks::{BlockHeader, Tipset};
     use crate::db::MemoryDB;
     use crate::networks::{ChainConfig, Height};
@@ -167,10 +168,10 @@ mod tests {
     #[test]
     fn compute_base_fee_shouldnt_panic_on_bad_input() {
         let blockstore = MemoryDB::default();
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let h0 = BlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        });
         let ts = Tipset::from(h0);
         let smoke_height = ChainConfig::default().epoch(Height::Smoke);
         assert!(compute_base_fee(&blockstore, &ts, smoke_height).is_err());

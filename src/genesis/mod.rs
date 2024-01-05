@@ -48,7 +48,7 @@ where
 {
     // Get network name from genesis state.
     let network_name = state_manager
-        .get_network_name(genesis_header.state_root())
+        .get_network_name(&genesis_header.state_root)
         .map_err(|e| anyhow::anyhow!("Failed to retrieve network name from genesis: {}", e))?;
     Ok(network_name)
 }

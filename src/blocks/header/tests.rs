@@ -8,15 +8,16 @@ use fvm_ipld_encoding::to_vec;
 
 use crate::blocks::{errors::Error, BlockHeader};
 
+use super::RawBlockHeader;
+
 impl quickcheck::Arbitrary for BlockHeader {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // TODO(forest): https://github.com/ChainSafe/forest/issues/3571
-        let block_header = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .epoch(ChainEpoch::arbitrary(g))
-            .build()
-            .unwrap();
-        block_header
+        BlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            epoch: ChainEpoch::arbitrary(g),
+            ..Default::default()
+        })
     }
 }
 
@@ -41,11 +42,10 @@ fn symmetric_header_encoding() {
 #[test]
 fn beacon_entry_exists() {
     // Setup
-    let block_header = BlockHeader::builder()
-        .miner_address(Address::new_id(0))
-        .beacon_entries(Vec::new())
-        .build()
-        .unwrap();
+    let block_header = BlockHeader::new(RawBlockHeader {
+        miner_address: Address::new_id(0),
+        ..Default::default()
+    });
     let beacon_schedule = BeaconSchedule(vec![BeaconPoint {
         height: 0,
         beacon: Box::<MockBeacon>::default(),

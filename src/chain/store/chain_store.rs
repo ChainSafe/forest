@@ -283,7 +283,7 @@ where
         if lbr >= heaviest_tipset.epoch() {
             // This situation is extremely rare so it's fine to compute the
             // state-root without caching.
-            let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp();
+            let genesis_timestamp = heaviest_tipset.genesis(&chain_index.db)?.timestamp;
             let beacon = Arc::new(chain_config.get_beacon_schedule(genesis_timestamp));
             let (state, _) = crate::state_manager::apply_block_messages(
                 genesis_timestamp,
@@ -335,7 +335,7 @@ pub fn block_messages<DB>(
 where
     DB: Blockstore,
 {
-    let (bls_cids, secpk_cids) = read_msg_cids(db, bh.messages())?;
+    let (bls_cids, secpk_cids) = read_msg_cids(db, &bh.messages)?;
 
     let bls_msgs: Vec<Message> = messages_from_cids(db, &bls_cids)?;
     let secp_msgs: Vec<SignedMessage> = messages_from_cids(db, &secpk_cids)?;
@@ -492,7 +492,7 @@ pub fn get_parent_receipt(
 ) -> Result<Option<Receipt>, Error> {
     Ok(Receipt::get_receipt(
         db,
-        block_header.message_receipts(),
+        &block_header.message_receipts,
         i as u64,
     )?)
 }
@@ -521,7 +521,7 @@ pub mod headchange_json {
 
 #[cfg(test)]
 mod tests {
-    use crate::shim::address::Address;
+    use crate::{blocks::header::RawBlockHeader, shim::address::Address};
     use cid::{
         multihash::{
             Code::{Blake2b256, Identity},
@@ -538,15 +538,15 @@ mod tests {
         let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
-        let gen_block = BlockHeader::builder()
-            .epoch(1)
-            .weight(2_u32.into())
-            .messages(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
-            .message_receipts(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
-            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let gen_block = BlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            epoch: 1,
+            weight: 2u32.into(),
+            messages: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            message_receipts: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            ..Default::default()
+        });
         let cs = ChainStore::new(db.clone(), db, chain_config, gen_block.clone()).unwrap();
 
         assert_eq!(cs.genesis(), &gen_block);
@@ -556,10 +556,10 @@ mod tests {
     fn block_validation_cache_basic() {
         let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
-        let gen_block = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let gen_block = BlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        });
 
         let cs = ChainStore::new(db.clone(), db, chain_config, gen_block).unwrap();
 

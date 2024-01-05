@@ -50,10 +50,10 @@ pub(in crate::rpc) async fn chain_get_parent_message<DB: Blockstore>(
     let block_header: BlockHeader = store
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
-    if block_header.epoch() == 0 {
+    if block_header.epoch == 0 {
         Ok(LotusJson(vec![]))
     } else {
-        let parent_tipset = Tipset::load_required(store, block_header.parents())?;
+        let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
         let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
         Ok(LotusJson(messages))
     }
@@ -71,12 +71,12 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
     if block_header.epoch() == 0 {
         return Ok(LotusJson(vec![]));
     }
-    let amt = Amt::<Receipt, _>::load(block_header.message_receipts(), store).map_err(|_| {
+    let amt = Amt::<Receipt, _>::load(&block_header.message_receipts, store).map_err(|_| {
         JsonRpcError::Full {
             code: 1,
             message: format!(
                 "failed to root: ipld: could not find {}",
-                block_header.message_receipts()
+                block_header.message_receipts
             ),
             data: None,
         }
@@ -197,7 +197,7 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
         .blockstore()
         .get_cbor(&blk_cid)?
         .ok_or("can't find block with that cid")?;
-    let blk_msgs = blk.messages();
+    let blk_msgs = &blk.messages;
     let (unsigned_cids, signed_cids) =
         crate::chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
     let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
@@ -288,7 +288,7 @@ pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
                 .chain_store()
                 .unmark_block_as_validated(&cid);
         }
-        let parents = current.blocks()[0].parents();
+        let parents = &current.blocks()[0].parents;
         current = data
             .state_manager
             .chain_store()
@@ -305,16 +305,16 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     Params((basefee_lookback,)): Params<(u32,)>,
 ) -> Result<String, JsonRpcError> {
     let mut current = data.state_manager.chain_store().heaviest_tipset();
-    let mut min_base_fee = current.blocks()[0].parent_base_fee().clone();
+    let mut min_base_fee = current.blocks()[0].parent_base_fee.clone();
 
     for _ in 0..basefee_lookback {
-        let parents = current.blocks()[0].parents();
+        let parents = &current.blocks()[0].parents;
         current = data
             .state_manager
             .chain_store()
             .load_required_tipset(parents)?;
 
-        min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee().to_owned());
+        min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee.to_owned());
     }
 
     Ok(min_base_fee.atto().to_string())

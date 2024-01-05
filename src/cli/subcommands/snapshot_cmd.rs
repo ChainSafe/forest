@@ -63,7 +63,7 @@ impl SnapshotCommands {
                         TrustedVendor::Forest,
                         chain_name,
                         NaiveDateTime::from_timestamp_opt(
-                            tipset.min_ticket_block().timestamp() as i64,
+                            tipset.min_ticket_block().timestamp as i64,
                             0,
                         )
                         .unwrap_or_default()

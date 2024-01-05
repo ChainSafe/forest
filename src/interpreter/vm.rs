@@ -120,10 +120,10 @@ impl BlockMessages {
                 );
 
                 Ok(BlockMessages {
-                    miner: *b.miner_address(),
+                    miner: b.miner_address,
                     messages,
                     win_count: b
-                        .election_proof()
+                        .election_proof
                         .as_ref()
                         .map(|e| e.win_count)
                         .unwrap_or_default(),

@@ -5,6 +5,7 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
+use crate::blocks::header::RawBlockHeader;
 use crate::blocks::VRFProof;
 use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
@@ -220,13 +221,14 @@ impl Provider for TestApi {
 }
 
 pub fn create_header(weight: u64) -> BlockHeader {
-    BlockHeader::builder()
-        .weight(BigInt::from(weight))
-        .miner_address(Address::new_id(0))
-        .build()
-        .unwrap()
+    BlockHeader::new(RawBlockHeader {
+        miner_address: Address::new_id(0),
+        weight: BigInt::from(weight),
+        ..Default::default()
+    })
 }
 
+// TODO(aatifsyed): I've seen this code before...
 pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -238,16 +240,16 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         vrfproof: VRFProof::new(fmt_str.into_bytes()),
     };
     let weight_inc = BigInt::from(weight);
-    BlockHeader::builder()
-        .miner_address(addr)
-        .election_proof(Some(election_proof))
-        .ticket(Some(ticket))
-        .message_receipts(c)
-        .messages(c)
-        .state_root(c)
-        .weight(weight_inc)
-        .build()
-        .unwrap()
+    BlockHeader::new(RawBlockHeader {
+        miner_address: addr,
+        election_proof: Some(election_proof),
+        ticket: Some(ticket),
+        message_receipts: c,
+        messages: c,
+        state_root: c,
+        weight: weight_inc,
+        ..Default::default()
+    })
 }
 
 pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
@@ -257,23 +259,23 @@ pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u
     let height = parents.epoch() + 1;
 
     let mut weight_inc = BigInt::from(weight);
-    weight_inc = parents.blocks()[0].weight() + weight_inc;
+    weight_inc = &parents.blocks()[0].weight + weight_inc;
     let fmt_str = format!("===={ticket_sequence}=====");
     let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
     let election_proof = ElectionProof {
         win_count: 0,
         vrfproof: VRFProof::new(fmt_str.into_bytes()),
     };
-    BlockHeader::builder()
-        .miner_address(addr)
-        .election_proof(Some(election_proof))
-        .ticket(Some(ticket))
-        .parents(parents.key().clone())
-        .message_receipts(c)
-        .messages(c)
-        .state_root(*parents.blocks()[0].state_root())
-        .weight(weight_inc)
-        .epoch(height)
-        .build()
-        .unwrap()
+    BlockHeader::new(RawBlockHeader {
+        miner_address: addr,
+        election_proof: Some(election_proof),
+        ticket: Some(ticket),
+        parents: parents.key().clone(),
+        message_receipts: c,
+        messages: c,
+        state_root: parents.blocks()[0].state_root,
+        weight: weight_inc,
+        epoch: height,
+        ..Default::default()
+    })
 }

@@ -305,11 +305,11 @@ where
         debug!(
             "Received block over GossipSub: {} height {} from {}",
             block.header.cid(),
-            block.header.epoch(),
+            block.header.epoch,
             source,
         );
 
-        let epoch = block.header.epoch();
+        let epoch = block.header.epoch;
 
         debug!(
             "Getting messages of gossipblock, epoch: {epoch}, block: {}",

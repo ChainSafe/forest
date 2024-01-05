@@ -93,7 +93,7 @@ where
     let mut secp_msg_includes: Vec<Vec<u64>> = vec![];
 
     for block_header in tipset.blocks().iter() {
-        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, block_header.messages())?;
+        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, &block_header.messages)?;
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());
         for bls_cid in bls_cids.into_iter() {
@@ -144,7 +144,7 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use crate::blocks::BlockHeader;
+    use crate::blocks::{header::RawBlockHeader, BlockHeader};
     use crate::db::MemoryDB;
     use crate::genesis::EXPORT_SR_40;
     use crate::networks::ChainConfig;
@@ -167,10 +167,10 @@ mod tests {
     async fn compact_messages_test() {
         let (cids, db) = populate_db().await;
 
-        let gen_block = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let gen_block = BlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        });
 
         let response = make_chain_exchange_response(
             &ChainStore::new(db.clone(), db, Arc::new(ChainConfig::default()), gen_block).unwrap(),

@@ -11,10 +11,9 @@ use crate::{
 };
 use cid::Cid;
 use num::BigInt;
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
-use super::BlockHeader;
+use super::{BlockHeader, RawBlockHeader};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -74,24 +73,27 @@ impl HasLotusJson for BlockHeader {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         let Self {
-            parents,
-            weight,
-            epoch,
-            beacon_entries,
-            winning_post_proof,
-            miner_address,
-            messages,
-            message_receipts,
-            state_root,
-            fork_signal,
-            signature,
-            election_proof,
-            timestamp,
-            ticket,
-            bls_aggregate,
-            parent_base_fee,
-            cached_cid: _ignore_cache0,
-            is_validated: _ignore_cache1,
+            uncached:
+                RawBlockHeader {
+                    miner_address,
+                    ticket,
+                    election_proof,
+                    beacon_entries,
+                    winning_post_proof,
+                    parents,
+                    weight,
+                    epoch,
+                    state_root,
+                    message_receipts,
+                    messages,
+                    bls_aggregate,
+                    timestamp,
+                    signature,
+                    fork_signal,
+                    parent_base_fee,
+                },
+            cid,
+            signature_has_ever_been_checked,
         } = self;
         Self::LotusJson {
             miner: miner_address.into(),
@@ -132,7 +134,7 @@ impl HasLotusJson for BlockHeader {
             fork_signaling,
             parent_base_fee,
         } = lotus_json;
-        Self {
+        Self::new(RawBlockHeader {
             parents: parents.into_inner(),
             weight: parent_weight.into_inner(),
             epoch: height.into_inner(),
@@ -149,9 +151,7 @@ impl HasLotusJson for BlockHeader {
             ticket: ticket.into_inner(),
             bls_aggregate: b_l_s_aggregate.into_inner(),
             parent_base_fee: parent_base_fee.into_inner(),
-            cached_cid: OnceCell::new(),
-            is_validated: OnceCell::new(),
-        }
+        })
     }
 }
 
