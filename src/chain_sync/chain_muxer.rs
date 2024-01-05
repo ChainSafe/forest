@@ -369,7 +369,7 @@ where
                     .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
                     .inc();
                 metrics::PEER_TIPSET_EPOCH
-                    .get_or_create(&metrics::PeerLabel::new(source.to_string()))
+                    .get_or_create(&metrics::PeerLabel::new(source))
                     .set(request.heaviest_tipset_height);
                 return Ok(None);
             }
@@ -424,7 +424,7 @@ where
                     .get_or_create(&metrics::values::PEER_DISCONNECTED)
                     .inc();
                 // Remove peer id labels for disconnected peers
-                metrics::PEER_TIPSET_EPOCH.remove(&metrics::PeerLabel::new(peer_id.to_string()));
+                metrics::PEER_TIPSET_EPOCH.remove(&metrics::PeerLabel::new(peer_id));
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -513,7 +513,7 @@ where
             .peer_manager()
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
         metrics::PEER_TIPSET_EPOCH
-            .get_or_create(&metrics::PeerLabel::new(source.to_string()))
+            .get_or_create(&metrics::PeerLabel::new(source))
             .set(tipset.epoch());
 
         Ok(Some((tipset, source)))

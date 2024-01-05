@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use libp2p::PeerId;
 use once_cell::sync::Lazy;
 use prometheus_client::{
     encoding::{EncodeLabelKey, EncodeLabelSet, EncodeLabelValue, LabelSetEncoder},
@@ -128,10 +129,10 @@ pub static FOLLOW_NETWORK_ERRORS: Lazy<Counter> = Lazy::new(|| {
 });
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct PeerLabel(String);
+pub struct PeerLabel(PeerId);
 
 impl PeerLabel {
-    pub const fn new(peer: String) -> Self {
+    pub const fn new(peer: PeerId) -> Self {
         Self(peer)
     }
 }
@@ -142,7 +143,7 @@ impl EncodeLabelSet for PeerLabel {
         let mut label_key_encoder = label_encoder.encode_label_key()?;
         EncodeLabelKey::encode(&"PEER", &mut label_key_encoder)?;
         let mut label_value_encoder = label_key_encoder.encode_label_value()?;
-        EncodeLabelValue::encode(&self.0, &mut label_value_encoder)?;
+        EncodeLabelValue::encode(&self.0.to_string(), &mut label_value_encoder)?;
         label_value_encoder.finish()
     }
 }
