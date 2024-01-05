@@ -386,35 +386,43 @@ fn eth_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block = shared_tipset.min_ticket_block();
-    // TODO: move the `get_state_miner_active_sectors` call here
-    vec![
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        )),
-        RpcTest::identity(ApiInfo::state_market_storage_deal_req(
-            *shared_block.miner_address(),
+async fn eth_tests_with_tipset(shared_tipset: &Tipset, forest: &ApiInfo) -> Vec<RpcTest> {
+    let mut tests = vec![];
+    // We need to find a valid deal ID; these are contained in the active sectors.
+    let shared_block_address = shared_tipset.min_ticket_block().miner_address();
+    let active_sectors = ApiInfo::state_miner_active_sectors_req(
+        *shared_block_address,
+        shared_tipset.key().clone(),
+    );
+    let active_sectors_call = forest.call(active_sectors).await.expect("active sectors call failed");
+    let deal_ids = active_sectors_call.iter().filter(|sector| sector.deal_ids.len() > 0).map(|sector| sector.deal_ids[0]).collect::<Vec<u64>>();
+    tests.push(RpcTest::identity(ApiInfo::eth_get_balance_req(
+        EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+        BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+    )));
+    tests.push(RpcTest::identity(ApiInfo::eth_get_balance_req(
+        EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+        BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+    )));
+    for deal_id in deal_ids {
+        tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+            deal_id,
             shared_tipset.key().clone(),
-        )),
-    ]
+        )));
+    }
+    tests
 }
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
-fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
+async fn snapshot_tests(store: &ManyCar, n_tipsets: usize, forest: &ApiInfo) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
     let shared_tipset_epoch = shared_tipset.epoch();
     let root_tsk = shared_tipset.key().clone();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
-    tests.extend(eth_tests_with_tipset(&shared_tipset));
+    tests.extend(eth_tests_with_tipset(&shared_tipset, forest).await);
 
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
@@ -615,7 +623,7 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store, n_tipsets)?);
+        tests.extend(snapshot_tests(&store, n_tipsets, &forest).await?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);

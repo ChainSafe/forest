@@ -9,12 +9,10 @@ use crate::blocks::{Tipset, TipsetKeys};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
-use crate::rpc::state_api::get_state_miner_active_sectors;
 use crate::rpc::state_api::state_market_deals;
 use crate::rpc_api::data_types::MarketDeal;
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
-use crate::shim::address::Address;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
 use anyhow::{bail, Context};
@@ -154,19 +152,8 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 
 pub(in crate::rpc) async fn state_market_storage_deal<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+    Params(LotusJson((deal_id, tsk))): Params<LotusJson<(u64, TipsetKeys)>>,
 ) -> Result<MarketDeal, JsonRpcError> {
-    // TODO: after this is working, move this logic to the `eth_test_with_tipset` tests and revert `state_market_storage_deal` to take a `DealID` as a param.
-    // We need to find a valid deal ID; these are contained in the active sectors.
-    let active_sectors = get_state_miner_active_sectors(&data, &miner, &tsk).await?;
-    let deal_id = active_sectors
-        .0
-        .iter()
-        .filter(|s| s.deal_ids.len() > 0)
-        .next()
-        .ok_or("No active sectors")?
-        .deal_ids[0];
-
     Ok(state_market_deals(data, Params(LotusJson((tsk,))))
         .await?
         .into_iter()
