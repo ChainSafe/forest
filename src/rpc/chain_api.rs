@@ -380,43 +380,6 @@ pub(in crate::rpc) async fn chain_get_path(
     Err(JsonRpcError::from("no common ancestor found"))
 }
 
-#[test]
-fn test() {
-    use crate::{db::MemoryDB, genesis, networks::ChainConfig};
-    use futures::executor::block_on;
-
-    let db = Arc::new(MemoryDB::default());
-    let chain_config = ChainConfig::calibnet();
-    let genesis_bytes = block_on(chain_config.genesis_bytes(&db)).unwrap();
-    let genesis_block_header = block_on(genesis::read_genesis_header(
-        None,
-        genesis_bytes.as_deref(),
-        &db,
-    ))
-    .unwrap();
-    let genesis_tipset = Tipset::from(&genesis_block_header);
-    let chain_store = ChainStore::new(
-        db.clone(),
-        db.clone(),
-        Arc::new(ChainConfig::calibnet()),
-        genesis_block_header,
-    )
-    .unwrap();
-    //     1   2    3    4   5
-    //
-    // 0 - A - B  - C  - D - E
-    //     |                 ^ `from`
-    //     |
-    //      -- B' - C' - D'
-    //                   ^ `to`
-    let a = BlockHeader::builder()
-        .epoch(1)
-        .parents(genesis_tipset.key().clone())
-        .build()
-        .unwrap();
-    chain_store.put_tipset(&Tipset::from(a)).unwrap(); // unknown power actor code...
-}
-
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKey)>>,
@@ -552,4 +515,83 @@ fn load_api_messages_from_tipset(
     }
 
     Ok(messages)
+}
+
+/// The goal is to create a chain like this:
+///
+/// ```text
+///     1   2    3    4   5
+///
+/// 0 - A - B  - C  - D - E
+///     |                 ^ `from`
+///     |
+///      -- B' - C' - D'
+///                   ^ `to`
+/// ```
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{
+        db::{MemoryDB, SettingsStore},
+        genesis,
+        networks::ChainConfig,
+    };
+    use futures::executor::block_on;
+
+    impl<DB> ChainStore<DB> {
+        fn calibnet() -> Self
+        where
+            DB: Blockstore + Default + SettingsStore + Send + Sync + 'static,
+        {
+            let db = Arc::new(DB::default());
+            let chain_config = ChainConfig::calibnet();
+            let genesis_bytes = block_on(chain_config.genesis_bytes(&db)).unwrap();
+            let genesis_block_header = block_on(genesis::read_genesis_header(
+                None,
+                genesis_bytes.as_deref(),
+                &db,
+            ))
+            .unwrap();
+            ChainStore::new(
+                db.clone(),
+                db.clone(),
+                Arc::new(ChainConfig::calibnet()),
+                genesis_block_header,
+            )
+            .unwrap()
+        }
+        fn genesis_tipset_key(&self) -> TipsetKeys
+        where
+            DB: Blockstore, // incorrect
+        {
+            Tipset::from(self.genesis()).key().clone()
+        }
+    }
+
+    trait BlockHeaderExt {
+        fn get(&self) -> &BlockHeader;
+        fn tipset(&self) -> Tipset {
+            Tipset::from(self.get())
+        }
+        fn tipset_keys(&self) -> TipsetKeys {
+            self.tipset().key().clone()
+        }
+    }
+    impl BlockHeaderExt for BlockHeader {
+        fn get(&self) -> &Self {
+            self
+        }
+    }
+
+    #[test]
+    fn test() {
+        let chain_store = ChainStore::<MemoryDB>::calibnet();
+        let a = BlockHeader::builder()
+            .epoch(1)
+            .parents(chain_store.genesis_tipset_key())
+            .build()
+            .unwrap();
+        chain_store.put_tipset(&a.tipset()).unwrap(); // unknown power actor code...
+    }
 }
