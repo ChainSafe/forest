@@ -2,41 +2,34 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use once_cell::sync::Lazy;
-use prometheus::core::{AtomicU64, GenericCounter, GenericGauge};
+use prometheus_client::metrics::{counter::Counter, gauge::Gauge};
 
-pub static PEER_FAILURE_TOTAL: Lazy<Box<GenericCounter<AtomicU64>>> = Lazy::new(|| {
-    let peer_failure_total = Box::new(
-        GenericCounter::<AtomicU64>::new(
-            "peer_failure_total",
-            "Total number of failed peer requests",
-        )
-        .expect("Defining the peer_failure_total metric must succeed"),
+pub static PEER_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
+    let metric = Counter::default();
+    crate::metrics::DEFAULT_REGISTRY.write().register(
+        "peer_failure_total",
+        "Total number of failed peer requests",
+        metric.clone(),
     );
-    prometheus::default_registry()
-        .register(peer_failure_total.clone())
-        .expect("Registering the peer_failure_total metric with the metrics registry must succeed");
-    peer_failure_total
+    metric
 });
-pub static FULL_PEERS: Lazy<Box<GenericGauge<AtomicU64>>> = Lazy::new(|| {
-    let full_peers = Box::new(
-        GenericGauge::<AtomicU64>::new(
-            "full_peers",
-            "Number of healthy peers recognized by the node",
-        )
-        .expect("Defining the full_peers metric must succeed"),
+
+pub static FULL_PEERS: Lazy<Gauge> = Lazy::new(|| {
+    let metric = Gauge::default();
+    crate::metrics::DEFAULT_REGISTRY.write().register(
+        "full_peers",
+        "Number of healthy peers recognized by the node",
+        metric.clone(),
     );
-    prometheus::default_registry()
-        .register(full_peers.clone())
-        .expect("Registering the full_peers metric with the metrics registry must succeed");
-    full_peers
+    metric
 });
-pub static BAD_PEERS: Lazy<Box<GenericGauge<AtomicU64>>> = Lazy::new(|| {
-    let bad_peers = Box::new(
-        GenericGauge::<AtomicU64>::new("bad_peers", "Number of bad peers recognized by the node")
-            .expect("Defining the bad_peers metric must succeed"),
+
+pub static BAD_PEERS: Lazy<Gauge> = Lazy::new(|| {
+    let metric = Gauge::default();
+    crate::metrics::DEFAULT_REGISTRY.write().register(
+        "bad_peers",
+        "Number of bad peers recognized by the node",
+        metric.clone(),
     );
-    prometheus::default_registry()
-        .register(bad_peers.clone())
-        .expect("Registering the bad_peers metric with the metrics registry must succeed");
-    bad_peers
+    metric
 });

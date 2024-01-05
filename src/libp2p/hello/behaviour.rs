@@ -61,8 +61,8 @@ impl HelloBehaviour {
 
     fn track_metrics(&self) {
         metrics::NETWORK_CONTAINER_CAPACITIES
-            .with_label_values(&[metrics::values::HELLO_REQUEST_TABLE])
-            .set(self.response_channels.capacity() as u64);
+            .get_or_create(&metrics::labels::HELLO_REQUEST_TABLE)
+            .set(self.response_channels.capacity() as _);
     }
 }
 

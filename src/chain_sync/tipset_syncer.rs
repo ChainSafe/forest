@@ -11,7 +11,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
 use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
@@ -25,6 +24,10 @@ use crate::utils::io::WithProgressRaw;
 use crate::{
     blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
+};
+use crate::{
+    chain::{persist_objects, ChainStore, Error as ChainStoreError},
+    metrics::HistogramTimerExt,
 };
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
@@ -532,7 +535,7 @@ where
                     // Drive the range_syncer to completion
                     match range_syncer.as_mut().poll(cx) {
                         Poll::Ready(Ok(_)) => {
-                            metrics::HEAD_EPOCH.set(proposed_head_epoch as u64);
+                            metrics::HEAD_EPOCH.set(proposed_head_epoch);
                             info!(
                                 "Successfully synced tipset range: [{}, {}]",
                                 current_head_epoch, proposed_head_epoch,
@@ -1061,7 +1064,7 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
                 drop(timer);
                 chainstore.set_heaviest_tipset(Arc::new(full_tipset.into_tipset()))?;
                 tracker.write().set_epoch(current_epoch);
-                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch as u64);
+                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch);
             }
             Ok(())
         })
@@ -1225,9 +1228,9 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     let v_block_store = state_manager.blockstore_owned();
     let v_block = Arc::clone(&block);
     validations.push(tokio::task::spawn_blocking(move || {
-        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
-            .with_label_values(&[metrics::values::BASE_FEE_CHECK])
-            .start_timer();
+        let metric =
+            &*metrics::BLOCK_VALIDATION_TASKS_TIME.get_or_create(&metrics::values::BASE_FEE_CHECK);
+        let _timer = metric.start_timer();
         let base_fee = crate::chain::compute_base_fee(&v_block_store, &v_base_tipset, smoke_height)
             .map_err(|e| {
                 TipsetRangeSyncerError::Validation(format!("Could not compute base fee: {e}"))
@@ -1246,9 +1249,9 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     let v_base_tipset = Arc::clone(&base_tipset);
     let weight = header.weight().clone();
     validations.push(tokio::task::spawn_blocking(move || {
-        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
-            .with_label_values(&[metrics::values::PARENT_WEIGHT_CAL])
-            .start_timer();
+        let metric = &*metrics::BLOCK_VALIDATION_TASKS_TIME
+            .get_or_create(&metrics::values::PARENT_WEIGHT_CAL);
+        let _timer = metric.start_timer();
         let calc_weight = fil_cns::weight(&v_block_store, &v_base_tipset).map_err(|e| {
             TipsetRangeSyncerError::Calculation(format!("Error calculating weight: {e}"))
         })?;
@@ -1294,9 +1297,9 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     // Block signature check
     let v_block = block.clone();
     validations.push(tokio::task::spawn_blocking(move || {
-        let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
-            .with_label_values(&[metrics::values::BLOCK_SIGNATURE_CHECK])
-            .start_timer();
+        let metric = &*metrics::BLOCK_VALIDATION_TASKS_TIME
+            .get_or_create(&metrics::values::BLOCK_SIGNATURE_CHECK);
+        let _timer = metric.start_timer();
         v_block.header().check_block_signature(&work_addr)?;
         Ok(())
     }));

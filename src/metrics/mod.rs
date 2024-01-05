@@ -7,41 +7,32 @@ use crate::db::DBStatistics;
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use prometheus::core::{AtomicU64, GenericCounterVec, Opts};
 use prometheus::{Encoder, TextEncoder};
-use std::path::PathBuf;
+use prometheus_client::{
+    encoding::EncodeLabelSet,
+    metrics::{counter::Counter, family::Family, histogram::Histogram},
+};
 use std::sync::Arc;
+use std::{path::PathBuf, time::Instant};
 use tokio::net::TcpListener;
 use tracing::warn;
 
 pub static DEFAULT_REGISTRY: Lazy<RwLock<prometheus_client::registry::Registry>> =
     Lazy::new(Default::default);
 
-pub static LRU_CACHE_HIT: Lazy<Box<GenericCounterVec<AtomicU64>>> = Lazy::new(|| {
-    let lru_cache_hit = Box::new(
-        GenericCounterVec::<AtomicU64>::new(
-            Opts::new("lru_cache_hit", "Stats of lru cache hit"),
-            &[labels::KIND],
-        )
-        .expect("Defining the lru_cache_hit metric must succeed"),
-    );
-    prometheus::default_registry()
-        .register(lru_cache_hit.clone())
-        .expect("Registering the lru_cache_hit metric with the metrics registry must succeed");
-    lru_cache_hit
+pub static LRU_CACHE_HIT: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY
+        .write()
+        .register("lru_cache_hit", "Stats of lru cache hit", metric.clone());
+    metric
 });
-pub static LRU_CACHE_MISS: Lazy<Box<GenericCounterVec<AtomicU64>>> = Lazy::new(|| {
-    let lru_cache_miss = Box::new(
-        GenericCounterVec::<AtomicU64>::new(
-            Opts::new("lru_cache_miss", "Stats of lru cache miss"),
-            &[labels::KIND],
-        )
-        .expect("Defining the lru_cache_miss metric must succeed"),
-    );
-    prometheus::default_registry()
-        .register(lru_cache_miss.clone())
-        .expect("Registering the lru_cache_miss metric with the metrics registry must succeed");
-    lru_cache_miss
+pub static LRU_CACHE_MISS: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
+    let metric = Family::default();
+    DEFAULT_REGISTRY
+        .write()
+        .register("lru_cache_miss", "Stats of lru cache miss", metric.clone());
+    metric
 });
 
 pub async fn init_prometheus<DB>(
@@ -52,11 +43,13 @@ pub async fn init_prometheus<DB>(
 where
     DB: DBStatistics + Send + Sync + 'static,
 {
-    let registry = prometheus::default_registry();
-
     // Add the DBCollector to the registry
-    let db_collector = crate::metrics::db::DBCollector::new(db_directory);
-    registry.register(Box::new(db_collector))?;
+    {
+        let db_collector = crate::metrics::db::DBCollector::new(db_directory);
+        DEFAULT_REGISTRY
+            .write()
+            .register_collector(Box::new(db_collector));
+    }
 
     // Create an configure HTTP server
     let app = Router::new()
@@ -111,13 +104,68 @@ where
     )
 }
 
-pub mod labels {
-    pub const KIND: &str = "kind";
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+pub struct KindLabel {
+    kind: &'static str,
 }
 
-pub mod values {
+impl KindLabel {
+    pub const fn new(kind: &'static str) -> Self {
+        Self { kind }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq, EncodeLabelSet)]
+pub struct TypeLabel {
+    r#type: &'static str,
+}
+
+impl TypeLabel {
+    pub const fn new(t: &'static str) -> Self {
+        Self { r#type: t }
+    }
+}
+
+pub mod labels {
+    use super::KindLabel;
+
     /// `TipsetCache`.
-    pub const TIPSET: &str = "tipset";
+    pub const TIPSET: KindLabel = KindLabel::new("tipset");
     /// tipset cache in state manager
-    pub const STATE_MANAGER_TIPSET: &str = "sm_tipset";
+    pub const STATE_MANAGER_TIPSET: KindLabel = KindLabel::new("sm_tipset");
+}
+
+pub fn default_histogram() -> Histogram {
+    // Default values from go client(https://github.com/prometheus/client_golang/blob/5d584e2717ef525673736d72cd1d12e304f243d7/prometheus/histogram.go#L68)
+    Histogram::new(
+        [
+            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+        ]
+        .into_iter(),
+    )
+}
+
+pub struct HistogramTimer<'a> {
+    histogram: &'a Histogram,
+    start: Instant,
+}
+
+impl<'a> Drop for HistogramTimer<'a> {
+    fn drop(&mut self) {
+        let duration = Instant::now() - self.start;
+        self.histogram.observe(duration.as_secs_f64());
+    }
+}
+
+pub trait HistogramTimerExt {
+    fn start_timer(&self) -> HistogramTimer<'_>;
+}
+
+impl HistogramTimerExt for Histogram {
+    fn start_timer(&self) -> HistogramTimer<'_> {
+        HistogramTimer {
+            histogram: self,
+            start: Instant::now(),
+        }
+    }
 }

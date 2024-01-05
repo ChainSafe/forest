@@ -50,33 +50,27 @@ use crate::libp2p::{
 
 pub(in crate::libp2p) mod metrics {
     use once_cell::sync::Lazy;
-    use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
-    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Box<GenericGaugeVec<AtomicU64>>> = {
+    use prometheus_client::metrics::{family::Family, gauge::Gauge};
+
+    use crate::metrics::KindLabel;
+
+    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Family<KindLabel, Gauge>> = {
         Lazy::new(|| {
-            let network_container_capacities = Box::new(
-                GenericGaugeVec::<AtomicU64>::new(
-                    Opts::new(
-                        "network_container_capacities",
-                        "Capacity for each container",
-                    ),
-                    &[labels::KIND],
-                )
-                .expect("Defining the network_container_capacities metric must succeed"),
+            let metric = Family::default();
+            crate::metrics::DEFAULT_REGISTRY.write().register(
+                "network_container_capacities",
+                "Capacity for each container",
+                metric.clone(),
             );
-            prometheus::default_registry().register(network_container_capacities.clone()).expect(
-            "Registering the network_container_capacities metric with the metrics registry must succeed"
-        );
-            network_container_capacities
+            metric
         })
     };
 
-    pub mod values {
-        pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
-        pub const CHAIN_EXCHANGE_REQUEST_TABLE: &str = "cx_request_table";
-    }
-
     pub mod labels {
-        pub const KIND: &str = "kind";
+        use crate::metrics::KindLabel;
+
+        pub const HELLO_REQUEST_TABLE: KindLabel = KindLabel::new("hello_request_table");
+        pub const CHAIN_EXCHANGE_REQUEST_TABLE: KindLabel = KindLabel::new("cx_request_table");
     }
 }
 

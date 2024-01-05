@@ -7,6 +7,7 @@ mod metrics;
 pub mod utils;
 use crate::chain_sync::SyncConfig;
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::metrics::HistogramTimerExt;
 use crate::state_migration::run_state_migrations;
 use anyhow::{bail, Context as _};
 use fil_actor_interface::init::{self, State};
@@ -137,7 +138,7 @@ impl TipsetStateCache {
         match status {
             Status::Done(x) => {
                 crate::metrics::LRU_CACHE_HIT
-                    .with_label_values(&[crate::metrics::values::STATE_MANAGER_TIPSET])
+                    .get_or_create(&crate::metrics::labels::STATE_MANAGER_TIPSET)
                     .inc();
                 Ok(x)
             }
@@ -147,7 +148,7 @@ impl TipsetStateCache {
                     Some(v) => {
                         // While locking someone else computed the pending task
                         crate::metrics::LRU_CACHE_HIT
-                            .with_label_values(&[crate::metrics::values::STATE_MANAGER_TIPSET])
+                            .get_or_create(&crate::metrics::labels::STATE_MANAGER_TIPSET)
                             .inc();
 
                         Ok(v)
@@ -155,7 +156,7 @@ impl TipsetStateCache {
                     None => {
                         // Entry does not have state computed yet, compute value and fill the cache
                         crate::metrics::LRU_CACHE_MISS
-                            .with_label_values(&[crate::metrics::values::STATE_MANAGER_TIPSET])
+                            .get_or_create(&crate::metrics::labels::STATE_MANAGER_TIPSET)
                             .inc();
 
                         let cid_pair = compute().await?;
