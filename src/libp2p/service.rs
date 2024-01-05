@@ -66,7 +66,7 @@ pub(in crate::libp2p) mod metrics {
         })
     };
 
-    pub mod labels {
+    pub mod values {
         use crate::metrics::KindLabel;
 
         pub const HELLO_REQUEST_TABLE: KindLabel = KindLabel::new("hello_request_table");

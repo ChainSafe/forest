@@ -120,7 +120,7 @@ impl TypeLabel {
     }
 }
 
-pub mod labels {
+pub mod values {
     use super::KindLabel;
 
     /// `TipsetCache`.

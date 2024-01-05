@@ -76,7 +76,7 @@ impl ChainExchangeBehaviour {
 
     fn track_metrics(&self) {
         metrics::NETWORK_CONTAINER_CAPACITIES
-            .get_or_create(&metrics::labels::CHAIN_EXCHANGE_REQUEST_TABLE)
+            .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_TABLE)
             .set(self.response_channels.capacity() as _);
     }
 }

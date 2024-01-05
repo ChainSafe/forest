@@ -61,7 +61,7 @@ impl HelloBehaviour {
 
     fn track_metrics(&self) {
         metrics::NETWORK_CONTAINER_CAPACITIES
-            .get_or_create(&metrics::labels::HELLO_REQUEST_TABLE)
+            .get_or_create(&metrics::values::HELLO_REQUEST_TABLE)
             .set(self.response_channels.capacity() as _);
     }
 }
