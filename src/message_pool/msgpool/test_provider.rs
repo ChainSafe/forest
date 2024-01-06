@@ -5,7 +5,7 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
-use crate::blocks::header::RawBlockHeader;
+use crate::blocks::RawBlockHeader;
 use crate::blocks::VRFProof;
 use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;

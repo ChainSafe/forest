@@ -520,7 +520,7 @@ pub mod headchange_json {
 
 #[cfg(test)]
 mod tests {
-    use crate::{blocks::header::RawBlockHeader, shim::address::Address};
+    use crate::{blocks::RawBlockHeader, shim::address::Address};
     use cid::{
         multihash::{
             Code::{Blake2b256, Identity},

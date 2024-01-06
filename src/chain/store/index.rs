@@ -200,8 +200,8 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
-    use crate::blocks::header::RawBlockHeader;
     use crate::blocks::CachingBlockHeader;
+    use crate::blocks::RawBlockHeader;
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt;
 

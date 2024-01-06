@@ -45,7 +45,7 @@ mod tests {
     use std::sync::Arc;
 
     use crate::beacon::{mock_beacon::MockBeacon, BeaconPoint, BeaconSchedule};
-    use crate::blocks::header::RawBlockHeader;
+    use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::ChainStore;
     use crate::chain_sync::{SyncConfig, SyncStage};

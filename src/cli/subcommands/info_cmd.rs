@@ -197,7 +197,7 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::blocks::header::RawBlockHeader;
+    use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use crate::shim::{address::Address, econ::TokenAmount};
