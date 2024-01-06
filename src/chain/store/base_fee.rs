@@ -99,7 +99,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::blocks::header::RawBlockHeader;
+    use crate::blocks::RawBlockHeader;
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::db::MemoryDB;
     use crate::networks::{ChainConfig, Height};

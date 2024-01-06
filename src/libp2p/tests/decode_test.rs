@@ -3,7 +3,7 @@
 
 use std::convert::TryFrom;
 
-use crate::blocks::header::RawBlockHeader;
+use crate::blocks::RawBlockHeader;
 use crate::blocks::{Block, CachingBlockHeader, FullTipset};
 use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,

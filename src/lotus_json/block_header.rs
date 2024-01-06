@@ -13,7 +13,7 @@ use ::cid::Cid;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-use crate::blocks::{header::RawBlockHeader, CachingBlockHeader};
+use crate::blocks::{CachingBlockHeader, RawBlockHeader};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

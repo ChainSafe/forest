@@ -48,10 +48,10 @@
 ///   more.
 ///   Messages may be [signed](crate::message::SignedMessage).
 /// - `Message`s are grouped into [`Block`](crate::blocks::Block)s, with a single
-///   [`header`](crate::blocks::header::RawBlockHeader).
+///   [`header`](crate::blocks::RawBlockHeader).
 ///   These are what are mined by miners to get `FIL` (money).
-///   They define an [_epoch_](crate::blocks::header::RawBlockHeader::epoch) and a
-///   [_parent tipset_](crate::blocks::header::RawBlockHeader::parents).
+///   They define an [_epoch_](crate::blocks::RawBlockHeader::epoch) and a
+///   [_parent tipset_](crate::blocks::RawBlockHeader::parents).
 ///   The _epoch_ is a monotonically increasing number from `0` (genesis).
 /// - `Block`s are grouped into [`Tipset`](crate::blocks::Tipset)s.
 ///   All blocks in a tipset share the same `epoch`.
@@ -181,7 +181,7 @@
 ///
 /// Recall that for each message execution, the state tree is mutated.
 /// Therefore, each epoch is associated with a state tree after execution,
-/// and a [_parent state tree_](crate::blocks::header::RawBlockHeader::state_root).
+/// and a [_parent state tree_](crate::blocks::RawBlockHeader::state_root).
 ///
 /// ```text
 ///                                            // state after execution of

@@ -144,7 +144,7 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use crate::blocks::{header::RawBlockHeader, CachingBlockHeader};
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::db::MemoryDB;
     use crate::genesis::EXPORT_SR_40;
     use crate::networks::ChainConfig;

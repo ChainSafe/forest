@@ -1541,7 +1541,7 @@ fn validate_tipset_against_cache(
 
 #[cfg(test)]
 mod test {
-    use crate::blocks::header::RawBlockHeader;
+    use crate::blocks::RawBlockHeader;
     use crate::blocks::VRFProof;
     use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset};
     use crate::shim::address::Address;

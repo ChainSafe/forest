@@ -438,7 +438,8 @@ where
     Ok(())
 }
 
-pub mod lotus_json {
+#[cfg_vis::cfg_vis(doc, pub)]
+mod lotus_json {
     //! [Tipset] isn't just plain old data - it has an invariant (all block headers are valid)
     //! So there is custom de-serialization here
 

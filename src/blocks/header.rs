@@ -160,11 +160,11 @@ impl RawBlockHeader {
     }
 }
 
+/// A [`RawBlockHeader`] which caches calls to [`RawBlockHeader::cid`] and [`RawBlockHeader::verify_signature_against`]
 #[derive(Debug, Default)]
 pub struct CachingBlockHeader {
     uncached: RawBlockHeader,
     cid: OnceCell<Cid>,
-    // TODO(aatifsyed): I'm pretty this shouldn't be cached - it used to be called `is_validated`
     has_ever_been_verified_against_any_signature: AtomicBool,
 }
 
@@ -266,7 +266,7 @@ mod tests {
     use crate::utils::encoding::from_slice_with_fallback;
     use fvm_ipld_encoding::to_vec;
 
-    use crate::blocks::{errors::Error, CachingBlockHeader};
+    use crate::blocks::{CachingBlockHeader, Error};
 
     use super::RawBlockHeader;
 
