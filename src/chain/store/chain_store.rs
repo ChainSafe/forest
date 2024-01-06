@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys, TxMeta};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKeys, TxMeta};
 use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
@@ -67,7 +67,7 @@ pub struct ChainStore<DB> {
     /// Tracks blocks for the purpose of forming tipsets.
     tipset_tracker: TipsetTracker<DB>,
 
-    genesis_block_header: BlockHeader,
+    genesis_block_header: CachingBlockHeader,
 
     /// validated blocks
     validated_blocks: Mutex<HashSet<Cid>>,
@@ -105,7 +105,7 @@ where
         db: Arc<DB>,
         settings: Arc<dyn SettingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
-        genesis_block_header: BlockHeader,
+        genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
         let (publisher, _) = broadcast::channel(SINK_CAP);
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
@@ -145,7 +145,7 @@ where
 
     /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
     /// headers.
-    pub fn add_to_tipset_tracker(&self, header: &BlockHeader) {
+    pub fn add_to_tipset_tracker(&self, header: &CachingBlockHeader) {
         self.tipset_tracker.add(header);
     }
 
@@ -162,12 +162,12 @@ where
 
     /// Expands tipset to tipset with all other headers in the same epoch using
     /// the tipset tracker.
-    fn expand_tipset(&self, header: BlockHeader) -> Result<Tipset, Error> {
+    fn expand_tipset(&self, header: CachingBlockHeader) -> Result<Tipset, Error> {
         self.tipset_tracker.expand(header)
     }
 
     /// Returns genesis [`BlockHeader`].
-    pub fn genesis(&self) -> &BlockHeader {
+    pub fn genesis(&self) -> &CachingBlockHeader {
         &self.genesis_block_header
     }
 
@@ -330,7 +330,7 @@ where
 /// of type `SignedMessage`
 pub fn block_messages<DB>(
     db: &DB,
-    bh: &BlockHeader,
+    bh: &CachingBlockHeader,
 ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>
 where
     DB: Blockstore,
@@ -423,43 +423,44 @@ where
     let state = StateTree::new_from_root(Arc::clone(&db), ts.parent_state())?;
 
     // message to get all messages for block_header into a single iterator
-    let mut get_message_for_block_header = |b: &BlockHeader| -> Result<Vec<ChainMessage>, Error> {
-        let (unsigned, signed) = block_messages(&db, b)?;
-        let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
-        let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
-        let signed_box = signed.into_iter().map(ChainMessage::Signed);
+    let mut get_message_for_block_header =
+        |b: &CachingBlockHeader| -> Result<Vec<ChainMessage>, Error> {
+            let (unsigned, signed) = block_messages(&db, b)?;
+            let mut messages = Vec::with_capacity(unsigned.len() + signed.len());
+            let unsigned_box = unsigned.into_iter().map(ChainMessage::Unsigned);
+            let signed_box = signed.into_iter().map(ChainMessage::Signed);
 
-        for message in unsigned_box.chain(signed_box) {
-            let from_address = &message.from();
-            if applied.contains_key(from_address) {
-                let actor_state = state
-                    .get_actor(from_address)?
-                    .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
-                applied.insert(*from_address, actor_state.sequence);
-                balances.insert(*from_address, actor_state.balance.clone().into());
-            }
-            if let Some(seq) = applied.get_mut(from_address) {
-                if *seq != message.sequence() {
+            for message in unsigned_box.chain(signed_box) {
+                let from_address = &message.from();
+                if applied.contains_key(from_address) {
+                    let actor_state = state
+                        .get_actor(from_address)?
+                        .ok_or_else(|| Error::Other("Actor state not found".to_string()))?;
+                    applied.insert(*from_address, actor_state.sequence);
+                    balances.insert(*from_address, actor_state.balance.clone().into());
+                }
+                if let Some(seq) = applied.get_mut(from_address) {
+                    if *seq != message.sequence() {
+                        continue;
+                    }
+                    *seq += 1;
+                } else {
                     continue;
                 }
-                *seq += 1;
-            } else {
-                continue;
-            }
-            if let Some(bal) = balances.get_mut(from_address) {
-                if *bal < message.required_funds() {
+                if let Some(bal) = balances.get_mut(from_address) {
+                    if *bal < message.required_funds() {
+                        continue;
+                    }
+                    *bal -= message.required_funds();
+                } else {
                     continue;
                 }
-                *bal -= message.required_funds();
-            } else {
-                continue;
+
+                messages.push(message)
             }
 
-            messages.push(message)
-        }
-
-        Ok(messages)
-    };
+            Ok(messages)
+        };
 
     ts.blocks()
         .iter()
@@ -487,7 +488,7 @@ where
 /// Returns parent message receipt given `block_header` and message index.
 pub fn get_parent_receipt(
     db: &impl Blockstore,
-    block_header: &BlockHeader,
+    block_header: &CachingBlockHeader,
     i: usize,
 ) -> Result<Option<Receipt>, Error> {
     Ok(Receipt::get_receipt(
@@ -538,7 +539,7 @@ mod tests {
         let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
 
-        let gen_block = BlockHeader::new(RawBlockHeader {
+        let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             epoch: 1,
@@ -556,7 +557,7 @@ mod tests {
     fn block_validation_cache_basic() {
         let db = Arc::new(crate::db::MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
-        let gen_block = BlockHeader::new(RawBlockHeader {
+        let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });

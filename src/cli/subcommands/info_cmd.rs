@@ -198,7 +198,7 @@ fn balance(bal: &str) -> Result<String, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use crate::blocks::header::RawBlockHeader;
-    use crate::blocks::{BlockHeader, Tipset};
+    use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::shim::clock::EPOCH_DURATION_SECONDS;
     use crate::shim::{address::Address, econ::TokenAmount};
     use chrono::DateTime;
@@ -208,7 +208,7 @@ mod tests {
     use super::{NodeStatusInfo, SyncStatus};
 
     fn mock_tipset_at(seconds_since_unix_epoch: u64) -> Arc<Tipset> {
-        let mock_header = BlockHeader::new(RawBlockHeader {
+        let mock_header = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::from_str("f2kmbjvz7vagl2z6pfrbjoggrkjofxspp7cqtw2zy").unwrap(),
             timestamp: seconds_since_unix_epoch,
             ..Default::default()

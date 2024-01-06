@@ -7,7 +7,7 @@ use std::{convert::TryFrom, sync::Arc};
 
 use crate::blocks::header::RawBlockHeader;
 use crate::blocks::VRFProof;
-use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
 use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -76,7 +76,7 @@ impl TestApi {
     }
 
     /// Set the block messages for `TestApi`
-    pub fn set_block_messages(&self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
+    pub fn set_block_messages(&self, h: &CachingBlockHeader, msgs: Vec<SignedMessage>) {
         self.inner.lock().set_block_messages(h, msgs)
     }
 
@@ -85,7 +85,7 @@ impl TestApi {
         self.publisher.send(HeadChange::Apply(ts)).unwrap();
     }
 
-    pub fn next_block(&self) -> BlockHeader {
+    pub fn next_block(&self) -> CachingBlockHeader {
         self.inner.lock().next_block()
     }
 }
@@ -102,12 +102,12 @@ impl TestApiInner {
     }
 
     /// Set the block messages for `TestApi`
-    pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
+    pub fn set_block_messages(&mut self, h: &CachingBlockHeader, msgs: Vec<SignedMessage>) {
         self.bmsgs.insert(*h.cid(), msgs);
         self.tipsets.push(Tipset::from(h))
     }
 
-    pub fn next_block(&mut self) -> BlockHeader {
+    pub fn next_block(&mut self) -> CachingBlockHeader {
         let new_block = mock_block_with_parents(
             self.tipsets
                 .last()
@@ -173,7 +173,7 @@ impl Provider for TestApi {
 
     fn messages_for_block(
         &self,
-        h: &BlockHeader,
+        h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         let inner = self.inner.lock();
         let v: Vec<Message> = Vec::new();
@@ -220,8 +220,8 @@ impl Provider for TestApi {
     }
 }
 
-pub fn create_header(weight: u64) -> BlockHeader {
-    BlockHeader::new(RawBlockHeader {
+pub fn create_header(weight: u64) -> CachingBlockHeader {
+    CachingBlockHeader::new(RawBlockHeader {
         miner_address: Address::new_id(0),
         weight: BigInt::from(weight),
         ..Default::default()
@@ -229,7 +229,7 @@ pub fn create_header(weight: u64) -> BlockHeader {
 }
 
 // TODO(aatifsyed): I've seen this code before...
-pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
+pub fn mock_block(weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
@@ -240,7 +240,7 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         vrfproof: VRFProof::new(fmt_str.into_bytes()),
     };
     let weight_inc = BigInt::from(weight);
-    BlockHeader::new(RawBlockHeader {
+    CachingBlockHeader::new(RawBlockHeader {
         miner_address: addr,
         election_proof: Some(election_proof),
         ticket: Some(ticket),
@@ -252,7 +252,11 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
     })
 }
 
-pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
+pub fn mock_block_with_parents(
+    parents: &Tipset,
+    weight: u64,
+    ticket_sequence: u64,
+) -> CachingBlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
@@ -266,7 +270,7 @@ pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u
         win_count: 0,
         vrfproof: VRFProof::new(fmt_str.into_bytes()),
     };
-    BlockHeader::new(RawBlockHeader {
+    CachingBlockHeader::new(RawBlockHeader {
         miner_address: addr,
         election_proof: Some(election_proof),
         ticket: Some(ticket),

@@ -3,13 +3,13 @@
 
 use super::*;
 
-use crate::blocks::{BlockHeader, GossipBlock};
+use crate::blocks::{CachingBlockHeader, GossipBlock};
 use ::cid::Cid;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GossipBlockLotusJson {
-    header: LotusJson<BlockHeader>,
+    header: LotusJson<CachingBlockHeader>,
     bls_messages: LotusJson<Vec<Cid>>,
     secpk_messages: LotusJson<Vec<Cid>>,
 }

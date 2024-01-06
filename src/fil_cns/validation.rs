@@ -4,7 +4,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use crate::blocks::{Block, BlockHeader, Tipset};
+use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::networks::{ChainConfig, Height};
@@ -178,7 +178,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
 ///
 /// In particular it looks for an election proof and a ticket,
 /// which are needed for Filecoin consensus.
-fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusError> {
+fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), FilecoinConsensusError> {
     if header.election_proof.is_none() {
         return Err(FilecoinConsensusError::BlockWithoutElectionProof);
     }
@@ -191,7 +191,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusErro
 /// Check the timestamp corresponds exactly to the number of epochs since the
 /// parents.
 fn block_timestamp_checks(
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     base_tipset: &Tipset,
     chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
@@ -235,7 +235,7 @@ fn validate_miner<DB: Blockstore>(
 }
 
 fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
     lookback_state: &Cid,
@@ -292,7 +292,7 @@ fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
 }
 
 fn validate_ticket_election(
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     base_tipset: &Tipset,
     prev_beacon: &BeaconEntry,
     work_addr: &Address,
@@ -346,7 +346,7 @@ fn verify_election_post_vrf(
 fn verify_winning_post_proof<DB: Blockstore>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     prev_beacon_entry: &BeaconEntry,
     lookback_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {

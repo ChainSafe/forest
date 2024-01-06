@@ -8,7 +8,7 @@
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-use crate::blocks::{BlockHeader, Tipset};
+use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
@@ -390,7 +390,10 @@ where
     }
 
     /// Return Vector of signed messages given a block header for self.
-    pub fn messages_for_blocks(&self, blks: &[BlockHeader]) -> Result<Vec<SignedMessage>, Error> {
+    pub fn messages_for_blocks(
+        &self,
+        blks: &[CachingBlockHeader],
+    ) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
 
         for block in blks {

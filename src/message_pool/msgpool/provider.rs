@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKeys};
 use crate::chain::HeadChange;
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::msg_pool::{
@@ -44,7 +44,7 @@ pub trait Provider {
     /// Return the signed messages for given block header
     fn messages_for_block(
         &self,
-        h: &BlockHeader,
+        h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
@@ -112,7 +112,7 @@ where
 
     fn messages_for_block(
         &self,
-        h: &BlockHeader,
+        h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         crate::chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }

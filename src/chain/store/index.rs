@@ -201,7 +201,7 @@ mod tests {
 
     use super::*;
     use crate::blocks::header::RawBlockHeader;
-    use crate::blocks::BlockHeader;
+    use crate::blocks::CachingBlockHeader;
     use crate::db::MemoryDB;
     use crate::utils::db::CborStoreExt;
 
@@ -212,14 +212,14 @@ mod tests {
     }
 
     fn genesis_tipset() -> Tipset {
-        Tipset::from(BlockHeader::default())
+        Tipset::from(CachingBlockHeader::default())
     }
 
     fn tipset_child(parent: &Tipset, epoch: ChainEpoch) -> Tipset {
         // Use a static counter to give all tipsets a unique timestamp
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        Tipset::from(BlockHeader::new(RawBlockHeader {
+        Tipset::from(CachingBlockHeader::new(RawBlockHeader {
             parents: parent.key().clone(),
             epoch,
             timestamp: n,
