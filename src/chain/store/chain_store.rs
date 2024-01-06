@@ -143,8 +143,7 @@ where
         Ok(())
     }
 
-    /// Adds a [`BlockHeader`] to the tipset tracker, which tracks valid
-    /// headers.
+    /// Adds a block header to the tipset tracker, which tracks valid headers.
     pub fn add_to_tipset_tracker(&self, header: &CachingBlockHeader) {
         self.tipset_tracker.add(header);
     }
@@ -152,7 +151,7 @@ where
     /// Writes tipset block headers to data store and updates heaviest tipset
     /// with other compatible tracked headers.
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
-        persist_objects(self.blockstore(), ts.blocks())?;
+        persist_objects(self.blockstore(), ts.block_headers())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
@@ -166,8 +165,7 @@ where
         self.tipset_tracker.expand(header)
     }
 
-    /// Returns genesis [`BlockHeader`].
-    pub fn genesis(&self) -> &CachingBlockHeader {
+    pub fn genesis_block_header(&self) -> &CachingBlockHeader {
         &self.genesis_block_header
     }
 
@@ -462,7 +460,7 @@ where
             Ok(messages)
         };
 
-    ts.blocks()
+    ts.block_headers()
         .iter()
         .try_fold(Vec::new(), |mut message_vec, b| {
             let mut messages = get_message_for_block_header(b)?;
@@ -550,7 +548,7 @@ mod tests {
         });
         let cs = ChainStore::new(db.clone(), db, chain_config, gen_block.clone()).unwrap();
 
-        assert_eq!(cs.genesis(), &gen_block);
+        assert_eq!(cs.genesis_block_header(), &gen_block);
     }
 
     #[test]

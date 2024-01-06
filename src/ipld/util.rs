@@ -309,7 +309,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
-                for block in tipset.into_blocks().into_iter() {
+                for block in tipset.into_block_headers().into_iter() {
                     if this.seen.insert(*block.cid()) {
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(*block.cid()));
@@ -546,7 +546,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
             // the extract queue. The emit queue is processed in the loop above. Once the desired depth
             // has been reached yield a block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
-                for block in tipset.into_blocks().into_iter() {
+                for block in tipset.into_block_headers().into_iter() {
                     if this.seen.lock().insert(*block.cid()) {
                         // Make sure we always yield a block, directly to the stream to avoid extra
                         // work.

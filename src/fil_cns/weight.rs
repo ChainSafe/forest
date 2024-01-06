@@ -46,7 +46,7 @@ where
     };
 
     let mut total_j = 0;
-    for b in ts.blocks() {
+    for b in ts.block_headers() {
         total_j += b
             .election_proof
             .as_ref()

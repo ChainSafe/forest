@@ -63,14 +63,20 @@ where
             }
 
             // mpts has different blocks than ts
-            let have = data.mpool.as_ref().messages_for_blocks(ts.blocks())?;
+            let have = data
+                .mpool
+                .as_ref()
+                .messages_for_blocks(ts.block_headers())?;
 
             for sm in have {
                 have_cids.insert(sm.cid()?);
             }
         }
 
-        let msgs = data.mpool.as_ref().messages_for_blocks(ts.blocks())?;
+        let msgs = data
+            .mpool
+            .as_ref()
+            .messages_for_blocks(ts.block_headers())?;
 
         for m in msgs {
             if have_cids.contains(&m.cid()?) {

@@ -52,7 +52,7 @@ where
                 }
 
                 if request.include_blocks() {
-                    tipset_bundle.blocks = tipset.blocks().to_vec();
+                    tipset_bundle.blocks = tipset.block_headers().to_vec();
                 }
 
                 anyhow::Ok(tipset_bundle)
@@ -92,7 +92,7 @@ where
     let mut bls_msg_includes: Vec<Vec<u64>> = vec![];
     let mut secp_msg_includes: Vec<Vec<u64>> = vec![];
 
-    for block_header in tipset.blocks().iter() {
+    for block_header in tipset.block_headers().iter() {
         let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, &block_header.messages)?;
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());

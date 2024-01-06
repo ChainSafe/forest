@@ -645,8 +645,8 @@ fn verify_msg_before_add(
     let min_gas = price_list_by_network_version(chain_config.network_version(epoch))
         .on_chain_message(to_vec(m)?.len());
     valid_for_block_inclusion(m.message(), min_gas.total(), NEWEST_NETWORK_VERSION)?;
-    if !cur_ts.blocks().is_empty() {
-        let base_fee = &cur_ts.blocks()[0].parent_base_fee;
+    if !cur_ts.block_headers().is_empty() {
+        let base_fee = &cur_ts.block_headers()[0].parent_base_fee;
         let base_fee_lower_bound =
             get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
         if m.gas_fee_cap() < base_fee_lower_bound {

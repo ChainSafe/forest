@@ -92,7 +92,7 @@
 //!
 //! If you require access to private fields, consider:
 //! - implementing an exhaustive helper method, e.g [`crate::beacon::BeaconEntry::into_parts`].
-//! - moving implementation to the module where the struct is defined, e.g [`crate::blocks::header::lotus_json::BlockHeaderLotusJson`].
+//! - moving implementation to the module where the struct is defined, e.g [`crate::blocks::tipset::lotus_json`].
 //!   If you do this, you MUST manually add snapshot and `quickcheck` tests.
 //!
 //! ### Compound structs
