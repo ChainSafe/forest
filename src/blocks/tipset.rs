@@ -18,7 +18,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::{Block, BlockHeader, Error, Ticket};
+use super::{Block, CachingBlockHeader, Error, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
@@ -68,12 +68,12 @@ impl fmt::Display for TipsetKeys {
 /// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, Debug)]
 pub struct Tipset {
-    headers: Vec<BlockHeader>,
+    headers: Vec<CachingBlockHeader>,
     key: OnceCell<TipsetKeys>,
 }
 
-impl From<&BlockHeader> for Tipset {
-    fn from(value: &BlockHeader) -> Self {
+impl From<&CachingBlockHeader> for Tipset {
+    fn from(value: &CachingBlockHeader) -> Self {
         Self {
             headers: vec![value.clone()],
             key: OnceCell::new(),
@@ -81,8 +81,8 @@ impl From<&BlockHeader> for Tipset {
     }
 }
 
-impl From<BlockHeader> for Tipset {
-    fn from(value: BlockHeader) -> Self {
+impl From<CachingBlockHeader> for Tipset {
+    fn from(value: CachingBlockHeader) -> Self {
         Self {
             headers: vec![value],
             key: OnceCell::new(),
@@ -101,14 +101,14 @@ impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // TODO(forest): https://github.com/ChainSafe/forest/issues/3570
         //               Support random generation of tipsets with multiple blocks.
-        Tipset::from(BlockHeader::arbitrary(g))
+        Tipset::from(CachingBlockHeader::arbitrary(g))
     }
 }
 
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
-        let headers: Vec<BlockHeader> = full_tipset
+        let headers: Vec<CachingBlockHeader> = full_tipset
             .blocks
             .into_iter()
             .map(|block| block.header)
@@ -125,12 +125,10 @@ impl Tipset {
     /// distinct miners and all specify identical epoch, parents, weight,
     /// height, state root, receipt root; content-id for headers are
     /// supposed to be distinct but until encoding is added will be equal.
-    pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
+    pub fn new(mut headers: Vec<CachingBlockHeader>) -> Result<Self, Error> {
         verify_blocks(&headers)?;
 
-        // sort headers by ticket hash
-        // break ticket ties with the header CIDs, which are distinct
-        headers.sort_by_cached_key(|h| h.to_sort_key());
+        headers.sort_by_cached_key(|h| h.tipset_sort_key());
 
         // return tipset where sorted headers have smallest ticket size in the 0th index
         // and the distinct keys
@@ -147,7 +145,7 @@ impl Tipset {
             .cids
             .clone()
             .into_iter()
-            .map(|key| BlockHeader::load(&store, key))
+            .map(|key| CachingBlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<_>>>()?
             .map(Tipset::new)
             .transpose()?)
@@ -163,7 +161,7 @@ impl Tipset {
                 Some(tsk) => tsk
                     .cids
                     .into_iter()
-                    .map(|key| BlockHeader::load(store, key))
+                    .map(|key| CachingBlockHeader::load(store, key))
                     .collect::<anyhow::Result<Option<_>>>()?
                     .map(Tipset::new)
                     .transpose()?,
@@ -208,11 +206,11 @@ impl Tipset {
         self.min_ticket_block().epoch
     }
     /// Returns all blocks in tipset.
-    pub fn blocks(&self) -> &[BlockHeader] {
+    pub fn blocks(&self) -> &[CachingBlockHeader] {
         &self.headers
     }
     /// Consumes tipset to convert into a vector of [`BlockHeader`].
-    pub fn into_blocks(self) -> Vec<BlockHeader> {
+    pub fn into_blocks(self) -> Vec<CachingBlockHeader> {
         self.headers
     }
     /// Returns the smallest ticket of all blocks in the tipset
@@ -220,7 +218,7 @@ impl Tipset {
         self.min_ticket_block().ticket.as_ref()
     }
     /// Returns the block with the smallest ticket of all blocks in the tipset
-    pub fn min_ticket_block(&self) -> &BlockHeader {
+    pub fn min_ticket_block(&self) -> &CachingBlockHeader {
         // `Tipset::new` guarantees that `blocks` isn't empty
         self.headers.first().unwrap()
     }
@@ -239,7 +237,7 @@ impl Tipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKeys {
         self.key.get_or_init(|| {
-            TipsetKeys::from_iter(self.headers.iter().map(BlockHeader::cid).copied())
+            TipsetKeys::from_iter(self.headers.iter().map(CachingBlockHeader::cid).copied())
         })
     }
     /// Returns slice of `CIDs` for the current tipset
@@ -291,7 +289,7 @@ impl Tipset {
     }
 
     /// Fetch the genesis block header for a given tipset.
-    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<BlockHeader> {
+    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
         // Scanning through millions of epochs to find the genesis is quite
         // slow. Let's use a list of known blocks to short-circuit the search.
         // The blocks are hash-chained together and known blocks are guaranteed
@@ -361,7 +359,7 @@ impl FullTipset {
 
         // sort blocks on creation to allow for more seamless conversions between
         // FullTipset and Tipset
-        blocks.sort_by_cached_key(|block| block.header().to_sort_key());
+        blocks.sort_by_cached_key(|block| block.header().tipset_sort_key());
         Ok(Self {
             blocks,
             key: OnceCell::new(),
@@ -406,7 +404,7 @@ impl FullTipset {
 
 fn verify_blocks<'a, I>(headers: I) -> Result<(), Error>
 where
-    I: IntoIterator<Item = &'a BlockHeader>,
+    I: IntoIterator<Item = &'a CachingBlockHeader>,
 {
     let mut headers = headers.into_iter();
     let first_header = headers.next().ok_or(Error::NoBlocks)?;
@@ -446,7 +444,7 @@ pub mod lotus_json {
     //! [Tipset] isn't just plain old data - it has an invariant (all [`BlockHeader`]s are valid)
     //! So there is custom de-serialization here
 
-    use crate::blocks::{BlockHeader, Tipset};
+    use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -458,7 +456,7 @@ pub mod lotus_json {
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
         cids: LotusJson<TipsetKeys>,
-        blocks: LotusJson<Vec<BlockHeader>>,
+        blocks: LotusJson<Vec<CachingBlockHeader>>,
         height: LotusJson<i64>,
     }
 
@@ -521,7 +519,7 @@ pub mod lotus_json {
                     ],
                     "Height": 0
                 }),
-                Self::new(vec![BlockHeader::default()]).unwrap(),
+                Self::new(vec![CachingBlockHeader::default()]).unwrap(),
             )]
         }
 
@@ -559,10 +557,11 @@ mod test {
     use num_bigint::BigInt;
 
     use crate::blocks::{
-        header::RawBlockHeader, BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys,
+        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Error, Ticket, Tipset,
+        TipsetKeys,
     };
 
-    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
         let addr = Address::new_id(id);
         let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -574,7 +573,7 @@ mod test {
             vrfproof: VRFProof::new(fmt_str.into_bytes()),
         };
         let weight_inc = BigInt::from(weight);
-        BlockHeader::new(RawBlockHeader {
+        CachingBlockHeader::new(RawBlockHeader {
             miner_address: addr,
             election_proof: Some(election_proof),
             ticket: Some(ticket),
@@ -620,11 +619,11 @@ mod test {
 
     #[test]
     fn ensure_miner_addresses_are_distinct() {
-        let h0 = BlockHeader::new(RawBlockHeader {
+        let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
-        let h1 = BlockHeader::new(RawBlockHeader {
+        let h1 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
@@ -638,15 +637,15 @@ mod test {
     // 1
     #[test]
     fn ensure_multiple_miner_addresses_are_distinct() {
-        let h0 = BlockHeader::new(RawBlockHeader {
+        let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(1),
             ..Default::default()
         });
-        let h1 = BlockHeader::new(RawBlockHeader {
+        let h1 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
-        let h2 = BlockHeader::new(RawBlockHeader {
+        let h2 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });
@@ -658,12 +657,12 @@ mod test {
 
     #[test]
     fn ensure_epochs_are_equal() {
-        let h0 = BlockHeader::new(RawBlockHeader {
+        let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             epoch: 1,
             ..Default::default()
         });
-        let h1 = BlockHeader::new(RawBlockHeader {
+        let h1 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(1),
             epoch: 2,
             ..Default::default()
@@ -676,12 +675,12 @@ mod test {
 
     #[test]
     fn ensure_state_roots_are_equal() {
-        let h0 = BlockHeader::new(RawBlockHeader {
+        let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             ..Default::default()
         });
-        let h1 = BlockHeader::new(RawBlockHeader {
+        let h1 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(1),
             state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[1])),
             ..Default::default()
@@ -694,12 +693,12 @@ mod test {
 
     #[test]
     fn ensure_parent_cids_are_equal() {
-        let h0 = BlockHeader::new(RawBlockHeader {
+        let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             parents: TipsetKeys::default(),
             ..Default::default()
         });
-        let h1 = BlockHeader::new(RawBlockHeader {
+        let h1 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(1),
             parents: TipsetKeys::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
             ..Default::default()

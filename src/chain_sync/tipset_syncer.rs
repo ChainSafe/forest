@@ -23,7 +23,9 @@ use crate::shim::{
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use crate::utils::io::WithProgressRaw;
 use crate::{
-    blocks::{Block, BlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys},
+    blocks::{
+        Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
+    },
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
@@ -749,7 +751,8 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
 
     // Persist the blocks from the synced Tipsets into the store
     tracker.write().set_stage(SyncStage::Headers);
-    let headers: Vec<&BlockHeader> = parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
+    let headers: Vec<&CachingBlockHeader> =
+        parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
     if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
         tracker.write().error(why.to_string());
         return Err(why.into());
@@ -923,7 +926,7 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     genesis: Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
     // Persist the blocks from the proposed tipsets into the store
-    let headers: Vec<&BlockHeader> = proposed_head.blocks().iter().collect();
+    let headers: Vec<&CachingBlockHeader> = proposed_head.blocks().iter().collect();
     persist_objects(chain_store.blockstore(), &headers)?;
 
     // Sync and validate messages from the tipsets
@@ -1295,7 +1298,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
         let _timer = metrics::BLOCK_VALIDATION_TASKS_TIME
             .with_label_values(&[metrics::values::BLOCK_SIGNATURE_CHECK])
             .start_timer();
-        v_block.header().check_block_signature(&work_addr)?;
+        v_block.header().verify_signature_against(&work_addr)?;
         Ok(())
     }));
 
@@ -1486,7 +1489,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 /// Checks optional values in header.
 ///
 /// It only looks for fields which are common to all consensus types.
-fn block_sanity_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerError> {
+fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), TipsetRangeSyncerError> {
     if header.signature.is_none() {
         return Err(TipsetRangeSyncerError::BlockWithoutSignature);
     }
@@ -1497,7 +1500,7 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerErro
 }
 
 /// Check the clock drift.
-fn block_timestamp_checks(header: &BlockHeader) -> Result<(), TipsetRangeSyncerError> {
+fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetRangeSyncerError> {
     let time_now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Retrieved system time before UNIX epoch")
@@ -1538,14 +1541,14 @@ fn validate_tipset_against_cache(
 mod test {
     use crate::blocks::header::RawBlockHeader;
     use crate::blocks::VRFProof;
-    use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset};
+    use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset};
     use crate::shim::address::Address;
     use cid::Cid;
     use num_bigint::BigInt;
 
     use super::*;
 
-    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
         let addr = Address::new_id(id);
         let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -1558,7 +1561,7 @@ mod test {
         };
         let weight_inc = BigInt::from(weight);
 
-        BlockHeader::new(RawBlockHeader {
+        CachingBlockHeader::new(RawBlockHeader {
             miner_address: addr,
             election_proof: Some(election_proof),
             ticket: Some(ticket),

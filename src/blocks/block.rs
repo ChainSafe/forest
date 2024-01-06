@@ -7,7 +7,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-use super::BlockHeader;
+use super::CachingBlockHeader;
 
 /// Limit of BLS and SECP messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
@@ -16,14 +16,14 @@ pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 /// and SECP messages.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-    pub header: BlockHeader,
+    pub header: CachingBlockHeader,
     pub bls_messages: Vec<Message>,
     pub secp_messages: Vec<SignedMessage>,
 }
 
 impl Block {
     /// Returns reference to the [`BlockHeader`].
-    pub fn header(&self) -> &BlockHeader {
+    pub fn header(&self) -> &CachingBlockHeader {
         &self.header
     }
     /// Returns reference to the block's BLS [`Message`]s.

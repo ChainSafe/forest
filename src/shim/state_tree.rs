@@ -489,7 +489,7 @@ impl From<ActorState> for ActorStateV4 {
 #[cfg(test)]
 mod tests {
     use super::StateTree;
-    use crate::blocks::BlockHeader;
+    use crate::blocks::CachingBlockHeader;
     use crate::db::car::AnyCar;
     use crate::networks::{calibnet, mainnet};
     use cid::Cid;
@@ -499,7 +499,7 @@ mod tests {
     // refactored from `StateManager::get_network_name`
     fn get_network_name(car: &'static [u8], genesis_cid: Cid) -> String {
         let forest_car = AnyCar::new(car).unwrap();
-        let genesis_block = BlockHeader::load(&forest_car, genesis_cid)
+        let genesis_block = CachingBlockHeader::load(&forest_car, genesis_cid)
             .unwrap()
             .unwrap();
         let state =

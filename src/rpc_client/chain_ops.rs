@@ -4,7 +4,7 @@
 use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::shim::message::Message;
 use crate::{
-    blocks::{BlockHeader, Tipset, TipsetKeys},
+    blocks::{CachingBlockHeader, Tipset, TipsetKeys},
     rpc_api::chain_api::*,
     rpc_api::data_types::BlockMessages,
     shim::clock::ChainEpoch,
@@ -22,11 +22,11 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_HEAD, ())
     }
 
-    pub async fn chain_get_block(&self, cid: Cid) -> Result<BlockHeader, JsonRpcError> {
+    pub async fn chain_get_block(&self, cid: Cid) -> Result<CachingBlockHeader, JsonRpcError> {
         self.call(Self::chain_get_block_req(cid)).await
     }
 
-    pub fn chain_get_block_req(cid: Cid) -> RpcRequest<BlockHeader> {
+    pub fn chain_get_block_req(cid: Cid) -> RpcRequest<CachingBlockHeader> {
         RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
     }
 

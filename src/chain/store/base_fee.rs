@@ -100,7 +100,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::blocks::header::RawBlockHeader;
-    use crate::blocks::{BlockHeader, Tipset};
+    use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::db::MemoryDB;
     use crate::networks::{ChainConfig, Height};
     use crate::shim::address::Address;
@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn compute_base_fee_shouldnt_panic_on_bad_input() {
         let blockstore = MemoryDB::default();
-        let h0 = BlockHeader::new(RawBlockHeader {
+        let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });

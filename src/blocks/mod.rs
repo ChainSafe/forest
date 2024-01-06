@@ -14,7 +14,7 @@ pub use block::*;
 pub use election_proof::ElectionProof;
 pub use errors::*;
 pub use gossip_block::GossipBlock;
-pub use header::BlockHeader;
+pub use header::CachingBlockHeader;
 pub use ticket::Ticket;
 pub use tipset::*;
 pub use vrf_proof::VRFProof;

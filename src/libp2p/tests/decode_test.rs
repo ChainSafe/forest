@@ -4,7 +4,7 @@
 use std::convert::TryFrom;
 
 use crate::blocks::header::RawBlockHeader;
-use crate::blocks::{Block, BlockHeader, FullTipset};
+use crate::blocks::{Block, CachingBlockHeader, FullTipset};
 use crate::libp2p::chain_exchange::{
     ChainExchangeResponse, ChainExchangeResponseStatus, CompactedMessages, TipsetBundle,
 };
@@ -19,7 +19,7 @@ use num::BigInt;
 #[test]
 fn convert_single_tipset_bundle() {
     let block = Block {
-        header: BlockHeader::new(RawBlockHeader {
+        header: CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         }),
@@ -49,12 +49,12 @@ fn convert_single_tipset_bundle() {
 
 #[test]
 fn tipset_bundle_to_full_tipset() {
-    let h0 = BlockHeader::new(RawBlockHeader {
+    let h0 = CachingBlockHeader::new(RawBlockHeader {
         miner_address: Address::new_id(0),
         weight: BigInt::from(1u32),
         ..Default::default()
     });
-    let h1 = BlockHeader::new(RawBlockHeader {
+    let h1 = CachingBlockHeader::new(RawBlockHeader {
         miner_address: Address::new_id(1),
         weight: BigInt::from(1u32),
         ..Default::default()

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKeys};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
@@ -47,7 +47,7 @@ pub(in crate::rpc) async fn chain_get_parent_message<DB: Blockstore>(
     Params(LotusJson((block_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = data.state_manager.blockstore();
-    let block_header: BlockHeader = store
+    let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
     if block_header.epoch == 0 {
@@ -64,7 +64,7 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
     Params(LotusJson((block_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let store = data.state_manager.blockstore();
-    let block_header: BlockHeader = store
+    let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
     let mut receipts = Vec::new();
@@ -192,7 +192,7 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((blk_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<BlockMessages, JsonRpcError> {
-    let blk: BlockHeader = data
+    let blk: CachingBlockHeader = data
         .state_manager
         .blockstore()
         .get_cbor(&blk_cid)?
@@ -251,8 +251,8 @@ pub(in crate::rpc) async fn chain_head<DB: Blockstore>(
 pub(in crate::rpc) async fn chain_get_block<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((blk_cid,))): Params<LotusJson<(Cid,)>>,
-) -> Result<LotusJson<BlockHeader>, JsonRpcError> {
-    let blk: BlockHeader = data
+) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
+    let blk: CachingBlockHeader = data
         .state_manager
         .blockstore()
         .get_cbor(&blk_cid)?

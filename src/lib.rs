@@ -77,7 +77,7 @@ mod wallet;
 #[doc(hidden)]
 pub mod doctest_private {
     pub use crate::{
-        blocks::{BlockHeader, Ticket, TipsetKeys},
+        blocks::{CachingBlockHeader, Ticket, TipsetKeys},
         cli::humantoken::{parse, TokenAmountPretty},
         shim::{
             address::Address, crypto::Signature, econ::TokenAmount, error::ExitCode,

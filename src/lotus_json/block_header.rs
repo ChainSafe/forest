@@ -13,7 +13,7 @@ use ::cid::Cid;
 use num::BigInt;
 use serde::{Deserialize, Serialize};
 
-use crate::blocks::{header::RawBlockHeader, BlockHeader};
+use crate::blocks::{header::RawBlockHeader, CachingBlockHeader};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -40,7 +40,7 @@ pub struct BlockHeaderLotusJson {
     parent_base_fee: LotusJson<TokenAmount>,
 }
 
-impl HasLotusJson for BlockHeader {
+impl HasLotusJson for CachingBlockHeader {
     type LotusJson = BlockHeaderLotusJson;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -67,7 +67,7 @@ impl HasLotusJson for BlockHeader {
                 "ForkSignaling": 0,
                 "ParentBaseFee": "0",
             }),
-            BlockHeader::default(),
+            CachingBlockHeader::default(),
         )]
     }
 

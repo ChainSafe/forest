@@ -144,7 +144,7 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use crate::blocks::{header::RawBlockHeader, BlockHeader};
+    use crate::blocks::{header::RawBlockHeader, CachingBlockHeader};
     use crate::db::MemoryDB;
     use crate::genesis::EXPORT_SR_40;
     use crate::networks::ChainConfig;
@@ -167,7 +167,7 @@ mod tests {
     async fn compact_messages_test() {
         let (cids, db) = populate_db().await;
 
-        let gen_block = BlockHeader::new(RawBlockHeader {
+        let gen_block = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
         });

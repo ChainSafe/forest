@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 /// These tests use the `serialization-vectors` submodule at the root of this repo
-use crate::blocks::BlockHeader;
+use crate::blocks::CachingBlockHeader;
 use crate::message::signed_message::SignedMessage;
 use crate::shim::{crypto::Signature, message::Message};
 use bls_signatures::{PrivateKey, Serialize as _};
@@ -14,7 +14,7 @@ fn header_cbor_vectors() {
     #[derive(Deserialize)]
     struct Case {
         #[serde(with = "crate::lotus_json")]
-        block: BlockHeader,
+        block: CachingBlockHeader,
         #[serde(with = "hex")]
         cbor_hex: Vec<u8>,
         #[serde(with = "crate::lotus_json::stringify")] // yes this isn't CidLotusJson...
