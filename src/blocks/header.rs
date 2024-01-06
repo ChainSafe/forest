@@ -170,8 +170,7 @@ pub struct CachingBlockHeader {
 
 impl PartialEq for CachingBlockHeader {
     fn eq(&self, other: &Self) -> bool {
-        // TODO(aatifsyed): ouch
-        self.uncached == other.uncached
+        self.cid() == other.cid()
     }
 }
 
