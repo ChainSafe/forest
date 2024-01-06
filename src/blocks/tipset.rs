@@ -180,7 +180,7 @@ impl Tipset {
     pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
         // Find tipset messages. If any are missing, return `None`.
         let blocks = self
-            .blocks()
+            .block_headers()
             .iter()
             .cloned()
             .map(|header| {
@@ -205,12 +205,10 @@ impl Tipset {
     pub fn epoch(&self) -> ChainEpoch {
         self.min_ticket_block().epoch
     }
-    /// Returns all blocks in tipset.
-    pub fn blocks(&self) -> &[CachingBlockHeader] {
+    pub fn block_headers(&self) -> &[CachingBlockHeader] {
         &self.headers
     }
-    /// Consumes tipset to convert into a vector of [`BlockHeader`].
-    pub fn into_blocks(self) -> Vec<CachingBlockHeader> {
+    pub fn into_block_headers(self) -> Vec<CachingBlockHeader> {
         self.headers
     }
     /// Returns the smallest ticket of all blocks in the tipset
@@ -261,9 +259,9 @@ impl Tipset {
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
-            .blocks()
+            .block_headers()
             .iter()
-            .zip(other.blocks().iter())
+            .zip(other.block_headers().iter())
             .any(|(a, b)| {
                 const MSG: &str =
                     "The function block_sanity_checks should have been called at this point.";
@@ -441,7 +439,7 @@ where
 }
 
 pub mod lotus_json {
-    //! [Tipset] isn't just plain old data - it has an invariant (all [`BlockHeader`]s are valid)
+    //! [Tipset] isn't just plain old data - it has an invariant (all block headers are valid)
     //! So there is custom de-serialization here
 
     use crate::blocks::{CachingBlockHeader, Tipset};
@@ -484,7 +482,7 @@ pub mod lotus_json {
             let Self(tipset) = self;
             TipsetLotusJsonInner {
                 cids: tipset.key().clone().into(),
-                blocks: tipset.clone().into_blocks().into(),
+                blocks: tipset.clone().into_block_headers().into(),
                 height: tipset.epoch().into(),
             }
             .serialize(serializer)

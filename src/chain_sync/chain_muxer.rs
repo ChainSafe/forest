@@ -235,7 +235,7 @@ where
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
         let ts = chain_store.load_required_tipset(&tipset_keys)?;
-        for header in ts.blocks() {
+        for header in ts.block_headers() {
             // Retrieve bls and secp messages from specified BlockHeader
             let (bls_msgs, secp_msgs) =
                 crate::chain::block_messages(chain_store.blockstore(), header)?;
@@ -415,7 +415,7 @@ where
                     network.clone(),
                     chain_store.clone(),
                     peer_id,
-                    *genesis.blocks()[0].cid(),
+                    *genesis.block_headers()[0].cid(),
                 ));
                 return Ok(None);
             }

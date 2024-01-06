@@ -22,20 +22,16 @@ pub struct Block {
 }
 
 impl Block {
-    /// Returns reference to the [`BlockHeader`].
     pub fn header(&self) -> &CachingBlockHeader {
         &self.header
     }
-    /// Returns reference to the block's BLS [`Message`]s.
     pub fn bls_msgs(&self) -> &[Message] {
         &self.bls_messages
     }
-    /// Returns reference to the block's SECP [`SignedMessage`]s.
     pub fn secp_msgs(&self) -> &[SignedMessage] {
         &self.secp_messages
     }
-    /// Returns block's `cid`. This `cid` is the same as the
-    /// [`BlockHeader::cid`].
+    /// Returns block header's CID.
     pub fn cid(&self) -> &Cid {
         self.header.cid()
     }

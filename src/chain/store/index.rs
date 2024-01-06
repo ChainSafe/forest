@@ -206,7 +206,7 @@ mod tests {
     use crate::utils::db::CborStoreExt;
 
     fn persist_tipset(tipset: &Tipset, db: &impl Blockstore) {
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             db.put_cbor_default(block).unwrap();
         }
     }

@@ -136,7 +136,7 @@ impl Provider for TestApi {
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let inner = self.inner.lock();
         let mut msgs: Vec<SignedMessage> = Vec::new();
-        for b in ts.blocks() {
+        for b in ts.block_headers() {
             if let Some(ms) = inner.bmsgs.get(b.cid()) {
                 for m in ms {
                     if &m.from() == addr {
@@ -189,7 +189,7 @@ impl Provider for TestApi {
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let (us, s) = self.messages_for_block(&h.blocks()[0])?;
+        let (us, s) = self.messages_for_block(&h.block_headers()[0])?;
         let mut msgs = Vec::new();
 
         for msg in us {
@@ -263,7 +263,7 @@ pub fn mock_block_with_parents(
     let height = parents.epoch() + 1;
 
     let mut weight_inc = BigInt::from(weight);
-    weight_inc = &parents.blocks()[0].weight + weight_inc;
+    weight_inc = &parents.block_headers()[0].weight + weight_inc;
     let fmt_str = format!("===={ticket_sequence}=====");
     let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
     let election_proof = ElectionProof {
@@ -277,7 +277,7 @@ pub fn mock_block_with_parents(
         parents: parents.key().clone(),
         message_receipts: c,
         messages: c,
-        state_root: parents.blocks()[0].state_root,
+        state_root: parents.block_headers()[0].state_root,
         weight: weight_inc,
         epoch: height,
         ..Default::default()

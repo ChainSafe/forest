@@ -751,8 +751,10 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
 
     // Persist the blocks from the synced Tipsets into the store
     tracker.write().set_stage(SyncStage::Headers);
-    let headers: Vec<&CachingBlockHeader> =
-        parent_tipsets.iter().flat_map(|t| t.blocks()).collect();
+    let headers: Vec<&CachingBlockHeader> = parent_tipsets
+        .iter()
+        .flat_map(|t| t.block_headers())
+        .collect();
     if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
         tracker.write().error(why.to_string());
         return Err(why.into());
@@ -926,7 +928,7 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     genesis: Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
     // Persist the blocks from the proposed tipsets into the store
-    let headers: Vec<&CachingBlockHeader> = proposed_head.blocks().iter().collect();
+    let headers: Vec<&CachingBlockHeader> = proposed_head.block_headers().iter().collect();
     persist_objects(chain_store.blockstore(), &headers)?;
 
     // Sync and validate messages from the tipsets
@@ -1000,7 +1002,7 @@ async fn fetch_batch<DB: Blockstore>(
             .map(|(messages, tipset)| {
                 // Construct full tipset from fetched messages
                 let bundle = TipsetBundle {
-                    blocks: tipset.blocks().to_vec(),
+                    blocks: tipset.block_headers().to_vec(),
                     messages: Some(messages),
                 };
 

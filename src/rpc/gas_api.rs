@@ -36,7 +36,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 ) -> Result<TokenAmount, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
-    let parent_base_fee = &ts.blocks()[0].parent_base_fee;
+    let parent_base_fee = &ts.block_headers()[0].parent_base_fee;
     let increase_factor =
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
 
@@ -85,7 +85,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
             .state_manager
             .chain_store()
             .load_required_tipset(ts.parents())?;
-        blocks += pts.blocks().len();
+        blocks += pts.block_headers().len();
         let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
 
         prices.append(

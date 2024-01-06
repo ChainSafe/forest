@@ -470,7 +470,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
         ));
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(
                 *block.cid(),
             )));
@@ -597,7 +597,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().clone()),
         ));
 
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(

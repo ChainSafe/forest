@@ -240,7 +240,7 @@ impl MpoolCommands {
                 local,
             } => {
                 let tipset = api.chain_head().await?;
-                let curr_base_fee = tipset.blocks()[0].parent_base_fee.to_owned();
+                let curr_base_fee = tipset.block_headers()[0].parent_base_fee.to_owned();
 
                 let atto_str = api.chain_get_min_base_fee(basefee_lookback).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);

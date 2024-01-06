@@ -233,7 +233,7 @@ where
         chain_config: Arc<ChainConfig>,
         sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis();
+        let genesis = cs.genesis_block_header();
         let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
         Ok(Self {
@@ -426,7 +426,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: tipset.blocks()[0].parent_base_fee.clone(),
+                base_fee: tipset.block_headers()[0].parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
@@ -515,7 +515,7 @@ where
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
-                    base_fee: ts.blocks()[0].parent_base_fee.clone(),
+                    base_fee: ts.block_headers()[0].parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
@@ -694,7 +694,7 @@ where
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
-            self.chain_store().genesis().timestamp,
+            self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -752,7 +752,7 @@ where
                 } else {
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        &tipset.blocks()[0],
+                        &tipset.block_headers()[0],
                         index,
                     )
                     .map_err(|err| Error::Other(err.to_string()))
@@ -1302,7 +1302,7 @@ where
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
-        let genesis_timestamp = self.chain_store().genesis().timestamp;
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),

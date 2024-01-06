@@ -104,7 +104,7 @@ impl BlockMessages {
             Some(m)
         };
 
-        ts.blocks()
+        ts.block_headers()
             .iter()
             .map(|b| {
                 let (usm, sm) = block_messages(&db, b)?;

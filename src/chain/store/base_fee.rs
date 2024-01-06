@@ -68,7 +68,7 @@ where
     let mut seen = HashSet::new();
 
     // Add all unique messages' gas limit to get the total for the Tipset.
-    for b in ts.blocks() {
+    for b in ts.block_headers() {
         let (msg1, msg2) = crate::chain::block_messages(db, b)?;
         for m in msg1 {
             let m_cid = m.cid()?;
@@ -87,11 +87,11 @@ where
     }
 
     // Compute next base fee based on the current gas limit and parent base fee.
-    let parent_base_fee = &ts.blocks()[0].parent_base_fee;
+    let parent_base_fee = &ts.block_headers()[0].parent_base_fee;
     Ok(compute_next_base_fee(
         parent_base_fee,
         total_limit,
-        ts.blocks().len(),
+        ts.block_headers().len(),
         ts.epoch(),
         smoke_height,
     ))

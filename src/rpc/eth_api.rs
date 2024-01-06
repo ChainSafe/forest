@@ -65,7 +65,7 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
 ) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts
-        .blocks()
+        .block_headers()
         .first()
         .context("Failed to get the first block")?;
     let base_fee = &block0.parent_base_fee;
