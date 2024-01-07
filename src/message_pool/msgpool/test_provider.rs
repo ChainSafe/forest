@@ -228,7 +228,6 @@ pub fn create_header(weight: u64) -> CachingBlockHeader {
     })
 }
 
-// TODO(aatifsyed): I've seen this code before...
 pub fn mock_block(weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
