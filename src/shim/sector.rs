@@ -275,8 +275,7 @@ pub struct PoStProof(PoStProofV3);
 
 impl Hash for PoStProof {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // TODO(aatifsyed): missing from fvm_shared, as well as somewhat
-        //                  less-crucial (for us) PartialOrd/Ord implementations
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/3852
         let PoStProofV3 {
             post_proof,
             proof_bytes,
