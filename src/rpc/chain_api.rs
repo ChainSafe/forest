@@ -16,7 +16,7 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
@@ -26,6 +26,7 @@ use itertools::{Either, EitherOrBoth, Itertools};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
+use std::mem;
 use std::{cmp, iter, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -268,11 +269,21 @@ pub(in crate::rpc) enum PathChange {
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
 pub(in crate::rpc) async fn chain_get_path(
     data: Data<RPCState<impl Blockstore>>,
-    Params(LotusJson((from, to))): Params<LotusJson<(TipsetKeys, TipsetKeys)>>,
+    Params(LotusJson((from, to))): Params<LotusJson<(TipsetKey, TipsetKey)>>,
 ) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
+    impl_chain_get_path(&data.chain_store, from, to)
+        .map(LotusJson)
+        .map_err(Into::into)
+}
+
+fn impl_chain_get_path(
+    chain_store: &ChainStore<impl Blockstore>,
+    from: TipsetKey,
+    to: TipsetKey,
+) -> anyhow::Result<Vec<PathChange>> {
     /// Climb the chain from `origin` to genesis, using `identifier` for error messages.
     fn lineage<'a>(
-        origin: &TipsetKeys,
+        origin: &TipsetKey,
         store: &'a ChainStore<impl Blockstore>,
         identifier: &'a str,
     ) -> impl Iterator<Item = anyhow::Result<Arc<Tipset>>> + 'a {
@@ -311,6 +322,22 @@ pub(in crate::rpc) async fn chain_get_path(
         .collect()
     }
 
+    fn peek_epoch(
+        lineage: &mut iter::Peekable<impl Iterator<Item = Result<Arc<Tipset>, anyhow::Error>>>,
+    ) -> anyhow::Result<i64> {
+        lineage
+            .peek_mut()
+            // fine to unwrap because `lineage` must at least return one item (which may be an error)
+            .unwrap()
+            .as_mut()
+            .map(|it| it.epoch())
+            // hack to preserve the source error without getting the lifetime of
+            // `lineage` getting tangled up:
+            // - anyhow::Error: !From<&anyhow::Error>
+            // - anyhow::Error: !Clone
+            .map_err(|it| mem::replace(it, anyhow!("dummy")))
+    }
+
     // A - B  - C  - D - E
     // |                 ^ `from`
     // |
@@ -318,15 +345,11 @@ pub(in crate::rpc) async fn chain_get_path(
     //               ^ `to`
 
     // E D C B A
-    let mut from_lineage = lineage(&from, &data.chain_store, "from").peekable();
+    let mut from_lineage = lineage(&from, chain_store, "from").peekable();
     // D' C' B' A
-    let mut to_lineage = lineage(&to, &data.chain_store, "to").peekable();
+    let mut to_lineage = lineage(&to, chain_store, "to").peekable();
 
-    let common_height = cmp::min(
-        // fine to unwrap because `lineage` must at least return one item (which may be an error)
-        from_lineage.peek().unwrap().as_deref().map(Tipset::epoch)?,
-        to_lineage.peek().unwrap().as_deref().map(Tipset::epoch)?,
-    );
+    let common_height = cmp::min(peek_epoch(&mut from_lineage)?, peek_epoch(&mut to_lineage)?);
 
     //               |< common height
     //
@@ -355,13 +378,11 @@ pub(in crate::rpc) async fn chain_get_path(
                         //     <~~~~~~~~~~ applies
 
                         // need to return the reverts E->B, then the applies B'->C'
-                        return Ok(LotusJson(
-                            reverts
-                                .into_iter()
-                                .map(PathChange::Revert)
-                                .chain(applies.into_iter().rev().map(PathChange::Apply))
-                                .collect(),
-                        ));
+                        return Ok(reverts
+                            .into_iter()
+                            .map(PathChange::Revert)
+                            .chain(applies.into_iter().rev().map(PathChange::Apply))
+                            .collect());
                     }
                     false => {
                         reverts.push(from);
@@ -377,7 +398,7 @@ pub(in crate::rpc) async fn chain_get_path(
         }
     }
 
-    Err(JsonRpcError::from("no common ancestor found"))
+    bail!("no common ancestor found")
 }
 
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
@@ -568,85 +589,11 @@ mod tests {
             )
             .unwrap()
         }
-        fn genesis_tipset_key(&self) -> TipsetKeys
+        fn genesis_tipset_key(&self) -> TipsetKey
         where
             DB: Blockstore, // incorrect
         {
-            Tipset::from(self.genesis()).key().clone()
+            Tipset::from(self.genesis_block_header()).key().clone()
         }
-    }
-
-    trait BlockHeaderExt {
-        fn get(&self) -> &BlockHeader;
-        fn tipset(&self) -> Tipset {
-            Tipset::from(self.get())
-        }
-        fn tipset_keys(&self) -> TipsetKeys {
-            self.tipset().key().clone()
-        }
-    }
-    impl BlockHeaderExt for BlockHeader {
-        fn get(&self) -> &Self {
-            self
-        }
-    }
-
-    struct TipsetTrailInner {
-        lanes: RefCell<Option<Vec<Vec<(i64, TipsetKeys)>>>>,
-    }
-
-    struct TipsetTrail {
-        inner: Rc<TipsetTrailInner>,
-        lane: usize,
-    }
-
-    impl TipsetTrail {
-        pub fn new(base: &Tipset) -> Self {
-            Self {
-                inner: Rc::new(TipsetTrailInner {
-                    lanes: RefCell::new(Some(vec![vec![(base.epoch(), base.key().clone())]])),
-                }),
-                lane: 0,
-            }
-        }
-    }
-
-    #[test]
-    fn test() {
-        let chain_store = ChainStore::<MemoryDB>::calibnet();
-        let a = BlockHeader::builder()
-            .epoch(1)
-            .parents(chain_store.genesis_tipset_key())
-            .build()
-            .unwrap();
-        chain::persist_objects(chain_store.blockstore(), slice::from_ref(&a)).unwrap();
-        assert_eq!(
-            chain_store.load_tipset(&a.tipset_keys()).unwrap().unwrap(),
-            Arc::new(a.tipset())
-        );
-        // chain_store
-        //     .set_heaviest_tipset(Arc::new(a.tipset()))
-        //     .unwrap(); // succeeds, but maybe not what we want
-    }
-
-    // aria2c https://forest-archive.chainsafe.dev/calibnet/diff/forest_diff_calibnet_2022-11-02_height_0+3000.forest.car.zst
-    #[test]
-    fn test3k() {
-        let chain_store = ChainStore::<MemoryDB>::calibnet();
-        tokio::runtime::Runtime::new().unwrap().block_on(async {
-            load_car(
-                chain_store.blockstore(),
-                tokio::io::BufReader::new(
-                    tokio::fs::File::open(
-                        "forest_diff_calibnet_2022-11-02_height_0+3000.forest.car",
-                    )
-                    .await
-                    .unwrap(),
-                ),
-            )
-            .await
-            .unwrap()
-        });
-        assert_eq!(chain_store.heaviest_tipset().epoch(), 3000); // fails...
     }
 }
