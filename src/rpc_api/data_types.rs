@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
@@ -113,7 +113,7 @@ pub struct MessageLookup {
     #[serde(with = "crate::lotus_json")]
     pub receipt: Receipt,
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
-    pub tipset: TipsetKeys,
+    pub tipset: TipsetKey,
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,

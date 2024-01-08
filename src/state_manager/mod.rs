@@ -15,7 +15,7 @@ pub use utils::is_valid_for_sending;
 pub mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
@@ -74,8 +74,8 @@ type CidPair = (Cid, Cid);
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
-    values: LruCache<TipsetKeys, CidPair>,
-    pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
+    values: LruCache<TipsetKey, CidPair>,
+    pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
 impl Default for TipsetStateCacheInner {
@@ -111,7 +111,7 @@ impl TipsetStateCache {
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, compute: F) -> anyhow::Result<CidPair>
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<CidPair>
     where
         F: Fn() -> Fut,
         Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
@@ -169,11 +169,11 @@ impl TipsetStateCache {
         }
     }
 
-    fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
+    fn get(&self, key: &TipsetKey) -> Option<CidPair> {
         self.with_inner(|inner| inner.values.get(key).copied())
     }
 
-    fn insert(&self, key: TipsetKeys, value: CidPair) {
+    fn insert(&self, key: TipsetKey, value: CidPair) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -877,7 +877,7 @@ where
             Ok::<_, Error>(back_tuple)
         });
 
-        let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
+        let reverts: Arc<RwLock<HashMap<TipsetKey, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
         let sm_cloned = Arc::clone(self);
 

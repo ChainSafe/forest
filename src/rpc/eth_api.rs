@@ -5,7 +5,7 @@
 use std::{ops::Add, sync::Arc};
 
 use super::gas_api;
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
@@ -125,7 +125,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Ok(ts)
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let tsk = TipsetKeys {
+            let tsk = TipsetKey {
                 cids: FrozenCidVec::from_iter([hash.to_cid()]),
             };
             let ts = chain.chain_index.load_required_tipset(&tsk)?;

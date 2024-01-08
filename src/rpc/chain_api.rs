@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::{CachingBlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
@@ -97,7 +97,7 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = data.chain_store.blockstore();
     let tipset = Tipset::load_required(store, &tsk)?;
@@ -220,7 +220,7 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
 
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKeys)>>,
+    Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKey)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
@@ -262,7 +262,7 @@ pub(in crate::rpc) async fn chain_get_block<DB: Blockstore>(
 
 pub(in crate::rpc) async fn chain_get_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
@@ -275,7 +275,7 @@ pub(in crate::rpc) async fn chain_get_tipset<DB: Blockstore>(
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
 ) -> Result<(), JsonRpcError> {
     let new_head = data
         .state_manager

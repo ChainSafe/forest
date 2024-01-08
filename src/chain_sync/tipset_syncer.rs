@@ -23,9 +23,7 @@ use crate::shim::{
 use crate::state_manager::{is_valid_for_sending, Error as StateManagerError, StateManager};
 use crate::utils::io::WithProgressRaw;
 use crate::{
-    blocks::{
-        Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKeys,
-    },
+    blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKey},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
@@ -137,7 +135,7 @@ impl TipsetRangeSyncerError {
 struct TipsetGroup {
     tipsets: NonEmpty<Arc<Tipset>>,
     epoch: ChainEpoch,
-    parents: TipsetKeys,
+    parents: TipsetKey,
 }
 
 impl TipsetGroup {
@@ -155,7 +153,7 @@ impl TipsetGroup {
         self.epoch
     }
 
-    fn parents(&self) -> TipsetKeys {
+    fn parents(&self) -> TipsetKey {
         self.parents.clone()
     }
 
@@ -309,7 +307,7 @@ enum TipsetProcessorState<DB> {
     FindRange {
         range_finder: Option<TipsetRangeSyncer<DB>>,
         epoch: i64,
-        parents: TipsetKeys,
+        parents: TipsetKey,
         current_sync: Option<TipsetGroup>,
         next_sync: Option<TipsetGroup>,
     },
@@ -342,7 +340,7 @@ where
         // checks were run
 
         // Read all of the tipsets available on the stream
-        let mut grouped_tipsets: HashMap<(i64, TipsetKeys), TipsetGroup> = HashMap::new();
+        let mut grouped_tipsets: HashMap<(i64, TipsetKey), TipsetGroup> = HashMap::new();
         loop {
             match self.tipsets.as_mut().poll_next(cx) {
                 Poll::Ready(Some(tipset)) => {
@@ -581,7 +579,7 @@ enum InvalidBlockStrategy {
 pub(in crate::chain_sync) struct TipsetRangeSyncer<DB> {
     pub proposed_head: Arc<Tipset>,
     pub current_head: Arc<Tipset>,
-    tipsets_included: HashSet<TipsetKeys>,
+    tipsets_included: HashSet<TipsetKey>,
     tipset_tasks: JoinSet<Result<(), TipsetRangeSyncerError>>,
     state_manager: Arc<StateManager<DB>>,
     network: SyncNetworkContext<DB>,
@@ -682,7 +680,7 @@ where
         self.proposed_head.epoch()
     }
 
-    pub fn proposed_head_parents(&self) -> TipsetKeys {
+    pub fn proposed_head_parents(&self) -> TipsetKey {
         self.proposed_head.parents().clone()
     }
 }
@@ -1525,7 +1523,7 @@ fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetRange
 /// If so, add all their descendants to the bad block cache and return an error.
 fn validate_tipset_against_cache(
     bad_block_cache: &BadBlockCache,
-    tipset: &TipsetKeys,
+    tipset: &TipsetKey,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError> {
     for cid in tipset.cids.clone() {

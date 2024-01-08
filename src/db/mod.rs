@@ -20,7 +20,7 @@ use serde::Serialize;
 use std::sync::Arc;
 
 pub mod setting_keys {
-    /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKeys`]
+    /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKey`]s
     pub const HEAD_KEY: &str = "head";
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";

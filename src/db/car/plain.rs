@@ -62,7 +62,7 @@
 
 use crate::cid_collections::{hash_map::Entry as CidHashMapEntry, CidHashMap};
 use crate::{
-    blocks::{Tipset, TipsetKeys},
+    blocks::{Tipset, TipsetKey},
     utils::encoding::from_slice_with_fallback,
 };
 
@@ -156,7 +156,7 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::from_iter(self.roots()))
+        Tipset::load_required(self, &TipsetKey::from_iter(self.roots()))
     }
 
     /// In an arbitrary order

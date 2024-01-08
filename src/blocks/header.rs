@@ -4,7 +4,7 @@
 use std::ops::Deref;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use super::{ElectionProof, Error, Ticket, TipsetKeys};
+use super::{ElectionProof, Error, Ticket, TipsetKey};
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
@@ -32,7 +32,7 @@ pub struct RawBlockHeader {
     /// The set of parents this block was based on.
     /// Typically one, but can be several in the case where there were multiple
     /// winning ticket-holders for an epoch
-    pub parents: TipsetKeys,
+    pub parents: TipsetKey,
     /// The aggregate chain weight of the parent set
     #[serde(with = "crate::shim::fvm_shared_latest::bigint::bigint_ser")]
     pub weight: BigInt,

@@ -4,7 +4,7 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::beacon::{BeaconEntry, IGNORE_DRAND_VAR};
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::metrics;
 use crate::shim::clock::ChainEpoch;
 use fvm_ipld_blockstore::Blockstore;
@@ -17,7 +17,7 @@ use crate::chain::Error;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(131072_usize);
 
-type TipsetCache = Mutex<LruCache<TipsetKeys, Arc<Tipset>>>;
+type TipsetCache = Mutex<LruCache<TipsetKey, Arc<Tipset>>>;
 
 /// Keeps look-back tipsets in cache at a given interval `skip_length` and can
 /// be used to look-back at the chain to retrieve an old tipset.
@@ -46,7 +46,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
 
     /// Loads a tipset from memory given the tipset keys and cache. Semantically
     /// identical to [`Tipset::load`] but the result is cached.
-    pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Option<Arc<Tipset>>, Error> {
+    pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
         if let Some(ts) = self.ts_cache.lock().get(tsk) {
             metrics::LRU_CACHE_HIT
                 .with_label_values(&[metrics::values::TIPSET])
@@ -68,7 +68,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// Loads a tipset from memory given the tipset keys and cache.
     /// This calls fails if the tipset is missing or invalid. Semantically
     /// identical to [`Tipset::load_required`] but the result is cached.
-    pub fn load_required_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    pub fn load_required_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
         self.load_tipset(tsk)?
             .ok_or_else(|| Error::NotFound("Key for header".into()))
     }
