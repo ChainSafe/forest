@@ -9,7 +9,7 @@ use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
-pub use crate::libp2p::{Multiaddr, Protocol};
+pub use crate::libp2p::Multiaddr;
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
@@ -23,6 +23,7 @@ use crate::shim::{
     error::ExitCode,
     executor::Receipt,
     message::Message,
+    piece::PaddedPieceSize,
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
 };
@@ -100,14 +101,132 @@ pub struct MessageSendSpec {
 
 lotus_json_with_self!(MessageSendSpec);
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketDeal {
     pub proposal: DealProposal,
     pub state: DealState,
 }
 
-lotus_json_with_self!(MarketDeal);
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MarketDealLotusJson {
+    pub proposal: DealProposalLotusJson,
+    pub state: DealStateLotusJson,
+}
+
+impl HasLotusJson for MarketDeal {
+    type LotusJson = MarketDealLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        MarketDealLotusJson {
+            proposal: self.proposal.into_lotus_json(),
+            state: self.state.into_lotus_json(),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        MarketDeal {
+            proposal: DealProposal::from_lotus_json(lotus_json.proposal),
+            state: DealState::from_lotus_json(lotus_json.state),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct DealProposalLotusJson {
+    pub piece_cid: String,
+    pub piece_size: PaddedPieceSize,
+    pub verified_deal: bool,
+    pub client: String,
+    #[serde(with = "crate::lotus_json")]
+    pub provider: Address,
+    pub label: String,
+    #[serde(with = "crate::lotus_json")]
+    pub start_epoch: ChainEpoch,
+    #[serde(with = "crate::lotus_json")]
+    pub end_epoch: ChainEpoch,
+    #[serde(with = "crate::lotus_json")]
+    pub storage_price_per_epoch: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub provider_collateral: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub client_collateral: TokenAmount,
+}
+
+impl HasLotusJson for DealProposal {
+    type LotusJson = DealProposalLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        DealProposalLotusJson {
+            piece_cid: self.piece_cid.to_string(),
+            piece_size: self.piece_size.into(),
+            verified_deal: self.verified_deal,
+            client: self.client.to_string(),
+            provider: self.provider.into(),
+            label: self.label,
+            start_epoch: self.start_epoch,
+            end_epoch: self.end_epoch,
+            storage_price_per_epoch: self.storage_price_per_epoch.into(),
+            provider_collateral: self.provider_collateral.into(),
+            client_collateral: self.client_collateral.into(),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        DealProposal {
+            piece_cid: Cid::from_str(&lotus_json.piece_cid).unwrap_or(Cid::default()),
+            piece_size: lotus_json.piece_size.into(),
+            verified_deal: lotus_json.verified_deal,
+            client: Address::from_str(&lotus_json.client).unwrap_or(Address::new_id(0)).into(),
+            provider: lotus_json.provider.into(),
+            label: lotus_json.label,
+            start_epoch: lotus_json.start_epoch,
+            end_epoch: lotus_json.end_epoch,
+            storage_price_per_epoch: lotus_json.storage_price_per_epoch.into(),
+            provider_collateral: lotus_json.provider_collateral.into(),
+            client_collateral: lotus_json.client_collateral.into(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct DealStateLotusJson {
+    #[serde(with = "crate::lotus_json")]
+    pub sector_start_epoch: ChainEpoch,
+    #[serde(with = "crate::lotus_json")]
+    pub last_updated_epoch: ChainEpoch,
+    #[serde(with = "crate::lotus_json")]
+    pub slash_epoch: ChainEpoch,
+    pub verified_claim: u64,
+}
+
+impl HasLotusJson for DealState {
+    type LotusJson = DealStateLotusJson;
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        DealStateLotusJson {
+            sector_start_epoch: self.sector_start_epoch,
+            last_updated_epoch: self.last_updated_epoch,
+            slash_epoch: self.slash_epoch,
+            verified_claim: self.verified_claim,
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        DealState {
+            sector_start_epoch: lotus_json.sector_start_epoch,
+            last_updated_epoch: lotus_json.last_updated_epoch,
+            slash_epoch: lotus_json.slash_epoch,
+            verified_claim: lotus_json.verified_claim,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

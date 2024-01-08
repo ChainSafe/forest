@@ -153,11 +153,11 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 pub(in crate::rpc) async fn state_market_storage_deal<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((deal_id, tsk))): Params<LotusJson<(u64, TipsetKeys)>>,
-) -> Result<MarketDeal, JsonRpcError> {
-    Ok(state_market_deals(data, Params(LotusJson((tsk,))))
+) -> Result<LotusJson<MarketDeal>, JsonRpcError> {
+    Ok(LotusJson(state_market_deals(data, Params(LotusJson((tsk,))))
         .await?
         .into_iter()
         .find(|d| d.0 == deal_id.to_string())
         .ok_or("Deal not found")?
-        .1)
+        .1))
 }

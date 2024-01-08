@@ -190,6 +190,7 @@ pub(in crate::rpc) async fn state_market_deals<DB: Blockstore>(
             sector_start_epoch: -1,
             last_updated_epoch: -1,
             slash_epoch: -1,
+            verified_claim: 0,
         });
         out.insert(
             deal_id.to_string(),

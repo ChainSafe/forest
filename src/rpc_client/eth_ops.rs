@@ -3,7 +3,6 @@
 
 use crate::rpc_api::data_types::MarketDeal;
 use crate::rpc_api::eth_api::Address as EthAddress;
-use crate::shim::address::Address;
 use crate::{blocks::TipsetKeys, rpc_api::eth_api::*};
 
 use super::{ApiInfo, RpcRequest};
