@@ -46,7 +46,7 @@ jobs:
           max_attempts: 3
           command: sudo make install-deps
       - name: Link Checker (Repo Readme)
-        uses: lycheeverse/lychee-action@v1.8.0
+        uses: lycheeverse/lychee-action@v1.9.0
         with:
           args: 'README.md'
           # Fail action on broken links
@@ -64,7 +64,7 @@ jobs:
           CC: "sccache clang"
           CXX: "sccache clang++"
       - name: Link Checker (Library Documentation)
-        uses: lycheeverse/lychee-action@v1.8.0
+        uses: lycheeverse/lychee-action@v1.9.0
         with:
           args: './target/doc/forest_filecoin/**/index.html'
           # Fail action on broken links
