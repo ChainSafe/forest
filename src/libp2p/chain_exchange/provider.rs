@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, Error as ChainError};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
@@ -30,7 +30,7 @@ where
     }
 
     let inner = move || {
-        let root = match cs.load_tipset(&TipsetKeys::from_iter(request.start.clone()))? {
+        let root = match cs.load_tipset(&TipsetKey::from_iter(request.start.clone()))? {
             Some(tipset) => tipset,
             None => {
                 return Ok(ChainExchangeResponse {

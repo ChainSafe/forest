@@ -8,9 +8,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::blocks::{
-    Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKeys,
-};
+use crate::blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKey};
 use crate::chain::{ChainStore, Error as ChainStoreError};
 use crate::libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
@@ -215,7 +213,7 @@ where
         network: SyncNetworkContext<DB>,
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
-        tipset_keys: TipsetKeys,
+        tipset_keys: TipsetKey,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
         if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
@@ -230,7 +228,7 @@ where
 
     fn load_full_tipset(
         chain_store: Arc<ChainStore<DB>>,
-        tipset_keys: TipsetKeys,
+        tipset_keys: TipsetKey,
     ) -> Result<FullTipset, ChainMuxerError> {
         let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKeys
@@ -377,7 +375,7 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
                     .inc();
-                let tipset_keys = TipsetKeys::from_iter(request.heaviest_tip_set);
+                let tipset_keys = TipsetKey::from_iter(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),

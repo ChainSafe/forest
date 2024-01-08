@@ -4,7 +4,7 @@
 
 use std::convert::TryFrom;
 
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
@@ -39,7 +39,7 @@ pub(in crate::rpc) async fn mpool_pending<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let tsk = TipsetKeys::from_iter(cid_vec);
+    let tsk = TipsetKey::from_iter(cid_vec);
     let mut ts = data
         .state_manager
         .chain_store()

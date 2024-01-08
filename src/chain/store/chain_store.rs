@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{CachingBlockHeader, Tipset, TipsetKeys, TxMeta};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
 use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
@@ -111,10 +111,10 @@ where
         let chain_index = Arc::new(ChainIndex::new(Arc::clone(&db)));
 
         if !settings
-            .read_obj::<TipsetKeys>(HEAD_KEY)?
+            .read_obj::<TipsetKey>(HEAD_KEY)?
             .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
         {
-            let tipset_keys = TipsetKeys::from_iter([*genesis_block_header.cid()]);
+            let tipset_keys = TipsetKey::from_iter([*genesis_block_header.cid()]);
             settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 
@@ -174,7 +174,7 @@ where
         self.load_required_tipset(
             &self
                 .settings
-                .require_obj::<TipsetKeys>(HEAD_KEY)
+                .require_obj::<TipsetKey>(HEAD_KEY)
                 .expect("failed to load heaviest tipset"),
         )
         .expect("failed to load heaviest tipset")
@@ -192,7 +192,7 @@ where
 
     /// Returns Tipset from key-value store from provided CIDs
     #[tracing::instrument(skip_all)]
-    pub fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Option<Arc<Tipset>>, Error> {
+    pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
         if tsk.cids.is_empty() {
             return Ok(Some(self.heaviest_tipset()));
         }
@@ -202,7 +202,7 @@ where
     /// Returns Tipset from key-value store from provided CIDs.
     /// This calls fails if the tipset is missing or invalid.
     #[tracing::instrument(skip_all)]
-    pub fn load_required_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    pub fn load_required_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
         if tsk.cids.is_empty() {
             return Ok(self.heaviest_tipset());
         }

@@ -7,7 +7,7 @@ use std::{convert::TryFrom, sync::Arc};
 
 use crate::blocks::RawBlockHeader;
 use crate::blocks::VRFProof;
-use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey};
 use crate::chain::HeadChange;
 use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -201,7 +201,7 @@ impl Provider for TestApi {
         Ok(msgs)
     }
 
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
         let inner = self.inner.lock();
         for ts in &inner.tipsets {
             if tsk == ts.key() {

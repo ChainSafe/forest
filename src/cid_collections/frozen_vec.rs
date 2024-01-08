@@ -6,9 +6,9 @@ use cid::Cid;
 use serde::{Deserialize, Serialize};
 
 #[cfg(doc)]
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 
-/// There are typically MANY small, immutable collections of CIDs in, e.g [`TipsetKeys`].
+/// There are typically MANY small, immutable collections of CIDs in, e.g [`TipsetKey`]s.
 ///
 /// Save space on those by:
 /// - Using a boxed slice to save on vector overallocation.

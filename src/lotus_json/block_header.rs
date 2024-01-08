@@ -5,7 +5,7 @@ use crate::beacon::BeaconEntry;
 use crate::lotus_json::*;
 use crate::shim::sector::PoStProof;
 use crate::{
-    blocks::{ElectionProof, Ticket, TipsetKeys},
+    blocks::{ElectionProof, Ticket, TipsetKey},
     shim::address::Address,
     shim::{crypto::Signature, econ::TokenAmount},
 };
@@ -25,7 +25,7 @@ pub struct BlockHeaderLotusJson {
     election_proof: LotusJson<Option<ElectionProof>>,
     beacon_entries: LotusJson<Vec<BeaconEntry>>,
     win_po_st_proof: LotusJson<Vec<PoStProof>>,
-    parents: LotusJson<TipsetKeys>,
+    parents: LotusJson<TipsetKey>,
     parent_weight: LotusJson<BigInt>,
     height: LotusJson<i64>,
     parent_state_root: LotusJson<Cid>,

@@ -27,11 +27,11 @@ use super::{Block, CachingBlockHeader, Error, Ticket};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
-pub struct TipsetKeys {
+pub struct TipsetKey {
     pub cids: FrozenCidVec,
 }
 
-impl TipsetKeys {
+impl TipsetKey {
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
@@ -43,7 +43,7 @@ impl TipsetKeys {
     }
 }
 
-impl FromIterator<Cid> for TipsetKeys {
+impl FromIterator<Cid> for TipsetKey {
     fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
         Self {
             cids: iter.into_iter().collect(),
@@ -51,7 +51,7 @@ impl FromIterator<Cid> for TipsetKeys {
     }
 }
 
-impl fmt::Display for TipsetKeys {
+impl fmt::Display for TipsetKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
             .cids
@@ -69,7 +69,7 @@ impl fmt::Display for TipsetKeys {
 #[derive(Clone, Debug)]
 pub struct Tipset {
     headers: Vec<CachingBlockHeader>,
-    key: OnceCell<TipsetKeys>,
+    key: OnceCell<TipsetKey>,
 }
 
 impl From<&CachingBlockHeader> for Tipset {
@@ -140,7 +140,7 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This call fails if the tipset is
     /// present but invalid. If the tipset is missing, None is returned.
-    pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
+    pub fn load(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids
             .clone()
@@ -157,7 +157,7 @@ impl Tipset {
         settings: &impl SettingsStore,
     ) -> anyhow::Result<Option<Tipset>> {
         Ok(
-            match settings.read_obj::<TipsetKeys>(crate::db::setting_keys::HEAD_KEY)? {
+            match settings.read_obj::<TipsetKey>(crate::db::setting_keys::HEAD_KEY)? {
                 Some(tsk) => tsk
                     .cids
                     .into_iter()
@@ -172,7 +172,7 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This calls fails if the tipset is
     /// missing or invalid.
-    pub fn load_required(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Tipset> {
+    pub fn load_required(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
         Tipset::load(store, tsk)?.context("Required tipset missing from database")
     }
 
@@ -233,9 +233,9 @@ impl Tipset {
         self.headers.len()
     }
     /// Returns a key for the tipset.
-    pub fn key(&self) -> &TipsetKeys {
+    pub fn key(&self) -> &TipsetKey {
         self.key.get_or_init(|| {
-            TipsetKeys::from_iter(self.headers.iter().map(CachingBlockHeader::cid).copied())
+            TipsetKey::from_iter(self.headers.iter().map(CachingBlockHeader::cid).copied())
         })
     }
     /// Returns slice of `CIDs` for the current tipset
@@ -243,7 +243,7 @@ impl Tipset {
         self.key().cids.clone().into_iter().collect()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
-    pub fn parents(&self) -> &TipsetKeys {
+    pub fn parents(&self) -> &TipsetKey {
         &self.min_ticket_block().parents
     }
     /// Returns the state root for the tipset parent.
@@ -332,7 +332,7 @@ impl Tipset {
 #[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: Vec<Block>,
-    key: OnceCell<TipsetKeys>,
+    key: OnceCell<TipsetKey>,
 }
 
 // Constructing a FullTipset from a single Block is infallible.
@@ -382,9 +382,9 @@ impl FullTipset {
         Tipset::from(self)
     }
     /// Returns a key for the tipset.
-    pub fn key(&self) -> &TipsetKeys {
+    pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKeys::from_iter(self.blocks.iter().map(Block::cid).copied()))
+            .get_or_init(|| TipsetKey::from_iter(self.blocks.iter().map(Block::cid).copied()))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -447,14 +447,14 @@ mod lotus_json {
     use crate::lotus_json::*;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use super::TipsetKeys;
+    use super::TipsetKey;
 
     pub struct TipsetLotusJson(Tipset);
 
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
-        cids: LotusJson<TipsetKeys>,
+        cids: LotusJson<TipsetKey>,
         blocks: LotusJson<Vec<CachingBlockHeader>>,
         height: LotusJson<i64>,
     }
@@ -556,8 +556,7 @@ mod test {
     use num_bigint::BigInt;
 
     use crate::blocks::{
-        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Error, Ticket, Tipset,
-        TipsetKeys,
+        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKey,
     };
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
@@ -694,12 +693,12 @@ mod test {
     fn ensure_parent_cids_are_equal() {
         let h0 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(0),
-            parents: TipsetKeys::default(),
+            parents: TipsetKey::default(),
             ..Default::default()
         });
         let h1 = CachingBlockHeader::new(RawBlockHeader {
             miner_address: Address::new_id(1),
-            parents: TipsetKeys::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
+            parents: TipsetKey::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
             ..Default::default()
         });
         assert_eq!(

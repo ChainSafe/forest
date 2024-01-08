@@ -10,7 +10,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::blocks::{FullTipset, Tipset, TipsetKeys};
+use crate::blocks::{FullTipset, Tipset, TipsetKey};
 use crate::libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -133,7 +133,7 @@ where
     pub async fn chain_exchange_headers(
         &self,
         peer_id: Option<PeerId>,
-        tsk: &TipsetKeys,
+        tsk: &TipsetKey,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
         self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
@@ -145,7 +145,7 @@ where
     pub async fn chain_exchange_messages(
         &self,
         peer_id: Option<PeerId>,
-        tsk: &TipsetKeys,
+        tsk: &TipsetKey,
         count: u64,
     ) -> Result<Vec<CompactedMessages>, String> {
         self.handle_chain_exchange_request(peer_id, tsk, count, MESSAGES)
@@ -158,7 +158,7 @@ where
     pub async fn chain_exchange_fts(
         &self,
         peer_id: Option<PeerId>,
-        tsk: &TipsetKeys,
+        tsk: &TipsetKey,
     ) -> Result<FullTipset, String> {
         let mut fts = self
             .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES)
@@ -219,7 +219,7 @@ where
     async fn handle_chain_exchange_request<T>(
         &self,
         peer_id: Option<PeerId>,
-        tsk: &TipsetKeys,
+        tsk: &TipsetKey,
         request_len: u64,
         options: u64,
     ) -> Result<Vec<T>, String>

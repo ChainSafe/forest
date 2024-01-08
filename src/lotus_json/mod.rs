@@ -195,7 +195,7 @@ decl_and_test!(
     signed_message for  crate::message::SignedMessage,
     sync_stage for crate::chain_sync::SyncStage,
     ticket for crate::blocks::Ticket,
-    tipset_keys for crate::blocks::TipsetKeys,
+    tipset_keys for crate::blocks::TipsetKey,
     token_amount for crate::shim::econ::TokenAmount,
     vec_u8 for Vec<u8>,
     vrf_proof for crate::blocks::VRFProof,
