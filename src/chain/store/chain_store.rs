@@ -21,6 +21,7 @@ use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use itertools::Itertools;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast::{self, Sender as Publisher};
@@ -152,7 +153,7 @@ where
     /// Writes tipset block headers to data store and updates heaviest tipset
     /// with other compatible tracked headers.
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
-        persist_objects(self.blockstore(), ts.blocks())?;
+        persist_objects(self.blockstore(), ts.blocks().iter())?;
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
@@ -375,12 +376,15 @@ where
 }
 
 /// Persists slice of `serializable` objects to `blockstore`.
-pub fn persist_objects<DB, C>(db: &DB, headers: &[C]) -> Result<(), Error>
+pub fn persist_objects<'a, DB, C>(
+    db: &DB,
+    headers: impl Iterator<Item = &'a C>,
+) -> Result<(), Error>
 where
     DB: Blockstore,
-    C: Serialize,
+    C: 'a + Serialize,
 {
-    for chunk in headers.chunks(256) {
+    for chunk in &headers.chunks(256) {
         db.bulk_put(chunk, DB::default_code())?;
     }
     Ok(())

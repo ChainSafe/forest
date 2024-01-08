@@ -52,7 +52,7 @@ where
                 }
 
                 if request.include_blocks() {
-                    tipset_bundle.blocks = tipset.blocks().to_vec();
+                    tipset_bundle.blocks = tipset.blocks().iter().cloned().collect_vec();
                 }
 
                 anyhow::Ok(tipset_bundle)

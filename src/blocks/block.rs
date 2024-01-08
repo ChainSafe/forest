@@ -42,9 +42,9 @@ impl Block {
 
     /// Persists the block in the given block store
     pub fn persist(&self, db: &impl Blockstore) -> Result<(), crate::chain::store::Error> {
-        crate::chain::persist_objects(&db, &[self.header()])?;
-        crate::chain::persist_objects(&db, self.bls_msgs())?;
-        crate::chain::persist_objects(&db, self.secp_msgs())
+        crate::chain::persist_objects(&db, std::iter::once(self.header()))?;
+        crate::chain::persist_objects(&db, self.bls_msgs().iter())?;
+        crate::chain::persist_objects(&db, self.secp_msgs().iter())
     }
 }
 

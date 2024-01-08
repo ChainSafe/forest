@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use nonempty::{nonempty, NonEmpty};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -68,23 +69,20 @@ impl fmt::Display for TipsetKeys {
 /// Blocks in a tipset are canonically ordered by ticket size.
 #[derive(Clone, Debug)]
 pub struct Tipset {
-    headers: Vec<BlockHeader>,
+    headers: NonEmpty<BlockHeader>,
     key: OnceCell<TipsetKeys>,
 }
 
 impl From<&BlockHeader> for Tipset {
     fn from(value: &BlockHeader) -> Self {
-        Self {
-            headers: vec![value.clone()],
-            key: OnceCell::new(),
-        }
+        value.clone().into()
     }
 }
 
 impl From<BlockHeader> for Tipset {
     fn from(value: BlockHeader) -> Self {
         Self {
-            headers: vec![value],
+            headers: nonempty![value],
             key: OnceCell::new(),
         }
     }
@@ -108,11 +106,7 @@ impl quickcheck::Arbitrary for Tipset {
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
-        let headers: Vec<BlockHeader> = full_tipset
-            .blocks
-            .into_iter()
-            .map(|block| block.header)
-            .collect();
+        let headers = full_tipset.blocks.map(|block| block.header);
 
         Tipset { headers, key }
     }
@@ -135,7 +129,7 @@ impl Tipset {
         // return tipset where sorted headers have smallest ticket size in the 0th index
         // and the distinct keys
         Ok(Self {
-            headers,
+            headers: NonEmpty::from_vec(headers).ok_or(Error::NoBlocks)?,
             key: OnceCell::new(),
         })
     }
@@ -208,11 +202,11 @@ impl Tipset {
         self.min_ticket_block().epoch()
     }
     /// Returns all blocks in tipset.
-    pub fn blocks(&self) -> &[BlockHeader] {
+    pub fn blocks(&self) -> &NonEmpty<BlockHeader> {
         &self.headers
     }
     /// Consumes tipset to convert into a vector of [`BlockHeader`].
-    pub fn into_blocks(self) -> Vec<BlockHeader> {
+    pub fn into_blocks(self) -> NonEmpty<BlockHeader> {
         self.headers
     }
     /// Returns the smallest ticket of all blocks in the tipset
@@ -221,8 +215,7 @@ impl Tipset {
     }
     /// Returns the block with the smallest ticket of all blocks in the tipset
     pub fn min_ticket_block(&self) -> &BlockHeader {
-        // `Tipset::new` guarantees that `blocks` isn't empty
-        self.headers.first().unwrap()
+        self.headers.first()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
@@ -335,7 +328,7 @@ impl Tipset {
 /// and messages
 #[derive(Debug, Clone)]
 pub struct FullTipset {
-    blocks: Vec<Block>,
+    blocks: NonEmpty<Block>,
     key: OnceCell<TipsetKeys>,
 }
 
@@ -343,7 +336,7 @@ pub struct FullTipset {
 impl From<Block> for FullTipset {
     fn from(block: Block) -> Self {
         FullTipset {
-            blocks: vec![block],
+            blocks: nonempty![block],
             key: OnceCell::new(),
         }
     }
@@ -363,21 +356,20 @@ impl FullTipset {
         // FullTipset and Tipset
         blocks.sort_by_cached_key(|block| block.header().to_sort_key());
         Ok(Self {
-            blocks,
+            blocks: NonEmpty::from_vec(blocks).ok_or(Error::NoBlocks)?,
             key: OnceCell::new(),
         })
     }
     /// Returns the first block of the tipset.
     fn first_block(&self) -> &Block {
-        // `FullTipset::new` guarantees that `blocks` isn't empty
-        self.blocks.first().unwrap()
+        self.blocks.first()
     }
     /// Returns reference to all blocks in a full tipset.
-    pub fn blocks(&self) -> &[Block] {
+    pub fn blocks(&self) -> &NonEmpty<Block> {
         &self.blocks
     }
     /// Returns all blocks in a full tipset.
-    pub fn into_blocks(self) -> Vec<Block> {
+    pub fn into_blocks(self) -> NonEmpty<Block> {
         self.blocks
     }
     /// Converts the full tipset into a [Tipset] which removes the messages
@@ -451,6 +443,7 @@ pub mod lotus_json {
 
     use crate::blocks::{BlockHeader, Tipset};
     use crate::lotus_json::*;
+    use nonempty::NonEmpty;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::TipsetKeys;
@@ -461,7 +454,7 @@ pub mod lotus_json {
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
         cids: LotusJson<TipsetKeys>,
-        blocks: LotusJson<Vec<BlockHeader>>,
+        blocks: LotusJson<NonEmpty<BlockHeader>>,
         height: LotusJson<i64>,
     }
 
@@ -475,9 +468,11 @@ pub mod lotus_json {
                 blocks,
                 height: _ignored1,
             } = Deserialize::deserialize(deserializer)?;
-            Tipset::new(blocks.into_inner())
-                .map_err(serde::de::Error::custom)
-                .map(Self)
+
+            Ok(Self(Tipset {
+                headers: blocks.into_inner(),
+                key: Default::default(),
+            }))
         }
     }
 

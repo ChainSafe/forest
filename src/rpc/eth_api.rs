@@ -12,7 +12,7 @@ use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::{bail, Context};
+use anyhow::bail;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_bigint::BigInt;
@@ -64,10 +64,7 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
-    let block0 = ts
-        .blocks()
-        .first()
-        .context("Failed to get the first block")?;
+    let block0 = ts.blocks().first();
     let base_fee = block0.parent_base_fee();
     if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
         let gas_price = base_fee.add(premium);
