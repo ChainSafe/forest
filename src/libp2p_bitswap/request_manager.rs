@@ -125,7 +125,6 @@ impl BitswapRequestManager {
         validate_peer: Option<Arc<ValidatePeerCallback>>,
     ) {
         let start = Instant::now();
-        let timer = metrics::GET_BLOCK_TIME.start_timer();
         let store_cloned = store.clone();
         task::spawn(async move {
             let mut success = store.contains(&cid).unwrap_or_default();
@@ -156,7 +155,7 @@ impl BitswapRequestManager {
                 }
             }
 
-            timer.observe_duration();
+            metrics::GET_BLOCK_TIME.observe((Instant::now() - start).as_secs_f64());
         });
     }
 

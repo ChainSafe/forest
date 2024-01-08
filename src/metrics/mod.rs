@@ -4,19 +4,19 @@
 pub mod db;
 
 use crate::db::DBStatistics;
-use ahash::{HashMap, HashMapExt};
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use prometheus::core::{AtomicU64, GenericCounterVec, Opts};
 use prometheus::{Encoder, TextEncoder};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::sync::RwLock;
 use tracing::warn;
 
-static REGISTRIES_EXT: Lazy<RwLock<HashMap<String, prometheus_client::registry::Registry>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+pub static DEFAULT_REGISTRY: Lazy<RwLock<prometheus_client::registry::Registry>> =
+    Lazy::new(Default::default);
+
 pub static LRU_CACHE_HIT: Lazy<Box<GenericCounterVec<AtomicU64>>> = Lazy::new(|| {
     let lru_cache_hit = Box::new(
         GenericCounterVec::<AtomicU64>::new(
@@ -43,10 +43,6 @@ pub static LRU_CACHE_MISS: Lazy<Box<GenericCounterVec<AtomicU64>>> = Lazy::new(|
         .expect("Registering the lru_cache_miss metric with the metrics registry must succeed");
     lru_cache_miss
 });
-
-pub async fn add_metrics_registry(name: String, registry: prometheus_client::registry::Registry) {
-    REGISTRIES_EXT.write().await.insert(name, registry);
-}
 
 pub async fn init_prometheus<DB>(
     prometheus_listener: TcpListener,
@@ -82,13 +78,11 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
         .encode(&metric_families, &mut metrics)
         .expect("Encoding Prometheus metrics must succeed.");
 
-    for (_name, registry) in REGISTRIES_EXT.read().await.iter() {
-        let mut part = String::new();
-        if let Err(e) = prometheus_client::encoding::text::encode(&mut part, registry) {
-            warn!("{e}");
-        }
-        metrics.extend_from_slice(part.as_bytes());
-    }
+    let mut text = String::new();
+    match prometheus_client::encoding::text::encode(&mut text, &DEFAULT_REGISTRY.read()) {
+        Ok(()) => metrics.extend_from_slice(text.as_bytes()),
+        Err(e) => warn!("{e}"),
+    };
 
     (
         StatusCode::OK,

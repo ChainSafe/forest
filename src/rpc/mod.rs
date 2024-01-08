@@ -135,6 +135,8 @@ where
             )
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
+            .with_method(STATE_SEARCH_MSG, state_search_msg::<DB>)
+            .with_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
             .with_method(
                 STATE_GET_RANDOMNESS_FROM_TICKETS,

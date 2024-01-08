@@ -24,6 +24,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
+use tokio::sync::Semaphore;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -50,7 +51,20 @@ pub enum ApiCommands {
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
+        /// Maximum number of concurrent requests
+        #[arg(long, default_value = "8")]
+        max_concurrent_requests: usize,
     },
+}
+
+/// For more information about each flag, refer to the Forest documentation at:
+/// <https://docs.forest.chainsafe.io/rustdoc/forest_filecoin/tool/subcommands/api_cmd/enum.ApiCommands.html>
+struct ApiTestFlags {
+    filter: String,
+    fail_fast: bool,
+    n_tipsets: usize,
+    run_ignored: RunIgnored,
+    max_concurrent_requests: usize,
 }
 
 impl ApiCommands {
@@ -64,17 +78,17 @@ impl ApiCommands {
                 fail_fast,
                 n_tipsets,
                 run_ignored,
+                max_concurrent_requests,
             } => {
-                compare_apis(
-                    forest,
-                    lotus,
-                    snapshot_files,
+                let config = ApiTestFlags {
                     filter,
                     fail_fast,
                     n_tipsets,
                     run_ignored,
-                )
-                .await?
+                    max_concurrent_requests,
+                };
+
+                compare_apis(forest, lotus, snapshot_files, config).await?
             }
         }
         Ok(())
@@ -473,17 +487,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                 }
             }
             for msg in secp_messages {
@@ -507,17 +516,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
 
                     if !msg.params().is_empty() {
@@ -613,10 +617,7 @@ async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
     snapshot_files: Vec<PathBuf>,
-    filter: String,
-    fail_fast: bool,
-    n_tipsets: usize,
-    run_ignored: RunIgnored,
+    config: ApiTestFlags,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -632,41 +633,43 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store, n_tipsets)?);
+        tests.extend(snapshot_tests(&store, config.n_tipsets)?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+    run_tests(tests, &forest, &lotus, &config).await
 }
 
 async fn run_tests(
     tests: Vec<RpcTest>,
     forest: &ApiInfo,
     lotus: &ApiInfo,
-    filter: String,
-    fail_fast: bool,
-    run_ignored: RunIgnored,
+    config: &ApiTestFlags,
 ) -> anyhow::Result<()> {
+    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
         let forest = forest.clone();
         let lotus = lotus.clone();
 
         // By default, do not run ignored tests.
-        if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
+        if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
         }
         // If in `IgnoreOnly` mode, only run ignored tests.
-        if matches!(run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
+        if matches!(config.run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
             continue;
         }
-        if !test.request.method_name.contains(&filter) {
+        if !test.request.method_name.contains(&config.filter) {
             continue;
         }
 
+        // Acquire a permit from the semaphore before spawning a test
+        let permit = semaphore.clone().acquire_owned().await?;
         let future = tokio::spawn(async move {
             let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });
 
@@ -680,7 +683,7 @@ async fn run_tests(
             .and_modify(|v| *v += 1)
             .or_insert(1u32);
         if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-            && fail_fast
+            && config.fail_fast
         {
             break;
         }
