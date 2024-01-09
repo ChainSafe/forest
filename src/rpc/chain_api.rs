@@ -320,6 +320,12 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     Ok(min_base_fee.atto().to_string())
 }
 
+pub(crate) async fn chain_notify<DB: Blockstore>(
+    _data: Data<RPCState<DB>>,
+) -> Result<(), JsonRpcError> {
+    Err(JsonRpcError::METHOD_NOT_FOUND)
+}
+
 fn load_api_messages_from_tipset(
     store: &impl Blockstore,
     tipset: &Tipset,
