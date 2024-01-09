@@ -54,6 +54,9 @@ pub enum ApiCommands {
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
+        /// API calls are handled over WebSocket connections.
+        #[arg(long = "ws")]
+        use_websocket: bool,
     },
 }
 
@@ -65,6 +68,7 @@ struct ApiTestFlags {
     n_tipsets: usize,
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
+    use_websocket: bool,
 }
 
 impl ApiCommands {
@@ -79,6 +83,7 @@ impl ApiCommands {
                 n_tipsets,
                 run_ignored,
                 max_concurrent_requests,
+                use_websocket,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -86,6 +91,7 @@ impl ApiCommands {
                     n_tipsets,
                     run_ignored,
                     max_concurrent_requests,
+                    use_websocket,
                 };
 
                 compare_apis(forest, lotus, snapshot_files, config).await?
@@ -208,9 +214,19 @@ impl RpcTest {
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
+        use_websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
-        let forest_resp = forest_api.call(self.request.clone()).await;
-        let lotus_resp = lotus_api.call(self.request.clone()).await;
+        let (forest_resp, lotus_resp) = if use_websocket {
+            (
+                forest_api.ws_call(self.request.clone()).await,
+                lotus_api.ws_call(self.request.clone()).await,
+            )
+        } else {
+            (
+                forest_api.call(self.request.clone()).await,
+                lotus_api.call(self.request.clone()).await,
+            )
+        };
 
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
@@ -600,6 +616,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     Ok(tests)
 }
 
+fn websocket_tests() -> Vec<RpcTest> {
+    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
+    vec![test]
+}
+
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
 /// but other nodes may be used (such as `venus`). The `lotus` node is assumed
 /// to be correct and the `forest` node will be marked as incorrect if it
@@ -617,6 +638,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
 /// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
 /// ```
 /// The number after a method name indicates how many times an RPC call was tested.
+#[allow(clippy::too_many_arguments)]
 async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
@@ -638,6 +660,10 @@ async fn compare_apis(
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
         tests.extend(snapshot_tests(&store, config.n_tipsets)?);
+    }
+
+    if config.use_websocket {
+        tests.extend(websocket_tests());
     }
 
     tests.sort_by_key(|test| test.request.method_name);
@@ -671,8 +697,9 @@ async fn run_tests(
 
         // Acquire a permit from the semaphore before spawning a test
         let permit = semaphore.clone().acquire_owned().await?;
+        let use_websocket = config.use_websocket;
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
             drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });

@@ -27,6 +27,10 @@ use jsonrpc_v2::{Id, RequestObject, V2};
 use serde::Deserialize;
 use tracing::debug;
 
+use futures_util::{SinkExt, StreamExt};
+use tokio_tungstenite::tungstenite;
+use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
+
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
@@ -93,7 +97,7 @@ impl ApiInfo {
             .with_id(0)
             .finish();
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint).to_string();
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -115,6 +119,50 @@ impl ApiInfo {
         match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
             JsonRpcResponse::Error { error, .. } => Err(error),
+        }
+    }
+
+    pub async fn ws_call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+        let rpc_req = RequestObject::request()
+            .with_method(req.method_name)
+            .with_params(req.params)
+            .with_id(0)
+            .finish();
+
+        let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
+
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+
+        debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
+
+        let request = tungstenite::http::Request::builder()
+            .method("GET")
+            .uri(api_url.to_string())
+            .header("Host", api_url.host)
+            .header("Upgrade", "websocket")
+            .header("Connection", "upgrade")
+            .header("Sec-Websocket-Key", "key123")
+            .header("Sec-Websocket-Version", "13")
+            .body(())
+            .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
+
+        let (ws_stream, _) = connect_async(request).await?;
+
+        let (mut write, mut read) = ws_stream.split();
+
+        write.send(WsMessage::Binary(payload)).await?;
+
+        if let Some(message) = read.next().await {
+            let data = message?.into_data();
+            let rpc_res: JsonRpcResponse<T::LotusJson> =
+                serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
+
+            match rpc_res {
+                JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
+                JsonRpcResponse::Error { error, .. } => Err(error),
+            }
+        } else {
+            Err(JsonRpcError::INVALID_REQUEST)
         }
     }
 }
@@ -168,6 +216,19 @@ impl std::error::Error for JsonRpcError {
     }
 }
 
+impl From<tungstenite::Error> for JsonRpcError {
+    fn from(tungstenite_error: tungstenite::Error) -> Self {
+        let status = match &tungstenite_error {
+            tungstenite::Error::Http(resp) => Some(resp.status()),
+            _ => None,
+        };
+        JsonRpcError {
+            code: status.map(|s| s.as_u16()).unwrap_or_default() as i64,
+            message: Cow::Owned(tungstenite_error.to_string()),
+        }
+    }
+}
+
 impl From<reqwest::Error> for JsonRpcError {
     fn from(reqwest_error: reqwest::Error) -> Self {
         JsonRpcError {
@@ -199,16 +260,28 @@ struct Url {
     protocol: String,
     port: u16,
     host: String,
+    endpoint: String,
+}
+
+impl fmt::Display for Url {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}://{}:{}/{}",
+            self.protocol, self.host, self.port, self.endpoint
+        )
+    }
 }
 
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> String {
+fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
             protocol: DEFAULT_PROTOCOL.to_owned(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
+            endpoint: endpoint.into(),
         },
         |mut addr, protocol| {
             match protocol {
@@ -239,19 +312,19 @@ fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> String {
                 Protocol::Https => {
                     addr.protocol = "https".to_string();
                 }
+                Protocol::Ws(..) => {
+                    addr.protocol = "ws".to_string();
+                }
+                Protocol::Wss(..) => {
+                    addr.protocol = "wss".to_string();
+                }
                 _ => {}
             };
             addr
         },
     );
 
-    // Format, print and return the URL
-    let url = format!(
-        "{}://{}:{}/{}",
-        addr.protocol, addr.host, addr.port, endpoint
-    );
-
-    url
+    addr
 }
 
 /// An `RpcRequest` is an at-rest description of a remote procedure call. It can

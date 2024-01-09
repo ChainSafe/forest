@@ -49,6 +49,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
+    access.insert(chain_api::CHAIN_NOTIFY, Access::Read);
     access.insert(chain_api::CHAIN_GET_PARENT_RECEIPTS, Access::Read);
 
     // Message Pool API
@@ -222,6 +223,7 @@ pub mod chain_api {
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
     pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
     pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
+    pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
     pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
 }
 
