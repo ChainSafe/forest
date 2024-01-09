@@ -735,7 +735,7 @@ pub(in crate::rpc) async fn msig_get_available_balance<DB: Blockstore + Send + S
 
 pub(in crate::rpc) async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
 ) -> Result<LotusJson<Vec<Transaction>>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     let store = data.state_manager.blockstore();

@@ -211,7 +211,7 @@ impl ApiInfo {
         RpcRequest::new(MSIG_GET_AVAILABLE_BALANCE, (addr, tsk))
     }
 
-    pub fn msig_get_pending_req(addr: Address, tsk: TipsetKeys) -> RpcRequest<Vec<Transaction>> {
+    pub fn msig_get_pending_req(addr: Address, tsk: TipsetKey) -> RpcRequest<Vec<Transaction>> {
         RpcRequest::new(MSIG_GET_PENDING, (addr, tsk))
     }
 }
