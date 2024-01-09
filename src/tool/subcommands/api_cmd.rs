@@ -371,6 +371,10 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::new_id(18101), // msig address id
             shared_tipset.key().clone(),
         )),
+        RpcTest::identity(ApiInfo::msig_get_pending_req(
+            Address::new_id(18101), // msig address id
+            shared_tipset.key().clone(),
+        )),
     ]
 }
 
