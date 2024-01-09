@@ -390,12 +390,17 @@ async fn eth_tests_with_tipset(shared_tipset: &Tipset, forest: &ApiInfo) -> Vec<
     let mut tests = vec![];
     // We need to find a valid deal ID; these are contained in the active sectors.
     let shared_block_address = shared_tipset.min_ticket_block().miner_address();
-    let active_sectors = ApiInfo::state_miner_active_sectors_req(
-        *shared_block_address,
-        shared_tipset.key().clone(),
-    );
-    let active_sectors_call = forest.call(active_sectors).await.expect("active sectors call failed");
-    let deal_ids = active_sectors_call.iter().filter(|sector| sector.deal_ids.len() > 0).map(|sector| sector.deal_ids[0]).collect::<Vec<u64>>();
+    let active_sectors =
+        ApiInfo::state_miner_active_sectors_req(*shared_block_address, shared_tipset.key().clone());
+    let active_sectors_call = forest
+        .call(active_sectors)
+        .await
+        .expect("active sectors call failed");
+    let deal_ids = active_sectors_call
+        .iter()
+        .filter(|sector| sector.deal_ids.len() > 0)
+        .map(|sector| sector.deal_ids[0])
+        .collect::<Vec<u64>>();
     tests.push(RpcTest::identity(ApiInfo::eth_get_balance_req(
         EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
         BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
@@ -415,7 +420,11 @@ async fn eth_tests_with_tipset(shared_tipset: &Tipset, forest: &ApiInfo) -> Vec<
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
-async fn snapshot_tests(store: &ManyCar, n_tipsets: usize, forest: &ApiInfo) -> anyhow::Result<Vec<RpcTest>> {
+async fn snapshot_tests(
+    store: &ManyCar,
+    n_tipsets: usize,
+    forest: &ApiInfo,
+) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
     let shared_tipset_epoch = shared_tipset.epoch();

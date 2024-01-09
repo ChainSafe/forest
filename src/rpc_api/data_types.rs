@@ -108,7 +108,7 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketDealLotusJson {
     pub proposal: DealProposalLotusJson,
@@ -134,13 +134,13 @@ impl HasLotusJson for MarketDeal {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposalLotusJson {
-    pub piece_cid: String,
+    pub piece_cid: LotusJson<Cid>,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
-    pub client: String,
+    pub client: LotusJson<Address>,
     #[serde(with = "crate::lotus_json")]
     pub provider: Address,
     pub label: String,
@@ -163,10 +163,10 @@ impl HasLotusJson for DealProposal {
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         DealProposalLotusJson {
-            piece_cid: self.piece_cid.to_string(),
+            piece_cid: LotusJson(self.piece_cid),
             piece_size: self.piece_size.into(),
             verified_deal: self.verified_deal,
-            client: self.client.to_string(),
+            client: LotusJson(self.client.into()),
             provider: self.provider.into(),
             label: self.label,
             start_epoch: self.start_epoch,
@@ -178,10 +178,10 @@ impl HasLotusJson for DealProposal {
     }
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         DealProposal {
-            piece_cid: Cid::from_str(&lotus_json.piece_cid).unwrap_or(Cid::default()),
+            piece_cid: lotus_json.piece_cid.into_inner(),
             piece_size: lotus_json.piece_size.into(),
             verified_deal: lotus_json.verified_deal,
-            client: Address::from_str(&lotus_json.client).unwrap_or(Address::new_id(0)).into(),
+            client: lotus_json.client.into_inner().into(),
             provider: lotus_json.provider.into(),
             label: lotus_json.label,
             start_epoch: lotus_json.start_epoch,
