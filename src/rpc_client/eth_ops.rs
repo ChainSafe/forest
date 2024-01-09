@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc_api::data_types::MarketDeal;
-use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::{blocks::TipsetKeys, rpc_api::eth_api::*};
 
 use super::{ApiInfo, RpcRequest};
@@ -25,7 +24,7 @@ impl ApiInfo {
     }
 
     pub fn eth_get_balance_req(
-        address: EthAddress,
+        address: Address,
         block_param: BlockNumberOrHash,
     ) -> RpcRequest<BigInt> {
         RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_param))
