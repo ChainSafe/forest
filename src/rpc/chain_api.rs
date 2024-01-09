@@ -22,7 +22,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
-use itertools::{Either, EitherOrBoth, Itertools};
+use itertools::{Either, EitherOrBoth, Itertools, PeekingNext};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
@@ -245,6 +245,7 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
+#[derive(PartialEq, Debug)]
 pub(in crate::rpc) enum PathChange {
     Revert(Arc<Tipset>),
     Apply(Arc<Tipset>),
@@ -271,15 +272,15 @@ pub(in crate::rpc) async fn chain_get_path(
     data: Data<RPCState<impl Blockstore>>,
     Params(LotusJson((from, to))): Params<LotusJson<(TipsetKey, TipsetKey)>>,
 ) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
-    impl_chain_get_path(&data.chain_store, from, to)
+    impl_chain_get_path(&data.chain_store, &from, &to)
         .map(LotusJson)
         .map_err(Into::into)
 }
 
 fn impl_chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
-    from: TipsetKey,
-    to: TipsetKey,
+    from: &TipsetKey,
+    to: &TipsetKey,
 ) -> anyhow::Result<Vec<PathChange>> {
     /// Climb the chain from `origin` to genesis, using `identifier` for error messages.
     fn lineage<'a>(
@@ -311,16 +312,18 @@ fn impl_chain_get_path(
 
     /// Assumes epochs decrement by one in `iter`
     fn scroll_to_height(
-        iter: impl Iterator<Item = anyhow::Result<Arc<Tipset>>>,
+        mut iter: impl PeekingNext<Item = anyhow::Result<Arc<Tipset>>>,
         height: i64,
     ) -> anyhow::Result<Vec<Arc<Tipset>>> {
-        iter.take_while(|it| {
+        iter.peeking_take_while(|it| {
             it.as_deref()
                 .map(|ts| ts.epoch() > height)
                 .unwrap_or(true /* bubble up errors */)
         })
         .collect()
     }
+
+    // Itertools::peeking_take_while(&mut self, accept)
 
     fn peek_epoch(
         lineage: &mut iter::Peekable<impl Iterator<Item = Result<Arc<Tipset>, anyhow::Error>>>,
@@ -345,11 +348,12 @@ fn impl_chain_get_path(
     //               ^ `to`
 
     // E D C B A
-    let mut from_lineage = lineage(&from, chain_store, "from").peekable();
+    let mut from_lineage = lineage(from, chain_store, "from").peekable();
     // D' C' B' A
-    let mut to_lineage = lineage(&to, chain_store, "to").peekable();
+    let mut to_lineage = lineage(to, chain_store, "to").peekable();
 
     let common_height = cmp::min(peek_epoch(&mut from_lineage)?, peek_epoch(&mut to_lineage)?);
+    dbg!(common_height);
 
     //               |< common height
     //
@@ -359,17 +363,18 @@ fn impl_chain_get_path(
     // |
     //  -- B' - C' - D'
     //               ^ `to`
-    let mut reverts /* E D C B */ = scroll_to_height(&mut from_lineage, common_height)?;
-    let mut applies /* D' C' B' */ = scroll_to_height(&mut to_lineage, common_height)?;
+    let mut reverts /* E D C B */ = dbg!(scroll_to_height(&mut from_lineage, common_height)?);
+    let mut applies /* D' C' B' */ = dbg!(scroll_to_height(&mut to_lineage, common_height)?);
 
     // now decrease the heights in lockstep, until we're at the common ancestor
     for step in from_lineage.zip_longest(to_lineage) {
+        dbg!(&step);
         match step {
             EitherOrBoth::Both(from, to) => {
                 let from = from?;
                 let to = to?;
                 assert_eq!(from.epoch(), to.epoch());
-                match from == to {
+                match from.parents() == to.parents() {
                     true => {
                         //     <~~~~~~~~~~~~~ reverts
                         // A - B  - C  - D - E
@@ -380,8 +385,15 @@ fn impl_chain_get_path(
                         // need to return the reverts E->B, then the applies B'->C'
                         return Ok(reverts
                             .into_iter()
+                            .chain(iter::once(from))
                             .map(PathChange::Revert)
-                            .chain(applies.into_iter().rev().map(PathChange::Apply))
+                            .chain(
+                                applies
+                                    .into_iter()
+                                    .chain(iter::once(to))
+                                    .rev()
+                                    .map(PathChange::Apply),
+                            )
                             .collect());
                     }
                     false => {
@@ -538,25 +550,12 @@ fn load_api_messages_from_tipset(
     Ok(messages)
 }
 
-/// The goal is to create a chain like this:
-///
-/// ```text
-///     1   2    3    4   5
-///
-/// 0 - A - B  - C  - D - E
-///     |                 ^ `from`
-///     |
-///      -- B' - C' - D'
-///                   ^ `to`
-/// ```
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc, slice};
-
     use super::*;
 
     use crate::{
-        chain,
+        blocks::chain,
         db::{MemoryDB, SettingsStore},
         genesis,
         networks::{calibnet, ChainConfig},
@@ -589,11 +588,63 @@ mod tests {
             )
             .unwrap()
         }
-        fn genesis_tipset_key(&self) -> TipsetKey
-        where
-            DB: Blockstore, // incorrect
-        {
-            Tipset::from(self.genesis_block_header()).key().clone()
+    }
+
+    #[test]
+    fn test() {
+        let store = ChainStore::<MemoryDB>::calibnet();
+        chain! {
+            in store.blockstore() =>
+            [genesis = store.genesis_block_header().clone()]
+            -> [a]
+            -> [b_left] -> [c_left] -> [d_left]
+        };
+        chain! {
+            in store.blockstore() =>
+            [a = a]
+            -> [b_right] -> [c_right]
+        };
+
+        // genesis -> a -> b  -> c  -> d // left
+        //              -> b' -> c'      // right
+
+        let a_to_b_left = impl_chain_get_path(
+            &store,
+            Tipset::from(a.clone()).key(),
+            Tipset::from(b_left.clone()).key(),
+        )
+        .unwrap();
+        assert_eq!(
+            a_to_b_left,
+            vec![PathChange::Apply(Arc::new(b_left.clone().into()))]
+        );
+
+        let b_left_to_a = impl_chain_get_path(
+            &store,
+            Tipset::from(b_left.clone()).key(),
+            Tipset::from(a.clone()).key(),
+        )
+        .unwrap();
+        assert_eq!(
+            b_left_to_a,
+            vec![PathChange::Revert(Arc::new(b_left.clone().into()))]
+        );
+
+        for _ in 0..20 {
+            println!("======")
         }
+        let b_left_to_b_right = impl_chain_get_path(
+            &store,
+            Tipset::from(b_left.clone()).key(),
+            Tipset::from(b_right.clone()).key(),
+        )
+        .unwrap();
+        assert_eq!(
+            b_left_to_b_right,
+            vec![
+                PathChange::Revert(Arc::new(b_left.clone().into())),
+                PathChange::Apply(Arc::new(b_right.clone().into()))
+            ]
+        );
     }
 }

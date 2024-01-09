@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
-use super::{Block, CachingBlockHeader, Ticket};
+use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
@@ -77,6 +77,12 @@ pub struct Tipset {
     /// Sorted
     headers: NonEmpty<CachingBlockHeader>,
     key: OnceCell<TipsetKey>,
+}
+
+impl From<RawBlockHeader> for Tipset {
+    fn from(value: RawBlockHeader) -> Self {
+        Self::from(CachingBlockHeader::from(value))
+    }
 }
 
 impl From<&CachingBlockHeader> for Tipset {

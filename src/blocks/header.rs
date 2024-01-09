@@ -241,6 +241,12 @@ impl CachingBlockHeader {
     }
 }
 
+impl From<CachingBlockHeader> for RawBlockHeader {
+    fn from(value: CachingBlockHeader) -> Self {
+        value.into_raw()
+    }
+}
+
 impl Serialize for CachingBlockHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
