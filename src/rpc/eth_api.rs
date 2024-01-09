@@ -11,7 +11,7 @@ use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
 use crate::rpc::state_api::state_market_deals;
 use crate::rpc_api::data_types::MarketDeal;
-use crate::rpc_api::eth_api::Address as EthAddress;
+use crate::rpc_api::eth_api::Address;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
@@ -82,7 +82,7 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
 
 pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, block_param))): Params<LotusJson<(EthAddress, BlockNumberOrHash)>>,
+    Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
 ) -> Result<EthBigInt, JsonRpcError> {
     let fil_addr = address.to_filecoin_address()?;
 
