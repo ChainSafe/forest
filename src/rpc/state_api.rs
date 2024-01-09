@@ -216,10 +216,9 @@ pub(in crate::rpc) async fn state_miner_info<DB: Blockstore + Send + Sync + 'sta
     Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
 }
 
-pub(in crate::rpc) async fn get_state_miner_active_sectors<DB: Blockstore>(
-    data: &Data<RPCState<DB>>,
-    miner: &Address,
-    tsk: &TipsetKeys,
+pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
 ) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
     let bs = data.state_manager.blockstore();
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -246,15 +245,6 @@ pub(in crate::rpc) async fn get_state_miner_active_sectors<DB: Blockstore>(
         .collect::<Vec<_>>();
 
     Ok(LotusJson(sectors))
-}
-
-pub(in crate::rpc) async fn state_miner_active_sectors<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
-) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
-    get_state_miner_active_sectors::<DB>(&data, &miner, &tsk)
-        .await
-        .map(Into::into)
 }
 
 // Returns the number of sectors in a miner's sector set and proving set
