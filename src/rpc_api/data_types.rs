@@ -137,6 +137,7 @@ impl HasLotusJson for MarketDeal {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealProposalLotusJson {
+    #[serde(rename = "PieceCID")]
     pub piece_cid: LotusJson<Cid>,
     pub piece_size: PaddedPieceSize,
     pub verified_deal: bool,
