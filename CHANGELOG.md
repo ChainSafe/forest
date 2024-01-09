@@ -73,6 +73,10 @@
   `Filecoin.StateMinerInfo` lotus-compatible RPC API.
 - [#1670](https://github.com/ChainSafe/forest/issues/1670) Support Butterflynet
   🦋.
+- [#3801](https://github.com/ChainSafe/forest/pull/3801) Implement the
+  `Filecoin.StateSearchMsg` lotus-compatible RPC API.
+- [#3801](https://github.com/ChainSafe/forest/pull/3801) Implement the
+  `Filecoin.StateSearchMsgLimited` lotus-compatible RPC API.
 
 ### Changed
 

@@ -131,9 +131,9 @@ num-rational = "0.4"
 num-traits = "0.2"
 num_cpus = "1.14"
 once_cell = "1.15"
-parity-db = { version = "0.4.6", default-features = false }
+parity-db = { version = "0.4.13", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
-pathfinding = "4.4.0"
+pathfinding = "4.8.1"
 pin-project-lite = "0.2"
 positioned-io = "0.3.3"
 pretty_assertions = "1.3.0"
@@ -213,13 +213,13 @@ libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-respo
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
-proc-macro2 = { version = "1.0.73", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1.0.76", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.190"
+ra_ap_syntax = "0.0.195"
 regex-automata = "0.4"
-syn = { version = "2.0.43", default-features = false, features = [
+syn = { version = "2.0.48", default-features = false, features = [
   "full",
   "parsing",
   "visit",

@@ -49,7 +49,7 @@ impl BitswapBehaviour {
             match request.ty {
                 RequestType::Have => metrics::message_counter_outbound_request_have().inc(),
                 RequestType::Block => metrics::message_counter_outbound_request_block().inc(),
-            }
+            };
         }
         self.inner
             .send_request(peer, vec![BitswapMessage::Request(request)])
@@ -64,7 +64,7 @@ impl BitswapBehaviour {
         match response.1 {
             BitswapResponse::Have(..) => metrics::message_counter_outbound_response_have().inc(),
             BitswapResponse::Block(..) => metrics::message_counter_outbound_response_block().inc(),
-        }
+        };
         self.inner
             .send_request(peer, vec![BitswapMessage::Response(response.0, response.1)])
     }
