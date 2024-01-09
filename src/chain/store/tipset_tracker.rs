@@ -3,7 +3,7 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::blocks::{BlockHeader, Tipset};
+use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
@@ -31,9 +31,9 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     }
 
     /// Adds a block header to the tracker.
-    pub fn add(&self, header: &BlockHeader) {
+    pub fn add(&self, header: &CachingBlockHeader) {
         let mut map_lock = self.entries.lock();
-        let cids = map_lock.entry(header.epoch()).or_default();
+        let cids = map_lock.entry(header.epoch).or_default();
         if cids.contains(header.cid()) {
             debug!("tried to add block to tipset tracker that was already there");
             return;
@@ -43,7 +43,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         drop(map_lock);
 
         self.check_multiple_blocks_from_same_miner(&cids_to_verify, header);
-        self.prune_entries(header.epoch());
+        self.prune_entries(header.epoch);
     }
 
     /// Checks if there are multiple blocks from the same miner at the same
@@ -52,14 +52,14 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     /// This should never happen. Something is weird as it's against the
     /// protocol rules for a miner to produce multiple blocks at the same
     /// height.
-    fn check_multiple_blocks_from_same_miner(&self, cids: &[Cid], header: &BlockHeader) {
+    fn check_multiple_blocks_from_same_miner(&self, cids: &[Cid], header: &CachingBlockHeader) {
         for cid in cids.iter() {
-            if let Ok(Some(block)) = BlockHeader::load(&self.db, *cid) {
-                if header.miner_address() == block.miner_address() {
+            if let Ok(Some(block)) = CachingBlockHeader::load(&self.db, *cid) {
+                if header.miner_address == block.miner_address {
                     warn!(
                         "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
-                        header.miner_address(),
-                        header.epoch(),
+                        header.miner_address,
+                        header.epoch,
                         header.cid(),
                         cid
                     );
@@ -84,8 +84,8 @@ impl<DB: Blockstore> TipsetTracker<DB> {
 
     /// Expands the given block header into the largest possible tipset by
     /// combining it with known blocks at the same height with the same parents.
-    pub fn expand(&self, header: BlockHeader) -> Result<Tipset, Error> {
-        let epoch = header.epoch();
+    pub fn expand(&self, header: CachingBlockHeader) -> Result<Tipset, Error> {
+        let epoch = header.epoch;
         let mut headers = vec![header];
 
         if let Some(entries) = self.entries.lock().get(&epoch).cloned() {
@@ -94,14 +94,14 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                     continue;
                 }
 
-                let h = BlockHeader::load(&self.db, cid)
+                let h = CachingBlockHeader::load(&self.db, cid)
                     .ok()
                     .flatten()
                     .ok_or_else(|| {
                         Error::Other(format!("failed to load block ({cid}) for tipset expansion"))
                     })?;
 
-                if h.parents() == headers[0].parents() {
+                if h.parents == headers[0].parents {
                     headers.push(h);
                 }
             }
