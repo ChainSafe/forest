@@ -401,6 +401,24 @@ async fn eth_tests_with_tipset(shared_tipset: &Tipset, forest: &ApiInfo) -> Vec<
         .filter(|sector| sector.deal_ids.len() > 0)
         .map(|sector| sector.deal_ids[0])
         .collect::<Vec<u64>>();
+    for deal_id in deal_ids {
+        // Verify that the deal can be found before adding it to the tests.
+        let deal = ApiInfo::state_market_storage_deal_req(
+            deal_id,
+            shared_tipset.key().clone(),
+        );
+        let deal_call = forest.call(deal).await;
+        match deal_call {
+            Ok(_) => {
+                tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+                    deal_id,
+                    shared_tipset.key().clone(),
+                )));
+            }
+            Err(_) => {}
+        }
+    }
+
     tests.push(RpcTest::identity(ApiInfo::eth_get_balance_req(
         EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
         BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
@@ -409,12 +427,6 @@ async fn eth_tests_with_tipset(shared_tipset: &Tipset, forest: &ApiInfo) -> Vec<
         EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
         BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
     )));
-    for deal_id in deal_ids {
-        tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
-            deal_id,
-            shared_tipset.key().clone(),
-        )));
-    }
     tests
 }
 
