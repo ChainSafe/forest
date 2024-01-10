@@ -3163,7 +3163,6 @@ dependencies = [
  "data-encoding",
  "data-encoding-macro",
  "derive-quickcheck-arbitrary",
- "derive_builder",
  "derive_more",
  "dialoguer",
  "digest 0.10.7",

@@ -187,7 +187,7 @@ pub mod beacon_api {
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use crate::blocks::TipsetKeys;
+    use crate::blocks::TipsetKey;
     use crate::lotus_json::lotus_json_with_self;
     use crate::shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
@@ -202,7 +202,7 @@ pub mod chain_api {
         pub recent_roots: i64,
         pub output_path: PathBuf,
         #[serde(with = "crate::lotus_json")]
-        pub tipset_keys: TipsetKeys,
+        pub tipset_keys: TipsetKey,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }

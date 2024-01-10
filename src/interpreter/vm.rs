@@ -104,7 +104,7 @@ impl BlockMessages {
             Some(m)
         };
 
-        ts.blocks()
+        ts.block_headers()
             .iter()
             .map(|b| {
                 let (usm, sm) = block_messages(&db, b)?;
@@ -120,10 +120,10 @@ impl BlockMessages {
                 );
 
                 Ok(BlockMessages {
-                    miner: *b.miner_address(),
+                    miner: b.miner_address,
                     messages,
                     win_count: b
-                        .election_proof()
+                        .election_proof
                         .as_ref()
                         .map(|e| e.win_count)
                         .unwrap_or_default(),

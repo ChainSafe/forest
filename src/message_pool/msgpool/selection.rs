@@ -655,7 +655,7 @@ where
     }
     for ts in left_chain {
         let mut msgs: Vec<SignedMessage> = Vec::new();
-        for block in ts.blocks() {
+        for block in ts.block_headers() {
             let (_, smsgs) = api.messages_for_block(block)?;
             msgs.extend(smsgs);
         }
@@ -665,7 +665,7 @@ where
     }
 
     for ts in right_chain {
-        for b in ts.blocks() {
+        for b in ts.block_headers() {
             let (msgs, smsgs) = api.messages_for_block(b)?;
 
             for msg in smsgs {

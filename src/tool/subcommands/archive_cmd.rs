@@ -253,7 +253,7 @@ impl ArchiveInfo {
                 lowest_stateroot_epoch = tipset.epoch();
             }
             if lowest_message_epoch == parent.epoch()
-                && store.has(tipset.min_ticket_block().messages())?
+                && store.has(&tipset.min_ticket_block().messages)?
             {
                 lowest_message_epoch = tipset.epoch();
             }
@@ -407,8 +407,7 @@ async fn do_export(
         CidHashSet::default()
     };
 
-    let output_path =
-        build_output_path(network.to_string(), genesis.timestamp(), epoch, output_path);
+    let output_path = build_output_path(network.to_string(), genesis.timestamp, epoch, output_path);
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())
@@ -529,7 +528,7 @@ async fn show_tipset_diff(
     let genesis = heaviest_tipset.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
-    let timestamp = genesis.timestamp();
+    let timestamp = genesis.timestamp;
     let chain_index = ChainIndex::new(Arc::clone(&store));
     let chain_config = ChainConfig::from_chain(&network);
     if chain_config.is_testnet() {
@@ -593,7 +592,7 @@ mod tests {
     fn genesis_timestamp(genesis_car: &'static [u8]) -> u64 {
         let db = crate::db::car::PlainCar::try_from(genesis_car).unwrap();
         let ts = db.heaviest_tipset().unwrap();
-        ts.genesis(&db).unwrap().timestamp()
+        ts.genesis(&db).unwrap().timestamp
     }
 
     #[tokio::test]
