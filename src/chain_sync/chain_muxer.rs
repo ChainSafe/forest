@@ -413,7 +413,7 @@ where
                     network.clone(),
                     chain_store.clone(),
                     peer_id,
-                    *genesis.block_headers()[0].cid(),
+                    *genesis.block_headers().first().cid(),
                 ));
                 return Ok(None);
             }
