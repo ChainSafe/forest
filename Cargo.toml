@@ -121,7 +121,7 @@ mimalloc = { version = "0.1.39", optional = true, default-features = false }
 multiaddr = "0.18"
 multimap = "0.9.0"
 nom = "7.1.3"
-nonempty = "0.9.0"
+nonempty = { version = "0.9.0", features = ["serialize"] }
 nonzero_ext = "0.3.0"
 num = "0.4.0"
 num-bigint = "0.4"

@@ -66,7 +66,7 @@ where
             let have = data
                 .mpool
                 .as_ref()
-                .messages_for_blocks(ts.block_headers())?;
+                .messages_for_blocks(ts.block_headers().iter())?;
 
             for sm in have {
                 have_cids.insert(sm.cid()?);
@@ -76,7 +76,7 @@ where
         let msgs = data
             .mpool
             .as_ref()
-            .messages_for_blocks(ts.block_headers())?;
+            .messages_for_blocks(ts.block_headers().iter())?;
 
         for m in msgs {
             if have_cids.contains(&m.cid()?) {

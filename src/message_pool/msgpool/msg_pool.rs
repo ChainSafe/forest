@@ -390,9 +390,9 @@ where
     }
 
     /// Return Vector of signed messages given a block header for self.
-    pub fn messages_for_blocks(
+    pub fn messages_for_blocks<'a>(
         &self,
-        blks: &[CachingBlockHeader],
+        blks: impl Iterator<Item = &'a CachingBlockHeader>,
     ) -> Result<Vec<SignedMessage>, Error> {
         let mut msg_vec: Vec<SignedMessage> = Vec::new();
 
