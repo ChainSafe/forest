@@ -29,6 +29,11 @@
 
 ### Added
 
+- [#3824](https://github.com/ChainSafe/forest/pull/3824) Add `--ws` flag to
+  `forest-tool api compare` to run all tests using WebSocket connections. Add
+  support for WebSocket binary messages in Forest daemon.
+- [#3802](https://github.com/ChainSafe/forest/pull/3802) Implement the
+  `Filecoin.EthGetBalance` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3811) Implement the
   `Filecoin.MpoolGetNonce` lotus-compatible RPC API.
 - [#3773](https://github.com/ChainSafe/forest/pull/3786) Implement the
@@ -39,6 +44,11 @@
   `Filecoin.EthGasPrice` lotus-compatible RPC API.
 
 ### Changed
+
+- [#3819](https://github.com/ChainSafe/forest/pull/3819) Make progress messages
+  more human-readable.
+- [#3824](https://github.com/ChainSafe/forest/pull/3824) Demote noisy WebSocket
+  info logs to debug in Forest daemon.
 
 ### Removed
 
@@ -63,6 +73,10 @@
   `Filecoin.StateMinerInfo` lotus-compatible RPC API.
 - [#1670](https://github.com/ChainSafe/forest/issues/1670) Support Butterflynet
   🦋.
+- [#3801](https://github.com/ChainSafe/forest/pull/3801) Implement the
+  `Filecoin.StateSearchMsg` lotus-compatible RPC API.
+- [#3801](https://github.com/ChainSafe/forest/pull/3801) Implement the
+  `Filecoin.StateSearchMsgLimited` lotus-compatible RPC API.
 
 ### Changed
 
@@ -246,6 +260,9 @@ usability improvements.
 
 - [#3422](https://github.com/ChainSafe/forest/issues/3422) Add NV21 (Watermelon)
   support for calibration network.
+- [#3593](https://github.com/ChainSafe/forest/pull/3593): Add `--stateless` flag
+  to `forest`. In stateless mode, forest connects to the P2P network but does
+  not sync to HEAD.
 
 ### Changed
 

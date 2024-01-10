@@ -5,8 +5,9 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
+use crate::blocks::RawBlockHeader;
 use crate::blocks::VRFProof;
-use crate::blocks::{BlockHeader, ElectionProof, Ticket, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey};
 use crate::chain::HeadChange;
 use crate::cid_collections::CidHashMap;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
@@ -75,7 +76,7 @@ impl TestApi {
     }
 
     /// Set the block messages for `TestApi`
-    pub fn set_block_messages(&self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
+    pub fn set_block_messages(&self, h: &CachingBlockHeader, msgs: Vec<SignedMessage>) {
         self.inner.lock().set_block_messages(h, msgs)
     }
 
@@ -84,7 +85,7 @@ impl TestApi {
         self.publisher.send(HeadChange::Apply(ts)).unwrap();
     }
 
-    pub fn next_block(&self) -> BlockHeader {
+    pub fn next_block(&self) -> CachingBlockHeader {
         self.inner.lock().next_block()
     }
 }
@@ -101,12 +102,12 @@ impl TestApiInner {
     }
 
     /// Set the block messages for `TestApi`
-    pub fn set_block_messages(&mut self, h: &BlockHeader, msgs: Vec<SignedMessage>) {
+    pub fn set_block_messages(&mut self, h: &CachingBlockHeader, msgs: Vec<SignedMessage>) {
         self.bmsgs.insert(*h.cid(), msgs);
         self.tipsets.push(Tipset::from(h))
     }
 
-    pub fn next_block(&mut self) -> BlockHeader {
+    pub fn next_block(&mut self) -> CachingBlockHeader {
         let new_block = mock_block_with_parents(
             self.tipsets
                 .last()
@@ -135,7 +136,7 @@ impl Provider for TestApi {
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let inner = self.inner.lock();
         let mut msgs: Vec<SignedMessage> = Vec::new();
-        for b in ts.blocks() {
+        for b in ts.block_headers() {
             if let Some(ms) = inner.bmsgs.get(b.cid()) {
                 for m in ms {
                     if &m.from() == addr {
@@ -172,7 +173,7 @@ impl Provider for TestApi {
 
     fn messages_for_block(
         &self,
-        h: &BlockHeader,
+        h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         let inner = self.inner.lock();
         let v: Vec<Message> = Vec::new();
@@ -188,7 +189,7 @@ impl Provider for TestApi {
     }
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let (us, s) = self.messages_for_block(&h.blocks()[0])?;
+        let (us, s) = self.messages_for_block(&h.block_headers()[0])?;
         let mut msgs = Vec::new();
 
         for msg in us {
@@ -200,7 +201,7 @@ impl Provider for TestApi {
         Ok(msgs)
     }
 
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
         let inner = self.inner.lock();
         for ts in &inner.tipsets {
             if tsk == ts.key() {
@@ -219,15 +220,15 @@ impl Provider for TestApi {
     }
 }
 
-pub fn create_header(weight: u64) -> BlockHeader {
-    BlockHeader::builder()
-        .weight(BigInt::from(weight))
-        .miner_address(Address::new_id(0))
-        .build()
-        .unwrap()
+pub fn create_header(weight: u64) -> CachingBlockHeader {
+    CachingBlockHeader::new(RawBlockHeader {
+        miner_address: Address::new_id(0),
+        weight: BigInt::from(weight),
+        ..Default::default()
+    })
 }
 
-pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
+pub fn mock_block(weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
@@ -238,42 +239,46 @@ pub fn mock_block(weight: u64, ticket_sequence: u64) -> BlockHeader {
         vrfproof: VRFProof::new(fmt_str.into_bytes()),
     };
     let weight_inc = BigInt::from(weight);
-    BlockHeader::builder()
-        .miner_address(addr)
-        .election_proof(Some(election_proof))
-        .ticket(Some(ticket))
-        .message_receipts(c)
-        .messages(c)
-        .state_root(c)
-        .weight(weight_inc)
-        .build()
-        .unwrap()
+    CachingBlockHeader::new(RawBlockHeader {
+        miner_address: addr,
+        election_proof: Some(election_proof),
+        ticket: Some(ticket),
+        message_receipts: c,
+        messages: c,
+        state_root: c,
+        weight: weight_inc,
+        ..Default::default()
+    })
 }
 
-pub fn mock_block_with_parents(parents: &Tipset, weight: u64, ticket_sequence: u64) -> BlockHeader {
+pub fn mock_block_with_parents(
+    parents: &Tipset,
+    weight: u64,
+    ticket_sequence: u64,
+) -> CachingBlockHeader {
     let addr = Address::new_id(1234561);
     let c = Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
 
     let height = parents.epoch() + 1;
 
     let mut weight_inc = BigInt::from(weight);
-    weight_inc = parents.blocks()[0].weight() + weight_inc;
+    weight_inc = &parents.block_headers()[0].weight + weight_inc;
     let fmt_str = format!("===={ticket_sequence}=====");
     let ticket = Ticket::new(VRFProof::new(fmt_str.clone().into_bytes()));
     let election_proof = ElectionProof {
         win_count: 0,
         vrfproof: VRFProof::new(fmt_str.into_bytes()),
     };
-    BlockHeader::builder()
-        .miner_address(addr)
-        .election_proof(Some(election_proof))
-        .ticket(Some(ticket))
-        .parents(parents.key().clone())
-        .message_receipts(c)
-        .messages(c)
-        .state_root(*parents.blocks()[0].state_root())
-        .weight(weight_inc)
-        .epoch(height)
-        .build()
-        .unwrap()
+    CachingBlockHeader::new(RawBlockHeader {
+        miner_address: addr,
+        election_proof: Some(election_proof),
+        ticket: Some(ticket),
+        parents: parents.key().clone(),
+        message_receipts: c,
+        messages: c,
+        state_root: parents.block_headers()[0].state_root,
+        weight: weight_inc,
+        epoch: height,
+        ..Default::default()
+    })
 }

@@ -209,7 +209,7 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
 }
 #[cfg(test)]
 mod test {
-    use crate::blocks::{BlockHeader, Tipset};
+    use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::chain::{ChainEpochDelta, ChainStore};
 
     use crate::db::{GarbageCollectable, MarkAndSweep, MemoryDB};
@@ -228,7 +228,7 @@ mod test {
 
     fn insert_unreachable(db: impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
-            let block: BlockHeader = mock_block(1 + idx, 1 + quantity);
+            let block: CachingBlockHeader = mock_block(1 + idx, 1 + quantity);
             db.put_cbor_default(&block).unwrap();
         }
     }
@@ -255,7 +255,7 @@ mod test {
         fn new() -> Self {
             let db = Arc::new(MemoryDB::default());
             let config = ChainConfig::default();
-            let gen_block: BlockHeader = mock_block(1, 1);
+            let gen_block: CachingBlockHeader = mock_block(1, 1);
             db.put_cbor_default(&gen_block).unwrap();
             let store = Arc::new(
                 ChainStore::new(db.clone(), db.clone(), Arc::new(config), gen_block).unwrap(),

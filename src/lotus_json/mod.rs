@@ -92,7 +92,7 @@
 //!
 //! If you require access to private fields, consider:
 //! - implementing an exhaustive helper method, e.g [`crate::beacon::BeaconEntry::into_parts`].
-//! - moving implementation to the module where the struct is defined, e.g [`crate::blocks::header::lotus_json::BlockHeaderLotusJson`].
+//! - moving implementation to the module where the struct is defined, e.g [`crate::blocks::tipset::lotus_json`].
 //!   If you do this, you MUST manually add snapshot and `quickcheck` tests.
 //!
 //! ### Compound structs
@@ -181,6 +181,7 @@ decl_and_test!(
     address for crate::shim::address::Address,
     beacon_entry for crate::beacon::BeaconEntry,
     big_int for num::BigInt,
+    block_header for crate::blocks::CachingBlockHeader,
     election_proof for crate::blocks::ElectionProof,
     gossip_block for crate::blocks::GossipBlock,
     key_info for crate::key_management::KeyInfo,
@@ -194,13 +195,14 @@ decl_and_test!(
     signed_message for  crate::message::SignedMessage,
     sync_stage for crate::chain_sync::SyncStage,
     ticket for crate::blocks::Ticket,
-    tipset_keys for crate::blocks::TipsetKeys,
+    tipset_keys for crate::blocks::TipsetKey,
     token_amount for crate::shim::econ::TokenAmount,
     vec_u8 for Vec<u8>,
     vrf_proof for crate::blocks::VRFProof,
 );
 
 mod cid; // can't make snapshots of generic type
+mod nonempty;
 mod opt; // can't make snapshots of generic type
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
@@ -274,6 +276,32 @@ pub mod stringify {
         S: Serializer,
     {
         serializer.collect_str(value)
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: FromStr,
+        T::Err: Display,
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+/// Usage: `#[serde(with = "hexify_bytes")]`
+pub mod hexify_bytes {
+    use super::*;
+
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: Display + std::fmt::LowerHex,
+        S: Serializer,
+    {
+        // `ethereum_types` crate serializes bytes as compressed addresses, i.e. `0xff00…03ec`
+        // so we can't just use `serializer.collect_str` here
+        serializer.serialize_str(&format!("{:#x}", value))
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>

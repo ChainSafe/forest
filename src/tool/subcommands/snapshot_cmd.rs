@@ -98,6 +98,7 @@ pub enum SnapshotCommands {
     /// the messages at EPOCH, and prints the resulting hash of the state of the world.
     ///
     /// If --json is supplied, details about each message execution will printed.
+    #[command(about = "Compute the state hash at a given epoch")]
     ComputeState {
         /// Path to a snapshot CAR, which may be zstd compressed
         snapshot: PathBuf,
@@ -291,9 +292,9 @@ where
             data.with_context(|| format!("Broken IPLD link at epoch: {height}"))
         };
 
-        for h in tipset.blocks() {
-            recurse_links_hash(&mut seen, *h.state_root(), &mut assert_cid_exists, &|_| ()).await?;
-            recurse_links_hash(&mut seen, *h.messages(), &mut assert_cid_exists, &|_| ()).await?;
+        for h in tipset.block_headers() {
+            recurse_links_hash(&mut seen, h.state_root, &mut assert_cid_exists, &|_| ()).await?;
+            recurse_links_hash(&mut seen, h.messages, &mut assert_cid_exists, &|_| ()).await?;
         }
     }
 
@@ -378,12 +379,12 @@ where
             pb.set_message(format!("epoch queue: {}", tipset.epoch() - last_epoch));
         });
 
-    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
+    let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
     // ProgressBar::wrap_iter believes the progress has been abandoned once the
     // iterator is consumed.
     crate::state_manager::validate_tipsets(
-        genesis.timestamp(),
+        genesis.timestamp,
         chain_index.clone(),
         chain_config,
         beacon,
@@ -417,7 +418,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     let genesis = ts.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
 
-    let timestamp = genesis.timestamp();
+    let timestamp = genesis.timestamp;
     let chain_index = ChainIndex::new(Arc::clone(&store));
     let chain_config = ChainConfig::from_chain(&network);
     if chain_config.is_testnet() {

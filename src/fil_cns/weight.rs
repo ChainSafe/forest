@@ -46,9 +46,9 @@ where
     };
 
     let mut total_j = 0;
-    for b in ts.blocks() {
+    for b in ts.block_headers() {
         total_j += b
-            .election_proof()
+            .election_proof
             .as_ref()
             .ok_or("Block contained no election proof when calculating weight")?
             .win_count;
