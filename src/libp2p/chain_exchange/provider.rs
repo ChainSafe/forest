@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{ChainStore, Error as ChainError};
 use ahash::{HashMap, HashMapExt};
 use cid::Cid;
@@ -30,7 +30,7 @@ where
     }
 
     let inner = move || {
-        let root = match cs.load_tipset(&TipsetKeys::from_iter(request.start.clone()))? {
+        let root = match cs.load_tipset(&TipsetKey::from_iter(request.start.clone()))? {
             Some(tipset) => tipset,
             None => {
                 return Ok(ChainExchangeResponse {
@@ -52,7 +52,7 @@ where
                 }
 
                 if request.include_blocks() {
-                    tipset_bundle.blocks = tipset.blocks().to_vec();
+                    tipset_bundle.blocks = tipset.block_headers().to_vec();
                 }
 
                 anyhow::Ok(tipset_bundle)
@@ -92,8 +92,8 @@ where
     let mut bls_msg_includes: Vec<Vec<u64>> = vec![];
     let mut secp_msg_includes: Vec<Vec<u64>> = vec![];
 
-    for block_header in tipset.blocks().iter() {
-        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, block_header.messages())?;
+    for block_header in tipset.block_headers().iter() {
+        let (bls_cids, secp_cids) = crate::chain::read_msg_cids(db, &block_header.messages)?;
 
         let mut bls_include = Vec::with_capacity(bls_cids.len());
         for bls_cid in bls_cids.into_iter() {
@@ -144,7 +144,7 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use crate::blocks::BlockHeader;
+    use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::db::MemoryDB;
     use crate::genesis::EXPORT_SR_40;
     use crate::networks::ChainConfig;
@@ -167,10 +167,10 @@ mod tests {
     async fn compact_messages_test() {
         let (cids, db) = populate_db().await;
 
-        let gen_block = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let gen_block = CachingBlockHeader::new(RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        });
 
         let response = make_chain_exchange_response(
             &ChainStore::new(db.clone(), db, Arc::new(ChainConfig::default()), gen_block).unwrap(),

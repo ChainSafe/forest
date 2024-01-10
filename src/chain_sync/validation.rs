@@ -112,7 +112,7 @@ impl<'a> TipsetValidator<'a> {
         block: &Block,
     ) -> Result<(), Box<TipsetValidationError>> {
         let msg_root = Self::compute_msg_root(blockstore, block.bls_msgs(), block.secp_msgs())?;
-        if block.header().messages() != &msg_root {
+        if block.header().messages != msg_root {
             Err(Box::new(TipsetValidationError::InvalidRoots))
         } else {
             Ok(())

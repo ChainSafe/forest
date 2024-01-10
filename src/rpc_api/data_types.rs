@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
@@ -22,6 +22,7 @@ use crate::shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::Receipt,
+    fvm_shared_latest::MethodNum,
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
@@ -113,7 +114,7 @@ pub struct MessageLookup {
     #[serde(with = "crate::lotus_json")]
     pub receipt: Receipt,
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
-    pub tipset: TipsetKeys,
+    pub tipset: TipsetKey,
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
@@ -842,3 +843,21 @@ impl MinerSectors {
 }
 
 lotus_json_with_self!(MinerSectors);
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Transaction {
+    #[serde(rename = "ID")]
+    pub id: i64,
+    #[serde(with = "crate::lotus_json")]
+    pub to: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub value: TokenAmount,
+    pub method: MethodNum,
+    #[serde(with = "crate::lotus_json")]
+    pub params: RawBytes,
+    #[serde(with = "crate::lotus_json")]
+    pub approved: Vec<Address>,
+}
+
+lotus_json_with_self!(Transaction);

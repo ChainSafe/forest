@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
@@ -46,13 +46,13 @@ pub(in crate::rpc) async fn chain_get_parent_message<DB: Blockstore>(
     Params(LotusJson((block_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = data.state_manager.blockstore();
-    let block_header: BlockHeader = store
+    let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
-    if block_header.epoch() == 0 {
+    if block_header.epoch == 0 {
         Ok(LotusJson(vec![]))
     } else {
-        let parent_tipset = Tipset::load_required(store, block_header.parents())?;
+        let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
         let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
         Ok(LotusJson(messages))
     }
@@ -63,22 +63,22 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
     Params(LotusJson((block_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let store = data.state_manager.blockstore();
-    let block_header: BlockHeader = store
+    let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
         .ok_or_else(|| format!("can't find block header with cid {block_cid}"))?;
     let mut receipts = Vec::new();
-    if block_header.epoch() == 0 {
+    if block_header.epoch == 0 {
         return Ok(LotusJson(vec![]));
     }
 
     // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
     if let Ok(amt) =
-        Amt::<fvm_shared4::receipt::Receipt, _>::load(block_header.message_receipts(), store)
+        Amt::<fvm_shared4::receipt::Receipt, _>::load(&block_header.message_receipts, store)
             .map_err(|_| JsonRpcError::Full {
                 code: 1,
                 message: format!(
                     "failed to root: ipld: could not find {}",
-                    block_header.message_receipts()
+                    block_header.message_receipts
                 ),
                 data: None,
             })
@@ -95,15 +95,15 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
     } else {
         // Fallback to Receipt_v2.
         let amt =
-            Amt::<fvm_shared2::receipt::Receipt, _>::load(block_header.message_receipts(), store)
+            Amt::<fvm_shared2::receipt::Receipt, _>::load(&block_header.message_receipts, store)
                 .map_err(|_| JsonRpcError::Full {
-                code: 1,
-                message: format!(
-                    "failed to root: ipld: could not find {}",
-                    block_header.message_receipts()
-                ),
-                data: None,
-            })?;
+                    code: 1,
+                    message: format!(
+                        "failed to root: ipld: could not find {}",
+                        block_header.message_receipts
+                    ),
+                    data: None,
+                })?;
         amt.for_each(|_, receipt| {
             receipts.push(ApiReceipt {
                 exit_code: receipt.exit_code.into(),
@@ -120,7 +120,7 @@ pub(in crate::rpc) async fn chain_get_parent_receipts<DB: Blockstore + Send + Sy
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = data.chain_store.blockstore();
     let tipset = Tipset::load_required(store, &tsk)?;
@@ -215,12 +215,12 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((blk_cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<BlockMessages, JsonRpcError> {
-    let blk: BlockHeader = data
+    let blk: CachingBlockHeader = data
         .state_manager
         .blockstore()
         .get_cbor(&blk_cid)?
         .ok_or("can't find block with that cid")?;
-    let blk_msgs = blk.messages();
+    let blk_msgs = &blk.messages;
     let (unsigned_cids, signed_cids) =
         crate::chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
     let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
@@ -243,7 +243,7 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
 
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKeys)>>,
+    Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKey)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
@@ -260,7 +260,7 @@ pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
 pub(in crate::rpc) async fn chain_get_genesis<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
-    let genesis = data.state_manager.chain_store().genesis();
+    let genesis = data.state_manager.chain_store().genesis_block_header();
     Ok(Some(Tipset::from(genesis).into()))
 }
 
@@ -274,8 +274,8 @@ pub(in crate::rpc) async fn chain_head<DB: Blockstore>(
 pub(in crate::rpc) async fn chain_get_block<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((blk_cid,))): Params<LotusJson<(Cid,)>>,
-) -> Result<LotusJson<BlockHeader>, JsonRpcError> {
-    let blk: BlockHeader = data
+) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
+    let blk: CachingBlockHeader = data
         .state_manager
         .blockstore()
         .get_cbor(&blk_cid)?
@@ -285,7 +285,7 @@ pub(in crate::rpc) async fn chain_get_block<DB: Blockstore>(
 
 pub(in crate::rpc) async fn chain_get_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
@@ -298,7 +298,7 @@ pub(in crate::rpc) async fn chain_get_tipset<DB: Blockstore>(
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKeys,)>>,
+    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
 ) -> Result<(), JsonRpcError> {
     let new_head = data
         .state_manager
@@ -311,7 +311,7 @@ pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
                 .chain_store()
                 .unmark_block_as_validated(&cid);
         }
-        let parents = current.blocks()[0].parents();
+        let parents = &current.block_headers()[0].parents;
         current = data
             .state_manager
             .chain_store()
@@ -328,19 +328,25 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     Params((basefee_lookback,)): Params<(u32,)>,
 ) -> Result<String, JsonRpcError> {
     let mut current = data.state_manager.chain_store().heaviest_tipset();
-    let mut min_base_fee = current.blocks()[0].parent_base_fee().clone();
+    let mut min_base_fee = current.block_headers()[0].parent_base_fee.clone();
 
     for _ in 0..basefee_lookback {
-        let parents = current.blocks()[0].parents();
+        let parents = &current.block_headers()[0].parents;
         current = data
             .state_manager
             .chain_store()
             .load_required_tipset(parents)?;
 
-        min_base_fee = min_base_fee.min(current.blocks()[0].parent_base_fee().to_owned());
+        min_base_fee = min_base_fee.min(current.block_headers()[0].parent_base_fee.to_owned());
     }
 
     Ok(min_base_fee.atto().to_string())
+}
+
+pub(crate) async fn chain_notify<DB: Blockstore>(
+    _data: Data<RPCState<DB>>,
+) -> Result<(), JsonRpcError> {
+    Err(JsonRpcError::METHOD_NOT_FOUND)
 }
 
 fn load_api_messages_from_tipset(
