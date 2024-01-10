@@ -35,7 +35,7 @@ use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
     rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
-    rpc_ws_handler::rpc_ws_handler,
+    rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
     state_api::*,
 };
 
@@ -88,6 +88,7 @@ where
                 CHAIN_GET_PARENT_MESSAGES,
                 chain_api::chain_get_parent_message::<DB>,
             )
+            .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
             .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
             .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
@@ -136,6 +137,8 @@ where
             )
             .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
             .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
+            .with_method(STATE_SEARCH_MSG, state_search_msg::<DB>)
+            .with_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)
             .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
             .with_method(
                 STATE_GET_RANDOMNESS_FROM_TICKETS,
@@ -153,6 +156,7 @@ where
                 state_vm_circulating_supply_internal::<DB>,
             )
             .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
+            .with_method(MSIG_GET_PENDING, msig_get_pending::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
@@ -181,7 +185,8 @@ where
     );
 
     let app = axum::Router::new()
-        .route("/rpc/v0", get(rpc_ws_handler))
+        .route("/rpc/v0", get(rpc_v0_ws_handler))
+        .route("/rpc/v1", get(rpc_ws_handler))
         .route("/rpc/v0", post(rpc_v0_http_handler))
         .route("/rpc/v1", post(rpc_http_handler))
         .with_state(rpc_server);

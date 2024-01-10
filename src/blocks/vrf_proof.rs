@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 /// The output from running a VRF proof.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd, Default, Serialize, Deserialize, Hash)]
 pub struct VRFProof(#[serde(with = "serde_byte_array")] pub Vec<u8>);
 
 impl VRFProof {

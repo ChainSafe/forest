@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
@@ -24,6 +24,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
+use tokio::sync::Semaphore;
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -50,7 +51,24 @@ pub enum ApiCommands {
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
         /// Behavior for tests marked as `ignored`.
         run_ignored: RunIgnored,
+        /// Maximum number of concurrent requests
+        #[arg(long, default_value = "8")]
+        max_concurrent_requests: usize,
+        /// API calls are handled over WebSocket connections.
+        #[arg(long = "ws")]
+        use_websocket: bool,
     },
+}
+
+/// For more information about each flag, refer to the Forest documentation at:
+/// <https://docs.forest.chainsafe.io/rustdoc/forest_filecoin/tool/subcommands/api_cmd/enum.ApiCommands.html>
+struct ApiTestFlags {
+    filter: String,
+    fail_fast: bool,
+    n_tipsets: usize,
+    run_ignored: RunIgnored,
+    max_concurrent_requests: usize,
+    use_websocket: bool,
 }
 
 impl ApiCommands {
@@ -64,17 +82,19 @@ impl ApiCommands {
                 fail_fast,
                 n_tipsets,
                 run_ignored,
+                max_concurrent_requests,
+                use_websocket,
             } => {
-                compare_apis(
-                    forest,
-                    lotus,
-                    snapshot_files,
+                let config = ApiTestFlags {
                     filter,
                     fail_fast,
                     n_tipsets,
                     run_ignored,
-                )
-                .await?
+                    max_concurrent_requests,
+                    use_websocket,
+                };
+
+                compare_apis(forest, lotus, snapshot_files, config).await?
             }
         }
         Ok(())
@@ -194,9 +214,19 @@ impl RpcTest {
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
+        use_websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
-        let forest_resp = forest_api.call(self.request.clone()).await;
-        let lotus_resp = lotus_api.call(self.request.clone()).await;
+        let (forest_resp, lotus_resp) = if use_websocket {
+            (
+                forest_api.ws_call(self.request.clone()).await,
+                lotus_api.ws_call(self.request.clone()).await,
+            )
+        } else {
+            (
+                forest_api.call(self.request.clone()).await,
+                lotus_api.call(self.request.clone()).await,
+            )
+        };
 
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
@@ -272,7 +302,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
-            TipsetKeys::default(),
+            TipsetKey::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
@@ -329,14 +359,14 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            TipsetKeys::from_iter(Vec::new()),
+            TipsetKey::from_iter(Vec::new()),
         )),
         RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::state_lookup_id_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             shared_tipset.key().clone(),
         )),
         // This should return `Address::new_id(0xdeadbeef)`
@@ -349,11 +379,15 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             101,
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
+            Address::new_id(18101), // msig address id
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::msig_get_pending_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().clone(),
         )),
@@ -436,7 +470,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
         ));
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(
                 *block.cid(),
             )));
@@ -447,7 +481,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-                *block.miner_address(),
+                block.miner_address,
                 root_tsk.clone(),
             )));
 
@@ -492,6 +526,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         root_tsk.clone(),
                         shared_tipset_epoch,
                     )));
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                 }
             }
             for msg in secp_messages {
@@ -515,17 +555,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
+                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                        msg.cid()?,
+                    )));
+                    tests.push(validate_message_lookup(
+                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                    ));
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
                     tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
                         MessageFilter {
@@ -547,38 +582,38 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(
                 ApiInfo::state_miner_proving_deadline_req(
-                    *block.miner_address(),
+                    block.miner_address,
                     tipset.key().clone(),
                 ),
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
-                *block.miner_address(),
-                block.epoch(),
+                block.miner_address,
+                block.epoch,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
         }
@@ -589,7 +624,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().clone()),
         ));
 
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
@@ -606,6 +641,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
         }
     }
     Ok(tests)
+}
+
+fn websocket_tests() -> Vec<RpcTest> {
+    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
+    vec![test]
 }
 
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
@@ -625,14 +665,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
 /// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
 /// ```
 /// The number after a method name indicates how many times an RPC call was tested.
+#[allow(clippy::too_many_arguments)]
 async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
     snapshot_files: Vec<PathBuf>,
-    filter: String,
-    fail_fast: bool,
-    n_tipsets: usize,
-    run_ignored: RunIgnored,
+    config: ApiTestFlags,
 ) -> anyhow::Result<()> {
     let mut tests = vec![];
 
@@ -648,41 +686,48 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store, n_tipsets)?);
+        tests.extend(snapshot_tests(&store, config.n_tipsets)?);
+    }
+
+    if config.use_websocket {
+        tests.extend(websocket_tests());
     }
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, filter, fail_fast, run_ignored).await
+    run_tests(tests, &forest, &lotus, &config).await
 }
 
 async fn run_tests(
     tests: Vec<RpcTest>,
     forest: &ApiInfo,
     lotus: &ApiInfo,
-    filter: String,
-    fail_fast: bool,
-    run_ignored: RunIgnored,
+    config: &ApiTestFlags,
 ) -> anyhow::Result<()> {
+    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
     for test in tests.into_iter() {
         let forest = forest.clone();
         let lotus = lotus.clone();
 
         // By default, do not run ignored tests.
-        if matches!(run_ignored, RunIgnored::Default) && test.ignore.is_some() {
+        if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
         }
         // If in `IgnoreOnly` mode, only run ignored tests.
-        if matches!(run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
+        if matches!(config.run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
             continue;
         }
-        if !test.request.method_name.contains(&filter) {
+        if !test.request.method_name.contains(&config.filter) {
             continue;
         }
 
+        // Acquire a permit from the semaphore before spawning a test
+        let permit = semaphore.clone().acquire_owned().await?;
+        let use_websocket = config.use_websocket;
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
+            drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });
 
@@ -696,7 +741,7 @@ async fn run_tests(
             .and_modify(|v| *v += 1)
             .or_insert(1u32);
         if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-            && fail_fast
+            && config.fail_fast
         {
             break;
         }

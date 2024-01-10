@@ -7,7 +7,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
-use super::BlockHeader;
+use super::CachingBlockHeader;
 
 /// Limit of BLS and SECP messages combined in a block.
 pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
@@ -16,35 +16,31 @@ pub const BLOCK_MESSAGE_LIMIT: usize = 10000;
 /// and SECP messages.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-    pub header: BlockHeader,
+    pub header: CachingBlockHeader,
     pub bls_messages: Vec<Message>,
     pub secp_messages: Vec<SignedMessage>,
 }
 
 impl Block {
-    /// Returns reference to the [`BlockHeader`].
-    pub fn header(&self) -> &BlockHeader {
+    pub fn header(&self) -> &CachingBlockHeader {
         &self.header
     }
-    /// Returns reference to the block's BLS [`Message`]s.
     pub fn bls_msgs(&self) -> &[Message] {
         &self.bls_messages
     }
-    /// Returns reference to the block's SECP [`SignedMessage`]s.
     pub fn secp_msgs(&self) -> &[SignedMessage] {
         &self.secp_messages
     }
-    /// Returns block's `cid`. This `cid` is the same as the
-    /// [`BlockHeader::cid`].
+    /// Returns block header's CID.
     pub fn cid(&self) -> &Cid {
         self.header.cid()
     }
 
     /// Persists the block in the given block store
     pub fn persist(&self, db: &impl Blockstore) -> Result<(), crate::chain::store::Error> {
-        crate::chain::persist_objects(&db, &[self.header()])?;
-        crate::chain::persist_objects(&db, self.bls_msgs())?;
-        crate::chain::persist_objects(&db, self.secp_msgs())
+        crate::chain::persist_objects(&db, std::iter::once(self.header()))?;
+        crate::chain::persist_objects(&db, self.bls_msgs().iter())?;
+        crate::chain::persist_objects(&db, self.secp_msgs().iter())
     }
 }
 

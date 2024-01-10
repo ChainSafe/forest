@@ -290,9 +290,7 @@ where
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
-        let mut libp2p_registry = Default::default();
-        let metrics = Metrics::new(&mut libp2p_registry);
-        crate::metrics::add_metrics_registry("libp2p".into(), libp2p_registry).await;
+        let metrics = Metrics::new(&mut crate::metrics::DEFAULT_REGISTRY.write());
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {

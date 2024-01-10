@@ -3,7 +3,7 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
-use crate::blocks::{Block, BlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
+use crate::blocks::{Block, CachingBlockHeader, FullTipset, Tipset, BLOCK_MESSAGE_LIMIT};
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
@@ -154,7 +154,7 @@ pub struct CompactedMessages {
 #[derive(Clone, Debug, PartialEq, Serialize_tuple, Deserialize_tuple, Default)]
 pub struct TipsetBundle {
     /// The blocks in the tipset.
-    pub blocks: Vec<BlockHeader>,
+    pub blocks: Vec<CachingBlockHeader>,
 
     /// Compressed messages format.
     pub messages: Option<CompactedMessages>,
@@ -204,7 +204,7 @@ impl TryFrom<&TipsetBundle> for FullTipset {
 /// Constructs a [`FullTipset`] from headers and compacted messages from a
 /// bundle.
 fn fts_from_bundle_parts(
-    headers: Vec<BlockHeader>,
+    headers: Vec<CachingBlockHeader>,
     messages: Option<&CompactedMessages>,
 ) -> Result<FullTipset, String> {
     let CompactedMessages {

@@ -17,7 +17,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     Multiaddr,
 };
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::libp2p::{
     chain_exchange::ChainExchangeBehaviour,
@@ -95,9 +95,7 @@ impl ForestBehaviour {
             ],
             Default::default(),
         );
-        if let Err(err) = crate::libp2p_bitswap::register_metrics(prometheus::default_registry()) {
-            warn!("Fail to register prometheus metrics for libp2p_bitswap: {err}");
-        }
+        crate::libp2p_bitswap::register_metrics(&mut crate::metrics::DEFAULT_REGISTRY.write());
 
         let discovery = DiscoveryConfig::new(local_key.public(), network_name)
             .with_mdns(config.mdns)
