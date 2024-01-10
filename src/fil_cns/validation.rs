@@ -4,7 +4,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
-use crate::blocks::{Block, BlockHeader, Tipset};
+use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
 use crate::metrics::HistogramTimerExt;
@@ -56,7 +56,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     block_sanity_checks(header).map_err(to_errs)?;
 
     let base_tipset = chain_store
-        .load_required_tipset(header.parents())
+        .load_required_tipset(&header.parents)
         .map_err(to_errs)?;
 
     block_timestamp_checks(
@@ -73,7 +73,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
         state_manager.chain_store().chain_index.clone(),
         state_manager.chain_config().clone(),
         base_tipset.clone(),
-        block.header().epoch(),
+        block.header().epoch,
     )
     .map_err(to_errs)?;
 
@@ -88,7 +88,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     // Work address needed for async validations, so necessary
     // to do sync to avoid duplication
     let work_addr = state_manager
-        .get_miner_work_addr(*lookback_state, header.miner_address())
+        .get_miner_work_addr(*lookback_state, &header.miner_address)
         .map_err(to_errs)?;
 
     // Async validations
@@ -101,7 +101,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     validations.push(tokio::task::spawn_blocking(move || {
         validate_miner(
             v_state_manager.as_ref(),
-            v_header.miner_address(),
+            &v_header.miner_address,
             v_base_tipset.parent_state(),
         )
     }));
@@ -179,11 +179,11 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
 ///
 /// In particular it looks for an election proof and a ticket,
 /// which are needed for Filecoin consensus.
-fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusError> {
-    if header.election_proof().is_none() {
+fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), FilecoinConsensusError> {
+    if header.election_proof.is_none() {
         return Err(FilecoinConsensusError::BlockWithoutElectionProof);
     }
-    if header.ticket().is_none() {
+    if header.ticket.is_none() {
         return Err(FilecoinConsensusError::BlockWithoutTicket);
     }
     Ok(())
@@ -192,17 +192,17 @@ fn block_sanity_checks(header: &BlockHeader) -> Result<(), FilecoinConsensusErro
 /// Check the timestamp corresponds exactly to the number of epochs since the
 /// parents.
 fn block_timestamp_checks(
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     base_tipset: &Tipset,
     chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
     // Timestamp checks
     let block_delay = chain_config.block_delay_secs;
-    let nulls = (header.epoch() - (base_tipset.epoch() + 1)) as u64;
+    let nulls = (header.epoch - (base_tipset.epoch() + 1)) as u64;
     let target_timestamp = base_tipset.min_timestamp() + block_delay as u64 * (nulls + 1);
-    if target_timestamp != header.timestamp() {
+    if target_timestamp != header.timestamp {
         return Err(FilecoinConsensusError::UnequalBlockTimestamps(
-            header.timestamp(),
+            header.timestamp,
             target_timestamp,
         ));
     }
@@ -236,7 +236,7 @@ fn validate_miner<DB: Blockstore>(
 }
 
 fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     base_tipset: &Tipset,
     lookback_tipset: &Tipset,
     lookback_state: &Cid,
@@ -249,36 +249,35 @@ fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
     let _timer = metric.start_timer();
 
     // Safe to unwrap because checked to `Some` in sanity check
-    let election_proof = header.election_proof().as_ref().unwrap();
+    let election_proof = header.election_proof.as_ref().unwrap();
     if election_proof.win_count < 1 {
         return Err(FilecoinConsensusError::NotClaimingWin);
     }
-    let hp =
-        state_manager.eligible_to_mine(header.miner_address(), base_tipset, lookback_tipset)?;
+    let hp = state_manager.eligible_to_mine(&header.miner_address, base_tipset, lookback_tipset)?;
     if !hp {
         return Err(FilecoinConsensusError::MinerNotEligibleToMine);
     }
 
-    let beacon = header.beacon_entries().last().unwrap_or(prev_beacon);
-    let miner_address = header.miner_address();
+    let beacon = header.beacon_entries.last().unwrap_or(prev_beacon);
+    let miner_address = &header.miner_address;
     let miner_address_buf = to_vec(miner_address)?;
 
     let vrf_base = crate::state_manager::chain_rand::draw_randomness(
         beacon.data(),
         DomainSeparationTag::ElectionProofProduction as i64,
-        header.epoch(),
+        header.epoch,
         &miner_address_buf,
     )
     .map_err(|e| FilecoinConsensusError::DrawingChainRandomness(e.to_string()))?;
 
     verify_election_post_vrf(work_addr, &vrf_base, election_proof.vrfproof.as_bytes())?;
 
-    if state_manager.is_miner_slashed(header.miner_address(), base_tipset.parent_state())? {
+    if state_manager.is_miner_slashed(&header.miner_address, base_tipset.parent_state())? {
         return Err(FilecoinConsensusError::InvalidOrSlashedMiner);
     }
 
     let (mpow, tpow) = state_manager
-        .get_power(lookback_state, Some(header.miner_address()))?
+        .get_power(lookback_state, Some(&header.miner_address))?
         .ok_or(FilecoinConsensusError::MinerPowerNotAvailable)?;
 
     let j = election_proof.compute_win_count(&mpow.quality_adj_power, &tpow.quality_adj_power);
@@ -294,7 +293,7 @@ fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
 }
 
 fn validate_ticket_election(
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     base_tipset: &Tipset,
     prev_beacon: &BeaconEntry,
     work_addr: &Address,
@@ -304,10 +303,10 @@ fn validate_ticket_election(
         .get_or_create(&metrics::values::VALIDATE_TICKET_ELECTION);
     let _timer = metric.start_timer();
 
-    let mut miner_address_buf = to_vec(header.miner_address())?;
+    let mut miner_address_buf = to_vec(&header.miner_address)?;
     let smoke_height = chain_config.epoch(Height::Smoke);
 
-    if header.epoch() > smoke_height {
+    if header.epoch > smoke_height {
         let vrf_proof = base_tipset
             .min_ticket()
             .ok_or(FilecoinConsensusError::TipsetWithoutTicket)?
@@ -317,12 +316,12 @@ fn validate_ticket_election(
         miner_address_buf.extend_from_slice(vrf_proof);
     }
 
-    let beacon_base = header.beacon_entries().last().unwrap_or(prev_beacon);
+    let beacon_base = header.beacon_entries.last().unwrap_or(prev_beacon);
 
     let vrf_base = crate::state_manager::chain_rand::draw_randomness(
         beacon_base.data(),
         DomainSeparationTag::TicketProduction as i64,
-        header.epoch() - TICKET_RANDOMNESS_LOOKBACK,
+        header.epoch - TICKET_RANDOMNESS_LOOKBACK,
         &miner_address_buf,
     )
     .map_err(|e| FilecoinConsensusError::DrawingChainRandomness(e.to_string()))?;
@@ -331,7 +330,7 @@ fn validate_ticket_election(
         work_addr,
         &vrf_base,
         // Safe to unwrap here because of block sanity checks
-        header.ticket().as_ref().unwrap().vrfproof.as_bytes(),
+        header.ticket.as_ref().unwrap().vrfproof.as_bytes(),
     )?;
 
     Ok(())
@@ -348,7 +347,7 @@ fn verify_election_post_vrf(
 fn verify_winning_post_proof<DB: Blockstore>(
     state_manager: &StateManager<DB>,
     network_version: NetworkVersion,
-    header: &BlockHeader,
+    header: &CachingBlockHeader,
     prev_beacon_entry: &BeaconEntry,
     lookback_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
@@ -356,25 +355,24 @@ fn verify_winning_post_proof<DB: Blockstore>(
         .get_or_create(&metrics::values::VERIFY_WINNING_POST_PROOF);
     let _timer = metric.start_timer();
 
-    let miner_addr_buf = to_vec(header.miner_address())?;
+    let miner_addr_buf = to_vec(&header.miner_address)?;
     let rand_base = header
-        .beacon_entries()
+        .beacon_entries
         .iter()
         .last()
         .unwrap_or(prev_beacon_entry);
     let rand = crate::state_manager::chain_rand::draw_randomness(
         rand_base.data(),
         DomainSeparationTag::WinningPoStChallengeSeed as i64,
-        header.epoch(),
+        header.epoch,
         &miner_addr_buf,
     )
     .map_err(|e| FilecoinConsensusError::DrawingChainRandomness(e.to_string()))?;
 
-    let id = header.miner_address().id().map_err(|e| {
+    let id = header.miner_address.id().map_err(|e| {
         FilecoinConsensusError::WinningPoStValidation(format!(
             "failed to get ID from miner address {}: {}",
-            header.miner_address(),
-            e
+            header.miner_address, e
         ))
     })?;
 
@@ -382,14 +380,14 @@ fn verify_winning_post_proof<DB: Blockstore>(
         .get_sectors_for_winning_post(
             lookback_state,
             network_version,
-            header.miner_address(),
+            &header.miner_address,
             Randomness::new(rand.to_vec()),
         )
         .map_err(|e| FilecoinConsensusError::WinningPoStValidation(e.to_string()))?;
 
     verify_winning_post(
         Randomness::new(rand.to_vec()),
-        header.winning_post_proof(),
+        &header.winning_post_proof,
         sectors.as_slice(),
         id,
     )

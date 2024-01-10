@@ -4,7 +4,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::Ref, sync::Arc};
 
-use crate::blocks::BlockHeader;
+use crate::blocks::CachingBlockHeader;
 use crate::blocks::Tipset;
 use crate::chain::{index::ChainIndex, store::ChainStore};
 use crate::interpreter::errors::Error;
@@ -107,11 +107,11 @@ impl<DB: Blockstore + Send + Sync + 'static> ForestExternsV2<DB> {
         Ok((addr.into(), gas_used.round_up() as i64))
     }
 
-    fn verify_block_signature(&self, bh: &BlockHeader) -> anyhow::Result<i64, Error> {
+    fn verify_block_signature(&self, bh: &CachingBlockHeader) -> anyhow::Result<i64, Error> {
         let (worker_addr, gas_used) =
-            self.worker_key_at_lookback(&bh.miner_address().into(), bh.epoch())?;
+            self.worker_key_at_lookback(&bh.miner_address.into(), bh.epoch)?;
 
-        bh.check_block_signature(&worker_addr.into())?;
+        bh.verify_signature_against(&worker_addr.into())?;
 
         Ok(gas_used)
     }
@@ -160,8 +160,8 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExternsV2<DB> {
                 h2
             );
         };
-        let bh_1 = from_slice_with_fallback::<BlockHeader>(h1)?;
-        let bh_2 = from_slice_with_fallback::<BlockHeader>(h2)?;
+        let bh_1 = from_slice_with_fallback::<CachingBlockHeader>(h1)?;
+        let bh_2 = from_slice_with_fallback::<CachingBlockHeader>(h2)?;
 
         if bh_1.cid() == bh_2.cid() {
             bail!("no consensus fault: submitted blocks are the same");
@@ -169,20 +169,20 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExternsV2<DB> {
 
         // (1) check conditions necessary to any consensus fault
 
-        if bh_1.miner_address() != bh_2.miner_address() {
+        if bh_1.miner_address != bh_2.miner_address {
             bail!(
                 "no consensus fault: blocks not mined by same miner: {:?}, {:?}",
-                bh_1.miner_address(),
-                bh_2.miner_address()
+                bh_1.miner_address,
+                bh_2.miner_address
             );
         };
         // block a must be earlier or equal to block b, epoch wise (ie at least as early
         // in the chain).
-        if bh_2.epoch() < bh_1.epoch() {
+        if bh_2.epoch < bh_1.epoch {
             bail!(
                 "first block must not be of higher height than second: {:?}, {:?}",
-                bh_1.epoch(),
-                bh_2.epoch()
+                bh_1.epoch,
+                bh_2.epoch
             );
         };
 
@@ -191,14 +191,14 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExternsV2<DB> {
         // (2) check for the consensus faults themselves
 
         // (a) double-fork mining fault
-        if bh_1.epoch() == bh_2.epoch() {
+        if bh_1.epoch == bh_2.epoch {
             fault_type = Some(ConsensusFaultType::DoubleForkMining);
         };
 
         // (b) time-offset mining fault
         // strictly speaking no need to compare heights based on double fork mining
         // check above, but at same height this would be a different fault.
-        if bh_1.parents() == bh_2.parents() && bh_1.epoch() != bh_2.epoch() {
+        if bh_1.parents == bh_2.parents && bh_1.epoch != bh_2.epoch {
             fault_type = Some(ConsensusFaultType::TimeOffsetMining);
         };
 
@@ -208,11 +208,11 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExternsV2<DB> {
         // Specifically, since A is of lower height, it must be that B was mined
         // omitting A from its tipset
         if !extra.is_empty() {
-            let bh_3 = from_slice_with_fallback::<BlockHeader>(extra)?;
-            if bh_1.parents() == bh_3.parents()
-                && bh_1.epoch() == bh_3.epoch()
-                && bh_2.parents().cids.contains(*bh_3.cid())
-                && !bh_2.parents().cids.contains(*bh_1.cid())
+            let bh_3 = from_slice_with_fallback::<CachingBlockHeader>(extra)?;
+            if bh_1.parents == bh_3.parents
+                && bh_1.epoch == bh_3.epoch
+                && bh_2.parents.cids.contains(*bh_3.cid())
+                && !bh_2.parents.cids.contains(*bh_1.cid())
             {
                 fault_type = Some(ConsensusFaultType::ParentGrinding);
             }
@@ -248,8 +248,8 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExternsV2<DB> {
                 }
 
                 let ret = Some(ConsensusFault {
-                    target: bh_1.miner_address().into(),
-                    epoch: bh_2.epoch(),
+                    target: bh_1.miner_address.into(),
+                    epoch: bh_2.epoch,
                     fault_type,
                 });
 

@@ -16,7 +16,7 @@ pub use utils::is_valid_for_sending;
 pub mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
@@ -75,8 +75,8 @@ type CidPair = (Cid, Cid);
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
-    values: LruCache<TipsetKeys, CidPair>,
-    pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
+    values: LruCache<TipsetKey, CidPair>,
+    pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
 impl Default for TipsetStateCacheInner {
@@ -112,7 +112,7 @@ impl TipsetStateCache {
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, compute: F) -> anyhow::Result<CidPair>
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<CidPair>
     where
         F: Fn() -> Fut,
         Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
@@ -170,11 +170,11 @@ impl TipsetStateCache {
         }
     }
 
-    fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
+    fn get(&self, key: &TipsetKey) -> Option<CidPair> {
         self.with_inner(|inner| inner.values.get(key).copied())
     }
 
-    fn insert(&self, key: TipsetKeys, value: CidPair) {
+    fn insert(&self, key: TipsetKey, value: CidPair) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -234,8 +234,8 @@ where
         chain_config: Arc<ChainConfig>,
         sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis();
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
+        let genesis = cs.genesis_block_header();
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
         Ok(Self {
             cs,
@@ -427,7 +427,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
+                base_fee: tipset.block_headers()[0].parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
@@ -516,7 +516,7 @@ where
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
-                    base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                    base_fee: ts.block_headers()[0].parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
@@ -695,7 +695,7 @@ where
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
-            self.chain_store().genesis().timestamp(),
+            self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -753,7 +753,7 @@ where
                 } else {
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        &tipset.blocks()[0],
+                        &tipset.block_headers()[0],
                         index,
                     )
                     .map_err(|err| Error::Other(err.to_string()))
@@ -878,7 +878,7 @@ where
             Ok::<_, Error>(back_tuple)
         });
 
-        let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
+        let reverts: Arc<RwLock<HashMap<TipsetKey, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
         let sm_cloned = Arc::clone(self);
 
@@ -1303,7 +1303,7 @@ where
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
-        let genesis_timestamp = self.chain_store().genesis().timestamp();
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
@@ -1383,9 +1383,9 @@ where
                 VMTrace::NotTraced,
             )
             .context("couldn't compute tipset state")?;
-            let expected_receipt = child.min_ticket_block().message_receipts();
+            let expected_receipt = child.min_ticket_block().message_receipts;
             let expected_state = child.parent_state();
-            match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
+            match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
                 true => Ok(()),
                 false => {
                     error!(
@@ -1505,8 +1505,8 @@ where
         // block miner reference a valid miner in the state tree. Unless we create some
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
-        let message_receipts = tipset.min_ticket_block().message_receipts();
-        return Ok((*tipset.parent_state(), *message_receipts));
+        let message_receipts = tipset.min_ticket_block().message_receipts;
+        return Ok((*tipset.parent_state(), message_receipts));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1528,7 +1528,7 @@ where
                 state_tree_root: state_root,
                 epoch,
                 rand: Box::new(rand.clone()),
-                base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
+                base_fee: tipset.min_ticket_block().parent_base_fee.clone(),
                 circ_supply: circulating_supply,
                 chain_config: Arc::clone(&chain_config),
                 chain_index: Arc::clone(&chain_index),
