@@ -403,10 +403,7 @@ async fn eth_tests_with_tipset(shared_tipset: &Tipset, forest: &ApiInfo) -> Vec<
         .collect::<Vec<u64>>();
     for deal_id in deal_ids {
         // Verify that the deal can be found before adding it to the tests.
-        let deal = ApiInfo::state_market_storage_deal_req(
-            deal_id,
-            shared_tipset.key().clone(),
-        );
+        let deal = ApiInfo::state_market_storage_deal_req(deal_id, shared_tipset.key().clone());
         let deal_call = forest.call(deal).await;
         match deal_call {
             Ok(_) => {

@@ -194,7 +194,7 @@ impl HasLotusJson for DealProposal {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealStateLotusJson {
     #[serde(with = "crate::lotus_json")]
