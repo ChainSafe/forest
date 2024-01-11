@@ -52,7 +52,7 @@ mod tests {
     async fn test_drand<'a>(config: &DrandConfig<'a>) {
         let get_remote_chain_info = || async {
             let remote_chain_info: ChainInfo = global_http_client()
-                .get(format!("{}/info", config.server))
+                .get(format!("{}/{}/info", config.server, config.chain_info.hash))
                 .send()
                 .await?
                 .error_for_status()?
