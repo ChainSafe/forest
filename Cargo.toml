@@ -23,6 +23,7 @@ base64 = "0.21"
 bigdecimal = "0.4.0"
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
+  "multicore",
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
 boa_engine = "0.17.0"

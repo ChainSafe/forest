@@ -10,7 +10,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
@@ -264,12 +264,24 @@ impl Beacon for DrandBeacon {
             return Ok(true);
         }
 
+        // Signature type is G2 and its compressed size is 96.
+        // See <https://docs.rs/bls-signatures/0.15.0/src/bls_signatures/signature.rs.html#25>
+        // or <https://docs.rs/blstrs/latest/src/blstrs/g2.rs.html#27>
+        const SIGNATURE_SIZE: usize = 96;
+        const MESSAGE_SIZE: usize = SIGNATURE_SIZE + std::mem::size_of::<u64>();
+
+        // To avoid panics from the below `copy_from_slice` line
+        anyhow::ensure!(
+            prev.data().len() == SIGNATURE_SIZE,
+            "Invalid signature size in previous beacon"
+        );
+
         // Hash the messages
-        let mut msg: Vec<u8> = Vec::with_capacity(104);
-        msg.extend_from_slice(prev.data());
-        msg.write_u64::<BigEndian>(curr.round())?;
+        let mut msg: [u8; MESSAGE_SIZE] = [0; MESSAGE_SIZE];
+        msg[..SIGNATURE_SIZE].copy_from_slice(prev.data());
+        BigEndian::write_u64(&mut msg[SIGNATURE_SIZE..], curr.round());
         // H(prev sig | curr_round)
-        let digest = sha2::Sha256::digest(&msg);
+        let digest = sha2::Sha256::digest(msg);
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
         let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()?]);
