@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::borrow::Cow;
+use std::time::Duration;
 
+use super::beacon_entries::BeaconEntry;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
@@ -14,8 +16,6 @@ use byteorder::{BigEndian, ByteOrder};
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
-
-use super::beacon_entries::BeaconEntry;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
@@ -294,20 +294,30 @@ impl Beacon for DrandBeacon {
         Ok(sig_match)
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
+    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
         let cached: Option<BeaconEntry> = self.local_cache.read().get(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
-                let client = global_http_client();
-                let resp: BeaconEntryJson = client
-                    .get(format!("{}/public/{}", self.url, round))
-                    .send()
-                    .await?
-                    .error_for_status()?
-                    .json()
-                    .await?;
-                Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
+                async fn fetch_entry(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
+                    let resp: BeaconEntryJson = global_http_client()
+                        .get(url)
+                        .timeout(Duration::from_secs(1))
+                        .send()
+                        .await?
+                        .error_for_status()?
+                        .json()
+                        .await?;
+                    anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
+                }
+
+                let url = format!("{}/public/{}", self.url, round);
+                Ok(
+                    backoff::future::retry(backoff::ExponentialBackoff::default(), || async {
+                        Ok(fetch_entry(&url).await?)
+                    })
+                    .await?,
+                )
             }
         }
     }
