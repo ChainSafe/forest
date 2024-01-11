@@ -27,6 +27,10 @@ use crate::rpc_api::{
 use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use jsonrpsee::server::{
+    PingConfig, RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle,
+};
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Sender;
 use tracing::info;
@@ -39,7 +43,7 @@ use crate::rpc::{
     state_api::*,
 };
 
-pub async fn start_rpc<DB>(
+/*pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
     rpc_endpoint: TcpListener,
     forest_version: &'static str,
@@ -196,4 +200,49 @@ where
     info!("Stopped accepting RPC connections");
 
     Ok(())
+}*/
+
+pub async fn start_rpsee<DB>(
+    state: RPCState<DB>,
+    rpc_endpoint: SocketAddr,
+    forest_version: &'static str,
+    shutdown_send: Sender<()>,
+    rt: tokio::runtime::Handle,
+) -> Result<ServerHandle, JSONRPCError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    use auth_api::*;
+    use chain_api::*;
+    use gas_api::*;
+    use mpool_api::*;
+    use sync_api::*;
+    use wallet_api::*;
+
+    let block_delay = state.state_manager.chain_config().block_delay_secs as u64;
+
+    let middleware = RpcServiceBuilder::new().rpc_logger(4096);
+
+    let server = RpseeServer::builder()
+        .custom_tokio_runtime(rt)
+        //.enable_ws_ping(PingConfig::new())
+        .set_rpc_middleware(middleware)
+        .build(rpc_endpoint)
+        .await?;
+
+    let mut module = RpcModule::new(state);
+    // Common API
+    module.register_method(VERSION, move |_, _| version(block_delay, forest_version))?;
+    module.register_method(SESSION, |_, _| session())?;
+    module.register_async_method(SHUTDOWN, move |_, _| shutdown(shutdown_send.clone()))?;
+    module.register_method(START_TIME, move |_, state| start_time::<DB>(state))?;
+    // Eth API
+    module.register_async_method(ETH_GAS_PRICE, move |_, state| {
+        eth_api::eth_gas_price::<DB>(state)
+    })?;
+
+    let handle = server.start(module);
+    info!("Ready for RPC connections");
+
+    Ok(handle)
 }

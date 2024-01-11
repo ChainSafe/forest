@@ -125,6 +125,10 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
     }
 
+    pub async fn chain_notify(&self) -> Result<(), JsonRpcError> {
+        self.call(Self::chain_notify_req()).await
+    }
+
     pub fn chain_notify_req() -> RpcRequest<()> {
         RpcRequest::new(CHAIN_NOTIFY, ())
     }

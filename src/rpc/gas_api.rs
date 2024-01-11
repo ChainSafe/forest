@@ -15,12 +15,13 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
+use std::sync::Arc;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
 pub(in crate::rpc) async fn gas_estimate_fee_cap<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Arc<RPCState<DB>>,
     Params(params): Params<LotusJson<(Message, i64, TipsetKey)>>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((msg, max_queue_blks, tsk)) = params;
@@ -29,7 +30,7 @@ pub(in crate::rpc) async fn gas_estimate_fee_cap<DB: Blockstore>(
 }
 
 fn estimate_fee_cap<DB: Blockstore>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     msg: Message,
     max_queue_blks: i64,
     _tsk: TipsetKey,
@@ -48,19 +49,19 @@ fn estimate_fee_cap<DB: Blockstore>(
     Ok(out)
 }
 
-/// Estimate the fee cap
-pub(in crate::rpc) async fn gas_estimate_gas_premium<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-    Params(params): Params<LotusJson<(u64, Address, i64, TipsetKey)>>,
-) -> Result<String, JsonRpcError> {
-    let (nblocksincl, _sender, _gas_limit, _) = params.0;
-    estimate_gas_premium::<DB>(&data, nblocksincl)
-        .await
-        .map(|n| TokenAmount::to_string(&n))
-}
+// /// Estimate the fee cap
+// pub(in crate::rpc) async fn gas_estimate_gas_premium<DB: Blockstore>(
+//     data: Data<RPCState<DB>>,
+//     Params(params): Params<LotusJson<(u64, Address, i64, TipsetKey)>>,
+// ) -> Result<String, JsonRpcError> {
+//     let (nblocksincl, _sender, _gas_limit, _) = params.0;
+//     estimate_gas_premium::<DB>(&data, nblocksincl)
+//         .await
+//         .map(|n| TokenAmount::to_string(&n))
+// }
 
 pub async fn estimate_gas_premium<DB: Blockstore>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     mut nblocksincl: u64,
 ) -> Result<TokenAmount, JsonRpcError> {
     if nblocksincl == 0 {
@@ -142,7 +143,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 
 /// Estimate the gas limit
 pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
-    data: Data<RPCState<DB>>,
+    data: Arc<RPCState<DB>>,
     Params(LotusJson((msg, tsk))): Params<LotusJson<(Message, TipsetKey)>>,
 ) -> Result<i64, JsonRpcError>
 where
@@ -152,7 +153,7 @@ where
 }
 
 async fn estimate_gas_limit<DB>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     msg: Message,
     _: TipsetKey,
 ) -> Result<i64, JsonRpcError>
@@ -196,7 +197,7 @@ where
 
 /// Estimates the gas parameters for a given message
 pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
-    data: Data<RPCState<DB>>,
+    data: Arc<RPCState<DB>>,
     Params(LotusJson((msg, spec, tsk))): Params<
         LotusJson<(Message, Option<MessageSendSpec>, TipsetKey)>,
     >,
@@ -210,7 +211,7 @@ where
 }
 
 pub(in crate::rpc) async fn estimate_message_gas<DB>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: TipsetKey,

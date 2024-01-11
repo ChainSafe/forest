@@ -17,6 +17,7 @@ use ahash::{HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use std::sync::Arc;
 
 use super::gas_api::estimate_message_gas;
 
@@ -114,7 +115,7 @@ where
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub(in crate::rpc) async fn mpool_push_message<DB>(
-    data: Data<RPCState<DB>>,
+    data: Arc<RPCState<DB>>,
     Params(LotusJson((umsg, spec))): Params<LotusJson<(Message, Option<MessageSendSpec>)>>,
 ) -> Result<LotusJson<SignedMessage>, JsonRpcError>
 where

@@ -4,6 +4,7 @@
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
+use crate::chain::HeadChange;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
@@ -320,10 +321,23 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     Ok(min_base_fee.atto().to_string())
 }
 
+// From https://github.com/filecoin-project/go-jsonrpc
+
+// Returning a channel
+// * Only supported in websocket mode
+// * If no error is returned, the return value will be an int channelId
+// * When the server handler writes values into the channel, the client will receive `xrpc.ch.val` notifications
+//   with 2 params: [chanID: int, value: any]
+// * When the channel is closed the client will receive `xrpc.ch.close` notification with a single param: [chanId: int]
+// * The client-side channel will be closed when the websocket connection breaks; Server side will discard writes to
+//   the channel. Handlers should rely on the context to know when to stop writing to the returned channel.
+// NOTE: There is no good backpressure mechanism implemented for channels, returning values faster that the client can
+// receive them may cause memory leaks.
+
 pub(crate) async fn chain_notify<DB: Blockstore>(
     _data: Data<RPCState<DB>>,
-) -> Result<(), JsonRpcError> {
-    Err(JsonRpcError::METHOD_NOT_FOUND)
+) -> Result<u32, JsonRpcError> {
+    Ok(1)
 }
 
 fn load_api_messages_from_tipset(

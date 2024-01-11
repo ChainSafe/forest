@@ -861,3 +861,12 @@ pub struct Transaction {
 }
 
 lotus_json_with_self!(Transaction);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct HeadChange {
+    r#type: String,
+    val: Vec<TipsetKey>,
+}
+
+lotus_json_with_self!(HeadChange);

@@ -26,7 +26,7 @@ use crate::key_management::{
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::rpc::start_rpc;
+use crate::rpc::start_rpsee;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
@@ -110,12 +110,16 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 }
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
-pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
+pub async fn start_interruptable(
+    opts: CliOpts,
+    config: Config,
+    rt: tokio::runtime::Handle,
+) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
 
     let result = tokio::select! {
-        ret = start(opts, config, shutdown_send) => ret,
+        ret = start(opts, config, shutdown_send, rt) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -141,6 +145,7 @@ pub(super) async fn start(
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
+    rt: tokio::runtime::Handle,
 ) -> anyhow::Result<()> {
     let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
     if chain_config.is_testnet() {
@@ -342,42 +347,41 @@ pub(super) async fn start(
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = tokio::net::TcpListener::bind(config.client.rpc_address)
-            .await
-            .context(format!(
-                "could not bind to rpc address {}",
-                config.client.rpc_address
-            ))?;
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
 
+        info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
+        let beacon = Arc::new(
+            rpc_state_manager
+                .chain_config()
+                .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
+        );
+
+        let handle = start_rpsee(
+            RPCState {
+                state_manager: Arc::clone(&rpc_state_manager),
+                keystore: keystore_rpc,
+                mpool,
+                bad_blocks,
+                sync_state,
+                network_send,
+                network_name,
+                start_time,
+                beacon,
+                chain_store: rpc_chain_store,
+            },
+            config.client.rpc_address,
+            FOREST_VERSION_STRING.as_str(),
+            shutdown_send,
+            rt,
+        )
+        .await
+        .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))?;
+
         services.spawn(async move {
-            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            let beacon = Arc::new(
-                rpc_state_manager
-                    .chain_config()
-                    .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
-            );
-            start_rpc(
-                Arc::new(RPCState {
-                    state_manager: Arc::clone(&rpc_state_manager),
-                    keystore: keystore_rpc,
-                    mpool,
-                    bad_blocks,
-                    sync_state,
-                    network_send,
-                    network_name,
-                    start_time,
-                    beacon,
-                    chain_store: rpc_chain_store,
-                }),
-                rpc_listen,
-                FOREST_VERSION_STRING.as_str(),
-                shutdown_send,
-            )
-            .await
-            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
+            handle.stopped().await;
+            Ok(())
         });
     } else {
         debug!("RPC disabled.");
