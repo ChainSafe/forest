@@ -426,7 +426,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: tipset.block_headers()[0].parent_base_fee.clone(),
+                base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
@@ -515,7 +515,7 @@ where
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
-                    base_fee: ts.block_headers()[0].parent_base_fee.clone(),
+                    base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
@@ -752,7 +752,7 @@ where
                 } else {
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        &tipset.block_headers()[0],
+                        tipset.block_headers().first(),
                         index,
                     )
                     .map_err(|err| Error::Other(err.to_string()))
