@@ -18,12 +18,12 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
-pub(in crate::rpc) async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
+pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
     Ok(vec![])
 }
 
-pub(in crate::rpc) async fn eth_block_number<DB: Blockstore>(
+pub async fn eth_block_number<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
@@ -51,7 +51,7 @@ pub(in crate::rpc) async fn eth_block_number<DB: Blockstore>(
     }
 }
 
-pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
+pub async fn eth_chain_id<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     Ok(format!(
@@ -60,7 +60,7 @@ pub(in crate::rpc) async fn eth_chain_id<DB: Blockstore>(
     ))
 }
 
-pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
+pub async fn eth_gas_price<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
@@ -77,7 +77,7 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
     }
 }
 
-pub(in crate::rpc) async fn eth_get_balance<DB: Blockstore>(
+pub async fn eth_get_balance<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
 ) -> Result<EthBigInt, JsonRpcError> {

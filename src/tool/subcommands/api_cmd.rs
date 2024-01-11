@@ -1,33 +1,64 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::BlockHeader;
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
+use crate::chain::ChainStore;
+use crate::chain_sync::SyncConfig;
 use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
+use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
+use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
+use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::networks::ChainConfig;
+use crate::rpc::{
+    rpc_http_handler::{rpc_http_handler, rpc_v0_http_handler},
+    rpc_ws_handler::rpc_ws_handler,
+};
 use crate::rpc_api::data_types::MessageLookup;
 use crate::rpc_api::eth_api::Address as EthAddress;
-use crate::rpc_api::eth_api::*;
-use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
+use crate::rpc_api::{
+    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
+    gas_api::*, mpool_api::*, net_api::*, node_api::*, state_api::*, sync_api::*, wallet_api::*,
+};
+use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
+use crate::state_manager::StateManager;
+use crate::utils::db::car_util::load_car;
+use crate::utils::version::FOREST_VERSION_STRING;
 use ahash::HashMap;
+use anyhow::Context as _;
+use axum::routing::{get, post};
 use clap::{Subcommand, ValueEnum};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use fvm_ipld_blockstore::Blockstore;
+use jsonrpc_v2::{Data, Server};
 use serde::de::DeserializeOwned;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
+use tokio::fs::File;
+use tokio::io::BufReader;
 use tokio::sync::Semaphore;
+use tokio::{sync::RwLock, task::JoinSet};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
+    // Serve
+    Serve {
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+        #[arg()]
+        snapshot_file: PathBuf,
+    },
     /// Compare
     Compare {
         /// Forest address
@@ -70,6 +101,7 @@ struct ApiTestFlags {
 impl ApiCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
+            Self::Serve { snapshot_file } => start_server(snapshot_file).await?,
             Self::Compare {
                 forest,
                 lotus,
@@ -639,6 +671,219 @@ async fn compare_apis(
     tests.sort_by_key(|test| test.request.method_name);
 
     run_tests(tests, &forest, &lotus, &config).await
+}
+
+async fn start_server(snapshot_file: PathBuf) -> anyhow::Result<()> {
+    println!("Starting RPC");
+    let car_db_path = tempfile::Builder::new().tempdir()?.path().join("car-db");
+    let db = Arc::new(ParityDb::open(&car_db_path, &ParityDbConfig::default())?);
+    let file = File::open(snapshot_file).await?;
+    let reader = BufReader::new(file);
+    println!("Loading CAR file...");
+    let header = load_car(&db, reader).await?;
+    println!("Loading CAR file completed");
+    let chain_config = Arc::new(ChainConfig::default());
+    let sync_config = Arc::new(SyncConfig::default());
+    let genesis_header = BlockHeader::load(db.clone(), header.roots[0])?.ok_or_else(|| {
+        anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
+    })?;
+    let cs_arc = Arc::new(ChainStore::new(
+        db.clone(),
+        db,
+        chain_config.clone(),
+        genesis_header.clone(),
+    )?);
+    let state_manager = Arc::new(StateManager::new(
+        cs_arc.clone(),
+        chain_config,
+        sync_config,
+    )?);
+    let (network_send, _) = flume::bounded(5);
+    let beacon = Arc::new(
+        state_manager
+            .chain_config()
+            .get_beacon_schedule(cs_arc.genesis().timestamp()),
+    );
+    let network_name = state_manager.get_network_name(genesis_header.state_root())?;
+    let provider = MpoolRpcProvider::new(cs_arc.publisher().clone(), state_manager.clone());
+    let mut services = JoinSet::new();
+    let pool = MessagePool::new(
+        provider,
+        network_name.clone(),
+        network_send.clone(),
+        Default::default(),
+        state_manager.chain_config().clone(),
+        &mut services,
+    )
+    .unwrap();
+    let state = Arc::new(RPCState {
+        state_manager,
+        keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
+        mpool: Arc::new(pool),
+        bad_blocks: Default::default(),
+        sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        network_send,
+        network_name,
+        start_time: chrono::Utc::now(),
+        chain_store: cs_arc.clone(),
+        beacon,
+    });
+    start_rpc(state).await?;
+    Ok(())
+}
+
+pub async fn start_rpc<DB>(state: Arc<RPCState<DB>>) -> anyhow::Result<()>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    use crate::rpc::auth_api::*;
+    use crate::rpc::beacon_api::*;
+    use crate::rpc::chain_api::*;
+    use crate::rpc::common_api::*;
+    use crate::rpc::eth_api::*;
+    use crate::rpc::gas_api::*;
+    use crate::rpc::mpool_api::*;
+    use crate::rpc::net_api::*;
+    use crate::rpc::node_api::*;
+    use crate::rpc::state_api::*;
+    use crate::rpc::sync_api::*;
+    use crate::rpc::wallet_api::*;
+
+    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT);
+    let rpc_endpoint = tokio::net::TcpListener::bind(rpc_address)
+        .await
+        .context(format!("could not bind to rpc address {}", rpc_address))?;
+    let block_delay = state.state_manager.chain_config().block_delay_secs as u64;
+    let rpc_server = Arc::new(
+        Server::new()
+            .with_data(Data(state))
+            // Auth API
+            .with_method(AUTH_NEW, auth_new::<DB>)
+            .with_method(AUTH_VERIFY, auth_verify::<DB>)
+            // Beacon API
+            // .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
+            // Chain API
+            .with_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)
+            .with_method(CHAIN_EXPORT, chain_export::<DB>)
+            .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)
+            .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)
+            .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)
+            .with_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)
+            // .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB>)
+            .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
+            .with_method(CHAIN_HEAD, chain_head::<DB>)
+            .with_method(CHAIN_GET_BLOCK, chain_get_block::<DB>)
+            .with_method(CHAIN_SET_HEAD, chain_set_head::<DB>)
+            .with_method(CHAIN_GET_MIN_BASE_FEE, chain_get_min_base_fee::<DB>)
+            .with_method(
+                CHAIN_GET_MESSAGES_IN_TIPSET,
+                chain_get_messages_in_tipset::<DB>,
+            )
+            .with_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_message::<DB>)
+            // .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
+            // Message Pool API
+            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
+            .with_method(MPOOL_PENDING, mpool_pending::<DB>)
+            .with_method(MPOOL_PUSH, mpool_push::<DB>)
+            .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
+            // Sync API
+            .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)
+            .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)
+            .with_method(SYNC_STATE, sync_state::<DB>)
+            // Wallet API
+            .with_method(WALLET_BALANCE, wallet_balance::<DB>)
+            .with_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB>)
+            .with_method(WALLET_EXPORT, wallet_export::<DB>)
+            .with_method(WALLET_HAS, wallet_has::<DB>)
+            .with_method(WALLET_IMPORT, wallet_import::<DB>)
+            .with_method(WALLET_LIST, wallet_list::<DB>)
+            .with_method(WALLET_NEW, wallet_new::<DB>)
+            .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
+            .with_method(WALLET_SIGN, wallet_sign::<DB>)
+            .with_method(WALLET_VERIFY, wallet_verify)
+            .with_method(WALLET_DELETE, wallet_delete::<DB>)
+            // State API
+            // .with_method(STATE_CALL, state_call::<DB>)
+            .with_method(STATE_REPLAY, state_replay::<DB>)
+            .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
+            // .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
+            .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)
+            .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)
+            .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
+            .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
+            .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
+            // .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
+            // .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
+            .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
+            .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
+            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
+            // .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
+            .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
+            .with_method(
+                STATE_MINER_PROVING_DEADLINE,
+                state_miner_proving_deadline::<DB>,
+            )
+            .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
+            // .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
+            // .with_method(STATE_SEARCH_MSG, state_search_msg::<DB>)
+            // .with_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)
+            .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
+            .with_method(
+                STATE_GET_RANDOMNESS_FROM_TICKETS,
+                state_get_randomness_from_tickets::<DB>,
+            )
+            // .with_method(
+            //     STATE_GET_RANDOMNESS_FROM_BEACON,
+            //     state_get_randomness_from_beacon::<DB>,
+            // )
+            .with_method(STATE_READ_STATE, state_read_state::<DB>)
+            // .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
+            .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
+            // .with_method(
+            //     STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
+            //     state_vm_circulating_supply_internal::<DB>,
+            // )
+            .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
+            // Gas API
+            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
+            .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
+            .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)
+            .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
+            // Common API
+            .with_method(VERSION, move || {
+                version(block_delay, FOREST_VERSION_STRING.as_str())
+            })
+            .with_method(SESSION, session)
+            // .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
+            .with_method(START_TIME, start_time::<DB>)
+            // Net API
+            // .with_method(NET_ADDRS_LISTEN, net_addrs_listen::<DB>)
+            // .with_method(NET_PEERS, net_peers::<DB>)
+            .with_method(NET_INFO, net_info::<DB>)
+            .with_method(NET_CONNECT, net_connect::<DB>)
+            .with_method(NET_DISCONNECT, net_disconnect::<DB>)
+            // Node API
+            .with_method(NODE_STATUS, node_status::<DB>)
+            // Eth API
+            .with_method(ETH_ACCOUNTS, eth_accounts)
+            .with_method(ETH_BLOCK_NUMBER, eth_block_number::<DB>)
+            .with_method(ETH_CHAIN_ID, eth_chain_id::<DB>)
+            .with_method(ETH_GAS_PRICE, eth_gas_price::<DB>)
+            // .with_method(ETH_GET_BALANCE, eth_get_balance::<DB>)
+            .finish_unwrapped(),
+    );
+
+    let app = axum::Router::new()
+        .route("/rpc/v0", get(rpc_ws_handler))
+        .route("/rpc/v0", post(rpc_v0_http_handler))
+        .route("/rpc/v1", post(rpc_http_handler))
+        .with_state(rpc_server);
+    println!("JSON-RPC endpoint started at {}", rpc_address);
+    println!("Ready for RPC connections");
+    axum::serve(rpc_endpoint, app.into_make_service()).await?;
+    Ok(())
 }
 
 async fn run_tests(

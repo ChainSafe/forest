@@ -1,21 +1,21 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod auth_api;
-mod beacon_api;
-mod chain_api;
-mod common_api;
-mod eth_api;
-mod gas_api;
-mod mpool_api;
-mod net_api;
-mod node_api;
-mod rpc_http_handler;
-mod rpc_util;
-mod rpc_ws_handler;
-mod state_api;
-mod sync_api;
-mod wallet_api;
+pub mod auth_api;
+pub mod beacon_api;
+pub mod chain_api;
+pub mod common_api;
+pub mod eth_api;
+pub mod gas_api;
+pub mod mpool_api;
+pub mod net_api;
+pub mod node_api;
+pub mod rpc_http_handler;
+pub mod rpc_util;
+pub mod rpc_ws_handler;
+pub mod state_api;
+pub mod sync_api;
+pub mod wallet_api;
 
 use std::sync::Arc;
 

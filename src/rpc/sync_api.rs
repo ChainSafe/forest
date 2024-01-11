@@ -11,7 +11,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
-pub(in crate::rpc) async fn sync_check_bad<DB: Blockstore>(
+pub async fn sync_check_bad<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<String, JsonRpcError> {
@@ -19,7 +19,7 @@ pub(in crate::rpc) async fn sync_check_bad<DB: Blockstore>(
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(in crate::rpc) async fn sync_mark_bad<DB: Blockstore>(
+pub async fn sync_mark_bad<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<(), JsonRpcError> {
@@ -33,7 +33,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub(in crate::rpc) async fn sync_state<DB: Blockstore>(
+pub async fn sync_state<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<RPCSyncState, JsonRpcError> {
     let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
