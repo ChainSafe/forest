@@ -982,6 +982,7 @@ dependencies = [
  "group",
  "pairing",
  "rand_core",
+ "rayon",
  "subtle",
  "thiserror",
 ]
