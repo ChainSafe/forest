@@ -341,7 +341,7 @@ pub(crate) async fn chain_notify<DB: Blockstore>(
 ) -> Result<Subscriber<ApiHeadChange>, JsonRpseeError> {
     let mut head_change = data.chain_store.publisher().subscribe();
 
-    let (send, recv) = broadcast::channel(1);
+    let (tx, rx) = broadcast::channel(1);
 
     tokio::task::spawn(async move {
         loop {
@@ -352,7 +352,7 @@ pub(crate) async fn chain_notify<DB: Blockstore>(
                             ("apply".into(), ts.block_headers().clone().into())
                         }
                     };
-                    let _ = send.send(ApiHeadChange { change, headers });
+                    let _ = tx.send(ApiHeadChange { change, headers });
                 }
                 Err(RecvError::Lagged(_)) => continue,
                 Err(RecvError::Closed) => break,
@@ -360,7 +360,7 @@ pub(crate) async fn chain_notify<DB: Blockstore>(
         }
     });
 
-    Ok(recv)
+    Ok(rx)
 }
 
 fn load_api_messages_from_tipset(
