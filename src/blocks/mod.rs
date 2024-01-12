@@ -25,12 +25,6 @@ pub use vrf_proof::VRFProof;
 /// Blockchain blocks error
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
-    /// Tipset contains invalid data, as described by the string parameter.
-    #[error("Invalid tipset: {0}")]
-    InvalidTipset(String),
-    /// The given tipset has no blocks
-    #[error("No blocks for tipset")]
-    NoBlocks,
     /// Invalid signature
     #[error("Invalid signature: {0}")]
     InvalidSignature(String),
