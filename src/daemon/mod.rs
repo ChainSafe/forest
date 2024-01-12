@@ -350,8 +350,9 @@ pub(super) async fn start(
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
+        let rpc_address = config.client.rpc_address;
 
-        info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
+        info!("JSON-RPC endpoint will listen at {rpc_address}");
         let beacon = Arc::new(
             rpc_state_manager
                 .chain_config()
@@ -371,7 +372,7 @@ pub(super) async fn start(
                 beacon,
                 chain_store: rpc_chain_store,
             },
-            config.client.rpc_address,
+            rpc_address,
             FOREST_VERSION_STRING.as_str(),
             shutdown_send,
             rt,
