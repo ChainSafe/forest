@@ -19,7 +19,7 @@ pub use election_proof::ElectionProof;
 pub use gossip_block::GossipBlock;
 pub use header::{CachingBlockHeader, RawBlockHeader};
 pub use ticket::Ticket;
-pub use tipset::{FullTipset, Tipset, TipsetKey};
+pub use tipset::{CreateTipsetError, FullTipset, Tipset, TipsetKey};
 pub use vrf_proof::VRFProof;
 
 /// Blockchain blocks error
