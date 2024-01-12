@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
+#![allow(clippy::unused_async, clippy::dbg_macro // TODO(aatifsyed): fixup
+)]
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
@@ -246,9 +247,9 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
 }
 
 #[derive(PartialEq, Debug)]
-pub(in crate::rpc) enum PathChange {
-    Revert(Arc<Tipset>),
-    Apply(Arc<Tipset>),
+pub(in crate::rpc) enum PathChange<T = Arc<Tipset>> {
+    Revert(T),
+    Apply(T),
 }
 
 /// Find the path between two tipsets, as a series of [`PathChange`]s.
@@ -385,12 +386,12 @@ fn impl_chain_get_path(
                         // need to return the reverts E->B, then the applies B'->C'
                         return Ok(reverts
                             .into_iter()
-                            .chain(iter::once(from))
+                            // .chain(iter::once(from)) // TODO(aatifsyed): remove
                             .map(PathChange::Revert)
                             .chain(
                                 applies
                                     .into_iter()
-                                    .chain(iter::once(to))
+                                    // .chain(iter::once(to)) // TODO(aatifsyed): remove
                                     .rev()
                                     .map(PathChange::Apply),
                             )
@@ -553,9 +554,10 @@ fn load_api_messages_from_tipset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use PathChange::{Apply, Revert};
 
     use crate::{
-        blocks::chain,
+        blocks::{chain, RawBlockHeader},
         db::{MemoryDB, SettingsStore},
         genesis,
         networks::{calibnet, ChainConfig},
@@ -590,6 +592,89 @@ mod tests {
         }
     }
 
+    #[test]
+    fn _test() {
+        for cid in ChainStore::<MemoryDB>::calibnet()
+            .genesis_block_header()
+            .clone()
+            .into_raw()
+            .parents
+            .cids
+        {
+            println!("{}", cid)
+        }
+    }
+
+    /// Utility for writing ergonomic tests
+    trait MakeTipset {
+        fn make_tipset(self) -> Tipset;
+    }
+
+    impl MakeTipset for &RawBlockHeader {
+        fn make_tipset(self) -> Tipset {
+            Tipset::from(CachingBlockHeader::new(self.clone()))
+        }
+    }
+
+    impl<const N: usize> MakeTipset for [&RawBlockHeader; N] {
+        fn make_tipset(self) -> Tipset {
+            self.as_slice().make_tipset()
+        }
+    }
+
+    impl<const N: usize> MakeTipset for &[&RawBlockHeader; N] {
+        fn make_tipset(self) -> Tipset {
+            self.as_slice().make_tipset()
+        }
+    }
+
+    impl MakeTipset for &[&RawBlockHeader] {
+        fn make_tipset(self) -> Tipset {
+            Tipset::new(
+                self.iter()
+                    .map(|it| CachingBlockHeader::from((*it).clone()))
+                    .collect(),
+            )
+            .unwrap()
+        }
+    }
+
+    #[track_caller]
+    fn assert_path_change<T: MakeTipset>(
+        store: &ChainStore<impl Blockstore>,
+        from: impl MakeTipset,
+        to: impl MakeTipset,
+        expected: impl IntoIterator<Item = PathChange<T>>,
+    ) {
+        let actual =
+            impl_chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
+        let expected = expected
+            .into_iter()
+            .map(|change| match change {
+                PathChange::Revert(it) => PathChange::Revert(Arc::new(it.make_tipset())),
+                PathChange::Apply(it) => PathChange::Apply(Arc::new(it.make_tipset())),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            expected, actual,
+            "expected change (left) does not match actual change (right)"
+        )
+    }
+
+    #[test]
+    fn revert_to_ancestor() {
+        let store = ChainStore::<MemoryDB>::calibnet();
+        chain! {
+            in store.blockstore() =>
+            [genesis = store.genesis_block_header().clone()]
+            -> [a] -> [b] -> [c, d] -> [e]
+        };
+
+        assert_path_change(&store, b, a, [Revert(&[b])]);
+        // TODO(aatifsyed): is this how lotus behaves, or does it return Revert([c, d]), Revert([b])?
+        assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]);
+        // assert_path_change(&store, [c, d], a, [Revert([c, d].as_slice()), Revert(&[b])]);
+    }
     #[test]
     fn test() {
         let store = ChainStore::<MemoryDB>::calibnet();

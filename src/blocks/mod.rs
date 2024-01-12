@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use itertools::Itertools as _;
 use thiserror::Error;
 
 mod block;
@@ -31,6 +32,56 @@ pub enum Error {
     /// Error in validating arbitrary data
     #[error("Error validating data: {0}")]
     Validation(String),
+}
+
+/// [`RawBlockHeader::miner_address`]es equal to [`Address::default()`] will be
+/// overwritten with unique addresses
+fn __tipsetify<const N: usize>(
+    parent_cids: TipsetKey,
+    child_epoch: i64,
+    mut children: [RawBlockHeader; N],
+) -> (TipsetKey, i64, [RawBlockHeader; N]) {
+    // catch a footgun
+    let mut non_default_addresses = children.iter().flat_map(|it| {
+        match it.miner_address == RawBlockHeader::default().miner_address {
+            true => None,
+            false => Some(it.miner_address),
+        }
+    });
+
+    // Tipsets must have unique `miner_address`es
+    // This macro will only overwrite miner_addresses which already have the default value
+    assert!(non_default_addresses.all_unique());
+
+    let mut observed_addresses = ahash::HashSet::default();
+    // users are more likely to pick small numbers for their tests, so count down from the end
+    let mut next_auto_address_id = 0;
+
+    for child in &mut children {
+        child.parents = parent_cids.clone();
+        child.epoch = child_epoch;
+        if child.miner_address == RawBlockHeader::default().miner_address {
+            // GOTCHA: this behaviour could surprise users if they specify an address and it's silently overridden
+            while {
+                let is_new = observed_addresses.insert(child.miner_address);
+                !is_new
+            } {
+                child.miner_address = Address::new_id(next_auto_address_id);
+                next_auto_address_id += 1;
+            }
+        }
+    }
+
+    let tipset = Tipset::new(
+        children
+            .clone()
+            .into_iter()
+            .map(CachingBlockHeader::new)
+            .collect(),
+    )
+    .expect("bug in implementation of chain!{..}");
+
+    (tipset.key().clone(), child_epoch + 1, children)
 }
 
 /// Implementation detail of [`chain`]
@@ -135,21 +186,25 @@ macro_rules! chain {
 
         // create each origin block
         $(
-            let $origin_ident = {
+            let binding: crate::blocks::RawBlockHeader = {
                 let _initializer = crate::blocks::RawBlockHeader::default();
-                $( let _initializer = crate::blocks::RawBlockHeader::from($origin_initializer); )?
+                // we `.clone()` to allow origin_initializer to be a reference
+                // (e.g from a previous invocation of chain!{..}) or a new literal
+                // block
+                $( let _initializer = crate::blocks::RawBlockHeader::from($origin_initializer.clone()); )?
                 _initializer
             };
+            let $origin_ident = &binding;
         )*
 
         // initialize scratch blockset
         let mut _parents: &[&crate::blocks::RawBlockHeader] = &[
-            $(&$origin_ident),*
+            $($origin_ident),*
         ];
 
         // create descendants
         $(
-            let [ $($descendant_block),* ] = crate::blocks::__chain_tipsets(_parents, [
+            let binding = crate::blocks::__chain_tipsets(_parents, [
                 $({
                     let _ = stringify!($descendant_block); // refer to the repeating variable
                     let _initializer = crate::blocks::RawBlockHeader::default();
@@ -157,15 +212,16 @@ macro_rules! chain {
                     _initializer
                 }),*
             ]);
-            let binding = [
-                $(&$descendant_block),*
-            ];
-            _parents = &binding;
+            let [ $($descendant_block),* ] = core::array::from_fn(|ix| &binding[ix] );
+            let binding = &[ $($descendant_block),* ];
+            _parents = binding;
         )*
     };
 }
 #[cfg(test)]
 pub(crate) use chain;
+
+use crate::shim::address::Address;
 
 #[cfg(any(test, doc))]
 mod tests {
@@ -206,7 +262,7 @@ mod tests {
         assert_eq!(genesis.epoch, 0);
         assert_eq!(a.epoch, 1);
         assert_eq!(
-            a.parents.cids.into_iter().collect::<Vec<_>>(),
+            a.parents.cids.clone().into_iter().collect::<Vec<_>>(),
             vec![genesis.cid()]
         );
 
