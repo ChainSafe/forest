@@ -662,7 +662,7 @@ mod tests {
     }
 
     #[test]
-    fn revert_to_ancestor() {
+    fn revert_to_ancestor_linear() {
         let store = ChainStore::<MemoryDB>::calibnet();
         chain! {
             in store.blockstore() =>
@@ -673,7 +673,7 @@ mod tests {
         assert_path_change(&store, b, a, [Revert(&[b])]);
         // TODO(aatifsyed): is this how lotus behaves, or does it return Revert([c, d]), Revert([b])?
         assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]);
-        // assert_path_change(&store, [c, d], a, [Revert([c, d].as_slice()), Revert(&[b])]);
+        assert_path_change(&store, [c, d], a, [Revert([c, d].as_slice()), Revert(&[b])]);
     }
     #[test]
     fn test() {
