@@ -30,6 +30,7 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use jsonrpsee::server::{
     RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle, SubscriptionMessage,
+    SubscriptionSink,
 };
 use jsonrpsee::types::error::{ErrorObjectOwned, PARSE_ERROR_CODE};
 // use tokio::net::TcpListener;
@@ -44,7 +45,7 @@ use crate::rpc::{
     state_api::*,
 };
 
-const FIL_WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
+const WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
 
 /*pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
@@ -205,6 +206,18 @@ where
     Ok(())
 }*/
 
+fn create_ws_notif_message(
+    sink: &SubscriptionSink,
+    result: &impl serde::Serialize,
+) -> anyhow::Result<SubscriptionMessage> {
+    let method = sink.method_name();
+    let sub_id = serde_json::to_string(&sink.subscription_id()).expect("valid JSON; qed");
+    let result = serde_json::to_string(result)?;
+    let msg = format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{sub_id},{result}]}}"#,);
+
+    Ok(SubscriptionMessage::from_complete_message(msg))
+}
+
 pub async fn start_rpsee<DB>(
     state: RPCState<DB>,
     rpc_endpoint: SocketAddr,
@@ -242,7 +255,7 @@ where
     // Chain API
     module.register_subscription_raw(
         CHAIN_NOTIFY,
-        FIL_WS_NOTIF_METHOD_NAME,
+        WS_NOTIF_METHOD_NAME,
         "unsub",
         |params, pending, state| {
             // Handle parsing of the method params.
@@ -270,7 +283,7 @@ where
 
                 let mut head_change = chain_api::chain_notify(state).await.unwrap();
                 while let Ok(v) = head_change.recv().await {
-                    let msg = SubscriptionMessage::from_json(&v).unwrap();
+                    let msg = create_ws_notif_message(&sink, &v).unwrap();
 
                     // This fails only if the connection is closed
                     sink.send(msg).await.expect("send must work");
