@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
@@ -21,7 +21,7 @@ const MIN_GAS_PREMIUM: f64 = 100000.0;
 /// Estimate the fee cap
 pub(in crate::rpc) async fn gas_estimate_fee_cap<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<LotusJson<(Message, i64, TipsetKeys)>>,
+    Params(params): Params<LotusJson<(Message, i64, TipsetKey)>>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((msg, max_queue_blks, tsk)) = params;
 
@@ -32,11 +32,11 @@ fn estimate_fee_cap<DB: Blockstore>(
     data: &Data<RPCState<DB>>,
     msg: Message,
     max_queue_blks: i64,
-    _tsk: TipsetKeys,
+    _tsk: TipsetKey,
 ) -> Result<TokenAmount, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
-    let parent_base_fee = ts.blocks()[0].parent_base_fee();
+    let parent_base_fee = &ts.block_headers().first().parent_base_fee;
     let increase_factor =
         (1.0 + (BASE_FEE_MAX_CHANGE_DENOM as f64).recip()).powf(max_queue_blks as f64);
 
@@ -51,7 +51,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 /// Estimate the fee cap
 pub(in crate::rpc) async fn gas_estimate_gas_premium<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(params): Params<LotusJson<(u64, Address, i64, TipsetKeys)>>,
+    Params(params): Params<LotusJson<(u64, Address, i64, TipsetKey)>>,
 ) -> Result<String, JsonRpcError> {
     let (nblocksincl, _sender, _gas_limit, _) = params.0;
     estimate_gas_premium::<DB>(&data, nblocksincl)
@@ -85,7 +85,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
             .state_manager
             .chain_store()
             .load_required_tipset(ts.parents())?;
-        blocks += pts.blocks().len();
+        blocks += pts.block_headers().len();
         let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
 
         prices.append(
@@ -143,7 +143,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 /// Estimate the gas limit
 pub(in crate::rpc) async fn gas_estimate_gas_limit<DB>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((msg, tsk))): Params<LotusJson<(Message, TipsetKeys)>>,
+    Params(LotusJson((msg, tsk))): Params<LotusJson<(Message, TipsetKey)>>,
 ) -> Result<i64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -154,7 +154,7 @@ where
 async fn estimate_gas_limit<DB>(
     data: &Data<RPCState<DB>>,
     msg: Message,
-    _: TipsetKeys,
+    _: TipsetKey,
 ) -> Result<i64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -198,7 +198,7 @@ where
 pub(in crate::rpc) async fn gas_estimate_message_gas<DB>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((msg, spec, tsk))): Params<
-        LotusJson<(Message, Option<MessageSendSpec>, TipsetKeys)>,
+        LotusJson<(Message, Option<MessageSendSpec>, TipsetKey)>,
     >,
 ) -> Result<LotusJson<Message>, JsonRpcError>
 where
@@ -213,7 +213,7 @@ pub(in crate::rpc) async fn estimate_message_gas<DB>(
     data: &Data<RPCState<DB>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
-    tsk: TipsetKeys,
+    tsk: TipsetKey,
 ) -> Result<Message, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,

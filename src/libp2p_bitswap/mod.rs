@@ -48,11 +48,7 @@ pub use store::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod task {
     //! Re-exports API(s) from the chosen task library
-    pub use tokio::{
-        spawn,
-        task::spawn_blocking,
-        time::{sleep, timeout},
-    };
+    pub use tokio::{spawn, task::spawn_blocking, time::sleep};
 }
 #[cfg(test)]
 mod tests {

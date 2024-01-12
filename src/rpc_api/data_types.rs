@@ -5,11 +5,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
-pub use crate::libp2p::{Multiaddr, Protocol};
+pub use crate::libp2p::Multiaddr;
 use crate::libp2p::{Multihash, NetworkMessage};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
@@ -22,6 +22,7 @@ use crate::shim::{
     econ::TokenAmount,
     error::ExitCode,
     executor::Receipt,
+    fvm_shared_latest::MethodNum,
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::ActorState,
@@ -113,7 +114,7 @@ pub struct MessageLookup {
     #[serde(with = "crate::lotus_json")]
     pub receipt: Receipt,
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
-    pub tipset: TipsetKeys,
+    pub tipset: TipsetKey,
     pub height: i64,
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
@@ -399,6 +400,23 @@ impl HasLotusJson for PendingBeneficiaryChange {
         }
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiReceipt {
+    // Exit status of message execution
+    pub exit_code: ExitCode,
+    // `Return` value if the exit code is zero
+    #[serde(rename = "Return")]
+    #[serde(with = "crate::lotus_json")]
+    pub return_data: RawBytes,
+    // Non-negative value of GasUsed
+    pub gas_used: u64,
+    #[serde(with = "crate::lotus_json")]
+    pub events_root: Option<Cid>,
+}
+
+lotus_json_with_self!(ApiReceipt);
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -825,3 +843,21 @@ impl MinerSectors {
 }
 
 lotus_json_with_self!(MinerSectors);
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Transaction {
+    #[serde(rename = "ID")]
+    pub id: i64,
+    #[serde(with = "crate::lotus_json")]
+    pub to: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub value: TokenAmount,
+    pub method: MethodNum,
+    #[serde(with = "crate::lotus_json")]
+    pub params: RawBytes,
+    #[serde(with = "crate::lotus_json")]
+    pub approved: Vec<Address>,
+}
+
+lotus_json_with_self!(Transaction);

@@ -309,22 +309,22 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
             // enclosing loop is processing the queue. Once the desired depth has been reached -
             // yield the block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
-                for block in tipset.into_blocks().into_iter() {
+                for block in tipset.into_block_headers().into_iter() {
                     if this.seen.insert(*block.cid()) {
                         // Make sure we always yield a block otherwise.
                         this.dfs.push_back(Emit(*block.cid()));
 
-                        if block.epoch() == 0 {
+                        if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents().cids.clone() {
+                            for p in block.parents.cids.clone() {
                                 this.dfs.push_back(Emit(p));
                             }
                         }
 
                         // Process block messages.
-                        if block.epoch() > stateroot_limit {
+                        if block.epoch > stateroot_limit {
                             this.dfs.push_back(Iterate(
-                                DfsIter::from(*block.messages())
+                                DfsIter::from(block.messages)
                                     .filter_map(ipld_to_cid)
                                     .collect(),
                             ));
@@ -332,11 +332,11 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         // Visit the block if it's within required depth. And a special case for `0`
                         // epoch to match Lotus' implementation.
-                        if block.epoch() == 0 || block.epoch() > stateroot_limit {
+                        if block.epoch == 0 || block.epoch > stateroot_limit {
                             // NOTE: In the original `walk_snapshot` implementation we walk the dag
                             // immediately. Which is what we do here as well, but using a queue.
                             this.dfs.push_back(Iterate(
-                                DfsIter::from(*block.state_root())
+                                DfsIter::from(block.state_root)
                                     .filter_map(ipld_to_cid)
                                     .collect(),
                             ));
@@ -546,51 +546,51 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
             // the extract queue. The emit queue is processed in the loop above. Once the desired depth
             // has been reached yield a block without walking the graph it represents.
             if let Some(tipset) = this.tipset_iter.next() {
-                for block in tipset.into_blocks().into_iter() {
+                for block in tipset.into_block_headers().into_iter() {
                     if this.seen.lock().insert(*block.cid()) {
                         // Make sure we always yield a block, directly to the stream to avoid extra
                         // work.
                         this.queue.push(*block.cid());
 
-                        if block.epoch() == 0 {
+                        if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents().cids.clone() {
+                            for p in block.parents.cids.clone() {
                                 this.queue.push(p);
                             }
                         }
 
                         // Process block messages.
-                        if block.epoch() > stateroot_limit
-                            && should_save_block_to_snapshot(*block.messages())
+                        if block.epoch > stateroot_limit
+                            && should_save_block_to_snapshot(block.messages)
                         {
-                            if this.db.has(block.messages())? {
-                                this.extract_sender.send(*block.messages())?;
+                            if this.db.has(&block.messages)? {
+                                this.extract_sender.send(block.messages)?;
                                 // This will simply return an error once we reach that item in
                                 // the queue.
                             } else if *this.fail_on_dead_links {
-                                this.queue.push(*block.messages());
+                                this.queue.push(block.messages);
                             } else {
                                 // Make sure we update seen here as we don't send the block for
                                 // inspection.
-                                this.seen.lock().insert(*block.messages());
+                                this.seen.lock().insert(block.messages);
                             }
                         }
 
                         // Visit the block if it's within required depth. And a special case for `0`
                         // epoch to match Lotus' implementation.
-                        if (block.epoch() == 0 || block.epoch() > stateroot_limit)
-                            && should_save_block_to_snapshot(*block.state_root())
+                        if (block.epoch == 0 || block.epoch > stateroot_limit)
+                            && should_save_block_to_snapshot(block.state_root)
                         {
-                            if this.db.has(block.state_root())? {
-                                this.extract_sender.send(*block.state_root())?;
+                            if this.db.has(&block.state_root)? {
+                                this.extract_sender.send(block.state_root)?;
                                 // This will simply return an error once we reach that item in
                                 // the queue.
                             } else if *this.fail_on_dead_links {
-                                this.queue.push(*block.state_root());
+                                this.queue.push(block.state_root);
                             } else {
                                 // Make sure we update seen here as we don't send the block for
                                 // inspection.
-                                this.seen.lock().insert(*block.state_root());
+                                this.seen.lock().insert(block.state_root);
                             }
                         }
                     }

@@ -290,9 +290,7 @@ where
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
-        let mut libp2p_registry = Default::default();
-        let metrics = Metrics::new(&mut libp2p_registry);
-        crate::metrics::add_metrics_registry("libp2p".into(), libp2p_registry).await;
+        let metrics = Metrics::new(&mut crate::metrics::DEFAULT_REGISTRY.write());
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {
@@ -719,45 +717,46 @@ async fn handle_chain_exchange_event<DB>(
     DB: Blockstore + Sync + Send + 'static,
 {
     match ce_event {
-        request_response::Event::Message { peer, message } => {
-            match message {
-                request_response::Message::Request {
-                    request,
-                    channel,
-                    request_id,
-                } => {
-                    trace!("Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",);
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::ChainExchangeRequestInbound { request_id },
-                    )
-                    .await;
-                    let db = db.clone();
-                    tokio::task::spawn(async move {
-                        if let Err(e) = cx_response_tx.send((
-                            request_id,
-                            channel,
-                            make_chain_exchange_response(&db, &request),
-                        )) {
-                            debug!("Failed to send ChainExchangeResponse: {e:?}");
-                        }
-                    });
-                }
-                request_response::Message::Response {
-                    request_id,
-                    response,
-                } => {
-                    emit_event(
-                        network_sender_out,
-                        NetworkEvent::ChainExchangeResponseInbound { request_id },
-                    )
-                    .await;
-                    chain_exchange
-                        .handle_inbound_response(&request_id, response)
-                        .await;
-                }
+        request_response::Event::Message { peer, message } => match message {
+            request_response::Message::Request {
+                request,
+                channel,
+                request_id,
+            } => {
+                trace!(
+                    "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
+                );
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeRequestInbound { request_id },
+                )
+                .await;
+
+                let db = db.clone();
+                tokio::task::spawn(async move {
+                    if let Err(e) = cx_response_tx.send((
+                        request_id,
+                        channel,
+                        make_chain_exchange_response(&db, &request),
+                    )) {
+                        debug!("Failed to send ChainExchangeResponse: {e:?}");
+                    }
+                });
             }
-        }
+            request_response::Message::Response {
+                request_id,
+                response,
+            } => {
+                emit_event(
+                    network_sender_out,
+                    NetworkEvent::ChainExchangeResponseInbound { request_id },
+                )
+                .await;
+                chain_exchange
+                    .handle_inbound_response(&request_id, response)
+                    .await;
+            }
+        },
         request_response::Event::OutboundFailure {
             peer: _,
             request_id,

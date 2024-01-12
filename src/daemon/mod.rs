@@ -333,6 +333,7 @@ pub(super) async fn start(
         Arc::new(Tipset::from(genesis_header)),
         tipset_sink,
         tipset_stream,
+        opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
@@ -356,7 +357,7 @@ pub(super) async fn start(
             let beacon = Arc::new(
                 rpc_state_manager
                     .chain_config()
-                    .get_beacon_schedule(chain_store.genesis().timestamp()),
+                    .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
             );
             start_rpc(
                 Arc::new(RPCState {
@@ -394,7 +395,7 @@ pub(super) async fn start(
 
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;
-    if config.client.snapshot_path.is_none() {
+    if config.client.snapshot_path.is_none() && !opts.stateless {
         set_snapshot_path_if_needed(
             &mut config,
             &chain_config,

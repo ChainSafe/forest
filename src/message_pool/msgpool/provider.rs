@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use crate::blocks::{BlockHeader, Tipset, TipsetKeys};
+use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::HeadChange;
 use crate::message::{ChainMessage, SignedMessage};
 use crate::message_pool::msg_pool::{
@@ -44,12 +44,12 @@ pub trait Provider {
     /// Return the signed messages for given block header
     fn messages_for_block(
         &self,
-        h: &BlockHeader,
+        h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
     /// Return all messages for a tipset
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error>;
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error>;
     // Get max number of messages per actor in the pool
@@ -112,7 +112,7 @@ where
 
     fn messages_for_block(
         &self,
-        h: &BlockHeader,
+        h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         crate::chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
     }
@@ -121,7 +121,7 @@ where
         Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
-    fn load_tipset(&self, tsk: &TipsetKeys) -> Result<Arc<Tipset>, Error> {
+    fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
         Ok(self.sm.chain_store().load_required_tipset(tsk)?)
     }
 

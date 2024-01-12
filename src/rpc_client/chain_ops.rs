@@ -1,10 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::data_types::ApiMessage;
+use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::shim::message::Message;
 use crate::{
-    blocks::{BlockHeader, Tipset, TipsetKeys},
+    blocks::{CachingBlockHeader, Tipset, TipsetKey},
     rpc_api::chain_api::*,
     rpc_api::data_types::BlockMessages,
     shim::clock::ChainEpoch,
@@ -22,11 +22,11 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_HEAD, ())
     }
 
-    pub async fn chain_get_block(&self, cid: Cid) -> Result<BlockHeader, JsonRpcError> {
+    pub async fn chain_get_block(&self, cid: Cid) -> Result<CachingBlockHeader, JsonRpcError> {
         self.call(Self::chain_get_block_req(cid)).await
     }
 
-    pub fn chain_get_block_req(cid: Cid) -> RpcRequest<BlockHeader> {
+    pub fn chain_get_block_req(cid: Cid) -> RpcRequest<CachingBlockHeader> {
         RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
     }
 
@@ -40,7 +40,7 @@ impl ApiInfo {
     pub async fn chain_get_tipset_by_height(
         &self,
         epoch: ChainEpoch,
-        head: TipsetKeys,
+        head: TipsetKey,
     ) -> Result<Tipset, JsonRpcError> {
         self.call(Self::chain_get_tipset_by_height_req(epoch, head))
             .await
@@ -48,12 +48,12 @@ impl ApiInfo {
 
     pub fn chain_get_tipset_by_height_req(
         epoch: ChainEpoch,
-        head: TipsetKeys,
+        head: TipsetKey,
     ) -> RpcRequest<Tipset> {
         RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
     }
 
-    pub fn chain_get_tipset_req(tsk: TipsetKeys) -> RpcRequest<Tipset> {
+    pub fn chain_get_tipset_req(tsk: TipsetKey) -> RpcRequest<Tipset> {
         RpcRequest::new(CHAIN_GET_TIPSET, (tsk,))
     }
 
@@ -65,11 +65,11 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_GENESIS, ())
     }
 
-    pub async fn chain_set_head(&self, new_head: TipsetKeys) -> Result<(), JsonRpcError> {
+    pub async fn chain_set_head(&self, new_head: TipsetKey) -> Result<(), JsonRpcError> {
         self.call(Self::chain_set_head_req(new_head)).await
     }
 
-    pub fn chain_set_head_req(new_head: TipsetKeys) -> RpcRequest<()> {
+    pub fn chain_set_head_req(new_head: TipsetKey) -> RpcRequest<()> {
         RpcRequest::new(CHAIN_SET_HEAD, (new_head,))
     }
 
@@ -117,11 +117,19 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_MIN_BASE_FEE, (basefee_lookback,))
     }
 
-    pub fn chain_get_messages_in_tipset_req(tsk: TipsetKeys) -> RpcRequest<Vec<ApiMessage>> {
+    pub fn chain_get_messages_in_tipset_req(tsk: TipsetKey) -> RpcRequest<Vec<ApiMessage>> {
         RpcRequest::new(CHAIN_GET_MESSAGES_IN_TIPSET, (tsk,))
     }
 
     pub fn chain_get_parent_messages_req(block_cid: Cid) -> RpcRequest<Vec<ApiMessage>> {
         RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
+    }
+
+    pub fn chain_notify_req() -> RpcRequest<()> {
+        RpcRequest::new(CHAIN_NOTIFY, ())
+    }
+
+    pub fn chain_get_parent_receipts_req(block_cid: Cid) -> RpcRequest<Vec<ApiReceipt>> {
+        RpcRequest::new(CHAIN_GET_PARENT_RECEIPTS, (block_cid,))
     }
 }
