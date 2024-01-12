@@ -11,7 +11,7 @@ use crate::message::ChainMessage;
 use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
-    data_types::{BlockMessages, RPCState},
+    data_types::{BlockMessages, HeadChange as ApiHeadChange, RPCState},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -23,9 +23,11 @@ use fvm_ipld_encoding::CborStore;
 use fvm_shared4::receipt::Receipt;
 use hex::ToHex;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::error::ErrorObjectOwned as JsonRpseeError;
 use once_cell::sync::Lazy;
 use sha2::Sha256;
 use std::sync::Arc;
+use tokio::sync::broadcast::{self, error::RecvError, Receiver as Subscriber};
 use tokio::sync::Mutex;
 
 pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
@@ -335,9 +337,30 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 // receive them may cause memory leaks.
 
 pub(crate) async fn chain_notify<DB: Blockstore>(
-    _data: Data<RPCState<DB>>,
-) -> Result<u32, JsonRpcError> {
-    Ok(1)
+    data: Arc<RPCState<DB>>,
+) -> Result<Subscriber<ApiHeadChange>, JsonRpseeError> {
+    let mut head_change = data.chain_store.publisher().subscribe();
+
+    let (send, recv) = broadcast::channel(1);
+
+    tokio::task::spawn(async move {
+        loop {
+            match head_change.recv().await {
+                Ok(v) => {
+                    let (change, headers) = match v {
+                        HeadChange::Apply(ts) => {
+                            ("apply".into(), ts.block_headers().clone().into())
+                        }
+                    };
+                    let _ = send.send(ApiHeadChange { change, headers });
+                }
+                Err(RecvError::Lagged(_)) => continue,
+                Err(RecvError::Closed) => break,
+            }
+        }
+    });
+
+    Ok(recv)
 }
 
 fn load_api_messages_from_tipset(

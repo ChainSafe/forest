@@ -17,6 +17,7 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::rpc_api::{
@@ -28,12 +29,12 @@ use axum::routing::{get, post};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use jsonrpsee::server::{
-    PingConfig, RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle,
+    RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle, SubscriptionMessage,
 };
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
+use jsonrpsee::types::error::{ErrorObjectOwned, PARSE_ERROR_CODE};
+// use tokio::net::TcpListener;
 use tokio::sync::mpsc::Sender;
-use tracing::info;
+use tracing::{info, trace};
 
 use crate::rpc::{
     beacon_api::beacon_get_entry,
@@ -42,6 +43,8 @@ use crate::rpc::{
     rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
     state_api::*,
 };
+
+const FIL_WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
 
 /*pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
@@ -236,6 +239,47 @@ where
     module.register_method(SESSION, |_, _| session())?;
     module.register_async_method(SHUTDOWN, move |_, _| shutdown(shutdown_send.clone()))?;
     module.register_method(START_TIME, move |_, state| start_time::<DB>(state))?;
+    // Chain API
+    module.register_subscription_raw(
+        CHAIN_NOTIFY,
+        FIL_WS_NOTIF_METHOD_NAME,
+        "unsub",
+        |params, pending, state| {
+            // Handle parsing of the method params.
+            let result = match params.parse::<Vec<usize>>() {
+                Ok(v) if v.is_empty() => Ok(()),
+                Ok(_) => Err(ErrorObjectOwned::owned::<usize>(
+                    PARSE_ERROR_CODE,
+                    "incorrect params",
+                    None,
+                )),
+                Err(e) => Err(ErrorObjectOwned::from(e)),
+            };
+            if let Err(e) = result {
+                tokio::spawn(pending.reject(ErrorObjectOwned::from(e)));
+                return;
+            }
+
+            tokio::spawn(async move {
+                trace!("CHAIN_NOTIFY notify websocket task created");
+
+                // Mark the subscription is accepted after the params has been parsed successful.
+                // This is actually responds the underlying RPC method call and may fail if the
+                // connection is closed.
+                let sink = pending.accept().await.unwrap();
+
+                let mut head_change = chain_api::chain_notify(state).await.unwrap();
+                while let Ok(v) = head_change.recv().await {
+                    let msg = SubscriptionMessage::from_json(&v).unwrap();
+
+                    // This fails only if the connection is closed
+                    sink.send(msg).await.expect("send must work");
+                }
+
+                trace!("CHAIN_NOTIFY notify websocket task ended");
+            });
+        },
+    )?;
     // Eth API
     module.register_async_method(ETH_GAS_PRICE, move |_, state| {
         eth_api::eth_gas_price::<DB>(state)
