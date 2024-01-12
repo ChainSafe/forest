@@ -19,18 +19,12 @@ pub use election_proof::ElectionProof;
 pub use gossip_block::GossipBlock;
 pub use header::{CachingBlockHeader, RawBlockHeader};
 pub use ticket::Ticket;
-pub use tipset::{FullTipset, Tipset, TipsetKey};
+pub use tipset::{CreateTipsetError, FullTipset, Tipset, TipsetKey};
 pub use vrf_proof::VRFProof;
 
 /// Blockchain blocks error
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum Error {
-    /// Tipset contains invalid data, as described by the string parameter.
-    #[error("Invalid tipset: {0}")]
-    InvalidTipset(String),
-    /// The given tipset has no blocks
-    #[error("No blocks for tipset")]
-    NoBlocks,
     /// Invalid signature
     #[error("Invalid signature: {0}")]
     InvalidSignature(String),

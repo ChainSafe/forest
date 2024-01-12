@@ -195,6 +195,12 @@ impl Deref for CachingBlockHeader {
     }
 }
 
+impl From<RawBlockHeader> for CachingBlockHeader {
+    fn from(value: RawBlockHeader) -> Self {
+        Self::new(value)
+    }
+}
+
 impl CachingBlockHeader {
     pub fn new(uncached: RawBlockHeader) -> Self {
         Self {

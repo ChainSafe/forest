@@ -251,7 +251,7 @@ fn fts_from_bundle_parts(
                 secp_messages,
             })
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
 
     FullTipset::new(blocks).map_err(|e| e.to_string())
 }
