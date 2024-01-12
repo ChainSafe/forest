@@ -52,18 +52,18 @@ digest = "0.10.5"
 directories = "5"
 ethereum-types = "0.14.1"
 # TODO: Point at a release before merging.
-fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", branch = "ru/feature/state-verifreg-load", features = [
+fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586" }
+fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states", rev = "1101928cc62e4463568695c2257c53fa98c1a586", features = [
   "json",
 ] }
 filecoin-proofs-api = { version = "16.0", default-features = false }

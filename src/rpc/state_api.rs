@@ -780,11 +780,11 @@ pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync +
 
 pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKeys)>>,
-) -> Result<Option<BigInt>, JsonRpcError> {
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+) -> Result<LotusJson<Option<BigInt>>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     let status = data.state_manager.verified_client_status(&addr, &ts)?;
-    Ok(status.map(|status| status.into()))
+    Ok(status.map(|status| status.into()).into())
 }
 
 pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
