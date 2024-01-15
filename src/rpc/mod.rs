@@ -34,7 +34,7 @@ use jsonrpsee::server::{
 };
 use jsonrpsee::types::error::{ErrorObjectOwned, PARSE_ERROR_CODE};
 // use tokio::net::TcpListener;
-use tokio::sync::mpsc::Sender;
+use tokio::{select, sync::mpsc::Sender};
 use tracing::{info, trace};
 
 use crate::rpc::{
@@ -274,22 +274,37 @@ where
             }
 
             tokio::spawn(async move {
-                trace!("CHAIN_NOTIFY notify websocket task created");
-
                 // Mark the subscription is accepted after the params has been parsed successful.
                 // This is actually responds the underlying RPC method call and may fail if the
                 // connection is closed.
                 let sink = pending.accept().await.unwrap();
 
-                let mut head_change = chain_api::chain_notify(state).await.unwrap();
-                while let Ok(v) = head_change.recv().await {
-                    let msg = create_ws_notif_message(&sink, &v).unwrap();
+                trace!(
+                    "CHAIN_NOTIFY notify task created (channel {:?})",
+                    sink.subscription_id()
+                );
 
-                    // This fails only if the connection is closed
-                    sink.send(msg).await.expect("send must work");
+                let mut head_change = chain_api::chain_notify(state).await.unwrap();
+
+                loop {
+                    select! {
+                        Ok(v) = head_change.recv() => {
+                            let msg = create_ws_notif_message(&sink, &v).unwrap();
+
+                            // This fails only if the connection is closed
+                            sink.send(msg).await.expect("send must work");
+                        },
+                        _ = sink.closed() => {
+                            trace!("sink was closed");
+                            break;
+                        }
+                    }
                 }
 
-                trace!("CHAIN_NOTIFY notify websocket task ended");
+                trace!(
+                    "CHAIN_NOTIFY notify task ended (channel {:?})",
+                    sink.subscription_id()
+                );
             });
         },
     )?;
