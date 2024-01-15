@@ -3,7 +3,7 @@
 
 use std::fmt::Debug;
 
-use crate::blocks::Error as BlkErr;
+use crate::blocks::CreateTipsetError;
 use cid::Error as CidErr;
 use fil_actors_shared::fvm_ipld_amt::Error as AmtErr;
 use fvm_ipld_encoding::Error as EncErr;
@@ -20,7 +20,7 @@ pub enum Error {
     NotFound(String),
     /// Error originating constructing blockchain structures
     #[error(transparent)]
-    Blockchain(#[from] BlkErr),
+    Blockchain(#[from] CreateTipsetError),
     /// Error originating from encoding arbitrary data
     #[error("{0}")]
     Encoding(String),
