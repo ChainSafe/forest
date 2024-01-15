@@ -565,6 +565,60 @@ mod tests {
     };
     use futures::executor::block_on;
 
+    #[test]
+    fn revert_to_ancestor_linear() {
+        let store = ChainStore::<MemoryDB>::calibnet();
+        chain! {
+            in store.blockstore() =>
+            [genesis = store.genesis_block_header().clone()]
+            -> [a] -> [b] -> [c, d] -> [e]
+        };
+
+        // simple
+        assert_path_change(&store, b, a, [Revert(&[b])]);
+
+        // from multi-member tipset
+        assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]);
+        // TODO(aatifsyed): ^ is this how lotus behaves, or does it return Revert([c, d]), Revert([b])?
+        assert_path_change(&store, [c, d], a, [Revert(&[c, d][..]), Revert(&[b])]);
+
+        // to multi-member tipset
+        assert_path_change(&store, e, c, [Revert(e)]);
+        assert_path_change(&store, e, [c, d], [Revert(e)]);
+
+        // over multi-member tipset
+        assert_path_change(&store, e, b, [Revert(&[e][..]), Revert(&[c, d])]);
+    }
+
+    #[test]
+    fn apply_to_descendant_linear() {
+        let store = ChainStore::<MemoryDB>::calibnet();
+        chain! {
+            in store.blockstore() =>
+            [genesis = store.genesis_block_header().clone()]
+            -> [a] -> [b] -> [c, d] -> [e]
+        };
+
+        // simple
+        assert_path_change(&store, a, b, [Apply(&[b])]);
+    }
+
+    #[test]
+    fn cross_fork_simple() {
+        let store = ChainStore::<MemoryDB>::calibnet();
+        chain! {
+            in store.blockstore() =>
+            [genesis = store.genesis_block_header().clone()]
+            -> [a] -> [b1] -> [c1]
+        };
+        chain! {
+            in store.blockstore() =>
+            [a = a] -> [b2] -> [c2]
+        };
+
+        assert_path_change(&store, b1, b2, [Revert(b1), Apply(b2)]);
+    }
+
     impl<DB> ChainStore<DB> {
         fn calibnet() -> Self
         where
@@ -589,19 +643,6 @@ mod tests {
                 genesis_block_header,
             )
             .unwrap()
-        }
-    }
-
-    #[test]
-    fn _test() {
-        for cid in ChainStore::<MemoryDB>::calibnet()
-            .genesis_block_header()
-            .clone()
-            .into_raw()
-            .parents
-            .cids
-        {
-            println!("{}", cid)
         }
     }
 
@@ -630,12 +671,7 @@ mod tests {
 
     impl MakeTipset for &[&RawBlockHeader] {
         fn make_tipset(self) -> Tipset {
-            Tipset::new(
-                self.iter()
-                    .map(|it| CachingBlockHeader::from((*it).clone()))
-                    .collect(),
-            )
-            .unwrap()
+            Tipset::new(self.iter().cloned().cloned()).unwrap()
         }
     }
 
@@ -659,77 +695,5 @@ mod tests {
             expected, actual,
             "expected change (left) does not match actual change (right)"
         )
-    }
-
-    #[test]
-    fn revert_to_ancestor_linear() {
-        let store = ChainStore::<MemoryDB>::calibnet();
-        chain! {
-            in store.blockstore() =>
-            [genesis = store.genesis_block_header().clone()]
-            -> [a] -> [b] -> [c, d] -> [e]
-        };
-
-        assert_path_change(&store, b, a, [Revert(&[b])]);
-        // TODO(aatifsyed): is this how lotus behaves, or does it return Revert([c, d]), Revert([b])?
-        assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]);
-        assert_path_change(&store, [c, d], a, [Revert([c, d].as_slice()), Revert(&[b])]);
-    }
-    #[test]
-    fn test() {
-        let store = ChainStore::<MemoryDB>::calibnet();
-        chain! {
-            in store.blockstore() =>
-            [genesis = store.genesis_block_header().clone()]
-            -> [a]
-            -> [b_left] -> [c_left] -> [d_left]
-        };
-        chain! {
-            in store.blockstore() =>
-            [a = a]
-            -> [b_right] -> [c_right]
-        };
-
-        // genesis -> a -> b  -> c  -> d // left
-        //              -> b' -> c'      // right
-
-        let a_to_b_left = impl_chain_get_path(
-            &store,
-            Tipset::from(a.clone()).key(),
-            Tipset::from(b_left.clone()).key(),
-        )
-        .unwrap();
-        assert_eq!(
-            a_to_b_left,
-            vec![PathChange::Apply(Arc::new(b_left.clone().into()))]
-        );
-
-        let b_left_to_a = impl_chain_get_path(
-            &store,
-            Tipset::from(b_left.clone()).key(),
-            Tipset::from(a.clone()).key(),
-        )
-        .unwrap();
-        assert_eq!(
-            b_left_to_a,
-            vec![PathChange::Revert(Arc::new(b_left.clone().into()))]
-        );
-
-        for _ in 0..20 {
-            println!("======")
-        }
-        let b_left_to_b_right = impl_chain_get_path(
-            &store,
-            Tipset::from(b_left.clone()).key(),
-            Tipset::from(b_right.clone()).key(),
-        )
-        .unwrap();
-        assert_eq!(
-            b_left_to_b_right,
-            vec![
-                PathChange::Revert(Arc::new(b_left.clone().into())),
-                PathChange::Apply(Arc::new(b_right.clone().into()))
-            ]
-        );
     }
 }
