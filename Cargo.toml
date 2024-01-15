@@ -169,7 +169,7 @@ sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
 similar = "2.2.1"
 slotmap = "1.0"
-smallvec = "1.11"
+smallvec = "1.12"
 smart-default = "0.7.1"
 stacker = "0.1.15"
 static_assertions = "1.1.0"
@@ -220,7 +220,7 @@ proc-macro2 = { version = "1.0.76", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.196"
+ra_ap_syntax = "0.0.197"
 regex-automata = "0.4"
 syn = { version = "2.0.48", default-features = false, features = [
   "full",

@@ -7195,15 +7195,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.196"
+version = "0.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e75c17f2d613644859c9adb1d753a6a75df312c87695b686d657d2b53827c95f"
+checksum = "b0ec96b678006c65864d8a3e1cc89cb5f4e4ed83bd6cf0cf75a13b9a9e6b0fa2"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.196"
+version = "0.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f7c523ae86dd64678f7013483987adcfc28ecab87d68e1bc17d1cc5a90a6b1"
+checksum = "81b02e99805f9dac3488e5486cb213b05636ed29aaefc39da39ade1f795bb76a"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7212,9 +7212,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_profile"
-version = "0.0.196"
+version = "0.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "988e58388232428378876127a85525b49e8745a04df50303bdc2db0ca6deef53"
+checksum = "70c16a4d5ee2609f85b627c77aa404e6334a609317f93fb73f9bd5800480546c"
 dependencies = [
  "cfg-if",
  "countme",
@@ -7227,9 +7227,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.196"
+version = "0.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8eab3b8a7eae74c4fbfcc2d2bb41a07f897ae00b96132a6ec93565f4cbc32120"
+checksum = "451ff77bc37df3a63dc85b7a3054a3fc86d7df4b24d100d8fc98b02418dc96cc"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7242,9 +7242,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.196"
+version = "0.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d78e73e30672a680f2f664c9cea82fda4fabba0b7cd323a368b31093a0345a64"
+checksum = "0ecf28c5824fbb18913023baf93df071b4cfa3efc11c15c7a1b2f2541f092e75"
 dependencies = [
  "cov-mark",
  "either",
@@ -7264,9 +7264,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.196"
+version = "0.0.197"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "083f0e56be38a0370338976ccc49a1d111160a3d04e8433ca31d08bb0284130b"
+checksum = "af804a1d3aac63038e20f8437fcdfc229e6d05d17cded9936c82c6111c6e4f6a"
 dependencies = [
  "itertools 0.12.0",
  "text-size",
@@ -8198,9 +8198,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.11.2"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dccd0940a2dcdf68d092b8cbab7dc0ad8fa938bf95787e1b916b0e3d0e8e970"
+checksum = "2593d31f82ead8df961d8bd23a64c2ccf2eb5dd34b0a34bfb4dd54011c72009e"
 
 [[package]]
 name = "smart-default"
