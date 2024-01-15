@@ -644,12 +644,12 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d09dbe0e490df5da9d69b36dca48a76635288a82f92eca90024883a56202026d"
+checksum = "1236b4b292f6c4d6dc34604bb5120d85c3fe1d1aa596bd5cc52ca054d13e7b9e"
 dependencies = [
  "async-trait",
- "axum-core 0.4.2",
+ "axum-core 0.4.3",
  "base64 0.21.7",
  "bytes",
  "futures-util",
@@ -698,9 +698,9 @@ dependencies = [
 
 [[package]]
 name = "axum-core"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e87c8503f93e6d144ee5690907ba22db7ba79ab001a932ab99034f0fe836b3df"
+checksum = "a15c63fd72d41492dc4f497196f5da1fb04fb7529e631d73630d1b491e47a2e3"
 dependencies = [
  "async-trait",
  "bytes",
@@ -3132,7 +3132,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "asynchronous-codec 0.6.2",
- "axum 0.7.3",
+ "axum 0.7.4",
  "backoff",
  "base64 0.21.7",
  "bigdecimal",
@@ -4334,7 +4334,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.5",
  "tokio",
  "tower-service",
  "tracing",
@@ -6520,9 +6520,9 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pathfinding"
-version = "4.8.1"
+version = "4.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b425bfb8934d227558811f4b8c94d6fe64c9069c1387deed0f586bc418271b2"
+checksum = "35df0d074a99be583b76dc771329be9f7be45ebae444d601285dc7a094c2ac0a"
 dependencies = [
  "deprecate-until",
  "fixedbitset",
