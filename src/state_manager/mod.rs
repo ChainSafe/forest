@@ -5,30 +5,27 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 pub mod utils;
-use crate::chain_sync::SyncConfig;
-use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::state_migration::run_state_migrations;
-use anyhow::{bail, Context as _};
-use fil_actor_interface::init::{self, State};
-use rayon::prelude::ParallelBridge;
-pub use utils::is_valid_for_sending;
 pub mod vm_circ_supply;
 pub use self::errors::*;
+use self::utils::structured;
+
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
+use crate::chain_sync::SyncConfig;
 use crate::interpreter::{
     resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
+use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
-    address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
@@ -37,11 +34,14 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
+use crate::state_manager::chain_rand::draw_randomness;
+use crate::state_migration::run_state_migrations;
 use ahash::{HashMap, HashMapExt};
+use anyhow::{bail, Context as _};
+use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
-
-use crate::state_manager::chain_rand::draw_randomness;
+use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
@@ -58,12 +58,13 @@ use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
 use parking_lot::Mutex as SyncMutex;
+use rayon::prelude::ParallelBridge;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
-use utils::structured;
+pub use utils::is_valid_for_sending;
 pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -985,14 +986,15 @@ where
         db: &Arc<DB>,
         addr: &Address,
         state_cid: Cid,
-    ) -> Result<[u8; BLS_PUB_LEN], Error> {
+    ) -> Result<BlsPublicKey, Error> {
         let state = StateTree::new_from_root(Arc::clone(db), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
         match kaddr.into_payload() {
-            Payload::BLS(key) => Ok(key),
+            Payload::BLS(key) => BlsPublicKey::from_bytes(&key)
+                .map_err(|e| Error::Other(format!("Failed to construct bls public key: {e}"))),
             _ => Err(Error::State(
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
