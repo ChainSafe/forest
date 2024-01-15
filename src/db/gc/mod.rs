@@ -161,7 +161,7 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
-    pub async fn gc_loop(&mut self, interval: Duration) -> () {
+    pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
         loop {
             match self.gc_workflow(interval).await {
                 Err(err) => error!("GC run error: {}", err),
