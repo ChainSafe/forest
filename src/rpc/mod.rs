@@ -47,6 +47,9 @@ use crate::rpc::{
 
 const WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
 
+/// In Filecoin parlance, cancel and unsubscribe are similar notions.
+const WS_CANCEL_METHOD_NAME: &'static str = "xrpc.cancel";
+
 /*pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
     rpc_endpoint: TcpListener,
@@ -256,7 +259,7 @@ where
     module.register_subscription_raw(
         CHAIN_NOTIFY,
         WS_NOTIF_METHOD_NAME,
-        "unsub",
+        WS_CANCEL_METHOD_NAME,
         |params, pending, state| {
             // Handle parsing of the method params.
             let result = match params.parse::<Vec<usize>>() {
@@ -292,7 +295,12 @@ where
                             let msg = create_ws_notif_message(&sink, &v).unwrap();
 
                             // This fails only if the connection is closed
-                            sink.send(msg).await.expect("send must work");
+                            if let Ok(()) = sink.send(msg).await {
+                                trace!("sent succeeded");
+                            } else {
+                                trace!("sent failed");
+                                break;
+                            }
                         },
                         _ = sink.closed() => {
                             trace!("sink was closed");
