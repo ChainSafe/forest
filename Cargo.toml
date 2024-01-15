@@ -26,6 +26,8 @@ bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
+blst = { version = "0.3", features = ["portable"] }
+blstrs = { version = "0.7", features = ["portable"] }
 boa_engine = "0.17.0"
 boa_interner = "0.17.0"
 boa_parser = "0.17.0"
@@ -79,6 +81,7 @@ fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing",
 fvm_shared4 = { package = "fvm_shared", version = "~4.0.0", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
+group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
 http = "1.0"
 http0 = { package = "http", version = "0.2" }

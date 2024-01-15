@@ -1193,7 +1193,7 @@ where
 
         let addr_buf = to_vec(&addr)?;
         let rand = draw_randomness(
-            base.data(),
+            base.signature(),
             DomainSeparationTag::WinningPoStChallengeSeed as i64,
             epoch,
             &addr_buf,
