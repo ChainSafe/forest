@@ -6,32 +6,35 @@ use std::{fmt, sync::OnceLock};
 use crate::cid_collections::FrozenCidVec;
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::networks::{calibnet, mainnet};
-use crate::shim::{address::Address, clock::ChainEpoch};
+use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
-use ahash::{HashMap, HashSet, HashSetExt};
+use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use itertools::Itertools as _;
+use nonempty::{nonempty, NonEmpty};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tracing::info;
 
-use super::{Block, BlockHeader, Error, Ticket};
+use super::{Block, CachingBlockHeader, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
-pub struct TipsetKeys {
+pub struct TipsetKey {
     pub cids: FrozenCidVec,
 }
 
-impl TipsetKeys {
+impl TipsetKey {
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
@@ -43,7 +46,7 @@ impl TipsetKeys {
     }
 }
 
-impl FromIterator<Cid> for TipsetKeys {
+impl FromIterator<Cid> for TipsetKey {
     fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
         Self {
             cids: iter.into_iter().collect(),
@@ -51,7 +54,7 @@ impl FromIterator<Cid> for TipsetKeys {
     }
 }
 
-impl fmt::Display for TipsetKeys {
+impl fmt::Display for TipsetKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
             .cids
@@ -66,25 +69,26 @@ impl fmt::Display for TipsetKeys {
 
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
+///
+/// Represents non-null tipsets, see the documentation on [`crate::state_manager::apply_block_messages`]
+/// for more.
 #[derive(Clone, Debug)]
 pub struct Tipset {
-    headers: Vec<BlockHeader>,
-    key: OnceCell<TipsetKeys>,
+    /// Sorted
+    headers: NonEmpty<CachingBlockHeader>,
+    key: OnceCell<TipsetKey>,
 }
 
-impl From<&BlockHeader> for Tipset {
-    fn from(value: &BlockHeader) -> Self {
-        Self {
-            headers: vec![value.clone()],
-            key: OnceCell::new(),
-        }
+impl From<&CachingBlockHeader> for Tipset {
+    fn from(value: &CachingBlockHeader) -> Self {
+        value.clone().into()
     }
 }
 
-impl From<BlockHeader> for Tipset {
-    fn from(value: BlockHeader) -> Self {
+impl From<CachingBlockHeader> for Tipset {
+    fn from(value: CachingBlockHeader) -> Self {
         Self {
-            headers: vec![value],
+            headers: nonempty![value],
             key: OnceCell::new(),
         }
     }
@@ -101,21 +105,31 @@ impl quickcheck::Arbitrary for Tipset {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         // TODO(forest): https://github.com/ChainSafe/forest/issues/3570
         //               Support random generation of tipsets with multiple blocks.
-        Tipset::from(BlockHeader::arbitrary(g))
+        Tipset::from(CachingBlockHeader::arbitrary(g))
     }
 }
 
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
-        let headers: Vec<BlockHeader> = full_tipset
-            .blocks
-            .into_iter()
-            .map(|block| block.header)
-            .collect();
+        let headers = full_tipset.blocks.map(|block| block.header);
 
         Tipset { headers, key }
     }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum CreateTipsetError {
+    #[error("tipsets must not be empty")]
+    Empty,
+    #[error("parent CID is inconsistent. All block headers in a tipset must agree on their parent tipset")]
+    BadParents,
+    #[error("state root is inconsistent. All block headers in a tipset must agree on their parent state root")]
+    BadStateRoot,
+    #[error("epoch is inconsistent. All block headers in a tipset must agree on their epoch")]
+    BadEpoch,
+    #[error("duplicate miner address. All miners in a tipset must be unique.")]
+    DuplicateMiner,
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -125,15 +139,19 @@ impl Tipset {
     /// distinct miners and all specify identical epoch, parents, weight,
     /// height, state root, receipt root; content-id for headers are
     /// supposed to be distinct but until encoding is added will be equal.
-    pub fn new(mut headers: Vec<BlockHeader>) -> Result<Self, Error> {
-        verify_blocks(&headers)?;
+    pub fn new<H: Into<CachingBlockHeader>>(
+        headers: impl IntoIterator<Item = H>,
+    ) -> Result<Self, CreateTipsetError> {
+        let headers = NonEmpty::collect(
+            headers
+                .into_iter()
+                .map(Into::<CachingBlockHeader>::into)
+                .sorted_by_cached_key(|it| it.tipset_sort_key()),
+        )
+        .ok_or(CreateTipsetError::Empty)?;
 
-        // sort headers by ticket size
-        // break ticket ties with the header CIDs, which are distinct
-        headers.sort_by_cached_key(|h| h.to_sort_key());
+        verify_block_headers(&headers)?;
 
-        // return tipset where sorted headers have smallest ticket size in the 0th index
-        // and the distinct keys
         Ok(Self {
             headers,
             key: OnceCell::new(),
@@ -142,13 +160,13 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This call fails if the tipset is
     /// present but invalid. If the tipset is missing, None is returned.
-    pub fn load(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Option<Tipset>> {
+    pub fn load(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .cids
             .clone()
             .into_iter()
-            .map(|key| BlockHeader::load(&store, key))
-            .collect::<anyhow::Result<Option<_>>>()?
+            .map(|key| CachingBlockHeader::load(&store, key))
+            .collect::<anyhow::Result<Option<Vec<_>>>>()?
             .map(Tipset::new)
             .transpose()?)
     }
@@ -159,12 +177,12 @@ impl Tipset {
         settings: &impl SettingsStore,
     ) -> anyhow::Result<Option<Tipset>> {
         Ok(
-            match settings.read_obj::<TipsetKeys>(crate::db::setting_keys::HEAD_KEY)? {
+            match settings.read_obj::<TipsetKey>(crate::db::setting_keys::HEAD_KEY)? {
                 Some(tsk) => tsk
                     .cids
                     .into_iter()
-                    .map(|key| BlockHeader::load(store, key))
-                    .collect::<anyhow::Result<Option<_>>>()?
+                    .map(|key| CachingBlockHeader::load(store, key))
+                    .collect::<anyhow::Result<Option<Vec<_>>>>()?
                     .map(Tipset::new)
                     .transpose()?,
                 None => None,
@@ -174,7 +192,7 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This calls fails if the tipset is
     /// missing or invalid.
-    pub fn load_required(store: impl Blockstore, tsk: &TipsetKeys) -> anyhow::Result<Tipset> {
+    pub fn load_required(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
         Tipset::load(store, tsk)?.context("Required tipset missing from database")
     }
 
@@ -182,7 +200,7 @@ impl Tipset {
     pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
         // Find tipset messages. If any are missing, return `None`.
         let blocks = self
-            .blocks()
+            .block_headers()
             .iter()
             .cloned()
             .map(|header| {
@@ -205,30 +223,27 @@ impl Tipset {
 
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
-        self.min_ticket_block().epoch()
+        self.min_ticket_block().epoch
     }
-    /// Returns all blocks in tipset.
-    pub fn blocks(&self) -> &[BlockHeader] {
+    pub fn block_headers(&self) -> &NonEmpty<CachingBlockHeader> {
         &self.headers
     }
-    /// Consumes tipset to convert into a vector of [`BlockHeader`].
-    pub fn into_blocks(self) -> Vec<BlockHeader> {
+    pub fn into_block_headers(self) -> NonEmpty<CachingBlockHeader> {
         self.headers
     }
     /// Returns the smallest ticket of all blocks in the tipset
     pub fn min_ticket(&self) -> Option<&Ticket> {
-        self.min_ticket_block().ticket().as_ref()
+        self.min_ticket_block().ticket.as_ref()
     }
     /// Returns the block with the smallest ticket of all blocks in the tipset
-    pub fn min_ticket_block(&self) -> &BlockHeader {
-        // `Tipset::new` guarantees that `blocks` isn't empty
-        self.headers.first().unwrap()
+    pub fn min_ticket_block(&self) -> &CachingBlockHeader {
+        self.headers.first()
     }
     /// Returns the smallest timestamp of all blocks in the tipset
     pub fn min_timestamp(&self) -> u64 {
         self.headers
             .iter()
-            .map(|block| block.timestamp())
+            .map(|block| block.timestamp)
             .min()
             .unwrap()
     }
@@ -237,9 +252,9 @@ impl Tipset {
         self.headers.len()
     }
     /// Returns a key for the tipset.
-    pub fn key(&self) -> &TipsetKeys {
+    pub fn key(&self) -> &TipsetKey {
         self.key.get_or_init(|| {
-            TipsetKeys::from_iter(self.headers.iter().map(BlockHeader::cid).copied())
+            TipsetKey::from_iter(self.headers.iter().map(CachingBlockHeader::cid).copied())
         })
     }
     /// Returns slice of `CIDs` for the current tipset
@@ -247,30 +262,30 @@ impl Tipset {
         self.key().cids.clone().into_iter().collect()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
-    pub fn parents(&self) -> &TipsetKeys {
-        self.min_ticket_block().parents()
+    pub fn parents(&self) -> &TipsetKey {
+        &self.min_ticket_block().parents
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.min_ticket_block().state_root()
+        &self.min_ticket_block().state_root
     }
     /// Returns the tipset's calculated weight
     pub fn weight(&self) -> &BigInt {
-        self.min_ticket_block().weight()
+        &self.min_ticket_block().weight
     }
     /// Returns true if self wins according to the Filecoin tie-break rule
     /// (FIP-0023)
     pub fn break_weight_tie(&self, other: &Tipset) -> bool {
         // blocks are already sorted by ticket
         let broken = self
-            .blocks()
+            .block_headers()
             .iter()
-            .zip(other.blocks().iter())
+            .zip(other.block_headers().iter())
             .any(|(a, b)| {
                 const MSG: &str =
                     "The function block_sanity_checks should have been called at this point.";
-                let ticket = a.ticket().as_ref().expect(MSG);
-                let other_ticket = b.ticket().as_ref().expect(MSG);
+                let ticket = a.ticket.as_ref().expect(MSG);
+                let other_ticket = b.ticket.as_ref().expect(MSG);
                 ticket.vrfproof < other_ticket.vrfproof
             });
         if broken {
@@ -291,7 +306,7 @@ impl Tipset {
     }
 
     /// Fetch the genesis block header for a given tipset.
-    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<BlockHeader> {
+    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
         // Scanning through millions of epochs to find the genesis is quite
         // slow. Let's use a list of known blocks to short-circuit the search.
         // The blocks are hash-chained together and known blocks are guaranteed
@@ -335,15 +350,15 @@ impl Tipset {
 /// and messages
 #[derive(Debug, Clone)]
 pub struct FullTipset {
-    blocks: Vec<Block>,
-    key: OnceCell<TipsetKeys>,
+    blocks: NonEmpty<Block>,
+    key: OnceCell<TipsetKey>,
 }
 
 // Constructing a FullTipset from a single Block is infallible.
 impl From<Block> for FullTipset {
     fn from(block: Block) -> Self {
         FullTipset {
-            blocks: vec![block],
+            blocks: nonempty![block],
             key: OnceCell::new(),
         }
     }
@@ -356,12 +371,18 @@ impl PartialEq for FullTipset {
 }
 
 impl FullTipset {
-    pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
-        verify_blocks(blocks.iter().map(Block::header))?;
+    pub fn new(blocks: impl IntoIterator<Item = Block>) -> Result<Self, CreateTipsetError> {
+        let blocks = NonEmpty::collect(
+            // sort blocks on creation to allow for more seamless conversions between
+            // FullTipset and Tipset
+            blocks
+                .into_iter()
+                .sorted_by_cached_key(|it| it.header.tipset_sort_key()),
+        )
+        .ok_or(CreateTipsetError::Empty)?;
 
-        // sort blocks on creation to allow for more seamless conversions between
-        // FullTipset and Tipset
-        blocks.sort_by_cached_key(|block| block.header().to_sort_key());
+        verify_block_headers(blocks.iter().map(|it| &it.header))?;
+
         Ok(Self {
             blocks,
             key: OnceCell::new(),
@@ -369,15 +390,14 @@ impl FullTipset {
     }
     /// Returns the first block of the tipset.
     fn first_block(&self) -> &Block {
-        // `FullTipset::new` guarantees that `blocks` isn't empty
-        self.blocks.first().unwrap()
+        self.blocks.first()
     }
     /// Returns reference to all blocks in a full tipset.
-    pub fn blocks(&self) -> &[Block] {
+    pub fn blocks(&self) -> &NonEmpty<Block> {
         &self.blocks
     }
     /// Returns all blocks in a full tipset.
-    pub fn into_blocks(self) -> Vec<Block> {
+    pub fn into_blocks(self) -> NonEmpty<Block> {
         self.blocks
     }
     /// Converts the full tipset into a [Tipset] which removes the messages
@@ -386,82 +406,66 @@ impl FullTipset {
         Tipset::from(self)
     }
     /// Returns a key for the tipset.
-    pub fn key(&self) -> &TipsetKeys {
+    pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKeys::from_iter(self.blocks.iter().map(Block::cid).copied()))
+            .get_or_init(|| TipsetKey::from_iter(self.blocks.iter().map(Block::cid).copied()))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
-        self.first_block().header().state_root()
+        &self.first_block().header().state_root
     }
     /// Returns epoch of the tipset.
     pub fn epoch(&self) -> ChainEpoch {
-        self.first_block().header().epoch()
+        self.first_block().header().epoch
     }
     /// Returns the tipset's calculated weight.
     pub fn weight(&self) -> &BigInt {
-        self.first_block().header().weight()
+        &self.first_block().header().weight
     }
 }
 
-fn verify_blocks<'a, I>(headers: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = &'a BlockHeader>,
-{
-    let mut headers = headers.into_iter();
-    let first_header = headers.next().ok_or(Error::NoBlocks)?;
+fn verify_block_headers<'a>(
+    headers: impl IntoIterator<Item = &'a CachingBlockHeader>,
+) -> Result<(), CreateTipsetError> {
+    use itertools::all;
 
-    let verify = |predicate: bool, message: &'static str| {
-        if predicate {
-            Ok(())
-        } else {
-            Err(Error::InvalidTipset(message.to_string()))
-        }
-    };
+    let headers = NonEmpty::collect(headers).ok_or(CreateTipsetError::Empty)?;
+    if !all(&headers, |it| it.parents == headers.first().parents) {
+        return Err(CreateTipsetError::BadParents);
+    }
+    if !all(&headers, |it| it.state_root == headers.first().state_root) {
+        return Err(CreateTipsetError::BadStateRoot);
+    }
+    if !all(&headers, |it| it.epoch == headers.first().epoch) {
+        return Err(CreateTipsetError::BadEpoch);
+    }
 
-    let mut headers_set: HashSet<Address> = HashSet::new();
-    headers_set.insert(*first_header.miner_address());
-
-    for header in headers {
-        verify(
-            header.parents() == first_header.parents(),
-            "parent cids are not equal",
-        )?;
-        verify(
-            header.state_root() == first_header.state_root(),
-            "state_roots are not equal",
-        )?;
-        verify(
-            header.epoch() == first_header.epoch(),
-            "epochs are not equal",
-        )?;
-
-        verify(
-            headers_set.insert(*header.miner_address()),
-            "miner_addresses are not distinct",
-        )?;
+    if !headers.iter().map(|it| it.miner_address).all_unique() {
+        return Err(CreateTipsetError::DuplicateMiner);
     }
 
     Ok(())
 }
 
-pub mod lotus_json {
-    //! [Tipset] isn't just plain old data - it has an invariant (all [`BlockHeader`]s are valid)
+#[cfg_vis::cfg_vis(doc, pub)]
+mod lotus_json {
+    //! [Tipset] isn't just plain old data - it has an invariant (all block headers are valid)
     //! So there is custom de-serialization here
 
-    use crate::blocks::{BlockHeader, Tipset};
+    use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
+    use nonempty::NonEmpty;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use super::TipsetKeys;
+    use super::TipsetKey;
 
     pub struct TipsetLotusJson(Tipset);
 
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
-        cids: LotusJson<TipsetKeys>,
-        blocks: LotusJson<Vec<BlockHeader>>,
+        cids: LotusJson<TipsetKey>,
+        blocks: LotusJson<NonEmpty<CachingBlockHeader>>,
         height: LotusJson<i64>,
     }
 
@@ -475,9 +479,11 @@ pub mod lotus_json {
                 blocks,
                 height: _ignored1,
             } = Deserialize::deserialize(deserializer)?;
-            Tipset::new(blocks.into_inner())
-                .map_err(serde::de::Error::custom)
-                .map(Self)
+
+            Ok(Self(Tipset {
+                headers: blocks.into_inner(),
+                key: Default::default(),
+            }))
         }
     }
 
@@ -489,7 +495,7 @@ pub mod lotus_json {
             let Self(tipset) = self;
             TipsetLotusJsonInner {
                 cids: tipset.key().clone().into(),
-                blocks: tipset.clone().into_blocks().into(),
+                blocks: tipset.clone().into_block_headers().into(),
                 height: tipset.epoch().into(),
             }
             .serialize(serializer)
@@ -524,7 +530,7 @@ pub mod lotus_json {
                     ],
                     "Height": 0
                 }),
-                Self::new(vec![BlockHeader::default()]).unwrap(),
+                Self::new(vec![CachingBlockHeader::default()]).unwrap(),
             )]
         }
 
@@ -552,6 +558,9 @@ pub mod lotus_json {
 
 #[cfg(test)]
 mod test {
+    use std::iter;
+
+    use super::*;
     use crate::blocks::VRFProof;
     use crate::shim::address::Address;
     use cid::{
@@ -561,9 +570,11 @@ mod test {
     use fvm_ipld_encoding::DAG_CBOR;
     use num_bigint::BigInt;
 
-    use crate::blocks::{BlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKeys};
+    use crate::blocks::{
+        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey,
+    };
 
-    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> BlockHeader {
+    pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
         let addr = Address::new_id(id);
         let cid =
             Cid::try_from("bafyreicmaj5hhoy5mgqvamfhgexxyergw7hdeshizghodwkjg6qmpoco7i").unwrap();
@@ -575,16 +586,16 @@ mod test {
             vrfproof: VRFProof::new(fmt_str.into_bytes()),
         };
         let weight_inc = BigInt::from(weight);
-        BlockHeader::builder()
-            .miner_address(addr)
-            .election_proof(Some(election_proof))
-            .ticket(Some(ticket))
-            .message_receipts(cid)
-            .messages(cid)
-            .state_root(cid)
-            .weight(weight_inc)
-            .build()
-            .unwrap()
+        CachingBlockHeader::new(RawBlockHeader {
+            miner_address: addr,
+            election_proof: Some(election_proof),
+            ticket: Some(ticket),
+            message_receipts: cid,
+            messages: cid,
+            state_root: cid,
+            weight: weight_inc,
+            ..Default::default()
+        })
     }
 
     #[test]
@@ -621,101 +632,89 @@ mod test {
 
     #[test]
     fn ensure_miner_addresses_are_distinct() {
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
-        let h1 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let h0 = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        };
+        let h1 = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            ..Default::default()
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("miner_addresses are not distinct".to_string())
+            Tipset::new([h0.clone(), h1.clone()]).unwrap_err(),
+            CreateTipsetError::DuplicateMiner
         );
-    }
 
-    // specifically test the case when we are distinct from miner_address 0, but not
-    // 1
-    #[test]
-    fn ensure_multiple_miner_addresses_are_distinct() {
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(1))
-            .build()
-            .unwrap();
-        let h1 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
-        let h2 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .build()
-            .unwrap();
+        let h_unique = RawBlockHeader {
+            miner_address: Address::new_id(1),
+            ..Default::default()
+        };
+
         assert_eq!(
-            Tipset::new(vec![h0, h1, h2]).unwrap_err(),
-            Error::InvalidTipset("miner_addresses are not distinct".to_string())
+            Tipset::new([h_unique, h0, h1]).unwrap_err(),
+            CreateTipsetError::DuplicateMiner
         );
     }
 
     #[test]
     fn ensure_epochs_are_equal() {
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .epoch(1)
-            .build()
-            .unwrap();
-        let h1 = BlockHeader::builder()
-            .miner_address(Address::new_id(1))
-            .epoch(2)
-            .build()
-            .unwrap();
+        let h0 = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            epoch: 1,
+            ..Default::default()
+        };
+        let h1 = RawBlockHeader {
+            miner_address: Address::new_id(1),
+            epoch: 2,
+            ..Default::default()
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("epochs are not equal".to_string())
+            Tipset::new([h0, h1]).unwrap_err(),
+            CreateTipsetError::BadEpoch
         );
     }
 
     #[test]
     fn ensure_state_roots_are_equal() {
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[])))
-            .build()
-            .unwrap();
-        let h1 = BlockHeader::builder()
-            .miner_address(Address::new_id(1))
-            .state_root(Cid::new_v1(DAG_CBOR, Identity.digest(&[1])))
-            .build()
-            .unwrap();
+        let h0 = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
+            ..Default::default()
+        };
+        let h1 = RawBlockHeader {
+            miner_address: Address::new_id(1),
+            state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[1])),
+            ..Default::default()
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("state_roots are not equal".to_string())
+            Tipset::new([h0, h1]).unwrap_err(),
+            CreateTipsetError::BadStateRoot
         );
     }
 
     #[test]
     fn ensure_parent_cids_are_equal() {
-        let h0 = BlockHeader::builder()
-            .miner_address(Address::new_id(0))
-            .parents(TipsetKeys::default())
-            .build()
-            .unwrap();
-        let h1 = BlockHeader::builder()
-            .miner_address(Address::new_id(1))
-            .parents(TipsetKeys::from_iter([Cid::new_v1(
-                DAG_CBOR,
-                Identity.digest(&[]),
-            )]))
-            .build()
-            .unwrap();
+        let h0 = RawBlockHeader {
+            miner_address: Address::new_id(0),
+            parents: TipsetKey::default(),
+            ..Default::default()
+        };
+        let h1 = RawBlockHeader {
+            miner_address: Address::new_id(1),
+            parents: TipsetKey::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
+            ..Default::default()
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("parent cids are not equal".to_string())
+            Tipset::new([h0, h1]).unwrap_err(),
+            CreateTipsetError::BadParents
         );
     }
 
     #[test]
     fn ensure_there_are_blocks() {
-        assert_eq!(Tipset::new(vec![]).unwrap_err(), Error::NoBlocks);
+        assert_eq!(
+            Tipset::new(iter::empty::<RawBlockHeader>()).unwrap_err(),
+            CreateTipsetError::Empty
+        );
     }
 }

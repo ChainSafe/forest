@@ -1,6 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+pub use fvm_shared3::sector::StoragePower;
+pub use fvm_shared3::sector::{
+    RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
+};
+pub use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
+
 use crate::shim::version::NetworkVersion;
 use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
 use fvm_shared2::sector::{
@@ -10,15 +16,10 @@ use fvm_shared2::sector::{
 use fvm_shared3::sector::{
     PoStProof as PoStProofV3, SectorInfo as SectorInfoV3, SectorSize as SectorSizeV3,
 };
-pub use fvm_shared3::sector::{
-    RegisteredPoStProof as RegisteredPoStProofV3, RegisteredSealProof as RegisteredSealProofV3,
-};
-pub use fvm_shared4::sector::RegisteredSealProof as RegisteredSealProofV4;
 use num_derive::FromPrimitive;
-use std::ops::Deref;
-
-pub use fvm_shared3::sector::StoragePower;
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
 pub type SectorNumber = fvm_shared3::sector::SectorNumber;
 
@@ -267,9 +268,22 @@ impl From<SectorSize> for SectorSizeV3 {
     PartialEq,
     derive_more::From,
     derive_more::Into,
+    Eq,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct PoStProof(PoStProofV3);
+
+impl Hash for PoStProof {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/3852
+        let PoStProofV3 {
+            post_proof,
+            proof_bytes,
+        } = &self.0;
+        post_proof.hash(state);
+        proof_bytes.hash(state);
+    }
+}
 
 impl PoStProof {
     pub fn new(reg_post_proof: RegisteredPoStProof, proof_bytes: Vec<u8>) -> Self {

@@ -36,7 +36,7 @@ pub(in crate::rpc) async fn node_status<DB: Blockstore>(
         let mut ts = head;
 
         for _ in 0..100 {
-            block_count += ts.blocks().len();
+            block_count += ts.block_headers().len();
             let tsk = ts.parents();
             ts = data.chain_store.load_required_tipset(tsk)?;
         }
@@ -44,7 +44,7 @@ pub(in crate::rpc) async fn node_status<DB: Blockstore>(
         node_status.chain_status.blocks_per_tipset_last_100 = block_count as f64 / 100.;
 
         for _ in 100..chain_finality {
-            block_count += ts.blocks().len();
+            block_count += ts.block_headers().len();
             let tsk = ts.parents();
             ts = data.chain_store.load_required_tipset(tsk)?;
         }

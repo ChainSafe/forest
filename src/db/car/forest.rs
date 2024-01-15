@@ -47,7 +47,7 @@
 //!
 
 use super::{CacheKey, ZstdFrameCache};
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::db::car::plain::write_skip_frame_header_async;
 use crate::db::car::RandomAccessFileReader;
 use crate::utils::db::car_stream::{CarBlock, CarHeader};
@@ -145,7 +145,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKeys::from_iter(self.roots()))
+        Tipset::load_required(self, &TipsetKey::from_iter(self.roots()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {

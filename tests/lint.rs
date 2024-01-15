@@ -358,8 +358,8 @@ impl TryFrom<String> for SourceFile {
 
     fn try_from(plaintext: String) -> Result<Self, Self::Error> {
         Ok(Self {
-            linewise: ariadne::Source::from(&plaintext),
             ast: syn::parse_file(&plaintext)?,
+            linewise: ariadne::Source::from(plaintext.clone()),
             plaintext,
         })
     }
@@ -374,6 +374,8 @@ impl<Id> ariadne::Cache<Id> for &Cache
 where
     Id: AsRef<str>,
 {
+    type Storage = String;
+
     fn fetch(&mut self, id: &Id) -> Result<&Source, Box<dyn std::fmt::Debug + '_>> {
         fn id_not_found_error(id: impl AsRef<str>) -> Box<dyn std::fmt::Debug> {
             Box::new(format!("{} not in cache", id.as_ref()))

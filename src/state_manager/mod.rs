@@ -15,7 +15,7 @@ pub use utils::is_valid_for_sending;
 pub mod vm_circ_supply;
 pub use self::errors::*;
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
@@ -74,8 +74,8 @@ type CidPair = (Cid, Cid);
 // Various structures for implementing the tipset state cache
 
 struct TipsetStateCacheInner {
-    values: LruCache<TipsetKeys, CidPair>,
-    pending: Vec<(TipsetKeys, Arc<TokioMutex<()>>)>,
+    values: LruCache<TipsetKey, CidPair>,
+    pending: Vec<(TipsetKey, Arc<TokioMutex<()>>)>,
 }
 
 impl Default for TipsetStateCacheInner {
@@ -111,7 +111,7 @@ impl TipsetStateCache {
         func(&mut lock)
     }
 
-    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKeys, compute: F) -> anyhow::Result<CidPair>
+    pub async fn get_or_else<F, Fut>(&self, key: &TipsetKey, compute: F) -> anyhow::Result<CidPair>
     where
         F: Fn() -> Fut,
         Fut: core::future::Future<Output = anyhow::Result<CidPair>>,
@@ -169,11 +169,11 @@ impl TipsetStateCache {
         }
     }
 
-    fn get(&self, key: &TipsetKeys) -> Option<CidPair> {
+    fn get(&self, key: &TipsetKey) -> Option<CidPair> {
         self.with_inner(|inner| inner.values.get(key).copied())
     }
 
-    fn insert(&self, key: TipsetKeys, value: CidPair) {
+    fn insert(&self, key: TipsetKey, value: CidPair) {
         self.with_inner(|inner| {
             inner.pending.retain(|(k, _)| k != &key);
             inner.values.put(key, value);
@@ -233,8 +233,8 @@ where
         chain_config: Arc<ChainConfig>,
         sync_config: Arc<SyncConfig>,
     ) -> Result<Self, anyhow::Error> {
-        let genesis = cs.genesis();
-        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp()));
+        let genesis = cs.genesis_block_header();
+        let beacon = Arc::new(chain_config.get_beacon_schedule(genesis.timestamp));
 
         Ok(Self {
             cs,
@@ -426,7 +426,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: tipset.blocks()[0].parent_base_fee().clone(),
+                base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
@@ -515,7 +515,7 @@ where
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
-                    base_fee: ts.blocks()[0].parent_base_fee().clone(),
+                    base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
@@ -694,7 +694,7 @@ where
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
-            self.chain_store().genesis().timestamp(),
+            self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
             self.beacon_schedule(),
@@ -752,7 +752,7 @@ where
                 } else {
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        &tipset.blocks()[0],
+                        tipset.block_headers().first(),
                         index,
                     )
                     .map_err(|err| Error::Other(err.to_string()))
@@ -766,6 +766,7 @@ where
         &self,
         mut current: Arc<Tipset>,
         message: &ChainMessage,
+        look_back_limit: Option<i64>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let message_from_address = message.from();
         let message_sequence = message.sequence();
@@ -778,11 +779,7 @@ where
             .lookup_id(&message_from_address, current.as_ref())?
             .context("Failed to lookup id")
             .map_err(|e| Error::State(e.to_string()))?;
-        loop {
-            if current.epoch() == 0 {
-                return Ok(None);
-            }
-
+        while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
                 .cs
                 .load_required_tipset(current.parents())
@@ -810,18 +807,22 @@ where
                 current = parent_tipset;
                 current_actor_state = parent_actor_state;
             } else {
-                break Ok(None);
+                break;
             }
         }
+
+        Ok(None)
     }
 
     fn search_back_for_message(
         &self,
         current: Arc<Tipset>,
         message: &ChainMessage,
+        look_back_limit: Option<i64>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
-        self.check_search(current, message)
+        self.check_search(current, message, look_back_limit)
     }
+
     /// Returns a message receipt from a given tipset and message CID.
     pub fn get_receipt(&self, tipset: Arc<Tipset>, msg: Cid) -> Result<Receipt, Error> {
         let m = crate::chain::get_chain_message(self.blockstore(), &msg)
@@ -831,7 +832,7 @@ where
             return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset, &m)?;
+        let maybe_tuple = self.search_back_for_message(tipset, &m, None)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -869,14 +870,14 @@ where
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
             let back_tuple =
-                sm_cloned.search_back_for_message(current_tipset, &message_for_task)?;
+                sm_cloned.search_back_for_message(current_tipset, &message_for_task, None)?;
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
             Ok::<_, Error>(back_tuple)
         });
 
-        let reverts: Arc<RwLock<HashMap<TipsetKeys, bool>>> = Arc::new(RwLock::new(HashMap::new()));
+        let reverts: Arc<RwLock<HashMap<TipsetKey, bool>>> = Arc::new(RwLock::new(HashMap::new()));
         let block_revert = reverts.clone();
         let sm_cloned = Arc::clone(self);
 
@@ -958,6 +959,24 @@ where
                     }
                 }
             }
+        }
+    }
+
+    pub async fn search_for_message(
+        self: &Arc<Self>,
+        from: Option<Arc<Tipset>>,
+        msg_cid: Cid,
+        look_back_limit: Option<i64>,
+    ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+        let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
+        let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
+            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
+        let current_tipset = self.cs.heaviest_tipset();
+        let maybe_message_reciept = self.tipset_executed_message(&from, &message, true)?;
+        if let Some(r) = maybe_message_reciept {
+            Ok(Some((from, r)))
+        } else {
+            self.search_back_for_message(current_tipset, &message, look_back_limit)
         }
     }
 
@@ -1283,7 +1302,7 @@ where
     where
         T: Iterator<Item = Arc<Tipset>> + Send,
     {
-        let genesis_timestamp = self.chain_store().genesis().timestamp();
+        let genesis_timestamp = self.chain_store().genesis_block_header().timestamp;
         validate_tipsets(
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
@@ -1363,9 +1382,9 @@ where
                 VMTrace::NotTraced,
             )
             .context("couldn't compute tipset state")?;
-            let expected_receipt = child.min_ticket_block().message_receipts();
+            let expected_receipt = child.min_ticket_block().message_receipts;
             let expected_state = child.parent_state();
-            match (expected_state, expected_receipt) == (&actual_state, &actual_receipt) {
+            match (expected_state, expected_receipt) == (&actual_state, actual_receipt) {
                 true => Ok(()),
                 false => {
                     error!(
@@ -1485,8 +1504,8 @@ where
         // block miner reference a valid miner in the state tree. Unless we create some
         // magical genesis miner, this won't work properly, so we short circuit here
         // This avoids the question of 'who gets paid the genesis block reward'
-        let message_receipts = tipset.min_ticket_block().message_receipts();
-        return Ok((*tipset.parent_state(), *message_receipts));
+        let message_receipts = tipset.min_ticket_block().message_receipts;
+        return Ok((*tipset.parent_state(), message_receipts));
     }
 
     let _timer = metrics::APPLY_BLOCKS_TIME.start_timer();
@@ -1508,7 +1527,7 @@ where
                 state_tree_root: state_root,
                 epoch,
                 rand: Box::new(rand.clone()),
-                base_fee: tipset.min_ticket_block().parent_base_fee().clone(),
+                base_fee: tipset.min_ticket_block().parent_base_fee.clone(),
                 circ_supply: circulating_supply,
                 chain_config: Arc::clone(&chain_config),
                 chain_index: Arc::clone(&chain_index),

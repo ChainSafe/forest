@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::BlockHeader;
+use crate::blocks::CachingBlockHeader;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
 use anyhow::Context as _;
@@ -18,7 +18,7 @@ pub async fn read_genesis_header<DB>(
     genesis_fp: Option<&String>,
     genesis_bytes: Option<&[u8]>,
     db: &DB,
-) -> Result<BlockHeader, anyhow::Error>
+) -> Result<CachingBlockHeader, anyhow::Error>
 where
     DB: Blockstore,
 {
@@ -35,12 +35,12 @@ where
         }
     };
 
-    info!("Initialized genesis: {}", genesis);
+    info!("Initialized genesis: {}", genesis.cid());
     Ok(genesis)
 }
 
 pub fn get_network_name_from_genesis<BS>(
-    genesis_header: &BlockHeader,
+    genesis_header: &CachingBlockHeader,
     state_manager: &StateManager<BS>,
 ) -> Result<String, anyhow::Error>
 where
@@ -48,12 +48,12 @@ where
 {
     // Get network name from genesis state.
     let network_name = state_manager
-        .get_network_name(genesis_header.state_root())
+        .get_network_name(&genesis_header.state_root)
         .map_err(|e| anyhow::anyhow!("Failed to retrieve network name from genesis: {}", e))?;
     Ok(network_name)
 }
 
-async fn process_car<R, BS>(reader: R, db: &BS) -> Result<BlockHeader, anyhow::Error>
+async fn process_car<R, BS>(reader: R, db: &BS) -> Result<CachingBlockHeader, anyhow::Error>
 where
     R: AsyncBufRead + Unpin,
     BS: Blockstore,
@@ -64,7 +64,7 @@ where
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block = BlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
+    let genesis_block = CachingBlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 

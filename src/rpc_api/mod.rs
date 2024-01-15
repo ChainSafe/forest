@@ -49,6 +49,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
+    access.insert(chain_api::CHAIN_NOTIFY, Access::Read);
     access.insert(chain_api::CHAIN_GET_PARENT_RECEIPTS, Access::Read);
 
     // Message Pool API
@@ -92,6 +93,8 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
+    access.insert(state_api::STATE_SEARCH_MSG, Access::Read);
+    access.insert(state_api::STATE_SEARCH_MSG_LIMITED, Access::Read);
     access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
     access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
     access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
@@ -109,6 +112,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
         Access::Read,
     );
     access.insert(state_api::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
+    access.insert(state_api::MSIG_GET_PENDING, Access::Read);
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
@@ -183,7 +187,7 @@ pub mod beacon_api {
 pub mod chain_api {
     use std::path::PathBuf;
 
-    use crate::blocks::TipsetKeys;
+    use crate::blocks::TipsetKey;
     use crate::lotus_json::lotus_json_with_self;
     use crate::shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
@@ -198,7 +202,7 @@ pub mod chain_api {
         pub recent_roots: i64,
         pub output_path: PathBuf,
         #[serde(with = "crate::lotus_json")]
-        pub tipset_keys: TipsetKeys,
+        pub tipset_keys: TipsetKey,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }
@@ -219,6 +223,7 @@ pub mod chain_api {
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
     pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
     pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
+    pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
     pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
 }
 
@@ -287,6 +292,7 @@ pub mod state_api {
     pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
         "Filecoin.StateVMCirculatingSupplyInternal";
     pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
+    pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
 }
 
 /// Gas API

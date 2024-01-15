@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::ChainMessage;
 use crate::rpc_client::{ApiInfo, JsonRpcError};
@@ -92,7 +92,7 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                api.chain_set_head(TipsetKeys::from_iter(cids.clone()))
+                api.chain_set_head(TipsetKey::from_iter(cids.clone()))
                     .await?;
                 Ok(())
             }

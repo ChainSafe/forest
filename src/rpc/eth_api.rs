@@ -5,14 +5,14 @@
 use std::{ops::Add, sync::Arc};
 
 use super::gas_api;
-use crate::blocks::{Tipset, TipsetKeys};
+use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::{bail, Context};
+use anyhow::bail;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use num_bigint::BigInt;
@@ -64,11 +64,8 @@ pub(in crate::rpc) async fn eth_gas_price<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
-    let block0 = ts
-        .blocks()
-        .first()
-        .context("Failed to get the first block")?;
-    let base_fee = block0.parent_base_fee();
+    let block0 = ts.block_headers().first();
+    let base_fee = &block0.parent_base_fee;
     if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
         let gas_price = base_fee.add(premium);
         Ok(GasPriceResult(gas_price.atto().clone()))
@@ -125,7 +122,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Ok(ts)
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let tsk = TipsetKeys {
+            let tsk = TipsetKey {
                 cids: FrozenCidVec::from_iter([hash.to_cid()]),
             };
             let ts = chain.chain_index.load_required_tipset(&tsk)?;

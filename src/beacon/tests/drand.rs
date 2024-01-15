@@ -5,15 +5,19 @@ use crate::beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig};
 use serde::{Deserialize, Serialize};
 
 fn new_beacon() -> DrandBeacon {
+    // https://pl-us.incentinet.drand.sh/info
     DrandBeacon::new(
         15904451751,
         25,
         &DrandConfig {
             server: "https://pl-us.incentinet.drand.sh",
             chain_info: ChainInfo {
-                public_key: "922a2e93828ff83345bae533f5172669a26c02dc76d6bf59c80892e12ab1455c229211886f35bb56af6d5bea981024df"
+                public_key: "8d4dc143b2128e18b4cdace6e5abece8012bfeca48551a008a69a1bbc88b71d37da840d2c8b028170f0a8704c90c1617"
                     .into(),
-                ..Default::default()
+                period: 30,
+                genesis_time: 1698856390,
+                hash: "f11df9e56edb49c6b049cd73a68214be4e879688fdd696f96f0750ad377f9be4".into(),
+                group_hash: "36ab1415e2967a7571f70f88cbf733eb77ef1a3ed34173ecc5e7bac924aeb17f".into(),
             },
             network_type: crate::beacon::DrandNetwork::Incentinet,
         },
@@ -31,6 +35,15 @@ pub struct BeaconEntryJson {
 #[test]
 fn construct_drand_beacon() {
     new_beacon();
+}
+
+#[tokio::test]
+async fn ask_and_verify_beacon_entry_success() {
+    let beacon = new_beacon();
+
+    let e2 = beacon.entry(2).await.unwrap();
+    let e3 = beacon.entry(3).await.unwrap();
+    assert!(beacon.verify_entry(&e3, &e2).unwrap());
 }
 
 #[tokio::test]
