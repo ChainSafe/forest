@@ -252,6 +252,7 @@ pub(super) async fn start(
                 Duration::from_secs(chain_config.block_delay_secs as u64),
             )
         };
+
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
     }
 

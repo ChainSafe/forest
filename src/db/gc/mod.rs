@@ -82,7 +82,7 @@ use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
-use tracing::info;
+use tracing::{error, info};
 
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
 /// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
@@ -161,9 +161,12 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
     ///
     /// NOTE: This currently does not take into account the fact that we might be starting the node
     /// using CAR-backed storage with a snapshot, for implementation simplicity.
-    pub async fn gc_loop(&mut self, interval: Duration) -> anyhow::Result<()> {
+    pub async fn gc_loop(&mut self, interval: Duration) -> () {
         loop {
-            self.gc_workflow(interval).await?
+            match self.gc_workflow(interval).await {
+                Err(err) => error!("GC run error: {}", err),
+                _ => (),
+            }
         }
     }
 
@@ -172,7 +175,7 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
     async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
-        let current_epoch = tipset.epoch();
+        let mut current_epoch = tipset.epoch();
         // Don't run the GC if there aren't enough state-roots yet. Sleep and yield to the main loop
         // in order to refresh the heaviest tipset value.
         if depth > current_epoch {
@@ -184,6 +187,9 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
         if self.marked.is_empty() {
             // Make sure we don't run the GC too often.
             time::sleep(interval).await;
+
+            // Refresh `current_epoch` after sleeping.
+            current_epoch = (self.get_heaviest_tipset)().epoch();
 
             info!("populate keys for GC");
             self.populate()?;
