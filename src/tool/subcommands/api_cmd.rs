@@ -5,6 +5,7 @@ use crate::blocks::Tipset;
 use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
+use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
@@ -687,7 +688,7 @@ async fn compare_apis(
 }
 
 async fn start_server(
-    snapshot: Option<PathBuf>,
+    snapshot_path_opt: Option<PathBuf>,
     chain: NetworkChain,
     rpc_port: u16,
 ) -> anyhow::Result<()> {
@@ -695,9 +696,8 @@ async fn start_server(
     let db_path = tempfile::Builder::new().tempdir()?.path().join("car-db");
     let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
 
-    let snapshot_tmp_file = tempfile::NamedTempFile::new_in(db_path)?.into_temp_path();
-    let (snapshot_file, snapshot_path) = if let Some(ref file) = snapshot {
-        (File::open(file).await?, file.as_path())
+    let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
+        (File::open(&path).await?, path)
     } else {
         println!(
             "No snapshot provided, downloading latest snapshot for {}",
@@ -705,12 +705,12 @@ async fn start_server(
         );
         let snapshot_url =
             crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
-        download_to(&snapshot_url, &snapshot_tmp_file).await?;
+        let tmp_snapshot_path = tempfile::NamedTempFile::new()?
+            .into_temp_path()
+            .to_path_buf();
+        download_to(&snapshot_url, &tmp_snapshot_path).await?;
         println!("Snapshot downloaded !!!");
-        (
-            File::open(&snapshot_tmp_file).await?,
-            snapshot_tmp_file.as_ref(),
-        )
+        (File::open(&tmp_snapshot_path).await?, tmp_snapshot_path)
     };
 
     println!("Loading snapshot file at {}", snapshot_path.display());
@@ -733,7 +733,7 @@ async fn start_server(
         chain_config,
         sync_config,
     )?);
-    let ts = crate::db::car::ForestCar::try_from(snapshot_path)?.heaviest_tipset()?;
+    let ts = crate::db::car::ForestCar::try_from(snapshot_path.as_path())?.heaviest_tipset()?;
     state_manager
         .chain_store()
         .set_heaviest_tipset(Arc::new(ts))?;
@@ -765,7 +765,7 @@ async fn start_server(
         chain_store: chainstore.clone(),
         beacon,
     });
-
+    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     start_rpc(rpc_state, rpc_port).await?;
     Ok(())
 }
