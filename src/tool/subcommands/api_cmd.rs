@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
 use crate::chain_sync::SyncStage;
-use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
 use crate::db::car::ManyCar;
 use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
-use crate::genesis::read_genesis_header;
+use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
@@ -752,14 +752,14 @@ async fn start_server(
     let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
-    let chainstore = Arc::new(ChainStore::new(
+    let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         db,
         chain_config.clone(),
         genesis_header.clone(),
     )?);
     let state_manager = Arc::new(StateManager::new(
-        chainstore.clone(),
+        chain_store.clone(),
         chain_config,
         sync_config,
     )?);
@@ -771,12 +771,12 @@ async fn start_server(
     let beacon = Arc::new(
         state_manager
             .chain_config()
-            .get_beacon_schedule(chainstore.genesis().timestamp()),
+            .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
     );
     let (network_send, _) = flume::bounded(5);
-    let network_name = state_manager.get_network_name(genesis_header.state_root())?;
+    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
     let message_pool = MessagePool::new(
-        MpoolRpcProvider::new(chainstore.publisher().clone(), state_manager.clone()),
+        MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
         network_name.clone(),
         network_send.clone(),
         Default::default(),
@@ -792,7 +792,7 @@ async fn start_server(
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
-        chain_store: chainstore.clone(),
+        chain_store: chain_store.clone(),
         beacon,
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
@@ -848,6 +848,7 @@ where
                 chain_get_messages_in_tipset::<DB>,
             )
             .with_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_message::<DB>)
+            .with_method(CHAIN_NOTIFY, chain_notify::<DB>)
             .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
             .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
@@ -914,6 +915,7 @@ where
                 state_vm_circulating_supply_internal::<DB>,
             )
             .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
+            .with_method(MSIG_GET_PENDING, msig_get_pending::<DB>)
             // Gas API
             .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
