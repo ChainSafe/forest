@@ -3,17 +3,18 @@
 
 use std::{fmt::Display, str::FromStr};
 
+use cid::Cid;
+use fil_actors_shared::v10::runtime::Policy;
+use libp2p::Multiaddr;
+use serde::{Deserialize, Serialize};
+use strum_macros::Display;
+
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
 use crate::make_butterfly_policy;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
-use cid::Cid;
-use fil_actors_shared::v10::runtime::Policy;
-use libp2p::Multiaddr;
-use serde::{Deserialize, Serialize};
-use strum_macros::Display;
 
 mod actors_bundle;
 pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
