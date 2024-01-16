@@ -6,7 +6,7 @@ use prometheus_client::metrics::histogram::Histogram;
 
 pub static APPLY_BLOCKS_TIME: Lazy<Histogram> = Lazy::new(|| {
     let metric = crate::metrics::default_histogram();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "apply_blocks_time",
         "Duration of routine which applied blocks",
         metric.clone(),

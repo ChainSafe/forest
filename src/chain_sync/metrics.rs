@@ -12,7 +12,7 @@ use crate::metrics::TypeLabel;
 
 pub static TIPSET_PROCESSING_TIME: Lazy<Histogram> = Lazy::new(|| {
     let metric = crate::metrics::default_histogram();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "tipset_processing_time",
         "Duration of routine which processes Tipsets to include them in the store",
         metric.clone(),
@@ -21,7 +21,7 @@ pub static TIPSET_PROCESSING_TIME: Lazy<Histogram> = Lazy::new(|| {
 });
 pub static BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
     let metric = crate::metrics::default_histogram();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "block_validation_time",
         "Duration of routine which validate blocks with no cache hit",
         metric.clone(),
@@ -30,7 +30,7 @@ pub static BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
 });
 pub static BLOCK_VALIDATION_TASKS_TIME: Lazy<Family<TypeLabel, Histogram>> = Lazy::new(|| {
     let metric = Family::new_with_constructor(crate::metrics::default_histogram as _);
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "block_validation_tasks_time",
         "Duration of subroutines inside block validation",
         metric.clone(),
@@ -39,7 +39,7 @@ pub static BLOCK_VALIDATION_TASKS_TIME: Lazy<Family<TypeLabel, Histogram>> = Laz
 });
 pub static LIBP2P_MESSAGE_TOTAL: Lazy<Family<Libp2pMessageKindLabel, Counter>> = Lazy::new(|| {
     let metric = Family::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "libp2p_messsage_total",
         "Total number of libp2p messages by type",
         metric.clone(),
@@ -48,7 +48,7 @@ pub static LIBP2P_MESSAGE_TOTAL: Lazy<Family<Libp2pMessageKindLabel, Counter>> =
 });
 pub static INVALID_TIPSET_TOTAL: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "invalid_tipset_total",
         "Total number of invalid tipsets received over gossipsub",
         metric.clone(),
@@ -57,7 +57,7 @@ pub static INVALID_TIPSET_TOTAL: Lazy<Counter> = Lazy::new(|| {
 });
 pub static TIPSET_RANGE_SYNC_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "tipset_range_sync_failure_total",
         "Total number of errors produced by TipsetRangeSyncers",
         metric.clone(),
@@ -66,7 +66,7 @@ pub static TIPSET_RANGE_SYNC_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
 });
 pub static HEAD_EPOCH: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "head_epoch",
         "Latest epoch synchronized to the node",
         metric.clone(),
@@ -75,7 +75,7 @@ pub static HEAD_EPOCH: Lazy<Gauge> = Lazy::new(|| {
 });
 pub static LAST_VALIDATED_TIPSET_EPOCH: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "last_validated_tipset_epoch",
         "Last validated tipset epoch",
         metric.clone(),
@@ -84,7 +84,7 @@ pub static LAST_VALIDATED_TIPSET_EPOCH: Lazy<Gauge> = Lazy::new(|| {
 });
 pub static PEER_TIPSET_EPOCH: Lazy<Family<PeerLabel, Gauge>> = Lazy::new(|| {
     let metric = Family::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "peer_tipset_epoch",
         "peer tipset epoch",
         metric.clone(),
@@ -93,7 +93,7 @@ pub static PEER_TIPSET_EPOCH: Lazy<Family<PeerLabel, Gauge>> = Lazy::new(|| {
 });
 pub static NETWORK_HEAD_EVALUATION_ERRORS: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "network_head_evaluation_errors",
         "Total number of network head evaluation errors",
         metric.clone(),
@@ -102,7 +102,7 @@ pub static NETWORK_HEAD_EVALUATION_ERRORS: Lazy<Counter> = Lazy::new(|| {
 });
 pub static BOOTSTRAP_ERRORS: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "bootstrap_errors",
         "Total number of bootstrap attempts failures",
         metric.clone(),
@@ -111,7 +111,7 @@ pub static BOOTSTRAP_ERRORS: Lazy<Counter> = Lazy::new(|| {
 });
 pub static FOLLOW_NETWORK_INTERRUPTIONS: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "follow_network_interruptions",
         "Total number of follow network interruptions, where it unexpectedly ended",
         metric.clone(),
@@ -120,7 +120,7 @@ pub static FOLLOW_NETWORK_INTERRUPTIONS: Lazy<Counter> = Lazy::new(|| {
 });
 pub static FOLLOW_NETWORK_ERRORS: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "follow_network_errors",
         "Total number of follow network errors",
         metric.clone(),

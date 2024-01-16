@@ -57,7 +57,7 @@ pub(in crate::libp2p) mod metrics {
     pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Family<KindLabel, Gauge>> = {
         Lazy::new(|| {
             let metric = Family::default();
-            crate::metrics::DEFAULT_REGISTRY.write().register(
+            crate::metrics::default_registry().register(
                 "network_container_capacities",
                 "Capacity for each container",
                 metric.clone(),
@@ -284,7 +284,7 @@ where
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
-        let metrics = Metrics::new(&mut crate::metrics::DEFAULT_REGISTRY.write());
+        let metrics = Metrics::new(&mut crate::metrics::default_registry());
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {

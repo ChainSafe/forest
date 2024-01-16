@@ -8,7 +8,7 @@ use crate::metrics::TypeLabel;
 
 pub static CONSENSUS_BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
     let metric = crate::metrics::default_histogram();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "cns_block_validation_time",
         "Duration of routine which validate blocks in fil_cns",
         metric.clone(),
@@ -18,7 +18,7 @@ pub static CONSENSUS_BLOCK_VALIDATION_TIME: Lazy<Histogram> = Lazy::new(|| {
 pub static CONSENSUS_BLOCK_VALIDATION_TASKS_TIME: Lazy<Family<TypeLabel, Histogram>> =
     Lazy::new(|| {
         let metric = Family::new_with_constructor(crate::metrics::default_histogram as _);
-        crate::metrics::DEFAULT_REGISTRY.write().register(
+        crate::metrics::default_registry().register(
             "cns_block_validation_tasks_time",
             "Duration of subroutines inside cns block validation",
             metric.clone(),

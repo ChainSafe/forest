@@ -6,7 +6,7 @@ pub mod db;
 use crate::db::DBStatistics;
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Router};
 use once_cell::sync::Lazy;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 use prometheus_client::{
     encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, histogram::Histogram},
@@ -16,8 +16,12 @@ use std::{path::PathBuf, time::Instant};
 use tokio::net::TcpListener;
 use tracing::warn;
 
-pub static DEFAULT_REGISTRY: Lazy<RwLock<prometheus_client::registry::Registry>> =
+static DEFAULT_REGISTRY: Lazy<RwLock<prometheus_client::registry::Registry>> =
     Lazy::new(Default::default);
+
+pub fn default_registry<'a>() -> RwLockWriteGuard<'a, prometheus_client::registry::Registry> {
+    DEFAULT_REGISTRY.write()
+}
 
 pub static LRU_CACHE_HIT: Lazy<Family<KindLabel, Counter>> = Lazy::new(|| {
     let metric = Family::default();
@@ -43,9 +47,9 @@ where
     DB: DBStatistics + Send + Sync + 'static,
 {
     // Add the process collector to the registry
-    if let Err(err) = kubert_prometheus_process::register(
-        DEFAULT_REGISTRY.write().sub_registry_with_prefix("process"),
-    ) {
+    if let Err(err) =
+        kubert_prometheus_process::register(default_registry().sub_registry_with_prefix("process"))
+    {
         warn!("Failed to register process metrics: {err}");
     }
 

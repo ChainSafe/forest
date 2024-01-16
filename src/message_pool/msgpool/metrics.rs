@@ -6,7 +6,7 @@ use prometheus_client::metrics::gauge::Gauge;
 
 pub static MPOOL_MESSAGE_TOTAL: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "mpool_message_total",
         "Total number of messages in the message pool",
         metric.clone(),

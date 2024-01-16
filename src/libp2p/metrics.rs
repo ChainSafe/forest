@@ -6,7 +6,7 @@ use prometheus_client::metrics::{counter::Counter, gauge::Gauge};
 
 pub static PEER_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
     let metric = Counter::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "peer_failure_total",
         "Total number of failed peer requests",
         metric.clone(),
@@ -16,7 +16,7 @@ pub static PEER_FAILURE_TOTAL: Lazy<Counter> = Lazy::new(|| {
 
 pub static FULL_PEERS: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "full_peers",
         "Number of healthy peers recognized by the node",
         metric.clone(),
@@ -26,7 +26,7 @@ pub static FULL_PEERS: Lazy<Gauge> = Lazy::new(|| {
 
 pub static BAD_PEERS: Lazy<Gauge> = Lazy::new(|| {
     let metric = Gauge::default();
-    crate::metrics::DEFAULT_REGISTRY.write().register(
+    crate::metrics::default_registry().register(
         "bad_peers",
         "Number of bad peers recognized by the node",
         metric.clone(),
