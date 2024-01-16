@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod bundle;
-mod db_util;
+pub mod db_util;
 pub mod main;
 
 use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
