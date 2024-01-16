@@ -311,7 +311,7 @@ pub(in crate::rpc) async fn chain_set_head<DB: Blockstore>(
                 .chain_store()
                 .unmark_block_as_validated(&cid);
         }
-        let parents = &current.block_headers()[0].parents;
+        let parents = &current.block_headers().first().parents;
         current = data
             .state_manager
             .chain_store()
@@ -328,16 +328,16 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     Params((basefee_lookback,)): Params<(u32,)>,
 ) -> Result<String, JsonRpcError> {
     let mut current = data.state_manager.chain_store().heaviest_tipset();
-    let mut min_base_fee = current.block_headers()[0].parent_base_fee.clone();
+    let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
 
     for _ in 0..basefee_lookback {
-        let parents = &current.block_headers()[0].parents;
+        let parents = &current.block_headers().first().parents;
         current = data
             .state_manager
             .chain_store()
             .load_required_tipset(parents)?;
 
-        min_base_fee = min_base_fee.min(current.block_headers()[0].parent_base_fee.to_owned());
+        min_base_fee = min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
     }
 
     Ok(min_base_fee.atto().to_string())
