@@ -27,11 +27,13 @@ impl From<SignatureOnG1> for G1Affine {
 }
 
 fn g1_from_slice(raw: &[u8]) -> Result<G1Affine, Error> {
-    if raw.len() != G1Affine::compressed_size() {
+    const SIZE: usize = G1Affine::compressed_size();
+
+    if raw.len() != SIZE {
         return Err(Error::SizeMismatch);
     }
 
-    let mut res = [0u8; G1Affine::compressed_size()];
+    let mut res = [0u8; SIZE];
     res.copy_from_slice(raw);
 
     Option::from(G1Affine::from_compressed(&res)).ok_or(Error::GroupDecode)

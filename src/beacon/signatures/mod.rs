@@ -22,21 +22,19 @@ pub struct PublicKeyOnG2(pub(crate) G2Projective);
 pub struct SignatureOnG1(pub(crate) G1Affine);
 
 /// Ported from <https://docs.rs/bls-signatures/0.15.0/src/bls_signatures/signature.rs.html#214>
-pub fn verify_messages_quicknet(
+pub fn verify_messages_unchained(
     public_key: &PublicKeyOnG2,
     messages: &[&[u8]],
     signatures: &[&SignatureOnG1],
 ) -> bool {
     use blst::BLST_ERROR;
 
-    if messages.is_empty() || signatures.is_empty() {
-        return false;
-    }
-
     let n_messages = messages.len();
-
     if n_messages != signatures.len() {
         return false;
+    }
+    if n_messages == 0 {
+        return true;
     }
 
     let public_key: G2Affine = public_key.as_affine();
@@ -77,21 +75,19 @@ pub fn verify_messages_quicknet(
 }
 
 /// Ported from <https://docs.rs/bls-signatures/0.15.0/src/bls_signatures/signature.rs.html#214>
-pub fn verify_messages_mainnet(
+pub fn verify_messages_chained(
     public_key: &PublicKeyOnG1,
     messages: &[&[u8]],
     signatures: &[SignatureOnG2],
 ) -> bool {
     use blst::BLST_ERROR;
 
-    if messages.is_empty() || signatures.is_empty() {
-        return false;
-    }
-
     let n_messages = messages.len();
-
     if n_messages != signatures.len() {
         return false;
+    }
+    if n_messages == 0 {
+        return true;
     }
 
     let public_key: G1Affine = public_key.as_affine();

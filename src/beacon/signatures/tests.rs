@@ -75,7 +75,7 @@ mod mainnet {
 
     #[test]
     fn test_verify_messages_mainnet_single_success() {
-        assert!(verify_messages_mainnet(
+        assert!(verify_messages_chained(
             &pk(),
             &[message(&signature_2(), 3).as_ref()],
             &[signature_3()],
@@ -84,7 +84,7 @@ mod mainnet {
 
     #[test]
     fn test_verify_messages_mainnet_single_failure() {
-        assert!(!verify_messages_mainnet(
+        assert!(!verify_messages_chained(
             &pk(),
             &[message(&signature_2(), 2).as_ref()],
             &[signature_3()],
@@ -95,7 +95,7 @@ mod mainnet {
     fn test_verify_messages_mainnet_batch_success() {
         let messages = vec![message(&signature_2(), 3), message(&signature_3(), 4)];
         let signatures = vec![signature_3(), signature_4()];
-        assert!(verify_messages_mainnet(
+        assert!(verify_messages_chained(
             &pk(),
             &messages.iter().map(AsRef::as_ref).collect_vec(),
             &signatures,
@@ -106,7 +106,7 @@ mod mainnet {
     fn test_verify_messages_mainnet_batch_failure() {
         let messages = vec![message(&signature_2(), 3), message(&signature_3(), 3)];
         let signatures = vec![signature_3(), signature_4()];
-        assert!(!verify_messages_mainnet(
+        assert!(!verify_messages_chained(
             &pk(),
             &messages.iter().map(AsRef::as_ref).collect_vec(),
             &signatures,

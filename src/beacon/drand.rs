@@ -1,25 +1,25 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Cow;
 use std::time::Duration;
+use std::{borrow::Cow, num::NonZeroUsize};
 
 use super::{
     beacon_entries::BeaconEntry,
     signatures::{
-        verify_messages_mainnet, verify_messages_quicknet, PublicKeyOnG1, PublicKeyOnG2,
+        verify_messages_chained, verify_messages_unchained, PublicKeyOnG1, PublicKeyOnG2,
         SignatureOnG1, SignatureOnG2,
     },
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
-use ahash::HashMap;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use bls_signatures::Serialize as _;
 use byteorder::{BigEndian, ByteOrder};
 use itertools::Itertools;
+use lru::LruCache;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
@@ -215,14 +215,15 @@ pub struct DrandBeacon {
     fil_gen_time: u64,
     fil_round_time: u64,
 
-    /// Keeps track of computed beacon entries.
-    local_cache: RwLock<HashMap<u64, BeaconEntry>>,
+    /// Keeps track of verified beacon entries.
+    verified_beacons: RwLock<LruCache<u64, BeaconEntry>>,
 }
 
 impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
+        const CACHE_SIZE: usize = 1000;
         Self {
             server: config.server,
             hash: config.chain_info.hash.to_string(),
@@ -233,7 +234,9 @@ impl DrandBeacon {
             drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            local_cache: Default::default(),
+            verified_beacons: RwLock::new(LruCache::new(
+                NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
+            )),
         }
     }
 }
@@ -245,22 +248,31 @@ impl Beacon for DrandBeacon {
         entries: &'a [BeaconEntry],
         mut prev: &'a BeaconEntry,
     ) -> Result<bool, anyhow::Error> {
-        if self.network.is_unchained() {
+        let mut validated = vec![];
+        let is_valid = if self.network.is_unchained() {
             let mut messages = vec![];
             let mut signatures = vec![];
             let pk = PublicKeyOnG2::from_bytes(&self.public_key)?;
-            for entry in entries.iter() {
-                // Hash the messages (H(curr_round))
-                let message = {
-                    let mut round_bytes = [0; std::mem::size_of::<u64>()];
-                    BigEndian::write_u64(&mut round_bytes, entry.round());
-                    sha2::Sha256::digest(round_bytes)
-                };
-                messages.push(message);
-                signatures.push(SignatureOnG1::from_bytes(entry.signature())?);
+            {
+                let cache = self.verified_beacons.read();
+                for entry in entries.iter() {
+                    if cache.contains(&entry.round()) {
+                        continue;
+                    }
+
+                    // Hash the messages (H(curr_round))
+                    let message = {
+                        let mut round_bytes = [0; std::mem::size_of::<u64>()];
+                        BigEndian::write_u64(&mut round_bytes, entry.round());
+                        sha2::Sha256::digest(round_bytes)
+                    };
+                    messages.push(message);
+                    signatures.push(SignatureOnG1::from_bytes(entry.signature())?);
+                    validated.push(entry);
+                }
             }
 
-            Ok(verify_messages_quicknet(
+            verify_messages_unchained(
                 &pk,
                 messages
                     .iter()
@@ -268,31 +280,39 @@ impl Beacon for DrandBeacon {
                     .collect_vec()
                     .as_slice(),
                 signatures.iter().collect_vec().as_slice(),
-            ))
+            )
         } else {
             let mut messages = vec![];
             let mut signatures = vec![];
 
             let pk = PublicKeyOnG1::from_bytes(&self.public_key)?;
-            for curr in entries.iter() {
-                if prev.round() > 0 {
-                    // Hash the messages (H(prev sig | curr_round))
-                    let message = {
-                        let mut round_bytes = [0; std::mem::size_of::<u64>()];
-                        BigEndian::write_u64(&mut round_bytes, curr.round());
-                        let mut hasher = sha2::Sha256::default();
-                        hasher.update(prev.signature());
-                        hasher.update(round_bytes);
-                        hasher.finalize()
-                    };
-                    messages.push(message);
-                    signatures.push(SignatureOnG2::from_bytes(curr.signature())?);
-                }
+            {
+                let cache = self.verified_beacons.read();
+                for curr in entries.iter() {
+                    if prev.round() > 0 {
+                        if cache.contains(&curr.round()) {
+                            continue;
+                        }
 
-                prev = curr;
+                        // Hash the messages (H(prev sig | curr_round))
+                        let message = {
+                            let mut round_bytes = [0; std::mem::size_of::<u64>()];
+                            BigEndian::write_u64(&mut round_bytes, curr.round());
+                            let mut hasher = sha2::Sha256::default();
+                            hasher.update(prev.signature());
+                            hasher.update(round_bytes);
+                            hasher.finalize()
+                        };
+                        messages.push(message);
+                        signatures.push(SignatureOnG2::from_bytes(curr.signature())?);
+                        validated.push(curr);
+                    }
+
+                    prev = curr;
+                }
             }
 
-            Ok(verify_messages_mainnet(
+            verify_messages_chained(
                 &pk,
                 messages
                     .iter()
@@ -300,12 +320,21 @@ impl Beacon for DrandBeacon {
                     .collect_vec()
                     .as_slice(),
                 &signatures,
-            ))
+            )
+        };
+
+        if is_valid && !validated.is_empty() {
+            let mut cache = self.verified_beacons.write();
+            for entry in validated {
+                cache.put(entry.round(), entry.clone());
+            }
         }
+
+        Ok(is_valid)
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached: Option<BeaconEntry> = self.local_cache.read().get(&round).cloned();
+        let cached: Option<BeaconEntry> = self.verified_beacons.read().peek(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {

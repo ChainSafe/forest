@@ -9,19 +9,21 @@ impl PublicKeyOnG2 {
     }
 
     pub fn verify(&self, message: impl AsRef<[u8]>, signature: &SignatureOnG1) -> bool {
-        verify_messages_quicknet(self, &[message.as_ref()], &[&signature])
+        verify_messages_unchained(self, &[message.as_ref()], &[&signature])
     }
 
     pub fn verify_batch(&self, messages: &[&[u8]], signatures: &[&SignatureOnG1]) -> bool {
-        verify_messages_quicknet(self, messages, signatures)
+        verify_messages_unchained(self, messages, signatures)
     }
 
     pub fn from_bytes(raw: &[u8]) -> Result<Self, Error> {
-        if raw.len() != G2Affine::compressed_size() {
+        const SIZE: usize = G2Affine::compressed_size();
+
+        if raw.len() != SIZE {
             return Err(Error::SizeMismatch);
         }
 
-        let mut res = [0u8; G2Affine::compressed_size()];
+        let mut res = [0u8; SIZE];
         res.as_mut().copy_from_slice(raw);
         let affine: G2Affine =
             Option::from(G2Affine::from_compressed(&res)).ok_or(Error::GroupDecode)?;
