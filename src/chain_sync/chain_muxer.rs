@@ -8,7 +8,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::blocks::{Block, Error as ForestBlockError, FullTipset, GossipBlock, Tipset, TipsetKey};
+use crate::blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey};
 use crate::chain::{ChainStore, Error as ChainStoreError};
 use crate::libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
@@ -69,7 +69,7 @@ pub enum ChainMuxerError {
     #[error("Bitswap: {0}")]
     Bitswap(String),
     #[error("Block error: {0}")]
-    Block(#[from] ForestBlockError),
+    Block(#[from] CreateTipsetError),
     #[error("Following network unexpectedly failed: {0}")]
     NetworkFollowingFailure(String),
 }
@@ -413,7 +413,7 @@ where
                     network.clone(),
                     chain_store.clone(),
                     peer_id,
-                    *genesis.block_headers()[0].cid(),
+                    *genesis.block_headers().first().cid(),
                 ));
                 return Ok(None);
             }

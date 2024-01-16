@@ -125,7 +125,7 @@ where
             beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
 
         for _ in 0..20 {
-            let cbe = &rand_ts.block_headers()[0].beacon_entries;
+            let cbe = &rand_ts.block_headers().first().beacon_entries;
             for v in cbe {
                 if v.round() == round {
                     return Ok(v.clone());

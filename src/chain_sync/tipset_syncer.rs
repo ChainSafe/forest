@@ -35,6 +35,7 @@ use futures::stream::TryStreamExt as _;
 use futures::{stream, stream::FuturesUnordered, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
+use itertools::Itertools;
 use nonempty::{nonempty, NonEmpty};
 use thiserror::Error;
 use tokio::task::JoinSet;
@@ -756,7 +757,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         .iter()
         .flat_map(|t| t.block_headers())
         .collect();
-    if let Err(why) = persist_objects(chain_store.blockstore(), &headers) {
+    if let Err(why) = persist_objects(chain_store.blockstore(), headers.iter()) {
         tracker.write().error(why.to_string());
         return Err(why.into());
     };
@@ -929,8 +930,10 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     genesis: Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
     // Persist the blocks from the proposed tipsets into the store
-    let headers: Vec<&CachingBlockHeader> = proposed_head.block_headers().iter().collect();
-    persist_objects(chain_store.blockstore(), &headers)?;
+    persist_objects(
+        chain_store.blockstore(),
+        proposed_head.block_headers().iter(),
+    )?;
 
     // Sync and validate messages from the tipsets
     if let Err(e) = sync_messages_check_state(
@@ -1001,9 +1004,8 @@ async fn fetch_batch<DB: Blockstore>(
             .rev()
             .zip(batch.iter())
             .map(|(messages, tipset)| {
-                // Construct full tipset from fetched messages
                 let bundle = TipsetBundle {
-                    blocks: tipset.block_headers().to_vec(),
+                    blocks: tipset.block_headers().iter().cloned().collect_vec(),
                     messages: Some(messages),
                 };
 
@@ -1012,8 +1014,8 @@ async fn fetch_batch<DB: Blockstore>(
 
                 // Persist the messages in the store
                 if let Some(m) = bundle.messages {
-                    crate::chain::persist_objects(db, &m.bls_msgs)?;
-                    crate::chain::persist_objects(db, &m.secp_msgs)?;
+                    crate::chain::persist_objects(db, m.bls_msgs.iter())?;
+                    crate::chain::persist_objects(db, m.secp_msgs.iter())?;
                 } else {
                     warn!("ChainExchange request for messages returned null messages");
                 }

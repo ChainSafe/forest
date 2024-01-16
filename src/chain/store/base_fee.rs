@@ -87,7 +87,7 @@ where
     }
 
     // Compute next base fee based on the current gas limit and parent base fee.
-    let parent_base_fee = &ts.block_headers()[0].parent_base_fee;
+    let parent_base_fee = &ts.block_headers().first().parent_base_fee;
     Ok(compute_next_base_fee(
         parent_base_fee,
         total_limit,
