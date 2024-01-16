@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::TipsetKeys;
+use crate::blocks::TipsetKey;
 use crate::cid_collections::FrozenCidVec;
 use ::cid::Cid;
 
-impl HasLotusJson for TipsetKeys {
+impl HasLotusJson for TipsetKey {
     type LotusJson = LotusJson<Vec<Cid>>;
 
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!([{"/": "baeaaaaa"}]),
-            TipsetKeys {
+            TipsetKey {
                 cids: FrozenCidVec::from_iter([::cid::Cid::default()]),
             },
         )]

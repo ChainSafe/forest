@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::blocks::TipsetKeys;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
 use crate::chain_sync::SyncStage;
+use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
@@ -95,6 +95,9 @@ pub enum ApiCommands {
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
+        /// API calls are handled over WebSocket connections.
+        #[arg(long = "ws")]
+        use_websocket: bool,
     },
 }
 
@@ -106,6 +109,7 @@ struct ApiTestFlags {
     n_tipsets: usize,
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
+    use_websocket: bool,
 }
 
 impl ApiCommands {
@@ -125,6 +129,7 @@ impl ApiCommands {
                 n_tipsets,
                 run_ignored,
                 max_concurrent_requests,
+                use_websocket,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -132,6 +137,7 @@ impl ApiCommands {
                     n_tipsets,
                     run_ignored,
                     max_concurrent_requests,
+                    use_websocket,
                 };
 
                 compare_apis(forest, lotus, snapshot_files, config).await?
@@ -254,9 +260,19 @@ impl RpcTest {
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
+        use_websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
-        let forest_resp = forest_api.call(self.request.clone()).await;
-        let lotus_resp = lotus_api.call(self.request.clone()).await;
+        let (forest_resp, lotus_resp) = if use_websocket {
+            (
+                forest_api.ws_call(self.request.clone()).await,
+                lotus_api.ws_call(self.request.clone()).await,
+            )
+        } else {
+            (
+                forest_api.call(self.request.clone()).await,
+                lotus_api.call(self.request.clone()).await,
+            )
+        };
 
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
@@ -332,7 +348,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
-            TipsetKeys::default(),
+            TipsetKey::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
@@ -389,14 +405,14 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            TipsetKeys::from_iter(Vec::new()),
+            TipsetKey::from_iter(Vec::new()),
         )),
         RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::state_lookup_id_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             shared_tipset.key().clone(),
         )),
         // This should return `Address::new_id(0xdeadbeef)`
@@ -409,11 +425,15 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
-            *shared_block.miner_address(),
+            shared_block.miner_address,
             101,
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
+            Address::new_id(18101), // msig address id
+            shared_tipset.key().clone(),
+        )),
+        RpcTest::identity(ApiInfo::msig_get_pending_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().clone(),
         )),
@@ -496,7 +516,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
         ));
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(
                 *block.cid(),
             )));
@@ -507,7 +527,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 *block.cid(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-                *block.miner_address(),
+                block.miner_address,
                 root_tsk.clone(),
             )));
 
@@ -581,38 +601,38 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(
                 ApiInfo::state_miner_proving_deadline_req(
-                    *block.miner_address(),
+                    block.miner_address,
                     tipset.key().clone(),
                 ),
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
-                *block.miner_address(),
-                block.epoch(),
+                block.miner_address,
+                block.epoch,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
-                *block.miner_address(),
+                block.miner_address,
                 tipset.key().clone(),
             )));
         }
@@ -623,7 +643,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().clone()),
         ));
 
-        for block in tipset.blocks() {
+        for block in tipset.block_headers() {
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
@@ -640,6 +660,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
         }
     }
     Ok(tests)
+}
+
+fn websocket_tests() -> Vec<RpcTest> {
+    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
+    vec![test]
 }
 
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
@@ -659,6 +684,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
 /// | Filecoin.ChainGetMessage (67)     | InternalServerError | Valid         |
 /// ```
 /// The number after a method name indicates how many times an RPC call was tested.
+#[allow(clippy::too_many_arguments)]
 async fn compare_apis(
     forest: ApiInfo,
     lotus: ApiInfo,
@@ -680,6 +706,10 @@ async fn compare_apis(
     if !snapshot_files.is_empty() {
         let store = ManyCar::try_from(snapshot_files)?;
         tests.extend(snapshot_tests(&store, config.n_tipsets)?);
+    }
+
+    if config.use_websocket {
+        tests.extend(websocket_tests());
     }
 
     tests.sort_by_key(|test| test.request.method_name);
@@ -944,8 +974,9 @@ async fn run_tests(
 
         // Acquire a permit from the semaphore before spawning a test
         let permit = semaphore.clone().acquire_owned().await?;
+        let use_websocket = config.use_websocket;
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
             drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });

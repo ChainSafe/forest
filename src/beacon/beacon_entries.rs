@@ -9,7 +9,9 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 /// round of randomness.
 /// This beacon entry is stored on chain in the block header.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple)]
+#[derive(
+    Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple, Hash, Ord, PartialOrd,
+)]
 pub struct BeaconEntry {
     round: u64,
     #[serde(with = "serde_byte_array")]
