@@ -289,11 +289,7 @@ impl Beacon for DrandBeacon {
             {
                 let cache = self.verified_beacons.read();
                 for curr in entries.iter() {
-                    if prev.round() > 0 {
-                        if cache.contains(&curr.round()) {
-                            continue;
-                        }
-
+                    if prev.round() > 0 && !cache.contains(&curr.round()) {
                         // Hash the messages (H(prev sig | curr_round))
                         let message = {
                             let mut round_bytes = [0; std::mem::size_of::<u64>()];
