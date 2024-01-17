@@ -453,15 +453,4 @@ mod tests {
             "forest_snapshot_calibnet_2023-09-14_height_911888.forest.car.zst"
         );
     }
-
-    #[test]
-    fn content_disposition_filops() {
-        assert_eq!(
-            parse_content_disposition(&HeaderValue::from_static(
-                "attachment; filename=\"911520_2023_09_14T06_13_00Z.car.zst\""
-            ))
-            .unwrap(),
-            "911520_2023_09_14T06_13_00Z.car.zst"
-        );
-    }
 }
