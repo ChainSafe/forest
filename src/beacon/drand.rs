@@ -294,7 +294,7 @@ impl Beacon for DrandBeacon {
 
         if is_valid && !validated.is_empty() {
             let mut cache = self.verified_beacons.write();
-            assert!(cache.cap().get() < validated.len());
+            assert!(cache.cap().get() >= validated.len());
             for entry in validated {
                 cache.put(entry.round(), entry.clone());
             }
