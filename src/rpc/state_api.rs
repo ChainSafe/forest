@@ -729,7 +729,7 @@ pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(avail_balance))
 }
 
-pub(in crate::rpc) async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
+pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
 ) -> Result<LotusJson<Vec<Transaction>>, JsonRpcError> {
