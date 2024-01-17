@@ -52,7 +52,6 @@ dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 ethereum-types = "0.14.1"
-# TODO: Point at a release before merging.
 fil_actor_account_state = { version = "9.4.0" }
 fil_actor_cron_state = { version = "9.4.0" }
 fil_actor_datacap_state = { version = "9.4.0" }
