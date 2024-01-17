@@ -784,7 +784,7 @@ pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send +
 ) -> Result<LotusJson<Option<BigInt>>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
     let status = data.state_manager.verified_client_status(&addr, &ts)?;
-    Ok(status.map(|status| status.into()).into())
+    Ok(status.into())
 }
 
 pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
