@@ -312,7 +312,7 @@ where
                 }
 
                 trace!(
-                    "CHAIN_NOTIFY notify task created (sub_id={:?},conn_id={:?})",
+                    "CHAIN_NOTIFY notify task ended (sub_id={:?},conn_id={:?})",
                     sink.subscription_id(),
                     sink.connection_id()
                 );
