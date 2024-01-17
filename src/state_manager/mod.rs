@@ -1324,6 +1324,7 @@ where
 
         // This is a copy of Lotus code, we need to treat all the actors below version 9
         // differently. Which maps to network below version 17.
+        // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
             let act = self
                 .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
