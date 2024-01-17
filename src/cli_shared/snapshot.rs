@@ -36,7 +36,6 @@ use crate::cli_shared::snapshot::parse::ParsedFilename;
 pub enum TrustedVendor {
     #[default]
     Forest,
-    Filops,
 }
 
 /// Create a filename in the "full" format. See [`parse`].
@@ -161,22 +160,13 @@ define_urls!(
     const FOREST_MAINNET_COMPRESSED: &str = "https://forest-archive.chainsafe.dev/latest/mainnet/";
     const FOREST_CALIBNET_COMPRESSED: &str =
         "https://forest-archive.chainsafe.dev/latest/calibnet/";
-    const FILOPS_MAINNET_COMPRESSED: &str =
-        "https://snapshots.mainnet.filops.net/minimal/latest.zst";
-    const FILOPS_CALIBNET_COMPRESSED: &str =
-        "https://snapshots.calibrationnet.filops.net/minimal/latest.zst";
 );
 
 pub fn stable_url(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<Url> {
     let s = match (vendor, chain) {
         (TrustedVendor::Forest, NetworkChain::Mainnet) => FOREST_MAINNET_COMPRESSED,
         (TrustedVendor::Forest, NetworkChain::Calibnet) => FOREST_CALIBNET_COMPRESSED,
-        (TrustedVendor::Filops, NetworkChain::Mainnet) => FILOPS_MAINNET_COMPRESSED,
-        (TrustedVendor::Filops, NetworkChain::Calibnet) => FILOPS_CALIBNET_COMPRESSED,
-        (
-            TrustedVendor::Forest | TrustedVendor::Filops,
-            NetworkChain::Butterflynet | NetworkChain::Devnet(_),
-        ) => {
+        (TrustedVendor::Forest, NetworkChain::Butterflynet | NetworkChain::Devnet(_)) => {
             bail!("unsupported chain {chain}")
         }
     };
