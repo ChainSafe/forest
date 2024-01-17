@@ -16,12 +16,10 @@ use crate::utils::net::global_http_client;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use bls_signatures::Serialize as _;
-use byteorder::{BigEndian, ByteOrder};
 use itertools::Itertools;
 use lru::LruCache;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use sha2::Digest;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
@@ -259,24 +257,14 @@ impl Beacon for DrandBeacon {
                         continue;
                     }
 
-                    // Hash the messages (H(curr_round))
-                    let message = {
-                        let mut round_bytes = [0; std::mem::size_of::<u64>()];
-                        BigEndian::write_u64(&mut round_bytes, entry.round());
-                        sha2::Sha256::digest(round_bytes)
-                    };
-                    messages.push(message);
+                    messages.push(BeaconEntry::message_unchained(entry.round()));
                     signatures.push(SignatureOnG1::from_bytes(entry.signature())?);
                     validated.push(entry);
                 }
             }
 
             pk.verify_batch(
-                messages
-                    .iter()
-                    .map(|a| a.as_slice())
-                    .collect_vec()
-                    .as_slice(),
+                messages.iter().map(AsRef::as_ref).collect_vec().as_slice(),
                 signatures.iter().collect_vec().as_slice(),
             )
         } else {
@@ -288,16 +276,7 @@ impl Beacon for DrandBeacon {
                 let cache = self.verified_beacons.read();
                 for curr in entries.iter() {
                     if prev.round() > 0 && !cache.contains(&curr.round()) {
-                        // Hash the messages (H(prev sig | curr_round))
-                        let message = {
-                            let mut round_bytes = [0; std::mem::size_of::<u64>()];
-                            BigEndian::write_u64(&mut round_bytes, curr.round());
-                            let mut hasher = sha2::Sha256::default();
-                            hasher.update(prev.signature());
-                            hasher.update(round_bytes);
-                            hasher.finalize()
-                        };
-                        messages.push(message);
+                        messages.push(BeaconEntry::message_chained(curr.round(), prev.signature()));
                         signatures.push(SignatureOnG2::from_bytes(curr.signature())?);
                         validated.push(curr);
                     }
@@ -308,11 +287,7 @@ impl Beacon for DrandBeacon {
 
             verify_messages_chained(
                 &pk,
-                messages
-                    .iter()
-                    .map(|a| a.as_slice())
-                    .collect_vec()
-                    .as_slice(),
+                messages.iter().map(AsRef::as_ref).collect_vec().as_slice(),
                 &signatures,
             )
         };

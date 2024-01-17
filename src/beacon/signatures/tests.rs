@@ -1,8 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use byteorder::{BigEndian, ByteOrder};
-use digest::Digest;
+use crate::beacon::BeaconEntry;
+use bls_signatures::Serialize as _;
 use itertools::Itertools;
 
 use super::*;
@@ -51,9 +51,7 @@ mod quicknet {
     }
 
     fn message(round: u64) -> impl AsRef<[u8]> {
-        let mut round_bytes = [0; std::mem::size_of::<u64>()];
-        BigEndian::write_u64(&mut round_bytes, round);
-        sha2::Sha256::digest(round_bytes)
+        BeaconEntry::message_unchained(round)
     }
 
     // https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/2
@@ -71,7 +69,6 @@ mod quicknet {
 
 mod mainnet {
     use super::*;
-    use bls_signatures::Serialize as _;
 
     #[test]
     fn test_verify_messages_mainnet_single_success() {
@@ -120,12 +117,7 @@ mod mainnet {
     }
 
     fn message(prev_signature: &SignatureOnG2, round: u64) -> impl AsRef<[u8]> {
-        let mut round_bytes = [0; std::mem::size_of::<u64>()];
-        BigEndian::write_u64(&mut round_bytes, round);
-        let mut hasher = sha2::Sha256::default();
-        hasher.update(prev_signature.as_bytes());
-        hasher.update(round_bytes);
-        hasher.finalize()
+        BeaconEntry::message_chained(round, prev_signature.as_bytes())
     }
 
     // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/public/2
