@@ -260,6 +260,7 @@ where
         CHAIN_NOTIFY,
         WS_NOTIF_METHOD_NAME,
         WS_CANCEL_METHOD_NAME,
+        true, // to use Filecoin pubsub
         |params, pending, state| {
             // Handle parsing of the method params.
             let result = match params.parse::<Vec<usize>>() {
@@ -283,8 +284,9 @@ where
                 let sink = pending.accept().await.unwrap();
 
                 trace!(
-                    "CHAIN_NOTIFY notify task created (channel {:?})",
-                    sink.subscription_id()
+                    "CHAIN_NOTIFY notify task created (sub_id={:?},conn_id={:?})",
+                    sink.subscription_id(),
+                    sink.connection_id()
                 );
 
                 let mut head_change = chain_api::chain_notify(state).await.unwrap();
@@ -310,8 +312,9 @@ where
                 }
 
                 trace!(
-                    "CHAIN_NOTIFY notify task ended (channel {:?})",
-                    sink.subscription_id()
+                    "CHAIN_NOTIFY notify task created (sub_id={:?},conn_id={:?})",
+                    sink.subscription_id(),
+                    sink.connection_id()
                 );
             });
         },
