@@ -735,9 +735,7 @@ async fn start_server(
         );
         let snapshot_url =
             crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
-        let tmp_snapshot_path = tempfile::NamedTempFile::new()?
-            .into_temp_path()
-            .to_path_buf();
+        let tmp_snapshot_path = tempfile::Builder::new().tempdir()?.into_path();
         download_to(&snapshot_url, &tmp_snapshot_path).await?;
         println!("Snapshot downloaded !!!");
         (File::open(&tmp_snapshot_path).await?, tmp_snapshot_path)
