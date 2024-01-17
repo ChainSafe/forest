@@ -1,7 +1,6 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async, clippy::dbg_macro // TODO(aatifsyed): fixup
-)]
+#![allow(clippy::unused_async)]
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
@@ -23,7 +22,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
-use itertools::{Either, EitherOrBoth, Itertools, PeekingNext};
+use itertools::{EitherOrBoth, Itertools as _, PeekingNext};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
@@ -284,34 +283,31 @@ fn impl_chain_get_path(
     to: &TipsetKey,
 ) -> anyhow::Result<Vec<PathChange>> {
     /// Climb the chain from `origin` to genesis, using `identifier` for error messages.
-    fn lineage<'a>(
-        origin: &TipsetKey,
+    fn with_lineage<'a>(
         store: &'a ChainStore<impl Blockstore>,
+        origin: &TipsetKey,
         identifier: &'a str,
     ) -> impl Iterator<Item = anyhow::Result<Arc<Tipset>>> + 'a {
         let origin = store
             .load_required_tipset(origin)
             .with_context(|| format!("origin `{identifier}` is not in the blockstore"));
 
-        iter::once(origin)
-            .map_ok(move /* store */ |origin| {
-                iter::successors(Some(Ok(origin)), move /* identifier */ |child| {
-                    let child = child.as_ref().ok()?; // fuse on error
-                    match child.epoch() == 0 {
-                        true => None, // reached genesis
-                        false => Some(store.load_required_tipset(child.parents()).with_context(
-                            || format!("parent of origin `{identifier}` is not in the blockstore"),
-                        )),
-                    }
-                })
-            })
-            .flat_map(|it| match it {
-                Ok(more) => Either::Left(more),
-                Err(err) => Either::Right(iter::once(Err(err))),
-            })
+        iter::successors(Some(origin), move |prev| {
+            match prev {
+                Ok(it) => match it.epoch() == 0 {
+                    true => None, // reached genesis
+                    false => Some(store.load_required_tipset(it.parents()).with_context(|| {
+                        format!("ancestor of origin `{identifier}` is not in the blockstore")
+                    })),
+                },
+                Err(_) => None, // fuse on error
+            }
+        })
     }
 
-    /// Assumes epochs decrement by one in `iter`
+    /// after calling this, `iter` will start from `height`.
+    ///
+    /// Assumes epochs decrement by one in `iter`.
     fn scroll_to_height(
         mut iter: impl PeekingNext<Item = anyhow::Result<Arc<Tipset>>>,
         height: i64,
@@ -324,22 +320,22 @@ fn impl_chain_get_path(
         .collect()
     }
 
-    // Itertools::peeking_take_while(&mut self, accept)
-
-    fn peek_epoch(
-        lineage: &mut iter::Peekable<impl Iterator<Item = Result<Arc<Tipset>, anyhow::Error>>>,
-    ) -> anyhow::Result<i64> {
-        lineage
-            .peek_mut()
-            // fine to unwrap because `lineage` must at least return one item (which may be an error)
-            .unwrap()
-            .as_mut()
-            .map(|it| it.epoch())
-            // hack to preserve the source error without getting the lifetime of
-            // `lineage` getting tangled up:
-            // - anyhow::Error: !From<&anyhow::Error>
-            // - anyhow::Error: !Clone
-            .map_err(|it| mem::replace(it, anyhow!("dummy")))
+    fn peek<'a>(
+        lineage: &'a mut iter::Peekable<impl Iterator<Item = Result<Arc<Tipset>, anyhow::Error>>>,
+        identifier: &str,
+    ) -> anyhow::Result<&'a Arc<Tipset>> {
+        lineage.peek_mut().map_or_else(
+            || Err(anyhow!("unexpected end of chain for origin `{identifier}`")),
+            |it| {
+                it.as_mut()
+                    .map(|it| &*it)
+                    // hack to preserve the source error without getting the lifetime of
+                    // `lineage` getting tangled up while still allowing callers to propogate errors:
+                    // - anyhow::Error: !From<&anyhow::Error>
+                    // - anyhow::Error: !Clone
+                    .map_err(|it| mem::replace(it, anyhow!("dummy")))
+            },
+        )
     }
 
     // A - B  - C  - D - E
@@ -349,12 +345,14 @@ fn impl_chain_get_path(
     //               ^ `to`
 
     // E D C B A
-    let mut from_lineage = lineage(from, chain_store, "from").peekable();
+    let mut from_lineage = with_lineage(chain_store, from, "from").peekable();
     // D' C' B' A
-    let mut to_lineage = lineage(to, chain_store, "to").peekable();
+    let mut to_lineage = with_lineage(chain_store, to, "to").peekable();
 
-    let common_height = cmp::min(peek_epoch(&mut from_lineage)?, peek_epoch(&mut to_lineage)?);
-    dbg!(common_height);
+    let common_height = cmp::min(
+        peek(&mut from_lineage, "from")?.epoch(),
+        peek(&mut to_lineage, "to")?.epoch(),
+    );
 
     //               |< common height
     //
@@ -364,49 +362,28 @@ fn impl_chain_get_path(
     // |
     //  -- B' - C' - D'
     //               ^ `to`
-    let mut reverts /* E D C B */ = dbg!(scroll_to_height(&mut from_lineage, common_height)?);
-    let mut applies /* D' C' B' */ = dbg!(scroll_to_height(&mut to_lineage, common_height)?);
+    let mut reverts /* E D C B */ = scroll_to_height(&mut from_lineage, common_height)?;
+    let mut applies /* D' C' B' */ = scroll_to_height(&mut to_lineage, common_height)?;
 
-    // now decrease the heights in lockstep, until we're at the common ancestor
     for step in from_lineage.zip_longest(to_lineage) {
-        dbg!(&step);
         match step {
             EitherOrBoth::Both(from, to) => {
                 let from = from?;
                 let to = to?;
-                assert_eq!(from.epoch(), to.epoch());
-                match from.parents() == to.parents() {
-                    true => {
-                        //     <~~~~~~~~~~~~~ reverts
-                        // A - B  - C  - D - E
-                        // |
-                        //  -- B' - C' - D'
-                        //     <~~~~~~~~~~ applies
-
-                        // need to return the reverts E->B, then the applies B'->C'
-                        return Ok(reverts
-                            .into_iter()
-                            // .chain(iter::once(from)) // TODO(aatifsyed): remove
-                            .map(PathChange::Revert)
-                            .chain(
-                                applies
-                                    .into_iter()
-                                    // .chain(iter::once(to)) // TODO(aatifsyed): remove
-                                    .rev()
-                                    .map(PathChange::Apply),
-                            )
-                            .collect());
-                    }
-                    false => {
-                        reverts.push(from);
-                        applies.push(to);
-                        continue;
-                    }
+                if from == to {
+                    return Ok(reverts
+                        .into_iter()
+                        .map(PathChange::Revert)
+                        .chain(applies.into_iter().rev().map(PathChange::Apply))
+                        .collect());
+                } else {
+                    reverts.push(from);
+                    applies.push(to);
                 }
             }
             EitherOrBoth::Left(it) | EitherOrBoth::Right(it) => {
-                it?; // give a final error a chance to bubble up
-                break; // or hit the default error
+                it?;
+                break;
             }
         }
     }
@@ -578,16 +555,17 @@ mod tests {
         assert_path_change(&store, b, a, [Revert(&[b])]);
 
         // from multi-member tipset
-        assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]);
-        // TODO(aatifsyed): ^ is this how lotus behaves, or does it return Revert([c, d]), Revert([b])?
         assert_path_change(&store, [c, d], a, [Revert(&[c, d][..]), Revert(&[b])]);
 
         // to multi-member tipset
-        assert_path_change(&store, e, c, [Revert(e)]);
         assert_path_change(&store, e, [c, d], [Revert(e)]);
 
         // over multi-member tipset
         assert_path_change(&store, e, b, [Revert(&[e][..]), Revert(&[c, d])]);
+
+        // TODO(aatifsyed): how should we handle incomplete `TipsetKey`s from the user?
+        // assert_path_change(&store, e, c, [Revert(e)]); // fails
+        // assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]); // passes
     }
 
     #[test]
@@ -601,6 +579,15 @@ mod tests {
 
         // simple
         assert_path_change(&store, a, b, [Apply(&[b])]);
+
+        // from multi-member tipset
+        assert_path_change(&store, [c, d], e, [Apply(e)]);
+
+        // to multi-member tipset
+        assert_path_change(&store, b, [c, d], [Apply([c, d])]);
+
+        // over multi-member tipset
+        assert_path_change(&store, b, e, [Apply(&[c, d][..]), Apply(&[e])]);
     }
 
     #[test]
@@ -616,7 +603,16 @@ mod tests {
             [a = a] -> [b2] -> [c2]
         };
 
+        // is the fork laid out correctly?
+        assert_eq!(&a.parents, Tipset::from(genesis.clone()).key());
+        assert_eq!(&b1.parents, Tipset::from(a.clone()).key());
+        assert_eq!(&b2.parents, Tipset::from(a.clone()).key());
+
+        // same height
         assert_path_change(&store, b1, b2, [Revert(b1), Apply(b2)]);
+
+        // different height
+        assert_path_change(&store, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
     }
 
     impl<DB> ChainStore<DB> {
@@ -682,6 +678,24 @@ mod tests {
         to: impl MakeTipset,
         expected: impl IntoIterator<Item = PathChange<T>>,
     ) {
+        fn print(path_change: &PathChange) {
+            let it = match path_change {
+                Revert(it) => {
+                    print!("Revert(");
+                    it
+                }
+                Apply(it) => {
+                    print!(" Apply(");
+                    it
+                }
+            };
+            println!(
+                "epoch = {}, key.cid = {})",
+                it.epoch(),
+                it.key().cid().unwrap()
+            )
+        }
+
         let actual =
             impl_chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
         let expected = expected
@@ -691,6 +705,20 @@ mod tests {
                 PathChange::Apply(it) => PathChange::Apply(Arc::new(it.make_tipset())),
             })
             .collect::<Vec<_>>();
+        if expected != actual {
+            println!("SUMMARY");
+            println!("=======");
+            println!("expected:");
+            for it in &expected {
+                print(it)
+            }
+            println!();
+            println!("actual:");
+            for it in &actual {
+                print(it)
+            }
+            println!("=======\n")
+        }
         assert_eq!(
             expected, actual,
             "expected change (left) does not match actual change (right)"
