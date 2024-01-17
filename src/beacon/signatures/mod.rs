@@ -27,8 +27,6 @@ pub fn verify_messages_unchained(
     messages: &[&[u8]],
     signatures: &[&SignatureOnG1],
 ) -> bool {
-    use blst::BLST_ERROR;
-
     let n_messages = messages.len();
     if n_messages != signatures.len() {
         return false;
@@ -55,17 +53,19 @@ pub fn verify_messages_unchained(
         .par_iter()
         .zip(signatures.par_iter())
         .chunks(n_messages / n_workers)
-        .map(|chunk| -> Result<_, BLST_ERROR> {
+        .map(|chunk| {
             let mut pairing = blstrs::PairingG2G1::new(true, CSUITE_G1);
             for (message, signature) in chunk {
-                pairing.aggregate(&public_key, Some(&signature.0), message, &[])?;
+                pairing
+                    .aggregate(&public_key, Some(&signature.0), message, &[])
+                    .map_err(map_blst_error)?;
             }
             pairing.commit();
-            Ok(pairing)
+            anyhow::Ok(pairing)
         })
-        .try_reduce_with(|mut acc, pairing| -> Result<_, BLST_ERROR> {
-            acc.merge(&pairing)?;
-            Ok(acc)
+        .try_reduce_with(|mut acc, pairing| {
+            acc.merge(&pairing).map_err(map_blst_error)?;
+            anyhow::Ok(acc)
         })
     else {
         return false;
@@ -80,8 +80,6 @@ pub fn verify_messages_chained(
     messages: &[&[u8]],
     signatures: &[SignatureOnG2],
 ) -> bool {
-    use blst::BLST_ERROR;
-
     let n_messages = messages.len();
     if n_messages != signatures.len() {
         return false;
@@ -108,23 +106,29 @@ pub fn verify_messages_chained(
         .par_iter()
         .zip(signatures.par_iter())
         .chunks(n_messages / n_workers)
-        .map(|chunk| -> Result<_, BLST_ERROR> {
+        .map(|chunk| {
             let mut pairing = blstrs::PairingG1G2::new(true, CSUITE_G2);
             for (message, signature) in chunk {
-                pairing.aggregate(&public_key, Some(&(*signature).into()), message, &[])?;
+                pairing
+                    .aggregate(&public_key, Some(&(*signature).into()), message, &[])
+                    .map_err(map_blst_error)?;
             }
             pairing.commit();
-            Ok(pairing)
+            anyhow::Ok(pairing)
         })
-        .try_reduce_with(|mut acc, pairing| -> Result<_, BLST_ERROR> {
-            acc.merge(&pairing)?;
-            Ok(acc)
+        .try_reduce_with(|mut acc, pairing| {
+            acc.merge(&pairing).map_err(map_blst_error)?;
+            anyhow::Ok(acc)
         })
     else {
         return false;
     };
 
     acc.finalverify(None)
+}
+
+fn map_blst_error(e: impl std::fmt::Debug) -> anyhow::Error {
+    anyhow::anyhow!("{e:?}")
 }
 
 #[cfg(test)]

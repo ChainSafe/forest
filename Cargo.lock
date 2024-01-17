@@ -3138,7 +3138,6 @@ dependencies = [
  "bigdecimal",
  "blake2b_simd",
  "bls-signatures",
- "blst",
  "blstrs",
  "boa_engine",
  "boa_interner",

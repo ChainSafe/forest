@@ -26,7 +26,6 @@ bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
-blst = { version = "0.3", features = ["portable"] }
 blstrs = { version = "0.7", features = ["portable"] }
 boa_engine = "0.17.0"
 boa_interner = "0.17.0"
