@@ -52,6 +52,10 @@
 
 ### Removed
 
+- [#3878](https://github.com/ChainSafe/forest/issues/3878): FILOps is no longer
+  serving lite snapshots. Removed `filops` option from
+  `forest-tool snapshot fetch --vendor [vendor]`.
+
 ### Fixed
 
 ## Forest 0.16.4 "Speedy Gonzales"
