@@ -19,11 +19,8 @@ pub struct BeaconEntry {
 }
 
 impl BeaconEntry {
-    pub fn new(round: u64, data: Vec<u8>) -> Self {
-        Self {
-            round,
-            signature: data,
-        }
+    pub fn new(round: u64, signature: Vec<u8>) -> Self {
+        Self { round, signature }
     }
     /// Returns the current round number.
     pub fn round(&self) -> u64 {

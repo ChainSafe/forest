@@ -7,8 +7,7 @@ use std::{borrow::Cow, num::NonZeroUsize};
 use super::{
     beacon_entries::BeaconEntry,
     signatures::{
-        verify_messages_chained, verify_messages_unchained, PublicKeyOnG1, PublicKeyOnG2,
-        SignatureOnG1, SignatureOnG2,
+        verify_messages_chained, PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2,
     },
 };
 use crate::shim::clock::ChainEpoch;
@@ -272,8 +271,7 @@ impl Beacon for DrandBeacon {
                 }
             }
 
-            verify_messages_unchained(
-                &pk,
+            pk.verify_batch(
                 messages
                     .iter()
                     .map(|a| a.as_slice())
