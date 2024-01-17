@@ -2672,8 +2672,9 @@ checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fbac6eee8519336b3d91c595d9779e59a9eb25498722df907732a451e537602"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2687,8 +2688,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d9f0a936390d99738a6f1d9745e33e714bc925e5d35847f46c540181019534c"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2701,8 +2703,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3ef0bdf23cfe3f7ef97653247b11153447d781ac1f17388f90892ffb60a4eeb"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2718,8 +2721,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bd7b2edf69071d56319ae7d19dd57165f64df3ac9a77e296727866219973878"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2737,8 +2741,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6107f9cad8a978a15d62eacc9647ac10e52a91586fa877aa1d1cd12468b0681"
 dependencies = [
  "anyhow",
  "cid",
@@ -2757,8 +2762,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "186533fd65b63999b1738700b9bea5f7ea3ee61efc5ad0b8d2af08f35237314a"
 dependencies = [
  "anyhow",
  "cid",
@@ -2794,8 +2800,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0c906b7f9f6dbf931076466969d93e67bc33090b13e4fedf73aff5be4846f5e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2818,8 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4819dcd358141977de9d35830929dcde157ae240e291de40cf62ac336f92c6d7"
 dependencies = [
  "anyhow",
  "bitflags 2.4.1",
@@ -2847,8 +2855,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "204fe308f5d55ad834f57f36fdf0eba8703db92bf60dc24f1417dee1dda6b473"
 dependencies = [
  "anyhow",
  "cid",
@@ -2869,8 +2878,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a8cdc9c1e3cec390d758bc81faeb3d9b0c4e7974ff9eb247ded8ba3401eea92"
 dependencies = [
  "anyhow",
  "cid",
@@ -2891,8 +2901,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f27b57db0a6f8777e373c1c8e1fcccdb5a50b7bc436095c1cbfa84cdbdb11d03"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2906,8 +2917,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5266c8d23d81980dfcda733e2e8e32d87c51bb392714f58aa835e6bad82e8234"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2920,8 +2932,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f205cc8195bd298016d995a560e636ebaf550c5d3239de189860bc6f9ab2014"
 dependencies = [
  "anyhow",
  "cid",
@@ -2939,8 +2952,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "9.3.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states?rev=1101928cc62e4463568695c2257c53fa98c1a586#1101928cc62e4463568695c2257c53fa98c1a586"
+version = "9.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c0151e5842dba148031583452e40be7d5738ac7182f08bce183b4f6844224d1"
 dependencies = [
  "anyhow",
  "cid",
