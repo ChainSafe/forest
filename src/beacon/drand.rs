@@ -17,6 +17,7 @@ use itertools::Itertools as _;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
+use url::Url;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
@@ -48,9 +49,9 @@ pub enum DrandNetwork {
 #[derive(Clone)]
 /// Configuration used when initializing a `Drand` beacon.
 pub struct DrandConfig<'a> {
-    /// Public endpoints of the drand service.
+    /// Public endpoints of the `Drand` service.
     /// See <https://drand.love/developer/http-api/#public-endpoints>
-    pub servers: Vec<&'static str>,
+    pub servers: Vec<Url>,
     /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
     /// Network type
@@ -200,7 +201,7 @@ pub struct BeaconEntryJson {
 /// `Drand` randomness beacon that can be used to generate randomness for the
 /// Filecoin chain. Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
-    servers: Vec<&'static str>,
+    servers: Vec<Url>,
     hash: String,
 
     pub_key: DrandPublic,
@@ -282,8 +283,8 @@ impl Beacon for DrandBeacon {
                     anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
                 }
 
-                async fn fetch_entry<T: reqwest::IntoUrl>(
-                    urls: impl Iterator<Item = T>,
+                async fn fetch_entry(
+                    urls: impl Iterator<Item = impl reqwest::IntoUrl>,
                 ) -> anyhow::Result<BeaconEntry> {
                     let mut errors = vec![];
                     for url in urls {
@@ -298,14 +299,21 @@ impl Beacon for DrandBeacon {
                     );
                 }
 
-                let urls: Vec<String> = self
+                let urls: Vec<_> = self
                     .servers
                     .iter()
-                    .map(|server| format!("{server}/{}/public/{round}", self.hash))
-                    .collect_vec();
+                    .map(|server| {
+                        anyhow::Ok(
+                            server
+                                .join(&self.hash)?
+                                .join("public")?
+                                .join(&round.to_string())?,
+                        )
+                    })
+                    .try_collect()?;
                 Ok(
                     backoff::future::retry(backoff::ExponentialBackoff::default(), || async {
-                        Ok(fetch_entry(urls.iter()).await?)
+                        Ok(fetch_entry(urls.iter().cloned()).await?)
                     })
                     .await?,
                 )

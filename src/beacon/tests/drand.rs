@@ -10,7 +10,7 @@ fn new_beacon() -> DrandBeacon {
         15904451751,
         25,
         &DrandConfig {
-            servers: vec!["https://pl-us.incentinet.drand.sh"],
+            servers: vec!["https://pl-us.incentinet.drand.sh".try_into().unwrap()],
             chain_info: ChainInfo {
                 public_key: "8d4dc143b2128e18b4cdace6e5abece8012bfeca48551a008a69a1bbc88b71d37da840d2c8b028170f0a8704c90c1617"
                     .into(),

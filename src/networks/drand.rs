@@ -9,11 +9,11 @@ pub(super) static DRAND_MAINNET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
     DrandConfig {
         // https://drand.love/developer/http-api/#public-endpoints
         servers: vec![
-            "https://api.drand.sh",
-            "https://api2.drand.sh",
-            "https://api3.drand.sh",
-            "https://drand.cloudflare.com",
-            "https://api.drand.secureweb3.com:6875"
+                "https://api.drand.sh".try_into().unwrap(),
+                "https://api2.drand.sh".try_into().unwrap(),
+                "https://api3.drand.sh".try_into().unwrap(),
+                "https://drand.cloudflare.com".try_into().unwrap(),
+                "https://api.drand.secureweb3.com:6875".try_into().unwrap(),
             ],
         // Source json: serde_json::from_str(r#"{"public_key":"868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31","period":30,"genesis_time":1595431050,"hash":"8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce","groupHash":"176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a"}"#).unwrap(),
         chain_info:  ChainInfo {
@@ -46,6 +46,8 @@ pub(super) static DRAND_INCENTINET: Lazy<DrandConfig<'static>> = Lazy::new(|| {
 
 #[cfg(test)]
 mod tests {
+    use url::Url;
+
     use super::*;
     use crate::utils::{net::global_http_client, retry, RetryArgs};
     use std::time::Duration;
@@ -61,8 +63,8 @@ mod tests {
         test_drand(&DRAND_INCENTINET).await
     }
 
-    async fn test_drand<'a>(config: &DrandConfig<'a>) {
-        let get_remote_chain_info = |server: &'a str| async move {
+    async fn test_drand<'a>(config: &'a DrandConfig<'a>) {
+        let get_remote_chain_info = |server: &'a Url| async move {
             retry(
                 RetryArgs {
                     timeout: Some(Duration::from_secs(5)),
@@ -70,7 +72,7 @@ mod tests {
                 },
                 || async {
                     let remote_chain_info: ChainInfo = global_http_client()
-                        .get(format!("{}/{}/info", server, config.chain_info.hash))
+                        .get(server.join(config.chain_info.hash.as_ref())?.join("info")?)
                         .send()
                         .await?
                         .error_for_status()?
