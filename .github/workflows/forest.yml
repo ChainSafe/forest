@@ -121,6 +121,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
+        timeout-minutes: 15
 
   # tool-specific tests
   forest-tool-check:
@@ -169,6 +170,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
+        timeout-minutes: 15
 
   # forest stateless mode tests done on calibnet
   calibnet-stateless-mode-check:
@@ -219,6 +221,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Migration Regression Tests
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
+        timeout-minutes: 15
 
   # Wallet checks (sending, exporting key, balances...)
   calibnet-wallet-check:
@@ -247,6 +250,7 @@ jobs:
           if [[ "$CALIBNET_WALLET" != "" ]]; then
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
+        timeout-minutes: 15
 
   # Snapshot export checks
   calibnet-export-check:
@@ -270,6 +274,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
+        timeout-minutes: 15
 
   # Calibnet checks with discovery disabled
   calibnet-no-discovery-checks:
@@ -335,6 +340,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks
         run: ./scripts/tests/calibnet_db_migration.sh
+        timeout-minutes: 15
 
   db-migration-checks-car-db:
     needs:
@@ -354,6 +360,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks with car_db folder
         run: ./scripts/tests/calibnet_db_migration_car_db.sh
+        timeout-minutes: 15
 
   local-devnet-check:
     name: Devnet checks
@@ -368,7 +375,9 @@ jobs:
           name: forest-${{ runner.os }}
       - name: Devnet setup
         run: ./scripts/devnet/ci_setup.sh
+        timeout-minutes: 15
       - name: Devnet check
         run: ./scripts/devnet/ci_check.sh
+        timeout-minutes: 15
       - name: Dump docker logs
         uses: jwalton/gh-docker-logs@v2
