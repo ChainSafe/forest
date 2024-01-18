@@ -372,3 +372,30 @@ jobs:
         run: ./scripts/devnet/ci_check.sh
       - name: Dump docker logs
         uses: jwalton/gh-docker-logs@v2
+
+  # node-less rpc check on calibnet
+  node-less-rpc-check:
+    needs:
+      - build-ubuntu
+    name: Node-Less RPC check
+    runs-on: ubuntu-latest
+    steps:
+      # To help investigate transient test failures
+      - run: lscpu
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: forest-${{ runner.os }}
+          path: ~/.cargo/bin
+      # Permissions are lost during artifact-upload
+      # https://github.com/actions/upload-artifact#permission-loss
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - name: RPC check
+        run: ./scripts/tests/calibnet_rpc_check.sh
