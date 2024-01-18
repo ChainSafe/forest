@@ -1319,7 +1319,7 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> anyhow::Result<Option<DataCap>> {
-        let id = self.lookup_id(addr, ts)?.expect("actor not found");
+        let id = self.lookup_id(addr, ts)?.context("actor not found")?;
         let network_version = self.get_network_version(ts.epoch());
 
         // This is a copy of Lotus code, we need to treat all the actors below version 9
