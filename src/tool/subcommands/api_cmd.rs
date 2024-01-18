@@ -790,7 +790,7 @@ async fn start_server(
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
-        chain_store: chain_store.clone(),
+        chain_store: chain_store,
         beacon,
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
