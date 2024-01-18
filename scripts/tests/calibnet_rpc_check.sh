@@ -38,7 +38,7 @@ pushd "$TEMP_DIR"
     result="$($FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http)"
 
     # Check the result
-    if echo "$result" | grep -E -v "\| *(Valid|Timeout) *\| *(Valid|Timeout) *\|"; then
+    if tail -n +3 "$result" | grep -E -v "\| *(Valid|Timeout) *\| *(Valid|Timeout) *\|"; then
         stop_services
         exit 1
     fi
