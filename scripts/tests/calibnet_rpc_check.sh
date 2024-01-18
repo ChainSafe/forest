@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# This script is used to test the Node-Less API server against itself.
+# It's run in CI, and uses forest-tool api compare subcommand to test RPC endpoints.
 
 set -euxo pipefail
 
