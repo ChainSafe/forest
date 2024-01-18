@@ -274,7 +274,8 @@ impl Beacon for DrandBeacon {
                 ) -> anyhow::Result<BeaconEntry> {
                     let resp: BeaconEntryJson = global_http_client()
                         .get(url)
-                        .timeout(Duration::from_secs(1))
+                        // More tolerance on slow networks
+                        .timeout(Duration::from_secs(5))
                         .send()
                         .await?
                         .error_for_status()?
@@ -303,12 +304,7 @@ impl Beacon for DrandBeacon {
                     .servers
                     .iter()
                     .map(|server| {
-                        anyhow::Ok(
-                            server
-                                .join(&self.hash)?
-                                .join("public")?
-                                .join(&round.to_string())?,
-                        )
+                        anyhow::Ok(server.join(&format!("{}/public/{round}", self.hash))?)
                     })
                     .try_collect()?;
                 Ok(

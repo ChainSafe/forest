@@ -1,27 +1,34 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig};
+use crate::beacon::{Beacon, ChainInfo, DrandBeacon, DrandConfig, DrandNetwork};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 fn new_beacon() -> DrandBeacon {
-    // https://pl-us.incentinet.drand.sh/info
     DrandBeacon::new(
-        15904451751,
-        25,
+        1598306400,
+        30,
         &DrandConfig {
-            servers: vec!["https://pl-us.incentinet.drand.sh".try_into().unwrap()],
-            chain_info: ChainInfo {
-                public_key: "8d4dc143b2128e18b4cdace6e5abece8012bfeca48551a008a69a1bbc88b71d37da840d2c8b028170f0a8704c90c1617"
-                    .into(),
-                period: 30,
-                genesis_time: 1698856390,
-                hash: "f11df9e56edb49c6b049cd73a68214be4e879688fdd696f96f0750ad377f9be4".into(),
-                group_hash: "36ab1415e2967a7571f70f88cbf733eb77ef1a3ed34173ecc5e7bac924aeb17f".into(),
-            },
-            network_type: crate::beacon::DrandNetwork::Incentinet,
-        },
-    )
+                    // https://drand.love/developer/http-api/#public-endpoints
+                    servers: vec![
+                            "https://api.drand.sh".try_into().unwrap(),
+                            "https://api2.drand.sh".try_into().unwrap(),
+                            "https://api3.drand.sh".try_into().unwrap(),
+                            "https://drand.cloudflare.com".try_into().unwrap(),
+                            "https://api.drand.secureweb3.com:6875".try_into().unwrap(),
+                        ],
+                    // https://api.drand.sh/8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce/info
+                    chain_info:  ChainInfo {
+                        public_key: Cow::Borrowed("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31"),
+                        period: 30,
+                        genesis_time: 1595431050,
+                        hash: Cow::Borrowed("8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"),
+                        group_hash: Cow::Borrowed("176f93498eac9ca337150b46d21dd58673ea4e3581185f869672e59fa4cb390a"),
+                    },
+                    network_type: DrandNetwork::Mainnet,
+                }
+            )
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
