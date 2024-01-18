@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use bls_signatures::{PublicKey, Serialize, Signature};
 use byteorder::{BigEndian, ByteOrder};
+use itertools::Itertools as _;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 use sha2::Digest;
@@ -47,8 +48,9 @@ pub enum DrandNetwork {
 #[derive(Clone)]
 /// Configuration used when initializing a `Drand` beacon.
 pub struct DrandConfig<'a> {
-    /// URL endpoint to send JSON HTTP requests to.
-    pub server: &'static str,
+    /// Public endpoints of the drand service.
+    /// See <https://drand.love/developer/http-api/#public-endpoints>
+    pub servers: Vec<&'static str>,
     /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
     /// Network type
@@ -198,7 +200,7 @@ pub struct BeaconEntryJson {
 /// `Drand` randomness beacon that can be used to generate randomness for the
 /// Filecoin chain. Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
-    server: &'static str,
+    servers: Vec<&'static str>,
     hash: String,
 
     pub_key: DrandPublic,
@@ -216,41 +218,15 @@ impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
-
-        let chain_info = &config.chain_info;
-
-        if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let info_url = format!("{}/{}/info", config.server, config.chain_info.hash);
-            let remote_chain_info = std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new()?;
-                rt.block_on(async {
-                    let client = global_http_client();
-                    let remote_chain_info: ChainInfo = client
-                        .get(info_url)
-                        .send()
-                        .await?
-                        .error_for_status()?
-                        .json()
-                        .await
-                        .map_err(|e| anyhow::anyhow!("{e}"))?;
-                    Ok::<ChainInfo, anyhow::Error>(remote_chain_info)
-                })
-            })
-            .join()
-            .expect("thread panicked")
-            .expect("failed to fetch remote drand chain info");
-            debug_assert!(&remote_chain_info == chain_info);
-        }
-
         Self {
-            server: config.server,
+            servers: config.servers.clone(),
             hash: config.chain_info.hash.to_string(),
             pub_key: DrandPublic {
-                coefficient: hex::decode(chain_info.public_key.as_ref())
+                coefficient: hex::decode(config.chain_info.public_key.as_ref())
                     .expect("invalid static encoding of drand hex public key"),
             },
-            interval: chain_info.period as u64,
-            drand_gen_time: chain_info.genesis_time as u64,
+            interval: config.chain_info.period as u64,
+            drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
             local_cache: Default::default(),
@@ -292,7 +268,9 @@ impl Beacon for DrandBeacon {
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
-                async fn fetch_entry(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
+                async fn fetch_entry_from_url(
+                    url: impl reqwest::IntoUrl,
+                ) -> anyhow::Result<BeaconEntry> {
                     let resp: BeaconEntryJson = global_http_client()
                         .get(url)
                         .timeout(Duration::from_secs(1))
@@ -304,10 +282,30 @@ impl Beacon for DrandBeacon {
                     anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
                 }
 
-                let url = format!("{}/{}/public/{round}", self.server, self.hash);
+                async fn fetch_entry<T: reqwest::IntoUrl>(
+                    urls: impl Iterator<Item = T>,
+                ) -> anyhow::Result<BeaconEntry> {
+                    let mut errors = vec![];
+                    for url in urls {
+                        match fetch_entry_from_url(url).await {
+                            Ok(e) => return Ok(e),
+                            Err(e) => errors.push(e),
+                        }
+                    }
+                    anyhow::bail!(
+                        "Aggregated errors:\n{}",
+                        errors.into_iter().map(|e| e.to_string()).join("\n\n")
+                    );
+                }
+
+                let urls: Vec<String> = self
+                    .servers
+                    .iter()
+                    .map(|server| format!("{server}/{}/public/{round}", self.hash))
+                    .collect_vec();
                 Ok(
                     backoff::future::retry(backoff::ExponentialBackoff::default(), || async {
-                        Ok(fetch_entry(&url).await?)
+                        Ok(fetch_entry(urls.iter()).await?)
                     })
                     .await?,
                 )
