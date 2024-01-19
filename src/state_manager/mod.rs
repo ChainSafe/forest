@@ -45,6 +45,7 @@ use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
+use fil_actor_verifreg_state::v12::DataCap;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
@@ -1313,6 +1314,36 @@ where
             &self.engine,
             tipsets,
         )
+    }
+
+    pub fn verified_client_status(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Option<DataCap>> {
+        let id = self.lookup_id(addr, ts)?.context("actor not found")?;
+        let network_version = self.get_network_version(ts.epoch());
+
+        // This is a copy of Lotus code, we need to treat all the actors below version 9
+        // differently. Which maps to network below version 17.
+        // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
+        if (u32::from(network_version.0)) < 17 {
+            let act = self
+                .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
+                .map_err(|e| Error::State(e.to_string()))?
+                .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            let state = verifreg::State::load(self.blockstore(), act.code, act.state)?;
+            return state.verified_client_data_cap(self.blockstore(), id.into());
+        }
+
+        let act = self
+            .get_actor(&Address::DATACAP_TOKEN_ACTOR, *ts.parent_state())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
+
+        state.verified_client_data_cap(self.blockstore(), id.into())
     }
 
     pub async fn resolve_to_deterministic_address(

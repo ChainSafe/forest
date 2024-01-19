@@ -53,18 +53,18 @@ dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 ethereum-types = "0.14.1"
-fil_actor_account_state = "9.3.0"
-fil_actor_cron_state = "9.3.0"
-fil_actor_datacap_state = "9.3.0"
-fil_actor_init_state = "9.3.0"
-fil_actor_interface = "9.3.0"
-fil_actor_market_state = "9.3.0"
-fil_actor_miner_state = "9.3.0"
-fil_actor_power_state = "9.3.0"
-fil_actor_reward_state = "9.3.0"
-fil_actor_system_state = "9.3.0"
-fil_actor_verifreg_state = "9.3.0"
-fil_actors_shared = { version = "9.3.0", features = ["json"] }
+fil_actor_account_state = { version = "9.4.0" }
+fil_actor_cron_state = { version = "9.4.0" }
+fil_actor_datacap_state = { version = "9.4.0" }
+fil_actor_init_state = { version = "9.4.0" }
+fil_actor_interface = { version = "9.4.0" }
+fil_actor_market_state = { version = "9.4.0" }
+fil_actor_miner_state = { version = "9.4.0" }
+fil_actor_power_state = { version = "9.4.0" }
+fil_actor_reward_state = { version = "9.4.0" }
+fil_actor_system_state = { version = "9.4.0" }
+fil_actor_verifreg_state = { version = "9.4.0" }
+fil_actors_shared = { version = "9.4.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
@@ -146,7 +146,7 @@ quick-protobuf-codec = "0.2"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
-rayon = "1.5"
+rayon = "1.8"
 regex = "1.9"
 reqwest = { version = "0.11.23", default-features = false, features = [
   "stream",
