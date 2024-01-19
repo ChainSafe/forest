@@ -12,6 +12,7 @@ use rayon::prelude::*;
 // re-exports
 pub use bls_signatures::{PublicKey as PublicKeyOnG1, Signature as SignatureOnG2};
 
+// See <https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-05.html#name-basic>
 const CSUITE_G1: &[u8] = b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
 const CSUITE_G2: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
