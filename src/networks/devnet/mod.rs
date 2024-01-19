@@ -146,7 +146,7 @@ pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
         config: &DRAND_MAINNET,
     },
     DrandPoint {
-        // height is TDB
+        // height is TBD
         height: i64::MAX,
         config: &DRAND_QUICKNET,
     },
