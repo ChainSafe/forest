@@ -6,17 +6,15 @@ use super::NonMaximalU64;
 use cid::Cid;
 
 /// Summarize a [`Cid`]'s internal hash as a `u64`-sized hash.
-pub fn summary(cid: &Cid) -> NonMaximalU64 {
-    NonMaximalU64::fit(
-        cid.hash()
-            .digest()
-            .chunks_exact(8)
-            .map(<[u8; 8]>::try_from)
-            .filter_map(Result::ok)
-            .fold(cid.codec() ^ cid.hash().code(), |hash, chunk| {
-                hash ^ u64::from_le_bytes(chunk)
-            }),
-    )
+pub fn summary(cid: Cid) -> u64 {
+    cid.hash()
+        .digest()
+        .chunks_exact(8)
+        .map(<[u8; 8]>::try_from)
+        .filter_map(Result::ok)
+        .fold(cid.codec() ^ cid.hash().code(), |hash, chunk| {
+            hash ^ u64::from_le_bytes(chunk)
+        })
 }
 
 /// Desired slot for a hash with a given table length
@@ -131,7 +129,10 @@ mod tests {
                 578437695752307371,
             ),
         ] {
-            assert_eq!(summary(&cid), NonMaximalU64::new(expected).unwrap())
+            assert_eq!(
+                NonMaximalU64::fit(summary(cid)),
+                NonMaximalU64::new(expected).unwrap()
+            )
         }
     }
 }

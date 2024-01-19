@@ -99,6 +99,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     pub fn new(reader: ReaderT) -> io::Result<ForestCar<ReaderT>> {
         let (header, footer) = Self::validate_car(&reader)?;
 
+        // TODO(aatifsyed): need our custom slice here
         let indexed = index::Reader::new(positioned_io::Slice::new(reader, footer.index, None))?;
 
         Ok(ForestCar {
@@ -502,7 +503,7 @@ mod tests {
         // A and B are _not_ the same...
         assert_ne!(cid_a, cid_b);
         // ... but they map to the same hash:
-        assert_eq!(index::hash::summary(&cid_a), index::hash::summary(&cid_b));
+        assert_eq!(index::hash::summary(cid_a), index::hash::summary(cid_b));
 
         // For testing purposes, we ignore that the data doesn't map to the
         // CIDs.
