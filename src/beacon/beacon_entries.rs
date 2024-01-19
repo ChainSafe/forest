@@ -24,10 +24,12 @@ impl BeaconEntry {
     pub fn new(round: u64, signature: Vec<u8>) -> Self {
         Self { round, signature }
     }
+
     /// Returns the current round number.
     pub fn round(&self) -> u64 {
         self.round
     }
+
     /// The signature of message `H(prev_round.signature, round)` for `mainnet`
     /// or `H(round)` for `quicknet`.
     pub fn signature(&self) -> &[u8] {
