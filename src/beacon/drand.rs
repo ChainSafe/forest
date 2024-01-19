@@ -4,14 +4,14 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
-use super::beacon_entries::BeaconEntry;
+use super::{beacon_entries::BeaconEntry, signatures::verify_messages_chained};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
 use ahash::HashMap;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use bls_signatures::{PublicKey, Serialize, Signature};
+use bls_signatures::{PublicKey, Serialize as _, Signature};
 use byteorder::{BigEndian, ByteOrder};
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
@@ -277,7 +277,7 @@ impl Beacon for DrandBeacon {
         };
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
-        let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()?]);
+        let sig_match = verify_messages_chained(&self.pub_key.key()?, &[&digest], &[sig]);
 
         // Cache the result
         let contains_curr = self.local_cache.read().contains_key(&curr.round());

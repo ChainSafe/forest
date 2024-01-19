@@ -3,11 +3,13 @@
 
 pub mod beacon_entries;
 mod drand;
-#[cfg(test)]
-pub mod mock_beacon;
+pub mod signatures;
 
 pub use beacon_entries::*;
 pub use drand::*;
+
+#[cfg(test)]
+pub mod mock_beacon;
 #[cfg(test)]
 mod tests {
     mod drand;
