@@ -47,7 +47,7 @@ impl SyncCommands {
 
                 for _ in ticker {
                     let response = api.sync_status().await?;
-                    let state = &response.active_syncs[0];
+                    let state = response.active_syncs.first();
 
                     let target_height = if let Some(tipset) = state.target() {
                         tipset.epoch()
@@ -93,7 +93,7 @@ impl SyncCommands {
             Self::Status => {
                 let response = api.sync_status().await?;
 
-                let state = &response.active_syncs[0];
+                let state = response.active_syncs.first();
                 let base = state.base();
                 let elapsed_time = state.get_elapsed_time();
                 let target = state.target();
