@@ -30,7 +30,8 @@ impl BeaconEntry {
         self.round
     }
 
-    /// The signature of message `H(prev_round, prev_round.data, round)`.
+    /// The signature of message `H(prev_round.signature, round)` for `mainnet`
+    /// or `H(round)` for `quicknet`.
     pub fn data(&self) -> &[u8] {
         &self.data
     }
