@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::borrow::Cow;
+use std::time::Duration;
 
+use super::{beacon_entries::BeaconEntry, signatures::verify_messages_chained};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
 use ahash::HashMap;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use bls_signatures::{PublicKey, Serialize, Signature};
-use byteorder::{BigEndian, WriteBytesExt};
+use bls_signatures::{PublicKey, Serialize as _, Signature};
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use sha2::Digest;
-
-use super::beacon_entries::BeaconEntry;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
@@ -198,7 +196,8 @@ pub struct BeaconEntryJson {
 /// `Drand` randomness beacon that can be used to generate randomness for the
 /// Filecoin chain. Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
-    url: &'static str,
+    server: &'static str,
+    hash: String,
 
     pub_key: DrandPublic,
     /// Interval between beacons, in seconds.
@@ -219,13 +218,13 @@ impl DrandBeacon {
         let chain_info = &config.chain_info;
 
         if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let server = config.server;
+            let info_url = format!("{}/{}/info", config.server, config.chain_info.hash);
             let remote_chain_info = std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new()?;
                 rt.block_on(async {
                     let client = global_http_client();
                     let remote_chain_info: ChainInfo = client
-                        .get(format!("{server}/info"))
+                        .get(info_url)
                         .send()
                         .await?
                         .error_for_status()?
@@ -242,7 +241,8 @@ impl DrandBeacon {
         }
 
         Self {
-            url: config.server,
+            server: config.server,
+            hash: config.chain_info.hash.to_string(),
             pub_key: DrandPublic {
                 coefficient: hex::decode(chain_info.public_key.as_ref())
                     .expect("invalid static encoding of drand hex public key"),
@@ -264,15 +264,11 @@ impl Beacon for DrandBeacon {
             return Ok(true);
         }
 
-        // Hash the messages
-        let mut msg: Vec<u8> = Vec::with_capacity(104);
-        msg.extend_from_slice(prev.data());
-        msg.write_u64::<BigEndian>(curr.round())?;
-        // H(prev sig | curr_round)
-        let digest = sha2::Sha256::digest(&msg);
+        // Hash the messages (H(prev sig | curr_round))
+        let digest = BeaconEntry::message_chained(curr.round(), prev.data());
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
-        let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()?]);
+        let sig_match = verify_messages_chained(&self.pub_key.key()?, &[digest.as_ref()], &[sig]);
 
         // Cache the result
         let contains_curr = self.local_cache.read().contains_key(&curr.round());
@@ -282,20 +278,30 @@ impl Beacon for DrandBeacon {
         Ok(sig_match)
     }
 
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
+    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
         let cached: Option<BeaconEntry> = self.local_cache.read().get(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
-                let client = global_http_client();
-                let resp: BeaconEntryJson = client
-                    .get(format!("{}/public/{}", self.url, round))
-                    .send()
-                    .await?
-                    .error_for_status()?
-                    .json()
-                    .await?;
-                Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
+                async fn fetch_entry(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
+                    let resp: BeaconEntryJson = global_http_client()
+                        .get(url)
+                        .timeout(Duration::from_secs(1))
+                        .send()
+                        .await?
+                        .error_for_status()?
+                        .json()
+                        .await?;
+                    anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
+                }
+
+                let url = format!("{}/{}/public/{round}", self.server, self.hash);
+                Ok(
+                    backoff::future::retry(backoff::ExponentialBackoff::default(), || async {
+                        Ok(fetch_entry(&url).await?)
+                    })
+                    .await?,
+                )
             }
         }
     }

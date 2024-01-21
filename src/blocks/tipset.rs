@@ -6,20 +6,22 @@ use std::{fmt, sync::OnceLock};
 use crate::cid_collections::FrozenCidVec;
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::networks::{calibnet, mainnet};
-use crate::shim::{address::Address, clock::ChainEpoch};
+use crate::shim::clock::ChainEpoch;
 use crate::utils::cid::CidCborExt;
-use ahash::{HashMap, HashSet, HashSetExt};
+use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use itertools::Itertools as _;
 use nonempty::{nonempty, NonEmpty};
 use num::BigInt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tracing::info;
 
-use super::{Block, CachingBlockHeader, Error, Ticket};
+use super::{Block, CachingBlockHeader, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
@@ -72,6 +74,7 @@ impl fmt::Display for TipsetKey {
 /// for more.
 #[derive(Clone, Debug)]
 pub struct Tipset {
+    /// Sorted
     headers: NonEmpty<CachingBlockHeader>,
     key: OnceCell<TipsetKey>,
 }
@@ -115,6 +118,20 @@ impl From<FullTipset> for Tipset {
     }
 }
 
+#[derive(Error, Debug, PartialEq)]
+pub enum CreateTipsetError {
+    #[error("tipsets must not be empty")]
+    Empty,
+    #[error("parent CID is inconsistent. All block headers in a tipset must agree on their parent tipset")]
+    BadParents,
+    #[error("state root is inconsistent. All block headers in a tipset must agree on their parent state root")]
+    BadStateRoot,
+    #[error("epoch is inconsistent. All block headers in a tipset must agree on their epoch")]
+    BadEpoch,
+    #[error("duplicate miner address. All miners in a tipset must be unique.")]
+    DuplicateMiner,
+}
+
 #[allow(clippy::len_without_is_empty)]
 impl Tipset {
     /// Builds a new Tipset from a collection of blocks.
@@ -122,15 +139,21 @@ impl Tipset {
     /// distinct miners and all specify identical epoch, parents, weight,
     /// height, state root, receipt root; content-id for headers are
     /// supposed to be distinct but until encoding is added will be equal.
-    pub fn new(mut headers: Vec<CachingBlockHeader>) -> Result<Self, Error> {
-        verify_blocks(&headers)?;
+    pub fn new<H: Into<CachingBlockHeader>>(
+        headers: impl IntoIterator<Item = H>,
+    ) -> Result<Self, CreateTipsetError> {
+        let headers = NonEmpty::collect(
+            headers
+                .into_iter()
+                .map(Into::<CachingBlockHeader>::into)
+                .sorted_by_cached_key(|it| it.tipset_sort_key()),
+        )
+        .ok_or(CreateTipsetError::Empty)?;
 
-        headers.sort_by_cached_key(|h| h.tipset_sort_key());
+        verify_block_headers(&headers)?;
 
-        // return tipset where sorted headers have smallest ticket size in the 0th index
-        // and the distinct keys
         Ok(Self {
-            headers: NonEmpty::from_vec(headers).ok_or(Error::NoBlocks)?,
+            headers,
             key: OnceCell::new(),
         })
     }
@@ -143,7 +166,7 @@ impl Tipset {
             .clone()
             .into_iter()
             .map(|key| CachingBlockHeader::load(&store, key))
-            .collect::<anyhow::Result<Option<_>>>()?
+            .collect::<anyhow::Result<Option<Vec<_>>>>()?
             .map(Tipset::new)
             .transpose()?)
     }
@@ -159,7 +182,7 @@ impl Tipset {
                     .cids
                     .into_iter()
                     .map(|key| CachingBlockHeader::load(store, key))
-                    .collect::<anyhow::Result<Option<_>>>()?
+                    .collect::<anyhow::Result<Option<Vec<_>>>>()?
                     .map(Tipset::new)
                     .transpose()?,
                 None => None,
@@ -348,14 +371,20 @@ impl PartialEq for FullTipset {
 }
 
 impl FullTipset {
-    pub fn new(mut blocks: Vec<Block>) -> Result<Self, Error> {
-        verify_blocks(blocks.iter().map(Block::header))?;
+    pub fn new(blocks: impl IntoIterator<Item = Block>) -> Result<Self, CreateTipsetError> {
+        let blocks = NonEmpty::collect(
+            // sort blocks on creation to allow for more seamless conversions between
+            // FullTipset and Tipset
+            blocks
+                .into_iter()
+                .sorted_by_cached_key(|it| it.header.tipset_sort_key()),
+        )
+        .ok_or(CreateTipsetError::Empty)?;
 
-        // sort blocks on creation to allow for more seamless conversions between
-        // FullTipset and Tipset
-        blocks.sort_by_cached_key(|block| block.header().tipset_sort_key());
+        verify_block_headers(blocks.iter().map(|it| &it.header))?;
+
         Ok(Self {
-            blocks: NonEmpty::from_vec(blocks).ok_or(Error::NoBlocks)?,
+            blocks,
             key: OnceCell::new(),
         })
     }
@@ -395,39 +424,24 @@ impl FullTipset {
     }
 }
 
-fn verify_blocks<'a, I>(headers: I) -> Result<(), Error>
-where
-    I: IntoIterator<Item = &'a CachingBlockHeader>,
-{
-    let mut headers = headers.into_iter();
-    let first_header = headers.next().ok_or(Error::NoBlocks)?;
+fn verify_block_headers<'a>(
+    headers: impl IntoIterator<Item = &'a CachingBlockHeader>,
+) -> Result<(), CreateTipsetError> {
+    use itertools::all;
 
-    let verify = |predicate: bool, message: &'static str| {
-        if predicate {
-            Ok(())
-        } else {
-            Err(Error::InvalidTipset(message.to_string()))
-        }
-    };
+    let headers = NonEmpty::collect(headers).ok_or(CreateTipsetError::Empty)?;
+    if !all(&headers, |it| it.parents == headers.first().parents) {
+        return Err(CreateTipsetError::BadParents);
+    }
+    if !all(&headers, |it| it.state_root == headers.first().state_root) {
+        return Err(CreateTipsetError::BadStateRoot);
+    }
+    if !all(&headers, |it| it.epoch == headers.first().epoch) {
+        return Err(CreateTipsetError::BadEpoch);
+    }
 
-    let mut headers_set: HashSet<Address> = HashSet::new();
-    headers_set.insert(first_header.miner_address);
-
-    for header in headers {
-        verify(
-            header.parents == first_header.parents,
-            "parent cids are not equal",
-        )?;
-        verify(
-            header.state_root == first_header.state_root,
-            "state_roots are not equal",
-        )?;
-        verify(header.epoch == first_header.epoch, "epochs are not equal")?;
-
-        verify(
-            headers_set.insert(header.miner_address),
-            "miner_addresses are not distinct",
-        )?;
+    if !headers.iter().map(|it| it.miner_address).all_unique() {
+        return Err(CreateTipsetError::DuplicateMiner);
     }
 
     Ok(())
@@ -544,6 +558,9 @@ mod lotus_json {
 
 #[cfg(test)]
 mod test {
+    use std::iter;
+
+    use super::*;
     use crate::blocks::VRFProof;
     use crate::shim::address::Address;
     use cid::{
@@ -554,7 +571,7 @@ mod test {
     use num_bigint::BigInt;
 
     use crate::blocks::{
-        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Error, Ticket, Tipset, TipsetKey,
+        header::RawBlockHeader, CachingBlockHeader, ElectionProof, Ticket, Tipset, TipsetKey,
     };
 
     pub fn mock_block(id: u64, weight: u64, ticket_sequence: u64) -> CachingBlockHeader {
@@ -615,98 +632,89 @@ mod test {
 
     #[test]
     fn ensure_miner_addresses_are_distinct() {
-        let h0 = CachingBlockHeader::new(RawBlockHeader {
+        let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
-        });
-        let h1 = CachingBlockHeader::new(RawBlockHeader {
+        };
+        let h1 = RawBlockHeader {
             miner_address: Address::new_id(0),
             ..Default::default()
-        });
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("miner_addresses are not distinct".to_string())
+            Tipset::new([h0.clone(), h1.clone()]).unwrap_err(),
+            CreateTipsetError::DuplicateMiner
         );
-    }
 
-    // specifically test the case when we are distinct from miner_address 0, but not
-    // 1
-    #[test]
-    fn ensure_multiple_miner_addresses_are_distinct() {
-        let h0 = CachingBlockHeader::new(RawBlockHeader {
+        let h_unique = RawBlockHeader {
             miner_address: Address::new_id(1),
             ..Default::default()
-        });
-        let h1 = CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            ..Default::default()
-        });
-        let h2 = CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            ..Default::default()
-        });
+        };
+
         assert_eq!(
-            Tipset::new(vec![h0, h1, h2]).unwrap_err(),
-            Error::InvalidTipset("miner_addresses are not distinct".to_string())
+            Tipset::new([h_unique, h0, h1]).unwrap_err(),
+            CreateTipsetError::DuplicateMiner
         );
     }
 
     #[test]
     fn ensure_epochs_are_equal() {
-        let h0 = CachingBlockHeader::new(RawBlockHeader {
+        let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
             epoch: 1,
             ..Default::default()
-        });
-        let h1 = CachingBlockHeader::new(RawBlockHeader {
+        };
+        let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
             epoch: 2,
             ..Default::default()
-        });
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("epochs are not equal".to_string())
+            Tipset::new([h0, h1]).unwrap_err(),
+            CreateTipsetError::BadEpoch
         );
     }
 
     #[test]
     fn ensure_state_roots_are_equal() {
-        let h0 = CachingBlockHeader::new(RawBlockHeader {
+        let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
             state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             ..Default::default()
-        });
-        let h1 = CachingBlockHeader::new(RawBlockHeader {
+        };
+        let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
             state_root: Cid::new_v1(DAG_CBOR, Identity.digest(&[1])),
             ..Default::default()
-        });
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("state_roots are not equal".to_string())
+            Tipset::new([h0, h1]).unwrap_err(),
+            CreateTipsetError::BadStateRoot
         );
     }
 
     #[test]
     fn ensure_parent_cids_are_equal() {
-        let h0 = CachingBlockHeader::new(RawBlockHeader {
+        let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
             parents: TipsetKey::default(),
             ..Default::default()
-        });
-        let h1 = CachingBlockHeader::new(RawBlockHeader {
+        };
+        let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
             parents: TipsetKey::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
             ..Default::default()
-        });
+        };
         assert_eq!(
-            Tipset::new(vec![h0, h1]).unwrap_err(),
-            Error::InvalidTipset("parent cids are not equal".to_string())
+            Tipset::new([h0, h1]).unwrap_err(),
+            CreateTipsetError::BadParents
         );
     }
 
     #[test]
     fn ensure_there_are_blocks() {
-        assert_eq!(Tipset::new(vec![]).unwrap_err(), Error::NoBlocks);
+        assert_eq!(
+            Tipset::new(iter::empty::<RawBlockHeader>()).unwrap_err(),
+            CreateTipsetError::Empty
+        );
     }
 }

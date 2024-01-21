@@ -33,6 +33,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use libipld_core::ipld::Ipld;
+use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -775,6 +776,15 @@ pub(in crate::rpc) async fn state_sector_get_info<DB: Blockstore + Send + Sync +
             .map(SectorOnChainInfo::from)
             .ok_or(format!("Info for sector number {sector_no} not found"))?,
     ))
+}
+
+pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+) -> Result<LotusJson<Option<BigInt>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let status = data.state_manager.verified_client_status(&addr, &ts)?;
+    Ok(status.into())
 }
 
 pub(in crate::rpc) async fn state_vm_circulating_supply_internal<

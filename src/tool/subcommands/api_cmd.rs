@@ -465,6 +465,18 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
 
+    // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
+    // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
+    // for API compatibility verification.
+    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
+        Address::VERIFIED_REGISTRY_ACTOR,
+        shared_tipset.key().clone(),
+    )));
+    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
+        Address::DATACAP_TOKEN_ACTOR,
+        shared_tipset.key().clone(),
+    )));
+
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(

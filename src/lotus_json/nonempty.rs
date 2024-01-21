@@ -3,11 +3,10 @@
 
 use super::*;
 use ::nonempty::NonEmpty;
-use serde::Serialize;
 
 impl<T> HasLotusJson for NonEmpty<T>
 where
-    T: HasLotusJson + Serialize + DeserializeOwned,
+    T: HasLotusJson,
 {
     type LotusJson = NonEmpty<<T as HasLotusJson>::LotusJson>;
 
