@@ -3,15 +3,15 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use super::Error;
 use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use nonempty::nonempty;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
-
-use super::Error;
 
 /// Tracks blocks by their height for the purpose of forming tipsets.
 #[derive(Default)]
@@ -86,11 +86,11 @@ impl<DB: Blockstore> TipsetTracker<DB> {
     /// combining it with known blocks at the same height with the same parents.
     pub fn expand(&self, header: CachingBlockHeader) -> Result<Tipset, Error> {
         let epoch = header.epoch;
-        let mut headers = vec![header];
+        let mut headers = nonempty![header];
 
         if let Some(entries) = self.entries.lock().get(&epoch).cloned() {
             for cid in entries {
-                if &cid == headers[0].cid() {
+                if &cid == headers.first().cid() {
                     continue;
                 }
 
@@ -101,7 +101,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
                         Error::Other(format!("failed to load block ({cid}) for tipset expansion"))
                     })?;
 
-                if h.parents == headers[0].parents {
+                if h.parents == headers.first().parents {
                     headers.push(h);
                 }
             }

@@ -151,6 +151,10 @@ where
             .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
             .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
             .with_method(
+                STATE_VERIFIED_CLIENT_STATUS,
+                state_verified_client_status::<DB>,
+            )
+            .with_method(
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
                 state_vm_circulating_supply_internal::<DB>,
             )

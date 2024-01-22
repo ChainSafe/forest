@@ -320,9 +320,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc2d0cfb2a7388d34f590e76686704c494ed7aaceed62ee1ba35cbf363abc2a5"
+checksum = "a116f46a969224200a0a97f29cfd4c50e7534e4b4826bd23ea2c3c533039c82c"
 dependencies = [
  "futures-core",
  "memchr",
@@ -1402,9 +1402,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.17"
+version = "4.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80932e03c33999b9235edb8655bc9df3204adc9887c2f95b50cb1deb9fd54253"
+checksum = "1e578d6ec4194633722ccf9544794b71b1385c3c027efe0c55db226fc880865c"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1412,9 +1412,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.17"
+version = "4.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6c0db58c659eef1c73e444d298c27322a1b52f6927d2ad470c0c0f96fa7b8fa"
+checksum = "4df4df40ec50c46000231c914968278b1eb05098cf8f1b3a518a95030e71d1c7"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2672,9 +2672,9 @@ checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9439d238f2b05d630fe2aa17c2cdc1539c76c58589b13a123998d80cdb5a480"
+checksum = "0fbac6eee8519336b3d91c595d9779e59a9eb25498722df907732a451e537602"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2688,9 +2688,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0189050a22c31193bac1ddec51fca12ca32ae76ed8df90786f4d4f010b0df5b9"
+checksum = "9d9f0a936390d99738a6f1d9745e33e714bc925e5d35847f46c540181019534c"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2703,9 +2703,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6df378022bed644194fc3c36aae967e2d38410e31f34d2681d65402042eea304"
+checksum = "b3ef0bdf23cfe3f7ef97653247b11153447d781ac1f17388f90892ffb60a4eeb"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2721,9 +2721,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c93bd9798c92ea423fc3a54933d51c7ac317b2bf650bf12059211436af44923"
+checksum = "1bd7b2edf69071d56319ae7d19dd57165f64df3ac9a77e296727866219973878"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2741,9 +2741,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4faae9912f59f7cb768a2246c43e4ac64ca83c043b46fd38bce41a3b1715409d"
+checksum = "f6107f9cad8a978a15d62eacc9647ac10e52a91586fa877aa1d1cd12468b0681"
 dependencies = [
  "anyhow",
  "cid",
@@ -2762,9 +2762,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b76f08e5d66b282db14e4fee0a8cc9f4a3a17787bc5ac417fb590d255b28a5e"
+checksum = "186533fd65b63999b1738700b9bea5f7ea3ee61efc5ad0b8d2af08f35237314a"
 dependencies = [
  "anyhow",
  "cid",
@@ -2779,6 +2779,7 @@ dependencies = [
  "fil_actor_power_state",
  "fil_actor_reward_state",
  "fil_actor_system_state",
+ "fil_actor_verifreg_state",
  "fil_actors_shared",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -2799,9 +2800,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "484e258032b77fc9f56de90cbacb3ce916a4e844c2ced74310ba20cb3bcdd07e"
+checksum = "f0c906b7f9f6dbf931076466969d93e67bc33090b13e4fedf73aff5be4846f5e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2824,9 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c279586786e2759f9725fc798dabe6c1a77fb79656ad39046aed0a9dc6abeed7"
+checksum = "4819dcd358141977de9d35830929dcde157ae240e291de40cf62ac336f92c6d7"
 dependencies = [
  "anyhow",
  "bitflags 2.4.1",
@@ -2854,9 +2855,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b14902f0a893acfd9fee81062570aba61ee9b697263fd12110366b0924d4258"
+checksum = "204fe308f5d55ad834f57f36fdf0eba8703db92bf60dc24f1417dee1dda6b473"
 dependencies = [
  "anyhow",
  "cid",
@@ -2877,9 +2878,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a9ea89ccfcb6cd6360876e886d281689749ecd5b734d78fe095d6c59eced138"
+checksum = "2a8cdc9c1e3cec390d758bc81faeb3d9b0c4e7974ff9eb247ded8ba3401eea92"
 dependencies = [
  "anyhow",
  "cid",
@@ -2900,9 +2901,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f9bf20a094f4d53775bfb1e159c24eca9cc282500a73b48b4e8d2989a458d88"
+checksum = "f27b57db0a6f8777e373c1c8e1fcccdb5a50b7bc436095c1cbfa84cdbdb11d03"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2916,9 +2917,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "778af763840d0dd90a6106d492ec0a37e27b4ee234831164f427b453d54f78f2"
+checksum = "5266c8d23d81980dfcda733e2e8e32d87c51bb392714f58aa835e6bad82e8234"
 dependencies = [
  "cid",
  "fvm_ipld_encoding",
@@ -2931,9 +2932,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f86557e6cf90884befb9427d63af44cfcb90093bc7226154a39bc360fa582dee"
+checksum = "0f205cc8195bd298016d995a560e636ebaf550c5d3239de189860bc6f9ab2014"
 dependencies = [
  "anyhow",
  "cid",
@@ -2951,9 +2952,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "9.3.0"
+version = "9.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b959ddf3f56dfae289f0d9f796e6466a2adec1ab013f7a38c35dcac4d4cc5261"
+checksum = "1c0151e5842dba148031583452e40be7d5738ac7182f08bce183b4f6844224d1"
 dependencies = [
  "anyhow",
  "cid",
@@ -3138,6 +3139,7 @@ dependencies = [
  "bigdecimal",
  "blake2b_simd",
  "bls-signatures",
+ "blstrs",
  "boa_engine",
  "boa_interner",
  "boa_parser",
@@ -3196,6 +3198,7 @@ dependencies = [
  "fvm_shared 4.0.0",
  "gethostname",
  "git-version",
+ "group",
  "hex",
  "http 0.2.11",
  "http 1.0.0",
@@ -4334,7 +4337,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.5",
  "tokio",
  "tower-service",
  "tracing",
@@ -7355,9 +7358,9 @@ checksum = "60a357793950651c4ed0f3f52338f53b2f809f32d83a07f72909fa13e4c6c1e3"
 
 [[package]]
 name = "rayon"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c27db03db7734835b3f53954b534c91069375ce6ccaa2e065441e07d9b6cdb1"
+checksum = "fa7237101a77a10773db45d62004a272517633fbcc3df19d96455ede1122e051"
 dependencies = [
  "either",
  "rayon-core",
@@ -7365,9 +7368,9 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ce3fb6ad83f861aac485e76e1985cd109d9a3713802152be56c3b1f0e0658ed"
+checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
