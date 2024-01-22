@@ -6,6 +6,7 @@ use std::{fmt::Display, str::FromStr};
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
@@ -178,7 +179,7 @@ pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
-    pub config: &'a DrandConfig<'a>,
+    pub config: &'a Lazy<DrandConfig<'a>>,
 }
 
 /// Defines all network configuration parameters.

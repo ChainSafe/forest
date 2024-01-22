@@ -16,10 +16,11 @@ use crate::utils::net::global_http_client;
 use anyhow::Context as _;
 use async_trait::async_trait;
 use bls_signatures::Serialize as _;
-use itertools::Itertools;
+use itertools::Itertools as _;
 use lru::LruCache;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
+use url::Url;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
@@ -43,8 +44,9 @@ impl DrandNetwork {
 #[derive(Clone)]
 /// Configuration used when initializing a `Drand` beacon.
 pub struct DrandConfig<'a> {
-    /// URL endpoint to send JSON HTTP requests to.
-    pub server: &'static str,
+    /// Public endpoints of the `Drand` service.
+    /// See <https://drand.love/developer/http-api/#public-endpoints>
+    pub servers: Vec<Url>,
     /// Info about the beacon chain, used to verify correctness of endpoint.
     pub chain_info: ChainInfo<'a>,
     /// Network type
@@ -202,7 +204,7 @@ pub struct BeaconEntryJson {
 /// `Drand` randomness beacon that can be used to generate randomness for the
 /// Filecoin chain. Primary use is to satisfy the [Beacon] trait.
 pub struct DrandBeacon {
-    server: &'static str,
+    servers: Vec<Url>,
     hash: String,
     network: DrandNetwork,
 
@@ -223,7 +225,7 @@ impl DrandBeacon {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
         const CACHE_SIZE: usize = 1000;
         Self {
-            server: config.server,
+            servers: config.servers.clone(),
             hash: config.chain_info.hash.to_string(),
             network: config.network_type,
             public_key: hex::decode(config.chain_info.public_key.as_ref())
@@ -309,10 +311,13 @@ impl Beacon for DrandBeacon {
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
-                async fn fetch_entry(url: impl reqwest::IntoUrl) -> anyhow::Result<BeaconEntry> {
+                async fn fetch_entry_from_url(
+                    url: impl reqwest::IntoUrl,
+                ) -> anyhow::Result<BeaconEntry> {
                     let resp: BeaconEntryJson = global_http_client()
                         .get(url)
-                        .timeout(Duration::from_secs(1))
+                        // More tolerance on slow networks
+                        .timeout(Duration::from_secs(5))
                         .send()
                         .await?
                         .error_for_status()?
@@ -321,10 +326,32 @@ impl Beacon for DrandBeacon {
                     anyhow::Ok(BeaconEntry::new(resp.round, hex::decode(resp.signature)?))
                 }
 
-                let url = format!("{}/{}/public/{round}", self.server, self.hash);
+                async fn fetch_entry(
+                    urls: impl Iterator<Item = impl reqwest::IntoUrl>,
+                ) -> anyhow::Result<BeaconEntry> {
+                    let mut errors = vec![];
+                    for url in urls {
+                        match fetch_entry_from_url(url).await {
+                            Ok(e) => return Ok(e),
+                            Err(e) => errors.push(e),
+                        }
+                    }
+                    anyhow::bail!(
+                        "Aggregated errors:\n{}",
+                        errors.into_iter().map(|e| e.to_string()).join("\n\n")
+                    );
+                }
+
+                let urls: Vec<_> = self
+                    .servers
+                    .iter()
+                    .map(|server| {
+                        anyhow::Ok(server.join(&format!("{}/public/{round}", self.hash))?)
+                    })
+                    .try_collect()?;
                 Ok(
                     backoff::future::retry(backoff::ExponentialBackoff::default(), || async {
-                        Ok(fetch_entry(&url).await?)
+                        Ok(fetch_entry(urls.iter().cloned()).await?)
                     })
                     .await?,
                 )
