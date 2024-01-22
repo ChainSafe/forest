@@ -1,17 +1,23 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::borrow::Cow;
 use std::time::Duration;
+use std::{borrow::Cow, num::NonZeroUsize};
 
-use super::{beacon_entries::BeaconEntry, signatures::verify_messages_chained};
+use super::{
+    beacon_entries::BeaconEntry,
+    signatures::{
+        verify_messages_chained, PublicKeyOnG1, PublicKeyOnG2, SignatureOnG1, SignatureOnG2,
+    },
+};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
-use ahash::HashMap;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use bls_signatures::{PublicKey, Serialize as _, Signature};
+use bls_signatures::Serialize as _;
+use itertools::Itertools;
+use lru::LruCache;
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 
@@ -19,27 +25,19 @@ use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
 /// `LOTUS_IGNORE_DRAND`
 pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
-/// Coefficients of the publicly available `Drand` keys.
-/// This is shared by all participants on the `Drand` network.
-#[derive(Clone, Debug, SerdeSerialize, SerdeDeserialize)]
-pub struct DrandPublic {
-    /// Public key used to verify beacon entries.
-    pub coefficient: Vec<u8>,
-}
-
-impl DrandPublic {
-    /// Returns the public key for the `Drand` beacon.
-    pub fn key(&self) -> Result<PublicKey, bls_signatures::Error> {
-        PublicKey::from_bytes(&self.coefficient)
-    }
-}
-
-/// Type of the `drand` network. In general only `mainnet` and its chain
-/// information should be considered stable.
-#[derive(PartialEq, Eq, Clone)]
+/// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
+/// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum DrandNetwork {
     Mainnet,
+    Quicknet,
     Incentinet,
+}
+
+impl DrandNetwork {
+    pub fn is_unchained(&self) -> bool {
+        matches!(self, Self::Quicknet)
+    }
 }
 
 #[derive(Clone)]
@@ -73,18 +71,12 @@ impl BeaconSchedule {
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
     ) -> Result<Vec<BeaconEntry>, anyhow::Error> {
-        let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
-        let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
-        if cb_epoch != pb_epoch {
-            // Fork logic, take entries from the last two rounds of the new beacon.
-            let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
-            let mut entries = Vec::with_capacity(2);
-            entries.push(curr_beacon.entry(round - 1).await?);
-            entries.push(curr_beacon.entry(round).await?);
-            return Ok(entries);
-        }
+        let (_cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
+        let (_pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
         let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
+        // We don't expect this to ever be the case
         if max_round == prev.round() {
+            tracing::warn!("Unexpected `max_round == prev.round()` condition, network_version: {network_version:?}, max_round: {max_round}, prev_round: {}", prev.round());
             // Our chain has encountered two epochs before beacon chain has elapsed one,
             // return no beacon entries for this epoch.
             return Ok(vec![]);
@@ -98,16 +90,22 @@ impl BeaconSchedule {
             prev.round()
         };
 
-        let mut cur = max_round;
-        let mut out = Vec::new();
-        while cur > prev_round {
-            // Push all entries from rounds elapsed since the last chain epoch.
-            let entry = curr_beacon.entry(cur).await?;
-            cur = entry.round() - 1;
-            out.push(entry);
+        // We only ever need one entry after nv22 (FIP-0063)
+        if network_version > NetworkVersion::V21 {
+            let entry = curr_beacon.entry(max_round).await?;
+            Ok(vec![entry])
+        } else {
+            let mut cur = max_round;
+            let mut out = Vec::new();
+            while cur > prev_round {
+                // Push all entries from rounds elapsed since the last chain epoch.
+                let entry = curr_beacon.entry(cur).await?;
+                cur = entry.round() - 1;
+                out.push(entry);
+            }
+            out.reverse();
+            Ok(out)
         }
-        out.reverse();
-        Ok(out)
     }
 
     pub fn beacon_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<(ChainEpoch, &dyn Beacon)> {
@@ -135,12 +133,16 @@ pub trait Beacon
 where
     Self: Send + Sync + 'static,
 {
-    /// Verify a new beacon entry against the most recent one before it.
-    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error>;
+    /// Verify beacon entries that are sorted by round.
+    fn verify_entries(
+        &self,
+        entries: &[BeaconEntry],
+        prev: &BeaconEntry,
+    ) -> Result<bool, anyhow::Error>;
 
     /// Returns a `BeaconEntry` given a round. It fetches the `BeaconEntry` from a `Drand` node over [`gRPC`](https://grpc.io/)
     /// In the future, we will cache values, and support streaming.
-    async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error>;
+    async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry>;
 
     /// Returns the most recent beacon round for the given Filecoin chain epoch.
     fn max_beacon_round_for_epoch(
@@ -152,8 +154,12 @@ where
 
 #[async_trait]
 impl Beacon for Box<dyn Beacon> {
-    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
-        self.as_ref().verify_entry(curr, prev)
+    fn verify_entries(
+        &self,
+        entries: &[BeaconEntry],
+        prev: &BeaconEntry,
+    ) -> Result<bool, anyhow::Error> {
+        self.as_ref().verify_entries(entries, prev)
     }
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {
@@ -190,7 +196,7 @@ pub struct BeaconEntryJson {
     round: u64,
     randomness: String,
     signature: String,
-    previous_signature: String,
+    previous_signature: Option<String>,
 }
 
 /// `Drand` randomness beacon that can be used to generate randomness for the
@@ -198,88 +204,108 @@ pub struct BeaconEntryJson {
 pub struct DrandBeacon {
     server: &'static str,
     hash: String,
+    network: DrandNetwork,
 
-    pub_key: DrandPublic,
+    public_key: Vec<u8>,
     /// Interval between beacons, in seconds.
     interval: u64,
     drand_gen_time: u64,
     fil_gen_time: u64,
     fil_round_time: u64,
 
-    /// Keeps track of computed beacon entries.
-    local_cache: RwLock<HashMap<u64, BeaconEntry>>,
+    /// Keeps track of verified beacon entries.
+    verified_beacons: RwLock<LruCache<u64, BeaconEntry>>,
 }
 
 impl DrandBeacon {
     /// Construct a new `DrandBeacon`.
     pub fn new(genesis_ts: u64, interval: u64, config: &DrandConfig<'_>) -> Self {
         assert_ne!(genesis_ts, 0, "Genesis timestamp cannot be 0");
-
-        let chain_info = &config.chain_info;
-
-        if cfg!(debug_assertions) && config.network_type == DrandNetwork::Mainnet {
-            let info_url = format!("{}/{}/info", config.server, config.chain_info.hash);
-            let remote_chain_info = std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new()?;
-                rt.block_on(async {
-                    let client = global_http_client();
-                    let remote_chain_info: ChainInfo = client
-                        .get(info_url)
-                        .send()
-                        .await?
-                        .error_for_status()?
-                        .json()
-                        .await
-                        .map_err(|e| anyhow::anyhow!("{e}"))?;
-                    Ok::<ChainInfo, anyhow::Error>(remote_chain_info)
-                })
-            })
-            .join()
-            .expect("thread panicked")
-            .expect("failed to fetch remote drand chain info");
-            debug_assert!(&remote_chain_info == chain_info);
-        }
-
+        const CACHE_SIZE: usize = 1000;
         Self {
             server: config.server,
             hash: config.chain_info.hash.to_string(),
-            pub_key: DrandPublic {
-                coefficient: hex::decode(chain_info.public_key.as_ref())
-                    .expect("invalid static encoding of drand hex public key"),
-            },
-            interval: chain_info.period as u64,
-            drand_gen_time: chain_info.genesis_time as u64,
+            network: config.network_type,
+            public_key: hex::decode(config.chain_info.public_key.as_ref())
+                .expect("invalid static encoding of drand hex public key"),
+            interval: config.chain_info.period as u64,
+            drand_gen_time: config.chain_info.genesis_time as u64,
             fil_round_time: interval,
             fil_gen_time: genesis_ts,
-            local_cache: Default::default(),
+            verified_beacons: RwLock::new(LruCache::new(
+                NonZeroUsize::new(CACHE_SIZE).expect("Infallible"),
+            )),
         }
     }
 }
 
 #[async_trait]
 impl Beacon for DrandBeacon {
-    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/3572
-        if prev.round() == 0 {
-            return Ok(true);
+    fn verify_entries<'a>(
+        &self,
+        entries: &'a [BeaconEntry],
+        mut prev: &'a BeaconEntry,
+    ) -> Result<bool, anyhow::Error> {
+        let mut validated = vec![];
+        let is_valid = if self.network.is_unchained() {
+            let mut messages = vec![];
+            let mut signatures = vec![];
+            let pk = PublicKeyOnG2::from_bytes(&self.public_key)?;
+            {
+                let cache = self.verified_beacons.read();
+                for entry in entries.iter() {
+                    if cache.contains(&entry.round()) {
+                        continue;
+                    }
+
+                    messages.push(BeaconEntry::message_unchained(entry.round()));
+                    signatures.push(SignatureOnG1::from_bytes(entry.signature())?);
+                    validated.push(entry);
+                }
+            }
+
+            pk.verify_batch(
+                messages.iter().map(AsRef::as_ref).collect_vec().as_slice(),
+                signatures.iter().collect_vec().as_slice(),
+            )
+        } else {
+            let mut messages = vec![];
+            let mut signatures = vec![];
+
+            let pk = PublicKeyOnG1::from_bytes(&self.public_key)?;
+            {
+                let cache = self.verified_beacons.read();
+                for curr in entries.iter() {
+                    if prev.round() > 0 && !cache.contains(&curr.round()) {
+                        messages.push(BeaconEntry::message_chained(curr.round(), prev.signature()));
+                        signatures.push(SignatureOnG2::from_bytes(curr.signature())?);
+                        validated.push(curr);
+                    }
+
+                    prev = curr;
+                }
+            }
+
+            verify_messages_chained(
+                &pk,
+                messages.iter().map(AsRef::as_ref).collect_vec().as_slice(),
+                &signatures,
+            )
+        };
+
+        if is_valid && !validated.is_empty() {
+            let mut cache = self.verified_beacons.write();
+            assert!(cache.cap().get() >= validated.len());
+            for entry in validated {
+                cache.put(entry.round(), entry.clone());
+            }
         }
 
-        // Hash the messages (H(prev sig | curr_round))
-        let digest = BeaconEntry::message_chained(curr.round(), prev.data());
-        // Signature
-        let sig = Signature::from_bytes(curr.data())?;
-        let sig_match = verify_messages_chained(&self.pub_key.key()?, &[digest.as_ref()], &[sig]);
-
-        // Cache the result
-        let contains_curr = self.local_cache.read().contains_key(&curr.round());
-        if sig_match && !contains_curr {
-            self.local_cache.write().insert(curr.round(), curr.clone());
-        }
-        Ok(sig_match)
+        Ok(is_valid)
     }
 
     async fn entry(&self, round: u64) -> anyhow::Result<BeaconEntry> {
-        let cached: Option<BeaconEntry> = self.local_cache.read().get(&round).cloned();
+        let cached: Option<BeaconEntry> = self.verified_beacons.read().peek(&round).cloned();
         match cached {
             Some(cached_entry) => Ok(cached_entry),
             None => {
@@ -321,6 +347,7 @@ impl Beacon for DrandBeacon {
             if latest_ts < self.drand_gen_time {
                 return 1;
             }
+
             let from_genesis = latest_ts - self.drand_gen_time;
             // we take the time from genesis divided by the periods in seconds, that
             // gives us the number of periods since genesis.  We also add +1 because

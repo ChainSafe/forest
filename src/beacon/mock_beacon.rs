@@ -22,9 +22,21 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
-    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
-        let oe = Self::entry_for_index(prev.round());
-        Ok(oe.data() == curr.data())
+    fn verify_entries<'a>(
+        &self,
+        entries: &'a [BeaconEntry],
+        mut prev: &'a BeaconEntry,
+    ) -> Result<bool, anyhow::Error> {
+        for curr in entries.iter() {
+            let oe = Self::entry_for_index(prev.round());
+            if oe.signature() != curr.signature() {
+                return Ok(false);
+            }
+
+            prev = curr;
+        }
+
+        Ok(true)
     }
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {

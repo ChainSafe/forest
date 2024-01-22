@@ -12,17 +12,17 @@ use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 /// This beacon entry is stored on chain in the block header.
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[derive(
-    Clone, Debug, Default, Eq, PartialEq, Deserialize_tuple, Serialize_tuple, Hash, Ord, PartialOrd,
+    Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize_tuple, Deserialize_tuple,
 )]
 pub struct BeaconEntry {
     round: u64,
     #[serde(with = "serde_byte_array")]
-    data: Vec<u8>,
+    signature: Vec<u8>,
 }
 
 impl BeaconEntry {
-    pub fn new(round: u64, data: Vec<u8>) -> Self {
-        Self { round, data }
+    pub fn new(round: u64, signature: Vec<u8>) -> Self {
+        Self { round, signature }
     }
 
     /// Returns the current round number.
@@ -32,13 +32,13 @@ impl BeaconEntry {
 
     /// The signature of message `H(prev_round.signature, round)` for `mainnet`
     /// or `H(round)` for `quicknet`.
-    pub fn data(&self) -> &[u8] {
-        &self.data
+    pub fn signature(&self) -> &[u8] {
+        &self.signature
     }
 
     pub fn into_parts(self) -> (u64, Vec<u8>) {
-        let Self { round, data } = self;
-        (round, data)
+        let Self { round, signature } = self;
+        (round, signature)
     }
 
     // Hash the message: H(curr_round)
