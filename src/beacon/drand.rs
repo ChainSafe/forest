@@ -4,18 +4,16 @@
 use std::borrow::Cow;
 use std::time::Duration;
 
-use super::beacon_entries::BeaconEntry;
+use super::{beacon_entries::BeaconEntry, signatures::verify_messages_chained};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::utils::net::global_http_client;
 use ahash::HashMap;
 use anyhow::Context as _;
 use async_trait::async_trait;
-use bls_signatures::{PublicKey, Serialize, Signature};
-use byteorder::{BigEndian, ByteOrder};
+use bls_signatures::{PublicKey, Serialize as _, Signature};
 use parking_lot::RwLock;
 use serde::{Deserialize as SerdeDeserialize, Serialize as SerdeSerialize};
-use sha2::Digest;
 
 /// Environmental Variable to ignore `Drand`. Lotus parallel is
 /// `LOTUS_IGNORE_DRAND`
@@ -267,17 +265,10 @@ impl Beacon for DrandBeacon {
         }
 
         // Hash the messages (H(prev sig | curr_round))
-        let digest = {
-            let mut round_bytes = [0; std::mem::size_of::<u64>()];
-            BigEndian::write_u64(&mut round_bytes, curr.round());
-            let mut hasher = sha2::Sha256::default();
-            hasher.update(prev.data());
-            hasher.update(round_bytes);
-            hasher.finalize()
-        };
+        let digest = BeaconEntry::message_chained(curr.round(), prev.data());
         // Signature
         let sig = Signature::from_bytes(curr.data())?;
-        let sig_match = bls_signatures::verify_messages(&sig, &[&digest], &[self.pub_key.key()?]);
+        let sig_match = verify_messages_chained(&self.pub_key.key()?, &[digest.as_ref()], &[sig]);
 
         // Cache the result
         let contains_curr = self.local_cache.read().contains_key(&curr.round());
