@@ -86,37 +86,36 @@ impl RawBlockHeader {
         parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
-        let (cb_epoch, curr_beacon) = b_schedule
+        let (_cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
-        let (pb_epoch, _) = b_schedule
+        let (_pb_epoch, _) = b_schedule
             .beacon_for_epoch(parent_epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
 
-        if cb_epoch != pb_epoch {
-            // Fork logic
-            if self.beacon_entries.len() != 2 {
-                return Err(Error::Validation(format!(
-                    "Expected two beacon entries at beacon fork, got {}",
-                    self.beacon_entries.len()
-                )));
-            }
-
-            curr_beacon
-                .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
-                .map_err(|e| Error::Validation(e.to_string()))?;
-
-            return Ok(());
-        }
-
         let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, self.epoch);
+        // We don't expect to ever actually meet this condition
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
                 return Err(Error::Validation(format!(
-                    "expected not to have any beacon entries in this block, got: {:?}",
+                    "expected not to have any beacon entries in this block, got: {}",
                     self.beacon_entries.len()
                 )));
             }
+            return Ok(());
+        }
+
+        if network_version > NetworkVersion::V21 && self.beacon_entries.len() != 1 {
+            return Err(Error::Validation(format!(
+                "exactly one beacon entry expected for network version {}, got: {}",
+                network_version.deref(),
+                self.beacon_entries.len()
+            )));
+        }
+
+        if network_version <= NetworkVersion::V21 && prev_entry.round() == 0 {
+            // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
+            // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
             return Ok(());
         }
 
@@ -128,6 +127,7 @@ impl RawBlockHeader {
                 ));
             }
         };
+
         if last.round() != max_round {
             return Err(Error::Validation(format!(
                 "expected final beacon entry in block to be at round {}, got: {}",
@@ -136,18 +136,13 @@ impl RawBlockHeader {
             )));
         }
 
-        let mut prev = prev_entry;
-        for curr in &self.beacon_entries {
-            if !curr_beacon
-                .verify_entry(curr, prev)
-                .map_err(|e| Error::Validation(e.to_string()))?
-            {
-                return Err(Error::Validation(format!(
-                    "beacon entry was invalid: curr:{curr:?}, prev: {prev:?}"
-                )));
-            }
-            prev = curr;
+        if !curr_beacon
+            .verify_entries(&self.beacon_entries, prev_entry)
+            .map_err(|e| Error::Validation(e.to_string()))?
+        {
+            return Err(Error::Validation("beacon entry was invalid".into()));
         }
+
         Ok(())
     }
 

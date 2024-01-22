@@ -4,7 +4,6 @@
 pub mod beacon_entries;
 mod drand;
 pub mod signatures;
-
 pub use beacon_entries::*;
 pub use drand::*;
 
