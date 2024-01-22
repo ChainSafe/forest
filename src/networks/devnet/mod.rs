@@ -4,7 +4,10 @@
 use cid::Cid;
 use once_cell::sync::Lazy;
 
-use super::{drand::DRAND_MAINNET, DrandPoint, Height, HeightInfo};
+use super::{
+    drand::{DRAND_MAINNET, DRAND_QUICKNET},
+    DrandPoint, Height, HeightInfo,
+};
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
 pub const ETH_CHAIN_ID: u64 = 31415926;
@@ -137,7 +140,14 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
     ]
 });
 
-pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
-    height: 0,
-    config: &DRAND_MAINNET,
-}];
+pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
+    DrandPoint {
+        height: 0,
+        config: &DRAND_MAINNET,
+    },
+    DrandPoint {
+        // height is TBD
+        height: i64::MAX,
+        config: &DRAND_QUICKNET,
+    },
+];

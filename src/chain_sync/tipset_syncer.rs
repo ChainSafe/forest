@@ -1353,28 +1353,29 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         .chain_config()
         .network_version(block.header.epoch);
 
-    // Do the initial loop here
-    // check block message and signatures in them
-    let mut pub_keys = Vec::new();
-    let mut cids = Vec::new();
-    let db = state_manager.blockstore_owned();
-    for m in block.bls_msgs() {
-        let pk = StateManager::get_bls_public_key(&db, &m.from, *base_tipset.parent_state())?;
-        pub_keys.push(pk);
-        cids.push(m.cid().unwrap().to_bytes());
-    }
-
     if let Some(sig) = &block.header().bls_aggregate {
+        // Do the initial loop here
+        // check block message and signatures in them
+        let mut pub_keys = Vec::with_capacity(block.bls_msgs().len());
+        let mut cids = Vec::with_capacity(block.bls_msgs().len());
+        let db = state_manager.blockstore_owned();
+        for m in block.bls_msgs() {
+            let pk = StateManager::get_bls_public_key(&db, &m.from, *base_tipset.parent_state())?;
+            pub_keys.push(pk);
+            cids.push(
+                m.cid()
+                    .map_err(|e| {
+                        TipsetRangeSyncerError::Validation(format!(
+                            "Failed to get bls message cid: {e}"
+                        ))
+                    })?
+                    .to_bytes(),
+            );
+        }
+
         if !verify_bls_aggregate(
-            cids.iter()
-                .map(|x| x.as_slice())
-                .collect::<Vec<&[u8]>>()
-                .as_slice(),
-            pub_keys
-                .iter()
-                .map(|x| &x[..])
-                .collect::<Vec<&[u8]>>()
-                .as_slice(),
+            &cids.iter().map(|x| x.as_slice()).collect_vec(),
+            &pub_keys,
             sig,
         ) {
             return Err(TipsetRangeSyncerError::BlsAggregateSignatureInvalid(

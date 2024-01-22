@@ -263,7 +263,7 @@ fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
     let miner_address_buf = to_vec(miner_address)?;
 
     let vrf_base = crate::state_manager::chain_rand::draw_randomness(
-        beacon.data(),
+        beacon.signature(),
         DomainSeparationTag::ElectionProofProduction as i64,
         header.epoch,
         &miner_address_buf,
@@ -319,7 +319,7 @@ fn validate_ticket_election(
     let beacon_base = header.beacon_entries.last().unwrap_or(prev_beacon);
 
     let vrf_base = crate::state_manager::chain_rand::draw_randomness(
-        beacon_base.data(),
+        beacon_base.signature(),
         DomainSeparationTag::TicketProduction as i64,
         header.epoch - TICKET_RANDOMNESS_LOOKBACK,
         &miner_address_buf,
@@ -362,7 +362,7 @@ fn verify_winning_post_proof<DB: Blockstore>(
         .last()
         .unwrap_or(prev_beacon_entry);
     let rand = crate::state_manager::chain_rand::draw_randomness(
-        rand_base.data(),
+        rand_base.signature(),
         DomainSeparationTag::WinningPoStChallengeSeed as i64,
         header.epoch,
         &miner_addr_buf,
