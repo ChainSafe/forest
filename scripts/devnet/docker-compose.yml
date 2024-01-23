@@ -13,7 +13,7 @@ services:
   lotus_init:
     image: ${LOTUS_IMAGE}
     volumes:
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - ${FIL_PROOFS_PARAMETER_CACHE}:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     env_file:
       - lotus.env
@@ -49,7 +49,7 @@ services:
     networks:
       - devnet
     volumes:
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - ${FIL_PROOFS_PARAMETER_CACHE}:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
@@ -79,7 +79,7 @@ services:
     networks:
       - devnet
     volumes:
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - ${FIL_PROOFS_PARAMETER_CACHE}:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
@@ -134,11 +134,11 @@ services:
       start_period: 15s
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - ${FIL_PROOFS_PARAMETER_CACHE}:${FIL_PROOFS_PARAMETER_CACHE}
       - forest-data:${FOREST_DATA_DIR}
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
-      - FIL_PROOFS_PARAMETER_CACHE=${FILECOIN_PROOFS_DIR}
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
     networks:
       - devnet
     ports:
@@ -178,8 +178,6 @@ services:
         forest-cli net connect /dns/lotus/tcp/${LOTUS_P2P_PORT}/p2p/$$(cat ${LOTUS_DATA_DIR}/PEER_ID)
 
 volumes:
-  # Shared proof parameter files. It is re-used by both Lotus and Forest.
-  filecoin-proofs:
   # Lotus node, miner and network data.
   lotus-data:
   forest-data:
