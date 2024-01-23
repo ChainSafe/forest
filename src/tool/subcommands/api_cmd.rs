@@ -67,6 +67,9 @@ pub enum ApiCommands {
         // RPC port
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
+        // Data Directory
+        #[arg(long, default_value = "offline-rpc-db")]
+        data_dir: PathBuf,
     },
     /// Compare
     Compare {
@@ -118,7 +121,8 @@ impl ApiCommands {
                 snapshot_file,
                 chain,
                 port,
-            } => start_offline_server(snapshot_file, chain, port).await?,
+                data_dir,
+            } => start_offline_server(snapshot_file, chain, port, data_dir).await?,
             Self::Compare {
                 forest,
                 lotus,
@@ -732,10 +736,11 @@ async fn start_offline_server(
     snapshot_path_opt: Option<PathBuf>,
     chain: NetworkChain,
     rpc_port: u16,
+    rpc_data_dir: PathBuf,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
     let client = Client::default();
-    let db_path = client.data_dir.as_path().join("offline-rpc-db");
+    let db_path = client.data_dir.as_path().join(rpc_data_dir);
     let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
 
     let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
@@ -747,10 +752,13 @@ async fn start_offline_server(
         );
         let snapshot_url =
             crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
-        let tmp_snapshot_path = std::env::current_dir()?.join("snapshot");
-        download_to(&snapshot_url, &tmp_snapshot_path).await?;
+        let downloaded_snapshot_path = std::env::current_dir()?;
+        download_to(&snapshot_url, &downloaded_snapshot_path).await?;
         info!("Snapshot downloaded !!!");
-        (File::open(&tmp_snapshot_path).await?, tmp_snapshot_path)
+        (
+            File::open(&downloaded_snapshot_path).await?,
+            downloaded_snapshot_path,
+        )
     };
 
     info!("Loading snapshot file at {}", snapshot_path.display());
