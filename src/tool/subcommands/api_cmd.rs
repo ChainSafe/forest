@@ -410,6 +410,9 @@ fn wallet_tests() -> Vec<RpcTest> {
 
     vec![
         RpcTest::identity(ApiInfo::wallet_balance_req(known_wallet.to_string())),
+        RpcTest::identity(ApiInfo::wallet_validate_address_req(
+            known_wallet.to_string(),
+        )),
         RpcTest::identity(ApiInfo::wallet_verify_req(known_wallet, text, signature)),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),

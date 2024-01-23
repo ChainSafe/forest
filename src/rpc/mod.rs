@@ -109,6 +109,7 @@ where
             .with_method(WALLET_NEW, wallet_new::<DB>)
             .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
             .with_method(WALLET_SIGN, wallet_sign::<DB>)
+            .with_method(WALLET_VALIDATE_ADDRESS, wallet_validate_address)
             .with_method(WALLET_VERIFY, wallet_verify)
             .with_method(WALLET_DELETE, wallet_delete::<DB>)
             // State API
