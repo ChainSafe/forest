@@ -29,6 +29,8 @@
 
 ### Added
 
+- [#3817](https://github.com/ChainSafe/forest/pull/3817/) Implement the
+  `Filecoin.StateVerifiedClientStatus` lotus-compatible RPC API.
 - [#3824](https://github.com/ChainSafe/forest/pull/3824) Add `--ws` flag to
   `forest-tool api compare` to run all tests using WebSocket connections. Add
   support for WebSocket binary messages in Forest daemon.
@@ -51,6 +53,10 @@
   info logs to debug in Forest daemon.
 
 ### Removed
+
+- [#3878](https://github.com/ChainSafe/forest/issues/3878): FILOps is no longer
+  serving lite snapshots. Removed `filops` option from
+  `forest-tool snapshot fetch --vendor [vendor]`.
 
 ### Fixed
 

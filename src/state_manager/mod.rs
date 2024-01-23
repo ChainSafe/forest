@@ -5,30 +5,27 @@ pub mod chain_rand;
 mod errors;
 mod metrics;
 pub mod utils;
-use crate::chain_sync::SyncConfig;
-use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::state_migration::run_state_migrations;
-use anyhow::{bail, Context as _};
-use fil_actor_interface::init::{self, State};
-use rayon::prelude::ParallelBridge;
-pub use utils::is_valid_for_sending;
 pub mod vm_circ_supply;
 pub use self::errors::*;
+use self::utils::structured;
+
 use crate::beacon::{BeaconEntry, BeaconSchedule};
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
     ChainStore, HeadChange,
 };
+use crate::chain_sync::SyncConfig;
 use crate::interpreter::{
     resolve_to_key_addr, ApplyResult, BlockMessages, CalledAt, ExecutionContext,
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
+use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::networks::ChainConfig;
 use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
-    address::{Address, Payload, Protocol, BLS_PUB_LEN},
+    address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
     executor::{ApplyRet, Receipt},
@@ -37,14 +34,18 @@ use crate::shim::{
     state_tree::{ActorState, StateTree},
     version::NetworkVersion,
 };
+use crate::state_manager::chain_rand::draw_randomness;
+use crate::state_migration::run_state_migrations;
 use ahash::{HashMap, HashMapExt};
+use anyhow::{bail, Context as _};
+use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
-
-use crate::state_manager::chain_rand::draw_randomness;
+use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
+use fil_actor_verifreg_state::v12::DataCap;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::Policy;
@@ -58,12 +59,13 @@ use nonzero_ext::nonzero;
 use num::BigInt;
 use num_traits::identities::Zero;
 use parking_lot::Mutex as SyncMutex;
+use rayon::prelude::ParallelBridge;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
-use utils::structured;
+pub use utils::is_valid_for_sending;
 pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -426,7 +428,7 @@ where
                 state_tree_root: *state_cid,
                 epoch: height,
                 rand: Box::new(rand),
-                base_fee: tipset.block_headers()[0].parent_base_fee.clone(),
+                base_fee: tipset.block_headers().first().parent_base_fee.clone(),
                 circ_supply: genesis_info.get_vm_circulating_supply(
                     height,
                     &self.blockstore_owned(),
@@ -515,7 +517,7 @@ where
                     state_tree_root: st,
                     epoch,
                     rand: Box::new(chain_rand),
-                    base_fee: ts.block_headers()[0].parent_base_fee.clone(),
+                    base_fee: ts.block_headers().first().parent_base_fee.clone(),
                     circ_supply: genesis_info.get_vm_circulating_supply(
                         epoch,
                         &self.blockstore_owned(),
@@ -752,7 +754,7 @@ where
                 } else {
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        &tipset.block_headers()[0],
+                        tipset.block_headers().first(),
                         index,
                     )
                     .map_err(|err| Error::Other(err.to_string()))
@@ -985,14 +987,15 @@ where
         db: &Arc<DB>,
         addr: &Address,
         state_cid: Cid,
-    ) -> Result<[u8; BLS_PUB_LEN], Error> {
+    ) -> Result<BlsPublicKey, Error> {
         let state = StateTree::new_from_root(Arc::clone(db), &state_cid)
             .map_err(|e| Error::Other(e.to_string()))?;
         let kaddr = resolve_to_key_addr(&state, db, addr)
             .map_err(|e| format!("Failed to resolve key address, error: {e}"))?;
 
         match kaddr.into_payload() {
-            Payload::BLS(key) => Ok(key),
+            Payload::BLS(key) => BlsPublicKey::from_bytes(&key)
+                .map_err(|e| Error::Other(format!("Failed to construct bls public key: {e}"))),
             _ => Err(Error::State(
                 "Address must be BLS address to load bls public key".to_owned(),
             )),
@@ -1193,7 +1196,7 @@ where
 
         let addr_buf = to_vec(&addr)?;
         let rand = draw_randomness(
-            base.data(),
+            base.signature(),
             DomainSeparationTag::WinningPoStChallengeSeed as i64,
             epoch,
             &addr_buf,
@@ -1311,6 +1314,36 @@ where
             &self.engine,
             tipsets,
         )
+    }
+
+    pub fn verified_client_status(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<Option<DataCap>> {
+        let id = self.lookup_id(addr, ts)?.context("actor not found")?;
+        let network_version = self.get_network_version(ts.epoch());
+
+        // This is a copy of Lotus code, we need to treat all the actors below version 9
+        // differently. Which maps to network below version 17.
+        // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
+        if (u32::from(network_version.0)) < 17 {
+            let act = self
+                .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
+                .map_err(|e| Error::State(e.to_string()))?
+                .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+            let state = verifreg::State::load(self.blockstore(), act.code, act.state)?;
+            return state.verified_client_data_cap(self.blockstore(), id.into());
+        }
+
+        let act = self
+            .get_actor(&Address::DATACAP_TOKEN_ACTOR, *ts.parent_state())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
+
+        let state = datacap::State::load(self.blockstore(), act.code, act.state)?;
+
+        state.verified_client_data_cap(self.blockstore(), id.into())
     }
 
     pub async fn resolve_to_deterministic_address(

@@ -102,7 +102,7 @@ where
         }
 
         let beacon_entry = self.extract_beacon_entry_for_epoch(round)?;
-        Ok(digest(beacon_entry.data()))
+        Ok(digest(beacon_entry.signature()))
     }
 
     /// Gets 32 bytes of randomness for `ChainRand` parameterized by the
@@ -115,7 +115,7 @@ where
     ) -> anyhow::Result<[u8; 32]> {
         let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(round, lookback)?;
         let be = self.chain_index.latest_beacon_entry(&rand_ts)?;
-        Ok(digest(be.data()))
+        Ok(digest(be.signature()))
     }
 
     pub fn extract_beacon_entry_for_epoch(&self, epoch: ChainEpoch) -> anyhow::Result<BeaconEntry> {
@@ -125,7 +125,7 @@ where
             beacon.max_beacon_round_for_epoch(self.chain_config.network_version(epoch), epoch);
 
         for _ in 0..20 {
-            let cbe = &rand_ts.block_headers()[0].beacon_entries;
+            let cbe = &rand_ts.block_headers().first().beacon_entries;
             for v in cbe {
                 if v.round() == round {
                     return Ok(v.clone());

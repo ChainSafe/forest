@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use super::fvm_shared_latest::{self, commcid::Commitment};
 pub use super::fvm_shared_latest::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
-use bls_signatures::{verify_messages, PublicKey as BlsPubKey, Signature as BlsSignature};
+use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
     de,
@@ -107,7 +107,8 @@ impl Signature {
 impl TryFrom<&Signature> for BlsSignature {
     type Error = anyhow::Error;
     fn try_from(value: &Signature) -> Result<Self, Self::Error> {
-        use bls_signatures::Serialize;
+        use bls_signatures::Serialize as _;
+
         match value.sig_type {
             SignatureType::Secp256k1 => {
                 anyhow::bail!("cannot convert Secp256k1 signature to bls signature")
@@ -123,9 +124,7 @@ impl TryFrom<&Signature> for BlsSignature {
 // Forest's version of the `verify_bls_aggregate` function is semantically different
 // from the version in FVM.
 /// Aggregates and verifies BLS signatures collectively.
-pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature) -> bool {
-    use bls_signatures::Serialize;
-
+pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[BlsPublicKey], sig: &Signature) -> bool {
     // If the number of public keys and data does not match, then return false
     if data.len() != pub_keys.len() {
         return false;
@@ -139,16 +138,8 @@ pub fn verify_bls_aggregate(data: &[&[u8]], pub_keys: &[&[u8]], sig: &Signature)
         _ => return false,
     };
 
-    let pk_map_results: Result<Vec<_>, _> =
-        pub_keys.iter().map(|x| BlsPubKey::from_bytes(x)).collect();
-
-    let pks = match pk_map_results {
-        Ok(v) => v,
-        Err(_) => return false,
-    };
-
     // Does the aggregate verification
-    verify_messages(&bls_sig, data, &pks[..])
+    bls_signatures::verify_messages(&bls_sig, data, pub_keys)
 }
 
 /// Returns `String` error if a BLS signature is invalid.

@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 
 use super::{
-    drand::{DRAND_INCENTINET, DRAND_MAINNET},
+    drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
     parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
 
@@ -161,7 +161,7 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
     ]
 });
 
-pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
+pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 3] = [
     DrandPoint {
         height: 0,
         config: &DRAND_INCENTINET,
@@ -169,6 +169,11 @@ pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
     DrandPoint {
         height: SMOKE_HEIGHT,
         config: &DRAND_MAINNET,
+    },
+    DrandPoint {
+        // height is TBD
+        height: i64::MAX,
+        config: &DRAND_QUICKNET,
     },
 ];
 
