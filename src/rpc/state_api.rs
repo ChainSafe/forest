@@ -8,7 +8,7 @@ use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
     ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageFilter,
-    MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction
+    MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
@@ -808,20 +808,22 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
 pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((from_to, tsk, max_height))): Params<
-        LotusJson<(MessageFilter, TipsetKeys, i64)>,
+        LotusJson<(MessageFilter, TipsetKey, i64)>,
     >,
 ) -> Result<LotusJson<Vec<Cid>>, JsonRpcError> {
     let ts = data.chain_store.load_required_tipset(&tsk)?;
 
-    if from_to.from == None && from_to.to == None {
+    if from_to.is_empty() {
         return Err("must specify at least To or From in message filter".into());
-    } else if let Some(to) = from_to.to {
+    }
+    if let Some(to) = from_to.to {
         data.state_manager
             .lookup_id(&to, ts.as_ref())?
             .with_context(|| {
                 format!("Failed to lookup the id address for address: {to} and tipset keys: {tsk}")
             })?;
-    } else if let Some(from) = from_to.from {
+    }
+    if let Some(from) = from_to.from {
         data.state_manager
             .lookup_id(&from, ts.as_ref())?
             .with_context(|| {

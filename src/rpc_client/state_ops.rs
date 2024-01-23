@@ -214,7 +214,7 @@ impl ApiInfo {
 
     pub fn state_list_messages_req(
         from_to: MessageFilter,
-        tsk: TipsetKeys,
+        tsk: TipsetKey,
         max_height: i64,
     ) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))

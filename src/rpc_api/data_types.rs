@@ -870,6 +870,10 @@ impl MessageFilter {
 
         true
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.from.is_none() && self.to.is_none()
+    }
 }
 
 lotus_json_with_self!(MessageFilter);
@@ -891,4 +895,3 @@ pub struct Transaction {
 }
 
 lotus_json_with_self!(Transaction);
-

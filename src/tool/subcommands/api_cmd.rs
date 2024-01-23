@@ -7,7 +7,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::car::ManyCar;
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
-use crate::rpc_api::data_types::{MessageLookup, MessageFilter};
+use crate::rpc_api::data_types::{MessageFilter, MessageLookup};
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
@@ -536,7 +536,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             to: Some(msg.to()),
                         },
                         root_tsk.clone(),
-                        shared_tipset_epoch,
+                        shared_tipset.epoch(),
                     )));
                     tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                         msg.cid()?,
@@ -580,7 +580,23 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             to: Some(msg.to()),
                         },
                         root_tsk.clone(),
-                        shared_tipset_epoch,
+                        shared_tipset.epoch(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: Some(msg.from()),
+                            to: None,
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: None,
+                            to: None,
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
                     )));
 
                     if !msg.params().is_empty() {
