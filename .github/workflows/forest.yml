@@ -394,17 +394,23 @@ jobs:
   local-devnet-check:
     name: Devnet checks
     runs-on: ubuntu-latest
-    needs:
-      - build-ubuntu
+    # needs:
+    #   - build-ubuntu
     steps:
       - uses: actions/cache@v4
+        id: cache
         with:
           path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
           key: proof-params-2k
+      - name: Load cache into volume
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: |
+          docker volume create devnet_filecoin-proofs
+          docker run --rm -v devnet_filecoin-proofs:/proofs -v $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: forest-${{ runner.os }}
+      # - uses: actions/download-artifact@v4
+      #   with:
+      #     name: forest-${{ runner.os }}
       - name: Devnet setup
         run: ./scripts/devnet/ci_setup.sh
         timeout-minutes: 15
@@ -414,6 +420,8 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
-      - name: Set cache permissions
-        if: success()
-        run: sudo chmod -R 755 ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+      - name: Prepare cache folder for uploading
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm -v devnet_filecoin-proofs:/proofs -v $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /proofs/* /cache"
+          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
