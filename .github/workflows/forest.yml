@@ -397,10 +397,10 @@ jobs:
     needs:
       - build-ubuntu
     steps:
-      # - uses: actions/cache@v4
-      #   with:
-      #     path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
-      #     key: proof-params
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
