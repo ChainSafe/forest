@@ -7,6 +7,7 @@ use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::cli_shared::logger;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
 use crate::db::car::ManyCar;
@@ -52,7 +53,7 @@ use tokio::{
     sync::{mpsc, RwLock},
     task::JoinSet,
 };
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -720,14 +721,15 @@ async fn start_server(
     chain: NetworkChain,
     rpc_port: u16,
 ) -> anyhow::Result<()> {
-    println!("Configuring Offline RPC Server");
+    logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
+    info!("Configuring Offline RPC Server");
     let db_path = tempfile::Builder::new().tempdir()?.path().join("car-db");
     let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
 
     let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
         (File::open(&path).await?, path)
     } else {
-        println!(
+        warn!(
             "No snapshot provided, downloading latest snapshot for {}",
             chain
         );
@@ -735,14 +737,14 @@ async fn start_server(
             crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
         let tmp_snapshot_path = tempfile::Builder::new().tempdir()?.into_path();
         download_to(&snapshot_url, &tmp_snapshot_path).await?;
-        println!("Snapshot downloaded !!!");
+        info!("Snapshot downloaded !!!");
         (File::open(&tmp_snapshot_path).await?, tmp_snapshot_path)
     };
 
-    println!("Loading snapshot file at {}", snapshot_path.display());
+    info!("Loading snapshot file at {}", snapshot_path.display());
     let car_reader = BufReader::new(snapshot_file);
     load_car(&db, car_reader).await?;
-    println!("Snapshot loaded!!!");
+    info!("Snapshot loaded!!!");
 
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let sync_config = Arc::new(SyncConfig::default());
@@ -800,7 +802,7 @@ pub async fn start_offline_rpc<DB>(state: Arc<RPCState<DB>>, rpc_port: u16) -> a
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    println!("Starting offline RPC Server");
+    info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
     let rpc_endpoint = tokio::net::TcpListener::bind(rpc_address)
         .await
