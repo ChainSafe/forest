@@ -130,10 +130,9 @@ services:
     depends_on:
       lotus_config:
         condition: service_completed_successfully
-    image: ghcr.io/chainsafe/forest
-    # build:
-    #   context: ../../.
-    #   dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    build:
+      context: ../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     container_name: forest
     healthcheck:
       test: |
@@ -173,10 +172,9 @@ services:
     depends_on:
       forest:
         condition: service_healthy
-    image: ghcr.io/chainsafe/forest
-    # build:
-    #   context: ../../.
-    #   dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    build:
+      context: ../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
       - forest-data:${FOREST_DATA_DIR}
