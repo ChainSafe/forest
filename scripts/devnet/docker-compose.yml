@@ -15,6 +15,8 @@ services:
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
+    environment:
+      - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     env_file:
       - lotus.env
     entrypoint: ["/bin/bash", "-c" ]
@@ -51,6 +53,8 @@ services:
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
+    environment:
+      - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     ports:
       - ${LOTUS_RPC_PORT}:${LOTUS_RPC_PORT}
       - ${LOTUS_P2P_PORT}:${LOTUS_P2P_PORT}
@@ -81,6 +85,8 @@ services:
     volumes:
       - filecoin-proofs:${FILECOIN_PROOFS_DIR}
       - lotus-data:${LOTUS_DATA_DIR}
+    environment:
+      - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     ports:
       - ${MINER_RPC_PORT}:${MINER_RPC_PORT}
     env_file:
@@ -106,6 +112,8 @@ services:
         condition: service_healthy
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
+    environment:
+      - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     entrypoint: ["/bin/bash", "-c" ]
     env_file:
       - lotus.env
@@ -139,6 +147,7 @@ services:
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FILECOIN_PROOFS_DIR}
+      - FOREST_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     networks:
       - devnet
     ports:

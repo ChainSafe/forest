@@ -9,6 +9,7 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
@@ -373,4 +374,16 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
             Multiaddr::from_str(s).unwrap_or_else(|e| panic!("invalid bootstrap peer {s}: {e}"))
         })
         .collect()
+}
+
+fn get_upgrade_height(env_var_key: &str, default: ChainEpoch) -> ChainEpoch {
+    if let Ok(value) = std::env::var(env_var_key) {
+        if let Ok(epoch) = value.parse() {
+            return epoch;
+        } else {
+            warn!("Failed to parse {env_var_key}={value}, value should be an integer");
+        }
+    }
+
+    default
 }
