@@ -7,7 +7,6 @@ use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::cli_shared::logger;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
 use crate::db::car::ManyCar;
@@ -721,7 +720,6 @@ async fn start_server(
     chain: NetworkChain,
     rpc_port: u16,
 ) -> anyhow::Result<()> {
-    logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
     info!("Configuring Offline RPC Server");
     let db_path = tempfile::Builder::new().tempdir()?.path().join("car-db");
     let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
