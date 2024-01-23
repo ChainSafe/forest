@@ -21,7 +21,7 @@ snapshot="$("$FOREST_TOOL_PATH" snapshot fetch --chain calibnet)"
 for i in "${!PORTS[@]}"; do
   port=${PORTS[$i]}
   data_dir="offline-rpc-db-$((i + 1))"
-  "$FOREST_TOOL_PATH" api serve "$snapshot" --chain calibnet --port $port --data-dir $data_dir &
+  "$FOREST_TOOL_PATH" api serve "$snapshot" --chain calibnet --port "$port" --data-dir "$data_dir" &
 done
 
 # Check if services on ports have started
