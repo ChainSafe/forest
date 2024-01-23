@@ -27,6 +27,7 @@ use crate::shim::crypto::Signature;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_util::load_car;
 use crate::utils::version::FOREST_VERSION_STRING;
+use crate::Client;
 use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
@@ -117,7 +118,7 @@ impl ApiCommands {
                 snapshot_file,
                 chain,
                 port,
-            } => start_server(snapshot_file, chain, port).await?,
+            } => start_offline_server(snapshot_file, chain, port).await?,
             Self::Compare {
                 forest,
                 lotus,
@@ -727,13 +728,14 @@ async fn compare_apis(
     run_tests(tests, &forest, &lotus, &config).await
 }
 
-async fn start_server(
+async fn start_offline_server(
     snapshot_path_opt: Option<PathBuf>,
     chain: NetworkChain,
     rpc_port: u16,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
-    let db_path = tempfile::Builder::new().tempdir()?.path().join("car-db");
+    let client = Client::default();
+    let db_path = client.data_dir.as_path().join("offline-rpc-db");
     let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
 
     let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
@@ -745,7 +747,7 @@ async fn start_server(
         );
         let snapshot_url =
             crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
-        let tmp_snapshot_path = tempfile::Builder::new().tempdir()?.into_path();
+        let tmp_snapshot_path = std::env::current_dir()?.join("snapshot");
         download_to(&snapshot_url, &tmp_snapshot_path).await?;
         info!("Snapshot downloaded !!!");
         (File::open(&tmp_snapshot_path).await?, tmp_snapshot_path)
@@ -805,6 +807,10 @@ async fn start_server(
     });
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port).await?;
+
+    // Cleanup offline RPC resources
+    std::fs::remove_dir_all(&snapshot_path)?;
+    std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
 
