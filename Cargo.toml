@@ -147,7 +147,7 @@ rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
-regex = "1.9"
+regex = "1.10"
 reqwest = { version = "0.11.23", default-features = false, features = [
   "stream",
   "rustls-tls",
@@ -193,7 +193,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
-uuid = { version = "1.6", features = ["v4"] }
+uuid = { version = "1.7", features = ["v4"] }
 walkdir = "2"
 zstd = "0.13"
 
@@ -215,11 +215,11 @@ libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-respo
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 predicates = "3.0"
-proc-macro2 = { version = "1.0.76", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.197"
+ra_ap_syntax = "0.0.198"
 regex-automata = "0.4"
 syn = { version = "2.0.48", default-features = false, features = [
   "full",

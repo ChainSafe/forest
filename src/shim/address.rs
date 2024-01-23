@@ -13,7 +13,7 @@ use fvm_shared2::address::Address as Address_v2;
 use fvm_shared3::address::Address as Address_v3;
 use fvm_shared4::address::Address as Address_v4;
 use fvm_shared4::address::Address as Address_latest;
-pub use fvm_shared4::address::{Error, Network, Payload, Protocol, BLS_PUB_LEN, PAYLOAD_HASH_LEN};
+pub use fvm_shared4::address::{Error, Network, Payload, Protocol, PAYLOAD_HASH_LEN};
 use integer_encoding::VarInt;
 use num_traits::FromPrimitive;
 use once_cell::sync::Lazy;
