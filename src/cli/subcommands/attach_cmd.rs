@@ -257,14 +257,14 @@ async fn sleep_tipsets(epochs: ChainEpochDelta, api: ApiInfo) -> anyhow::Result<
     let mut epoch = None;
     loop {
         let state = api.sync_status().await?;
-        if state.active_syncs[0].stage() == SyncStage::Complete {
+        if state.active_syncs.first().stage() == SyncStage::Complete {
             if let Some(prev) = epoch {
-                let curr = state.active_syncs[0].epoch();
+                let curr = state.active_syncs.first().epoch();
                 if (curr - prev) >= epochs {
                     return Ok(());
                 }
             } else {
-                epoch = Some(state.active_syncs[0].epoch());
+                epoch = Some(state.active_syncs.first().epoch());
             }
         }
         time::sleep(time::Duration::from_secs(1)).await;

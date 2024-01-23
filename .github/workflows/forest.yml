@@ -380,6 +380,7 @@ jobs:
         run: ./scripts/devnet/ci_check.sh
         timeout-minutes: 15
       - name: Dump docker logs
+        if: always()
         uses: jwalton/gh-docker-logs@v2
 
   # Offline rpc check on calibnet
