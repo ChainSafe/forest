@@ -42,7 +42,7 @@
   flag to `forest-tool api compare`.
 - [#3806](https://github.com/ChainSafe/forest/pull/3806) Implement the
   `Filecoin.EthGasPrice` lotus-compatible RPC API.
-- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Node-Less RPC
+- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
   API.
 
 ### Changed

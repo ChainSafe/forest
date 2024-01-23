@@ -382,11 +382,11 @@ jobs:
       - name: Dump docker logs
         uses: jwalton/gh-docker-logs@v2
 
-  # node-less rpc check on calibnet
-  node-less-rpc-check:
+  # Offline rpc check on calibnet
+  offline-rpc-check:
     needs:
       - build-ubuntu
-    name: Node-Less RPC check
+    name: Offline RPC check
     runs-on: ubuntu-latest
     steps:
       # To help investigate transient test failures
@@ -407,4 +407,5 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: RPC check
-        run: ./scripts/tests/calibnet_rpc_check.sh
+        run: ./scripts/tests/calibnet_offline_rpc_check.sh
+        timeout-minutes: 20

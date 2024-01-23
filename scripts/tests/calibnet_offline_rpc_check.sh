@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# This script is used to test the Node-Less API server against itself.
+# This script is used to test the offline RPC API server against itself.
 # It's run in CI, and uses forest-tool api compare subcommand to test RPC endpoints.
 
 set -euxo pipefail
@@ -22,31 +22,32 @@ stop_services() {
 TEMP_DIR=$(mktemp --directory)
 pushd "$TEMP_DIR"
     # Fetch latest calibnet snapshot
-    "$FOREST_TOOL_PATH" snapshot fetch --chain calibnet
-    test "$(num_files_here)" -eq 1
-    snapshot=$(find . -type f | head -1)
+    snapshot="$("$FOREST_TOOL_PATH" snapshot fetch --chain calibnet)"
 
-    # Start Node-Less RPC servers on ports 8080 and 8081
+    # Start Offline RPC servers on ports
     for port in "${PORTS[@]}"; do
         "$FOREST_TOOL_PATH" api serve "$snapshot" --chain calibnet --port "$port" &
     done
 
-    # Check if services on ports 8080 and 8081 have started
-    while ! (nc -z localhost 8080 && nc -z localhost 8081); do
-        sleep 30
+    # Check if services on ports have started
+    for port in "${PORTS[@]}"; do
+        until nc -z localhost "$port"; do
+            sleep 30
+        done
     done
 
     # Compare
-    result="$($FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http)"
+    $FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http
+    exit_code=$?
 
     # Check the result
-    if echo "$result" | tail -n +3 | grep -E -v "\| *(Valid|Timeout) *\| *(Valid|Timeout) *\|"; then
+    if [ $exit_code -ne 0 ]; then
         stop_services
         exit 1
     fi
 popd
 
-# Stop services on ports 8080 and 8081
+# Stop services on ports
 stop_services
 
 # Cleanup temporary directory
