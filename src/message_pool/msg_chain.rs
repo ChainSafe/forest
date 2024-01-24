@@ -167,8 +167,8 @@ impl Chains {
         self.key_vec.get(i).copied()
     }
 
-    /// Retrieves the `msg` chain node at the given index
-    pub(in crate::message_pool) fn get_at(&mut self, i: usize) -> Option<&MsgChainNode> {
+    /// Retrieves the `msg` chain node at the given index. Returns `None` if index is oob.
+    pub(in crate::message_pool) fn get_at(&self, i: usize) -> Option<&MsgChainNode> {
         self.map.get(self.get_key_at(i)?)
     }
 
@@ -264,7 +264,7 @@ impl Chains {
 impl Index<usize> for Chains {
     type Output = MsgChainNode;
     fn index(&self, i: usize) -> &Self::Output {
-        self.map.get(self.key_vec[i]).unwrap()
+        self.get_at(i).unwrap()
     }
 }
 

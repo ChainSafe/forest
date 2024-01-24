@@ -42,22 +42,23 @@ impl<'de> de::Deserialize<'de> for Signature {
         D: de::Deserializer<'de>,
     {
         let bytes: Cow<'de, [u8]> = strict_bytes::Deserialize::deserialize(deserializer)?;
-        if bytes.is_empty() {
-            return Err(de::Error::custom("Cannot deserialize empty bytes"));
+        match bytes.split_first() {
+            None => Err(de::Error::custom("Cannot deserialize empty bytes")),
+            Some((&sig_byte, rest)) => {
+                // Remove signature type byte
+                let sig_type = SignatureType::from_u8(sig_byte).ok_or_else(|| {
+                    de::Error::custom(format!(
+                        "Invalid signature type byte (must be 1, 2 or 3), was {}",
+                        sig_byte
+                    ))
+                })?;
+
+                Ok(Signature {
+                    bytes: rest.to_vec(),
+                    sig_type,
+                })
+            }
         }
-
-        // Remove signature type byte
-        let sig_type = SignatureType::from_u8(bytes[0]).ok_or_else(|| {
-            de::Error::custom(format!(
-                "Invalid signature type byte (must be 1, 2 or 3), was {}",
-                bytes[0]
-            ))
-        })?;
-
-        Ok(Signature {
-            bytes: bytes[1..].to_vec(),
-            sig_type,
-        })
     }
 }
 
