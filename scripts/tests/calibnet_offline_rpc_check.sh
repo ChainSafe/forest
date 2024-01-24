@@ -32,7 +32,7 @@ for port in "${PORTS[@]}"; do
 done
 
 # Compare
-$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http
+$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http --n-tipsets 5
 exit_code=$?
 
 # Check the result

@@ -281,7 +281,7 @@ impl RpcTest {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
-                let forest_status = if (self.check_semantics)(forest, lotus) {
+                let forest_status = if (self.check_semantics)(forest.clone(), lotus.clone()) {
                     EndpointStatus::Valid
                 } else {
                     EndpointStatus::InvalidResponse
@@ -893,9 +893,7 @@ async fn run_tests(
     let mut failed_results = HashMap::default();
     while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
         let result_entry = (method_name, forest_status, lotus_status);
-        if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
-            || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
-        {
+        if forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid {
             success_results
                 .entry(result_entry)
                 .and_modify(|v| *v += 1)
@@ -907,14 +905,12 @@ async fn run_tests(
                 .or_insert(1u32);
         }
 
-        if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-            && config.fail_fast
-        {
+        if !failed_results.is_empty() && config.fail_fast {
             break;
         }
     }
     print_test_results(&success_results, &failed_results);
-    // Check if there are failed results
+
     if failed_results.is_empty() {
         Ok(())
     } else {
