@@ -7,10 +7,6 @@ WORKDIR /lotus
 
 RUN git clone --depth 1 --branch v1.25.2 https://github.com/filecoin-project/lotus.git .
 
-# Update the schedules to have the migration faster than it is by default.
-COPY update-schedules.diff .
-RUN git apply update-schedules.diff
-
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \
     make 2k
