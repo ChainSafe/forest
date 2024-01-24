@@ -387,3 +387,28 @@ fn get_upgrade_height(env_var_key: &str, default: ChainEpoch) -> ChainEpoch {
 
     default
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_upgrade_height_no_env_var() {
+        let epoch = get_upgrade_height("FOREST_TEST_VAR_1", 200);
+        assert_eq!(epoch, 200);
+    }
+
+    #[test]
+    fn test_get_upgrade_height_valid_env_var() {
+        std::env::set_var("FOREST_TEST_VAR_2", "10");
+        let epoch = get_upgrade_height("FOREST_TEST_VAR_2", 200);
+        assert_eq!(epoch, 10);
+    }
+
+    #[test]
+    fn test_get_upgrade_height_invalid_env_var() {
+        std::env::set_var("FOREST_TEST_VAR_3", "foo");
+        let epoch = get_upgrade_height("FOREST_TEST_VAR_3", 200);
+        assert_eq!(epoch, 200);
+    }
+}
