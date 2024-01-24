@@ -13,7 +13,7 @@ services:
   lotus_init:
     image: ${LOTUS_IMAGE}
     volumes:
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
@@ -24,6 +24,7 @@ services:
       - |
         set -euxo pipefail
         if [ ! -f ${LOTUS_DATA_DIR}/NODE_INITIALISED ]; then
+          lotus --version
           lotus fetch-params 2048
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors pre-seal --sector-size 2KiB --num-sectors 2
           lotus-seed --sector-dir ${LOTUS_DATA_DIR}/genesis-sectors genesis new ${LOTUS_DATA_DIR}/localnet.json
@@ -51,7 +52,7 @@ services:
     networks:
       - devnet
     volumes:
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
@@ -64,6 +65,7 @@ services:
     command:
       - |
         set -euxo pipefail
+        lotus --version
         lotus daemon --lotus-make-genesis=${LOTUS_DATA_DIR}/devgen.car --genesis-template=${LOTUS_DATA_DIR}/localnet.json --bootstrap=false
 
   # Lotus miner container. It communicates only with Lotus and not with Forest.
@@ -83,7 +85,7 @@ services:
     networks:
       - devnet
     volumes:
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - lotus-data:${LOTUS_DATA_DIR}
     environment:
       - LOTUS_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
@@ -96,6 +98,7 @@ services:
     command:
       - |
         set -euxo pipefail
+        lotus-miner --version
         if [ ! -f ${LOTUS_DATA_DIR}/MINER_INITIALISED ]; then
           lotus wallet import --as-default ${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.key
           lotus-miner init --genesis-miner --actor=t01000 --sector-size=2KiB --pre-sealed-sectors=${LOTUS_DATA_DIR}/genesis-sectors --pre-sealed-metadata=${LOTUS_DATA_DIR}/genesis-sectors/pre-seal-t01000.json --nosync
@@ -142,11 +145,11 @@ services:
       start_period: 15s
     volumes:
       - lotus-data:${LOTUS_DATA_DIR}
-      - filecoin-proofs:${FILECOIN_PROOFS_DIR}
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - forest-data:${FOREST_DATA_DIR}
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
-      - FIL_PROOFS_PARAMETER_CACHE=${FILECOIN_PROOFS_DIR}
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FOREST_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     networks:
       - devnet
