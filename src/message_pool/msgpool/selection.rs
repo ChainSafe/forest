@@ -164,7 +164,7 @@ where
             // Shove as many chains into `part`. Stop once the sum of
             // `gas_limit` is greater than BLOCK_GAS_LIMIT _or_ when the
             // available gas is less than MIN_GAS.
-            while let Some((chain_key, chain)) = my_iter.next() {
+            for (chain_key, chain) in my_iter {
                 part.push(*chain_key);
                 match remaining_gas.checked_sub(chain.gas_limit) {
                     // Sum of gas limits in partition has exceeded BLOCK_GAS_LIMIT, don't add any more chains.
