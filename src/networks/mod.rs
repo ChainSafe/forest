@@ -376,16 +376,15 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
         .collect()
 }
 
-fn get_upgrade_height(env_var_key: &str, default: ChainEpoch) -> ChainEpoch {
+fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
     if let Ok(value) = std::env::var(env_var_key) {
         if let Ok(epoch) = value.parse() {
-            return epoch;
+            return Some(epoch);
         } else {
             warn!("Failed to parse {env_var_key}={value}, value should be an integer");
         }
     }
-
-    default
+    None
 }
 
 #[cfg(test)]
@@ -394,21 +393,21 @@ mod tests {
 
     #[test]
     fn test_get_upgrade_height_no_env_var() {
-        let epoch = get_upgrade_height("FOREST_TEST_VAR_1", 200);
-        assert_eq!(epoch, 200);
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_1");
+        assert_eq!(epoch, None);
     }
 
     #[test]
     fn test_get_upgrade_height_valid_env_var() {
         std::env::set_var("FOREST_TEST_VAR_2", "10");
-        let epoch = get_upgrade_height("FOREST_TEST_VAR_2", 200);
-        assert_eq!(epoch, 10);
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_2");
+        assert_eq!(epoch, Some(10));
     }
 
     #[test]
     fn test_get_upgrade_height_invalid_env_var() {
         std::env::set_var("FOREST_TEST_VAR_3", "foo");
-        let epoch = get_upgrade_height("FOREST_TEST_VAR_3", 200);
-        assert_eq!(epoch, 200);
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
+        assert_eq!(epoch, None);
     }
 }
