@@ -24,12 +24,12 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Smoke,
-            epoch: get_upgrade_height("FOREST_SMOKE_HEIGHT", -1),
+            epoch: get_upgrade_height("FOREST_SMOKE_HEIGHT", -2),
             bundle: None,
         },
         HeightInfo {
             height: Height::Ignition,
-            epoch: get_upgrade_height("FOREST_IGNITION_HEIGHT", -2),
+            epoch: get_upgrade_height("FOREST_IGNITION_HEIGHT", -3),
             bundle: None,
         },
         HeightInfo {
@@ -128,7 +128,7 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Thunder,
-            epoch: get_upgrade_height("FOREST_THUNDER_HEIGHT", -23),
+            epoch: get_upgrade_height("FOREST_THUNDER_HEIGHT", -1),
             bundle: None,
         },
         HeightInfo {
