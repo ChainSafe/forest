@@ -155,17 +155,17 @@ impl Receipt {
         receipts: &Cid,
         i: u64,
     ) -> anyhow::Result<Option<Self>> {
-        // Try Receipt_v2 first
+        // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
         if let Ok(amt) = Amtv0::load(receipts, db) {
             if let Ok(receipts) = amt.get(i) {
-                return Ok(receipts.cloned().map(Receipt::V2));
+                return Ok(receipts.cloned().map(Receipt::V4));
             }
         }
 
-        // Receipt_v4 and Receipt_v3 are identical, use v4 here
+        // Fallback to Receipt_v2.
         let amt = Amtv0::load(receipts, db)?;
         let receipts = amt.get(i)?;
-        Ok(receipts.cloned().map(Receipt::V4))
+        Ok(receipts.cloned().map(Receipt::V2))
     }
 }
 
