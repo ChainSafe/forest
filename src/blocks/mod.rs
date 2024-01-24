@@ -4,6 +4,7 @@
 use thiserror::Error;
 
 mod block;
+mod build_chain;
 mod election_proof;
 mod gossip_block;
 mod header;

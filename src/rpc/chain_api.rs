@@ -276,8 +276,42 @@ pub(in crate::rpc) async fn chain_get_path(
         .map(LotusJson)
         .map_err(Into::into)
 }
-
 fn impl_chain_get_path(
+    chain_store: &ChainStore<impl Blockstore>,
+    from: &TipsetKey,
+    to: &TipsetKey,
+) -> anyhow::Result<Vec<PathChange>> {
+    impl_chain_get_path_lotus(chain_store, from, to)
+}
+fn impl_chain_get_path_lotus(
+    chain_store: &ChainStore<impl Blockstore>,
+    from: &TipsetKey,
+    to: &TipsetKey,
+) -> anyhow::Result<Vec<PathChange>> {
+    let mut to_revert = chain_store.load_required_tipset(from)?;
+    let mut to_apply = chain_store.load_required_tipset(to)?;
+
+    let mut all_reverts = vec![];
+    let mut all_applies = vec![];
+
+    while to_revert != to_apply {
+        if to_revert.epoch() > to_apply.epoch() {
+            let next = chain_store.load_required_tipset(to_revert.parents())?;
+            all_reverts.push(to_revert);
+            to_revert = next;
+        } else {
+            let next = chain_store.load_required_tipset(to_apply.parents())?;
+            all_applies.push(to_apply);
+            to_apply = next;
+        }
+    }
+    Ok(all_reverts
+        .into_iter()
+        .map(PathChange::Revert)
+        .chain(all_applies.into_iter().rev().map(PathChange::Apply))
+        .collect())
+}
+fn impl_chain_get_path_scrolling(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
     to: &TipsetKey,
@@ -605,8 +639,12 @@ mod tests {
 
         // is the fork laid out correctly?
         assert_eq!(&a.parents, Tipset::from(genesis.clone()).key());
+        assert_eq!(a.epoch, 1);
         assert_eq!(&b1.parents, Tipset::from(a.clone()).key());
+        assert_eq!(b1.epoch, 2);
         assert_eq!(&b2.parents, Tipset::from(a.clone()).key());
+        assert_eq!(b2.epoch, 2);
+        assert_ne!(b1, b2);
 
         // same height
         assert_path_change(&store, b1, b2, [Revert(b1), Apply(b2)]);
