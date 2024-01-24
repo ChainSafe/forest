@@ -36,7 +36,9 @@ pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
 pub const DEFAULT_PROTOCOL: &str = "http";
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60 * 60 * 24); // arbitrarily set it to 1 day
+                                                                     // to avoid timeouts on, e.g.,
+                                                                     // snapshot exports.
 
 #[derive(Clone, Debug)]
 pub struct ApiInfo {
