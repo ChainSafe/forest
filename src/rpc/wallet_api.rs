@@ -178,6 +178,14 @@ where
     Ok(sig.into())
 }
 
+/// Validates whether a given string can be decoded as a well-formed address
+pub(in crate::rpc) async fn wallet_validate_address(
+    Params((addr_str,)): Params<(String,)>,
+) -> Result<LotusJson<Address>, JsonRpcError> {
+    let addr = Address::from_str(&addr_str)?;
+    Ok(addr.into())
+}
+
 /// Verify a Signature, true if verified, false otherwise
 pub(in crate::rpc) async fn wallet_verify(
     Params(LotusJson((address, msg, sig))): Params<LotusJson<(Address, Vec<u8>, Signature)>>,
