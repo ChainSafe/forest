@@ -815,15 +815,15 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
 
     if from_to.is_empty() {
         return Err("must specify at least To or From in message filter".into());
-    }
-    if let Some(to) = from_to.to {
+    } else if let Some(to) = from_to.to {
+        // this is following lotus logic, it probably should be `if let` instead of `else if let`
+        // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
         data.state_manager
             .lookup_id(&to, ts.as_ref())?
             .with_context(|| {
                 format!("Failed to lookup the id address for address: {to} and tipset keys: {tsk}")
             })?;
-    }
-    if let Some(from) = from_to.from {
+    } else if let Some(from) = from_to.from {
         data.state_manager
             .lookup_id(&from, ts.as_ref())?
             .with_context(|| {
