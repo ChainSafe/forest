@@ -143,6 +143,7 @@ impl EndpointStatus {
 }
 struct RpcTest {
     request: RpcRequest,
+    pubsub: bool,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
@@ -157,6 +158,7 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
+            pubsub: false,
             check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
@@ -175,6 +177,7 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
+            pubsub: false,
             check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
             check_semantics: Arc::new(move |forest_json, lotus_json| {
                 serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
@@ -217,10 +220,17 @@ impl RpcTest {
         use_websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
         let (forest_resp, lotus_resp) = if use_websocket {
-            (
-                forest_api.ws_call(self.request.clone()).await,
-                lotus_api.ws_call(self.request.clone()).await,
-            )
+            if self.pubsub {
+                (
+                    forest_api.ws_subscribe(self.request.clone()).await,
+                    lotus_api.ws_subscribe(self.request.clone()).await,
+                )
+            } else {
+                (
+                    forest_api.ws_call(self.request.clone()).await,
+                    lotus_api.ws_call(self.request.clone()).await,
+                )
+            }
         } else {
             (
                 forest_api.call(self.request.clone()).await,
@@ -628,8 +638,9 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     Ok(tests)
 }
 
-fn websocket_tests() -> Vec<RpcTest> {
-    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
+fn pubsub_tests() -> Vec<RpcTest> {
+    let mut test = RpcTest::identity(ApiInfo::chain_notify_req());
+    test.pubsub = true;
     vec![test]
 }
 
@@ -675,7 +686,7 @@ async fn compare_apis(
     }
 
     if config.use_websocket {
-        tests.extend(websocket_tests());
+        tests.extend(pubsub_tests());
     }
 
     tests.sort_by_key(|test| test.request.method_name);

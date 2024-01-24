@@ -125,7 +125,7 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
     }
 
-    pub fn chain_notify_req() -> RpcRequest<()> {
+    pub fn chain_notify_req() -> RpcRequest<u64> {
         RpcRequest::new(CHAIN_NOTIFY, ())
     }
 

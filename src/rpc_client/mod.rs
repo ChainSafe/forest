@@ -23,9 +23,10 @@ use std::time::Duration;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::net::global_http_client;
+use base64::prelude::*;
 use jsonrpc_v2::{Id, RequestObject, V2};
-use serde::Deserialize;
-use tracing::debug;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, trace};
 
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite;
@@ -135,13 +136,16 @@ impl ApiInfo {
 
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
+        // A 16 byte key (base64 encoded) is expected for `Sec-WebSocket-Key` during a websocket handshake
+        let key = BASE64_STANDARD.encode(b"TheGreatOldOnes.");
+
         let request = tungstenite::http::Request::builder()
             .method("GET")
             .uri(api_url.to_string())
             .header("Host", api_url.host)
             .header("Upgrade", "websocket")
             .header("Connection", "upgrade")
-            .header("Sec-Websocket-Key", "key123")
+            .header("Sec-Websocket-Key", key)
             .header("Sec-Websocket-Version", "13")
             .body(())
             .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
@@ -164,6 +168,81 @@ impl ApiInfo {
         } else {
             Err(JsonRpcError::INVALID_REQUEST)
         }
+    }
+
+    pub async fn ws_subscribe<T: HasLotusJson>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
+        let sub_id: i64 = 23;
+
+        let method_name = req.method_name;
+
+        let rpc_req = RequestObject::request()
+            .with_method(req.method_name)
+            .with_params(req.params)
+            .with_id(sub_id)
+            .finish();
+
+        let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
+
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+
+        debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
+
+        // A 16 byte key (base64 encoded) is expected for `Sec-WebSocket-Key` during a websocket handshake
+        let key = BASE64_STANDARD.encode(b"TheGreatOldOnes.");
+
+        let request = tungstenite::http::Request::builder()
+            .method("GET")
+            .uri(api_url.to_string())
+            .header("Host", api_url.host)
+            .header("Upgrade", "websocket")
+            .header("Connection", "upgrade")
+            .header("Sec-Websocket-Key", key)
+            .header("Sec-Websocket-Version", "13")
+            .body(())
+            .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
+
+        let (ws_stream, _) = connect_async(request).await?;
+
+        let (mut write, mut read) = ws_stream.split();
+
+        write.send(WsMessage::Binary(payload)).await?;
+
+        // A succesful result is always an u64 number (the channel ID)
+        let channel_id = if let Some(message) = read.next().await {
+            let data = message?.into_data();
+            let rpc_res: JsonRpcResponse<u64> =
+                serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
+
+            match rpc_res {
+                JsonRpcResponse::Result { result, .. } => Ok(result),
+                JsonRpcResponse::Error { error, .. } => Err(error),
+            }
+        } else {
+            Err(JsonRpcError::INVALID_REQUEST)
+        }?;
+        trace!("subscribed to {method_name}: ({channel_id}, {sub_id})",);
+
+        // TODO: add number of notification to ApiTestFlags.
+        let mut nofifications = read.take(4);
+        while let Some(message) = nofifications.next().await {
+            // TODO: Make sure method in the message is "xrpc.ch.val"
+
+            // TODO: Push notification into a vector so we can compare results
+            trace!("get notif {:?}", message);
+        }
+
+        // Cancel the subscription and close the stream
+        let cancel_message = CancelMessage::from_subscription(sub_id);
+        let payload = serde_json::to_string(&cancel_message).expect("Failed to serialize JSON");
+        trace!("sending cancel {:?}", payload);
+        write.send(WsMessage::Text(payload)).await?;
+
+        write.close().await?;
+
+        Err(JsonRpcError::INVALID_REQUEST)
     }
 }
 
@@ -382,6 +461,25 @@ impl<T> RpcRequest<T> {
             result_type: PhantomData,
             rpc_endpoint: self.rpc_endpoint,
             timeout: self.timeout,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct CancelMessage {
+    jsonrpc: &'static str,
+    method: &'static str,
+    params: Vec<i64>,
+    id: serde_json::Value,
+}
+
+impl CancelMessage {
+    fn from_subscription(sub_id: i64) -> Self {
+        Self {
+            jsonrpc: "2.0",
+            method: "xrpc.cancel",
+            params: vec![sub_id],
+            id: serde_json::Value::Null,
         }
     }
 }
