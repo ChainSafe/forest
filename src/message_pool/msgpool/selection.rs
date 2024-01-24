@@ -153,9 +153,6 @@ where
         //    we use the full block_gas_limit (as opposed to the residual `gas_limit`
         // from the    priority message selection) as we have to account for
         // what other miners are doing
-        let mut next_chain = 0;
-        let mut i = 0;
-
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
 
         let mut my_iter = chains
