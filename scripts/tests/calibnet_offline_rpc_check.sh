@@ -43,6 +43,3 @@ fi
 
 # Stop services on ports
 stop_services
-
-# Cleanup temporary directory
-rm -rf "$TEMP_DIR"
