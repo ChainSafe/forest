@@ -840,7 +840,7 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
         let msgs = data.chain_store.messages_for_tipset(&cur_ts)?;
 
         for msg in msgs {
-            if from_to.matches(&msg.message()) {
+            if from_to.matches(msg.message()) {
                 out.push(msg.cid()?);
             }
         }
@@ -852,7 +852,7 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
         let next = data
             .state_manager
             .chain_store()
-            .load_tipset(&cur_ts.parents())?
+            .load_tipset(cur_ts.parents())?
             .ok_or("failed to load next tipset")?;
         cur_ts = next;
     }
