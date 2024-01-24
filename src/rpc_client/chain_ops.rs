@@ -83,6 +83,7 @@ impl ApiInfo {
     }
 
     pub fn chain_export_req(params: ChainExportParams) -> RpcRequest<ChainExportResult> {
+        // snapshot export could take a few hours on mainnet
         RpcRequest::new(CHAIN_EXPORT, params).with_timeout(Duration::MAX)
     }
 
