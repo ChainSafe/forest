@@ -894,7 +894,7 @@ async fn run_tests(
     while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
         let result_entry = (method_name, forest_status, lotus_status);
         if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
-            || (lotus_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
+            || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
         {
             success_results
                 .entry(result_entry)
