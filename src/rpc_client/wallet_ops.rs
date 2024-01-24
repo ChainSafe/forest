@@ -88,6 +88,14 @@ impl ApiInfo {
         RpcRequest::new(WALLET_SIGN, (address, data))
     }
 
+    pub async fn wallet_validate_address(&self, address: String) -> Result<Address, JsonRpcError> {
+        self.call(Self::wallet_validate_address_req(address)).await
+    }
+
+    pub fn wallet_validate_address_req(address: String) -> RpcRequest<Address> {
+        RpcRequest::new(WALLET_VALIDATE_ADDRESS, (address,))
+    }
+
     pub async fn wallet_verify(
         &self,
         address: Address,
