@@ -7,11 +7,12 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{shim::sector::SectorSize, utils::net::download_ipfs_file_trustlessly};
 use ahash::HashMap;
-use backoff::{future::retry, ExponentialBackoff};
+use backoff::{future::retry, ExponentialBackoffBuilder};
 use blake2b_simd::{Hash, State as Blake2b};
 use cid::Cid;
 use serde::{Deserialize, Serialize};
@@ -176,8 +177,14 @@ async fn fetch_verify_params(
 async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
     let cid = Cid::from_str(&info.cid)?;
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
-    info!("Fetching param file {:?} from {}", path, gw);
-    let result = retry(ExponentialBackoff::default(), || async {
+    info!("Fetching param file {} from {gw}", path.display());
+    let backoff = ExponentialBackoffBuilder::default()
+        // Up to 30 minutes for download the file. This may be harsh,
+        // but the gateway proved to be unreliable at times and we
+        // don't want to get stuck here. Better to fail fast and retry.
+        .with_max_elapsed_time(Some(Duration::from_secs(60 * 30)))
+        .build();
+    let result = retry(backoff, || async {
         Ok(download_ipfs_file_trustlessly(&cid, Some(GATEWAY), path).await?)
     })
     .await;

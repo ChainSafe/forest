@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#3857](https://github.com/ChainSafe/forest/pull/3907) Timeout parameter fetch
+  to 30 minutes to avoid it getting stuck on IPFS gateway issues.
+
 ## Forest 0.16.5 "Pinecone Deactivation"
 
 Non-mandatory upgrade including mostly new RPC endpoints. The option to use an
