@@ -93,38 +93,11 @@ RUN forest -V && forest-cli -V && forest-tool -V
 ENTRYPOINT ["forest"]
 
 # A fat image contains forest binaries and fil proof parameter files under $FIL_PROOFS_PARAMETER_CACHE
-FROM ubuntu:22.04 as fat-image
+FROM slim-image as fat-image
 
-ARG SERVICE_USER=forest
-ARG SERVICE_GROUP=forest
-ARG DATA_DIR=/home/forest/.local/share/forest
-
-ENV DEBIAN_FRONTEND="noninteractive"
 # Move FIL_PROOFS_PARAMETER_CACHE out of forest data dir since users always need to mount the data dir
 ENV FIL_PROOFS_PARAMETER_CACHE="/var/tmp/filecoin-proof-parameters"
-# Install binary dependencies
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
-RUN update-ca-certificates
-
-# Create user and group and assign appropriate rights to the forest binaries
-RUN addgroup --gid 1000 ${SERVICE_GROUP} && \
-    adduser --uid 1000 --ingroup ${SERVICE_GROUP} --disabled-password --gecos "" ${SERVICE_USER}
-
-# Copy forest daemon and cli binaries from the build-env
-COPY --from=build-env --chown=${SERVICE_USER}:${SERVICE_GROUP} /forest_out/* /usr/local/bin/
-
-# Initialize data directory with proper permissions
-RUN mkdir -p ${DATA_DIR} && \
-    chown -R ${SERVICE_USER}:${SERVICE_GROUP} ${DATA_DIR}
-
-USER ${SERVICE_USER}
-WORKDIR /home/${SERVICE_USER}
 
 RUN forest-tool fetch-params --keys
-
-# Basic verification of dynamically linked dependencies
-RUN forest -V && forest-cli -V && forest-tool -V
 
 ENTRYPOINT ["forest"]
