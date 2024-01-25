@@ -20,7 +20,7 @@ jobs:
   build-and-push-docker-image:
     # Run the job only if the PR is not a draft.
     # This is done to limit the runner cost.
-    # if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     name: Build images and push to GHCR
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
     # runs-on: fuzzy
@@ -79,8 +79,9 @@ jobs:
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
           target: slim-image
       # This step yields the following labels
-      # - date+sha, e.g. 2023-01-19-da4692d,
-      # - tag (if pushed).
+      # - {date}-{sha}-fat, e.g. 2023-01-19-da4692d-fat,
+      # - edge-fat
+      # - tag-fat (if pushed).
       - name: Docker Meta fat
         id: metafat
         uses: docker/metadata-action@v5
