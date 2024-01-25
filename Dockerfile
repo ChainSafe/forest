@@ -59,7 +59,8 @@ RUN --mount=type=cache,sharing=private,target=/root/.cargo/registry \
 # Use github action runner cached images to avoid being rate limited
 # https://github.com/actions/runner-images/blob/main/images/linux/Ubuntu2004-Readme.md#cached-docker-images
 ##
-FROM ubuntu:22.04
+# A slim image contains only forest binaries
+FROM ubuntu:22.04 as slim-image
 
 ARG SERVICE_USER=forest
 ARG SERVICE_GROUP=forest
@@ -88,5 +89,15 @@ WORKDIR /home/${SERVICE_USER}
 
 # Basic verification of dynamically linked dependencies
 RUN forest -V && forest-cli -V && forest-tool -V
+
+ENTRYPOINT ["forest"]
+
+# A fat image contains forest binaries and fil proof parameter files under $FIL_PROOFS_PARAMETER_CACHE
+FROM slim-image as fat-image
+
+# Move FIL_PROOFS_PARAMETER_CACHE out of forest data dir since users always need to mount the data dir
+ENV FIL_PROOFS_PARAMETER_CACHE="/var/tmp/filecoin-proof-parameters"
+
+RUN forest-tool fetch-params --keys
 
 ENTRYPOINT ["forest"]

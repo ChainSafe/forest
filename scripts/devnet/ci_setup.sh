@@ -15,6 +15,9 @@ export FOREST_DOCKERFILE_OVERRIDE=scripts/devnet/forest_ci.dockerfile
 # This should not be needed in GH. It is useful for running locally.
 docker compose down --remove-orphans
 docker compose rm -f
+# Cleanup data volumes
+docker volume rm -f devnet_lotus-data
+docker volume rm -f devnet_forest-data
 
 # Run it in the background so we can perform checks on it.
 # Ideally, we could use `--wait` and `--wait-timeout` to wait for services
