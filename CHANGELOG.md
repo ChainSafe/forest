@@ -29,6 +29,20 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.16.5 "Pinecone Deactivation"
+
+Non-mandatory upgrade including mostly new RPC endpoints. The option to use an
+alternative `FilOps` snapshot provider was removed given the service was
+decommissioned.
+
+### Added
+
 - [#3817](https://github.com/ChainSafe/forest/pull/3817/) Implement the
   `Filecoin.StateVerifiedClientStatus` lotus-compatible RPC API.
 - [#3824](https://github.com/ChainSafe/forest/pull/3824) Add `--ws` flag to
@@ -57,8 +71,6 @@
 - [#3878](https://github.com/ChainSafe/forest/issues/3878): FILOps is no longer
   serving lite snapshots. Removed `filops` option from
   `forest-tool snapshot fetch --vendor [vendor]`.
-
-### Fixed
 
 ## Forest 0.16.4 "Speedy Gonzales"
 

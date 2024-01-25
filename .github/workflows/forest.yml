@@ -26,6 +26,8 @@ env:
   RUSTC_WRAPPER: "sccache"
   CC: "sccache clang"
   CXX: "sccache clang++"
+  # Use the lotus path to avoid caching 2 identical folders
+  FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
 
 jobs:
   build-macos:
@@ -108,8 +110,7 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -153,8 +154,11 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -181,6 +185,10 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
       - name: Checkout Sources
         uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -208,8 +216,11 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -232,8 +243,11 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -261,8 +275,11 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -285,8 +302,11 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -308,8 +328,11 @@ jobs:
     steps:
       # To help investigate transient test failures
       - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -327,8 +350,11 @@ jobs:
       - build-ubuntu
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -347,8 +373,11 @@ jobs:
       - build-ubuntu
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -368,8 +397,17 @@ jobs:
     needs:
       - build-ubuntu
     steps:
-      - name: Checkout Sources
-        uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ${{ env.FIL_PROOFS_PARAMETER_CACHE }}
+          key: proof-params-2k
+      - name: Load cache into volume
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: |
+          docker volume create devnet_filecoin-proofs
+          docker run --rm -v devnet_filecoin-proofs:/proofs -v $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /cache/* /proofs"
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: forest-${{ runner.os }}
@@ -382,3 +420,8 @@ jobs:
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
+      - name: Prepare cache folder for uploading
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm -v devnet_filecoin-proofs:/proofs -v $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /proofs/* /cache"
+          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
