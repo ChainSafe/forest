@@ -837,6 +837,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bimap"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "230c5f1ca6a325a32553f8640d31ac9b49f2411e901e427570154868b46da4f7"
+
+[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3137,6 +3143,7 @@ dependencies = [
  "backoff",
  "base64 0.21.7",
  "bigdecimal",
+ "bimap",
  "blake2b_simd",
  "bls-signatures",
  "blstrs",
@@ -3170,7 +3177,6 @@ dependencies = [
  "dialoguer",
  "digest 0.10.7",
  "directories",
- "either",
  "ethereum-types",
  "fil_actor_account_state",
  "fil_actor_cron_state",

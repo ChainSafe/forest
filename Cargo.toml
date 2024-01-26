@@ -21,6 +21,7 @@ axum = { version = "0.7", features = ['ws'] }
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.21"
 bigdecimal = "0.4.0"
+bimap = "0.6.3"
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
@@ -52,7 +53,6 @@ derive_more = "0.99.17"
 dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
-either = "1.9.0"
 ethereum-types = "0.14.1"
 fil_actor_account_state = { version = "9.4.0" }
 fil_actor_cron_state = { version = "9.4.0" }

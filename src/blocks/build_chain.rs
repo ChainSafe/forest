@@ -4,21 +4,27 @@
 use crate::{
     beacon::BeaconEntry,
     blocks::*,
+    db::MemoryDB,
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof,
     },
 };
 use cid::Cid;
-use either::Either;
+use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
 use num_bigint::BigInt;
-use petgraph::{
-    visit::{IntoNeighborsDirected, Walker},
-    Direction,
-};
+use petgraph::{data::Build, visit::NodeRef, Direction};
 use sealed::Override;
-use std::{fmt::Debug, hash::Hash};
+use std::ops::Index;
+use std::{borrow::Borrow, fmt::Debug, hash::Hash};
+
+#[test]
+fn test_chain() {
+    let mut c4u = Chain4U::default();
+    c4u.insert([], "gen", HeaderBuilder::new());
+    c4u.insert(["gen"], "a1", HeaderBuilder::new());
+}
 
 mod sealed {
 
@@ -68,219 +74,259 @@ mod sealed {
                 Override::Closed(_) | Override::Overridden(_) => {}
             }
         }
-        pub fn could_be(&self, it: &T) -> bool
-        where
-            T: PartialEq,
-        {
-            match self {
-                Override::Open => true,
-                Override::Closed(already) | Override::Overridden(already) => already == it,
-            }
+    }
+}
+
+pub struct Chain4U<T = MemoryDB> {
+    blockstore: T,
+    ident2header: ahash::HashMap<String, RawBlockHeader>,
+    ident_graph: KeyedDiGraph<String, ()>,
+}
+
+impl Default for Chain4U {
+    fn default() -> Self {
+        Self::new(MemoryDB::default())
+    }
+}
+
+impl<T: Blockstore> Chain4U<T> {
+    pub fn new(blockstore: T) -> Self {
+        Self {
+            blockstore,
+            ident2header: Default::default(),
+            ident_graph: Default::default(),
         }
     }
-}
-
-#[derive(Default, Debug)]
-struct BlockHeaderGraph<'a> {
-    ident2spec: ahash::HashMap<&'a str, HeaderBuilder>,
-    hierarchy: petgraph::graphmap::DiGraphMap<&'a [&'a str], ()>,
-}
-
-impl BlockHeaderGraph<'_> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    pub fn solve(&self) -> ahash::HashMap<&str, RawBlockHeader> {
-        let ccs = petgraph::algo::connected_components(&self.hierarchy);
-        assert_eq!(
-            ccs, 1,
-            "only chains with a single root tipset are supported"
-        );
-        assert!(!petgraph::algo::is_cyclic_directed(&self.hierarchy));
-
-        let mut root_tipset_idents = None;
-        for tipset in self.hierarchy.nodes() {
-            assert!(!tipset.is_empty(), "null tipsets are not supported");
-            match self
-                .hierarchy
-                .neighbors_directed(tipset, Direction::Incoming)
-                .count()
-            {
-                0 => {
-                    assert!(
-                        root_tipset_idents.is_none(),
-                        "tree must have exactly one root. Duplicate: {:?}",
-                        tipset
-                    );
-                    root_tipset_idents = Some(tipset);
-                }
-                1 => {}
-                _ => panic!("tipset hierarchy is not a tree"),
-            }
-        }
-        let root_tipset_idents = root_tipset_idents.expect("tipset has no root");
-
-        let mut solved = ahash::HashMap::<&str, RawBlockHeader>::default();
-        for parent_tipset_idents in
-            petgraph::algo::toposort(&self.hierarchy, None).expect("tipset hierarchy is not a tree")
-        {
-            if parent_tipset_idents == root_tipset_idents {
-                let root = root_tipset_idents
-                    .iter()
-                    .map(|it| self.ident2spec.get_key_value(it).unwrap());
-
-                let epoch = get_overridden(root.clone().map(|(_, it)| &it.epoch), "epoch")
-                    .copied()
-                    .unwrap_or_default();
-                let parents = get_overridden(root.clone().map(|(_, it)| &it.parents), "parents")
-                    .cloned()
-                    .unwrap_or_default();
-                let state_root =
-                    get_overridden(root.clone().map(|(_, it)| &it.state_root), "state_root")
-                        .copied()
-                        .unwrap_or_default();
-
-                let mut filler_addresses = get_filler_addresses(
-                    root.clone()
-                        .filter_map(|(_, it)| it.miner_address.fixed())
-                        .cloned(),
-                );
-
-                for (root_ident, root_spec) in root {
-                    let mut block = root_spec.clone();
-                    block.epoch.insert_or_panic(epoch);
-                    block.parents.insert_or_panic(parents.clone());
-                    block.state_root.insert_or_panic(state_root);
-                    block
-                        .miner_address
-                        .close_with(|| filler_addresses.next().unwrap());
-                    let clobbered =
-                        solved.insert(root_ident, block.build(RawBlockHeader::default()));
-                    assert!(clobbered.is_none());
-                }
-            }
-
-            let parent_tipset =
-                Tipset::new(parent_tipset_idents.iter().map(|it| &solved[it]).cloned()).expect(
-                    "internal error in BlockHeaderGraph solving - this is a bug in the solver code",
-                );
-
-            let children = self
-                .hierarchy
-                .neighbors_directed(parent_tipset_idents, Direction::Outgoing)
-                .flat_map(|idents| idents.iter().map(|ident| (ident, &self.ident2spec[ident])));
-
-            let mut filler_addresses = get_filler_addresses(
-                children
-                    .clone()
-                    .filter_map(|(_, it)| it.miner_address.fixed())
-                    .cloned(),
-            );
-
-            for (child_ident, child_spec) in children {
-                let mut child = child_spec.clone();
-
-                child.epoch.insert_or_panic(parent_tipset.epoch() + 1);
-                child.state_root.insert_or_panic(Cid::default());
-                child.parents.insert_or_panic(parent_tipset.key().clone());
-                child
-                    .miner_address
-                    .close_with(|| filler_addresses.next().unwrap());
-
-                let clobbered = solved.insert(child_ident, child.build(RawBlockHeader::default()));
-                assert!(clobbered.is_none());
-            }
-        }
-        solved
-    }
-}
-
-fn get_filler_addresses(
-    excluding: impl IntoIterator<Item = Address>,
-) -> impl Iterator<Item = Address> {
-    let excluding = excluding.into_iter().collect::<Vec<_>>();
-    assert!(
-        excluding.iter().all_unique(),
-        "Duplicate override miner addresses"
-    );
-
-    (0..)
-        .map(Address::new_id)
-        .filter(move |it| !excluding.contains(it))
-}
-
-fn get_overridden<'a, T: Clone + Eq + Hash + Debug + 'a>(
-    items: impl IntoIterator<Item = &'a Override<T>>,
-    field_name: &str,
-) -> Option<&'a T> {
-    match items
-        .into_iter()
-        .filter_map(|it| it.fixed())
-        .unique()
-        .at_most_one()
-    {
-        Ok(one) => one,
-        Err(e) => panic!(
-            "Multiple different overrides found for field {field_name}: {:?}",
-            e.collect::<Vec<_>>()
-        ),
-    }
-}
-
-fn solve_root_tipset(tipset: &mut [&mut HeaderBuilder]) {
-    fn propogate<'a, T: Clone + Eq + Hash + Debug + 'a>(
-        items: impl IntoIterator<Item = &'a mut Override<T>>,
-        default: T,
-        field_name: &str,
+    pub fn insert<'a>(
+        &mut self,
+        parents: impl IntoIterator<Item = &'a str>,
+        name: impl Into<String>,
+        header: impl Into<HeaderBuilder>,
     ) {
-        let items = items.into_iter().collect::<Vec<_>>();
-        let value = match items
+        let parents = parents.into_iter().collect::<Vec<_>>();
+        let name = name.into();
+        let mut header: HeaderBuilder = header.into();
+
+        let siblings = parents
             .iter()
-            .filter_map(|it| it.fixed())
-            .unique()
-            .at_most_one()
-        {
-            Ok(one) => one.cloned().unwrap_or(default),
-            Err(e) => panic!(
-                "Multiple different overrides found for field {field_name}: {:?}",
-                e.collect::<Vec<_>>()
-            ),
+            .flat_map(|it| {
+                self.ident_graph
+                    .neighbors_directed(*it, Direction::Outgoing)
+            })
+            .map(|it| &self.ident2header[it])
+            .collect::<Vec<_>>();
+
+        let parent_tipset =
+            match Tipset::new(parents.iter().map(|it| &self.ident2header[*it]).cloned()) {
+                Ok(tipset) => Some(tipset),
+                Err(CreateTipsetError::Empty) => None,
+                Err(e) => panic!("invalid blocks for creating a parent tipset: {e}"),
+            };
+
+        // We care about the following properties for creating a valid tipset:
+        // - all miners must be unique.
+        //   We enforce this by making sure that all children of a block have unique miner addresses.
+        // - the epoch must match.
+        // - setting the parent tipset
+
+        // There are three sources of values for blocks:
+        // - parents
+        // - user request
+        // - siblings
+        //
+        // we must make sure that they are compatible, to guard against subtle bugs
+
+        // Epoch
+        ////////
+        let epoch_from_user = header.epoch.fixed().copied();
+        let epoch_from_parents = parent_tipset.as_ref().map(|it| it.epoch() + 1);
+        let epoch_from_siblings = match siblings.iter().map(|it| it.epoch).all_equal_value() {
+            Ok(epoch) => Some(epoch),
+            Err(None) => None,
+            Err(Some((left, right))) => panic!("mismatched sibling epochs: {} and {}", left, right),
         };
-        for item in items {
-            *item = Override::Closed(value.clone())
+
+        let epoch = epoch_from_user
+            .or(epoch_from_parents)
+            .or(epoch_from_siblings)
+            .unwrap_or(0);
+
+        // ensure consistency
+        for it in [epoch_from_user, epoch_from_parents, epoch_from_siblings] {
+            match it {
+                Some(it) if it == epoch => {}
+                Some(it) => panic!("inconsistent epoch: {} vs {}", it, epoch),
+                None => {}
+            }
         }
+
+        // Parents and state root
+        /////////////////////////
+        header.parents.close_with(|| {
+            parent_tipset
+                .as_ref()
+                .map(Tipset::key)
+                .cloned()
+                .unwrap_or_default()
+        });
+        header.state_root.close_with(Cid::default);
+
+        // Miner
+        ////////
+        let sibling_miner_addresses = siblings
+            .iter()
+            .map(|it| it.miner_address)
+            .collect::<Vec<_>>();
+        assert!(sibling_miner_addresses.iter().all_unique());
+        match header.miner_address {
+            Override::Open => {
+                header.miner_address = Override::Closed(
+                    (0..)
+                        .map(Address::new_id)
+                        .find(|it| !sibling_miner_addresses.contains(it))
+                        .unwrap(),
+                )
+            }
+            Override::Closed(it) | Override::Overridden(it) => {
+                assert!(!sibling_miner_addresses.contains(&it))
+            }
+        }
+
+        // Done! Save it out
+        ////////////////////
+        let header = header.build(RawBlockHeader::default());
+
+        self.blockstore
+            .put_keyed(&header.cid(), &fvm_ipld_encoding::to_vec(&header).unwrap())
+            .unwrap();
+        for parent in parents {
+            self.ident_graph
+                .insert_edge(String::from(parent), name.clone(), ())
+                .unwrap();
+        }
+        assert!(!self.ident_graph.contains_cycles());
+
+        let clobbered = self.ident2header.insert(name, header);
+        assert!(clobbered.is_none());
+    }
+}
+
+impl<T: Blockstore> Blockstore for Chain4U<T> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.blockstore.get(k)
     }
 
-    assert!(
-        !tipset.is_empty(),
-        "tipsets may not be empty (null tipsets are not supported)"
-    );
-    propogate(tipset.iter_mut().map(|it| &mut it.epoch), 0, "epoch");
-    propogate(
-        tipset.iter_mut().map(|it| &mut it.parents),
-        TipsetKey::default(),
-        "parents",
-    );
-    propogate(
-        tipset.iter_mut().map(|it| &mut it.state_root),
-        Cid::default(),
-        "state_root",
-    );
-    let fixed_miner_addresses = tipset.iter().filter_map(|it| it.miner_address.fixed());
-    assert!(
-        fixed_miner_addresses.clone().all_unique(),
-        "Duplicate override miner addresses"
-    );
-    let taken_miner_addresses = fixed_miner_addresses
-        .cloned()
-        .collect::<ahash::HashSet<_>>();
-    let mut new_miner_addresses = (0..)
-        .map(Address::new_id)
-        .filter(|it| !taken_miner_addresses.contains(it));
-    for header in tipset {
-        header
-            .miner_address
-            .close_with(|| new_miner_addresses.next().unwrap())
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.blockstore.put_keyed(k, block)
+    }
+}
+
+impl<T> Index<&str> for Chain4U<T> {
+    type Output = RawBlockHeader;
+
+    fn index(&self, index: &str) -> &Self::Output {
+        &self.ident2header[index]
+    }
+}
+
+struct KeyedDiGraph<N, E, Ix = petgraph::graph::DefaultIx> {
+    node2ix: bimap::BiMap<N, petgraph::graph::NodeIndex<Ix>>,
+    graph: petgraph::graph::DiGraph<N, E, Ix>,
+}
+
+impl<N, E, Ix> Default for KeyedDiGraph<N, E, Ix>
+where
+    Ix: petgraph::graph::IndexType,
+    N: Hash + Eq,
+    Ix: Hash + Eq,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<N, E, Ix> KeyedDiGraph<N, E, Ix> {
+    fn new() -> Self
+    where
+        Ix: petgraph::graph::IndexType,
+        N: Hash + Eq,
+        Ix: Hash + Eq,
+    {
+        Self {
+            node2ix: bimap::BiMap::new(),
+            graph: petgraph::graph::DiGraph::default(),
+        }
+    }
+    fn insert_edge(&mut self, from: N, to: N, weight: E) -> Result<(), &'static str>
+    where
+        Ix: petgraph::graph::IndexType,
+        N: Clone + Eq + Hash,
+    {
+        let from = self.get_ix(&from);
+        let to = self.get_ix(&to);
+        match self.graph.contains_edge(from, to) {
+            true => Err("edge already in graph"),
+            false => {
+                self.graph.add_edge(from, to, weight);
+                Ok(())
+            }
+        }
+    }
+    fn get_ix(&mut self, node: &N) -> petgraph::graph::NodeIndex<Ix>
+    where
+        Ix: petgraph::graph::IndexType,
+        N: Clone + Eq + Hash,
+    {
+        match self.node2ix.contains_left(node) {
+            true => self.node2ix.get_by_left(node).copied().unwrap(),
+            false => {
+                let ix = self.graph.add_node(node.clone());
+                let res = self.node2ix.insert_no_overwrite(node.clone(), ix);
+                assert!(res.is_ok());
+                ix
+            }
+        }
+    }
+    fn is_connected(&self) -> bool
+    where
+        Ix: petgraph::graph::IndexType,
+    {
+        petgraph::algo::connected_components(&self.graph) <= 1
+    }
+    fn contains_cycles(&self) -> bool
+    where
+        Ix: petgraph::graph::IndexType,
+    {
+        petgraph::algo::is_cyclic_directed(&self.graph)
+    }
+    fn neighbors_directed<Q: ?Sized>(
+        &self,
+        node: &Q,
+        dir: petgraph::Direction,
+    ) -> impl Iterator<Item = &N>
+    where
+        Ix: petgraph::graph::IndexType,
+        N: Borrow<Q> + Hash + Eq,
+        Q: Hash + Eq,
+    {
+        self.node2ix
+            .get_by_left(node)
+            .into_iter()
+            .flat_map(move |ix| self.graph.neighbors_directed(*ix, dir))
+            .map(|ix| self.node2ix.get_by_right(&ix).unwrap())
+    }
+    fn topologically(&self) -> Result<Vec<&N>, &N>
+    where
+        Ix: petgraph::graph::IndexType,
+        N: Eq + Hash,
+    {
+        petgraph::algo::toposort(&self.graph, None)
+            .map(|it| {
+                it.into_iter()
+                    .map(|ix| self.node2ix.get_by_right(&ix).unwrap())
+                    .collect()
+            })
+            .map_err(|it| self.node2ix.get_by_right(&it.node_id()).unwrap())
     }
 }
 
@@ -405,5 +451,11 @@ impl From<RawBlockHeader> for HeaderBuilder {
             fork_signal,
             parent_base_fee,
         }
+    }
+}
+
+impl From<&RawBlockHeader> for HeaderBuilder {
+    fn from(value: &RawBlockHeader) -> Self {
+        Self::from(RawBlockHeader::clone(value))
     }
 }
