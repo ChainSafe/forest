@@ -14,20 +14,48 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
 use num_bigint::BigInt;
-use petgraph::{data::Build, visit::NodeRef, Direction};
+use petgraph::Direction;
 use sealed::Override;
 use std::ops::Index;
 use std::{borrow::Borrow, fmt::Debug, hash::Hash};
+use std::{
+    collections::hash_map::Entry::{Occupied, Vacant},
+    iter,
+};
 
 #[test]
-fn test_chain() {
-    let mut c4u = Chain4U::default();
+fn chain4u() {
+    let mut c4u = Chain4U::new();
     c4u.insert([], "gen", HeaderBuilder::new());
+
     c4u.insert(["gen"], "a1", HeaderBuilder::new());
+    c4u.insert(["gen"], "a2", HeaderBuilder::new());
+
+    c4u.insert(["a1", "a2"], "b1", HeaderBuilder::new());
+    c4u.insert(["a1", "a2"], "b2", HeaderBuilder::new());
+
+    c4u.insert(["b1", "b2"], "c", HeaderBuilder::new());
+
+    let t0 = c4u.tipset(["gen"]);
+    let t1 = c4u.tipset(["a1", "a2"]);
+    let t2 = c4u.tipset(["b1", "b2"]);
+    let t3 = c4u.tipset(["c"]);
+
+    assert_eq!(t0.epoch(), 0);
+    assert_eq!(t1.epoch(), 1);
+    assert_eq!(t2.epoch(), 2);
+    assert_eq!(t3.epoch(), 3);
+
+    itertools::assert_equal(
+        iter::successors(Some(t3.clone()), |t| match t.epoch() {
+            0 => None,
+            _ => Some(Tipset::load(&c4u, t.parents()).unwrap().unwrap()),
+        }),
+        [t3, t2, t1, t0],
+    );
 }
 
 mod sealed {
-
     /// This struct is sealed - you may not directly construct one.
     #[derive(Default, Debug, Clone)]
     pub enum Override<T> {
@@ -77,32 +105,46 @@ mod sealed {
     }
 }
 
+#[derive(Default)]
 pub struct Chain4U<T = MemoryDB> {
     blockstore: T,
     ident2header: ahash::HashMap<String, RawBlockHeader>,
     ident_graph: KeyedDiGraph<String, ()>,
 }
 
-impl Default for Chain4U {
-    fn default() -> Self {
-        Self::new(MemoryDB::default())
+impl Chain4U {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
-impl<T: Blockstore> Chain4U<T> {
-    pub fn new(blockstore: T) -> Self {
+impl<T> Chain4U<T> {
+    pub fn with_blockstore(blockstore: T) -> Self {
         Self {
             blockstore,
             ident2header: Default::default(),
             ident_graph: Default::default(),
         }
     }
+    pub fn get<Q: ?Sized>(&self, ident: &Q) -> Option<&RawBlockHeader>
+    where
+        String: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.ident2header.get(ident)
+    }
+    pub fn tipset<'a>(&self, of: impl IntoIterator<Item = &'a str>) -> Tipset {
+        Tipset::new(of.into_iter().map(|it| &self.ident2header[it]).cloned()).unwrap()
+    }
+}
+
+impl<T: Blockstore> Chain4U<T> {
     pub fn insert<'a>(
         &mut self,
         parents: impl IntoIterator<Item = &'a str>,
         name: impl Into<String>,
         header: impl Into<HeaderBuilder>,
-    ) {
+    ) -> &RawBlockHeader {
         let parents = parents.into_iter().collect::<Vec<_>>();
         let name = name.into();
         let mut header: HeaderBuilder = header.into();
@@ -113,6 +155,7 @@ impl<T: Blockstore> Chain4U<T> {
                 self.ident_graph
                     .neighbors_directed(*it, Direction::Outgoing)
             })
+            .unique()
             .map(|it| &self.ident2header[it])
             .collect::<Vec<_>>();
 
@@ -159,6 +202,7 @@ impl<T: Blockstore> Chain4U<T> {
                 None => {}
             }
         }
+        header.epoch.insert_or_panic(epoch);
 
         // Parents and state root
         /////////////////////////
@@ -206,8 +250,10 @@ impl<T: Blockstore> Chain4U<T> {
         }
         assert!(!self.ident_graph.contains_cycles());
 
-        let clobbered = self.ident2header.insert(name, header);
-        assert!(clobbered.is_none());
+        match self.ident2header.entry(name) {
+            Occupied(it) => panic!("duplicate for key {}", it.key()),
+            Vacant(it) => it.insert(header),
+        }
     }
 }
 
@@ -225,7 +271,7 @@ impl<T> Index<&str> for Chain4U<T> {
     type Output = RawBlockHeader;
 
     fn index(&self, index: &str) -> &Self::Output {
-        &self.ident2header[index]
+        self.get(index).unwrap()
     }
 }
 
@@ -287,12 +333,6 @@ impl<N, E, Ix> KeyedDiGraph<N, E, Ix> {
             }
         }
     }
-    fn is_connected(&self) -> bool
-    where
-        Ix: petgraph::graph::IndexType,
-    {
-        petgraph::algo::connected_components(&self.graph) <= 1
-    }
     fn contains_cycles(&self) -> bool
     where
         Ix: petgraph::graph::IndexType,
@@ -314,19 +354,6 @@ impl<N, E, Ix> KeyedDiGraph<N, E, Ix> {
             .into_iter()
             .flat_map(move |ix| self.graph.neighbors_directed(*ix, dir))
             .map(|ix| self.node2ix.get_by_right(&ix).unwrap())
-    }
-    fn topologically(&self) -> Result<Vec<&N>, &N>
-    where
-        Ix: petgraph::graph::IndexType,
-        N: Eq + Hash,
-    {
-        petgraph::algo::toposort(&self.graph, None)
-            .map(|it| {
-                it.into_iter()
-                    .map(|ix| self.node2ix.get_by_right(&ix).unwrap())
-                    .collect()
-            })
-            .map_err(|it| self.node2ix.get_by_right(&it.node_id()).unwrap())
     }
 }
 
@@ -357,8 +384,12 @@ impl HeaderBuilder {
 }
 
 macro_rules! setters {
-    ($($setter_name:ident -> $field_name:ident: $field_ty:ty);* $(;)?) => {
+    ($($setter_name:ident/$clearer_name:ident -> $field_name:ident: $field_ty:ty);* $(;)?) => {
         $(
+            pub fn $clearer_name(&mut self) -> &mut Self {
+                self.$field_name = Override::Open;
+                self
+            }
             pub fn $setter_name(&mut self, it: $field_ty) -> &mut Self {
                 self.$field_name = Override::Overridden(it);
                 self
@@ -370,22 +401,22 @@ macro_rules! setters {
 #[allow(unused)]
 impl HeaderBuilder {
     setters! {
-        with_miner_address -> miner_address: Address;
-        with_ticket -> ticket: Option<Ticket>;
-        with_election_proof -> election_proof: Option<ElectionProof>;
-        with_beacon_entries -> beacon_entries: Vec<BeaconEntry>;
-        with_winning_post_proof -> winning_post_proof: Vec<PoStProof>;
-        with_parents -> parents: TipsetKey;
-        with_weight -> weight: BigInt;
-        with_epoch -> epoch: ChainEpoch;
-        with_state_root -> state_root: Cid;
-        with_message_receipts -> message_receipts: Cid;
-        with_messages -> messages: Cid;
-        with_bls_aggregate -> bls_aggregate: Option<Signature>;
-        with_timestamp -> timestamp: u64;
-        with_signature -> signature: Option<Signature>;
-        with_fork_signal -> fork_signal: u64;
-        with_parent_base_fee -> parent_base_fee: TokenAmount;
+        with_miner_address / without_miner_address -> miner_address: Address;
+        with_ticket / without_ticket -> ticket: Option<Ticket>;
+        with_election_proof / without_election_proof -> election_proof: Option<ElectionProof>;
+        with_beacon_entries / without_beacon_entries -> beacon_entries: Vec<BeaconEntry>;
+        with_winning_post_proof / without_winning_post_proof -> winning_post_proof: Vec<PoStProof>;
+        with_parents / without_parents -> parents: TipsetKey;
+        with_weight / without_weight -> weight: BigInt;
+        with_epoch / without_epoch -> epoch: ChainEpoch;
+        with_state_root / without_state_root -> state_root: Cid;
+        with_message_receipts / without_message_receipts -> message_receipts: Cid;
+        with_messages / without_messages -> messages: Cid;
+        with_bls_aggregate / without_bls_aggregate -> bls_aggregate: Option<Signature>;
+        with_timestamp / without_timestamp -> timestamp: u64;
+        with_signature / without_signature -> signature: Option<Signature>;
+        with_fork_signal / without_fork_signal -> fork_signal: u64;
+        with_parent_base_fee / without_parent_base_fee -> parent_base_fee: TokenAmount;
     }
 }
 
