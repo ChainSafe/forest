@@ -68,7 +68,7 @@ jobs:
             type=ref,event=tag
             type=edge
 
-      - name: Build image and push to GitHub Container Registry
+      - name: Build slim image and push to GitHub Container Registry
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -77,5 +77,32 @@ jobs:
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
           # Compile Docker image only for ARM64 for a regular PR to save some CI time.
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
+          target: slim-image
+      # This step yields the following labels
+      # - {date}-{sha}-fat, e.g. 2023-01-19-da4692d-fat,
+      # - edge-fat
+      # - tag-fat (if pushed).
+      - name: Docker Meta fat
+        id: metafat
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/chainsafe/forest
+          flavor: |
+            latest=false
+            suffix=-fat
+          tags: |
+            type=raw,value={{date 'YYYY-MM-DD'}}-{{sha}}
+            type=ref,event=tag
+            type=edge
+      - name: Build fat image and push to GitHub Container Registry
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: ${{ steps.metafat.outputs.tags }}
+          labels: ${{ steps.metafat.outputs.labels }}
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+          # Compile Docker image only for ARM64 for a regular PR to save some CI time.
+          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/arm64' }}
+          target: fat-image
       - name: List docker images
         run: docker image ls
