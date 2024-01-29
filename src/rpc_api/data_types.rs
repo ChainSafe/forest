@@ -845,6 +845,39 @@ impl MinerSectors {
 
 lotus_json_with_self!(MinerSectors);
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageFilter {
+    #[serde(with = "crate::lotus_json")]
+    pub from: Option<Address>,
+    #[serde(with = "crate::lotus_json")]
+    pub to: Option<Address>,
+}
+
+impl MessageFilter {
+    pub fn matches(&self, msg: &Message) -> bool {
+        if let Some(from) = &self.from {
+            if from != &msg.from {
+                return false;
+            }
+        }
+
+        if let Some(to) = &self.to {
+            if to != &msg.to {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.from.is_none() && self.to.is_none()
+    }
+}
+
+lotus_json_with_self!(MessageFilter);
+
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Transaction {
