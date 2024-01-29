@@ -226,12 +226,16 @@ impl ApiInfo {
         trace!("subscribed to {method_name}: ({channel_id}, {sub_id})",);
 
         // TODO: add number of notification to ApiTestFlags.
-        let mut nofifications = read.take(4);
+        let mut nofifications = read.take(20);
         while let Some(message) = nofifications.next().await {
             // TODO: Make sure method in the message is "xrpc.ch.val"
+            if let Ok(msg) = message {
+                trace!("get notif {}", msg);
+            } else {
+                trace!("error");
+            }
 
             // TODO: Push notification into a vector so we can compare results
-            trace!("get notif {:?}", message);
         }
 
         // Cancel the subscription and close the stream
@@ -240,6 +244,7 @@ impl ApiInfo {
         trace!("sending cancel {:?}", payload);
         write.send(WsMessage::Text(payload)).await?;
 
+        trace!("closing subscription");
         write.close().await?;
 
         Err(JsonRpcError::INVALID_REQUEST)
