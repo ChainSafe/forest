@@ -226,8 +226,8 @@ impl ApiInfo {
         }?;
         trace!("subscribed to {method_name}: ({channel_id}, {sub_id})",);
 
-        let mut nofifications = read.take(n_notifications);
-        while let Some(message) = nofifications.next().await {
+        let mut notification = read.take(n_notifications);
+        while let Some(message) = notification.next().await {
             // TODO: Make sure method in the message is "xrpc.ch.val"
             if let Ok(msg) = message {
                 trace!("get notif {}", msg);
