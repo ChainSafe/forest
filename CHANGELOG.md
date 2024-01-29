@@ -28,6 +28,7 @@
 ### Breaking
 
 ### Added
+
 - [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
   API.
 
