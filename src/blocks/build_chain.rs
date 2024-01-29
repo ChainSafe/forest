@@ -1,10 +1,16 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! This module contains [`Chain4U`] and [`chain4u!`], which together provide a
+//! declarative way of creating test chains.
+//!
+//! See the [`api_walkthrough`] test.
+
 use crate::{
     beacon::BeaconEntry,
     blocks::*,
-    db::MemoryDB,
+    db::{car::PlainCar, MemoryDB},
+    networks,
     shim::{
         address::Address, clock::ChainEpoch, crypto::Signature, econ::TokenAmount,
         sector::PoStProof,
@@ -12,22 +18,23 @@ use crate::{
 };
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
 use num_bigint::BigInt;
 use petgraph::Direction;
-use sealed::Override;
-use std::ops::Index;
 use std::{borrow::Borrow, fmt::Debug, hash::Hash};
 use std::{
     collections::hash_map::Entry::{Occupied, Vacant},
     iter,
 };
 
+/// Declaritive API for creating test tipsets.
+///
+/// See [module documentation](mod@self) for more.
 macro_rules! chain4u {
     (
+        $(from [$($fork_header:ident),* $(,)?])?
         in $c4u:ident;
-        $( !fork [$($fork_header:ident),* $(,)?];)?
-        // ^ solve ambiguity
         $(
             $($tipset:ident @)? [
                 $(
@@ -37,159 +44,113 @@ macro_rules! chain4u {
             ]
         )->*
     ) => {
-        let __c4u: &mut $crate::blocks::build_chain::Chain4U<_> = &mut $c4u;
+        let __c4u: &$crate::blocks::build_chain::Chain4U<_> = &$c4u;
         let mut __running_parent: &[&str] = &[];
         $(let mut __running_parent: &[&str] = &[$(stringify!($fork_header),)*];)?
 
-        // perform all of the insertions, which require mutable access
         $(
             $(
-                __c4u.insert(
-                    __running_parent,
-                    stringify!($header),
-                    {
-                        let _init = $crate::blocks::build_chain::HeaderBuilder::new();
-                        $(let _init = $init;)?
-                        _init
-                    }
-                );
+                let $header: &$crate::blocks::RawBlockHeader =
+                    &__c4u.insert(
+                        __running_parent,
+                        stringify!($header),
+                        {
+                            let _init = $crate::blocks::build_chain::HeaderBuilder::new();
+                            $(let _init = $crate::blocks::build_chain::HeaderBuilder::from($init);)?
+                            _init
+                        }
+                    );
             )*
 
             __running_parent = &[
                 $(stringify!($header),)*
             ];
-        )*
 
-        // now bind all of the idents that the user wanted
-        $(
-            $(
-                let $header: &$crate::blocks::RawBlockHeader = __c4u.get(stringify!($header)).unwrap();
-            )*
-
-            // this needs to be lifted out of the optional expansion below
-            let __current_tipset: &[&str] = &[$(stringify!($header),)*];
-
-            $(
-                let $tipset: &$crate::blocks::Tipset = &__c4u.tipset(__current_tipset);
-            )?
+            $(let $tipset: &$crate::blocks::Tipset = &__c4u.tipset(__running_parent);)?
         )*
     };
 }
+pub(crate) use chain4u;
+
 #[test]
-fn chain4u_macro() {
-    let mut c4u = Chain4U::new();
+#[allow(unused_variables)]
+fn api_walkthrough() {
+    // create a c4u context.
+    // this stores chain information in between macro invocations,
+    // (and also actually creates the block headers and tipsets).
+    let c4u = Chain4U::new();
+
     chain4u! {
-        in c4u;
-        t0 @ [gen]
-        -> ta @ [a1, a2 = HeaderBuilder::new()]
-        ->      [b1, b2]
-        -> tc @ [c]
+        in c4u; // select the context
+        [genesis_header]  // square brackets `[..]` surround each tipset
+        -> [first_header] // a `&RawBlockHeader` is bound to each name in a tipset
+        -> [second_left, second_right] // multiple blocks in a tipset
+        -> [third]
+        -> t4 @ [fourth]  // a `&Tipset` is bound to the optional `name @` sigil
     };
-    let (b1, b2) = &(b1.clone(), b2.clone()); // TODO(aatifsyed): can we avoid this?
+
+    assert_eq!(genesis_header.epoch, 0); // a root header was generated
+    assert_eq!(first_header.epoch, 1); // and chained blocks appropriately
+    assert_ne!(second_left, second_right); // siblings are distinct
+    assert_eq!(t4.epoch(), 4);
+
+    // you can continue building chains in later invocations
+    chain4u! {
+        from [fourth] in c4u;
+        [fifth = HeaderBuilder::new().with_timestamp(100)] // you can set certain fields
+        -> t6 @ [
+            sixth_left,
+            sixth_right = HeaderBuilder {
+                miner_address: Address::new_id(100).into(),
+                ..Default::default()
+            }
+        ]
+    };
+
+    assert_eq!(fifth.epoch, 5);
+    assert_eq!(fifth.timestamp, 100);
+    assert_eq!(sixth_right.miner_address, Address::new_id(100));
+    assert_eq!(t6.block_headers().len(), 2);
+
+    // this can be used to create forks
+    chain4u! {
+        from [third] in c4u;
+        [fourth_fork]
+        -> [fifth_fork]
+    };
+
+    assert_eq!(fourth_fork.epoch, 4);
+    assert_ne!(fourth, fourth_fork); // fork siblings are distinct
+
     chain4u! {
         in c4u;
-        !fork [a1, a2];
-        [x1, x2]
-        -> ty @ [y]
-    }
+        [calib_gen = calibnet_genesis()]
+        // if you provide a full blockheader, it will be preserved exactly
+        // (and will panic the harness if it cannot be preserved while e.g
+        // incrementing the epoch number).
+        -> [calib_first]
+    };
 
-    assert_eq!(t0.epoch(), 0);
-    assert_eq!(ta.epoch(), 1);
-    assert_eq!(tc.epoch(), 3);
-
-    assert_eq!(ty.epoch(), 3);
-
-    assert_ne!(tc, ty);
-    assert!([b1, b2, x1, x2].iter().all_unique());
+    assert_eq!(calib_gen.clone(), calibnet_genesis());
 }
 
-#[test]
-fn chain4u() {
-    let mut c4u = Chain4U::new();
-    c4u.insert(&[], "gen", HeaderBuilder::new());
-
-    c4u.insert(&["gen"], "a1", HeaderBuilder::new());
-    c4u.insert(&["gen"], "a2", HeaderBuilder::new());
-
-    c4u.insert(&["a1", "a2"], "b1", HeaderBuilder::new());
-    c4u.insert(&["a1", "a2"], "b2", HeaderBuilder::new());
-
-    c4u.insert(&["b1", "b2"], "c", HeaderBuilder::new());
-
-    let t0 = c4u.tipset(&["gen"]);
-    let t1 = c4u.tipset(&["a1", "a2"]);
-    let t2 = c4u.tipset(&["b1", "b2"]);
-    let t3 = c4u.tipset(&["c"]);
-
-    assert_eq!(t0.epoch(), 0);
-    assert_eq!(t1.epoch(), 1);
-    assert_eq!(t2.epoch(), 2);
-    assert_eq!(t3.epoch(), 3);
-
-    itertools::assert_equal(
-        iter::successors(Some(t3.clone()), |t| match t.epoch() {
-            0 => None,
-            _ => Some(Tipset::load(&c4u, t.parents()).unwrap().unwrap()),
-        }),
-        [t3, t2, t1, t0],
-    );
+fn calibnet_genesis() -> RawBlockHeader {
+    PlainCar::new(networks::calibnet::DEFAULT_GENESIS)
+        .unwrap()
+        .get_cbor(&networks::calibnet::GENESIS_CID)
+        .unwrap()
+        .unwrap()
 }
 
-mod sealed {
-    /// This struct is sealed - you may not directly construct one.
-    #[derive(Default, Debug, Clone)]
-    pub enum Override<T> {
-        #[default]
-        Open,
-        Closed(T),
-        Overridden(T),
-    }
-
-    impl<T> From<T> for Override<T> {
-        fn from(value: T) -> Self {
-            Self::Overridden(value)
-        }
-    }
-
-    impl<T> Override<T> {
-        pub fn insert_or_panic(&mut self, it: T)
-        where
-            T: PartialEq,
-        {
-            match self {
-                Override::Open => *self = Override::Closed(it),
-                Override::Closed(already) | Override::Overridden(already) => match already == &it {
-                    true => {}
-                    false => panic!("incompatible value in `Override`"),
-                },
-            }
-        }
-        pub fn into_fixed(self) -> Option<T> {
-            match self {
-                Override::Open => None,
-                Override::Closed(it) | Override::Overridden(it) => Some(it),
-            }
-        }
-        pub fn fixed(&self) -> Option<&T> {
-            match self {
-                Override::Open => None,
-                Override::Closed(it) | Override::Overridden(it) => Some(it),
-            }
-        }
-        pub fn close_with(&mut self, with: impl FnOnce() -> T) {
-            match self {
-                Override::Open => *self = Override::Closed(with()),
-                Override::Closed(_) | Override::Overridden(_) => {}
-            }
-        }
-    }
-}
-
+/// Context for creating test tipsets.
+///
+/// See [module documentation](mod@self) for more.
 #[derive(Default)]
 pub struct Chain4U<T = MemoryDB> {
     blockstore: T,
-    ident2header: ahash::HashMap<String, RawBlockHeader>,
-    ident_graph: KeyedDiGraph<String, ()>,
+    /// [`Blockstore`]s are typically behind a shared reference, e.g as an `Arc<DB>`
+    /// inside `ChainStore`, so we have to have interior mutability too.
+    inner: parking_lot::Mutex<Chain4UInner>,
 }
 
 impl Chain4U {
@@ -202,32 +163,65 @@ impl<T> Chain4U<T> {
     pub fn with_blockstore(blockstore: T) -> Self {
         Self {
             blockstore,
-            ident2header: Default::default(),
-            ident_graph: Default::default(),
+            inner: Default::default(),
         }
     }
-    pub fn get<Q: ?Sized>(&self, ident: &Q) -> Option<&RawBlockHeader>
+    pub fn get<Q: ?Sized>(&self, ident: &Q) -> Option<RawBlockHeader>
     where
         String: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.ident2header.get(ident)
+        self.inner.lock().ident2header.get(ident).cloned()
     }
     pub fn tipset(&self, of: &[&str]) -> Tipset {
-        Tipset::new(of.iter().map(|it| &self.ident2header[*it]).cloned()).unwrap()
+        Tipset::new(of.iter().map(|it| self.get(*it).unwrap())).unwrap()
+    }
+    /// Insert a header.
+    /// Header fields (epoch etc) will be set accordingly.
+    pub fn insert(
+        &self,
+        parents: &[&str],
+        name: impl Into<String>,
+        header: HeaderBuilder,
+    ) -> RawBlockHeader
+    where
+        T: Blockstore,
+    {
+        let header = self
+            .inner
+            .lock()
+            .insert(parents, name.into(), header)
+            .clone();
+        self.blockstore
+            .put_keyed(&header.cid(), &fvm_ipld_encoding::to_vec(&header).unwrap())
+            .unwrap();
+        header
     }
 }
 
-impl<T: Blockstore> Chain4U<T> {
-    pub fn insert(
+impl<T: Blockstore> Blockstore for Chain4U<T> {
+    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
+        self.blockstore.get(k)
+    }
+
+    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
+        self.blockstore.put_keyed(k, block)
+    }
+}
+
+#[derive(Default)]
+struct Chain4UInner {
+    ident2header: ahash::HashMap<String, RawBlockHeader>,
+    ident_graph: KeyedDiGraph<String, ()>,
+}
+
+impl Chain4UInner {
+    fn insert(
         &mut self,
         parents: &[&str],
-        name: impl Into<String>,
-        header: impl Into<HeaderBuilder>,
+        name: String,
+        mut header: HeaderBuilder,
     ) -> &RawBlockHeader {
-        let name: String = name.into();
-        let mut header: HeaderBuilder = header.into();
-
         let siblings = parents
             .iter()
             .flat_map(|it| {
@@ -260,7 +254,7 @@ impl<T: Blockstore> Chain4U<T> {
 
         // Epoch
         ////////
-        let epoch_from_user = header.epoch.fixed().copied();
+        let epoch_from_user = header.epoch.into_fixed();
         let epoch_from_parents = parent_tipset.as_ref().map(|it| it.epoch() + 1);
         let epoch_from_siblings = match siblings.iter().map(|it| it.epoch).all_equal_value() {
             Ok(epoch) => Some(epoch),
@@ -301,17 +295,17 @@ impl<T: Blockstore> Chain4U<T> {
             .map(|it| it.miner_address)
             .collect::<Vec<_>>();
         assert!(sibling_miner_addresses.iter().all_unique());
-        match header.miner_address {
-            Override::Open => {
-                header.miner_address = Override::Closed(
+        match header.miner_address.inner {
+            None => {
+                header.miner_address = Override::new(
                     (0..)
                         .map(Address::new_id)
                         .find(|it| !sibling_miner_addresses.contains(it))
                         .unwrap(),
                 )
             }
-            Override::Closed(it) | Override::Overridden(it) => {
-                assert!(!sibling_miner_addresses.contains(&it))
+            Some(already) => {
+                assert!(!sibling_miner_addresses.contains(&already))
             }
         }
 
@@ -319,9 +313,6 @@ impl<T: Blockstore> Chain4U<T> {
         ////////////////////
         let header = header.build(RawBlockHeader::default());
 
-        self.blockstore
-            .put_keyed(&header.cid(), &fvm_ipld_encoding::to_vec(&header).unwrap())
-            .unwrap();
         for parent in parents {
             self.ident_graph
                 .insert_edge(String::from(*parent), name.clone(), ())
@@ -336,24 +327,9 @@ impl<T: Blockstore> Chain4U<T> {
     }
 }
 
-impl<T: Blockstore> Blockstore for Chain4U<T> {
-    fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
-        self.blockstore.get(k)
-    }
-
-    fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
-        self.blockstore.put_keyed(k, block)
-    }
-}
-
-impl<T> Index<&str> for Chain4U<T> {
-    type Output = RawBlockHeader;
-
-    fn index(&self, index: &str) -> &Self::Output {
-        self.get(index).unwrap()
-    }
-}
-
+/// Juggling node and edge indices is tedious - this abstracts that away.
+///
+/// A [`petgraph::graphmap::GraphMap`] with a non-[`Copy`] index.
 struct KeyedDiGraph<N, E, Ix = petgraph::graph::DefaultIx> {
     node2ix: bimap::BiMap<N, petgraph::graph::NodeIndex<Ix>>,
     graph: petgraph::graph::DiGraph<N, E, Ix>,
@@ -436,6 +412,52 @@ impl<N, E, Ix> KeyedDiGraph<N, E, Ix> {
     }
 }
 
+/// A value which [`Chain4U`] is allowed to change to create tipsets, or is fixed
+/// and can't be altered by [`Chain4U`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Override<T> {
+    inner: Option<T>,
+}
+
+impl<T> Default for Override<T> {
+    fn default() -> Self {
+        Self { inner: None }
+    }
+}
+
+impl<T> From<T> for Override<T> {
+    fn from(value: T) -> Self {
+        Self { inner: Some(value) }
+    }
+}
+
+impl<T> Override<T> {
+    pub fn new(it: T) -> Self {
+        Self::from(it)
+    }
+    fn insert_or_panic(&mut self, it: T)
+    where
+        T: PartialEq,
+    {
+        match &self.inner {
+            None => self.inner = Some(it),
+            Some(already) => match already == &it {
+                true => {}
+                false => panic!("incompatible value already in `Override`"),
+            },
+        }
+    }
+    fn into_fixed(self) -> Option<T> {
+        self.inner
+    }
+    fn close_with(&mut self, with: impl FnOnce() -> T) {
+        self.inner.get_or_insert_with(with);
+    }
+}
+
+/// [`Chain4U`] will change [`RawBlockHeader`] fields to create a valid graph of tipsets.
+///
+/// This struct describes which fields are _allowed_ to change.
 #[derive(Default, Debug, Clone)]
 pub struct HeaderBuilder {
     pub miner_address: Override<Address>,
@@ -457,6 +479,8 @@ pub struct HeaderBuilder {
 }
 
 impl HeaderBuilder {
+    /// Create a new [`HeaderBuilder`], where [`Chain4U`] may change the value of
+    /// any of the fields
     pub fn new() -> Self {
         Self::default()
     }
@@ -465,12 +489,14 @@ impl HeaderBuilder {
 macro_rules! setters {
     ($($setter_name:ident/$clearer_name:ident -> $field_name:ident: $field_ty:ty);* $(;)?) => {
         $(
-            pub fn $clearer_name(&mut self) -> &mut Self {
-                self.$field_name = Override::Open;
+            /// Fix the value of this field so that [`Chain4U`] cannot change it.
+            pub fn $setter_name(&mut self, it: $field_ty) -> &mut Self {
+                self.$field_name = Override::new(it);
                 self
             }
-            pub fn $setter_name(&mut self, it: $field_ty) -> &mut Self {
-                self.$field_name = Override::Overridden(it);
+            /// Allow [`Chain4U`] to change the value of this field.
+            pub fn $clearer_name(&mut self) -> &mut Self {
+                self.$field_name = Override::default();
                 self
             }
         )*
@@ -532,6 +558,8 @@ impl HeaderBuilder {
 }
 
 impl From<RawBlockHeader> for HeaderBuilder {
+    /// Creates a [`HeaderBuilder`] where [`Chain4U`] may not alter any of the fields
+    /// (i.e they will be preserved exactly in the generated chain).
     fn from(value: RawBlockHeader) -> Self {
         macro_rules! overriden {
             ($($ident:ident),* $(,)?) => {
@@ -539,7 +567,7 @@ impl From<RawBlockHeader> for HeaderBuilder {
                     $($ident,)*
                 } = value;
                 Self {
-                    $($ident: Override::Overridden($ident),)*
+                    $($ident: Override::new($ident),)*
                 }
             };
         }
@@ -564,8 +592,91 @@ impl From<RawBlockHeader> for HeaderBuilder {
     }
 }
 
+// Mixing up `Clone` and `From` is a bit discouraged, but worth it for test ergonomics
 impl From<&RawBlockHeader> for HeaderBuilder {
     fn from(value: &RawBlockHeader) -> Self {
         Self::from(RawBlockHeader::clone(value))
     }
+}
+
+impl From<CachingBlockHeader> for HeaderBuilder {
+    fn from(value: CachingBlockHeader) -> Self {
+        Self::from(value.into_raw())
+    }
+}
+
+impl From<&CachingBlockHeader> for HeaderBuilder {
+    fn from(value: &CachingBlockHeader) -> Self {
+        Self::from(value.clone().into_raw())
+    }
+}
+
+impl From<&Self> for HeaderBuilder {
+    fn from(value: &Self) -> Self {
+        value.clone()
+    }
+}
+impl From<&mut Self /* from the builder methods */> for HeaderBuilder {
+    fn from(value: &mut Self) -> Self {
+        value.clone()
+    }
+}
+
+#[test]
+#[allow(unused_variables)]
+fn test_chain4u_macro() {
+    let c4u = Chain4U::new();
+    chain4u! {
+        in c4u;
+        t0 @ [gen]
+        -> ta @ [a1, a2 = HeaderBuilder::new()]
+        ->      [b1, b2]
+        -> tc @ [c]
+    };
+    chain4u! {
+        from [a1, a2] in c4u;
+        [x1, x2]
+        -> ty @ [y]
+    }
+
+    assert_eq!(t0.epoch(), 0);
+    assert_eq!(ta.epoch(), 1);
+    assert_eq!(tc.epoch(), 3);
+
+    assert_eq!(ty.epoch(), 3);
+
+    assert_ne!(tc, ty);
+    assert!([b1, b2, x1, x2].iter().all_unique());
+}
+
+#[test]
+fn test_chain4u() {
+    let c4u = Chain4U::new();
+    c4u.insert(&[], "gen", HeaderBuilder::new());
+
+    c4u.insert(&["gen"], "a1", HeaderBuilder::new());
+    c4u.insert(&["gen"], "a2", HeaderBuilder::new());
+
+    c4u.insert(&["a1", "a2"], "b1", HeaderBuilder::new());
+    c4u.insert(&["a1", "a2"], "b2", HeaderBuilder::new());
+
+    c4u.insert(&["b1", "b2"], "c", HeaderBuilder::new());
+
+    let t0 = c4u.tipset(&["gen"]);
+    let t1 = c4u.tipset(&["a1", "a2"]);
+    let t2 = c4u.tipset(&["b1", "b2"]);
+    let t3 = c4u.tipset(&["c"]);
+
+    assert_eq!(t0.epoch(), 0);
+    assert_eq!(t1.epoch(), 1);
+    assert_eq!(t2.epoch(), 2);
+    assert_eq!(t3.epoch(), 3);
+
+    itertools::assert_equal(
+        iter::successors(Some(t3.clone()), |t| match t.epoch() {
+            0 => None,
+            _ => Some(Tipset::load(&c4u, t.parents()).unwrap().unwrap()),
+        }),
+        [t3, t2, t1, t0],
+    );
 }
