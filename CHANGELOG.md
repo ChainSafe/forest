@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3849](https://github.com/ChainSafe/forest/pull/3849/) Implement the
+  `Filecoin.ChainGetPath` lotus-compatible RPC API.
+
 ### Changed
 
 ### Removed
