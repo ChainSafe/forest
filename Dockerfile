@@ -98,6 +98,13 @@ FROM slim-image as fat-image
 # Move FIL_PROOFS_PARAMETER_CACHE out of forest data dir since users always need to mount the data dir
 ENV FIL_PROOFS_PARAMETER_CACHE="/var/tmp/filecoin-proof-parameters"
 
+# Populate $FIL_PROOFS_PARAMETER_CACHE
 RUN forest-tool fetch-params --keys
+
+# Cache actor bundle in the image
+ENV FOREST_ACTOR_BUNDLE_PATH="/var/tmp/forest_actor_bundle.car.zst"
+
+# Populate $FOREST_ACTOR_BUNDLE_PATH
+RUN forest-tool state-migration actor-bundle $FOREST_ACTOR_BUNDLE_PATH
 
 ENTRYPOINT ["forest"]

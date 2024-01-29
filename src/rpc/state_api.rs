@@ -7,8 +7,8 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageLookup,
-    MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
+    ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageFilter,
+    MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
 };
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
@@ -798,6 +798,62 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
         &data.state_manager.blockstore_owned(),
         ts.parent_state(),
     )?))
+}
+
+/// Looks back and returns all messages with a matching to or from address, stopping at the given height.
+pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + 'static>(
+    data: Data<RPCState<DB>>,
+    Params(LotusJson((from_to, tsk, max_height))): Params<
+        LotusJson<(MessageFilter, TipsetKey, i64)>,
+    >,
+) -> Result<LotusJson<Vec<Cid>>, JsonRpcError> {
+    let ts = data.chain_store.load_required_tipset(&tsk)?;
+
+    if from_to.is_empty() {
+        return Err("must specify at least To or From in message filter".into());
+    } else if let Some(to) = from_to.to {
+        // this is following lotus logic, it probably should be `if let` instead of `else if let`
+        // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
+        data.state_manager
+            .lookup_id(&to, ts.as_ref())?
+            .with_context(|| {
+                format!("Failed to lookup the id address for address: {to} and tipset keys: {tsk}")
+            })?;
+    } else if let Some(from) = from_to.from {
+        data.state_manager
+            .lookup_id(&from, ts.as_ref())?
+            .with_context(|| {
+                format!(
+                    "Failed to lookup the id address for address: {from} and tipset keys: {tsk}"
+                )
+            })?;
+    }
+
+    let mut out = Vec::new();
+    let mut cur_ts = ts.clone();
+
+    while cur_ts.epoch() >= max_height {
+        let msgs = data.chain_store.messages_for_tipset(&cur_ts)?;
+
+        for msg in msgs {
+            if from_to.matches(msg.message()) {
+                out.push(msg.cid()?);
+            }
+        }
+
+        if cur_ts.epoch() == 0 {
+            break;
+        }
+
+        let next = data
+            .state_manager
+            .chain_store()
+            .load_tipset(cur_ts.parents())?
+            .ok_or("failed to load next tipset")?;
+        cur_ts = next;
+    }
+
+    Ok(LotusJson(out))
 }
 
 pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(

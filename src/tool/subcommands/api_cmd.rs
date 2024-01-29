@@ -18,7 +18,7 @@ use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::ChainConfig;
 use crate::networks::NetworkChain;
-use crate::rpc_api::data_types::MessageLookup;
+use crate::rpc_api::data_types::{MessageFilter, MessageLookup};
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::{data_types::RPCState, eth_api::*};
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
@@ -571,6 +571,25 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
+                            .ignore("Not implemented yet"),
+                    );
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
+                            msg.cid()?,
+                            800,
+                        ))
+                        .ignore("Not implemented yet"),
+                    );
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: Some(msg.from()),
+                            to: Some(msg.to()),
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
                     tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                         msg.cid()?,
                     )));
@@ -607,6 +626,30 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                     ));
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: None,
+                            to: Some(msg.to()),
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: Some(msg.from()),
+                            to: None,
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: None,
+                            to: None,
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
 
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
