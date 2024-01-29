@@ -91,7 +91,7 @@ pub async fn download_file_with_retry(
 }
 
 /// Returns
-/// - The final url after redirection(s)
+/// - The final URL after redirection(s)
 /// - The size of the snapshot from this vendor on this chain
 /// - The filename of the snapshot
 pub async fn peek(
