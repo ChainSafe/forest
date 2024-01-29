@@ -4,11 +4,13 @@ Besides CLI options and the configuration values in the configuration file,
 there are some environment variables that control the behaviour of a `forest`
 process.
 
-| Environment variable       | Value                            | Default | Description                                              |
-| -------------------------- | -------------------------------- | ------- | -------------------------------------------------------- |
-| FOREST_KEYSTORE_PHRASE_ENV | any text                         | empty   | The passphrase for the encrypted keystore                |
-| FOREST_CAR_LOADER_FILE_IO  | 1 or true                        | false   | Load CAR files with `RandomAccessFile` instead of `Mmap` |
-| FOREST_DB_DEV_MODE         | [see here](#-forest_db_dev_mode) | current | The database to use in development mode                  |
+| Environment variable       | Value                            | Default | Description                                                               |
+| -------------------------- | -------------------------------- | ------- | ------------------------------------------------------------------------- |
+| FOREST_KEYSTORE_PHRASE_ENV | any text                         | empty   | The passphrase for the encrypted keystore                                 |
+| FOREST_CAR_LOADER_FILE_IO  | 1 or true                        | false   | Load CAR files with `RandomAccessFile` instead of `Mmap`                  |
+| FOREST_DB_DEV_MODE         | [see here](#-forest_db_dev_mode) | current | The database to use in development mode                                   |
+| FOREST_ACTOR_BUNDLE_PATH   | file path                        | empty   | Path to the local actor bundle, download from remote servers when not set |
+| FIL_PROOFS_PARAMETER_CACHE | dir path                         | empty   | Path to folder that caches fil proof parameter files                      |
 
 ### FOREST_DB_DEV_MODE
 
