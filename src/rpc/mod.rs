@@ -66,6 +66,7 @@ where
             .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
             // Chain API
             .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB>)
+            .with_method(CHAIN_GET_PATH, chain_api::chain_get_path::<DB>)
             .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB>)
             .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)
             .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)

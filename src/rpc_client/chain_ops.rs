@@ -104,6 +104,10 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_READ_OBJ, (cid,))
     }
 
+    pub fn chain_get_path_req(from: TipsetKey, to: TipsetKey) -> RpcRequest<Vec<PathChange>> {
+        RpcRequest::new(CHAIN_GET_PATH, (from, to))
+    }
+
     pub fn chain_has_obj_req(cid: Cid) -> RpcRequest<bool> {
         RpcRequest::new(CHAIN_HAS_OBJ, (cid,))
     }

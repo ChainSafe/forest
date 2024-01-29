@@ -243,12 +243,6 @@ pub(in crate::rpc) async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
-#[derive(PartialEq, Debug)]
-pub(in crate::rpc) enum PathChange<T = Arc<Tipset>> {
-    Revert(T),
-    Apply(T),
-}
-
 /// Find the path between two tipsets, as a series of [`PathChange`]s.
 ///
 /// ```text
@@ -266,8 +260,8 @@ pub(in crate::rpc) enum PathChange<T = Arc<Tipset>> {
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-pub(in crate::rpc) async fn chain_get_path(
-    data: Data<RPCState<impl Blockstore>>,
+pub(in crate::rpc) async fn chain_get_path<DB: Blockstore>(
+    data: Data<RPCState<DB>>,
     Params(LotusJson((from, to))): Params<LotusJson<(TipsetKey, TipsetKey)>>,
 ) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
     impl_chain_get_path(&data.chain_store, &from, &to)
