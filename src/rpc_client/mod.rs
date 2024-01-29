@@ -374,6 +374,11 @@ impl<T> RpcRequest<T> {
         self.timeout = timeout;
     }
 
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.set_timeout(timeout);
+        self
+    }
+
     // Discard type information about the response.
     pub fn lower(self) -> RpcRequest {
         RpcRequest {

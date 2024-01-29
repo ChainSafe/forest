@@ -1,6 +1,8 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::time::Duration;
+
 use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::shim::message::Message;
 use crate::{
@@ -81,7 +83,8 @@ impl ApiInfo {
     }
 
     pub fn chain_export_req(params: ChainExportParams) -> RpcRequest<ChainExportResult> {
-        RpcRequest::new(CHAIN_EXPORT, params)
+        // snapshot export could take a few hours on mainnet
+        RpcRequest::new(CHAIN_EXPORT, params).with_timeout(Duration::MAX)
     }
 
     #[allow(dead_code)]
