@@ -153,28 +153,26 @@ where
         //    we use the full block_gas_limit (as opposed to the residual `gas_limit`
         // from the    priority message selection) as we have to account for
         // what other miners are doing
+        let mut next_chain = 0;
         let mut partitions: Vec<Vec<NodeKey>> = vec![vec![]; MAX_BLOCKS];
-
-        let mut my_iter = chains
-            .key_vec
-            .iter()
-            .flat_map(|key| chains.get(*key).map(|msg| (key, msg)));
-        for part in partitions.iter_mut() {
-            let mut remaining_gas = crate::shim::econ::BLOCK_GAS_LIMIT;
-            // Shove as many chains into `part`. Stop once the sum of
-            // `gas_limit` is greater than BLOCK_GAS_LIMIT _or_ when the
-            // available gas is less than MIN_GAS.
-            for (chain_key, chain) in my_iter {
-                part.push(*chain_key);
-                match remaining_gas.checked_sub(chain.gas_limit) {
-                    // Sum of gas limits in partition has exceeded BLOCK_GAS_LIMIT, don't add any more chains.
-                    None => break,
-                    Some(next) => remaining_gas = next,
+        let mut i = 0;
+        while i < MAX_BLOCKS && next_chain < chains.len() {
+            let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
+            while next_chain < chains.len() {
+                let chain_key = chains.key_vec[next_chain];
+                next_chain += 1;
+                partitions[i].push(chain_key);
+                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                if gas_limit < chain_gas_limit {
+                    break;
                 }
-                if remaining_gas < MIN_GAS {
+
+                gas_limit -= chain_gas_limit;
+                if gas_limit < MIN_GAS {
                     break;
                 }
             }
+            i += 1;
         }
 
         // 4. Compute effective performance for each chain, based on the partition they
