@@ -7185,9 +7185,9 @@ dependencies = [
 
 [[package]]
 name = "ra-ap-rustc_lexer"
-version = "0.21.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc741c7a78103efab416b562e35bd73c8d4967478575010c86c6062f8d3cbf29"
+checksum = "d2d221356e5717595e8a0afa5fba1620dcb4032ab784dc4d98fdc7284e3feb66"
 dependencies = [
  "unicode-properties",
  "unicode-xid",
@@ -7195,15 +7195,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.198"
+version = "0.0.199"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93081ee7e71e8677829ae6ee30a8d9e22e910629107e9358e02070b553cf3ac8"
+checksum = "54b49bc7cfdf58f26bc23b3aa936fbcdb8562643316c8432ae283ddc06bd03bb"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.198"
+version = "0.0.199"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f44eeba9ea4e710ea194c832d0f0ea2ce277f24fa20398558b2d5735e9c8b39"
+checksum = "9bd1dab4c208e2550df94369bc72929b8cce22efb84f4ac394e1c5c367df4a92"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7212,9 +7212,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_profile"
-version = "0.0.198"
+version = "0.0.199"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "399c88e1e18b4912698b553502047fd9bff8129bcb624d3aeb0c990f3ff9111e"
+checksum = "ace505cb3cde4d5ed0699ff8c4483e22684a2689622f3276ca40994f7cafb834"
 dependencies = [
  "cfg-if",
  "countme",
@@ -7227,9 +7227,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.198"
+version = "0.0.199"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adac0766329ef29bace1b2ccc5d06270ea7c110343425846d5e88ab5a9369806"
+checksum = "a3b780362d8f7d0000e8f308b3189e095565b9857fff6aed3d69f188bcb5f3ea"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7242,9 +7242,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.198"
+version = "0.0.199"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dc87ad4584d96181d0293f8664d6f2fc0dfcd2ace9e25a0eef3567128af5f8a"
+checksum = "661f6a5c4269e71fa10ed995064b973082f5eb79007de48423f2ada81b965736"
 dependencies = [
  "cov-mark",
  "either",
@@ -7264,9 +7264,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.198"
+version = "0.0.199"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1dc65f52bb338f23a870fbbb4fa81e3085d6f442909fc6a3e2646e375ef08ff"
+checksum = "083e5551e5d3bd815d7df7c49ce0adda1025c2fff1d1eab8cf27ee86d4682748"
 dependencies = [
  "itertools 0.12.0",
  "text-size",

@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#3901](https://github.com/ChainSafe/forest/pull/3901) Fix timeout issue in
+  `forest-cli snapshot export`.
+
 ## Forest 0.16.5 "Pinecone Deactivation"
 
 Non-mandatory upgrade including mostly new RPC endpoints. The option to use an
