@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use crate::rpc_api::data_types::{MiningBaseInfo, Transaction};
+use crate::rpc_api::data_types::{MessageFilter, MiningBaseInfo, Transaction};
 use crate::{
     blocks::TipsetKey,
     rpc_api::{
@@ -210,6 +210,14 @@ impl ApiInfo {
 
     pub fn state_list_miners_req(tsk: TipsetKey) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
+
+    pub fn state_list_messages_req(
+        from_to: MessageFilter,
+        tsk: TipsetKey,
+        max_height: i64,
+    ) -> RpcRequest<Vec<Address>> {
+        RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))
     }
 
     pub fn msig_get_available_balance_req(
