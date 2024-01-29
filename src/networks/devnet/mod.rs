@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_epoch_by_height, DrandPoint, Height, HeightInfo,
+    DrandPoint, Height, HeightInfo,
 };
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
@@ -149,10 +149,8 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
         DrandPoint {
             // height is TBD.
             // likely to be `get_upgrade_epoch_by_height(HEIGHT_INFOS.iter(), Height::Pineapple).unwrap()`.
-            height: i64::MAX.max(
-                get_upgrade_epoch_by_height(HEIGHT_INFOS.iter(), Height::Watermelon)
-                    .unwrap_or_default(),
-            ),
+            // remember to remove `#[allow(dead_code)]` from `get_upgrade_epoch_by_height`
+            height: i64::MAX,
             config: &DRAND_QUICKNET,
         },
     ]

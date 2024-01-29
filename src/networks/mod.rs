@@ -375,6 +375,7 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
         .collect()
 }
 
+#[allow(dead_code)]
 fn get_upgrade_epoch_by_height<'a>(
     mut height_infos: impl Iterator<Item = &'a HeightInfo>,
     height: Height,
