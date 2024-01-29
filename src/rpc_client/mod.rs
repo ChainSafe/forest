@@ -224,7 +224,7 @@ impl ApiInfo {
         } else {
             Err(JsonRpcError::INVALID_REQUEST)
         }?;
-        trace!("subscribed to {method_name}: ({channel_id}, {sub_id})",);
+        trace!("subscribed to {method_name}: (chann_id: {channel_id}, sub_id: {sub_id})",);
 
         let mut notification = read.by_ref().take(n_notifications);
         while let Some(message) = notification.next().await {
