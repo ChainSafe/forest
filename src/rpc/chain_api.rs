@@ -16,18 +16,16 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::{anyhow, bail, Context};
+use anyhow::Context as _;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
-use itertools::{EitherOrBoth, Itertools as _, PeekingNext};
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use once_cell::sync::Lazy;
 use sha2::Sha256;
-use std::mem;
-use std::{cmp, iter, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub(in crate::rpc) async fn chain_get_message<DB: Blockstore>(
@@ -276,31 +274,33 @@ pub(in crate::rpc) async fn chain_get_path(
         .map(LotusJson)
         .map_err(Into::into)
 }
+
 fn impl_chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
     to: &TipsetKey,
 ) -> anyhow::Result<Vec<PathChange>> {
-    impl_chain_get_path_lotus(chain_store, from, to)
-}
-fn impl_chain_get_path_lotus(
-    chain_store: &ChainStore<impl Blockstore>,
-    from: &TipsetKey,
-    to: &TipsetKey,
-) -> anyhow::Result<Vec<PathChange>> {
-    let mut to_revert = chain_store.load_required_tipset(from)?;
-    let mut to_apply = chain_store.load_required_tipset(to)?;
+    let mut to_revert = chain_store
+        .load_required_tipset(from)
+        .context("couldn't load `from`")?;
+    let mut to_apply = chain_store
+        .load_required_tipset(to)
+        .context("couldn't load `to`")?;
 
     let mut all_reverts = vec![];
     let mut all_applies = vec![];
 
     while to_revert != to_apply {
         if to_revert.epoch() > to_apply.epoch() {
-            let next = chain_store.load_required_tipset(to_revert.parents())?;
+            let next = chain_store
+                .load_required_tipset(to_revert.parents())
+                .context("couldn't load ancestor of `from`")?;
             all_reverts.push(to_revert);
             to_revert = next;
         } else {
-            let next = chain_store.load_required_tipset(to_apply.parents())?;
+            let next = chain_store
+                .load_required_tipset(to_apply.parents())
+                .context("couldn't load ancestor of `to`")?;
             all_applies.push(to_apply);
             to_apply = next;
         }
@@ -310,119 +310,6 @@ fn impl_chain_get_path_lotus(
         .map(PathChange::Revert)
         .chain(all_applies.into_iter().rev().map(PathChange::Apply))
         .collect())
-}
-fn impl_chain_get_path_scrolling(
-    chain_store: &ChainStore<impl Blockstore>,
-    from: &TipsetKey,
-    to: &TipsetKey,
-) -> anyhow::Result<Vec<PathChange>> {
-    /// Climb the chain from `origin` to genesis, using `identifier` for error messages.
-    fn with_lineage<'a>(
-        store: &'a ChainStore<impl Blockstore>,
-        origin: &TipsetKey,
-        identifier: &'a str,
-    ) -> impl Iterator<Item = anyhow::Result<Arc<Tipset>>> + 'a {
-        let origin = store
-            .load_required_tipset(origin)
-            .with_context(|| format!("origin `{identifier}` is not in the blockstore"));
-
-        iter::successors(Some(origin), move |prev| {
-            match prev {
-                Ok(it) => match it.epoch() == 0 {
-                    true => None, // reached genesis
-                    false => Some(store.load_required_tipset(it.parents()).with_context(|| {
-                        format!("ancestor of origin `{identifier}` is not in the blockstore")
-                    })),
-                },
-                Err(_) => None, // fuse on error
-            }
-        })
-    }
-
-    /// after calling this, `iter` will start from `height`.
-    ///
-    /// Assumes epochs decrement by one in `iter`.
-    fn scroll_to_height(
-        mut iter: impl PeekingNext<Item = anyhow::Result<Arc<Tipset>>>,
-        height: i64,
-    ) -> anyhow::Result<Vec<Arc<Tipset>>> {
-        iter.peeking_take_while(|it| {
-            it.as_deref()
-                .map(|ts| ts.epoch() > height)
-                .unwrap_or(true /* bubble up errors */)
-        })
-        .collect()
-    }
-
-    fn peek<'a>(
-        lineage: &'a mut iter::Peekable<impl Iterator<Item = Result<Arc<Tipset>, anyhow::Error>>>,
-        identifier: &str,
-    ) -> anyhow::Result<&'a Arc<Tipset>> {
-        lineage.peek_mut().map_or_else(
-            || Err(anyhow!("unexpected end of chain for origin `{identifier}`")),
-            |it| {
-                it.as_mut()
-                    .map(|it| &*it)
-                    // hack to preserve the source error without getting the lifetime of
-                    // `lineage` getting tangled up while still allowing callers to propogate errors:
-                    // - anyhow::Error: !From<&anyhow::Error>
-                    // - anyhow::Error: !Clone
-                    .map_err(|it| mem::replace(it, anyhow!("dummy")))
-            },
-        )
-    }
-
-    // A - B  - C  - D - E
-    // |                 ^ `from`
-    // |
-    //  -- B' - C' - D'
-    //               ^ `to`
-
-    // E D C B A
-    let mut from_lineage = with_lineage(chain_store, from, "from").peekable();
-    // D' C' B' A
-    let mut to_lineage = with_lineage(chain_store, to, "to").peekable();
-
-    let common_height = cmp::min(
-        peek(&mut from_lineage, "from")?.epoch(),
-        peek(&mut to_lineage, "to")?.epoch(),
-    );
-
-    //               |< common height
-    //
-    //               <~~~~ revert E
-    // A - B  - C  - D - E
-    // |             ^ `from`
-    // |
-    //  -- B' - C' - D'
-    //               ^ `to`
-    let mut reverts /* E D C B */ = scroll_to_height(&mut from_lineage, common_height)?;
-    let mut applies /* D' C' B' */ = scroll_to_height(&mut to_lineage, common_height)?;
-
-    for step in from_lineage.zip_longest(to_lineage) {
-        match step {
-            EitherOrBoth::Both(from, to) => {
-                let from = from?;
-                let to = to?;
-                if from == to {
-                    return Ok(reverts
-                        .into_iter()
-                        .map(PathChange::Revert)
-                        .chain(applies.into_iter().rev().map(PathChange::Apply))
-                        .collect());
-                } else {
-                    reverts.push(from);
-                    applies.push(to);
-                }
-            }
-            EitherOrBoth::Left(it) | EitherOrBoth::Right(it) => {
-                it?;
-                break;
-            }
-        }
-    }
-
-    bail!("no common ancestor found")
 }
 
 pub(in crate::rpc) async fn chain_get_tipset_by_height<DB: Blockstore>(
@@ -578,7 +465,7 @@ mod tests {
         let store = ChainStore::calibnet();
         chain4u! {
             in store.blockstore();
-            [_genesis = store.genesis_block_header().clone()]
+            [_genesis = store.genesis_block_header()]
             -> [a] -> [b] -> [c, d] -> [e]
         };
 
@@ -604,7 +491,7 @@ mod tests {
         let store = ChainStore::calibnet();
         chain4u! {
             in store.blockstore();
-            [_genesis = store.genesis_block_header().clone()]
+            [_genesis = store.genesis_block_header()]
             -> [a] -> [b] -> [c, d] -> [e]
         };
 
@@ -626,7 +513,7 @@ mod tests {
         let store = ChainStore::calibnet();
         chain4u! {
             in store.blockstore();
-            [genesis = store.genesis_block_header().clone()]
+            [_genesis = store.genesis_block_header()]
             -> [a] -> [b1] -> [c1]
         };
         chain4u! {
@@ -634,20 +521,13 @@ mod tests {
             [b2] -> [c2]
         };
 
-        // is the fork laid out correctly?
-        assert_eq!(&a.parents, Tipset::from(genesis.clone()).key());
-        assert_eq!(a.epoch, 1);
-        assert_eq!(&b1.parents, Tipset::from(a.clone()).key());
-        assert_eq!(b1.epoch, 2);
-        assert_eq!(&b2.parents, Tipset::from(a.clone()).key());
-        assert_eq!(b2.epoch, 2);
-        assert_ne!(b1, b2);
-
         // same height
         assert_path_change(&store, b1, b2, [Revert(b1), Apply(b2)]);
 
         // different height
         assert_path_change(&store, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
+
+        let _ = (a, c1);
     }
 
     impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
