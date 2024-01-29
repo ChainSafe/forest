@@ -86,12 +86,30 @@ impl RawBlockHeader {
         parent_epoch: ChainEpoch,
         prev_entry: &BeaconEntry,
     ) -> Result<(), Error> {
-        let (_cb_epoch, curr_beacon) = b_schedule
+        let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
-        let (_pb_epoch, _) = b_schedule
-            .beacon_for_epoch(parent_epoch)
-            .map_err(|e| Error::Validation(e.to_string()))?;
+        // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
+        if curr_beacon.network().is_chained() {
+            let (pb_epoch, _) = b_schedule
+                .beacon_for_epoch(parent_epoch)
+                .map_err(|e| Error::Validation(e.to_string()))?;
+            if cb_epoch != pb_epoch {
+                // Fork logic
+                if self.beacon_entries.len() != 2 {
+                    return Err(Error::Validation(format!(
+                        "Expected two beacon entries at beacon fork, got {}",
+                        self.beacon_entries.len()
+                    )));
+                }
+
+                curr_beacon
+                    .verify_entries(&self.beacon_entries[1..], &self.beacon_entries[0])
+                    .map_err(|e| Error::Validation(e.to_string()))?;
+
+                return Ok(());
+            }
+        }
 
         let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, self.epoch);
         // We don't expect to ever actually meet this condition
@@ -105,15 +123,7 @@ impl RawBlockHeader {
             return Ok(());
         }
 
-        if network_version > NetworkVersion::V21 && self.beacon_entries.len() != 1 {
-            return Err(Error::Validation(format!(
-                "exactly one beacon entry expected for network version {}, got: {}",
-                network_version.deref(),
-                self.beacon_entries.len()
-            )));
-        }
-
-        if network_version <= NetworkVersion::V21 && prev_entry.round() == 0 {
+        if curr_beacon.network().is_chained() && prev_entry.round() == 0 {
             // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
             // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
             return Ok(());

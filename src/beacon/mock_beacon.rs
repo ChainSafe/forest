@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::DrandNetwork;
+use crate::beacon::{Beacon, BeaconEntry};
 use crate::shim::version::NetworkVersion;
 use crate::utils::encoding::blake2b_256;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-
-use crate::beacon::{Beacon, BeaconEntry};
 
 #[derive(Default)]
 pub struct MockBeacon {}
@@ -22,6 +22,10 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
+    fn network(&self) -> DrandNetwork {
+        DrandNetwork::Mainnet
+    }
+
     fn verify_entries<'a>(
         &self,
         entries: &'a [BeaconEntry],
