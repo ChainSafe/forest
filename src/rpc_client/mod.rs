@@ -214,7 +214,7 @@ impl ApiInfo {
         // A succesful result is always an u64 number (the channel ID)
         let channel_id = if let Some(message) = read.next().await {
             let data = message?.into_data();
-            let rpc_res: JsonRpcResponse<u64> =
+            let rpc_res: JsonRpcResponse<i64> =
                 serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
             match rpc_res {
@@ -226,7 +226,7 @@ impl ApiInfo {
         }?;
         trace!("subscribed to {method_name}: ({channel_id}, {sub_id})",);
 
-        let mut notification = read.take(n_notifications);
+        let mut notification = read.by_ref().take(n_notifications);
         while let Some(message) = notification.next().await {
             // TODO: Make sure method in the message is "xrpc.ch.val"
             if let Ok(msg) = message {
@@ -238,12 +238,43 @@ impl ApiInfo {
             // TODO: Push notification into a vector so we can compare results
         }
 
-        // Cancel the subscription and close the stream
+        // Cancel the subscription
         let cancel_message = CancelMessage::from_subscription(sub_id);
-        let payload = serde_json::to_string(&cancel_message).expect("Failed to serialize JSON");
+        let payload =
+            serde_json::to_string(&cancel_message).map_err(|_| JsonRpcError::PARSE_ERROR)?;
         trace!("sending cancel {:?}", payload);
         write.send(WsMessage::Text(payload)).await?;
 
+        // Get the next text or binary message
+        loop {
+            let close_message = if let Some(Ok(message)) = read.next().await {
+                match message {
+                    WsMessage::Text(s) => {
+                        let msg: CloseMessage =
+                            serde_json::from_str(&s).map_err(|_| JsonRpcError::PARSE_ERROR)?;
+                        Some(msg)
+                    }
+                    WsMessage::Binary(bytes) => {
+                        let msg: CloseMessage = serde_json::from_slice(&bytes)
+                            .map_err(|_| JsonRpcError::PARSE_ERROR)?;
+                        Some(msg)
+                    }
+                    _ => None,
+                }
+            } else {
+                return Err(JsonRpcError::INVALID_REQUEST);
+            };
+            if let Some(msg) = close_message {
+                // Make sure we get the proper close message
+                if msg != CloseMessage::from_channel(channel_id) {
+                    trace!("invalid close message");
+                    return Err(JsonRpcError::INVALID_REQUEST);
+                }
+                break;
+            }
+        }
+
+        // Close the stream
         trace!("closing subscription");
         write.close().await?;
 
@@ -485,6 +516,23 @@ impl CancelMessage {
             method: "xrpc.cancel",
             params: vec![sub_id],
             id: serde_json::Value::Null,
+        }
+    }
+}
+
+#[derive(Deserialize, PartialEq, Eq, Debug)]
+struct CloseMessage {
+    jsonrpc: String,
+    method: String,
+    params: Vec<i64>,
+}
+
+impl CloseMessage {
+    fn from_channel(channel_id: i64) -> Self {
+        Self {
+            jsonrpc: "2.0".into(),
+            method: "xrpc.ch.close".into(),
+            params: vec![channel_id],
         }
     }
 }
