@@ -338,29 +338,10 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 
 pub(crate) async fn chain_notify<DB: Blockstore>(
     data: Arc<RPCState<DB>>,
-) -> Result<Subscriber<ApiHeadChange>, JsonRpseeError> {
-    let mut head_change = data.chain_store.publisher().subscribe();
+) -> Result<Subscriber<HeadChange>, JsonRpseeError> {
+    let head_change = data.chain_store.publisher().subscribe();
 
-    let (tx, rx) = broadcast::channel(1);
-
-    tokio::task::spawn(async move {
-        loop {
-            match head_change.recv().await {
-                Ok(v) => {
-                    let (change, headers) = match v {
-                        HeadChange::Apply(ts) => {
-                            ("apply".into(), ts.block_headers().clone().into())
-                        }
-                    };
-                    let _ = tx.send(ApiHeadChange { change, headers });
-                }
-                Err(RecvError::Lagged(_)) => continue,
-                Err(RecvError::Closed) => break,
-            }
-        }
-    });
-
-    Ok(rx)
+    Ok(head_change)
 }
 
 fn load_api_messages_from_tipset(

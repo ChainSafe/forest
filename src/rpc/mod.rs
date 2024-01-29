@@ -20,6 +20,8 @@ mod wallet_api;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::chain::HeadChange;
+use crate::rpc_api::data_types::HeadChange as ApiHeadChange;
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
@@ -263,19 +265,20 @@ where
         true, // to use Filecoin pubsub
         |params, pending, state| {
             // Handle parsing of the method params.
-            let result = match params.parse::<Vec<usize>>() {
-                Ok(v) if v.is_empty() => Ok(()),
-                Ok(_) => Err(ErrorObjectOwned::owned::<usize>(
-                    PARSE_ERROR_CODE,
-                    "incorrect params",
-                    None,
-                )),
-                Err(e) => Err(ErrorObjectOwned::from(e)),
-            };
-            if let Err(e) = result {
-                tokio::spawn(pending.reject(ErrorObjectOwned::from(e)));
-                return;
-            }
+            // dbg!(&params);
+            // let result = match params.parse::<Vec<usize>>() {
+            //     Ok(v) if v.is_empty() => Ok(()),
+            //     Ok(_) => Err(ErrorObjectOwned::owned::<usize>(
+            //         PARSE_ERROR_CODE,
+            //         "incorrect params",
+            //         None,
+            //     )),
+            //     Err(e) => Err(ErrorObjectOwned::from(e)),
+            // };
+            // if let Err(e) = result {
+            //     tokio::spawn(pending.reject(ErrorObjectOwned::from(e)));
+            //     return;
+            // }
 
             tokio::spawn(async move {
                 // Mark the subscription is accepted after the params has been parsed successful.
@@ -294,13 +297,23 @@ where
                 loop {
                     select! {
                         Ok(v) = head_change.recv() => {
-                            let msg = create_ws_notif_message(&sink, &v).unwrap();
+                            let (change, headers) = match v {
+                                HeadChange::Apply(ts) => {
+                                    ("apply".into(), ts.block_headers().clone().into())
+                                }
+                            };
 
-                            // This fails only if the connection is closed
-                            if let Ok(()) = sink.send(msg).await {
-                                trace!("sent succeeded");
+                            let data = ApiHeadChange { change, headers };
+                            if let Ok(msg) = create_ws_notif_message(&sink, &data) {
+                                // This fails only if the connection is closed
+                                if let Ok(()) = sink.send(msg).await {
+                                    trace!("send succeeded");
+                                } else {
+                                    trace!("send failed");
+                                    break;
+                                }
                             } else {
-                                trace!("sent failed");
+                                trace!("create notification failed");
                                 break;
                             }
                         },
