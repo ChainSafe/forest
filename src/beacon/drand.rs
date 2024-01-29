@@ -151,7 +151,7 @@ pub trait Beacon
 where
     Self: Send + Sync + 'static,
 {
-    /// Gets the drand network
+    /// Gets the `drand` network
     fn network(&self) -> DrandNetwork;
 
     /// Verify beacon entries that are sorted by round.
