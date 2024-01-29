@@ -167,7 +167,7 @@ impl Chains {
         self.key_vec.get(i).copied()
     }
 
-    /// Retrieves the `msg` chain node at the given index. Returns `None` if index is oob.
+    /// Retrieves the `msg` chain node at the given index. Returns `None` if index is out-of-bounds.
     pub(in crate::message_pool) fn get_at(&self, i: usize) -> Option<&MsgChainNode> {
         self.map.get(self.get_key_at(i)?)
     }
