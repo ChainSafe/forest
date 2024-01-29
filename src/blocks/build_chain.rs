@@ -23,23 +23,103 @@ use std::{
     iter,
 };
 
+macro_rules! chain4u {
+    (
+        in $c4u:ident;
+        $( !fork [$($fork_header:ident),* $(,)?];)?
+        // ^ solve ambiguity
+        $(
+            $($tipset:ident @)? [
+                $(
+                    $header:ident
+                    $(= $init:expr)?
+                ),+ $(,)?
+            ]
+        )->*
+    ) => {
+        let __c4u: &mut $crate::blocks::build_chain::Chain4U<_> = &mut $c4u;
+        let mut __running_parent: &[&str] = &[];
+        $(let mut __running_parent: &[&str] = &[$(stringify!($fork_header),)*];)?
+
+        // perform all of the insertions, which require mutable access
+        $(
+            $(
+                __c4u.insert(
+                    __running_parent,
+                    stringify!($header),
+                    {
+                        let _init = $crate::blocks::build_chain::HeaderBuilder::new();
+                        $(let _init = $init;)?
+                        _init
+                    }
+                );
+            )*
+
+            __running_parent = &[
+                $(stringify!($header),)*
+            ];
+        )*
+
+        // now bind all of the idents that the user wanted
+        $(
+            $(
+                let $header: &$crate::blocks::RawBlockHeader = __c4u.get(stringify!($header)).unwrap();
+            )*
+
+            // this needs to be lifted out of the optional expansion below
+            let __current_tipset: &[&str] = &[$(stringify!($header),)*];
+
+            $(
+                let $tipset: &$crate::blocks::Tipset = &__c4u.tipset(__current_tipset);
+            )?
+        )*
+    };
+}
+#[test]
+fn chain4u_macro() {
+    let mut c4u = Chain4U::new();
+    chain4u! {
+        in c4u;
+        t0 @ [gen]
+        -> ta @ [a1, a2 = HeaderBuilder::new()]
+        ->      [b1, b2]
+        -> tc @ [c]
+    };
+    let (b1, b2) = &(b1.clone(), b2.clone()); // TODO(aatifsyed): can we avoid this?
+    chain4u! {
+        in c4u;
+        !fork [a1, a2];
+        [x1, x2]
+        -> ty @ [y]
+    }
+
+    assert_eq!(t0.epoch(), 0);
+    assert_eq!(ta.epoch(), 1);
+    assert_eq!(tc.epoch(), 3);
+
+    assert_eq!(ty.epoch(), 3);
+
+    assert_ne!(tc, ty);
+    assert!([b1, b2, x1, x2].iter().all_unique());
+}
+
 #[test]
 fn chain4u() {
     let mut c4u = Chain4U::new();
-    c4u.insert([], "gen", HeaderBuilder::new());
+    c4u.insert(&[], "gen", HeaderBuilder::new());
 
-    c4u.insert(["gen"], "a1", HeaderBuilder::new());
-    c4u.insert(["gen"], "a2", HeaderBuilder::new());
+    c4u.insert(&["gen"], "a1", HeaderBuilder::new());
+    c4u.insert(&["gen"], "a2", HeaderBuilder::new());
 
-    c4u.insert(["a1", "a2"], "b1", HeaderBuilder::new());
-    c4u.insert(["a1", "a2"], "b2", HeaderBuilder::new());
+    c4u.insert(&["a1", "a2"], "b1", HeaderBuilder::new());
+    c4u.insert(&["a1", "a2"], "b2", HeaderBuilder::new());
 
-    c4u.insert(["b1", "b2"], "c", HeaderBuilder::new());
+    c4u.insert(&["b1", "b2"], "c", HeaderBuilder::new());
 
-    let t0 = c4u.tipset(["gen"]);
-    let t1 = c4u.tipset(["a1", "a2"]);
-    let t2 = c4u.tipset(["b1", "b2"]);
-    let t3 = c4u.tipset(["c"]);
+    let t0 = c4u.tipset(&["gen"]);
+    let t1 = c4u.tipset(&["a1", "a2"]);
+    let t2 = c4u.tipset(&["b1", "b2"]);
+    let t3 = c4u.tipset(&["c"]);
 
     assert_eq!(t0.epoch(), 0);
     assert_eq!(t1.epoch(), 1);
@@ -133,20 +213,19 @@ impl<T> Chain4U<T> {
     {
         self.ident2header.get(ident)
     }
-    pub fn tipset<'a>(&self, of: impl IntoIterator<Item = &'a str>) -> Tipset {
-        Tipset::new(of.into_iter().map(|it| &self.ident2header[it]).cloned()).unwrap()
+    pub fn tipset(&self, of: &[&str]) -> Tipset {
+        Tipset::new(of.iter().map(|it| &self.ident2header[*it]).cloned()).unwrap()
     }
 }
 
 impl<T: Blockstore> Chain4U<T> {
-    pub fn insert<'a>(
+    pub fn insert(
         &mut self,
-        parents: impl IntoIterator<Item = &'a str>,
+        parents: &[&str],
         name: impl Into<String>,
         header: impl Into<HeaderBuilder>,
     ) -> &RawBlockHeader {
-        let parents = parents.into_iter().collect::<Vec<_>>();
-        let name = name.into();
+        let name: String = name.into();
         let mut header: HeaderBuilder = header.into();
 
         let siblings = parents
@@ -245,7 +324,7 @@ impl<T: Blockstore> Chain4U<T> {
             .unwrap();
         for parent in parents {
             self.ident_graph
-                .insert_edge(String::from(parent), name.clone(), ())
+                .insert_edge(String::from(*parent), name.clone(), ())
                 .unwrap();
         }
         assert!(!self.ident_graph.contains_cycles());
