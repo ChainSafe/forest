@@ -568,20 +568,17 @@ mod tests {
     use PathChange::{Apply, Revert};
 
     use crate::{
-        blocks::{chain, RawBlockHeader},
-        db::{MemoryDB, SettingsStore},
-        genesis,
-        networks::{calibnet, ChainConfig},
-        utils::db::car_util::load_car,
+        blocks::{chain4u, Chain4U, RawBlockHeader},
+        db::{car::PlainCar, MemoryDB},
+        networks::{self, ChainConfig},
     };
-    use futures::executor::block_on;
 
     #[test]
     fn revert_to_ancestor_linear() {
-        let store = ChainStore::<MemoryDB>::calibnet();
-        chain! {
-            in store.blockstore() =>
-            [genesis = store.genesis_block_header().clone()]
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header().clone()]
             -> [a] -> [b] -> [c, d] -> [e]
         };
 
@@ -604,10 +601,10 @@ mod tests {
 
     #[test]
     fn apply_to_descendant_linear() {
-        let store = ChainStore::<MemoryDB>::calibnet();
-        chain! {
-            in store.blockstore() =>
-            [genesis = store.genesis_block_header().clone()]
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header().clone()]
             -> [a] -> [b] -> [c, d] -> [e]
         };
 
@@ -626,15 +623,15 @@ mod tests {
 
     #[test]
     fn cross_fork_simple() {
-        let store = ChainStore::<MemoryDB>::calibnet();
-        chain! {
-            in store.blockstore() =>
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
             [genesis = store.genesis_block_header().clone()]
             -> [a] -> [b1] -> [c1]
         };
-        chain! {
-            in store.blockstore() =>
-            [a = a] -> [b2] -> [c2]
+        chain4u! {
+            from [a] in store.blockstore();
+            [b2] -> [c2]
         };
 
         // is the fork laid out correctly?
@@ -653,26 +650,18 @@ mod tests {
         assert_path_change(&store, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
     }
 
-    impl<DB> ChainStore<DB> {
-        fn calibnet() -> Self
-        where
-            DB: Blockstore + Default + SettingsStore + Send + Sync + 'static,
-        {
-            let db = Arc::new(DB::default());
-            let chain_config = ChainConfig::calibnet();
-            tokio::runtime::Runtime::new()
+    impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
+        fn calibnet() -> Self {
+            let db = Arc::new(Chain4U::with_blockstore(
+                PlainCar::new(networks::calibnet::DEFAULT_GENESIS).unwrap(),
+            ));
+            let genesis_block_header = db
+                .get_cbor(&networks::calibnet::GENESIS_CID)
                 .unwrap()
-                .block_on(async { load_car(&db, calibnet::DEFAULT_GENESIS).await.unwrap() });
-            let genesis_bytes = block_on(chain_config.genesis_bytes(&db)).unwrap();
-            let genesis_block_header = block_on(genesis::read_genesis_header(
-                None,
-                genesis_bytes.as_deref(),
-                &db,
-            ))
-            .unwrap();
+                .unwrap();
             ChainStore::new(
-                db.clone(),
-                db.clone(),
+                db,
+                Arc::new(MemoryDB::default()),
                 Arc::new(ChainConfig::calibnet()),
                 genesis_block_header,
             )

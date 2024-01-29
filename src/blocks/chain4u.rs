@@ -34,7 +34,7 @@ use std::{
 macro_rules! chain4u {
     (
         $(from [$($fork_header:ident),* $(,)?])?
-        in $c4u:ident;
+        in $c4u:expr;
         $(
             $($tipset:ident @)? [
                 $(
@@ -44,7 +44,7 @@ macro_rules! chain4u {
             ]
         )->*
     ) => {
-        let __c4u: &$crate::blocks::build_chain::Chain4U<_> = &$c4u;
+        let __c4u: &$crate::blocks::Chain4U<_> = &$c4u;
         let mut __running_parent: &[&str] = &[];
         $(let mut __running_parent: &[&str] = &[$(stringify!($fork_header),)*];)?
 
@@ -55,8 +55,8 @@ macro_rules! chain4u {
                         __running_parent,
                         stringify!($header),
                         {
-                            let _init = $crate::blocks::build_chain::HeaderBuilder::new();
-                            $(let _init = $crate::blocks::build_chain::HeaderBuilder::from($init);)?
+                            let _init = $crate::blocks::HeaderBuilder::new();
+                            $(let _init = $crate::blocks::HeaderBuilder::from($init);)?
                             _init
                         }
                     );
