@@ -173,7 +173,7 @@ smart-default = "0.7.1"
 stacker = "0.1.15"
 static_assertions = "1.1.0"
 statrs = "0.16"
-strum = { version = "0.25", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.25"
 tabled = "0.15"
 tap = "1"
