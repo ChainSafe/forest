@@ -57,6 +57,9 @@ pub enum ApiCommands {
         /// API calls are handled over WebSocket connections.
         #[arg(long = "ws")]
         use_websocket: bool,
+        /// The number of notifications to wait for when testing a method that uses subscription.
+        #[arg(long, default_value = "20")]
+        n_notifications: usize,
     },
 }
 
@@ -69,6 +72,7 @@ struct ApiTestFlags {
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
     use_websocket: bool,
+    n_notifications: usize,
 }
 
 impl ApiCommands {
@@ -84,6 +88,7 @@ impl ApiCommands {
                 run_ignored,
                 max_concurrent_requests,
                 use_websocket,
+                n_notifications,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -92,6 +97,7 @@ impl ApiCommands {
                     run_ignored,
                     max_concurrent_requests,
                     use_websocket,
+                    n_notifications,
                 };
 
                 compare_apis(forest, lotus, snapshot_files, config).await?
@@ -218,12 +224,17 @@ impl RpcTest {
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
         use_websocket: bool,
+        n_notifications: usize,
     ) -> (EndpointStatus, EndpointStatus) {
         let (forest_resp, lotus_resp) = if use_websocket {
             if self.pubsub {
                 (
-                    forest_api.ws_subscribe(self.request.clone()).await,
-                    lotus_api.ws_subscribe(self.request.clone()).await,
+                    forest_api
+                        .ws_subscribe(self.request.clone(), n_notifications)
+                        .await,
+                    lotus_api
+                        .ws_subscribe(self.request.clone(), n_notifications)
+                        .await,
                 )
             } else {
                 (
@@ -721,8 +732,11 @@ async fn run_tests(
         // Acquire a permit from the semaphore before spawning a test
         let permit = semaphore.clone().acquire_owned().await?;
         let use_websocket = config.use_websocket;
+        let n_notifications = config.n_notifications;
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
+            let (forest_status, lotus_status) = test
+                .run(&forest, &lotus, use_websocket, n_notifications)
+                .await;
             drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });

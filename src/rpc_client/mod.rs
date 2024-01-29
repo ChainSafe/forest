@@ -173,6 +173,7 @@ impl ApiInfo {
     pub async fn ws_subscribe<T: HasLotusJson>(
         &self,
         req: RpcRequest<T>,
+        n_notifications: usize,
     ) -> Result<T, JsonRpcError> {
         let sub_id: i64 = 23;
 
@@ -225,8 +226,7 @@ impl ApiInfo {
         }?;
         trace!("subscribed to {method_name}: ({channel_id}, {sub_id})",);
 
-        // TODO: add number of notification to ApiTestFlags.
-        let mut nofifications = read.take(20);
+        let mut nofifications = read.take(n_notifications);
         while let Some(message) = nofifications.next().await {
             // TODO: Make sure method in the message is "xrpc.ch.val"
             if let Ok(msg) = message {
