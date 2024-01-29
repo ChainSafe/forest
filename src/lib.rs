@@ -60,7 +60,7 @@ mod shim;
 mod state_manager;
 mod state_migration;
 mod statediff;
-#[cfg(test)]
+#[cfg(any(test, doc))]
 mod test_utils;
 mod tool;
 mod utils;

@@ -4,7 +4,7 @@
 use thiserror::Error;
 
 mod block;
-#[cfg(any(test, doc))]
+#[cfg(test)]
 mod chain4u;
 mod election_proof;
 mod gossip_block;

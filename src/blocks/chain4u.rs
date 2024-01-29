@@ -28,7 +28,7 @@ use std::{
     iter,
 };
 
-/// Declaritive API for creating test tipsets.
+/// Declarative API for creating test tipsets.
 ///
 /// See [module documentation](mod@self) for more.
 macro_rules! chain4u {
