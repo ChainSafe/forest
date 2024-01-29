@@ -53,6 +53,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build the fat image first, for details see <https://github.com/ChainSafe/forest/pull/3912>
       # This step yields the following labels
       # - {date}-{sha}-fat, e.g. 2023-01-19-da4692d-fat,
       # - edge-fat
