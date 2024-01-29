@@ -16,6 +16,7 @@ pub mod wallet_ops;
 use std::borrow::Cow;
 use std::env;
 use std::fmt;
+use std::future::ready;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use std::time::Duration;
