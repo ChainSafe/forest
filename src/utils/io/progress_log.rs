@@ -221,6 +221,7 @@ mod tests {
     fn test_progress_msg_bytes() {
         let mut progress = Progress::new("test");
         let now = progress.start;
+        progress.last_logged -= Duration::from_secs(1);
         progress.item_type = ItemType::Bytes;
         progress.total_items = Some(1024 * 1024 * 1024);
         progress.set(1024 * 1024 * 1024);
@@ -234,14 +235,14 @@ mod tests {
         progress.last_logged_items = 1024 * 1024 * 1024 / 3;
         assert_eq!(
             progress.msg(now + Duration::from_secs(125)),
-            "test 512 MiB / 1 GiB, 50%, 170.7 MiB/s, elapsed time: 2m 5s"
+            "test 512 MiB / 1 GiB, 50%, 1.4 MiB/s, elapsed time: 2m 5s"
         );
 
         progress.set(1024 * 1024 * 1024 / 10);
         progress.last_logged_items = 1024 * 1024 * 1024 / 11;
         assert_eq!(
             progress.msg(now + Duration::from_secs(10)),
-            "test 102.4 MiB / 1 GiB, 9%, 9.3 MiB/s, elapsed time: 10s"
+            "test 102.4 MiB / 1 GiB, 9%, 866.6 KiB/s, elapsed time: 10s"
         );
     }
 
@@ -254,22 +255,22 @@ mod tests {
         progress.set(1024);
         progress.last_logged_items = 1024 / 2;
         assert_eq!(
-            progress.msg(now),
-            "test 1024 / 1024, 100%, 512 items/s, elapsed time: 0s"
+            progress.msg(now + Duration::from_secs(1)),
+            "test 1024 / 1024, 100%, 512 items/s, elapsed time: 1s"
         );
 
         progress.set(1024 / 2);
         progress.last_logged_items = 1024 / 3;
         assert_eq!(
             progress.msg(now + Duration::from_secs(125)),
-            "test 512 / 1024, 50%, 171 items/s, elapsed time: 2m 5s"
+            "test 512 / 1024, 50%, 1 items/s, elapsed time: 2m 5s"
         );
 
         progress.set(1024 / 10);
-        progress.last_logged_items = 1024 / 11;
+        progress.last_logged_items = 0;
         assert_eq!(
             progress.msg(now + Duration::from_secs(10)),
-            "test 102 / 1024, 9%, 9 items/s, elapsed time: 10s"
+            "test 102 / 1024, 9%, 10 items/s, elapsed time: 10s"
         );
     }
 }
