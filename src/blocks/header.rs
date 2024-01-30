@@ -163,6 +163,13 @@ impl RawBlockHeader {
         blk.signature = None;
         fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
     }
+
+    /// If the block timestamp is within the allowable clock drift
+    pub fn is_within_clock_drift(&self) -> bool {
+        self.timestamp
+            <= (chrono::Utc::now().timestamp() as u64)
+                .saturating_add(crate::shim::clock::ALLOWABLE_CLOCK_DRIFT)
+    }
 }
 
 /// A [`RawBlockHeader`] which caches calls to [`RawBlockHeader::cid`] and [`RawBlockHeader::verify_signature_against`]

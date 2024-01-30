@@ -11,7 +11,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
-pub(in crate::rpc) async fn beacon_get_entry<DB: Blockstore>(
+pub async fn beacon_get_entry<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params((first,)): Params<(ChainEpoch,)>,
 ) -> Result<LotusJson<BeaconEntry>, JsonRpcError> {
