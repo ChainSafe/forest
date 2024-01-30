@@ -150,6 +150,7 @@ services:
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - FOREST_WATERMELON_HEIGHT=${WATERMELON_HEIGHT}
     networks:
       - devnet
     ports:
