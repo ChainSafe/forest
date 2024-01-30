@@ -94,7 +94,7 @@ pub async fn import_chain_as_forest_car(
     Ok((forest_car_db_path, ts))
 }
 
-async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
+pub async fn download_to(url: &Url, destination: &Path) -> anyhow::Result<()> {
     snapshot::download_file_with_retry(
         url,
         destination.parent().with_context(|| {
