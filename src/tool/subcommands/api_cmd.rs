@@ -70,6 +70,9 @@ pub enum ApiCommands {
         // Data Directory
         #[arg(long, default_value = "offline-rpc-db")]
         data_dir: PathBuf,
+        // Allow downloading snapshot automatically
+        #[arg(long)]
+        auto_download_snapshot: bool,
     },
     /// Compare
     Compare {
@@ -122,7 +125,11 @@ impl ApiCommands {
                 chain,
                 port,
                 data_dir,
-            } => start_offline_server(snapshot_file, chain, port, data_dir).await?,
+                auto_download_snapshot,
+            } => {
+                start_offline_server(snapshot_file, chain, port, data_dir, auto_download_snapshot)
+                    .await?
+            }
             Self::Compare {
                 forest,
                 lotus,
@@ -783,6 +790,7 @@ async fn start_offline_server(
     chain: NetworkChain,
     rpc_port: u16,
     rpc_data_dir: PathBuf,
+    auto_download_snapshot: bool,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
     let client = Client::default();
@@ -792,13 +800,33 @@ async fn start_offline_server(
     let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
         (File::open(&path).await?, path)
     } else {
-        warn!(
-            "No snapshot provided, downloading latest snapshot for {}",
-            chain
+        let (num_bytes, path) = crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
+            .await
+            .context("couldn't get snapshot size")?;
+        if !auto_download_snapshot {
+            warn!("Automatic snapshot download is disabled.");
+            let message = format!(
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
+            );
+            let have_permission =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(message)
+                    .default(false)
+                    .interact()
+                    .unwrap_or(false);
+            if !have_permission {
+                anyhow::bail!("No snapshot provided, exiting offline RPC setup.");
+            }
+        }
+        info!(
+            "Downloading latest snapshot for {} size {}",
+            chain,
+            indicatif::HumanBytes(num_bytes)
         );
         let snapshot_url =
             crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
-        let downloaded_snapshot_path = std::env::current_dir()?;
+        let downloaded_snapshot_path = std::env::current_dir()?.join(path);
         download_to(&snapshot_url, &downloaded_snapshot_path).await?;
         info!("Snapshot downloaded !!!");
         (
@@ -863,7 +891,7 @@ async fn start_offline_server(
     start_offline_rpc(rpc_state, rpc_port).await?;
 
     // Cleanup offline RPC resources
-    std::fs::remove_dir_all(&snapshot_path)?;
+    std::fs::remove_file(&snapshot_path)?;
     std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
