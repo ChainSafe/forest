@@ -35,6 +35,8 @@
 
 ### Fixed
 
+- [#3857](https://github.com/ChainSafe/forest/pull/3907) Timeout parameter fetch
+  to 30 minutes to avoid it getting stuck on IPFS gateway issues.
 - [#3901](https://github.com/ChainSafe/forest/pull/3901) Fix timeout issue in
   `forest-cli snapshot export`.
 
