@@ -226,63 +226,66 @@ impl RpcTest {
         use_websocket: bool,
         n_notifications: usize,
     ) -> (EndpointStatus, EndpointStatus) {
-        let (forest_resp, lotus_resp) = if use_websocket {
-            if self.pubsub {
-                (
-                    forest_api
-                        .ws_subscribe(self.request.clone(), n_notifications)
-                        .await,
-                    lotus_api
-                        .ws_subscribe(self.request.clone(), n_notifications)
-                        .await,
-                )
-            } else {
+        if self.pubsub {
+            let (forest_resp, lotus_resp) = (
+                forest_api
+                    .ws_subscribe(self.request.clone(), n_notifications)
+                    .await,
+                lotus_api
+                    .ws_subscribe(self.request.clone(), n_notifications)
+                    .await,
+            );
+
+            (EndpointStatus::InvalidJSON, EndpointStatus::InvalidJSON)
+        } else {
+            let (forest_resp, lotus_resp) = if use_websocket {
                 (
                     forest_api.ws_call(self.request.clone()).await,
                     lotus_api.ws_call(self.request.clone()).await,
                 )
-            }
-        } else {
-            (
-                forest_api.call(self.request.clone()).await,
-                lotus_api.call(self.request.clone()).await,
-            )
-        };
+            } else {
+                (
+                    forest_api.call(self.request.clone()).await,
+                    lotus_api.call(self.request.clone()).await,
+                )
+            };
 
-        match (forest_resp, lotus_resp) {
-            (Ok(forest), Ok(lotus))
-                if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
-            {
-                let forest_status = if (self.check_semantics)(forest, lotus) {
-                    EndpointStatus::Valid
-                } else {
-                    EndpointStatus::InvalidResponse
-                };
-                (forest_status, EndpointStatus::Valid)
-            }
-            (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
-                // Both Forest and Lotus have the same error, consider it as valid
-                (EndpointStatus::Valid, EndpointStatus::Valid)
-            }
-            (forest_resp, lotus_resp) => {
-                let forest_status =
-                    forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
-                        if (self.check_syntax)(value) {
-                            EndpointStatus::Valid
-                        } else {
-                            EndpointStatus::InvalidJSON
-                        }
-                    });
-                let lotus_status =
-                    lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
-                        if (self.check_syntax)(value) {
-                            EndpointStatus::Valid
-                        } else {
-                            EndpointStatus::InvalidJSON
-                        }
-                    });
+            match (forest_resp, lotus_resp) {
+                (Ok(forest), Ok(lotus))
+                    if (self.check_syntax)(forest.clone())
+                        && (self.check_syntax)(lotus.clone()) =>
+                {
+                    let forest_status = if (self.check_semantics)(forest, lotus) {
+                        EndpointStatus::Valid
+                    } else {
+                        EndpointStatus::InvalidResponse
+                    };
+                    (forest_status, EndpointStatus::Valid)
+                }
+                (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
+                    // Both Forest and Lotus have the same error, consider it as valid
+                    (EndpointStatus::Valid, EndpointStatus::Valid)
+                }
+                (forest_resp, lotus_resp) => {
+                    let forest_status =
+                        forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                            if (self.check_syntax)(value) {
+                                EndpointStatus::Valid
+                            } else {
+                                EndpointStatus::InvalidJSON
+                            }
+                        });
+                    let lotus_status =
+                        lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                            if (self.check_syntax)(value) {
+                                EndpointStatus::Valid
+                            } else {
+                                EndpointStatus::InvalidJSON
+                            }
+                        });
 
-                (forest_status, lotus_status)
+                    (forest_status, lotus_status)
+                }
             }
         }
     }

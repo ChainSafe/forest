@@ -175,7 +175,7 @@ impl ApiInfo {
         &self,
         req: RpcRequest<T>,
         n_notifications: usize,
-    ) -> Result<T, JsonRpcError> {
+    ) -> Result<Vec<T>, JsonRpcError> {
         let sub_id: i64 = 23;
 
         let method_name = req.method_name;
@@ -227,6 +227,7 @@ impl ApiInfo {
         }?;
         trace!("subscribed to {method_name}: (chann_id: {channel_id}, sub_id: {sub_id})",);
 
+        let mut values = vec![];
         let mut notifications = read
             .by_ref()
             // We don't care of ping messages and the like
@@ -236,14 +237,24 @@ impl ApiInfo {
             })
             .take(n_notifications);
         while let Some(message) = notifications.next().await {
-            // TODO: Make sure method in the message is "xrpc.ch.val"
-            if let Ok(msg) = message {
-                trace!("get notif {}", msg);
-            } else {
-                trace!("error");
-            }
+            trace!("get notif");
 
-            // TODO: Push notification into a vector so we can compare results
+            let data = message?.into_data();
+            let ws_res: WsResponse<T::LotusJson> =
+                serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
+            let v = match ws_res {
+                WsResponse::Result { method, params, .. } => {
+                    // TODO: we should extract result from params instead here
+                    if method == "xrpc.ch.val" {
+                        Ok(params)
+                    } else {
+                        Err(JsonRpcError::INVALID_REQUEST)
+                    }
+                }
+                WsResponse::Error { error, .. } => Err(error),
+            }?;
+
+            values.push(HasLotusJson::from_lotus_json(v));
         }
 
         // Cancel the subscription
@@ -286,7 +297,7 @@ impl ApiInfo {
         trace!("closing subscription");
         write.close().await?;
 
-        Err(JsonRpcError::INVALID_REQUEST)
+        Ok(values)
     }
 }
 
@@ -543,4 +554,19 @@ impl CloseMessage {
             params: vec![channel_id],
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum WsResponse<R> {
+    Result {
+        jsonrpc: V2,
+        method: String,
+        params: R,
+    },
+    Error {
+        jsonrpc: V2,
+        error: JsonRpcError,
+        id: Id,
+    },
 }
