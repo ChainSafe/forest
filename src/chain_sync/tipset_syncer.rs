@@ -8,7 +8,6 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::chain::{persist_objects, ChainStore, Error as ChainStoreError};
@@ -1504,11 +1503,8 @@ fn block_sanity_checks(header: &CachingBlockHeader) -> Result<(), TipsetRangeSyn
 
 /// Check the clock drift.
 fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetRangeSyncerError> {
-    let time_now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Retrieved system time before UNIX epoch")
-        .as_secs();
-    if header.timestamp > time_now + ALLOWABLE_CLOCK_DRIFT {
+    let time_now = chrono::Utc::now().timestamp() as u64;
+    if header.timestamp > time_now.saturating_add(ALLOWABLE_CLOCK_DRIFT) {
         return Err(TipsetRangeSyncerError::TimeTravellingBlock(
             time_now,
             header.timestamp,
