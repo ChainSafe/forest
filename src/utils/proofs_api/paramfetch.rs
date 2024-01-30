@@ -179,7 +179,7 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
     info!("Fetching param file {} from {gw}", path.display());
     let backoff = ExponentialBackoffBuilder::default()
-        // Up to 30 minutes for download the file. This may be harsh,
+        // Up to 30 minutes for downloading the file. This may be drastic,
         // but the gateway proved to be unreliable at times and we
         // don't want to get stuck here. Better to fail fast and retry.
         .with_max_elapsed_time(Some(Duration::from_secs(60 * 30)))
