@@ -66,11 +66,10 @@ pub async fn fetch(
     chain: &NetworkChain,
     vendor: TrustedVendor,
 ) -> anyhow::Result<PathBuf> {
-    let (_len, path) = peek(vendor, chain).await?;
+    let (url, _len, path) = peek(vendor, chain).await?;
     let (date, height, forest_format) = ParsedFilename::parse_str(&path)
         .context("unexpected path format")?
         .date_and_height_and_forest();
-    let url = stable_url(vendor, chain)?;
     let filename = filename(vendor, chain, date, height, forest_format);
 
     download_file_with_retry(&url, directory, &filename).await
@@ -92,9 +91,13 @@ pub async fn download_file_with_retry(
 }
 
 /// Returns
+/// - The final URL after redirection(s)
 /// - The size of the snapshot from this vendor on this chain
 /// - The filename of the snapshot
-pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result<(u64, String)> {
+pub async fn peek(
+    vendor: TrustedVendor,
+    chain: &NetworkChain,
+) -> anyhow::Result<(Url, u64, String)> {
     let stable_url = stable_url(vendor, chain)?;
     // issue an actual GET, so the content length will be of the body
     // (we never actually fetch the body)
@@ -105,11 +108,13 @@ pub async fn peek(vendor: TrustedVendor, chain: &NetworkChain) -> anyhow::Result
         .await?
         .error_for_status()
         .context("server returned an error response")?;
+    let final_url = response.url().clone();
     let cd_path = response
         .headers()
         .get(reqwest::header::CONTENT_DISPOSITION)
         .and_then(parse_content_disposition);
     Ok((
+        final_url,
         response
             .content_length()
             .context("no content-length header")?,
@@ -130,18 +135,32 @@ fn parse_content_disposition(value: &reqwest::header::HeaderValue) -> Option<Str
 /// Download the file at `url` with a private HTTP client, returning the path to the downloaded file
 async fn download_http(url: &Url, directory: &Path, filename: &str) -> anyhow::Result<PathBuf> {
     let dst_path = directory.join(filename);
-
-    event!(target: "forest::snapshot", tracing::Level::INFO, %url, "downloading snapshot");
+    let destination = dst_path.display();
+    event!(target: "forest::snapshot", tracing::Level::INFO, %url, %destination, "downloading snapshot");
     let mut reader = crate::utils::net::reader(url.as_str()).await?;
-
-    let mut dst = tokio::fs::File::create(&dst_path)
+    let tmp_dst_path = {
+        // like `crdownload` for the chrome browser
+        const DOWNLOAD_EXTENSION: &str = "frdownload";
+        let mut path = dst_path.clone();
+        if let Some(ext) = path.extension() {
+            path.set_extension(format!(
+                "{}.{DOWNLOAD_EXTENSION}",
+                ext.to_str().unwrap_or_default()
+            ));
+        } else {
+            path.set_extension(DOWNLOAD_EXTENSION);
+        }
+        path
+    };
+    let mut tempfile = tokio::fs::File::create(&tmp_dst_path)
         .await
         .context("couldn't create destination file")?;
-
-    tokio::io::copy(&mut reader, &mut dst)
+    tokio::io::copy(&mut reader, &mut tempfile)
         .await
-        .map(|_| dst_path)
-        .context("couldn't download file")
+        .context("couldn't download file")?;
+    std::fs::rename(&tmp_dst_path, &dst_path).context("couldn't rename file")?;
+
+    Ok(dst_path)
 }
 
 /// Also defines an `ALL_URLS` constant for test purposes
