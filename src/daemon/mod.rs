@@ -498,8 +498,7 @@ async fn set_snapshot_path_if_needed(
         }
         (true, false, false) => {
             // we need a snapshot, don't have one, and don't have permission to download one, so ask the user
-            let url = crate::cli_shared::snapshot::stable_url(vendor, chain)?;
-            let (num_bytes, _path) = crate::cli_shared::snapshot::peek(vendor, chain)
+            let (url, num_bytes, _path) = crate::cli_shared::snapshot::peek(vendor, chain)
                 .await
                 .context("couldn't get snapshot size")?;
             // dialoguer will double-print long lines, so manually print the first clause ourselves,
