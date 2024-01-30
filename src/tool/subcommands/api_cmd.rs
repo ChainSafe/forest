@@ -19,6 +19,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use serde::de::DeserializeOwned;
+use serde_json::Value;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -199,6 +200,27 @@ impl RpcTest {
         }
     }
 
+    fn validate_subscription<T>(
+        request: RpcRequest<T>,
+        validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
+    ) -> RpcTest
+    where
+        T: HasLotusJson,
+        T::LotusJson: DeserializeOwned,
+    {
+        RpcTest {
+            request: request.lower(),
+            pubsub: true,
+            check_syntax: Arc::new(|value| true),
+            check_semantics: Arc::new(move |forest_json, lotus_json| {
+                // `forest_json` and `lotus_json` expect arrays
+                // To validate we need to iterate over each value and see if there is a match
+                true
+            }),
+            ignore: None,
+        }
+    }
+
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
@@ -236,7 +258,45 @@ impl RpcTest {
                     .await,
             );
 
-            (EndpointStatus::InvalidJSON, EndpointStatus::InvalidJSON)
+            // TODO: try to avoid the code duplication
+            match (forest_resp, lotus_resp) {
+                (Ok(forest), Ok(lotus))
+                    if (self.check_syntax)(Value::Array(forest.clone()))
+                        && (self.check_syntax)(Value::Array(lotus.clone())) =>
+                {
+                    let forest_status =
+                        if (self.check_semantics)(Value::Array(forest), Value::Array(lotus)) {
+                            EndpointStatus::Valid
+                        } else {
+                            EndpointStatus::InvalidResponse
+                        };
+                    (forest_status, EndpointStatus::Valid)
+                }
+                (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
+                    // Both Forest and Lotus have the same error, consider it as valid
+                    (EndpointStatus::Valid, EndpointStatus::Valid)
+                }
+                (forest_resp, lotus_resp) => {
+                    let forest_status =
+                        forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                            if (self.check_syntax)(Value::Array(value)) {
+                                EndpointStatus::Valid
+                            } else {
+                                EndpointStatus::InvalidJSON
+                            }
+                        });
+                    let lotus_status =
+                        lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                            if (self.check_syntax)(Value::Array(value)) {
+                                EndpointStatus::Valid
+                            } else {
+                                EndpointStatus::InvalidJSON
+                            }
+                        });
+
+                    (forest_status, lotus_status)
+                }
+            }
         } else {
             let (forest_resp, lotus_resp) = if use_websocket {
                 (
@@ -653,8 +713,8 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
 }
 
 fn pubsub_tests() -> Vec<RpcTest> {
-    let mut test = RpcTest::identity(ApiInfo::chain_notify_req());
-    test.pubsub = true;
+    let test = RpcTest::validate_subscription(ApiInfo::chain_notify_req(), |forest, lotus| true);
+
     vec![test]
 }
 
