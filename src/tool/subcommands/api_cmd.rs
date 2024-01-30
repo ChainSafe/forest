@@ -800,9 +800,10 @@ async fn start_offline_server(
     let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
         (File::open(&path).await?, path)
     } else {
-        let (num_bytes, path) = crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
-            .await
-            .context("couldn't get snapshot size")?;
+        let (snapshot_url, num_bytes, path) =
+            crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
+                .await
+                .context("couldn't get snapshot size")?;
         if !auto_download_snapshot {
             warn!("Automatic snapshot download is disabled.");
             let message = format!(
@@ -824,8 +825,6 @@ async fn start_offline_server(
             chain,
             indicatif::HumanBytes(num_bytes)
         );
-        let snapshot_url =
-            crate::cli_shared::snapshot::stable_url(TrustedVendor::default(), &chain)?;
         let downloaded_snapshot_path = std::env::current_dir()?.join(path);
         download_to(&snapshot_url, &downloaded_snapshot_path).await?;
         info!("Snapshot downloaded !!!");
