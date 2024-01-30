@@ -600,6 +600,26 @@ where
                     }
                 };
 
+                let header = tipset.blocks().first().header();
+                let now_epoch = chrono::Utc::now()
+                    .timestamp()
+                    .saturating_add(block_delay as i64 - 1)
+                    .saturating_sub(genesis.block_headers().first().timestamp as i64)
+                    / block_delay as i64;
+                if !header.is_within_clock_drift() {
+                    warn!(
+                        "Skipping tipset with invalid block timestamp from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+                        header.epoch, header.timestamp
+                    );
+                    continue;
+                } else if tipset.epoch() > now_epoch {
+                    warn!(
+                            "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+                            header.epoch, header.timestamp
+                        );
+                    continue;
+                }
+
                 // Add to tipset sample
                 tipsets.push(tipset);
                 if tipsets.len() >= tipset_sample_size {

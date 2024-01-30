@@ -173,8 +173,8 @@ smart-default = "0.7.1"
 stacker = "0.1.15"
 static_assertions = "1.1.0"
 statrs = "0.16"
-strum = { version = "0.25", features = ["derive"] }
-strum_macros = "0.25"
+strum = { version = "0.26", features = ["derive"] }
+strum_macros = "0.26"
 tabled = "0.15"
 tap = "1"
 tempfile = "3.4"
@@ -219,7 +219,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.198"
+ra_ap_syntax = "0.0.199"
 regex-automata = "0.4"
 syn = { version = "2.0.48", default-features = false, features = [
   "full",
