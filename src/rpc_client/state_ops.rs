@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use crate::rpc_api::data_types::{MessageFilter, MiningBaseInfo, Transaction};
 use crate::{
@@ -194,7 +195,8 @@ impl ApiInfo {
     }
 
     pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
-        RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence))
+        // This API is meant to be blocking when the message is missing from the blockstore
+        RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence)).with_timeout(Duration::MAX)
     }
 
     pub fn state_search_msg_req(msg_cid: Cid) -> RpcRequest<Option<MessageLookup>> {
