@@ -147,6 +147,7 @@ impl Progress {
         let message = &self.message;
         let elapsed_secs = (now - self.start).as_secs_f64();
         let elapsed_duration = format_duration(Duration::from_secs(elapsed_secs as u64));
+        let seconds_since_last_msg = (now - self.last_logged).as_secs_f64();
 
         let at = match self.item_type {
             ItemType::Bytes => human_bytes(self.completed_items as f64),
@@ -161,17 +162,17 @@ impl Progress {
                     ItemType::Bytes => human_bytes(total as f64),
                     ItemType::Items => total.to_string(),
                 };
-                output += &format!(", {:0}%", self.completed_items * 100 / total);
+                output += &format!(", {}%", self.completed_items * 100 / total);
             }
             output
         } else {
             String::new()
         };
 
-        let diff = self.completed_items - self.last_logged_items;
+        let diff = (self.completed_items - self.last_logged_items) as f64 / seconds_since_last_msg;
         let speed = match self.item_type {
-            ItemType::Bytes => format!("{}/s", human_bytes(diff as f64)),
-            ItemType::Items => format!("{diff} items/s"),
+            ItemType::Bytes => format!("{}/s", human_bytes(diff)),
+            ItemType::Items => format!("{diff:.0} items/s"),
         };
 
         format!("{message} {at}{total}, {speed}, elapsed time: {elapsed_duration}")
