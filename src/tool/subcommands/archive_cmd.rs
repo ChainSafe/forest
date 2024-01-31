@@ -52,6 +52,7 @@ use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
+use nonempty::NonEmpty;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -463,7 +464,8 @@ async fn merge_snapshots(
 
     let store = ManyCar::try_from(snapshot_files)?;
     let heaviest_tipset = store.heaviest_tipset()?;
-    let roots = heaviest_tipset.key().cids.clone().into_iter().collect();
+    let roots = NonEmpty::from_vec(heaviest_tipset.key().cids.clone().into_iter().collect())
+        .context("tipset key cannot be empty")?;
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())

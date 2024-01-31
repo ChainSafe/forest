@@ -71,6 +71,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use integer_encoding::VarIntReader;
 
+use nonempty::NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
 use std::ops::DerefMut;
@@ -112,7 +113,7 @@ pub struct PlainCar<ReaderT> {
     reader: ReaderT,
     write_cache: RwLock<CidHashMap<Vec<u8>>>,
     index: RwLock<CidHashMap<UncompressedBlockDataLocation>>,
-    roots: Vec<Cid>,
+    roots: NonEmpty<Cid>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
@@ -151,12 +152,12 @@ impl<ReaderT: super::RandomAccessFileReader> PlainCar<ReaderT> {
         }
     }
 
-    pub fn roots(&self) -> Vec<Cid> {
-        self.roots.clone()
+    pub fn roots(&self) -> &NonEmpty<Cid> {
+        &self.roots
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKey::from_iter(self.roots()))
+        Tipset::load_required(self, &TipsetKey::from_iter(self.roots().clone()))
     }
 
     /// In an arbitrary order
@@ -281,12 +282,12 @@ fn handle_write_cache(
     }
 }
 
-fn get_roots_from_v1_header(reader: impl Read) -> io::Result<Vec<Cid>> {
+fn get_roots_from_v1_header(reader: impl Read) -> io::Result<NonEmpty<Cid>> {
     match read_header(reader)? {
-        CarHeader { roots, version: 1 } if !roots.is_empty() => Ok(roots),
-        _other_version => Err(io::Error::new(
+        CarHeader { roots, version: 1 } => Ok(roots),
+        other_version => Err(io::Error::new(
             Unsupported,
-            "header must be CARv1 with non-empty roots",
+            format!("unsupported CARv1 version {}", other_version.version),
         )),
     }
 }

@@ -7,6 +7,7 @@ use crate::blocks::{Block, CachingBlockHeader, FullTipset, Tipset, BLOCK_MESSAGE
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
+use nonempty::NonEmpty;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
@@ -20,7 +21,7 @@ pub const MESSAGES: u64 = 0b10;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize_tuple, Deserialize_tuple)]
 pub struct ChainExchangeRequest {
     /// The tipset [Cid] to start the request from.
-    pub start: Vec<Cid>,
+    pub start: NonEmpty<Cid>,
     /// The amount of tipsets to request.
     pub request_len: u64,
     /// 1 for Block only, 2 for Messages only, 3 for Blocks and Messages.
