@@ -388,7 +388,10 @@ pub mod structured {
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
                     ExecutionEvent::Log(_ignored) => None,
                     ExecutionEvent::InvokeActor(cid) => {
-                        code_cid = cid;
+                        code_cid = match cid {
+                            Either::Left(cid) => cid,
+                            Either::Right(actor) => actor.state.code,
+                        };
                         None
                     }
                     // RUST: This should be caught at compile time with #[deny(non_exhaustive_omitted_patterns)]
