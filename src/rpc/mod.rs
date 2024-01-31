@@ -11,9 +11,12 @@ mod mpool_api;
 mod net_api;
 mod node_api;
 mod rpc_http_handler;
+mod rpc_module;
 mod rpc_util;
 mod rpc_ws_handler;
 mod state_api;
+mod subscription;
+mod subscription_helpers;
 mod sync_api;
 mod wallet_api;
 
@@ -32,7 +35,6 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
 use jsonrpsee::server::{
     RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle, SubscriptionMessage,
-    SubscriptionSink,
 };
 use jsonrpsee::types::error::{ErrorObjectOwned, PARSE_ERROR_CODE};
 // use tokio::net::TcpListener;
@@ -46,6 +48,7 @@ use crate::rpc::{
     rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
     state_api::*,
 };
+use crate::rpc::{rpc_module::ForestRpcModule, subscription::SubscriptionSink};
 
 const WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
 
@@ -251,14 +254,23 @@ where
         .build(rpc_endpoint)
         .await?;
 
-    let mut module = RpcModule::new(state);
+    let state = Arc::new(state);
+    let mut module = RpcModule::new(state.clone());
     // Common API
     module.register_method(VERSION, move |_, _| version(block_delay, forest_version))?;
     module.register_method(SESSION, |_, _| session())?;
     module.register_async_method(SHUTDOWN, move |_, _| shutdown(shutdown_send.clone()))?;
     module.register_method(START_TIME, move |_, state| start_time::<DB>(state))?;
+    // Eth API
+    module.register_async_method(ETH_GAS_PRICE, move |_, state| {
+        let state = state.as_ref();
+        eth_api::eth_gas_price::<DB>(state.clone())
+    })?;
+
+    // Create a new module for supporting Filecoin `pubsub` specification
+    let mut fil_module = ForestRpcModule::new(state.clone());
     // Chain API
-    module.register_subscription_raw(
+    fil_module.register_subscription_raw(
         CHAIN_NOTIFY,
         WS_NOTIF_METHOD_NAME,
         WS_CANCEL_METHOD_NAME,
@@ -292,7 +304,8 @@ where
                     sink.connection_id()
                 );
 
-                let mut head_change = chain_api::chain_notify(state).await.unwrap();
+                let state = state.as_ref();
+                let mut head_change = chain_api::chain_notify(state.clone()).await.unwrap();
 
                 loop {
                     select! {
@@ -332,10 +345,9 @@ where
             });
         },
     )?;
-    // Eth API
-    module.register_async_method(ETH_GAS_PRICE, move |_, state| {
-        eth_api::eth_gas_price::<DB>(state)
-    })?;
+
+    // This will merge Filecoin specific callbacks in the module
+    module.merge(fil_module)?;
 
     let handle = server.start(module);
     info!("Ready for RPC connections");

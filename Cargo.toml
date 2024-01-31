@@ -90,9 +90,10 @@ integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.0"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
-jsonrpsee = { git = "https://github.com/elmattic/jsonrpsee.git", branch = "ctor-visibility-change", features = [
+jsonrpsee = { git = "https://github.com/elmattic/jsonrpsee.git", rev = "66690d9", features = [
   "full",
 ] }
+rustc-hash = "1.1.0"
 jsonwebtoken = "9"
 kanal = "0.1.0-pre8"
 libc = "0.2"
