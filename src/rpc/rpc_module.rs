@@ -102,11 +102,7 @@ impl<Context> RpcModule<Context> {
                         id: id.clone().into_owned(),
                         subscribe: tx,
                         permit: conn.subscription_permit,
-                        channel_id: if fil_pubsub {
-                            Some(conn.id_provider.next_id())
-                        } else {
-                            None
-                        },
+                        channel_id: conn.id_provider.next_id(),
                     };
 
                     callback(params, sink, ctx.clone());
@@ -188,12 +184,7 @@ impl<Context> RpcModule<Context> {
                         }
 
                         if fil_pubsub {
-                            let channel_id_opt = if let Some((_, _, id)) = option {
-                                id
-                            } else {
-                                None
-                            };
-                            if let Some(channel_id) = channel_id_opt {
+                            if let Some((_, _, channel_id)) = option {
                                 close_channel_response(channel_id)
                             } else {
                                 MethodResponse::error(id, ErrorCode::InternalError)

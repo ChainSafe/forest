@@ -27,16 +27,7 @@ pub type ConnectionId = usize;
 
 /// Type-alias for subscribers.
 pub type Subscribers = Arc<
-    Mutex<
-        FxHashMap<
-            SubscriptionKey,
-            (
-                MethodSink,
-                mpsc::Receiver<()>,
-                Option<SubscriptionId<'static>>,
-            ),
-        >,
-    >,
+    Mutex<FxHashMap<SubscriptionKey, (MethodSink, mpsc::Receiver<()>, SubscriptionId<'static>)>>,
 >;
 /// Subscription permit.
 pub type SubscriptionPermit = OwnedSemaphorePermit;
@@ -154,8 +145,8 @@ pub struct ForestPendingSubscriptionSink {
     /// Subscription permit.
     pub permit: OwnedSemaphorePermit,
 
-    /// For Filecoin `pubsub`
-    pub channel_id: Option<SubscriptionId<'static>>,
+    /// Needed by Filecoin `pubsub` specification.
+    pub channel_id: SubscriptionId<'static>,
 }
 
 impl ForestPendingSubscriptionSink {
@@ -179,10 +170,10 @@ impl ForestPendingSubscriptionSink {
     ///
     /// Panics if the subscription response exceeded the `max_response_size`.
     pub async fn accept(self) -> Result<SubscriptionSink, PendingSubscriptionAcceptError> {
-        let sub_id = self.subscription_id();
+        let channel_id = self.channel_id();
         let response = MethodResponse::subscription_response(
             self.id,
-            ResponsePayload::result_borrowed(&sub_id),
+            ResponsePayload::result_borrowed(&channel_id),
             self.inner.max_response_size() as usize,
         );
         let success = response.is_success();
@@ -226,14 +217,9 @@ impl ForestPendingSubscriptionSink {
         self.uniq_sub.conn_id
     }
 
-    /// Returns the subscription identifier
-    pub fn subscription_id<'a>(&self) -> SubscriptionId<'a> {
-        // TODO: document
-        if let Some(sub_id) = self.channel_id.clone() {
-            sub_id
-        } else {
-            self.uniq_sub.sub_id.clone()
-        }
+    /// Returns the channel identifier
+    pub fn channel_id<'a>(&self) -> SubscriptionId<'a> {
+        self.channel_id.clone()
     }
 }
 
@@ -250,11 +236,11 @@ pub struct SubscriptionSink {
     uniq_sub: SubscriptionKey,
     /// A future to that fires once the unsubscribe method has been called.
     unsubscribe: IsUnsubscribed,
-    /// Subscription permit
+    /// Subscription permit.
     _permit: Arc<SubscriptionPermit>,
 
-    /// Optional channel ID for Filecoin `pubsub`.
-    channel_id: Option<SubscriptionId<'static>>,
+    /// Channel ID.
+    channel_id: SubscriptionId<'static>,
 }
 
 impl SubscriptionSink {
@@ -273,8 +259,8 @@ impl SubscriptionSink {
         self.uniq_sub.conn_id
     }
 
-    /// Get the channel ID if some.
-    pub fn channel_id(&self) -> Option<SubscriptionId<'static>> {
+    /// Get the channel ID.
+    pub fn channel_id(&self) -> SubscriptionId<'static> {
         self.channel_id.clone()
     }
 
