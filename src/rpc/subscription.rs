@@ -32,45 +32,6 @@ pub type Subscribers = Arc<
 /// Subscription permit.
 pub type SubscriptionPermit = OwnedSemaphorePermit;
 
-/// Represents what action that will sent when a subscription callback returns.
-#[derive(Debug)]
-pub enum SubscriptionCloseResponse {
-    /// No further message will be sent.
-    None,
-    /// Send a subscription notification.
-    ///
-    /// The subscription notification has the following format:
-    ///
-    /// ```json
-    /// {
-    ///  "jsonrpc": "2.0",
-    ///  "method": "<method>",
-    ///  "params": {
-    ///    "subscription": "<subscriptionID>",
-    ///    "result": <your msg>
-    ///    }
-    ///  }
-    /// }
-    /// ```
-    Notif(SubscriptionMessage),
-    /// Send a subscription error notification
-    ///
-    /// The error notification has the following format:
-    ///
-    /// ```json
-    /// {
-    ///  "jsonrpc": "2.0",
-    ///  "method": "<method>",
-    ///  "params": {
-    ///    "subscription": "<subscriptionID>",
-    ///    "error": <your msg>
-    ///    }
-    ///  }
-    /// }
-    /// ```
-    NotifErr(SubscriptionMessage),
-}
-
 /// Represent a unique subscription entry based on [`SubscriptionId`] and [`ConnectionId`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SubscriptionKey {
