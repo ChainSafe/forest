@@ -198,7 +198,6 @@ pub struct SubscriptionSink {
     unsubscribe: IsUnsubscribed,
     /// Subscription permit.
     _permit: Arc<SubscriptionPermit>,
-
     /// Channel ID.
     channel_id: SubscriptionId<'static>,
 }
@@ -340,24 +339,27 @@ pub(crate) fn sub_message_to_json(
     }
 }
 
+/// Create a notification message.
 pub fn create_notif_message(
     sink: &SubscriptionSink,
     result: &impl serde::Serialize,
 ) -> anyhow::Result<SubscriptionMessage> {
     let method = sink.method_name();
-    let sub_id = serde_json::to_string(&sink.channel_id()).expect("valid JSON; qed");
+    let channel_id =
+        serde_json::to_string(&sink.channel_id()).expect("JSON serialization infallible; qed");
     let result = serde_json::to_string(result)?;
-    let msg = format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{sub_id},{result}]}}"#,);
+    let msg =
+        format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{channel_id},{result}]}}"#,);
 
     Ok(SubscriptionMessage::from_complete_message(msg))
 }
 
 /// Create a close channel method response.
 pub fn close_channel_response(channel_id: SubscriptionId) -> MethodResponse {
-    let channel_str =
+    let channel_id =
         serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
     let msg = format!(
-        r#"{{"jsonrpc":"2.0","method":"{WS_CLOSE_METHOD_NAME}","params":[{channel_str}]}}"#,
+        r#"{{"jsonrpc":"2.0","method":"{WS_CLOSE_METHOD_NAME}","params":[{channel_id}]}}"#,
     );
     MethodResponse {
         result: msg,
