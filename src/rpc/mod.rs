@@ -257,7 +257,6 @@ where
         CHAIN_NOTIFY,
         WS_NOTIF_METHOD_NAME,
         WS_CANCEL_METHOD_NAME,
-        true, // to use Filecoin pubsub
         |params, pending, state| {
             // Handle parsing of the method params.
             // dbg!(&params);

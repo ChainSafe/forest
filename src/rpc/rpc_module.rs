@@ -41,7 +41,6 @@ impl<Context> RpcModule<Context> {
         subscribe_method_name: &'static str,
         notif_method_name: &'static str,
         unsubscribe_method_name: &'static str,
-        fil_pubsub: bool,
         callback: F,
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
@@ -53,11 +52,8 @@ impl<Context> RpcModule<Context> {
             + 'static,
         R: IntoSubscriptionCloseResponse,
     {
-        let subscribers = self.verify_and_register_unsubscribe(
-            subscribe_method_name,
-            unsubscribe_method_name,
-            fil_pubsub,
-        )?;
+        let subscribers =
+            self.verify_and_register_unsubscribe(subscribe_method_name, unsubscribe_method_name)?;
         let ctx = self.ctx.clone();
 
         // Subscribe
@@ -69,27 +65,18 @@ impl<Context> RpcModule<Context> {
 
                     //tracing::trace!(target: LOG_TARGET, "id: {:?}", &id);
 
-                    let uniq_sub = if fil_pubsub {
-                        let sub_id: SubscriptionId<'_> = match id {
-                            Id::Null => unreachable!(), // TODO: properly raise an error!
-                            Id::Str(ref s) => s.to_string().into(),
-                            Id::Number(n) => n.into(),
-                        };
-
-                        let uniq_sub = SubscriptionKey {
-                            conn_id: conn.conn_id,
-                            sub_id: sub_id.clone(),
-                        };
-
-                        //tracing::trace!(target: LOG_TARGET, "key: {:?}", &uniq_sub);
-
-                        uniq_sub
-                    } else {
-                        SubscriptionKey {
-                            conn_id: conn.conn_id,
-                            sub_id: conn.id_provider.next_id(),
-                        }
+                    let sub_id: SubscriptionId<'_> = match id {
+                        Id::Null => unreachable!(), // TODO: properly raise an error!
+                        Id::Str(ref s) => s.to_string().into(),
+                        Id::Number(n) => n.into(),
                     };
+
+                    let uniq_sub = SubscriptionKey {
+                        conn_id: conn.conn_id,
+                        sub_id: sub_id.clone(),
+                    };
+
+                    //tracing::trace!(target: LOG_TARGET, "key: {:?}", &uniq_sub);
 
                     // response to the subscription call.
                     let (tx, rx) = oneshot::channel();
@@ -126,7 +113,6 @@ impl<Context> RpcModule<Context> {
         &mut self,
         subscribe_method_name: &'static str,
         unsubscribe_method_name: &'static str,
-        fil_pubsub: bool,
     ) -> Result<Subscribers, RegisterMethodError> {
         if subscribe_method_name == unsubscribe_method_name {
             return Err(RegisterMethodError::SubscriptionNameConflict(
@@ -172,29 +158,17 @@ impl<Context> RpcModule<Context> {
                             sub_id: sub_id.into_owned(),
                         };
                         let option = subscribers.lock().remove(&key);
-                        let result = option.is_some();
 
-                        if !result {
+                        if let Some((_, _, channel_id)) = option {
+                            close_channel_response(channel_id)
+                        } else {
                             // tracing::debug!(
                             // 	target: LOG_TARGET,
                             // 	"Unsubscribe call `{}` subscription key={:?} not an active subscription",
                             // 	unsubscribe_method_name,
                             // 	key,
                             // );
-                        }
-
-                        if fil_pubsub {
-                            if let Some((_, _, channel_id)) = option {
-                                close_channel_response(channel_id)
-                            } else {
-                                MethodResponse::error(id, ErrorCode::InternalError)
-                            }
-                        } else {
-                            MethodResponse::response(
-                                id,
-                                ResponsePayload::result(result),
-                                max_response_size,
-                            )
+                            MethodResponse::error(id, ErrorCode::InternalError)
                         }
                     },
                 )),
