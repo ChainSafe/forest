@@ -269,7 +269,6 @@ impl SubscriptionSink {
             .send_timeout(json, timeout)
             .await
             .map_err(Into::into)
-        //todo!()
     }
 
     /// Attempts to immediately send out the message as JSON string to the subscribers but fails if the
