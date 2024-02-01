@@ -10,23 +10,24 @@ use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
 };
 use jsonrpsee::types::error::ErrorCode;
-use jsonrpsee::types::{Id, Params, ResponsePayload, SubscriptionId as RpcSubscriptionId};
+use jsonrpsee::types::{Id, Params, ResponsePayload, SubscriptionId};
+
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
 #[derive(Debug, Clone)]
-pub struct ForestRpcModule<Context> {
+pub struct RpcModule<Context> {
     ctx: Arc<Context>,
     methods: Methods,
 }
 
-impl<Context> From<ForestRpcModule<Context>> for Methods {
-    fn from(module: ForestRpcModule<Context>) -> Methods {
+impl<Context> From<RpcModule<Context>> for Methods {
+    fn from(module: RpcModule<Context>) -> Methods {
         module.methods
     }
 }
 
-impl<Context> ForestRpcModule<Context> {
+impl<Context> RpcModule<Context> {
     /// Create a new module with a given shared `Context`.
     pub fn new(ctx: Context) -> Self {
         Self {
@@ -69,7 +70,7 @@ impl<Context> ForestRpcModule<Context> {
                     //tracing::trace!(target: LOG_TARGET, "id: {:?}", &id);
 
                     let uniq_sub = if fil_pubsub {
-                        let sub_id: RpcSubscriptionId<'_> = match id {
+                        let sub_id: SubscriptionId<'_> = match id {
                             Id::Null => unreachable!(), // TODO: properly raise an error!
                             Id::Str(ref s) => s.to_string().into(),
                             Id::Number(n) => n.into(),
@@ -151,7 +152,7 @@ impl<Context> ForestRpcModule<Context> {
                     move |id, params, conn_id, max_response_size| {
                         //tracing::trace!(target: LOG_TARGET, "Unsubscribing to {subscribe_method_name}");
 
-                        let sub_id = match params.one::<RpcSubscriptionId>() {
+                        let sub_id = match params.one::<SubscriptionId>() {
                             Ok(sub_id) => sub_id,
                             Err(_) => {
                                 // tracing::warn!(

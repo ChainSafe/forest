@@ -40,7 +40,7 @@ use jsonrpsee::types::error::{ErrorObjectOwned, PARSE_ERROR_CODE};
 use tokio::{select, sync::mpsc::Sender};
 use tracing::{info, trace};
 
-use crate::rpc::rpc_module::ForestRpcModule;
+use crate::rpc::rpc_module::RpcModule as FilRpcModule;
 use crate::rpc::subscription::{create_notif_message, WS_CANCEL_METHOD_NAME, WS_NOTIF_METHOD_NAME};
 use crate::rpc::{
     beacon_api::beacon_get_entry,
@@ -250,8 +250,8 @@ where
         eth_api::eth_gas_price::<DB>(state.clone())
     })?;
 
-    // Create a new module for supporting Filecoin `pubsub` specification
-    let mut fil_module = ForestRpcModule::new(state.clone());
+    // Create a new RPC module that supports Filecoin `pubsub` specification
+    let mut fil_module = FilRpcModule::new(state.clone());
     // Chain API
     fil_module.register_subscription_raw(
         CHAIN_NOTIFY,
@@ -329,7 +329,7 @@ where
         },
     )?;
 
-    // This will merge Filecoin specific callbacks in the module
+    // This will merge all method callbacks together
     module.merge(fil_module)?;
 
     let handle = server.start(module);
