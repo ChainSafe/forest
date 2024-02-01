@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::subscription::{
-    close_channel_response, ForestPendingSubscriptionSink, Subscribers, SubscriptionKey,
+    close_channel_response, PendingSubscriptionSink, Subscribers, SubscriptionKey,
 };
 
 use jsonrpsee::core::server::MethodResponse;
@@ -45,11 +45,7 @@ impl<Context> RpcModule<Context> {
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
         Context: Send + Sync + 'static,
-        F: (Fn(Params, ForestPendingSubscriptionSink, Arc<Context>) -> R)
-            + Send
-            + Sync
-            + Clone
-            + 'static,
+        F: (Fn(Params, PendingSubscriptionSink, Arc<Context>) -> R) + Send + Sync + Clone + 'static,
         R: IntoSubscriptionCloseResponse,
     {
         let subscribers =
@@ -81,7 +77,7 @@ impl<Context> RpcModule<Context> {
                     // response to the subscription call.
                     let (tx, rx) = oneshot::channel();
 
-                    let sink = ForestPendingSubscriptionSink {
+                    let sink = PendingSubscriptionSink {
                         inner: method_sink.clone(),
                         method: notif_method_name,
                         subscribers: subscribers.clone(),

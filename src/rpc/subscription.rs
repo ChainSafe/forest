@@ -128,7 +128,7 @@ impl IsUnsubscribed {
 /// Thus, if you want a customized error message then `PendingSubscription::reject` must be called.
 #[derive(Debug)]
 #[must_use = "PendingSubscriptionSink does nothing unless `accept` or `reject` is called"]
-pub struct ForestPendingSubscriptionSink {
+pub struct PendingSubscriptionSink {
     /// Sink.
     pub inner: MethodSink,
     /// MethodCallback.
@@ -144,12 +144,11 @@ pub struct ForestPendingSubscriptionSink {
     pub subscribe: oneshot::Sender<MethodResponse>,
     /// Subscription permit.
     pub permit: OwnedSemaphorePermit,
-
     /// Needed by Filecoin `pubsub` specification.
     pub channel_id: SubscriptionId<'static>,
 }
 
-impl ForestPendingSubscriptionSink {
+impl PendingSubscriptionSink {
     /// Reject the subscription by responding to the subscription method call with
     /// the error message from [`jsonrpsee_types::error::ErrorObject`].
     ///
