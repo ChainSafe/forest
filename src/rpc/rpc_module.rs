@@ -5,7 +5,8 @@ use crate::rpc::subscription::{ForestPendingSubscriptionSink, Subscribers, Subsc
 
 use jsonrpsee::core::server::MethodResponse;
 use jsonrpsee::server::{
-    IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
+    helpers::MethodResponseResult, IntoSubscriptionCloseResponse, MethodCallback, Methods,
+    RegisterMethodError,
 };
 use jsonrpsee::types::error::ErrorCode;
 use jsonrpsee::types::{Id, Params, ResponsePayload, SubscriptionId as RpcSubscriptionId};
@@ -191,7 +192,7 @@ impl<Context> ForestRpcModule<Context> {
                                 None
                             };
                             if let Some(channel_id) = channel_id_opt {
-                                MethodResponse::close_channel_response(channel_id)
+                                close_channel_response(channel_id)
                             } else {
                                 MethodResponse::error(id, ErrorCode::InternalError)
                             }
@@ -208,5 +209,17 @@ impl<Context> ForestRpcModule<Context> {
         }
 
         Ok(subscribers)
+    }
+}
+
+/// Create a close channel method response. This is specific to Filecoin `pubsub`.
+fn close_channel_response(channel_id: RpcSubscriptionId) -> MethodResponse {
+    let channel_str =
+        serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
+    let msg = format!(r#"{{"jsonrpc":"2.0","method":"xrpc.ch.close","params":[{channel_str}]}}"#,);
+    MethodResponse {
+        result: msg,
+        success_or_error: MethodResponseResult::Success,
+        is_subscription: false,
     }
 }
