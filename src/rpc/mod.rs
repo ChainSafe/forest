@@ -16,7 +16,6 @@ mod rpc_util;
 mod rpc_ws_handler;
 mod state_api;
 mod subscription;
-mod subscription_helpers;
 mod sync_api;
 mod wallet_api;
 
@@ -41,6 +40,8 @@ use jsonrpsee::types::error::{ErrorObjectOwned, PARSE_ERROR_CODE};
 use tokio::{select, sync::mpsc::Sender};
 use tracing::{info, trace};
 
+use crate::rpc::rpc_module::ForestRpcModule;
+use crate::rpc::subscription::{create_notif_message, WS_CANCEL_METHOD_NAME, WS_NOTIF_METHOD_NAME};
 use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
@@ -48,12 +49,6 @@ use crate::rpc::{
     rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
     state_api::*,
 };
-use crate::rpc::{rpc_module::ForestRpcModule, subscription::create_notif_message};
-
-const WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
-
-/// In Filecoin parlance, cancel and unsubscribe are similar notions.
-const WS_CANCEL_METHOD_NAME: &'static str = "xrpc.cancel";
 
 /*pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,

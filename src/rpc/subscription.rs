@@ -6,6 +6,7 @@ use jsonrpsee::core::server::error::{
 };
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
 use jsonrpsee::core::server::SubscriptionMessage;
+use jsonrpsee::helpers::MethodResponseResult;
 use jsonrpsee::server::SubscriptionMessageInner;
 use jsonrpsee::types::{ErrorObjectOwned, Id, ResponsePayload, SubscriptionId};
 
@@ -13,6 +14,12 @@ use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit};
+
+pub const WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
+
+pub const WS_CANCEL_METHOD_NAME: &'static str = "xrpc.cancel";
+
+pub const WS_CLOSE_METHOD_NAME: &'static str = "xrpc.ch.close";
 
 /// Connection ID, used for stateful protocol such as WebSockets.
 /// For stateless protocols such as http it's unused, so feel free to set it some hardcoded value.
@@ -397,4 +404,18 @@ pub fn create_notif_message(
     let msg = format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{sub_id},{result}]}}"#,);
 
     Ok(SubscriptionMessage::from_complete_message(msg))
+}
+
+/// Create a close channel method response.
+pub fn close_channel_response(channel_id: SubscriptionId) -> MethodResponse {
+    let channel_str =
+        serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
+    let msg = format!(
+        r#"{{"jsonrpc":"2.0","method":"{WS_CLOSE_METHOD_NAME}","params":[{channel_str}]}}"#,
+    );
+    MethodResponse {
+        result: msg,
+        success_or_error: MethodResponseResult::Success,
+        is_subscription: false,
+    }
 }
