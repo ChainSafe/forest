@@ -603,7 +603,9 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                             return Poll::Ready(None);
                             // This should never happen.
                         } else if err == TryRecvError::Disconnected {
-                            panic!("block_receiver can only be closed after extract_sender")
+                            panic!(
+                                "block_receiver can only be closed after extract_sender is empty"
+                            )
                         }
                     }
                 }
