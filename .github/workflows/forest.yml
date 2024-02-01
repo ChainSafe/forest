@@ -373,26 +373,30 @@ jobs:
           /cache"
 
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  # offline-rpc-check:
-  #   needs:
-  #     - build-ubuntu
-  #   name: Offline RPC check
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - run: lscpu
-  #     - name: Checkout Sources
-  #       uses: actions/checkout@v4
-  #     - uses: actions/download-artifact@v4
-  #       with:
-  #         name: 'forest-${{ runner.os }}'
-  #         path: ~/.cargo/bin
-  #     - uses: actions/download-artifact@v4
-  #       with:
-  #         name: 'forest-${{ runner.os }}'
-  #         path: ~/.cargo/bin
-  #     - name: Set permissions
-  #       run: |
-  #         chmod +x ~/.cargo/bin/forest*
-  #     - name: RPC check
-  #       run: ./scripts/tests/calibnet_offline_rpc_check.sh
-  #       timeout-minutes: 20
+  # Temporarily disabling the job as it's flaky
+  # Tracking issue: https://github.com/ChainSafe/forest/issues/3926
+  offline-rpc-check:
+  needs:
+    - build-ubuntu
+  name: Offline RPC check
+  runs-on: ubuntu-latest
+  if: false
+  steps:
+    - run: lscpu
+    - name: Checkout Sources
+      uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
+      with:
+        name: 'forest-${{ runner.os }}'
+        path: ~/.cargo/bin
+    - uses: actions/download-artifact@v4
+      with:
+        name: 'forest-${{ runner.os }}'
+        path: ~/.cargo/bin
+    - name: Set permissions
+      run: |
+        chmod +x ~/.cargo/bin/forest*
+    - name: RPC check
+      run: ./scripts/tests/calibnet_offline_rpc_check.sh
+      timeout-minutes: 20
+
