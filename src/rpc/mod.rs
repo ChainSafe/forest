@@ -48,7 +48,7 @@ use crate::rpc::{
     rpc_ws_handler::{rpc_v0_ws_handler, rpc_ws_handler},
     state_api::*,
 };
-use crate::rpc::{rpc_module::ForestRpcModule, subscription::SubscriptionSink};
+use crate::rpc::{rpc_module::ForestRpcModule, subscription::create_notif_message};
 
 const WS_NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
 
@@ -214,18 +214,6 @@ where
     Ok(())
 }*/
 
-fn create_ws_notif_message(
-    sink: &SubscriptionSink,
-    result: &impl serde::Serialize,
-) -> anyhow::Result<SubscriptionMessage> {
-    let method = sink.method_name();
-    let sub_id = serde_json::to_string(&sink.channel_id()).expect("valid JSON; qed");
-    let result = serde_json::to_string(result)?;
-    let msg = format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{sub_id},{result}]}}"#,);
-
-    Ok(SubscriptionMessage::from_complete_message(msg))
-}
-
 pub async fn start_rpsee<DB>(
     state: RPCState<DB>,
     rpc_endpoint: SocketAddr,
@@ -317,7 +305,7 @@ where
                             };
 
                             let data = ApiHeadChange { change, headers };
-                            if let Ok(msg) = create_ws_notif_message(&sink, &data) {
+                            if let Ok(msg) = create_notif_message(&sink, &data) {
                                 // This fails only if the connection is closed
                                 if let Ok(()) = sink.send(msg).await {
                                     trace!("send succeeded");
