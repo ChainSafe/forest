@@ -50,33 +50,27 @@ use crate::libp2p::{
 
 pub(in crate::libp2p) mod metrics {
     use once_cell::sync::Lazy;
-    use prometheus::core::{AtomicU64, GenericGaugeVec, Opts};
-    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Box<GenericGaugeVec<AtomicU64>>> = {
+    use prometheus_client::metrics::{family::Family, gauge::Gauge};
+
+    use crate::metrics::KindLabel;
+
+    pub static NETWORK_CONTAINER_CAPACITIES: Lazy<Family<KindLabel, Gauge>> = {
         Lazy::new(|| {
-            let network_container_capacities = Box::new(
-                GenericGaugeVec::<AtomicU64>::new(
-                    Opts::new(
-                        "network_container_capacities",
-                        "Capacity for each container",
-                    ),
-                    &[labels::KIND],
-                )
-                .expect("Defining the network_container_capacities metric must succeed"),
+            let metric = Family::default();
+            crate::metrics::default_registry().register(
+                "network_container_capacities",
+                "Capacity for each container",
+                metric.clone(),
             );
-            prometheus::default_registry().register(network_container_capacities.clone()).expect(
-            "Registering the network_container_capacities metric with the metrics registry must succeed"
-        );
-            network_container_capacities
+            metric
         })
     };
 
     pub mod values {
-        pub const HELLO_REQUEST_TABLE: &str = "hello_request_table";
-        pub const CHAIN_EXCHANGE_REQUEST_TABLE: &str = "cx_request_table";
-    }
+        use crate::metrics::KindLabel;
 
-    pub mod labels {
-        pub const KIND: &str = "kind";
+        pub const HELLO_REQUEST_TABLE: KindLabel = KindLabel::new("hello_request_table");
+        pub const CHAIN_EXCHANGE_REQUEST_TABLE: KindLabel = KindLabel::new("cx_request_table");
     }
 }
 
@@ -290,7 +284,7 @@ where
         let mut bitswap_outbound_request_stream =
             bitswap_request_manager.outbound_request_stream().fuse();
         let mut peer_ops_rx_stream = self.peer_manager.peer_ops_rx().stream().fuse();
-        let metrics = Metrics::new(&mut crate::metrics::DEFAULT_REGISTRY.write());
+        let metrics = Metrics::new(&mut crate::metrics::default_registry());
         loop {
             select! {
                 swarm_event = swarm_stream.next() => match swarm_event {

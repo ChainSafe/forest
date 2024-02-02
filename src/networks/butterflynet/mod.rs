@@ -182,10 +182,12 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
     ]
 });
 
-pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 1] = [DrandPoint {
-    height: 0,
-    config: &DRAND_MAINNET,
-}];
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
+    [DrandPoint {
+        height: 0,
+        config: &DRAND_MAINNET,
+    }]
+});
 
 /// Creates a new butterfly policy with the given version.
 /// Works for `v10` onward.

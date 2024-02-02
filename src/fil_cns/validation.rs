@@ -7,6 +7,7 @@ use crate::beacon::{BeaconEntry, BeaconSchedule, IGNORE_DRAND_VAR};
 use crate::blocks::{Block, CachingBlockHeader, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::collect_errs;
+use crate::metrics::HistogramTimerExt;
 use crate::networks::{ChainConfig, Height};
 use crate::shim::crypto::{
     cid_to_replica_commitment_v1, verify_bls_sig, TICKET_RANDOMNESS_LOOKBACK,
@@ -215,9 +216,9 @@ fn validate_miner<DB: Blockstore>(
     miner_addr: &Address,
     tipset_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .with_label_values(&[metrics::values::VALIDATE_MINER])
-        .start_timer();
+    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .get_or_create(&metrics::values::VALIDATE_MINER);
+    let _timer = metric.start_timer();
 
     let actor = state_manager
         .get_actor(&Address::POWER_ACTOR, *tipset_state)
@@ -243,9 +244,9 @@ fn validate_winner_election<DB: Blockstore + Sync + Send + 'static>(
     work_addr: &Address,
     state_manager: &StateManager<DB>,
 ) -> Result<(), FilecoinConsensusError> {
-    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .with_label_values(&[metrics::values::VALIDATE_WINNER_ELECTION])
-        .start_timer();
+    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .get_or_create(&metrics::values::VALIDATE_WINNER_ELECTION);
+    let _timer = metric.start_timer();
 
     // Safe to unwrap because checked to `Some` in sanity check
     let election_proof = header.election_proof.as_ref().unwrap();
@@ -298,9 +299,9 @@ fn validate_ticket_election(
     work_addr: &Address,
     chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
-    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .with_label_values(&[metrics::values::VALIDATE_TICKET_ELECTION])
-        .start_timer();
+    let metric = &*metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .get_or_create(&metrics::values::VALIDATE_TICKET_ELECTION);
+    let _timer = metric.start_timer();
 
     let mut miner_address_buf = to_vec(&header.miner_address)?;
     let smoke_height = chain_config.epoch(Height::Smoke);
@@ -350,9 +351,9 @@ fn verify_winning_post_proof<DB: Blockstore>(
     prev_beacon_entry: &BeaconEntry,
     lookback_state: &Cid,
 ) -> Result<(), FilecoinConsensusError> {
-    let _timer = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
-        .with_label_values(&[metrics::values::VERIFY_WINNING_POST_PROOF])
-        .start_timer();
+    let metric = metrics::CONSENSUS_BLOCK_VALIDATION_TASKS_TIME
+        .get_or_create(&metrics::values::VERIFY_WINNING_POST_PROOF);
+    let _timer = metric.start_timer();
 
     let miner_addr_buf = to_vec(&header.miner_address)?;
     let rand_base = header
