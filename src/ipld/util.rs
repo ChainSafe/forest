@@ -13,8 +13,8 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::Stream;
 use fvm_ipld_blockstore::Blockstore;
-use kanal::{Receiver, Sender};
 
+use flume::TryRecvError;
 use parking_lot::Mutex;
 use pin_project_lite::pin_project;
 use std::pin::Pin;
@@ -357,8 +357,8 @@ pin_project! {
         db: Arc<DB>,
         seen: Arc<Mutex<CidHashSet>>,
         worker_handle: JoinHandle<anyhow::Result<()>>,
-        block_receiver: kanal::Receiver<anyhow::Result<CarBlock>>,
-        extract_sender: kanal::Sender<Cid>,
+        block_receiver: flume::Receiver<anyhow::Result<CarBlock>>,
+        extract_sender: flume::Sender<Cid>,
         stateroot_limit: ChainEpoch,
         queue: Vec<Cid>,
         fail_on_dead_links: bool,
@@ -397,8 +397,8 @@ pub fn unordered_stream_chain<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = kanal::bounded(BLOCK_CHANNEL_LIMIT);
-    let (extract_sender, extract_receiver) = kanal::unbounded();
+    let (sender, receiver) = flume::bounded(BLOCK_CHANNEL_LIMIT);
+    let (extract_sender, extract_receiver) = flume::unbounded();
     let fail_on_dead_links = true;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
     let handle = UnorderedChainStream::<DB, T>::start_workers(
@@ -432,8 +432,8 @@ pub fn unordered_stream_graph<
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
 ) -> UnorderedChainStream<DB, T> {
-    let (sender, receiver) = kanal::bounded(2048);
-    let (extract_sender, extract_receiver) = kanal::unbounded();
+    let (sender, receiver) = flume::bounded(2048);
+    let (extract_sender, extract_receiver) = flume::unbounded();
     let fail_on_dead_links = false;
     let seen = Arc::new(Mutex::new(CidHashSet::default()));
     let handle = UnorderedChainStream::<DB, T>::start_workers(
@@ -462,8 +462,8 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 {
     fn start_workers(
         db: Arc<DB>,
-        block_sender: Sender<anyhow::Result<CarBlock>>,
-        extract_receiver: Receiver<Cid>,
+        block_sender: flume::Sender<anyhow::Result<CarBlock>>,
+        extract_receiver: flume::Receiver<Cid>,
         seen: Arc<Mutex<CidHashSet>>,
         fail_on_dead_links: bool,
     ) -> JoinHandle<anyhow::Result<()>> {
@@ -472,12 +472,11 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
             for _ in 0..num_cpus::get() {
                 let seen = seen.clone();
-                let extract_receiver: kanal::AsyncReceiver<Cid> =
-                    extract_receiver.clone().to_async();
+                let extract_receiver = extract_receiver.clone();
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(cid) = extract_receiver.recv().await {
+                    while let Ok(cid) = extract_receiver.recv_async().await {
                         let mut cid_vec = vec![cid];
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
@@ -524,7 +523,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
         let this = self.project();
         let receive_block = || {
             if let Ok(item) = this.block_receiver.try_recv() {
-                return item;
+                return Some(item);
             }
             None
         };
@@ -595,19 +594,22 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         }
                     }
                 }
-            } else if let Ok(item) = this.block_receiver.try_recv() {
-                if let Some(item) = item {
-                    return Poll::Ready(Some(item));
-                }
-                // Close the sender when it's empty and exit.
-                if this.extract_sender.is_empty() && this.block_receiver.is_empty() {
-                    this.worker_handle.abort();
-                    return Poll::Ready(None);
-                }
             } else {
-                // That's it, nothing else to do. End of stream.
-                return Poll::Ready(None);
-            };
+                match this.block_receiver.try_recv() {
+                    Ok(item) => return Poll::Ready(Some(item)),
+                    Err(err) => {
+                        if this.extract_sender.is_empty() {
+                            this.worker_handle.abort();
+                            return Poll::Ready(None);
+                            // This should never happen.
+                        } else if err == TryRecvError::Disconnected {
+                            panic!(
+                                "block_receiver can only be closed after extract_sender is empty"
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
