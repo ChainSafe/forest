@@ -59,6 +59,7 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
+use nonempty::NonEmpty;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
 use std::io::{Seek, SeekFrom};
@@ -92,7 +93,7 @@ pub struct ForestCar<ReaderT> {
     indexed: index::Reader<positioned_io::Slice<ReaderT>>,
     frame_cache: Arc<Mutex<ZstdFrameCache>>,
     write_cache: Arc<RwLock<ahash::HashMap<Cid, Vec<u8>>>>,
-    roots: Vec<Cid>,
+    roots: NonEmpty<Cid>,
 }
 
 impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
@@ -139,12 +140,12 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
         Ok((header, footer))
     }
 
-    pub fn roots(&self) -> Vec<Cid> {
-        self.roots.clone()
+    pub fn roots(&self) -> &NonEmpty<Cid> {
+        &self.roots
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKey::from_iter(self.roots()))
+        Tipset::load_required(self, &TipsetKey::from_iter(self.roots().clone()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {
@@ -254,7 +255,7 @@ pub struct Encoder {}
 impl Encoder {
     pub async fn write(
         mut sink: impl AsyncWrite + Unpin,
-        roots: Vec<Cid>,
+        roots: NonEmpty<Cid>,
         mut stream: impl TryStream<Ok = (Vec<Cid>, Bytes), Error = anyhow::Error> + Unpin,
     ) -> anyhow::Result<()> {
         let mut offset = 0;
@@ -422,19 +423,20 @@ impl ForestCarFooter {
 mod tests {
     use super::*;
     use crate::block_on;
+    use nonempty::nonempty;
     use quickcheck_macros::quickcheck;
 
     fn mk_encoded_car(
         zstd_frame_size_tripwire: usize,
         zstd_compression_level: u16,
-        roots: Vec<Cid>,
-        block: Vec<CarBlock>,
+        roots: NonEmpty<Cid>,
+        blocks: NonEmpty<CarBlock>,
     ) -> Vec<u8> {
         block_on(async {
             let frame_stream = Encoder::compress_stream(
                 zstd_frame_size_tripwire,
                 zstd_compression_level,
-                futures::stream::iter(block.into_iter().map(Ok)),
+                futures::stream::iter(blocks.into_iter().map(Ok)),
             );
             let mut encoded = vec![];
             Encoder::write(&mut encoded, roots, frame_stream)
@@ -445,12 +447,13 @@ mod tests {
     }
 
     #[quickcheck]
-    fn forest_car_create_basic(head: CarBlock, mut tail: Vec<CarBlock>, roots: Vec<Cid>) {
-        tail.push(head);
+    fn forest_car_create_basic(head: CarBlock, tail: Vec<CarBlock>) {
+        let roots = nonempty!(head.cid);
+        let blocks = NonEmpty { head, tail };
         let forest_car =
-            ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), tail.clone())).unwrap();
-        assert_eq!(forest_car.roots(), roots);
-        for block in tail {
+            ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
+        assert_eq!(forest_car.roots(), &roots);
+        for block in blocks {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
         }
     }
@@ -458,23 +461,24 @@ mod tests {
     #[quickcheck]
     fn forest_car_create_options(
         head: CarBlock,
-        mut tail: Vec<CarBlock>,
-        roots: Vec<Cid>,
+        tail: Vec<CarBlock>,
         frame_size: usize,
         mut compression_level: u16,
     ) {
         compression_level %= 15;
-        tail.push(head);
+
+        let roots = nonempty!(head.cid);
+        let blocks = NonEmpty { head, tail };
 
         let forest_car = ForestCar::new(mk_encoded_car(
             frame_size,
             compression_level.max(1),
             roots.clone(),
-            tail.clone(),
+            blocks.clone(),
         ))
         .unwrap();
-        assert_eq!(forest_car.roots(), roots);
-        for block in tail {
+        assert_eq!(forest_car.roots(), &roots);
+        for block in blocks {
             assert_eq!(forest_car.get(&block.cid).unwrap(), Some(block.data));
         }
     }
@@ -506,7 +510,7 @@ mod tests {
 
         // For testing purposes, we ignore that the data doesn't map to the
         // CIDs.
-        let blocks = vec![
+        let blocks = nonempty![
             CarBlock {
                 cid: cid_a,
                 data: Vec::from_iter(*b"bill and ben"),
@@ -518,7 +522,13 @@ mod tests {
         ];
 
         // Setting the desired frame size to 0 means each block will be put in a separate frame.
-        let forest_car = ForestCar::new(mk_encoded_car(0, 3, Vec::new(), blocks.clone())).unwrap();
+        let forest_car = ForestCar::new(mk_encoded_car(
+            0,
+            3,
+            nonempty![blocks.first().cid],
+            blocks.clone(),
+        ))
+        .unwrap();
 
         // Even with colliding hashes, the CIDs can still be queried:
         assert_eq!(forest_car.get(&cid_a).unwrap().unwrap(), blocks[0].data);
