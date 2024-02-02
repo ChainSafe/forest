@@ -90,7 +90,9 @@ impl RawBlockHeader {
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
         // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
-        if curr_beacon.network().is_chained() {
+        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R53>
+        // for not using `if curr_beacon.network().is_chained()`
+        if network_version <= NetworkVersion::V21 {
             let (pb_epoch, _) = b_schedule
                 .beacon_for_epoch(parent_epoch)
                 .map_err(|e| Error::Validation(e.to_string()))?;
@@ -123,7 +125,9 @@ impl RawBlockHeader {
             return Ok(());
         }
 
-        if curr_beacon.network().is_chained() && prev_entry.round() == 0 {
+        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R83>
+        // for not using `if curr_beacon.network().is_chained() && prev_entry.round() == 0`
+        if network_version <= NetworkVersion::V21 && prev_entry.round() == 0 {
             // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
             // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
             return Ok(());
