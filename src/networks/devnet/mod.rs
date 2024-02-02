@@ -142,14 +142,18 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
     ]
 });
 
-pub(super) static DRAND_SCHEDULE: [DrandPoint<'static>; 2] = [
-    DrandPoint {
-        height: 0,
-        config: &DRAND_MAINNET,
-    },
-    DrandPoint {
-        // height is TBD
-        height: i64::MAX,
-        config: &DRAND_QUICKNET,
-    },
-];
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
+    [
+        DrandPoint {
+            height: 0,
+            config: &DRAND_MAINNET,
+        },
+        DrandPoint {
+            // height is TBD.
+            // likely to be `get_upgrade_epoch_by_height(HEIGHT_INFOS.iter(), Height::Pineapple).unwrap()`.
+            // remember to remove `#[allow(dead_code)]` from `get_upgrade_epoch_by_height`
+            height: i64::MAX,
+            config: &DRAND_QUICKNET,
+        },
+    ]
+});

@@ -49,7 +49,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
     pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
         if let Some(ts) = self.ts_cache.lock().get(tsk) {
             metrics::LRU_CACHE_HIT
-                .with_label_values(&[metrics::values::TIPSET])
+                .get_or_create(&metrics::values::TIPSET)
                 .inc();
             return Ok(Some(ts.clone()));
         }
@@ -58,7 +58,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
         if let Some(ts) = &ts_opt {
             self.ts_cache.lock().put(tsk.clone(), ts.clone());
             metrics::LRU_CACHE_MISS
-                .with_label_values(&[metrics::values::TIPSET])
+                .get_or_create(&metrics::values::TIPSET)
                 .inc();
         }
 
