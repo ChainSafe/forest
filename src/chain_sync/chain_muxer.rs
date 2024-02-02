@@ -364,16 +364,16 @@ where
         let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound { source, request } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::HELLO_REQUEST_INBOUND])
+                    .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
                     .inc();
                 metrics::PEER_TIPSET_EPOCH
-                    .with_label_values(&[source.to_string().as_str()])
+                    .get_or_create(&metrics::PeerLabel::new(source))
                     .set(request.heaviest_tipset_height);
                 return Ok(None);
             }
             NetworkEvent::HelloResponseOutbound { request, source } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::HELLO_RESPONSE_OUTBOUND])
+                    .get_or_create(&metrics::values::HELLO_RESPONSE_OUTBOUND)
                     .inc();
                 let tipset_keys = TipsetKey::from_iter(request.heaviest_tip_set);
                 let tipset = match Self::get_full_tipset(
@@ -394,19 +394,19 @@ where
             }
             NetworkEvent::HelloRequestOutbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::HELLO_REQUEST_OUTBOUND])
+                    .get_or_create(&metrics::values::HELLO_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
             NetworkEvent::HelloResponseInbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::HELLO_RESPONSE_INBOUND])
+                    .get_or_create(&metrics::values::HELLO_RESPONSE_INBOUND)
                     .inc();
                 return Ok(None);
             }
             NetworkEvent::PeerConnected(peer_id) => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::PEER_CONNECTED])
+                    .get_or_create(&metrics::values::PEER_CONNECTED)
                     .inc();
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_connected_event(
@@ -419,14 +419,10 @@ where
             }
             NetworkEvent::PeerDisconnected(peer_id) => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::PEER_DISCONNECTED])
+                    .get_or_create(&metrics::values::PEER_DISCONNECTED)
                     .inc();
                 // Remove peer id labels for disconnected peers
-                if let Err(e) =
-                    metrics::PEER_TIPSET_EPOCH.remove_label_values(&[peer_id.to_string().as_str()])
-                {
-                    debug!("{e}");
-                }
+                metrics::PEER_TIPSET_EPOCH.remove(&metrics::PeerLabel::new(peer_id));
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -437,7 +433,7 @@ where
             NetworkEvent::PubsubMessage { source, message } => match message {
                 PubsubMessage::Block(b) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
-                        .with_label_values(&[metrics::values::PUBSUB_BLOCK])
+                        .get_or_create(&metrics::values::PUBSUB_BLOCK)
                         .inc();
                     // Assemble full tipset from block
                     let tipset =
@@ -446,7 +442,7 @@ where
                 }
                 PubsubMessage::Message(m) => {
                     metrics::LIBP2P_MESSAGE_TOTAL
-                        .with_label_values(&[metrics::values::PUBSUB_MESSAGE])
+                        .get_or_create(&metrics::values::PUBSUB_MESSAGE)
                         .inc();
                     if let PubsubMessageProcessingStrategy::Process = message_processing_strategy {
                         Self::handle_pubsub_message(mem_pool, m);
@@ -456,25 +452,25 @@ where
             },
             NetworkEvent::ChainExchangeRequestOutbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND])
+                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
             NetworkEvent::ChainExchangeResponseInbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND])
+                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND)
                     .inc();
                 return Ok(None);
             }
             NetworkEvent::ChainExchangeRequestInbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND])
+                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND)
                     .inc();
                 return Ok(None);
             }
             NetworkEvent::ChainExchangeResponseOutbound { .. } => {
                 metrics::LIBP2P_MESSAGE_TOTAL
-                    .with_label_values(&[metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND])
+                    .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
@@ -515,7 +511,7 @@ where
             .peer_manager()
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
         metrics::PEER_TIPSET_EPOCH
-            .with_label_values(&[source.to_string().as_str()])
+            .get_or_create(&metrics::PeerLabel::new(source))
             .set(tipset.epoch());
 
         Ok(Some((tipset, source)))
@@ -696,7 +692,7 @@ where
                 .await
                 .map_err(ChainMuxerError::TipsetRangeSyncer)?;
 
-            metrics::HEAD_EPOCH.set(network_head_epoch as u64);
+            metrics::HEAD_EPOCH.set(network_head_epoch);
 
             Ok(())
         });

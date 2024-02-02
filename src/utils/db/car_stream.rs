@@ -10,6 +10,7 @@ use futures::ready;
 use futures::{sink::Sink, Stream, StreamExt};
 use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
+use nonempty::NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -25,7 +26,10 @@ use crate::utils::encoding::from_slice_with_fallback;
 
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
-    pub roots: Vec<Cid>,
+    // The roots array must contain one or more CIDs,
+    // each of which should be present somewhere in the remainder of the CAR.
+    // See <https://ipld.io/specs/transport/car/carv1/#constraints>
+    pub roots: NonEmpty<Cid>,
     pub version: u64,
 }
 
@@ -148,7 +152,7 @@ pin_project! {
 }
 
 impl<W: AsyncWrite> CarWriter<W> {
-    pub fn new_carv1(roots: Vec<Cid>, writer: W) -> io::Result<Self> {
+    pub fn new_carv1(roots: NonEmpty<Cid>, writer: W) -> io::Result<Self> {
         let car_header = CarHeader { roots, version: 1 };
 
         let mut header_uvi_frame = BytesMut::new();

@@ -66,8 +66,9 @@ type ForestKernelV2<DB> =
     fvm2::DefaultKernel<fvm2::call_manager::DefaultCallManager<ForestMachineV2<DB>>>;
 type ForestKernelV3<DB> =
     fvm3::DefaultKernel<fvm3::call_manager::DefaultCallManager<ForestMachineV3<DB>>>;
-type ForestKernelV4<DB> =
-    fvm4::DefaultKernel<fvm4::call_manager::DefaultCallManager<ForestMachineV4<DB>>>;
+type ForestKernelV4<DB> = fvm4::kernel::filecoin::DefaultFilecoinKernel<
+    fvm4::call_manager::DefaultCallManager<ForestMachineV4<DB>>,
+>;
 
 type ForestExecutorV2<DB> = DefaultExecutor_v2<ForestKernelV2<DB>>;
 type ForestExecutorV3<DB> = DefaultExecutor_v3<ForestKernelV3<DB>>;
