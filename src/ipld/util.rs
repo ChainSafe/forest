@@ -601,7 +601,10 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         if this.extract_sender.is_empty() {
                             this.worker_handle.abort();
                             return Poll::Ready(None);
-                            // This should never happen.
+                            // This should never happen, because both `extract_sender` and
+                            // `block_receiver` are held by worker_handle and their counterparts -
+                            // by the main process. So those are either both functional or both
+                            // closed.
                         } else if err == TryRecvError::Disconnected {
                             panic!(
                                 "block_receiver can only be closed after extract_sender is empty"
