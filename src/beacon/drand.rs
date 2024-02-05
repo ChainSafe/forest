@@ -39,6 +39,10 @@ impl DrandNetwork {
     pub fn is_unchained(&self) -> bool {
         matches!(self, Self::Quicknet)
     }
+
+    pub fn is_chained(&self) -> bool {
+        !self.is_unchained()
+    }
 }
 
 #[derive(Clone)]
@@ -73,8 +77,20 @@ impl BeaconSchedule {
         parent_epoch: ChainEpoch,
         prev: &BeaconEntry,
     ) -> Result<Vec<BeaconEntry>, anyhow::Error> {
-        let (_cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
-        let (_pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
+        let (cb_epoch, curr_beacon) = self.beacon_for_epoch(epoch)?;
+        // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
+        if curr_beacon.network().is_chained() {
+            let (pb_epoch, _) = self.beacon_for_epoch(parent_epoch)?;
+            if cb_epoch != pb_epoch {
+                // Fork logic, take entries from the last two rounds of the new beacon.
+                let round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
+                let mut entries = Vec::with_capacity(2);
+                entries.push(curr_beacon.entry(round - 1).await?);
+                entries.push(curr_beacon.entry(round).await?);
+                return Ok(entries);
+            }
+        }
+
         let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, epoch);
         // We don't expect this to ever be the case
         if max_round == prev.round() {
@@ -92,8 +108,8 @@ impl BeaconSchedule {
             prev.round()
         };
 
-        // We only ever need one entry after nv22 (FIP-0063)
-        if network_version > NetworkVersion::V21 {
+        // We only ever need one entry after drand quicknet upgrade (FIP-0063)
+        if curr_beacon.network().is_unchained() {
             let entry = curr_beacon.entry(max_round).await?;
             Ok(vec![entry])
         } else {
@@ -135,6 +151,9 @@ pub trait Beacon
 where
     Self: Send + Sync + 'static,
 {
+    /// Gets the `drand` network
+    fn network(&self) -> DrandNetwork;
+
     /// Verify beacon entries that are sorted by round.
     fn verify_entries(
         &self,
@@ -156,6 +175,10 @@ where
 
 #[async_trait]
 impl Beacon for Box<dyn Beacon> {
+    fn network(&self) -> DrandNetwork {
+        self.as_ref().network()
+    }
+
     fn verify_entries(
         &self,
         entries: &[BeaconEntry],
@@ -243,6 +266,10 @@ impl DrandBeacon {
 
 #[async_trait]
 impl Beacon for DrandBeacon {
+    fn network(&self) -> DrandNetwork {
+        self.network
+    }
+
     fn verify_entries<'a>(
         &self,
         entries: &'a [BeaconEntry],
