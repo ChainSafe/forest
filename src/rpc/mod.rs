@@ -17,6 +17,7 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use crate::rpc_api::{
@@ -25,8 +26,11 @@ use crate::rpc_api::{
     wallet_api::*,
 };
 use axum::routing::{get, post};
+use futures_util::TryFutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
+use jsonrpsee::server::{RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle};
+use jsonrpsee::types::error::{ErrorObjectOwned, INTERNAL_ERROR_CODE};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::Sender;
 use tracing::info;
@@ -91,10 +95,10 @@ where
             .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
             .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
-            .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
-            .with_method(MPOOL_PENDING, mpool_pending::<DB>)
-            .with_method(MPOOL_PUSH, mpool_push::<DB>)
-            .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
+            // .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
+            // .with_method(MPOOL_PENDING, mpool_pending::<DB>)
+            // .with_method(MPOOL_PUSH, mpool_push::<DB>)
+            // .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
             // Sync API
             .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)
             .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)
@@ -163,15 +167,15 @@ where
             .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
             .with_method(MSIG_GET_PENDING, msig_get_pending::<DB>)
             // Gas API
-            .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
-            .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
-            .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)
-            .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
+            // .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
+            // .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
+            // .with_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)
+            // .with_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)
             // Common API
-            .with_method(VERSION, move || version(block_delay, forest_version))
-            .with_method(SESSION, session)
-            .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
-            .with_method(START_TIME, start_time::<DB>)
+            // .with_method(VERSION, move || version(block_delay, forest_version))
+            // .with_method(SESSION, session)
+            // .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
+            // .with_method(START_TIME, start_time::<DB>)
             // Net API
             .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
             .with_method(NET_PEERS, net_api::net_peers::<DB>)
@@ -181,11 +185,11 @@ where
             // Node API
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
-            .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
-            .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
-            .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
-            .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
-            .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
+            // .with_method(ETH_ACCOUNTS, eth_api::eth_accounts)
+            // .with_method(ETH_BLOCK_NUMBER, eth_api::eth_block_number::<DB>)
+            // .with_method(ETH_CHAIN_ID, eth_api::eth_chain_id::<DB>)
+            // .with_method(ETH_GAS_PRICE, eth_api::eth_gas_price::<DB>)
+            // .with_method(ETH_GET_BALANCE, eth_api::eth_get_balance::<DB>)
             .finish_unwrapped(),
     );
 
@@ -202,4 +206,79 @@ where
     info!("Stopped accepting RPC connections");
 
     Ok(())
+}
+
+fn convert(e: anyhow::Error) -> ErrorObjectOwned {
+    ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None)
+}
+
+pub async fn start_rpsee<DB>(
+    state: RPCState<DB>,
+    rpc_endpoint: SocketAddr,
+    forest_version: &'static str,
+    shutdown_send: Sender<()>,
+    rt: tokio::runtime::Handle,
+) -> Result<ServerHandle, JSONRPCError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    use auth_api::*;
+    use chain_api::*;
+    use eth_api::*;
+    use gas_api::*;
+    use mpool_api::*;
+    use sync_api::*;
+    use wallet_api::*;
+
+    let block_delay = state.state_manager.chain_config().block_delay_secs as u64;
+
+    let middleware = RpcServiceBuilder::new().rpc_logger(4096);
+
+    let server = RpseeServer::builder()
+        .custom_tokio_runtime(rt)
+        .set_rpc_middleware(middleware)
+        .build(rpc_endpoint)
+        .await?;
+
+    // `Arc` is needed because we will share then state between two modules
+    let state = Arc::new(state);
+    let mut module = RpcModule::new(state.clone());
+
+    // Message Pool API
+    module.register_async_method(MPOOL_GET_NONCE, |params, state| {
+        mpool_get_nonce::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(MPOOL_PENDING, |params, state| {
+        mpool_pending::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(MPOOL_PUSH, |params, state| {
+        mpool_push::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(MPOOL_PUSH_MESSAGE, |params, state| {
+        mpool_push_message::<DB>(state, params).map_err(convert)
+    })?;
+    // Common API
+    module.register_method(VERSION, move |_, _| version(block_delay, forest_version))?;
+    module.register_method(SESSION, |_, _| session())?;
+    module.register_async_method(SHUTDOWN, move |_, _| shutdown(shutdown_send.clone()))?;
+    module.register_method(START_TIME, move |_, state| start_time::<DB>(state))?;
+    // Eth API
+    module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts().map_err(convert))?;
+    module.register_async_method(ETH_BLOCK_NUMBER, |_, state| {
+        eth_block_number::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(ETH_CHAIN_ID, |_, state| {
+        eth_chain_id::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(ETH_GAS_PRICE, |_, state| {
+        eth_gas_price::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(ETH_GET_BALANCE, |params, state| {
+        eth_get_balance::<DB>(state, params).map_err(convert)
+    })?;
+
+    let handle = server.start(module);
+    info!("Ready for RPC connections");
+
+    Ok(handle)
 }

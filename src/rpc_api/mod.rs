@@ -418,12 +418,12 @@ pub mod eth_api {
 
     const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    #[derive(Debug, Deserialize, Serialize, Default)]
+    #[derive(Debug, Deserialize, Serialize, Default, Clone)]
     pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(GasPriceResult);
 
-    #[derive(PartialEq, Debug, Deserialize, Serialize, Default)]
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
     pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(BigInt);

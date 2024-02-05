@@ -16,24 +16,27 @@ use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 
+use anyhow::Context;
+use std::sync::Arc;
+
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
 pub async fn gas_estimate_fee_cap<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     Params(params): Params<LotusJson<(Message, i64, TipsetKey)>>,
-) -> Result<String, JsonRpcError> {
+) -> anyhow::Result<String> {
     let LotusJson((msg, max_queue_blks, tsk)) = params;
 
     estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
 
 fn estimate_fee_cap<DB: Blockstore>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     msg: Message,
     max_queue_blks: i64,
     _tsk: TipsetKey,
-) -> Result<TokenAmount, JsonRpcError> {
+) -> anyhow::Result<TokenAmount> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
@@ -42,7 +45,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 
     let fee_in_future = parent_base_fee
         * BigInt::from_f64(increase_factor * (1 << 8) as f64)
-            .ok_or("failed to convert fee_in_future f64 to bigint")?;
+            .context("failed to convert fee_in_future f64 to bigint")?;
     let mut out: crate::shim::econ::TokenAmount = fee_in_future.div_floor(1 << 8);
     out += msg.gas_premium();
     Ok(out)
@@ -50,9 +53,9 @@ fn estimate_fee_cap<DB: Blockstore>(
 
 /// Estimate the fee cap
 pub async fn gas_estimate_gas_premium<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     Params(params): Params<LotusJson<(u64, Address, i64, TipsetKey)>>,
-) -> Result<String, JsonRpcError> {
+) -> anyhow::Result<String> {
     let (nblocksincl, _sender, _gas_limit, _) = params.0;
     estimate_gas_premium::<DB>(&data, nblocksincl)
         .await
@@ -60,9 +63,9 @@ pub async fn gas_estimate_gas_premium<DB: Blockstore>(
 }
 
 pub async fn estimate_gas_premium<DB: Blockstore>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     mut nblocksincl: u64,
-) -> Result<TokenAmount, JsonRpcError> {
+) -> anyhow::Result<TokenAmount> {
     if nblocksincl == 0 {
         nblocksincl = 1;
     }
@@ -134,7 +137,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         .sample(&mut rand::thread_rng());
 
     premium *= BigInt::from_f64(noise * (1i64 << precision) as f64)
-        .ok_or("failed to converrt gas premium f64 to bigint")?;
+        .context("failed to convert gas premium f64 to bigint")?;
     premium = premium.div_floor(1i64 << precision);
 
     Ok(premium)
@@ -142,9 +145,9 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 
 /// Estimate the gas limit
 pub async fn gas_estimate_gas_limit<DB>(
-    data: Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     Params(LotusJson((msg, tsk))): Params<LotusJson<(Message, TipsetKey)>>,
-) -> Result<i64, JsonRpcError>
+) -> anyhow::Result<i64>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -152,10 +155,10 @@ where
 }
 
 async fn estimate_gas_limit<DB>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     msg: Message,
     _: TipsetKey,
-) -> Result<i64, JsonRpcError>
+) -> anyhow::Result<i64>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -196,11 +199,11 @@ where
 
 /// Estimates the gas parameters for a given message
 pub async fn gas_estimate_message_gas<DB>(
-    data: Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     Params(LotusJson((msg, spec, tsk))): Params<
         LotusJson<(Message, Option<MessageSendSpec>, TipsetKey)>,
     >,
-) -> Result<LotusJson<Message>, JsonRpcError>
+) -> anyhow::Result<LotusJson<Message>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -210,11 +213,11 @@ where
 }
 
 pub async fn estimate_message_gas<DB>(
-    data: &Data<RPCState<DB>>,
+    data: &Arc<RPCState<DB>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: TipsetKey,
-) -> Result<Message, JsonRpcError>
+) -> anyhow::Result<Message>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

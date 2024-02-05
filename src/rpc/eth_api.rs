@@ -12,20 +12,21 @@ use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::Params as JsonRpseeParams;
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
-pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
+pub async fn eth_accounts() -> anyhow::Result<Vec<String>> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
     Ok(vec![])
 }
 
 pub async fn eth_block_number<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<String, JsonRpcError> {
+    data: Arc<Arc<RPCState<DB>>>,
+) -> anyhow::Result<String> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
     // This is the parent of the head tipset. The head tipset is speculative, has not been
@@ -51,9 +52,7 @@ pub async fn eth_block_number<DB: Blockstore>(
     }
 }
 
-pub async fn eth_chain_id<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<String, JsonRpcError> {
+pub async fn eth_chain_id<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> anyhow::Result<String> {
     Ok(format!(
         "0x{:x}",
         data.state_manager.chain_config().eth_chain_id
@@ -61,8 +60,8 @@ pub async fn eth_chain_id<DB: Blockstore>(
 }
 
 pub async fn eth_gas_price<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<GasPriceResult, JsonRpcError> {
+    data: Arc<Arc<RPCState<DB>>>,
+) -> anyhow::Result<GasPriceResult> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;
@@ -75,9 +74,12 @@ pub async fn eth_gas_price<DB: Blockstore>(
 }
 
 pub async fn eth_get_balance<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-    Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
-) -> Result<EthBigInt, JsonRpcError> {
+    data: Arc<Arc<RPCState<DB>>>,
+    params: JsonRpseeParams<'_>,
+) -> anyhow::Result<EthBigInt> {
+    let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
+        params.parse()?;
+
     let fil_addr = address.to_filecoin_address()?;
 
     let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
@@ -85,12 +87,8 @@ pub async fn eth_get_balance<DB: Blockstore>(
     let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), ts.parent_state())?;
 
     let actor = state
-        .get_actor(&fil_addr)
-        .map_err(|_e| JsonRpcError::Provided {
-            code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
-            message: "Failed to retrieve actor",
-        })?
-        .ok_or(JsonRpcError::INTERNAL_ERROR)?;
+        .get_actor(&fil_addr)?
+        .context("Failed to retrieve actor")?;
 
     Ok(EthBigInt(actor.balance.atto().clone()))
 }

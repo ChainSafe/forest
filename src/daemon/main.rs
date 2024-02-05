@@ -130,7 +130,7 @@ where
             if let Some(loki_task) = loki_task {
                 rt.spawn(loki_task);
             }
-            let ret = rt.block_on(super::start_interruptable(opts, cfg));
+            let ret = rt.block_on(super::start_interruptable(opts, cfg, rt.handle().clone()));
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs_f32(0.5));
             info!("Forest finish shutdown");
