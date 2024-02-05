@@ -109,6 +109,7 @@ where
             .with_method(WALLET_NEW, wallet_new::<DB>)
             .with_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)
             .with_method(WALLET_SIGN, wallet_sign::<DB>)
+            .with_method(WALLET_VALIDATE_ADDRESS, wallet_validate_address)
             .with_method(WALLET_VERIFY, wallet_verify)
             .with_method(WALLET_DELETE, wallet_delete::<DB>)
             // State API
@@ -129,6 +130,7 @@ where
             .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
             .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
             .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            .with_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)
             .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
             .with_method(
                 STATE_MINER_PROVING_DEADLINE,
@@ -150,6 +152,10 @@ where
             .with_method(STATE_READ_STATE, state_read_state::<DB>)
             .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
             .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
+            .with_method(
+                STATE_VERIFIED_CLIENT_STATUS,
+                state_verified_client_status::<DB>,
+            )
             .with_method(
                 STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
                 state_vm_circulating_supply_internal::<DB>,

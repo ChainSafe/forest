@@ -6,8 +6,10 @@ use std::{fmt::Display, str::FromStr};
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
 use libp2p::Multiaddr;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
@@ -178,7 +180,7 @@ pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
 #[derive(Clone)]
 struct DrandPoint<'a> {
     pub height: ChainEpoch,
-    pub config: &'a DrandConfig<'a>,
+    pub config: &'a Lazy<DrandConfig<'a>>,
 }
 
 /// Defines all network configuration parameters.
@@ -372,4 +374,54 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
             Multiaddr::from_str(s).unwrap_or_else(|e| panic!("invalid bootstrap peer {s}: {e}"))
         })
         .collect()
+}
+
+#[allow(dead_code)]
+fn get_upgrade_epoch_by_height<'a>(
+    mut height_infos: impl Iterator<Item = &'a HeightInfo>,
+    height: Height,
+) -> Option<ChainEpoch> {
+    height_infos.find_map(|i| {
+        if i.height == height {
+            Some(i.epoch)
+        } else {
+            None
+        }
+    })
+}
+
+fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
+    if let Ok(value) = std::env::var(env_var_key) {
+        if let Ok(epoch) = value.parse() {
+            return Some(epoch);
+        } else {
+            warn!("Failed to parse {env_var_key}={value}, value should be an integer");
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_upgrade_height_no_env_var() {
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_1");
+        assert_eq!(epoch, None);
+    }
+
+    #[test]
+    fn test_get_upgrade_height_valid_env_var() {
+        std::env::set_var("FOREST_TEST_VAR_2", "10");
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_2");
+        assert_eq!(epoch, Some(10));
+    }
+
+    #[test]
+    fn test_get_upgrade_height_invalid_env_var() {
+        std::env::set_var("FOREST_TEST_VAR_3", "foo");
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
+        assert_eq!(epoch, None);
+    }
 }

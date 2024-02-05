@@ -78,6 +78,11 @@ pub enum WalletCommands {
         #[arg(short)]
         address: String,
     },
+    /// Validates whether a given string can be decoded as a well-formed address
+    ValidateAddress {
+        /// The address to be validated
+        address: String,
+    },
     /// Verify the signature of a message. Returns true if the signature matches
     /// the message and address
     Verify {
@@ -225,6 +230,11 @@ impl WalletCommands {
 
                 let response = api.wallet_sign(address, message.into_bytes()).await?;
                 println!("{}", hex::encode(response.bytes()));
+                Ok(())
+            }
+            Self::ValidateAddress { address } => {
+                let response = api.wallet_validate_address(address.to_string()).await?;
+                println!("{response}");
                 Ok(())
             }
             Self::Verify {

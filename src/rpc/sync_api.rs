@@ -8,10 +8,11 @@ use crate::rpc_api::data_types::{RPCState, RPCSyncState};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use nonempty::nonempty;
 use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
-pub(in crate::rpc) async fn sync_check_bad<DB: Blockstore>(
+pub async fn sync_check_bad<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<String, JsonRpcError> {
@@ -19,7 +20,7 @@ pub(in crate::rpc) async fn sync_check_bad<DB: Blockstore>(
 }
 
 /// Marks a block as bad, meaning it will never be synced.
-pub(in crate::rpc) async fn sync_mark_bad<DB: Blockstore>(
+pub async fn sync_mark_bad<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<(), JsonRpcError> {
@@ -33,10 +34,10 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub(in crate::rpc) async fn sync_state<DB: Blockstore>(
+pub async fn sync_state<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<RPCSyncState, JsonRpcError> {
-    let active_syncs = vec![clone_state(data.sync_state.as_ref()).await];
+    let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }
 
@@ -170,7 +171,10 @@ mod tests {
         let st_copy = state.sync_state.clone();
 
         match sync_state(Data(state.clone())).await {
-            Ok(ret) => assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]),
+            Ok(ret) => assert_eq!(
+                ret.active_syncs,
+                nonempty![clone_state(st_copy.as_ref()).await]
+            ),
             Err(e) => std::panic::panic_any(e),
         }
 
@@ -180,8 +184,10 @@ mod tests {
 
         match sync_state(Data(state.clone())).await {
             Ok(ret) => {
-                assert_ne!(ret.active_syncs, vec![]);
-                assert_eq!(ret.active_syncs, vec![clone_state(st_copy.as_ref()).await]);
+                assert_eq!(
+                    ret.active_syncs,
+                    nonempty![clone_state(st_copy.as_ref()).await]
+                );
             }
             Err(e) => std::panic::panic_any(e),
         }

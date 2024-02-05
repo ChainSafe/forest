@@ -14,7 +14,7 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use tracing::error;
 
-pub(in crate::rpc) async fn net_addrs_listen<DB: Blockstore>(
+pub async fn net_addrs_listen<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<AddrInfo, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -31,7 +31,7 @@ pub(in crate::rpc) async fn net_addrs_listen<DB: Blockstore>(
     })
 }
 
-pub(in crate::rpc) async fn net_peers<DB: Blockstore>(
+pub async fn net_peers<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<Vec<AddrInfo>, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -53,7 +53,7 @@ pub(in crate::rpc) async fn net_peers<DB: Blockstore>(
     Ok(connections)
 }
 
-pub(in crate::rpc) async fn net_info<DB: Blockstore>(
+pub async fn net_info<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<NetInfoResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
@@ -65,7 +65,7 @@ pub(in crate::rpc) async fn net_info<DB: Blockstore>(
     Ok(rx.await?)
 }
 
-pub(in crate::rpc) async fn net_connect<DB: Blockstore>(
+pub async fn net_connect<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params((AddrInfo { id, addrs },)): Params<(AddrInfo,)>,
 ) -> Result<(), JsonRpcError> {
@@ -88,7 +88,7 @@ pub(in crate::rpc) async fn net_connect<DB: Blockstore>(
     }
 }
 
-pub(in crate::rpc) async fn net_disconnect<DB: Blockstore>(
+pub async fn net_disconnect<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params((id,)): Params<(String,)>,
 ) -> Result<(), JsonRpcError> {

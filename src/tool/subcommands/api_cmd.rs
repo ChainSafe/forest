@@ -3,31 +3,77 @@
 
 use crate::blocks::Tipset;
 use crate::blocks::TipsetKey;
+use crate::chain::ChainStore;
+use crate::chain_sync::SyncConfig;
+use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::cli_shared::snapshot::TrustedVendor;
+use crate::daemon::db_util::download_to;
 use crate::db::car::ManyCar;
+use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
+use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
+use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
-use crate::rpc_api::data_types::MessageLookup;
+use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::networks::ChainConfig;
+use crate::networks::NetworkChain;
+use crate::rpc_api::data_types::{MessageFilter, MessageLookup};
 use crate::rpc_api::eth_api::Address as EthAddress;
-use crate::rpc_api::eth_api::*;
-use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest};
+use crate::rpc_api::{data_types::RPCState, eth_api::*};
+use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
+use crate::state_manager::StateManager;
+use crate::utils::db::car_util::load_car;
+use crate::utils::version::FOREST_VERSION_STRING;
+use crate::Client;
 use ahash::HashMap;
+use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use fvm_ipld_blockstore::Blockstore;
 use serde::de::DeserializeOwned;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
+use tokio::fs::File;
+use tokio::io::BufReader;
 use tokio::sync::Semaphore;
+use tokio::{
+    signal::{
+        ctrl_c,
+        unix::{signal, SignalKind},
+    },
+    sync::{mpsc, RwLock},
+    task::JoinSet,
+};
+use tracing::{info, warn};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
+    // Serve
+    Serve {
+        /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
+        snapshot_file: Option<PathBuf>,
+        /// Filecoin network chain
+        #[arg(long, default_value = "mainnet")]
+        chain: NetworkChain,
+        // RPC port
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        // Data Directory
+        #[arg(long, default_value = "offline-rpc-db")]
+        data_dir: PathBuf,
+        // Allow downloading snapshot automatically
+        #[arg(long)]
+        auto_download_snapshot: bool,
+    },
     /// Compare
     Compare {
         /// Forest address
@@ -74,6 +120,16 @@ struct ApiTestFlags {
 impl ApiCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
+            Self::Serve {
+                snapshot_file,
+                chain,
+                port,
+                data_dir,
+                auto_download_snapshot,
+            } => {
+                start_offline_server(snapshot_file, chain, port, data_dir, auto_download_snapshot)
+                    .await?
+            }
             Self::Compare {
                 forest,
                 lotus,
@@ -232,7 +288,7 @@ impl RpcTest {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
-                let forest_status = if (self.check_semantics)(forest, lotus) {
+                let forest_status = if (self.check_semantics)(forest.clone(), lotus.clone()) {
                     EndpointStatus::Valid
                 } else {
                     EndpointStatus::InvalidResponse
@@ -410,6 +466,9 @@ fn wallet_tests() -> Vec<RpcTest> {
 
     vec![
         RpcTest::identity(ApiInfo::wallet_balance_req(known_wallet.to_string())),
+        RpcTest::identity(ApiInfo::wallet_validate_address_req(
+            known_wallet.to_string(),
+        )),
         RpcTest::identity(ApiInfo::wallet_verify_req(known_wallet, text, signature)),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),
@@ -465,6 +524,18 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
 
+    // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
+    // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
+    // for API compatibility verification.
+    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
+        Address::VERIFIED_REGISTRY_ACTOR,
+        shared_tipset.key().clone(),
+    )));
+    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
+        Address::DATACAP_TOKEN_ACTOR,
+        shared_tipset.key().clone(),
+    )));
+
     let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
@@ -507,6 +578,25 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                             .with_timeout(Duration::from_secs(30)),
                     );
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
+                            .ignore("Not implemented yet"),
+                    );
+                    tests.push(
+                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
+                            msg.cid()?,
+                            800,
+                        ))
+                        .ignore("Not implemented yet"),
+                    );
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: Some(msg.from()),
+                            to: Some(msg.to()),
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
                     tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                         msg.cid()?,
                     )));
@@ -543,6 +633,30 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                         ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                     ));
                     tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: None,
+                            to: Some(msg.to()),
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: Some(msg.from()),
+                            to: None,
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
+                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                        MessageFilter {
+                            from: None,
+                            to: None,
+                        },
+                        root_tsk.clone(),
+                        shared_tipset.epoch(),
+                    )));
 
                     if !msg.params().is_empty() {
                         tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
@@ -671,6 +785,147 @@ async fn compare_apis(
     run_tests(tests, &forest, &lotus, &config).await
 }
 
+async fn start_offline_server(
+    snapshot_path_opt: Option<PathBuf>,
+    chain: NetworkChain,
+    rpc_port: u16,
+    rpc_data_dir: PathBuf,
+    auto_download_snapshot: bool,
+) -> anyhow::Result<()> {
+    info!("Configuring Offline RPC Server");
+    let client = Client::default();
+    let db_path = client.data_dir.as_path().join(rpc_data_dir);
+    let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
+
+    let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
+        (File::open(&path).await?, path)
+    } else {
+        let (snapshot_url, num_bytes, path) =
+            crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
+                .await
+                .context("couldn't get snapshot size")?;
+        if !auto_download_snapshot {
+            warn!("Automatic snapshot download is disabled.");
+            let message = format!(
+                "Fetch a {} snapshot to the current directory? (denying will exit the program). ",
+                indicatif::HumanBytes(num_bytes)
+            );
+            let have_permission =
+                dialoguer::Confirm::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                    .with_prompt(message)
+                    .default(false)
+                    .interact()
+                    .unwrap_or(false);
+            if !have_permission {
+                anyhow::bail!("No snapshot provided, exiting offline RPC setup.");
+            }
+        }
+        info!(
+            "Downloading latest snapshot for {} size {}",
+            chain,
+            indicatif::HumanBytes(num_bytes)
+        );
+        let downloaded_snapshot_path = std::env::current_dir()?.join(path);
+        download_to(&snapshot_url, &downloaded_snapshot_path).await?;
+        info!("Snapshot downloaded !!!");
+        (
+            File::open(&downloaded_snapshot_path).await?,
+            downloaded_snapshot_path,
+        )
+    };
+
+    info!("Loading snapshot file at {}", snapshot_path.display());
+    let car_reader = BufReader::new(snapshot_file);
+    load_car(&db, car_reader).await?;
+    info!("Snapshot loaded!!!");
+
+    let chain_config = Arc::new(ChainConfig::from_chain(&chain));
+    let sync_config = Arc::new(SyncConfig::default());
+    let genesis_header =
+        read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
+    let chain_store = Arc::new(ChainStore::new(
+        db.clone(),
+        db,
+        chain_config.clone(),
+        genesis_header.clone(),
+    )?);
+    let state_manager = Arc::new(StateManager::new(
+        chain_store.clone(),
+        chain_config,
+        sync_config,
+    )?);
+    let ts = crate::db::car::ForestCar::try_from(snapshot_path.as_path())?.heaviest_tipset()?;
+    state_manager
+        .chain_store()
+        .set_heaviest_tipset(Arc::new(ts))?;
+
+    let beacon = Arc::new(
+        state_manager
+            .chain_config()
+            .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
+    );
+    let (network_send, _) = flume::bounded(5);
+    let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
+    let message_pool = MessagePool::new(
+        MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
+        network_name.clone(),
+        network_send.clone(),
+        Default::default(),
+        state_manager.chain_config().clone(),
+        &mut JoinSet::new(),
+    )?;
+    let rpc_state = Arc::new(RPCState {
+        state_manager,
+        keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
+        mpool: Arc::new(message_pool),
+        bad_blocks: Default::default(),
+        sync_state: Arc::new(parking_lot::RwLock::new(Default::default())),
+        network_send,
+        network_name,
+        start_time: chrono::Utc::now(),
+        chain_store,
+        beacon,
+    });
+    rpc_state.sync_state.write().set_stage(SyncStage::Idle);
+    start_offline_rpc(rpc_state, rpc_port).await?;
+
+    // Cleanup offline RPC resources
+    std::fs::remove_file(&snapshot_path)?;
+    std::fs::remove_dir_all(&db_path)?;
+    Ok(())
+}
+
+pub async fn start_offline_rpc<DB>(state: Arc<RPCState<DB>>, rpc_port: u16) -> anyhow::Result<()>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    info!("Starting offline RPC Server");
+    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
+    let rpc_endpoint = tokio::net::TcpListener::bind(rpc_address)
+        .await
+        .context(format!("could not bind to rpc address {}", rpc_address))?;
+    let forest_version = FOREST_VERSION_STRING.as_str();
+    let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
+    let mut terminate = signal(SignalKind::terminate())?;
+    let result = tokio::select! {
+        ret = crate::rpc::start_rpc(state, rpc_endpoint, forest_version, shutdown_send) => ret,
+        _ = ctrl_c() => {
+            info!("Keyboard interrupt.");
+            Ok(())
+        },
+        _ = terminate.recv() => {
+            info!("Received SIGTERM.");
+            Ok(())
+        },
+        _ = shutdown_recv.recv() => {
+            info!("Client requested a shutdown.");
+            Ok(())
+        },
+    };
+    crate::utils::io::terminal_cleanup();
+    result.map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
+}
+
 async fn run_tests(
     tests: Vec<RpcTest>,
     forest: &ApiInfo,
@@ -707,25 +962,52 @@ async fn run_tests(
         futures.push(future);
     }
 
-    let mut results = HashMap::default();
+    let mut success_results = HashMap::default();
+    let mut failed_results = HashMap::default();
     while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
-        results
-            .entry((method_name, forest_status, lotus_status))
-            .and_modify(|v| *v += 1)
-            .or_insert(1u32);
-        if (forest_status != EndpointStatus::Valid || lotus_status != EndpointStatus::Valid)
-            && config.fail_fast
+        let result_entry = (method_name, forest_status, lotus_status);
+        if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
+            || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
         {
+            // Your code here {
+            success_results
+                .entry(result_entry)
+                .and_modify(|v| *v += 1)
+                .or_insert(1u32);
+        } else {
+            failed_results
+                .entry(result_entry)
+                .and_modify(|v| *v += 1)
+                .or_insert(1u32);
+        }
+
+        if !failed_results.is_empty() && config.fail_fast {
             break;
         }
     }
+    print_test_results(&success_results, &failed_results);
+
+    if failed_results.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::Error::msg("Some tests failed"))
+    }
+}
+
+fn print_test_results(
+    success_results: &HashMap<(&'static str, EndpointStatus, EndpointStatus), u32>,
+    failed_results: &HashMap<(&'static str, EndpointStatus, EndpointStatus), u32>,
+) {
+    // Combine all results
+    let mut combined_results = success_results.clone();
+    for (key, value) in failed_results {
+        combined_results.insert(*key, *value);
+    }
 
     // Collect and display results in Markdown format
-    let mut results = results.into_iter().collect::<Vec<_>>();
+    let mut results = combined_results.into_iter().collect::<Vec<_>>();
     results.sort();
     println!("{}", format_as_markdown(&results));
-
-    Ok(())
 }
 
 fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {

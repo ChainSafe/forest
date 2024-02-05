@@ -8,7 +8,7 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 
 /// RPC call to create a new JWT Token
-pub(in crate::rpc) async fn auth_new<DB: Blockstore>(
+pub async fn auth_new<DB: Blockstore>(
     data: Data<RPCState<DB>>,
     Params(params): Params<AuthNewParams>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
@@ -20,7 +20,7 @@ pub(in crate::rpc) async fn auth_new<DB: Blockstore>(
 }
 
 /// RPC call to verify JWT Token and return the token's permissions
-pub(in crate::rpc) async fn auth_verify<DB>(
+pub async fn auth_verify<DB>(
     data: Data<RPCState<DB>>,
     Params((header_raw,)): Params<(String,)>,
 ) -> Result<Vec<String>, JsonRpcError>

@@ -1,12 +1,12 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::DrandNetwork;
+use crate::beacon::{Beacon, BeaconEntry};
 use crate::shim::version::NetworkVersion;
 use crate::utils::encoding::blake2b_256;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-
-use crate::beacon::{Beacon, BeaconEntry};
 
 #[derive(Default)]
 pub struct MockBeacon {}
@@ -22,9 +22,25 @@ impl MockBeacon {
 
 #[async_trait]
 impl Beacon for MockBeacon {
-    fn verify_entry(&self, curr: &BeaconEntry, prev: &BeaconEntry) -> Result<bool, anyhow::Error> {
-        let oe = Self::entry_for_index(prev.round());
-        Ok(oe.data() == curr.data())
+    fn network(&self) -> DrandNetwork {
+        DrandNetwork::Mainnet
+    }
+
+    fn verify_entries<'a>(
+        &self,
+        entries: &'a [BeaconEntry],
+        mut prev: &'a BeaconEntry,
+    ) -> Result<bool, anyhow::Error> {
+        for curr in entries.iter() {
+            let oe = Self::entry_for_index(prev.round());
+            if oe.signature() != curr.signature() {
+                return Ok(false);
+            }
+
+            prev = curr;
+        }
+
+        Ok(true)
     }
 
     async fn entry(&self, round: u64) -> Result<BeaconEntry, anyhow::Error> {

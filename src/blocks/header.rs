@@ -89,34 +89,47 @@ impl RawBlockHeader {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
-        let (pb_epoch, _) = b_schedule
-            .beacon_for_epoch(parent_epoch)
-            .map_err(|e| Error::Validation(e.to_string()))?;
-
-        if cb_epoch != pb_epoch {
-            // Fork logic
-            if self.beacon_entries.len() != 2 {
-                return Err(Error::Validation(format!(
-                    "Expected two beacon entries at beacon fork, got {}",
-                    self.beacon_entries.len()
-                )));
-            }
-
-            curr_beacon
-                .verify_entry(&self.beacon_entries[1], &self.beacon_entries[0])
+        // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
+        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R53>
+        // for not using `if curr_beacon.network().is_chained()`
+        if network_version <= NetworkVersion::V21 {
+            let (pb_epoch, _) = b_schedule
+                .beacon_for_epoch(parent_epoch)
                 .map_err(|e| Error::Validation(e.to_string()))?;
+            if cb_epoch != pb_epoch {
+                // Fork logic
+                if self.beacon_entries.len() != 2 {
+                    return Err(Error::Validation(format!(
+                        "Expected two beacon entries at beacon fork, got {}",
+                        self.beacon_entries.len()
+                    )));
+                }
 
-            return Ok(());
+                curr_beacon
+                    .verify_entries(&self.beacon_entries[1..], &self.beacon_entries[0])
+                    .map_err(|e| Error::Validation(e.to_string()))?;
+
+                return Ok(());
+            }
         }
 
         let max_round = curr_beacon.max_beacon_round_for_epoch(network_version, self.epoch);
+        // We don't expect to ever actually meet this condition
         if max_round == prev_entry.round() {
             if !self.beacon_entries.is_empty() {
                 return Err(Error::Validation(format!(
-                    "expected not to have any beacon entries in this block, got: {:?}",
+                    "expected not to have any beacon entries in this block, got: {}",
                     self.beacon_entries.len()
                 )));
             }
+            return Ok(());
+        }
+
+        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R83>
+        // for not using `if curr_beacon.network().is_chained() && prev_entry.round() == 0`
+        if network_version <= NetworkVersion::V21 && prev_entry.round() == 0 {
+            // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
+            // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
             return Ok(());
         }
 
@@ -128,6 +141,7 @@ impl RawBlockHeader {
                 ));
             }
         };
+
         if last.round() != max_round {
             return Err(Error::Validation(format!(
                 "expected final beacon entry in block to be at round {}, got: {}",
@@ -136,18 +150,13 @@ impl RawBlockHeader {
             )));
         }
 
-        let mut prev = prev_entry;
-        for curr in &self.beacon_entries {
-            if !curr_beacon
-                .verify_entry(curr, prev)
-                .map_err(|e| Error::Validation(e.to_string()))?
-            {
-                return Err(Error::Validation(format!(
-                    "beacon entry was invalid: curr:{curr:?}, prev: {prev:?}"
-                )));
-            }
-            prev = curr;
+        if !curr_beacon
+            .verify_entries(&self.beacon_entries, prev_entry)
+            .map_err(|e| Error::Validation(e.to_string()))?
+        {
+            return Err(Error::Validation("beacon entry was invalid".into()));
         }
+
         Ok(())
     }
 
@@ -157,6 +166,13 @@ impl RawBlockHeader {
         let mut blk = self.clone();
         blk.signature = None;
         fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")
+    }
+
+    /// If the block timestamp is within the allowable clock drift
+    pub fn is_within_clock_drift(&self) -> bool {
+        self.timestamp
+            <= (chrono::Utc::now().timestamp() as u64)
+                .saturating_add(crate::shim::clock::ALLOWABLE_CLOCK_DRIFT)
     }
 }
 

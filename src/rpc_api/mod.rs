@@ -74,6 +74,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet_api::WALLET_NEW, Access::Write);
     access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
     access.insert(wallet_api::WALLET_SIGN, Access::Sign);
+    access.insert(wallet_api::WALLET_VALIDATE_ADDRESS, Access::Read);
     access.insert(wallet_api::WALLET_VERIFY, Access::Read);
     access.insert(wallet_api::WALLET_DELETE, Access::Write);
 
@@ -105,8 +106,10 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_READ_STATE, Access::Read);
     access.insert(state_api::STATE_CIRCULATING_SUPPLY, Access::Read);
     access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
+    access.insert(state_api::STATE_LIST_MESSAGES, Access::Read);
     access.insert(state_api::STATE_LIST_MINERS, Access::Read);
     access.insert(state_api::STATE_MINER_SECTOR_COUNT, Access::Read);
+    access.insert(state_api::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
     access.insert(
         state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
         Access::Read,
@@ -253,6 +256,7 @@ pub mod wallet_api {
     pub const WALLET_NEW: &str = "Filecoin.WalletNew";
     pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
     pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
+    pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
     pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
     pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
 }
@@ -287,8 +291,10 @@ pub mod state_api {
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
     pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
     pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
+    pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";
     pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
     pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
+    pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
     pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
         "Filecoin.StateVMCirculatingSupplyInternal";
     pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";

@@ -21,7 +21,7 @@ use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use super::gas_api::estimate_message_gas;
 
 /// Gets next nonce for the specified sender.
-pub(in crate::rpc) async fn mpool_get_nonce<DB>(
+pub async fn mpool_get_nonce<DB>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((address,))): Params<LotusJson<(Address,)>>,
 ) -> Result<u64, JsonRpcError>
@@ -32,7 +32,7 @@ where
 }
 
 /// Return `Vec` of pending messages in `mpool`
-pub(in crate::rpc) async fn mpool_pending<DB>(
+pub async fn mpool_pending<DB>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((cid_vec,))): Params<LotusJson<(Vec<Cid>,)>>,
 ) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
@@ -100,7 +100,7 @@ where
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
-pub(in crate::rpc) async fn mpool_push<DB>(
+pub async fn mpool_push<DB>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((signed_message,))): Params<LotusJson<(SignedMessage,)>>,
 ) -> Result<LotusJson<Cid>, JsonRpcError>
@@ -113,7 +113,7 @@ where
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
-pub(in crate::rpc) async fn mpool_push_message<DB>(
+pub async fn mpool_push_message<DB>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((umsg, spec))): Params<LotusJson<(Message, Option<MessageSendSpec>)>>,
 ) -> Result<LotusJson<SignedMessage>, JsonRpcError>

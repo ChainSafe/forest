@@ -14,11 +14,11 @@ use uuid::Uuid;
 static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
 /// The session UUID uniquely identifies the API node.
-pub(in crate::rpc) async fn session() -> Result<String, JsonRpcError> {
+pub async fn session() -> Result<String, JsonRpcError> {
     Ok(SESSION_UUID.to_string())
 }
 
-pub(in crate::rpc) async fn version(
+pub async fn version(
     block_delay: u64,
     forest_version: &'static str,
 ) -> Result<APIVersion, JsonRpcError> {
@@ -30,7 +30,7 @@ pub(in crate::rpc) async fn version(
     })
 }
 
-pub(in crate::rpc) async fn shutdown(shutdown_send: Sender<()>) -> Result<(), JsonRpcError> {
+pub async fn shutdown(shutdown_send: Sender<()>) -> Result<(), JsonRpcError> {
     // Trigger graceful shutdown
     if let Err(err) = shutdown_send.send(()).await {
         return Err(JsonRpcError::from(err));
@@ -39,7 +39,7 @@ pub(in crate::rpc) async fn shutdown(shutdown_send: Sender<()>) -> Result<(), Js
 }
 
 /// gets start time from network
-pub(in crate::rpc) async fn start_time<DB: Blockstore>(
+pub async fn start_time<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<chrono::DateTime<chrono::Utc>, JsonRpcError> {
     Ok(data.start_time)

@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
+use std::time::Duration;
 
-use crate::rpc_api::data_types::{MiningBaseInfo, Transaction};
+use crate::rpc_api::data_types::{MessageFilter, MiningBaseInfo, Transaction};
 use crate::{
     blocks::TipsetKey,
     rpc_api::{
@@ -23,6 +24,7 @@ use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use libipld_core::ipld::Ipld;
+use num_bigint::BigInt;
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 
@@ -158,6 +160,13 @@ impl ApiInfo {
         RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
     }
 
+    pub fn state_verified_client_status(
+        addr: Address,
+        tsk: TipsetKey,
+    ) -> RpcRequest<Option<BigInt>> {
+        RpcRequest::new(STATE_VERIFIED_CLIENT_STATUS, (addr, tsk))
+    }
+
     pub fn state_circulating_supply_req(tsk: TipsetKey) -> RpcRequest<TokenAmount> {
         RpcRequest::new(STATE_CIRCULATING_SUPPLY, (tsk,))
     }
@@ -186,7 +195,8 @@ impl ApiInfo {
     }
 
     pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
-        RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence))
+        // This API is meant to be blocking when the message is missing from the blockstore
+        RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence)).with_timeout(Duration::MAX)
     }
 
     pub fn state_search_msg_req(msg_cid: Cid) -> RpcRequest<Option<MessageLookup>> {
@@ -202,6 +212,14 @@ impl ApiInfo {
 
     pub fn state_list_miners_req(tsk: TipsetKey) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
+
+    pub fn state_list_messages_req(
+        from_to: MessageFilter,
+        tsk: TipsetKey,
+        max_height: i64,
+    ) -> RpcRequest<Vec<Address>> {
+        RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))
     }
 
     pub fn msig_get_available_balance_req(
