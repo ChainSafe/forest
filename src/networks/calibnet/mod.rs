@@ -30,7 +30,7 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 pub const ETH_CHAIN_ID: u64 = 314159;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 24]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<[HeightInfo; 25]> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -165,6 +165,14 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 24]> = Lazy::new(|| {
         HeightInfo {
             height: Height::WatermelonFix2,
             epoch: 1_108_174,
+            bundle: Some(
+                Cid::try_from("bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca")
+                    .unwrap(),
+            ),
+        },
+        HeightInfo {
+            height: Height::Dragon,
+            epoch: i64::MAX,
             bundle: Some(
                 Cid::try_from("bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca")
                     .unwrap(),

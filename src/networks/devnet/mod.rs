@@ -15,7 +15,7 @@ pub const ETH_CHAIN_ID: u64 = 31415926;
 /// Height epochs.
 /// Environment variable names follow
 /// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<[HeightInfo; 23]> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -134,6 +134,14 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
         HeightInfo {
             height: Height::Watermelon,
             epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(200),
+            bundle: Some(
+                Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
+                    .unwrap(),
+            ),
+        },
+        HeightInfo {
+            height: Height::Dragon,
+            epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(i64::MAX),
             bundle: Some(
                 Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
                     .unwrap(),
