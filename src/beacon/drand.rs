@@ -317,7 +317,7 @@ impl Beacon for DrandBeacon {
                     let resp: BeaconEntryJson = global_http_client()
                         .get(url)
                         // More tolerance on slow networks
-                        .timeout(Duration::from_secs(5))
+                        .timeout(Duration::from_secs(15))
                         .send()
                         .await?
                         .error_for_status()?
