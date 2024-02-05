@@ -12,6 +12,7 @@ use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::Params as JsonRpseeParams;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
@@ -23,10 +24,11 @@ const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
 pub async fn gas_estimate_fee_cap<DB: Blockstore>(
-    data: &Arc<RPCState<DB>>,
-    Params(params): Params<LotusJson<(Message, i64, TipsetKey)>>,
+    data: Arc<Arc<RPCState<DB>>>,
+    params: JsonRpseeParams<'_>,
 ) -> anyhow::Result<String> {
-    let LotusJson((msg, max_queue_blks, tsk)) = params;
+    let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, TipsetKey)> =
+        params.parse()?;
 
     estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
 }
@@ -53,10 +55,16 @@ fn estimate_fee_cap<DB: Blockstore>(
 
 /// Estimate the fee cap
 pub async fn gas_estimate_gas_premium<DB: Blockstore>(
-    data: &Arc<RPCState<DB>>,
-    Params(params): Params<LotusJson<(u64, Address, i64, TipsetKey)>>,
+    data: Arc<Arc<RPCState<DB>>>,
+    params: JsonRpseeParams<'_>,
 ) -> anyhow::Result<String> {
-    let (nblocksincl, _sender, _gas_limit, _) = params.0;
+    let LotusJson((nblocksincl, _sender, _gas_limit, _)): LotusJson<(
+        u64,
+        Address,
+        i64,
+        TipsetKey,
+    )> = params.parse()?;
+
     estimate_gas_premium::<DB>(&data, nblocksincl)
         .await
         .map(|n| TokenAmount::to_string(&n))
@@ -145,12 +153,14 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 
 /// Estimate the gas limit
 pub async fn gas_estimate_gas_limit<DB>(
-    data: &Arc<RPCState<DB>>,
-    Params(LotusJson((msg, tsk))): Params<LotusJson<(Message, TipsetKey)>>,
+    data: Arc<Arc<RPCState<DB>>>,
+    params: JsonRpseeParams<'_>,
 ) -> anyhow::Result<i64>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
+    let LotusJson((msg, tsk)): LotusJson<(Message, TipsetKey)> = params.parse()?;
+
     estimate_gas_limit::<DB>(&data, msg, tsk).await
 }
 
@@ -199,14 +209,15 @@ where
 
 /// Estimates the gas parameters for a given message
 pub async fn gas_estimate_message_gas<DB>(
-    data: &Arc<RPCState<DB>>,
-    Params(LotusJson((msg, spec, tsk))): Params<
-        LotusJson<(Message, Option<MessageSendSpec>, TipsetKey)>,
-    >,
+    data: Arc<Arc<RPCState<DB>>>,
+    params: JsonRpseeParams<'_>,
 ) -> anyhow::Result<LotusJson<Message>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
+    let LotusJson((msg, spec, tsk)): LotusJson<(Message, Option<MessageSendSpec>, TipsetKey)> =
+        params.parse()?;
+
     estimate_message_gas::<DB>(&data, msg, spec, tsk)
         .await
         .map(Into::into)

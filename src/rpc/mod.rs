@@ -257,6 +257,19 @@ where
     module.register_async_method(MPOOL_PUSH_MESSAGE, |params, state| {
         mpool_push_message::<DB>(state, params).map_err(convert)
     })?;
+    // Gas API
+    module.register_async_method(GAS_ESTIMATE_FEE_CAP, |params, state| {
+        gas_estimate_fee_cap::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, |params, state| {
+        gas_estimate_gas_limit::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, |params, state| {
+        gas_estimate_gas_premium::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, |params, state| {
+        gas_estimate_message_gas::<DB>(state, params).map_err(convert)
+    })?;
     // Common API
     module.register_method(VERSION, move |_, _| version(block_delay, forest_version))?;
     module.register_method(SESSION, |_, _| session())?;
