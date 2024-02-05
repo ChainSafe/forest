@@ -91,7 +91,7 @@ indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
-itertools = "0.12.0"
+itertools = "0.12.1"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
@@ -147,7 +147,7 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
 regex = "1.10"
-reqwest = { version = "0.11.23", default-features = false, features = [
+reqwest = { version = "0.11.24", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
