@@ -240,7 +240,7 @@ where
         .build(rpc_endpoint)
         .await?;
 
-    // `Arc` is needed because we will share then state between two modules
+    // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let mut module = RpcModule::new(state.clone());
 
