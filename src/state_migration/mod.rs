@@ -21,6 +21,7 @@ mod nv19;
 mod nv21;
 mod nv21fix;
 mod nv21fix2;
+mod nv22;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -63,6 +64,7 @@ where
                 (Height::Hygge, nv18::run_migration::<DB>),
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
     };
