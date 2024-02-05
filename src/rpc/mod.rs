@@ -177,11 +177,11 @@ where
             // .with_method(SHUTDOWN, move || shutdown(shutdown_send.clone()))
             // .with_method(START_TIME, start_time::<DB>)
             // Net API
-            .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
-            .with_method(NET_PEERS, net_api::net_peers::<DB>)
-            .with_method(NET_INFO, net_api::net_info::<DB>)
-            .with_method(NET_CONNECT, net_api::net_connect::<DB>)
-            .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
+            // .with_method(NET_ADDRS_LISTEN, net_api::net_addrs_listen::<DB>)
+            // .with_method(NET_PEERS, net_api::net_peers::<DB>)
+            // .with_method(NET_INFO, net_api::net_info::<DB>)
+            // .with_method(NET_CONNECT, net_api::net_connect::<DB>)
+            // .with_method(NET_DISCONNECT, net_api::net_disconnect::<DB>)
             // Node API
             .with_method(NODE_STATUS, node_api::node_status::<DB>)
             // Eth API
@@ -227,6 +227,7 @@ where
     use eth_api::*;
     use gas_api::*;
     use mpool_api::*;
+    use net_api::*;
     use sync_api::*;
     use wallet_api::*;
 
@@ -275,6 +276,20 @@ where
     module.register_method(SESSION, |_, _| session())?;
     module.register_async_method(SHUTDOWN, move |_, _| shutdown(shutdown_send.clone()))?;
     module.register_method(START_TIME, move |_, state| start_time::<DB>(state))?;
+    // Net API
+    module.register_async_method(NET_ADDRS_LISTEN, |_, state| {
+        net_addrs_listen::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(NET_PEERS, |_, state| {
+        net_peers::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state).map_err(convert))?;
+    module.register_async_method(NET_CONNECT, |params, state| {
+        net_connect::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(NET_DISCONNECT, |params, state| {
+        net_disconnect::<DB>(state, params).map_err(convert)
+    })?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts().map_err(convert))?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| {

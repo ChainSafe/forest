@@ -330,7 +330,7 @@ pub mod net_api {
 
     pub const NET_INFO: &str = "Filecoin.NetInfo";
 
-    #[derive(Debug, Default, Serialize, Deserialize)]
+    #[derive(Debug, Default, Serialize, Deserialize, Clone)]
     pub struct NetInfoResult {
         pub num_peers: usize,
         pub num_connections: u32,
