@@ -209,7 +209,7 @@ impl Selector {
             ExploreFields { mut fields } => match ipld {
                 Ipld::Map(m) => {
                         m.get(p)?;
-                        fields.remove(p)
+                        fields.swap_remove(p)
                     }
                 ,
                 // Using ExploreFields for list is supported feature in go impl
@@ -218,7 +218,7 @@ impl Selector {
                     if p.parse::<usize>().ok()? >= l.len() {
                         return None;
                     }
-                    fields.remove(p)
+                    fields.swap_remove(p)
                 }
                 _ => None,
             },
