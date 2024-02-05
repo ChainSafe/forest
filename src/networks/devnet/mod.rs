@@ -58,9 +58,19 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Watermelon,
             HeightInfo {
-                epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(200),
+                epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(10),
                 bundle: Some(
                     Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Dragon,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(20),
+                bundle: Some(
+                    Cid::try_from("bafy2bzacedok4fxofxdwkv42whkkukf3g4jwevui4kk5bw7b5unx4t3tjlrya")
                         .unwrap(),
                 ),
             },

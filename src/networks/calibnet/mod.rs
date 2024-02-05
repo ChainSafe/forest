@@ -191,6 +191,16 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 ),
             },
         ),
+        (
+            Height::Dragon,
+            HeightInfo {
+                epoch: 1_413_574,
+                bundle: Some(
+                    Cid::try_from("bafy2bzaceap46ftyyuhninmzelt2ev6kus5itrggszrk5wuhzf2khm47dtrfa")
+                        .unwrap(),
+                ),
+            },
+        ),
     ])
 });
 
