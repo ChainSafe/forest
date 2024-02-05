@@ -40,7 +40,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
       - name: Apt Dependencies
-        uses: nick-fields/retry@v2
+        uses: nick-fields/retry@v3
         with:
           timeout_minutes: 5
           max_attempts: 3
