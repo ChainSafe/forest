@@ -69,31 +69,31 @@ where
             // Beacon API
             .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
             // Chain API
-            .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB>)
-            .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB>)
-            .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)
-            .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)
-            .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)
-            .with_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)
-            .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB>)
-            .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
-            .with_method(CHAIN_HEAD, chain_head::<DB>)
-            .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
-            .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
-            .with_method(
-                CHAIN_GET_MIN_BASE_FEE,
-                chain_api::chain_get_min_base_fee::<DB>,
-            )
-            .with_method(
-                CHAIN_GET_MESSAGES_IN_TIPSET,
-                chain_api::chain_get_messages_in_tipset::<DB>,
-            )
-            .with_method(
-                CHAIN_GET_PARENT_MESSAGES,
-                chain_api::chain_get_parent_message::<DB>,
-            )
-            .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
-            .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
+            // .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB>)
+            // .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB>)
+            // .with_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)
+            // .with_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)
+            // .with_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)
+            // .with_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)
+            // .with_method(CHAIN_GET_GENESIS, chain_get_genesis::<DB>)
+            // .with_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)
+            // .with_method(CHAIN_HEAD, chain_head::<DB>)
+            // .with_method(CHAIN_GET_BLOCK, chain_api::chain_get_block::<DB>)
+            // .with_method(CHAIN_SET_HEAD, chain_api::chain_set_head::<DB>)
+            // .with_method(
+            //     CHAIN_GET_MIN_BASE_FEE,
+            //     chain_api::chain_get_min_base_fee::<DB>,
+            // )
+            // .with_method(
+            //     CHAIN_GET_MESSAGES_IN_TIPSET,
+            //     chain_api::chain_get_messages_in_tipset::<DB>,
+            // )
+            // .with_method(
+            //     CHAIN_GET_PARENT_MESSAGES,
+            //     chain_api::chain_get_parent_message::<DB>,
+            // )
+            // .with_method(CHAIN_NOTIFY, chain_api::chain_notify::<DB>)
+            // .with_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)
             // Message Pool API
             // .with_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)
             // .with_method(MPOOL_PENDING, mpool_pending::<DB>)
@@ -245,6 +245,52 @@ where
     let state = Arc::new(state);
     let mut module = RpcModule::new(state.clone());
 
+    // Chain API
+    module.register_async_method(CHAIN_GET_MESSAGE, |params, state| {
+        chain_get_message::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_EXPORT, |params, state| {
+        chain_export::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_READ_OBJ, |params, state| {
+        chain_read_obj::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_HAS_OBJ, |params, state| {
+        chain_has_obj::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, |params, state| {
+        chain_get_block_messages::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, |params, state| {
+        chain_get_tipset_by_height::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_GENESIS, |_, state| {
+        chain_get_genesis::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_TIPSET, |params, state| {
+        chain_get_tipset::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_HEAD, |_, state| {
+        chain_head::<DB>(state).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_BLOCK, |params, state| {
+        chain_get_block::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_SET_HEAD, |params, state| {
+        chain_set_head::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_MIN_BASE_FEE, |params, state| {
+        chain_get_min_base_fee::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_MESSAGES_IN_TIPSET, |params, state| {
+        chain_get_messages_in_tipset::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_PARENT_MESSAGES, |params, state| {
+        chain_get_parent_messages::<DB>(state, params).map_err(convert)
+    })?;
+    module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, |params, state| {
+        chain_get_parent_receipts::<DB>(state, params).map_err(convert)
+    })?;
     // Message Pool API
     module.register_async_method(MPOOL_GET_NONCE, |params, state| {
         mpool_get_nonce::<DB>(state, params).map_err(convert)
