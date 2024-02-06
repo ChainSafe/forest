@@ -3,16 +3,21 @@
 
 use crate::auth::*;
 use crate::lotus_json::LotusJson;
+use crate::rpc::error::JsonRpseeError;
 use crate::rpc_api::{auth_api::*, data_types::RPCState};
+use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::Params as JsonRpseeParams;
+
+use std::sync::Arc;
 
 /// RPC call to create a new JWT Token
 pub async fn auth_new<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-    Params(params): Params<AuthNewParams>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
-    let auth_params: AuthNewParams = params;
+    params: JsonRpseeParams<'_>,
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<LotusJson<Vec<u8>>, JsonRpseeError> {
+    let auth_params: AuthNewParams = params.parse()?;
+
     let ks = data.keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
     let token = create_token(auth_params.perms, ki.private_key(), auth_params.token_exp)?;
@@ -21,12 +26,14 @@ pub async fn auth_new<DB: Blockstore>(
 
 /// RPC call to verify JWT Token and return the token's permissions
 pub async fn auth_verify<DB>(
-    data: Data<RPCState<DB>>,
-    Params((header_raw,)): Params<(String,)>,
-) -> Result<Vec<String>, JsonRpcError>
+    params: JsonRpseeParams<'_>,
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<Vec<String>, JsonRpseeError>
 where
     DB: Blockstore,
 {
+    let (header_raw,): (String,) = params.parse()?;
+
     let ks = data.keystore.read().await;
     let token = header_raw.trim_start_matches("Bearer ");
     let ki = ks.get(JWT_IDENTIFIER)?;

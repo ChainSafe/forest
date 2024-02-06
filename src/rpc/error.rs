@@ -115,6 +115,14 @@ impl From<futures::channel::oneshot::Canceled> for JsonRpseeError {
     }
 }
 
+impl From<jsonwebtoken::errors::Error> for JsonRpseeError {
+    fn from(e: jsonwebtoken::errors::Error) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl From<base64::DecodeError> for JsonRpseeError {
     fn from(e: base64::DecodeError) -> Self {
         Self {

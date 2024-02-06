@@ -65,8 +65,8 @@ where
         Server::new()
             .with_data(Data(state))
             // Auth API
-            .with_method(AUTH_NEW, auth_new::<DB>)
-            .with_method(AUTH_VERIFY, auth_verify::<DB>)
+            // .with_method(AUTH_NEW, auth_new::<DB>)
+            // .with_method(AUTH_VERIFY, auth_verify::<DB>)
             // Beacon API
             // .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
             // Chain API
@@ -242,6 +242,9 @@ where
     let state = Arc::new(state);
     let mut module = RpcModule::new(state.clone());
 
+    // Auth API
+    module.register_async_method(AUTH_NEW, auth_new::<DB>)?;
+    module.register_async_method(AUTH_VERIFY, auth_verify::<DB>)?;
     // Beacon API
     module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
