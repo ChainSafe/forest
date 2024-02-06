@@ -101,9 +101,9 @@ where
             // .with_method(MPOOL_PUSH, mpool_push::<DB>)
             // .with_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)
             // Sync API
-            .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)
-            .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)
-            .with_method(SYNC_STATE, sync_state::<DB>)
+            // .with_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)
+            // .with_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)
+            // .with_method(SYNC_STATE, sync_state::<DB>)
             // Wallet API
             .with_method(WALLET_BALANCE, wallet_balance::<DB>)
             .with_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB>)
@@ -268,6 +268,10 @@ where
     module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;
     module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
     module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
+    // Sync API
+    module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
+    module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
+    module.register_async_method(SYNC_STATE, |_, state| sync_state::<DB>(state))?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)?;
