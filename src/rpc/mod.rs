@@ -239,6 +239,24 @@ impl From<ChainError> for JsonRpseeError {
     }
 }
 
+use crate::message_pool::Error as MessagePoolError;
+impl From<MessagePoolError> for JsonRpseeError {
+    fn from(e: MessagePoolError) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
+use crate::key_management::Error as KeyManagementError;
+impl From<KeyManagementError> for JsonRpseeError {
+    fn from(e: KeyManagementError) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl From<fvm_ipld_encoding::Error> for JsonRpseeError {
     fn from(e: fvm_ipld_encoding::Error) -> Self {
         Self {
@@ -324,18 +342,10 @@ where
     module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
     // Message Pool API
-    module.register_async_method(MPOOL_GET_NONCE, |params, state| {
-        mpool_get_nonce::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(MPOOL_PENDING, |params, state| {
-        mpool_pending::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(MPOOL_PUSH, |params, state| {
-        mpool_push::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(MPOOL_PUSH_MESSAGE, |params, state| {
-        mpool_push_message::<DB>(state, params).map_err(convert)
-    })?;
+    module.register_async_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)?;
+    module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;
+    module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
+    module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, |params, state| {
         gas_estimate_fee_cap::<DB>(state, params).map_err(convert)

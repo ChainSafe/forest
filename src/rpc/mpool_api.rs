@@ -8,6 +8,7 @@ use std::sync::Arc;
 use crate::blocks::TipsetKey;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
+use crate::rpc::JsonRpseeError;
 use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
 use crate::shim::{
     address::{Address, Protocol},
@@ -15,18 +16,18 @@ use crate::shim::{
 };
 
 use ahash::{HashSet, HashSetExt};
+use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use jsonrpsee::types::Params as JsonRpseeParams;
 
 use super::gas_api::estimate_message_gas;
 
 /// Gets next nonce for the specified sender.
 pub async fn mpool_get_nonce<DB>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> anyhow::Result<u64>
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<u64, JsonRpseeError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -37,9 +38,9 @@ where
 
 /// Return `Vec` of pending messages in `mpool`
 pub async fn mpool_pending<DB>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> anyhow::Result<LotusJson<Vec<SignedMessage>>>
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpseeError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -107,9 +108,9 @@ where
 
 /// Add `SignedMessage` to `mpool`, return message CID
 pub async fn mpool_push<DB>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> anyhow::Result<LotusJson<Cid>>
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<LotusJson<Cid>, JsonRpseeError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -122,9 +123,9 @@ where
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub async fn mpool_push_message<DB>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> anyhow::Result<LotusJson<SignedMessage>>
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<LotusJson<SignedMessage>, JsonRpseeError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -140,11 +141,16 @@ where
         .await?;
 
     if umsg.sequence != 0 {
-        anyhow::bail!("Expected nonce for MpoolPushMessage is 0, and will be calculated for you.")
+        return Err(anyhow::anyhow!(
+            "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
+        )
+        .into());
     }
     let mut umsg = estimate_message_gas::<DB>(&data, umsg, spec, Default::default()).await?;
     if umsg.gas_premium > umsg.gas_fee_cap {
-        anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
+        return Err(
+            anyhow::anyhow!("After estimation, gas premium is greater than gas fee cap").into(),
+        );
     }
 
     if from.protocol() == Protocol::ID {
