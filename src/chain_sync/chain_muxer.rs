@@ -570,8 +570,8 @@ where
         let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let evaluator = async move {
-            let mut tipsets = vec![];
-            loop {
+            let mut tipsets = Vec::with_capacity(tipset_sample_size);
+            while tipsets.len() < tipset_sample_size {
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
@@ -628,10 +628,6 @@ where
                 if tipset.blocks().iter().all(is_block_valid) {
                     // Add to tipset sample
                     tipsets.push(tipset);
-                }
-
-                if tipsets.len() >= tipset_sample_size {
-                    break;
                 }
             }
 
