@@ -213,7 +213,7 @@ http-range-header = "0.4.0"
 libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-predicates = "3.0"
+predicates = "3.1"
 proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
