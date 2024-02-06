@@ -67,6 +67,14 @@ impl From<fvm_ipld_encoding::Error> for JsonRpseeError {
     }
 }
 
+impl From<fvm_shared4::address::Error> for JsonRpseeError {
+    fn from(e: fvm_shared4::address::Error) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl From<fil_actors_shared::fvm_ipld_amt::Error> for JsonRpseeError {
     fn from(e: fil_actors_shared::fvm_ipld_amt::Error) -> Self {
         Self {
@@ -101,6 +109,14 @@ impl From<cid::multibase::Error> for JsonRpseeError {
 
 impl From<futures::channel::oneshot::Canceled> for JsonRpseeError {
     fn from(e: futures::channel::oneshot::Canceled) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
+impl From<base64::DecodeError> for JsonRpseeError {
+    fn from(e: base64::DecodeError) -> Self {
         Self {
             error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
         }
