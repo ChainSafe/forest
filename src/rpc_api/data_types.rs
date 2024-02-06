@@ -948,6 +948,18 @@ mod tests {
         test_api_tipset_key_inner(vec![])
     }
 
+    #[test]
+    fn test_api_tipset_key_deserialization_empty_vec() {
+        let api_ts_lotus_json: LotusJson<ApiTipsetKey> = serde_json::from_str("[]").unwrap();
+        assert!(api_ts_lotus_json.into_inner().0.is_none());
+    }
+
+    #[test]
+    fn test_api_tipset_key_deserialization_null() {
+        let api_ts_lotus_json: LotusJson<ApiTipsetKey> = serde_json::from_str("null").unwrap();
+        assert!(api_ts_lotus_json.into_inner().0.is_none());
+    }
+
     fn test_api_tipset_key_inner(cids: Vec<Cid>) {
         let cids_lotus_json = LotusJson(cids.clone());
         let lotus_json_str = serde_json::to_string_pretty(&cids_lotus_json).unwrap();
