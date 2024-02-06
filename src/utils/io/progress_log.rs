@@ -242,7 +242,7 @@ mod tests {
 
         progress.set(1024 * 1024 * 1024 / 10);
         progress.last_logged_items = 1024 * 1024;
-        // Going from 1MiB to 102.4MiB in 10s should show (1MiB-102.4MiB)/10s = ~10.1 MiB/s
+        // Going from 1MiB to 102.4MiB in 10s should show (102.4MiB-1MiB)/10s = ~10.1 MiB/s
         assert_eq!(
             progress.msg(now + Duration::from_secs(10)),
             "test 102.4 MiB / 1 GiB, 9%, 10.1 MiB/s, elapsed time: 10s"
