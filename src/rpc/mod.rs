@@ -67,7 +67,7 @@ where
             .with_method(AUTH_NEW, auth_new::<DB>)
             .with_method(AUTH_VERIFY, auth_verify::<DB>)
             // Beacon API
-            .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
+            // .with_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)
             // Chain API
             // .with_method(CHAIN_GET_MESSAGE, chain_api::chain_get_message::<DB>)
             // .with_method(CHAIN_EXPORT, chain_api::chain_export::<DB>)
@@ -212,6 +212,30 @@ fn convert(e: anyhow::Error) -> ErrorObjectOwned {
     ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None)
 }
 
+pub struct JsonRpseeError {
+    error: ErrorObjectOwned,
+}
+
+impl From<anyhow::Error> for JsonRpseeError {
+    fn from(e: anyhow::Error) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
+impl From<ErrorObjectOwned> for JsonRpseeError {
+    fn from(e: ErrorObjectOwned) -> Self {
+        Self { error: e }
+    }
+}
+
+impl Into<ErrorObjectOwned> for JsonRpseeError {
+    fn into(self) -> ErrorObjectOwned {
+        self.error
+    }
+}
+
 pub async fn start_rpsee<DB>(
     state: RPCState<DB>,
     rpc_endpoint: SocketAddr,
@@ -245,6 +269,8 @@ where
     let state = Arc::new(state);
     let mut module = RpcModule::new(state.clone());
 
+    // Beacon API
+    module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
     module.register_async_method(CHAIN_GET_MESSAGE, |params, state| {
         chain_get_message::<DB>(state, params).map_err(convert)
