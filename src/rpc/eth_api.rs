@@ -9,24 +9,24 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
+use crate::rpc::error::JsonRpseeError;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, Result};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use jsonrpsee::types::Params as JsonRpseeParams;
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
-pub async fn eth_accounts() -> anyhow::Result<Vec<String>> {
+pub async fn eth_accounts() -> Result<Vec<String>, JsonRpseeError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
     Ok(vec![])
 }
 
 pub async fn eth_block_number<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> anyhow::Result<String> {
+) -> Result<String, JsonRpseeError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
     // This is the parent of the head tipset. The head tipset is speculative, has not been
@@ -52,7 +52,9 @@ pub async fn eth_block_number<DB: Blockstore>(
     }
 }
 
-pub async fn eth_chain_id<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> anyhow::Result<String> {
+pub async fn eth_chain_id<DB: Blockstore>(
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<String, JsonRpseeError> {
     Ok(format!(
         "0x{:x}",
         data.state_manager.chain_config().eth_chain_id
@@ -61,7 +63,7 @@ pub async fn eth_chain_id<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> anyho
 
 pub async fn eth_gas_price<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> anyhow::Result<GasPriceResult> {
+) -> Result<GasPriceResult, JsonRpseeError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;
@@ -74,9 +76,9 @@ pub async fn eth_gas_price<DB: Blockstore>(
 }
 
 pub async fn eth_get_balance<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> anyhow::Result<EthBigInt> {
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<EthBigInt, JsonRpseeError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
 
@@ -96,12 +98,14 @@ pub async fn eth_get_balance<DB: Blockstore>(
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &Arc<ChainStore<DB>>,
     block_param: BlockNumberOrHash,
-) -> anyhow::Result<Arc<Tipset>> {
+) -> Result<Arc<Tipset>, JsonRpseeError> {
     let head = chain.heaviest_tipset();
 
     match block_param {
         BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
-            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
+            Predefined::Earliest => {
+                return Err(anyhow::anyhow!("block param \"earliest\" is not supported").into())
+            }
             Predefined::Pending => Ok(head),
             Predefined::Latest => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
@@ -111,7 +115,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         BlockNumberOrHash::BlockNumber(number) => {
             let height = ChainEpoch::from(number);
             if height > head.epoch() - 1 {
-                bail!("requested a future epoch (beyond \"latest\")");
+                return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
             }
             let ts =
                 chain
@@ -134,7 +138,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 )?;
                 // verify that it equals the expected tipset
                 if walk_ts != ts {
-                    bail!("tipset is not canonical");
+                    return Err(anyhow::anyhow!("tipset is not canonical").into());
                 }
             }
             Ok(ts)

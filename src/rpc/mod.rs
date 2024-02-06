@@ -209,10 +209,6 @@ where
     Ok(())
 }
 
-fn convert(e: anyhow::Error) -> ErrorObjectOwned {
-    ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None)
-}
-
 pub async fn start_rpsee<DB>(
     state: RPCState<DB>,
     rpc_endpoint: SocketAddr,
@@ -289,19 +285,11 @@ where
     module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
     module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
     // Eth API
-    module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts().map_err(convert))?;
-    module.register_async_method(ETH_BLOCK_NUMBER, |_, state| {
-        eth_block_number::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(ETH_CHAIN_ID, |_, state| {
-        eth_chain_id::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(ETH_GAS_PRICE, |_, state| {
-        eth_gas_price::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(ETH_GET_BALANCE, |params, state| {
-        eth_get_balance::<DB>(state, params).map_err(convert)
-    })?;
+    module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
+    module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;
+    module.register_async_method(ETH_CHAIN_ID, |_, state| eth_chain_id::<DB>(state))?;
+    module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
+    module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
 
     let handle = server.start(module);
     info!("Ready for RPC connections");
