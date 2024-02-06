@@ -7,11 +7,7 @@ use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
-use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
-use crate::rpc_api::{
-    chain_api::*,
-    data_types::{BlockMessages, RPCState},
-};
+use crate::rpc_api::{chain_api::*, data_types::*};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
@@ -134,7 +130,7 @@ pub async fn chain_export<DB>(
         epoch,
         recent_roots,
         output_path,
-        tipset_keys: tsk,
+        tipset_keys: ApiTipsetKey(tsk),
         skip_checksum,
         dry_run,
     }): Params<ChainExportParams>,
@@ -159,7 +155,7 @@ where
         ))?;
     }
 
-    let head = data.chain_store.load_required_tipset(&tsk)?;
+    let head = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let start_ts =
         data.chain_store
             .chain_index
@@ -243,12 +239,12 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 
 pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((height, tsk))): Params<LotusJson<(ChainEpoch, TipsetKey)>>,
+    Params(LotusJson((height, ApiTipsetKey(tsk)))): Params<LotusJson<(ChainEpoch, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
@@ -285,12 +281,12 @@ pub async fn chain_get_block<DB: Blockstore>(
 
 pub async fn chain_get_tipset<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
     Ok((*ts).clone().into())
 }
 
@@ -298,12 +294,12 @@ pub async fn chain_get_tipset<DB: Blockstore>(
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub async fn chain_set_head<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<(), JsonRpcError> {
     let new_head = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {
@@ -315,6 +311,7 @@ pub async fn chain_set_head<DB: Blockstore>(
         current = data
             .state_manager
             .chain_store()
+            .chain_index
             .load_required_tipset(parents)?;
     }
     data.state_manager
@@ -335,6 +332,7 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
         current = data
             .state_manager
             .chain_store()
+            .chain_index
             .load_required_tipset(parents)?;
 
         min_base_fee = min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
