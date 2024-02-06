@@ -72,12 +72,12 @@ futures = "0.3"
 futures-util = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.0.0", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.1.2", features = ["arb"] }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.0.0", features = ["testing", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.1.2", features = ["testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 group = "0.13"
@@ -91,10 +91,9 @@ indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
-itertools = "0.12.0"
+itertools = "0.12.1"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
 jsonwebtoken = "9"
-kanal = "0.1.0-pre8"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
@@ -148,7 +147,7 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
 regex = "1.10"
-reqwest = { version = "0.11.23", default-features = false, features = [
+reqwest = { version = "0.11.24", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
@@ -162,7 +161,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.4.1"
 serde_json = "1.0"
 serde_tuple = "0.5"
-serde_with = { version = "3.0.0", features = ["chrono_0_4"] }
+serde_with = { version = "3.6.0", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
@@ -214,12 +213,12 @@ http-range-header = "0.4.0"
 libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-predicates = "3.0"
+predicates = "3.1"
 proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.199"
+ra_ap_syntax = "0.0.200"
 regex-automata = "0.4"
 syn = { version = "2.0.48", default-features = false, features = [
   "full",

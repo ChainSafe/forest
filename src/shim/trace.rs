@@ -4,7 +4,8 @@ use self::ExecutionEvent as EShim;
 use crate::shim::{
     address::Address as ShimAddress, econ::TokenAmount as ShimTokenAmount,
     error::ExitCode as ShimExitCode, gas::GasCharge as ShimGasCharge,
-    kernel::SyscallError as ShimSyscallError,
+    kernel::SyscallError as ShimSyscallError, state_tree::ActorID as ShimActorId,
+    state_tree::ActorState as ShimActorState,
 };
 use cid::Cid;
 use fvm2::trace::ExecutionEvent as E2;
@@ -21,7 +22,7 @@ pub enum ExecutionEvent {
     CallAbort(ShimExitCode),
     CallError(ShimSyscallError),
     Log(String),
-    InvokeActor(Cid),
+    InvokeActor(Either<Cid, InvokeActor>),
     Unknown(Either<E3, Either<E4, E2>>),
 }
 
@@ -41,6 +42,12 @@ pub struct Call {
     pub value: ShimTokenAmount,
     pub gas_limit: Option<u64>,
     pub read_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct InvokeActor {
+    pub id: ShimActorId,
+    pub state: ShimActorState,
 }
 
 impl From<E2> for ExecutionEvent {
@@ -100,7 +107,7 @@ impl From<E3> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E3::CallError(err) => EShim::CallError(err.into()),
-            E3::InvokeActor(cid) => EShim::InvokeActor(cid),
+            E3::InvokeActor(cid) => EShim::InvokeActor(Either::Left(cid)),
             e => EShim::Unknown(Either::Left(e)),
         }
     }
@@ -132,7 +139,10 @@ impl From<E4> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E4::CallError(err) => EShim::CallError(err.into()),
-            E4::InvokeActor(cid) => EShim::InvokeActor(cid),
+            E4::InvokeActor { id, state } => EShim::InvokeActor(Either::Right(InvokeActor {
+                id,
+                state: state.into(),
+            })),
             e => EShim::Unknown(Either::Right(Either::Left(e))),
         }
     }

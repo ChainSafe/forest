@@ -42,6 +42,8 @@
   to 30 minutes to avoid it getting stuck on IPFS gateway issues.
 - [#3901](https://github.com/ChainSafe/forest/pull/3901) Fix timeout issue in
   `forest-cli snapshot export`.
+- [#3919](https://github.com/ChainSafe/forest/pull/3919) Fix misreporting when
+  logging progress.
 
 ## Forest 0.16.5 "Pinecone Deactivation"
 
