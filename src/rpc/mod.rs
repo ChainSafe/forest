@@ -230,6 +230,39 @@ impl From<ErrorObjectOwned> for JsonRpseeError {
     }
 }
 
+use crate::chain::store::Error as ChainError;
+impl From<ChainError> for JsonRpseeError {
+    fn from(e: ChainError) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
+impl From<fvm_ipld_encoding::Error> for JsonRpseeError {
+    fn from(e: fvm_ipld_encoding::Error) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
+impl From<fil_actors_shared::fvm_ipld_amt::Error> for JsonRpseeError {
+    fn from(e: fil_actors_shared::fvm_ipld_amt::Error) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
+impl From<std::io::Error> for JsonRpseeError {
+    fn from(e: std::io::Error) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl Into<ErrorObjectOwned> for JsonRpseeError {
     fn into(self) -> ErrorObjectOwned {
         self.error
@@ -272,51 +305,24 @@ where
     // Beacon API
     module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
-    module.register_async_method(CHAIN_GET_MESSAGE, |params, state| {
-        chain_get_message::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_EXPORT, |params, state| {
-        chain_export::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_READ_OBJ, |params, state| {
-        chain_read_obj::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_HAS_OBJ, |params, state| {
-        chain_has_obj::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, |params, state| {
-        chain_get_block_messages::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, |params, state| {
-        chain_get_tipset_by_height::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_GENESIS, |_, state| {
-        chain_get_genesis::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_TIPSET, |params, state| {
-        chain_get_tipset::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_HEAD, |_, state| {
-        chain_head::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_BLOCK, |params, state| {
-        chain_get_block::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_SET_HEAD, |params, state| {
-        chain_set_head::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_MIN_BASE_FEE, |params, state| {
-        chain_get_min_base_fee::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_MESSAGES_IN_TIPSET, |params, state| {
-        chain_get_messages_in_tipset::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_PARENT_MESSAGES, |params, state| {
-        chain_get_parent_messages::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, |params, state| {
-        chain_get_parent_receipts::<DB>(state, params).map_err(convert)
-    })?;
+    module.register_async_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)?;
+    module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
+    module.register_async_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)?;
+    module.register_async_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)?;
+    module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)?;
+    module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
+    module.register_async_method(CHAIN_GET_GENESIS, |_, state| chain_get_genesis::<DB>(state))?;
+    module.register_async_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)?;
+    module.register_async_method(CHAIN_HEAD, |_, state| chain_head::<DB>(state))?;
+    module.register_async_method(CHAIN_GET_BLOCK, chain_get_block::<DB>)?;
+    module.register_async_method(CHAIN_SET_HEAD, chain_set_head::<DB>)?;
+    module.register_async_method(CHAIN_GET_MIN_BASE_FEE, chain_get_min_base_fee::<DB>)?;
+    module.register_async_method(
+        CHAIN_GET_MESSAGES_IN_TIPSET,
+        chain_get_messages_in_tipset::<DB>,
+    )?;
+    module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
+    module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
     // Message Pool API
     module.register_async_method(MPOOL_GET_NONCE, |params, state| {
         mpool_get_nonce::<DB>(state, params).map_err(convert)
