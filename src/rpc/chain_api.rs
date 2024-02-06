@@ -7,7 +7,7 @@ use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
-use crate::rpc::JsonRpseeError;
+use crate::rpc::error::JsonRpseeError;
 use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,

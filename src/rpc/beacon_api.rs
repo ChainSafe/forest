@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::JsonRpseeError;
+use crate::rpc::error::JsonRpseeError;
 use crate::{
     beacon::BeaconEntry, lotus_json::LotusJson, rpc_api::data_types::RPCState,
     shim::clock::ChainEpoch,

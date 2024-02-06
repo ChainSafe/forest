@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::blocks::TipsetKey;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc::JsonRpseeError;
+use crate::rpc::error::JsonRpseeError;
 use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
 use crate::shim::{
     address::{Address, Protocol},
