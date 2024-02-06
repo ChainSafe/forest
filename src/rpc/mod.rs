@@ -257,6 +257,15 @@ impl From<KeyManagementError> for JsonRpseeError {
     }
 }
 
+use crate::state_manager::Error as StateManagerError;
+impl From<StateManagerError> for JsonRpseeError {
+    fn from(e: StateManagerError) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl From<fvm_ipld_encoding::Error> for JsonRpseeError {
     fn from(e: fvm_ipld_encoding::Error) -> Self {
         Self {
@@ -347,18 +356,10 @@ where
     module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
     module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
     // Gas API
-    module.register_async_method(GAS_ESTIMATE_FEE_CAP, |params, state| {
-        gas_estimate_fee_cap::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, |params, state| {
-        gas_estimate_gas_limit::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, |params, state| {
-        gas_estimate_gas_premium::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, |params, state| {
-        gas_estimate_message_gas::<DB>(state, params).map_err(convert)
-    })?;
+    module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
+    module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)?;
+    module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
+    module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
     // Common API
     module.register_method(VERSION, move |_, _| version(block_delay, forest_version))?;
     module.register_method(SESSION, |_, _| session())?;
