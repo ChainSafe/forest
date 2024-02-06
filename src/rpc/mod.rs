@@ -283,19 +283,11 @@ where
     module.register_async_method(SHUTDOWN, move |_, _| shutdown(shutdown_send.clone()))?;
     module.register_method(START_TIME, move |_, state| start_time::<DB>(state))?;
     // Net API
-    module.register_async_method(NET_ADDRS_LISTEN, |_, state| {
-        net_addrs_listen::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(NET_PEERS, |_, state| {
-        net_peers::<DB>(state).map_err(convert)
-    })?;
-    module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state).map_err(convert))?;
-    module.register_async_method(NET_CONNECT, |params, state| {
-        net_connect::<DB>(state, params).map_err(convert)
-    })?;
-    module.register_async_method(NET_DISCONNECT, |params, state| {
-        net_disconnect::<DB>(state, params).map_err(convert)
-    })?;
+    module.register_async_method(NET_ADDRS_LISTEN, |_, state| net_addrs_listen::<DB>(state))?;
+    module.register_async_method(NET_PEERS, |_, state| net_peers::<DB>(state))?;
+    module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state))?;
+    module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
+    module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts().map_err(convert))?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| {

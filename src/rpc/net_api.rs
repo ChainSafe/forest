@@ -4,6 +4,7 @@
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::rpc::error::JsonRpseeError;
 use crate::rpc_api::{
     data_types::{AddrInfo, RPCState},
     net_api::*,
@@ -11,13 +12,14 @@ use crate::rpc_api::{
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
 use jsonrpsee::types::Params as JsonRpseeParams;
 
 use anyhow::Result;
 use std::sync::Arc;
 
-pub async fn net_addrs_listen<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> Result<AddrInfo> {
+pub async fn net_addrs_listen<DB: Blockstore>(
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<AddrInfo, JsonRpseeError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::AddrsListen(tx),
@@ -32,7 +34,9 @@ pub async fn net_addrs_listen<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> R
     })
 }
 
-pub async fn net_peers<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> Result<Vec<AddrInfo>> {
+pub async fn net_peers<DB: Blockstore>(
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<Vec<AddrInfo>, JsonRpseeError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Peers(tx),
@@ -52,7 +56,9 @@ pub async fn net_peers<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> Result<V
     Ok(connections)
 }
 
-pub async fn net_info<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> Result<NetInfoResult> {
+pub async fn net_info<DB: Blockstore>(
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<NetInfoResult, JsonRpseeError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Info(tx),
@@ -63,9 +69,9 @@ pub async fn net_info<DB: Blockstore>(data: Arc<Arc<RPCState<DB>>>) -> Result<Ne
 }
 
 pub async fn net_connect<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> Result<()> {
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<(), JsonRpseeError> {
     let (AddrInfo { id, addrs },) = params.parse()?;
 
     let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
@@ -82,14 +88,14 @@ pub async fn net_connect<DB: Blockstore>(
     if success {
         Ok(())
     } else {
-        anyhow::bail!("Peer could not be dialed from any address provided")
+        Err(anyhow::anyhow!("Peer could not be dialed from any address provided").into())
     }
 }
 
 pub async fn net_disconnect<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
     params: JsonRpseeParams<'_>,
-) -> Result<()> {
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<(), JsonRpseeError> {
     let (id,): (String,) = params.parse()?;
 
     let peer_id = PeerId::from_str(&id)?;
