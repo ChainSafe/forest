@@ -118,55 +118,55 @@ where
             // .with_method(WALLET_VERIFY, wallet_verify)
             // .with_method(WALLET_DELETE, wallet_delete::<DB>)
             // State API
-            .with_method(STATE_CALL, state_call::<DB>)
-            .with_method(STATE_REPLAY, state_replay::<DB>)
-            .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
-            .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
-            .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)
-            .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)
-            .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
-            .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
-            .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
-            .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
-            .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
-            .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
-            .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
-            .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
-            .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
-            .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
-            .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
-            .with_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)
-            .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
-            .with_method(
-                STATE_MINER_PROVING_DEADLINE,
-                state_miner_proving_deadline::<DB>,
-            )
-            .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
-            .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
-            .with_method(STATE_SEARCH_MSG, state_search_msg::<DB>)
-            .with_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)
-            .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
-            .with_method(
-                STATE_GET_RANDOMNESS_FROM_TICKETS,
-                state_get_randomness_from_tickets::<DB>,
-            )
-            .with_method(
-                STATE_GET_RANDOMNESS_FROM_BEACON,
-                state_get_randomness_from_beacon::<DB>,
-            )
-            .with_method(STATE_READ_STATE, state_read_state::<DB>)
-            .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
-            .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
-            .with_method(
-                STATE_VERIFIED_CLIENT_STATUS,
-                state_verified_client_status::<DB>,
-            )
-            .with_method(
-                STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
-                state_vm_circulating_supply_internal::<DB>,
-            )
-            .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
-            .with_method(MSIG_GET_PENDING, msig_get_pending::<DB>)
+            // .with_method(STATE_CALL, state_call::<DB>)
+            // .with_method(STATE_REPLAY, state_replay::<DB>)
+            // .with_method(STATE_NETWORK_NAME, state_network_name::<DB>)
+            // .with_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)
+            // .with_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)
+            // .with_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)
+            // .with_method(STATE_GET_ACTOR, state_get_actor::<DB>)
+            // .with_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)
+            // .with_method(STATE_MARKET_DEALS, state_market_deals::<DB>)
+            // .with_method(STATE_MINER_INFO, state_miner_info::<DB>)
+            // .with_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)
+            // .with_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)
+            // .with_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)
+            // .with_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)
+            // .with_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)
+            // .with_method(STATE_MINER_POWER, state_miner_power::<DB>)
+            // .with_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)
+            // .with_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)
+            // .with_method(STATE_LIST_MINERS, state_list_miners::<DB>)
+            // .with_method(
+            //     STATE_MINER_PROVING_DEADLINE,
+            //     state_miner_proving_deadline::<DB>,
+            // )
+            // .with_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)
+            // .with_method(STATE_WAIT_MSG, state_wait_msg::<DB>)
+            // .with_method(STATE_SEARCH_MSG, state_search_msg::<DB>)
+            // .with_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)
+            // .with_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)
+            // .with_method(
+            //     STATE_GET_RANDOMNESS_FROM_TICKETS,
+            //     state_get_randomness_from_tickets::<DB>,
+            // )
+            // .with_method(
+            //     STATE_GET_RANDOMNESS_FROM_BEACON,
+            //     state_get_randomness_from_beacon::<DB>,
+            // )
+            // .with_method(STATE_READ_STATE, state_read_state::<DB>)
+            // .with_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)
+            // .with_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)
+            // .with_method(
+            //     STATE_VERIFIED_CLIENT_STATUS,
+            //     state_verified_client_status::<DB>,
+            // )
+            // .with_method(
+            //     STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
+            //     state_vm_circulating_supply_internal::<DB>,
+            // )
+            // .with_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)
+            // .with_method(MSIG_GET_PENDING, msig_get_pending::<DB>)
             // Gas API
             // .with_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)
             // .with_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)
@@ -290,6 +290,58 @@ where
     })?;
     module.register_async_method(WALLET_VERIFY, |params, _| wallet_verify(params))?;
     module.register_async_method(WALLET_DELETE, wallet_delete::<DB>)?;
+    // State API
+    module.register_async_method(STATE_CALL, state_call::<DB>)?;
+    module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;
+    module.register_async_method(STATE_NETWORK_NAME, |_, state| {
+        state_network_name::<DB>(state)
+    })?;
+    module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
+    module.register_async_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)?;
+    module.register_async_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)?;
+    module.register_async_method(STATE_GET_ACTOR, state_get_actor::<DB>)?;
+    module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
+    //module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
+    module.register_async_method(STATE_MINER_INFO, state_miner_info::<DB>)?;
+    module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
+    module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
+    module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
+    module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
+    module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
+    module.register_async_method(STATE_MINER_POWER, state_miner_power::<DB>)?;
+    module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
+    module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
+    module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
+    module.register_async_method(
+        STATE_MINER_PROVING_DEADLINE,
+        state_miner_proving_deadline::<DB>,
+    )?;
+    module.register_async_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)?;
+    module.register_async_method(STATE_WAIT_MSG, state_wait_msg::<DB>)?;
+    module.register_async_method(STATE_SEARCH_MSG, state_search_msg::<DB>)?;
+    module.register_async_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)?;
+    module.register_async_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)?;
+    module.register_async_method(
+        STATE_GET_RANDOMNESS_FROM_TICKETS,
+        state_get_randomness_from_tickets::<DB>,
+    )?;
+    module.register_async_method(
+        STATE_GET_RANDOMNESS_FROM_BEACON,
+        state_get_randomness_from_beacon::<DB>,
+    )?;
+    module.register_async_method(STATE_READ_STATE, state_read_state::<DB>)?;
+    module.register_async_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)?;
+    module.register_async_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)?;
+    module.register_async_method(
+        STATE_VERIFIED_CLIENT_STATUS,
+        state_verified_client_status::<DB>,
+    )?;
+    module.register_async_method(
+        STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
+        state_vm_circulating_supply_internal::<DB>,
+    )?;
+    module.register_async_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)?;
+    module.register_async_method(MSIG_GET_PENDING, msig_get_pending::<DB>)?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)?;

@@ -679,7 +679,7 @@ pub struct ApiDeadline {
 }
 
 lotus_json_with_self!(ApiDeadline);
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]

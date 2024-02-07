@@ -131,6 +131,14 @@ impl From<base64::DecodeError> for JsonRpseeError {
     }
 }
 
+impl From<tokio::task::JoinError> for JsonRpseeError {
+    fn from(e: tokio::task::JoinError) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl From<ParseError> for JsonRpseeError {
     fn from(e: ParseError) -> Self {
         Self {
