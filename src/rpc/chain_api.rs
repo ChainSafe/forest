@@ -16,13 +16,13 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params as JsonRpseeParams;
 use once_cell::sync::Lazy;
 use sha2::Sha256;
@@ -83,13 +83,15 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
     if let Ok(amt) =
         Amt::<fvm_shared4::receipt::Receipt, _>::load(&block_header.message_receipts, store)
-            .map_err(|_| JsonRpcError::Full {
-                code: 1,
-                message: format!(
-                    "failed to root: ipld: could not find {}",
-                    block_header.message_receipts
-                ),
-                data: None,
+            .map_err(|_| {
+                ErrorObjectOwned::owned::<()>(
+                    1,
+                    format!(
+                        "failed to root: ipld: could not find {}",
+                        block_header.message_receipts
+                    ),
+                    None,
+                )
             })
     {
         amt.for_each(|_, receipt| {
