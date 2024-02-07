@@ -305,7 +305,7 @@ where
     module.register_async_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)?;
     module.register_async_method(STATE_GET_ACTOR, state_get_actor::<DB>)?;
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
-    //module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
+    module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
     module.register_async_method(STATE_MINER_INFO, state_miner_info::<DB>)?;
     module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
     module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
