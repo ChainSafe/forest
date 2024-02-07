@@ -44,6 +44,8 @@ use crate::rpc::{
     state_api::*,
 };
 
+const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
+
 pub async fn start_rpc<DB>(
     state: Arc<RPCState<DB>>,
     rpc_endpoint: TcpListener,
@@ -235,6 +237,8 @@ where
     let server = RpseeServer::builder()
         .custom_tokio_runtime(rt)
         .set_rpc_middleware(middleware)
+        // Default (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+        .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
         .build(rpc_endpoint)
         .await?;
 
