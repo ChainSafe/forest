@@ -107,10 +107,16 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         // Fallback to Receipt_v2.
         let amt =
             Amt::<fvm_shared2::receipt::Receipt, _>::load(&block_header.message_receipts, store)
-                .context(format!(
-                    "failed to root: ipld: could not find {}",
-                    block_header.message_receipts
-                ))?;
+                .map_err(|_| {
+                    ErrorObjectOwned::owned::<()>(
+                        1,
+                        format!(
+                            "failed to root: ipld: could not find {}",
+                            block_header.message_receipts
+                        ),
+                        None,
+                    )
+                })?;
         amt.for_each(|_, receipt| {
             receipts.push(ApiReceipt {
                 exit_code: receipt.exit_code.into(),
