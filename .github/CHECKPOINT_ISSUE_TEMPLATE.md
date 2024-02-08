@@ -10,19 +10,24 @@ Checkpoints have to be regularly updated, though, and [this issue](/.github/CHEC
 # Procedure
 
 ```bash
+#!/bin/bash
+
 # Perform this for `calibnet` AND `mainnet`
-chain=calibnet
+chains=("mainnet" "calibnet")
 
-# download the latest snapshot.
-# =============================
-# - calibnet ~3G, ~1min on a droplet
-# - mainnet ~60G, ~15mins on a droplet
-aria2c https://forest-archive.chainsafe.dev/latest/$chain/ -o $chain
+for chain in "${chains[@]}"
+do
+    # download the latest snapshot.
+    # =============================
+    # - calibnet ~3G, ~1min on a droplet
+    # - mainnet ~60G, ~15mins on a droplet
+    aria2c -x5 https://forest-archive.chainsafe.dev/latest/"$chain"/ -o "$chain"
 
-# print out the checkpoints.
-# ==========================
-# The whole operation takes a long time, BUT you only need the first line or so.
-cargo run --bin forest-tool -- archive checkpoints $chain
+    # print out the checkpoints.
+    # ==========================
+    # The whole operation takes a long time, BUT you only need the first line or so.
+    timeout 15s forest-tool archive checkpoints "$chain"
+done
 
-# Update `build/known_blocks.yaml` as appropriate...
+# Update `build/known_blocks.yaml` as appropriate, manually.
 ```

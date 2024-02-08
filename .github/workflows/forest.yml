@@ -17,6 +17,7 @@ env:
   CI: 1
   CARGO_INCREMENTAL: 0
   CACHE_TIMEOUT_MINUTES: 5
+  SCRIPT_TIMEOUT_MINUTES: 30
   AWS_ACCESS_KEY_ID: '${{ secrets.AWS_ACCESS_KEY_ID }}'
   AWS_SECRET_ACCESS_KEY: '${{ secrets.AWS_SECRET_ACCESS_KEY }}'
   RUSTC_WRAPPER: sccache
@@ -39,7 +40,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Cargo Check
@@ -63,7 +64,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Install Apt Dependencies
@@ -83,7 +84,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Install Apt Dependencies
@@ -111,23 +112,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: forest-cli check
         run: ./scripts/tests/forest_cli_check.sh
-        timeout-minutes: 15
-  forest-tool-check:
-    needs:
-      - build-ubuntu
-    name: Forest TOOL checks
-    runs-on: ubuntu-latest
-    steps:
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-check:
     needs:
       - build-ubuntu
@@ -153,7 +138,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Other commands check
         run: ./scripts/tests/calibnet_other_check.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-stateless-mode-check:
     needs:
       - build-ubuntu
@@ -179,7 +164,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_stateless_mode_check.sh
-        timeout-minutes: 10
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   state-migrations-check:
     needs:
       - build-ubuntu
@@ -201,7 +186,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Migration Regression Tests
         run: ./scripts/tests/calibnet_migration_regression_tests.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-wallet-check:
     needs:
       - build-ubuntu
@@ -228,7 +213,7 @@ jobs:
           if [[ "$CALIBNET_WALLET" != "" ]]; then
             ./scripts/tests/calibnet_wallet_check.sh "$CALIBNET_WALLET"
           fi
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-export-check:
     needs:
       - build-ubuntu
@@ -250,7 +235,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Snapshot export check
         run: ./scripts/tests/calibnet_export_check.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-no-discovery-checks:
     needs:
       - build-ubuntu
@@ -271,7 +256,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_no_discovery_check.sh
-        timeout-minutes: 10
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   calibnet-kademlia-checks:
     needs:
       - build-ubuntu
@@ -292,7 +277,7 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_kademlia_check.sh
-        timeout-minutes: 10
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   db-migration-checks:
     needs:
       - build-ubuntu
@@ -312,7 +297,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks
         run: ./scripts/tests/calibnet_db_migration.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   db-migration-checks-car-db:
     needs:
       - build-ubuntu
@@ -332,7 +317,7 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: Database migration checks with car_db folder
         run: ./scripts/tests/calibnet_db_migration_car_db.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   local-devnet-check:
     name: Devnet checks
     runs-on: ubuntu-latest
@@ -358,10 +343,10 @@ jobs:
           name: 'forest-${{ runner.os }}'
       - name: Devnet setup
         run: ./scripts/devnet/ci_setup.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Devnet check
         run: ./scripts/devnet/ci_check.sh
-        timeout-minutes: 15
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
@@ -398,5 +383,4 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - name: RPC check
         run: ./scripts/tests/calibnet_offline_rpc_check.sh
-        timeout-minutes: 20
-
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'

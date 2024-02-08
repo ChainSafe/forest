@@ -82,9 +82,9 @@ pub async fn load_actor_bundles_from_server(
             .iter()
             .filter(|bundle| {
                 !db.has(&bundle.manifest).unwrap_or(false) &&
-        // Comparing only the discriminant is enough. All devnets share the same
-        // actor bundle.
-        discriminant(network) == discriminant(&bundle.network)
+                // Comparing only the discriminant is enough. All devnets share the same
+                // actor bundle.
+                discriminant(network) == discriminant(&bundle.network)
             })
             .map(
                 |ActorBundleInfo {
@@ -102,7 +102,7 @@ pub async fn load_actor_bundles_from_server(
                     let bytes = response.bytes().await?;
                     let header = load_car(db, Cursor::new(bytes)).await?;
                     ensure!(header.roots.len() == 1);
-                    ensure!(&header.roots[0] == root);
+                    ensure!(header.roots.first() == root);
                     Ok(())
                 },
             ),

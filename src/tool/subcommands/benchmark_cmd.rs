@@ -19,6 +19,7 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
+use nonempty::NonEmpty;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -249,7 +250,8 @@ async fn benchmark_exporting(
     );
     crate::db::car::forest::Encoder::write(
         &mut dest,
-        ts.key().cids.clone().into_iter().collect(),
+        NonEmpty::from_vec(ts.key().cids.clone().into_iter().collect())
+            .context("car roots cannot be empty")?,
         frames,
     )
     .await?;

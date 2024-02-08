@@ -35,6 +35,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpsee::types::Params as JsonRpseeParams;
 use libipld_core::ipld::Ipld;
+use nonempty::nonempty;
 use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::path::PathBuf;
@@ -520,7 +521,7 @@ pub async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
 
     let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
         let (car_tx, car_rx) = flume::bounded(100);
-        let roots = vec![root_cid];
+        let roots = nonempty![root_cid];
         let file = tokio::fs::File::create(save_to_file).await?;
 
         let car_handle = tokio::spawn(async move {
