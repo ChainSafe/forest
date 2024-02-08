@@ -570,8 +570,8 @@ where
         let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let evaluator = async move {
-            let mut tipsets = vec![];
-            loop {
+            let mut tipsets = Vec::with_capacity(tipset_sample_size);
+            while tipsets.len() < tipset_sample_size {
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
@@ -600,30 +600,34 @@ where
                     }
                 };
 
-                let header = tipset.blocks().first().header();
                 let now_epoch = chrono::Utc::now()
                     .timestamp()
                     .saturating_add(block_delay as i64 - 1)
                     .saturating_sub(genesis.block_headers().first().timestamp as i64)
                     / block_delay as i64;
-                if !header.is_within_clock_drift() {
-                    warn!(
-                        "Skipping tipset with invalid block timestamp from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
-                        header.epoch, header.timestamp
-                    );
-                    continue;
-                } else if tipset.epoch() > now_epoch {
-                    warn!(
-                            "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+
+                let is_block_valid = |block: &Block| -> bool {
+                    let header = &block.header;
+                    if !header.is_within_clock_drift() {
+                        warn!(
+                            "Skipping tipset with invalid block timestamp from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
                             header.epoch, header.timestamp
                         );
-                    continue;
-                }
+                        false
+                    } else if tipset.epoch() > now_epoch {
+                        warn!(
+                                "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
+                                header.epoch, header.timestamp
+                            );
+                        false
+                    } else {
+                        true
+                    }
+                };
 
-                // Add to tipset sample
-                tipsets.push(tipset);
-                if tipsets.len() >= tipset_sample_size {
-                    break;
+                if tipset.blocks().iter().all(is_block_valid) {
+                    // Add to tipset sample
+                    tipsets.push(tipset);
                 }
             }
 

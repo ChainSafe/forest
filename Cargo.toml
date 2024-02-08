@@ -161,13 +161,13 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.4.1"
 serde_json = "1.0"
 serde_tuple = "0.5"
-serde_with = { version = "3.0.0", features = ["chrono_0_4"] }
+serde_with = { version = "3.6.0", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
 similar = "2.2.1"
 slotmap = "1.0"
-smallvec = "1.12"
+smallvec = "1.13"
 smart-default = "0.7.1"
 stacker = "0.1.15"
 static_assertions = "1.1.0"
@@ -176,7 +176,7 @@ strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
 tabled = "0.15"
 tap = "1"
-tempfile = "3.4"
+tempfile = "3.10"
 thiserror = "1.0"
 ticker = "0.1"
 tikv-jemallocator = { version = "0.5", optional = true }
@@ -213,7 +213,7 @@ http-range-header = "0.4.0"
 libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-predicates = "3.0"
+predicates = "3.1"
 proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
