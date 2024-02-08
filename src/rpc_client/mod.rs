@@ -174,17 +174,24 @@ impl ApiInfo {
 
         write.send(WsMessage::Binary(payload)).await?;
 
-        if let Some(message) = read.next().await {
-            let data = message?.into_data();
-            let rpc_res: JsonRpcResponse<T::LotusJson> =
-                serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
+        match tokio::time::timeout(req.timeout, read.next()).await {
+            Ok(v) => {
+                if let Some(message) = v {
+                    let data = message?.into_data();
+                    let rpc_res: JsonRpcResponse<T::LotusJson> =
+                        serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
-            match rpc_res {
-                JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-                JsonRpcResponse::Error { error, .. } => Err(error),
+                    match rpc_res {
+                        JsonRpcResponse::Result { result, .. } => {
+                            Ok(HasLotusJson::from_lotus_json(result))
+                        }
+                        JsonRpcResponse::Error { error, .. } => Err(error),
+                    }
+                } else {
+                    Err(JsonRpcError::INVALID_REQUEST)
+                }
             }
-        } else {
-            Err(JsonRpcError::INVALID_REQUEST)
+            Err(_) => Err(JsonRpcError::TIMED_OUT),
         }
     }
 }
@@ -223,6 +230,10 @@ impl JsonRpcError {
     pub const INVALID_PARAMS: JsonRpcError = JsonRpcError {
         code: -32602,
         message: Cow::Borrowed("Invalid method parameter(s)."),
+    };
+    pub const TIMED_OUT: JsonRpcError = JsonRpcError {
+        code: 0,
+        message: Cow::Borrowed("Operation timed out."),
     };
 }
 
