@@ -71,7 +71,7 @@ where
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
     if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
         BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
-        for info in &chain_config.height_infos {
+        for info in chain_config.height_infos.values() {
             for (height, _) in &mappings {
                 if height == &info.height {
                     assert!(

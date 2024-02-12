@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::clock::ChainEpoch;
+use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
@@ -33,7 +34,7 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 2880 * 21;
 pub const ETH_CHAIN_ID: u64 = 314;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -159,6 +160,9 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
             ),
         },
     ]
+    .iter()
+    .map(|info| (info.height, info.clone()))
+    .collect()
 });
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| {

@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
@@ -30,93 +31,8 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 pub const ETH_CHAIN_ID: u64 = 314159;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 24]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     [
-        HeightInfo {
-            height: Height::Breeze,
-            epoch: -1,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Smoke,
-            epoch: -2,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Ignition,
-            epoch: -3,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::ActorsV2,
-            epoch: 30,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Tape,
-            epoch: 60,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Liftoff,
-            epoch: -5,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Kumquat,
-            epoch: 90,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Calico,
-            epoch: 120,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Persian,
-            epoch: 130,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Orange,
-            epoch: 300,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Trust,
-            epoch: 330,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Norwegian,
-            epoch: 360,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Turbo,
-            epoch: 390,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Hyperdrive,
-            epoch: 420,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Chocolate,
-            epoch: 450,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::OhSnap,
-            epoch: 480,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Skyr,
-            epoch: 510,
-            bundle: None,
-        },
         HeightInfo {
             height: Height::Shark,
             epoch: 16_800,
@@ -171,6 +87,9 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 24]> = Lazy::new(|| {
             ),
         },
     ]
+    .iter()
+    .map(|info| (info.height, info.clone()))
+    .collect()
 });
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {

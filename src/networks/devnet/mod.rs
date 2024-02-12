@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
 use cid::Cid;
 use once_cell::sync::Lazy;
 
@@ -15,93 +16,8 @@ pub const ETH_CHAIN_ID: u64 = 31415926;
 /// Height epochs.
 /// Environment variable names follow
 /// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     [
-        HeightInfo {
-            height: Height::Breeze,
-            epoch: get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-50),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Smoke,
-            epoch: get_upgrade_height_from_env("FOREST_SMOKE_HEIGHT").unwrap_or(-2),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Ignition,
-            epoch: get_upgrade_height_from_env("FOREST_IGNITION_HEIGHT").unwrap_or(-3),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::ActorsV2,
-            epoch: get_upgrade_height_from_env("FOREST_ACTORSV2_HEIGHT").unwrap_or(-3),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Tape,
-            epoch: get_upgrade_height_from_env("FOREST_TAPE_HEIGHT").unwrap_or(-4),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Liftoff,
-            epoch: get_upgrade_height_from_env("FOREST_LIFTOFF_HEIGHT").unwrap_or(-6),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Kumquat,
-            epoch: get_upgrade_height_from_env("FOREST_KUMQUAT_HEIGHT").unwrap_or(-7),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Calico,
-            epoch: get_upgrade_height_from_env("FOREST_CALICO_HEIGHT").unwrap_or(-9),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Persian,
-            epoch: get_upgrade_height_from_env("FOREST_PERSIAN_HEIGHT").unwrap_or(-10),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Orange,
-            epoch: get_upgrade_height_from_env("FOREST_ORANGE_HEIGHT").unwrap_or(-11),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Trust,
-            epoch: get_upgrade_height_from_env("FOREST_ACTORSV3_HEIGHT").unwrap_or(-13),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Norwegian,
-            epoch: get_upgrade_height_from_env("FOREST_NORWEGIAN_HEIGHT").unwrap_or(-14),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Turbo,
-            epoch: get_upgrade_height_from_env("FOREST_ACTORSV4_HEIGHT").unwrap_or(-15),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Hyperdrive,
-            epoch: get_upgrade_height_from_env("FOREST_HYPERDRIVE_HEIGHT").unwrap_or(-16),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Chocolate,
-            epoch: get_upgrade_height_from_env("FOREST_CHOCOLATE_HEIGHT").unwrap_or(-17),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::OhSnap,
-            epoch: get_upgrade_height_from_env("FOREST_OHSNAP_HEIGHT").unwrap_or(-18),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Skyr,
-            epoch: get_upgrade_height_from_env("FOREST_SKYR_HEIGHT").unwrap_or(-19),
-            bundle: None,
-        },
         HeightInfo {
             height: Height::Shark,
             epoch: get_upgrade_height_from_env("FOREST_SHARK_HEIGHT").unwrap_or(-20),
@@ -140,6 +56,9 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
             ),
         },
     ]
+    .iter()
+    .map(|info| (info.height, info.clone()))
+    .collect()
 });
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {

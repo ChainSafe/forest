@@ -140,7 +140,7 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::Shark as usize)
+        .get(&Height::Shark)
         .ok_or_else(|| anyhow!("no height info for network version NV17"))?
         .bundle
         .as_ref()
