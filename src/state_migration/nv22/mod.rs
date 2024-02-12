@@ -17,7 +17,7 @@ use crate::{define_system_states, impl_system, impl_verifier};
 
 define_system_states!(
     fil_actor_system_state::v12::State,
-    fil_actor_system_state::v13::State
+    fil_actor_system_state::v12::State
 );
 
 impl_system!();

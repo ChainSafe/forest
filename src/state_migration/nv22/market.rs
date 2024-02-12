@@ -79,7 +79,6 @@ impl<BS: Blockstore> ActorMigration<BS> for MarketMigrator {
             .into(),
             total_client_storage_fee: TokenAmount::from(in_state.total_client_storage_fee).into(),
             pending_deal_allocation_ids: in_state.pending_deal_allocation_ids,
-            provider_sectors,
         };
 
         let new_head = store.put_cbor_default(&out_state)?;

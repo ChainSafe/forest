@@ -94,27 +94,27 @@ impl<BS: Blockstore> StateMigration<BS> {
 
         let provider_sectors = Arc::new(miner::ProviderSectors::default());
 
-        self.add_migrator(
-            miner_old_code,
-            miner::miner_migrator(
-                provider_sectors.clone(),
-                &policy_old,
-                &policy_new,
-                store,
-                miner_new_code,
-            )?,
-        );
-
-        self.add_migrator(
-            market_old_code,
-            market::market_migrator(
-                provider_sectors.clone(),
-                &policy_old,
-                &policy_new,
-                store,
-                market_new_code,
-            )?,
-        );
+        //        self.add_migrator(
+        //            miner_old_code,
+        //            miner::miner_migrator(
+        //                provider_sectors.clone(),
+        //                &policy_old,
+        //                &policy_new,
+        //                store,
+        //                miner_new_code,
+        //            )?,
+        //        );
+        //
+        //        self.add_migrator(
+        //            market_old_code,
+        //            market::market_migrator(
+        //                provider_sectors.clone(),
+        //                &policy_old,
+        //                &policy_new,
+        //                store,
+        //                market_new_code,
+        //            )?,
+        //        );
 
         self.add_migrator(
             current_manifest.get_system(),

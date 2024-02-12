@@ -15,7 +15,7 @@ pub const ETH_CHAIN_ID: u64 = 31415926;
 /// Height epochs.
 /// Environment variable names follow
 /// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 23]> = Lazy::new(|| {
+pub static HEIGHT_INFOS: Lazy<[HeightInfo; 25]> = Lazy::new(|| {
     [
         HeightInfo {
             height: Height::Breeze,
@@ -128,12 +128,28 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 23]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Thunder,
-            epoch: get_upgrade_height_from_env("FOREST_THUNDER_HEIGHT").unwrap_or(-1),
+            epoch: get_upgrade_height_from_env("FOREST_THUNDER_HEIGHT").unwrap_or(-23),
             bundle: None,
         },
         HeightInfo {
+            height: Height::WatermelonFix,
+            epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-24),
+            bundle: Some(
+                Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
+                    .unwrap(),
+            ),
+        },
+        HeightInfo {
+            height: Height::WatermelonFix2,
+            epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-25),
+            bundle: Some(
+                Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
+                    .unwrap(),
+            ),
+        },
+        HeightInfo {
             height: Height::Watermelon,
-            epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(200),
+            epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-1),
             bundle: Some(
                 Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
                     .unwrap(),
@@ -141,9 +157,9 @@ pub static HEIGHT_INFOS: Lazy<[HeightInfo; 23]> = Lazy::new(|| {
         },
         HeightInfo {
             height: Height::Dragon,
-            epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(i64::MAX),
+            epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(200),
             bundle: Some(
-                Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
+                Cid::try_from("bafy2bzacec7m4klgyekusdfdfluyzudr247vquxayubhnddv3obexvpeg3jba")
                     .unwrap(),
             ),
         },
@@ -160,7 +176,7 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
             // height is TBD.
             // likely to be `get_upgrade_epoch_by_height(HEIGHT_INFOS.iter(), Height::Pineapple).unwrap()`.
             // remember to remove `#[allow(dead_code)]` from `get_upgrade_epoch_by_height`
-            height: i64::MAX,
+            height: 300,
             config: &DRAND_QUICKNET,
         },
     ]
