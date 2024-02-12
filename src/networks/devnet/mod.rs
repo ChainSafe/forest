@@ -17,48 +17,55 @@ pub const ETH_CHAIN_ID: u64 = 31415926;
 /// Environment variable names follow
 /// <https://github.com/filecoin-project/lotus/blob/8f73f157933435f5020d7b8f23bee9e4ab71cb1c/build/params_2k.go#L108>
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
-    [
-        HeightInfo {
-            height: Height::Shark,
-            epoch: get_upgrade_height_from_env("FOREST_SHARK_HEIGHT").unwrap_or(-20),
-            bundle: Some(
-                Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Hygge,
-            epoch: get_upgrade_height_from_env("FOREST_HYGGE_HEIGHT").unwrap_or(-21),
-            bundle: Some(
-                Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Lightning,
-            epoch: get_upgrade_height_from_env("FOREST_LIGHTNING_HEIGHT").unwrap_or(-22),
-            bundle: Some(
-                Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Thunder,
-            epoch: get_upgrade_height_from_env("FOREST_THUNDER_HEIGHT").unwrap_or(-1),
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Watermelon,
-            epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(200),
-            bundle: Some(
-                Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
-                    .unwrap(),
-            ),
-        },
-    ]
-    .iter()
-    .map(|info| (info.height, info.clone()))
-    .collect()
+    HashMap::from_iter([
+        (
+            Height::Shark,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_SHARK_HEIGHT").unwrap_or(-20),
+                bundle: Some(
+                    Cid::try_from("bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Hygge,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_HYGGE_HEIGHT").unwrap_or(-21),
+                bundle: Some(
+                    Cid::try_from("bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Lightning,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_LIGHTNING_HEIGHT").unwrap_or(-22),
+                bundle: Some(
+                    Cid::try_from("bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Thunder,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_THUNDER_HEIGHT").unwrap_or(-1),
+                bundle: None,
+            },
+        ),
+        (
+            Height::Watermelon,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(200),
+                bundle: Some(
+                    Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
+                        .unwrap(),
+                ),
+            },
+        ),
+    ])
 });
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {

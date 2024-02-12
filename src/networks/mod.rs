@@ -168,7 +168,6 @@ impl From<Height> for NetworkVersion {
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
-    pub height: Height,
     pub epoch: ChainEpoch,
     pub bundle: Option<Cid>,
 }
@@ -294,11 +293,11 @@ impl ChainConfig {
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
         let height = self
             .height_infos
-            .values()
-            .sorted_by_key(|info| info.epoch)
+            .iter()
+            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
-            .find(|info| epoch > info.epoch)
-            .map(|info| info.height)
+            .find(|(_, info)| epoch > info.epoch)
+            .map(|(height, _)| *height)
             .unwrap_or(Height::Breeze);
 
         From::from(height)
@@ -328,11 +327,11 @@ impl ChainConfig {
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
         self.height_infos
-            .values()
-            .sorted_by_key(|info| info.epoch)
+            .iter()
+            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
-            .find_map(|info| {
-                if info.height == height {
+            .find_map(|(infos_height, info)| {
+                if *infos_height == height {
                     Some(info.epoch)
                 } else {
                     None
@@ -383,12 +382,12 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
 
 #[allow(dead_code)]
 fn get_upgrade_epoch_by_height<'a>(
-    mut height_infos: impl Iterator<Item = &'a HeightInfo>,
+    mut height_infos: impl Iterator<Item = &'a (Height, HeightInfo)>,
     height: Height,
 ) -> Option<ChainEpoch> {
-    height_infos.find_map(|i| {
-        if i.height == height {
-            Some(i.epoch)
+    height_infos.find_map(|(infos_height, info)| {
+        if *infos_height == height {
+            Some(info.epoch)
         } else {
             None
         }

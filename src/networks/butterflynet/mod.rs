@@ -63,27 +63,28 @@ pub const ETH_CHAIN_ID: u64 = 3141592;
 
 /// Height epochs.
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
-    [
-        HeightInfo {
-            height: Height::Thunder,
-            epoch: -1,
-            bundle: Some(
-                Cid::try_from("bafy2bzaceaiy4dsxxus5xp5n5i4tjzkb7sc54mjz7qnk2efhgmsrobjesxnza")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Watermelon,
-            epoch: 400,
-            bundle: Some(
-                Cid::try_from("bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq")
-                    .unwrap(),
-            ),
-        },
-    ]
-    .iter()
-    .map(|info| (info.height, info.clone()))
-    .collect()
+    HashMap::from_iter([
+        (
+            Height::Thunder,
+            HeightInfo {
+                epoch: -1,
+                bundle: Some(
+                    Cid::try_from("bafy2bzaceaiy4dsxxus5xp5n5i4tjzkb7sc54mjz7qnk2efhgmsrobjesxnza")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Watermelon,
+            HeightInfo {
+                epoch: 400,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq")
+                        .unwrap(),
+                ),
+            },
+        ),
+    ])
 });
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
