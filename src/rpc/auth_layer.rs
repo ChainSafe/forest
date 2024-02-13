@@ -29,28 +29,10 @@ pub struct LogService<S> {
     service: S,
 }
 
-// impl<S, Request> Service<Request> for LogService<S>
-// where
-//     S: Service<Request>,
-//     Request: std::fmt::Debug,
-// {
-//     type Response = S::Response;
-//     type Error = S::Error;
-//     type Future = S::Future;
-
-//     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-//         self.service.poll_ready(cx)
-//     }
-
-//     fn call(&mut self, request: Request) -> Self::Future {
-//         println!("processing {:?}", request);
-//         self.service.call(request)
-//     }
-// }
-
-impl<S, B> Service<Request<B>> for LogService<S>
+impl<S, Request> Service<Request> for LogService<S>
 where
-    S: Service<Request<B>> + Clone + Send,
+    S: Service<Request>,
+    Request: std::fmt::Debug,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -60,8 +42,26 @@ where
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request<B>) -> Self::Future {
-        println!("processing {:?}", request.headers());
+    fn call(&mut self, request: Request) -> Self::Future {
+        println!("processing {:?}", request);
         self.service.call(request)
     }
 }
+
+// impl<S, B> Service<Request<B>> for LogService<S>
+// where
+//     S: Service<Request<B>> + Clone + Send,
+// {
+//     type Response = S::Response;
+//     type Error = S::Error;
+//     type Future = S::Future;
+
+//     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+//         self.service.poll_ready(cx)
+//     }
+
+//     fn call(&mut self, request: Request<B>) -> Self::Future {
+//         println!("processing {:?}", request.headers());
+//         self.service.call(request)
+//     }
+// }

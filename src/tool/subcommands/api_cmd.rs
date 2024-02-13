@@ -284,6 +284,9 @@ impl RpcTest {
             )
         };
 
+        // dbg!("forest_resp {:?}", &forest_resp);
+        // dbg!("lotus_resp  {:?}", &lotus_resp);
+
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
@@ -296,10 +299,14 @@ impl RpcTest {
                 (forest_status, EndpointStatus::Valid)
             }
             (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
+                // dbg!("forest_err {:?}", &forest_err);
+                // dbg!("lotus_err  {:?}", &lotus_err);
                 // Both Forest and Lotus have the same error, consider it as valid
                 (EndpointStatus::Valid, EndpointStatus::Valid)
             }
             (forest_resp, lotus_resp) => {
+                //dbg!("forest_resp {:?}", &forest_resp);
+                //dbg!("lotus_resp  {:?}", &lotus_resp);
                 let forest_status =
                     forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
                         if (self.check_syntax)(value) {
