@@ -232,20 +232,9 @@ where
         use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
         use tower_http::LatencyUnit;
 
-        tower::ServiceBuilder::new()
-                .layer(
-                    TraceLayer::new_for_http()
-                        .on_request(
-                            |request: &hyper::Request<hyper::Body>, _span: &tracing::Span| tracing::debug!(request = ?request, "on_request"),
-                        )
-                        .on_body_chunk(|chunk: &Bytes, latency: Duration, _: &tracing::Span| {
-                            tracing::debug!(size_bytes = chunk.len(), latency = ?latency, "sending body chunk")
-                        })
-                        .make_span_with(DefaultMakeSpan::new().include_headers(true))
-                        .on_response(DefaultOnResponse::new().include_headers(true).latency_unit(LatencyUnit::Micros)),
-                )
-                // Mark the `Authorization` request header as sensitive so it doesn't show in logs
-                .layer(SetSensitiveRequestHeadersLayer::new(once(hyper::header::AUTHORIZATION)))
+        let layer = LogLayer { target: "debug" };
+
+        tower::ServiceBuilder::new().layer(layer)
     };
 
     let server = RpseeServer::builder()
