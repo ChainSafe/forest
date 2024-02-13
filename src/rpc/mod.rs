@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod auth_api;
+mod auth_layer;
 mod beacon_api;
 mod chain_api;
 mod common_api;
@@ -21,6 +22,7 @@ mod wallet_api;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::rpc::auth_layer::LogLayer;
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
@@ -232,11 +234,13 @@ where
 
     let block_delay = state.state_manager.chain_config().block_delay_secs as u64;
 
-    let middleware = RpcServiceBuilder::new().rpc_logger(4096);
+    // This is the Hello World of tower services
+    let layer = LogLayer { target: "debug" };
+    let middleware = tower::ServiceBuilder::default().layer(layer);
 
     let server = RpseeServer::builder()
         .custom_tokio_runtime(rt)
-        .set_rpc_middleware(middleware)
+        .set_http_middleware(middleware)
         // Default (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
         .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
         .build(rpc_endpoint)
