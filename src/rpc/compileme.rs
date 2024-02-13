@@ -1,4 +1,4 @@
-// this is the example from https://github.com/paritytech/jsonrpsee/blob/8a24e2451f662f61d89c727e40efcd06168664dd/examples/examples/http_middleware.rs
+// this is a cut-down example from https://github.com/paritytech/jsonrpsee/blob/8a24e2451f662f61d89c727e40efcd06168664dd/examples/examples/http_middleware.rs
 // it definitely compiles
 // but it doesn't compile in our codebase - so is there a version mismatch somewhere?
 // perhaps jsonrpsee hasn't taken e.g hyper 1.0
@@ -6,6 +6,7 @@
 //   - jsonrpsee::server relies on hyper 0.14 - should that even matter for our use-case?
 
 use hyper014 as hyper;
+use tower_http04 as tower_http;
 
 use hyper::body::Bytes;
 use hyper::http::HeaderValue;
@@ -23,44 +24,6 @@ use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::server::{RpcModule, Server};
 use jsonrpsee::ws_client::WsClientBuilder;
-
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::FmtSubscriber::builder()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .try_init()
-        .expect("setting default subscriber failed");
-
-    let addr = run_server().await?;
-
-    // WebSocket.
-    {
-        let client = WsClientBuilder::default()
-            .build(format!("ws://{}", addr))
-            .await?;
-        let response: String = client.request("say_hello", rpc_params![]).await?;
-        println!("[main]: ws response: {:?}", response);
-        let _response: Result<String, _> = client.request("unknown_method", rpc_params![]).await;
-        let _ = client
-            .request::<String, _>("say_hello", rpc_params![])
-            .await?;
-    }
-
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-    // HTTP.
-    {
-        let client = HttpClientBuilder::default().build(format!("http://{}", addr))?;
-        let response: String = client.request("say_hello", rpc_params![]).await?;
-        println!("[main]: http response: {:?}", response);
-        let _response: Result<String, _> = client.request("unknown_method", rpc_params![]).await;
-        let _ = client
-            .request::<String, _>("say_hello", rpc_params![])
-            .await?;
-    }
-
-    Ok(())
-}
 
 async fn run_server() -> anyhow::Result<SocketAddr> {
     // let cors = CorsLayer::new()

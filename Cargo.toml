@@ -92,8 +92,8 @@ human-repr = "1.0"
 human_bytes = "0.4"
 humantime = "2.1.0"
 hyper = { version = "1.1.0", features = ["full"] }
+# TODO(aatifsyed): bump this to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
 hyper014 = { version = "0.14.20", package = "hyper" }
-# hyper = "1.1.0"
 indexmap = { version = "2.1", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
@@ -195,7 +195,8 @@ tokio-tungstenite = "0.21.0"
 tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.5.1", features = ["full"] }
+# TODO(aatifsyed): bump this to 0.5 after https://github.com/paritytech/jsonrpsee/pull/1273
+tower-http04 = { version = "0.4", features = ["full"], package = "tower-http" }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7.1"

@@ -239,18 +239,6 @@ where
     let layer = LogLayer { target: "debug" };
     let middleware = tower::ServiceBuilder::default().layer(layer);
 
-    use hyper014::body::Bytes;
-    use hyper014::http::HeaderValue;
-    use hyper014::Method;
-    use jsonrpsee::rpc_params;
-    use std::iter::once;
-    use std::net::SocketAddr;
-    use std::time::Duration;
-    use tower_http::cors::CorsLayer;
-    use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
-    use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-    use tower_http::LatencyUnit;
-
     let server = RpseeServer::builder()
         .custom_tokio_runtime(rt)
         .set_http_middleware(
