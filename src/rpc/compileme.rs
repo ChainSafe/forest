@@ -5,9 +5,6 @@
 // - here's the PR for that: https://github.com/paritytech/jsonrpsee/pull/1266
 //   - jsonrpsee::server relies on hyper 0.14 - should that even matter for our use-case?
 
-use hyper014 as hyper;
-use tower_http04 as tower_http;
-
 use hyper::body::Bytes;
 use hyper::http::HeaderValue;
 use hyper::Method;

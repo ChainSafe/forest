@@ -3268,7 +3268,6 @@ dependencies = [
  "human_bytes",
  "humantime",
  "hyper 0.14.28",
- "hyper 1.1.0",
  "indexmap 2.2.2",
  "indicatif",
  "integer-encoding",
@@ -4472,7 +4471,6 @@ dependencies = [
  "itoa",
  "pin-project-lite",
  "tokio",
- "want",
 ]
 
 [[package]]
