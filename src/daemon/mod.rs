@@ -26,7 +26,7 @@ use crate::key_management::{
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::rpc::start_rpsee;
+use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
@@ -359,7 +359,7 @@ pub(super) async fn start(
                 .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
         );
 
-        let handle = start_rpsee(
+        let handle = start_rpc(
             RPCState {
                 state_manager: Arc::clone(&rpc_state_manager),
                 keystore: keystore_rpc,
@@ -382,6 +382,8 @@ pub(super) async fn start(
 
         services.spawn(async move {
             handle.stopped().await;
+
+            info!("Stopped accepting RPC connections");
             Ok(())
         });
     } else {
