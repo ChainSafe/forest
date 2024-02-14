@@ -30,15 +30,15 @@ use crate::rpc_api::{
     wallet_api::*,
 };
 
-use futures_util::TryFutureExt;
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
-use jsonrpsee::server::{stop_channel, ServerHandle, StopHandle, TowerServiceBuilder};
-use jsonrpsee::server::{RpcModule, RpcServiceBuilder, Server as RpseeServer};
-use jsonrpsee::types::error::{ErrorObjectOwned, INTERNAL_ERROR_CODE};
-use jsonrpsee::{MethodResponse, Methods};
+use jsonrpc_v2::{Data, Error as JSONRPCError};
+use jsonrpsee::server::{
+    stop_channel, RpcModule, RpcServiceBuilder, Server, ServerHandle, StopHandle,
+    TowerServiceBuilder,
+};
+use jsonrpsee::Methods;
 use tokio::sync::mpsc::Sender;
 use tower::Service;
 use tracing::info;
@@ -84,8 +84,9 @@ where
     let per_conn = PerConnection {
         methods: module.into(),
         stop_handle: stop_handle.clone(),
-        svc_builder: jsonrpsee::server::Server::builder()
-            .set_http_middleware(tower::ServiceBuilder::new())
+        svc_builder: Server::builder()
+            // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+            .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
             .to_service_builder(),
     };
 
@@ -101,10 +102,7 @@ where
                 } = per_conn.clone();
 
                 let headers = req.headers().clone();
-                let rpc_middleware = {
-                    let layer = AuthLayer { headers };
-                    RpcServiceBuilder::new().layer(layer)
-                };
+                let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer { headers });
 
                 let mut svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
