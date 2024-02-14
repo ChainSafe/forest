@@ -65,10 +65,12 @@ pub struct Client {
     pub metrics_address: SocketAddr,
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
-    // Period of validity for JWT in seconds. Defaults to 60 days.
+    /// Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
     #[cfg_attr(test, arbitrary(gen(
-        |g| Duration::milliseconds(i64::arbitrary(g))
+        // Note: this a workaround for `chrono` not supporting `i64::MIN` as a valid duration.
+        // [[https://github.com/chronotope/chrono/blob/dc196062650c05528cbe259e340210f0340a05d1/src/time_delta.rs#L223-L232]]
+        |g| Duration::milliseconds(i64::arbitrary(g).max(-i64::MAX))
     )))]
     pub token_exp: Duration,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
