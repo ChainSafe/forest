@@ -1,6 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
@@ -61,125 +62,29 @@ pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
 pub const ETH_CHAIN_ID: u64 = 3141592;
 
 /// Height epochs.
-pub static HEIGHT_INFOS: Lazy<[HeightInfo; 22]> = Lazy::new(|| {
-    [
-        HeightInfo {
-            height: Height::Breeze,
-            epoch: -50,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Smoke,
-            epoch: -2,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Ignition,
-            epoch: -3,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::ActorsV2,
-            epoch: -3,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Tape,
-            epoch: -4,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Liftoff,
-            epoch: -6,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Kumquat,
-            epoch: -7,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Calico,
-            epoch: -9,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Persian,
-            epoch: -10,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Orange,
-            epoch: -11,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Trust,
-            epoch: -13,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Norwegian,
-            epoch: -14,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Turbo,
-            epoch: -15,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Hyperdrive,
-            epoch: -16,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Chocolate,
-            epoch: -17,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::OhSnap,
-            epoch: -18,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Skyr,
-            epoch: -19,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Shark,
-            epoch: -20,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Hygge,
-            epoch: -21,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Lightning,
-            epoch: -22,
-            bundle: None,
-        },
-        HeightInfo {
-            height: Height::Thunder,
-            epoch: -1,
-            bundle: Some(
-                Cid::try_from("bafy2bzaceaiy4dsxxus5xp5n5i4tjzkb7sc54mjz7qnk2efhgmsrobjesxnza")
-                    .unwrap(),
-            ),
-        },
-        HeightInfo {
-            height: Height::Watermelon,
-            epoch: 400,
-            bundle: Some(
-                Cid::try_from("bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq")
-                    .unwrap(),
-            ),
-        },
-    ]
+pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
+    HashMap::from_iter([
+        (
+            Height::Thunder,
+            HeightInfo {
+                epoch: -1,
+                bundle: Some(
+                    Cid::try_from("bafy2bzaceaiy4dsxxus5xp5n5i4tjzkb7sc54mjz7qnk2efhgmsrobjesxnza")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Watermelon,
+            HeightInfo {
+                epoch: 400,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq")
+                        .unwrap(),
+                ),
+            },
+        ),
+    ])
 });
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {

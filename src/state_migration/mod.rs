@@ -71,9 +71,9 @@ where
     static BUNDLE_CHECKED: AtomicBool = AtomicBool::new(false);
     if !BUNDLE_CHECKED.load(atomic::Ordering::Relaxed) {
         BUNDLE_CHECKED.store(true, atomic::Ordering::Relaxed);
-        for info in &chain_config.height_infos {
+        for (info_height, info) in chain_config.height_infos.iter() {
             for (height, _) in &mappings {
-                if height == &info.height {
+                if height == info_height {
                     assert!(
                         info.bundle.is_some(),
                         "Actor bundle info for height {height} needs to be defined in `src/networks/mod.rs` to run state migration"

@@ -195,7 +195,7 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
             let watermelonfix_height = self
                 .chain_config
                 .height_infos
-                .get(Height::WatermelonFix as usize)
+                .get(&Height::WatermelonFix)
                 .context("Missing WatermelonFix for calibnet")?
                 .epoch;
 
