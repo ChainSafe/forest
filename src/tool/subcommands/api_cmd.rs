@@ -969,7 +969,6 @@ async fn run_tests(
         if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
             || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
         {
-            // Your code here {
             success_results
                 .entry(result_entry)
                 .and_modify(|v| *v += 1)
