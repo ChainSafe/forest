@@ -813,7 +813,7 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
     if from_to.is_empty() {
         return Err(JsonRpcError::Provided {
             code: 1,
-            message: "must specify at least To or From in message filter".into(),
+            message: "must specify at least To or From in message filter",
         });
     } else if let Some(to) = from_to.to {
         // this is following lotus logic, it probably should be `if let` instead of `else if let`
