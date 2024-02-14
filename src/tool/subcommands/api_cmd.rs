@@ -890,7 +890,7 @@ async fn start_offline_server(
     start_offline_rpc(rpc_state, rpc_port).await?;
 
     // Cleanup offline RPC resources
-    std::fs::remove_file(&snapshot_path)?;
+    info!("Cleaning offline RPC data directory: {:?}", db_path);
     std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
