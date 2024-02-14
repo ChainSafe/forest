@@ -48,7 +48,7 @@ macro_rules! actor_bundle_info {
                             ".car"
                         ).parse().unwrap(),
                     alt_url: concat!(
-                          "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/actors/",
+                          "https://filecoin-actors.chainsafe.dev/",
                           $version,
                             "/builtin-actors-",
                             $network,

@@ -169,7 +169,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_ipld_dagcbor = "0.4.1"
 serde_json = "1.0"
 serde_tuple = "0.5"
-serde_with = { version = "3.6.0", features = ["chrono_0_4"] }
+serde_with = { version = "3.6.1", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
@@ -214,7 +214,6 @@ termios = "0.3"
 ariadne = "0.4.0"
 assert_cmd = "2"
 cargo_metadata = "0.18.0"
-const-random = "0.1.15"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
@@ -229,7 +228,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.200"
+ra_ap_syntax = "0.0.201"
 regex-automata = "0.4"
 syn = { version = "2.0.48", default-features = false, features = [
   "full",
