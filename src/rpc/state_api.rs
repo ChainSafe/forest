@@ -811,7 +811,10 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
     let ts = data.chain_store.load_required_tipset(&tsk)?;
 
     if from_to.is_empty() {
-        return Err("must specify at least To or From in message filter".into());
+        return Err(JsonRpcError::Provided {
+            code: 1,
+            message: "must specify at least To or From in message filter".into(),
+        });
     } else if let Some(to) = from_to.to {
         // this is following lotus logic, it probably should be `if let` instead of `else if let`
         // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
