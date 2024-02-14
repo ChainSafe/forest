@@ -22,7 +22,7 @@ mod wallet_api;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::rpc::auth_layer::LogLayer;
+use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
@@ -223,24 +223,17 @@ pub async fn start_rpsee<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let http_middleware = {
-        // This is a cut-down example from https://github.com/paritytech/jsonrpsee/blob/v0.21.0/examples/examples/http_middleware.rs
-        use hyper::body::Bytes;
-        use std::iter::once;
-        use std::time::Duration;
-        use tower_http::sensitive_headers::SetSensitiveRequestHeadersLayer;
-        use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
-        use tower_http::LatencyUnit;
-
-        let layer = LogLayer { target: "debug" };
-
-        tower::ServiceBuilder::new().layer(layer)
+    let rpc_middleware = {
+        let layer = AuthLayer {
+            headers: hyper::HeaderMap::default(),
+        };
+        RpcServiceBuilder::new().layer(layer)
     };
 
     let server = RpseeServer::builder()
         .custom_tokio_runtime(rt)
-        .set_http_middleware(http_middleware)
-        // Default (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+        .set_rpc_middleware(rpc_middleware)
+        // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
         .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
         .build(rpc_endpoint)
         .await?;
