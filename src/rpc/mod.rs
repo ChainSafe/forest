@@ -19,6 +19,7 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
+use std::error::Error as StdError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -28,12 +29,18 @@ use crate::rpc_api::{
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
     wallet_api::*,
 };
+
 use futures_util::TryFutureExt;
 use fvm_ipld_blockstore::Blockstore;
+use hyper::server::conn::AddrStream;
+use hyper::service::{make_service_fn, service_fn};
 use jsonrpc_v2::{Data, Error as JSONRPCError, Server};
-use jsonrpsee::server::{RpcModule, RpcServiceBuilder, Server as RpseeServer, ServerHandle};
+use jsonrpsee::server::{stop_channel, ServerHandle, StopHandle, TowerServiceBuilder};
+use jsonrpsee::server::{RpcModule, RpcServiceBuilder, Server as RpseeServer};
 use jsonrpsee::types::error::{ErrorObjectOwned, INTERNAL_ERROR_CODE};
+use jsonrpsee::{MethodResponse, Methods};
 use tokio::sync::mpsc::Sender;
+use tower::Service;
 use tracing::info;
 
 use crate::rpc::{
@@ -43,6 +50,13 @@ use crate::rpc::{
 };
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
+
+#[derive(Clone)]
+struct PerConnection<RpcMiddleware, HttpMiddleware> {
+    methods: Methods,
+    stop_handle: StopHandle,
+    svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+}
 
 pub async fn start_rpc<DB>(
     state: RPCState<DB>,
@@ -54,21 +68,6 @@ pub async fn start_rpc<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let rpc_middleware = {
-        let layer = AuthLayer {
-            headers: hyper::HeaderMap::default(),
-        };
-        RpcServiceBuilder::new().layer(layer)
-    };
-
-    let server = RpseeServer::builder()
-        .custom_tokio_runtime(rt)
-        .set_rpc_middleware(rpc_middleware)
-        // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
-        .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
-        .build(rpc_endpoint)
-        .await?;
-
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let mut module = RpcModule::new(state.clone());
@@ -80,7 +79,50 @@ where
         shutdown_send,
     )?;
 
-    let handle = server.start(module);
+    let (stop_handle, handle) = stop_channel();
+
+    let per_conn = PerConnection {
+        methods: module.into(),
+        stop_handle: stop_handle.clone(),
+        svc_builder: jsonrpsee::server::Server::builder()
+            .set_http_middleware(tower::ServiceBuilder::new())
+            .to_service_builder(),
+    };
+
+    let make_service = make_service_fn(move |_conn: &AddrStream| {
+        let per_conn = per_conn.clone();
+
+        async move {
+            Ok::<_, Box<dyn StdError + Send + Sync>>(service_fn(move |req| {
+                let PerConnection {
+                    methods,
+                    stop_handle,
+                    svc_builder,
+                } = per_conn.clone();
+
+                let headers = req.headers().clone();
+                let rpc_middleware = {
+                    let layer = AuthLayer { headers };
+                    RpcServiceBuilder::new().layer(layer)
+                };
+
+                let mut svc = svc_builder
+                    .set_rpc_middleware(rpc_middleware)
+                    .build(methods, stop_handle);
+
+                async move { svc.call(req).await }
+            }))
+        }
+    });
+
+    let hyper = hyper::Server::bind(&rpc_endpoint).serve(make_service);
+
+    // TODO: don't spawn a task here
+    tokio::spawn(async move {
+        let graceful = hyper.with_graceful_shutdown(async move { stop_handle.shutdown().await });
+        graceful.await.unwrap()
+    });
+
     info!("Ready for RPC connections");
 
     Ok(handle)

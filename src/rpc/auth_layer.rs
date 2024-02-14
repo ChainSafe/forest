@@ -37,6 +37,8 @@ where
     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
         tracing::debug!("{}", &req.method_name());
 
+        tracing::debug!("{:?}", &self.headers.get(hyper::header::AUTHORIZATION));
+
         ResponseFuture::future(self.inner.call(req))
     }
 }
