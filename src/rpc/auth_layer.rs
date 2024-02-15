@@ -3,18 +3,16 @@
 
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
-use crate::rpc::AUTH_VERIFY;
+use crate::rpc_api::{check_access, ACCESS_MAP};
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use hyper::StatusCode;
-use jsonrpsee::server::middleware::rpc::{ResponseFuture, RpcServiceT};
-use jsonrpsee::types::Id;
-use jsonrpsee::types::Request as JsonRpcRequest;
-use jsonrpsee::{MethodResponse, Methods};
+use jsonrpsee::server::middleware::rpc::RpcServiceT;
+use jsonrpsee::types::{error::ErrorCode, ErrorObject, Id};
+use jsonrpsee::MethodResponse;
 use tokio::sync::RwLock;
 use tower::Layer;
-use tracing::info;
+use tracing::debug;
 
 use std::sync::Arc;
 
@@ -89,13 +87,15 @@ where
 
         async move {
             let auth_header = headers.get(hyper::header::AUTHORIZATION).cloned();
-            let header_value = auth_header.unwrap();
-            let token = header_value.to_str().unwrap();
+            let res = check_permissions(keystore, auth_header, req.method_name()).await;
 
-            let claims = auth_verify(token, keystore).await;
-
-            let resp = service.call(req).await;
-            resp
+            match res {
+                Ok(()) => {
+                    let resp = service.call(req).await;
+                    resp
+                }
+                Err(code) => MethodResponse::error(Id::Null, ErrorObject::from(code)),
+            }
         }
         .boxed()
     }
@@ -106,4 +106,36 @@ async fn auth_verify(token: &str, keystore: Arc<RwLock<KeyStore>>) -> anyhow::Re
     let ki = ks.get(JWT_IDENTIFIER)?;
     let perms = verify_token(token, ki.private_key())?;
     Ok(perms)
+}
+
+async fn check_permissions(
+    keystore: Arc<RwLock<KeyStore>>,
+    auth_header: Option<hyper::header::HeaderValue>,
+    method: &str,
+) -> Result<(), ErrorCode> {
+    let claims = match auth_header {
+        Some(token) => {
+            let token = token.to_str().map_err(|_| ErrorCode::InternalError)?;
+
+            debug!("JWT from HTTP Header: {}", token);
+
+            auth_verify(token, keystore)
+                .await
+                .map_err(|_| ErrorCode::InternalError)?
+        }
+        // If no token is passed, assume read behavior
+        None => vec!["read".to_owned()],
+    };
+    debug!("Decoded JWT Claims: {}", claims.join(","));
+
+    match ACCESS_MAP.get(&method) {
+        Some(access) => {
+            if check_access(access, &claims) {
+                Ok(())
+            } else {
+                Err(ErrorCode::InvalidRequest)
+            }
+        }
+        None => Err(ErrorCode::MethodNotFound),
+    }
 }
