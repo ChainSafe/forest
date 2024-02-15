@@ -59,10 +59,7 @@ where
             let res = check_permissions(keystore, auth_header, req.method_name()).await;
 
             match res {
-                Ok(()) => {
-                    let resp = service.call(req).await;
-                    resp
-                }
+                Ok(()) => service.call(req).await,
                 Err(code) => MethodResponse::error(Id::Null, ErrorObject::from(code)),
             }
         }

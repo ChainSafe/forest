@@ -104,7 +104,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
     match block_param {
         BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
             Predefined::Earliest => {
-                return Err(anyhow::anyhow!("block param \"earliest\" is not supported").into())
+                Err(anyhow::anyhow!("block param \"earliest\" is not supported").into())
             }
             Predefined::Pending => Ok(head),
             Predefined::Latest => {
