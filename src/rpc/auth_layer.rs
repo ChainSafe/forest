@@ -41,35 +41,6 @@ pub struct AuthMiddleware<S> {
     pub keystore: Arc<RwLock<KeyStore>>,
 }
 
-// impl<'a, S> RpcServiceT<'a> for AuthMiddleware<S>
-// where
-//     S: Send + Clone + Sync + RpcServiceT<'a>,
-// {
-//     //type Future = ResponseFuture<S::Future>;
-//     type Future = BoxFuture<'a, MethodResponse>;
-
-//     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
-//         dbg!(&req.method_name());
-
-//         dbg!(&self.headers.get(hyper::header::AUTHORIZATION));
-
-//         let authorization_header = self.headers.get(hyper::header::AUTHORIZATION).cloned();
-
-//         if let Some(token) = authorization_header {
-//             let token = token.to_str().unwrap();
-
-//             // call auth_verify here with token
-
-//             ResponseFuture::future(self.inner.call(req))
-//         } else {
-//             // If no token is passed, assume read behavior
-
-//             // check ACCESS_MAP here, if ok return call(req) else return an error
-//             ResponseFuture::future(self.inner.call(req))
-//         }
-//     }
-// }
-
 impl<'a, S> RpcServiceT<'a> for AuthMiddleware<S>
 where
     S: RpcServiceT<'a> + Send + Sync + Clone + 'static,
@@ -77,10 +48,6 @@ where
     type Future = BoxFuture<'a, MethodResponse>;
 
     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
-        dbg!(&req.method_name());
-
-        dbg!(&self.headers.get(hyper::header::AUTHORIZATION));
-
         let service = self.inner.clone();
         let keystore = self.keystore.clone();
         let headers = self.headers.clone();
@@ -101,6 +68,7 @@ where
     }
 }
 
+/// Verify JWT Token and return the token's permissions.
 async fn auth_verify(token: &str, keystore: Arc<RwLock<KeyStore>>) -> anyhow::Result<Vec<String>> {
     let ks = keystore.read().await;
     let ki = ks.get(JWT_IDENTIFIER)?;
@@ -112,16 +80,16 @@ async fn check_permissions(
     keystore: Arc<RwLock<KeyStore>>,
     auth_header: Option<hyper::header::HeaderValue>,
     method: &str,
-) -> Result<(), ErrorCode> {
+) -> anyhow::Result<(), ErrorCode> {
     let claims = match auth_header {
         Some(token) => {
-            let token = token.to_str().map_err(|_| ErrorCode::InternalError)?;
+            let token = token.to_str().map_err(|_| ErrorCode::ParseError)?;
 
             debug!("JWT from HTTP Header: {}", token);
 
             auth_verify(token, keystore)
                 .await
-                .map_err(|_| ErrorCode::InternalError)?
+                .map_err(|_| ErrorCode::InvalidRequest)?
         }
         // If no token is passed, assume read behavior
         None => vec!["read".to_owned()],
