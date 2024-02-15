@@ -41,7 +41,6 @@ use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
-use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use nonempty::NonEmpty;
@@ -77,8 +76,6 @@ pub struct RPCSyncState {
 }
 
 lotus_json_with_self!(RPCSyncState);
-
-pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 
 // Chain API
 #[derive(Clone, PartialEq, Serialize, Deserialize)]

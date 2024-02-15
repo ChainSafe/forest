@@ -85,8 +85,6 @@ hex = { version = "0.4", features = ["serde"] }
 http = "1.0"
 http-body = "1.0.0"
 http-body-util = "0.1.0"
-# http-body = "1.0.0"
-# http-body-util = "0.1.0"
 http0 = { package = "http", version = "0.2" }
 human-repr = "1.0"
 human_bytes = "0.4"
