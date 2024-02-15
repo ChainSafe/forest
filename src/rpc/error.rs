@@ -147,6 +147,14 @@ impl From<ParseError> for JsonRpseeError {
     }
 }
 
+impl From<std::time::SystemTimeError> for JsonRpseeError {
+    fn from(e: std::time::SystemTimeError) -> Self {
+        Self {
+            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+        }
+    }
+}
+
 impl Into<ErrorObjectOwned> for JsonRpseeError {
     fn into(self) -> ErrorObjectOwned {
         self.error

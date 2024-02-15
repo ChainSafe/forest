@@ -149,6 +149,7 @@ where
     use gas_api::*;
     use mpool_api::*;
     use net_api::*;
+    use node_api::*;
     use sync_api::*;
     use wallet_api::*;
 
@@ -268,6 +269,8 @@ where
     module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state))?;
     module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
     module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
+    // Node API
+    module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;

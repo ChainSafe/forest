@@ -4,13 +4,15 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::rpc::error::JsonRpseeError;
 use crate::rpc_api::{data_types::RPCState, node_api::NodeStatusResult};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError};
+
+use std::sync::Arc;
 
 pub async fn node_status<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<NodeStatusResult, JsonRpcError> {
+    data: Arc<Arc<RPCState<DB>>>,
+) -> Result<NodeStatusResult, JsonRpseeError> {
     let mut node_status = NodeStatusResult::default();
 
     let head = data.state_manager.chain_store().heaviest_tipset();
@@ -21,9 +23,10 @@ pub async fn node_status<DB: Blockstore>(
     let behind = if ts <= cur_duration_secs + 1 {
         cur_duration_secs.saturating_sub(ts)
     } else {
-        return Err(JsonRpcError::from(
-            "System time should not be behind tipset timestamp, please sync the system clock.",
-        ));
+        return Err(anyhow::anyhow!(
+            "System time should not be behind tipset timestamp, please sync the system clock."
+        )
+        .into());
     };
 
     let chain_finality = data.state_manager.chain_config().policy.chain_finality;
