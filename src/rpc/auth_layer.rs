@@ -43,31 +43,61 @@ pub struct AuthMiddleware<S> {
     pub keystore: Arc<RwLock<KeyStore>>,
 }
 
+// impl<'a, S> RpcServiceT<'a> for AuthMiddleware<S>
+// where
+//     S: Send + Clone + Sync + RpcServiceT<'a>,
+// {
+//     //type Future = ResponseFuture<S::Future>;
+//     type Future = BoxFuture<'a, MethodResponse>;
+
+//     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
+//         dbg!(&req.method_name());
+
+//         dbg!(&self.headers.get(hyper::header::AUTHORIZATION));
+
+//         let authorization_header = self.headers.get(hyper::header::AUTHORIZATION).cloned();
+
+//         if let Some(token) = authorization_header {
+//             let token = token.to_str().unwrap();
+
+//             // call auth_verify here with token
+
+//             ResponseFuture::future(self.inner.call(req))
+//         } else {
+//             // If no token is passed, assume read behavior
+
+//             // check ACCESS_MAP here, if ok return call(req) else return an error
+//             ResponseFuture::future(self.inner.call(req))
+//         }
+//     }
+// }
+
 impl<'a, S> RpcServiceT<'a> for AuthMiddleware<S>
 where
-    S: Send + Clone + Sync + RpcServiceT<'a>,
+    S: RpcServiceT<'a> + Send + Sync + Clone + 'static,
 {
-    type Future = ResponseFuture<S::Future>;
+    type Future = BoxFuture<'a, MethodResponse>;
 
     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
         dbg!(&req.method_name());
 
         dbg!(&self.headers.get(hyper::header::AUTHORIZATION));
 
-        let authorization_header = self.headers.get(hyper::header::AUTHORIZATION).cloned();
+        let service = self.inner.clone();
+        let keystore = self.keystore.clone();
+        let headers = self.headers.clone();
 
-        if let Some(token) = authorization_header {
-            let token = token.to_str().unwrap();
+        async move {
+            let auth_header = headers.get(hyper::header::AUTHORIZATION).cloned();
+            let header_value = auth_header.unwrap();
+            let token = header_value.to_str().unwrap();
 
-            // call auth_verify here with token
+            let claims = auth_verify(token, keystore).await;
 
-            ResponseFuture::future(self.inner.call(req))
-        } else {
-            // If no token is passed, assume read behavior
-
-            // check ACCESS_MAP here, if ok return call(req) else return an error
-            ResponseFuture::future(self.inner.call(req))
+            let resp = service.call(req).await;
+            resp
         }
+        .boxed()
     }
 }
 
