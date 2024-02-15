@@ -23,7 +23,13 @@ use std::error::Error as StdError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
+use crate::rpc::{
+    beacon_api::beacon_get_entry,
+    common_api::{session, shutdown, start_time, version},
+    state_api::*,
+};
 use crate::rpc_api::{
     auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
     gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
@@ -40,14 +46,9 @@ use jsonrpsee::server::{
 };
 use jsonrpsee::Methods;
 use tokio::sync::mpsc::Sender;
+use tokio::sync::RwLock;
 use tower::Service;
 use tracing::info;
-
-use crate::rpc::{
-    beacon_api::beacon_get_entry,
-    common_api::{session, shutdown, start_time, version},
-    state_api::*,
-};
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
@@ -56,6 +57,7 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     methods: Methods,
     stop_handle: StopHandle,
     svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
+    keystore: Arc<RwLock<KeyStore>>,
 }
 
 pub async fn start_rpc<DB>(
@@ -70,6 +72,7 @@ where
 {
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
+    let keystore = state.keystore.clone();
     let mut module = RpcModule::new(state.clone());
 
     register_methods(
@@ -88,6 +91,7 @@ where
             // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
             .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
             .to_service_builder(),
+        keystore,
     };
 
     let make_service = make_service_fn(move |_conn: &AddrStream| {
@@ -99,10 +103,14 @@ where
                     methods,
                     stop_handle,
                     svc_builder,
+                    keystore,
                 } = per_conn.clone();
 
                 let headers = req.headers().clone();
-                let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer { headers });
+                let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer {
+                    headers,
+                    keystore: keystore.clone(),
+                });
 
                 let mut svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
