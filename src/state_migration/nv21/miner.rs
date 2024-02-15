@@ -364,8 +364,8 @@ mod tests {
         let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/12/");
 
         let mut chain_config = ChainConfig::devnet();
-        if let Some(bundle) = &mut chain_config.height_infos[Height::Watermelon as usize].bundle {
-            *bundle = new_manifest_cid;
+        if let Some(entry) = chain_config.height_infos.get_mut(&Height::Watermelon) {
+            entry.bundle = Some(new_manifest_cid);
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &tree_root, 200).unwrap();

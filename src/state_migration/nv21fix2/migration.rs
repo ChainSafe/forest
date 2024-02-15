@@ -137,7 +137,7 @@ where
 
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::WatermelonFix2 as usize)
+        .get(&Height::WatermelonFix2)
         .context("no height info for network version NV21 (fixed again)")?
         .bundle
         .as_ref()
