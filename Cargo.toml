@@ -42,7 +42,6 @@ clap = { version = "4.4", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.2", features = ["parking_lot"] }
 convert_case = "0.6.0"
-crossbeam = "0.8"
 crossbeam-channel = "0.5"
 crypto_secretbox = "0.1.1"
 daemonize-me = "2.0"
@@ -189,8 +188,6 @@ tokio-tungstenite = "0.21.0"
 tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tower = { version = "0.4", features = ["full"] }
-# TODO(aatifsyed): bump this to 0.5 after https://github.com/paritytech/jsonrpsee/pull/1273
-tower-http = { version = "0.4", features = ["full"], package = "tower-http" }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7.1"
