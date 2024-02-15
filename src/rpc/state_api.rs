@@ -12,7 +12,7 @@ use crate::rpc_api::data_types::{
     MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
 };
 use crate::shim::{
-    address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
+    address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;

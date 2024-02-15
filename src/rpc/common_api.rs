@@ -4,7 +4,6 @@
 
 use crate::rpc_api::data_types::{APIVersion, RPCState, Version};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError};
 use jsonrpsee::types::error::*;
 use jsonrpsee::types::ErrorObjectOwned as JsonRpseeError;
 use once_cell::sync::Lazy;

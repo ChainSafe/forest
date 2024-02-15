@@ -12,9 +12,6 @@ mod gas_api;
 mod mpool_api;
 mod net_api;
 mod node_api;
-mod rpc_http_handler;
-mod rpc_util;
-mod rpc_ws_handler;
 mod state_api;
 mod sync_api;
 mod wallet_api;
@@ -39,10 +36,9 @@ use crate::rpc_api::{
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use jsonrpc_v2::{Data, Error as JSONRPCError};
+use jsonrpc_v2::Error as JSONRPCError;
 use jsonrpsee::server::{
-    stop_channel, RpcModule, RpcServiceBuilder, Server, ServerHandle, StopHandle,
-    TowerServiceBuilder,
+    stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder,
 };
 use jsonrpsee::Methods;
 use tokio::sync::mpsc::Sender;

@@ -921,7 +921,7 @@ where
     let mut terminate = signal(SignalKind::terminate())?;
 
     let result = tokio::select! {
-        ret = crate::rpc::start_rpc(state, rpc_address, forest_version, shutdown_send) => ret,
+        ret = start_rpc(state, rpc_address, forest_version, shutdown_send) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
