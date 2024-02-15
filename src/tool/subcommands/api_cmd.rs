@@ -904,9 +904,9 @@ async fn start_offline_server(
     start_offline_rpc(rpc_state, rpc_port).await?;
 
     // TODO: this should more be done in a script
-    // // Cleanup offline RPC resources
-    // std::fs::remove_file(&snapshot_path)?;
-    // std::fs::remove_dir_all(&db_path)?;
+    // Cleanup offline RPC resources
+    std::fs::remove_file(&snapshot_path)?;
+    std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
 
