@@ -29,6 +29,30 @@
 
 ### Added
 
+- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
+  API.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+- [#3857](https://github.com/ChainSafe/forest/pull/3907) Timeout parameter fetch
+  to 30 minutes to avoid it getting stuck on IPFS gateway issues.
+- [#3901](https://github.com/ChainSafe/forest/pull/3901) Fix timeout issue in
+  `forest-cli snapshot export`.
+- [#3919](https://github.com/ChainSafe/forest/pull/3919) Fix misreporting when
+  logging progress.
+
+## Forest 0.16.5 "Pinecone Deactivation"
+
+Non-mandatory upgrade including mostly new RPC endpoints. The option to use an
+alternative `FilOps` snapshot provider was removed given the service was
+decommissioned.
+
+### Added
+
 - [#3817](https://github.com/ChainSafe/forest/pull/3817/) Implement the
   `Filecoin.StateVerifiedClientStatus` lotus-compatible RPC API.
 - [#3824](https://github.com/ChainSafe/forest/pull/3824) Add `--ws` flag to
@@ -57,8 +81,6 @@
 - [#3878](https://github.com/ChainSafe/forest/issues/3878): FILOps is no longer
   serving lite snapshots. Removed `filops` option from
   `forest-tool snapshot fetch --vendor [vendor]`.
-
-### Fixed
 
 ## Forest 0.16.4 "Speedy Gonzales"
 

@@ -51,6 +51,7 @@ mod tests {
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
     use itertools::Itertools;
+    use nonempty::{nonempty, NonEmpty};
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
@@ -69,8 +70,8 @@ mod tests {
             self.into_forest_car_zst_bytes_with_roots().await.1
         }
 
-        async fn into_forest_car_zst_bytes_with_roots(self) -> (Vec<Cid>, Vec<u8>) {
-            let roots = vec![self.0[0].cid];
+        async fn into_forest_car_zst_bytes_with_roots(self) -> (NonEmpty<Cid>, Vec<u8>) {
+            let roots = nonempty![self.0[0].cid];
             let frames = crate::db::car::forest::Encoder::compress_stream(
                 8000_usize.next_power_of_two(),
                 zstd::DEFAULT_COMPRESSION_LEVEL as _,

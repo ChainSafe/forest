@@ -126,7 +126,7 @@ fn default_env_filter() -> EnvFilter {
 
 fn default_tool_filter() -> EnvFilter {
     let default_directives = [
-        "warn",
+        "info",
         "forest::snapshot=info",
         "forest::progress=info",
         "libp2p_bitswap=off",

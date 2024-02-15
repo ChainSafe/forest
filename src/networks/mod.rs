@@ -3,12 +3,15 @@
 
 use std::{fmt::Display, str::FromStr};
 
+use ahash::HashMap;
 use cid::Cid;
 use fil_actors_shared::v10::runtime::Policy;
+use itertools::Itertools;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
@@ -165,15 +168,8 @@ impl From<Height> for NetworkVersion {
 #[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct HeightInfo {
-    pub height: Height,
     pub epoch: ChainEpoch,
     pub bundle: Option<Cid>,
-}
-
-pub fn sort_by_epoch(height_info_slice: &[HeightInfo]) -> Vec<HeightInfo> {
-    let mut height_info_vec = height_info_slice.to_vec();
-    height_info_vec.sort_by(|a, b| a.epoch.cmp(&b.epoch));
-    height_info_vec
 }
 
 #[derive(Clone)]
@@ -199,7 +195,7 @@ pub struct ChainConfig {
     pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u32,
     pub propagation_delay_secs: u32,
-    pub height_infos: Vec<HeightInfo>,
+    pub height_infos: HashMap<Height, HeightInfo>,
     #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
     #[serde(default = "default_policy")]
     pub policy: Policy,
@@ -215,7 +211,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
-            height_infos: HEIGHT_INFOS.to_vec(),
+            height_infos: HEIGHT_INFOS.clone(),
             policy: Policy::mainnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
         }
@@ -229,7 +225,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
-            height_infos: HEIGHT_INFOS.to_vec(),
+            height_infos: HEIGHT_INFOS.clone(),
             policy: Policy::calibnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
         }
@@ -261,7 +257,7 @@ impl ChainConfig {
             bootstrap_peers: Vec::new(),
             block_delay_secs: 4,
             propagation_delay_secs: 1,
-            height_infos: HEIGHT_INFOS.to_vec(),
+            height_infos: HEIGHT_INFOS.clone(),
             policy,
             eth_chain_id: ETH_CHAIN_ID as u32,
         }
@@ -276,7 +272,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 6,
-            height_infos: HEIGHT_INFOS.to_vec(),
+            height_infos: HEIGHT_INFOS.clone(),
             policy: make_butterfly_policy!(v10),
             eth_chain_id: ETH_CHAIN_ID as u32,
         }
@@ -295,11 +291,13 @@ impl ChainConfig {
     }
 
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height = sort_by_epoch(&self.height_infos)
+        let height = self
+            .height_infos
             .iter()
+            .sorted_by_key(|(_, info)| info.epoch)
             .rev()
-            .find(|info| epoch > info.epoch)
-            .map(|info| info.height)
+            .find(|(_, info)| epoch > info.epoch)
+            .map(|(height, _)| *height)
             .unwrap_or(Height::Breeze);
 
         From::from(height)
@@ -328,10 +326,17 @@ impl ChainConfig {
     }
 
     pub fn epoch(&self, height: Height) -> ChainEpoch {
-        sort_by_epoch(&self.height_infos)
+        self.height_infos
             .iter()
-            .find(|info| height == info.height)
-            .map(|info| info.epoch)
+            .sorted_by_key(|(_, info)| info.epoch)
+            .rev()
+            .find_map(|(infos_height, info)| {
+                if *infos_height == height {
+                    Some(info.epoch)
+                } else {
+                    None
+                }
+            })
             .unwrap_or(0)
     }
 
@@ -373,4 +378,54 @@ pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr>
             Multiaddr::from_str(s).unwrap_or_else(|e| panic!("invalid bootstrap peer {s}: {e}"))
         })
         .collect()
+}
+
+#[allow(dead_code)]
+fn get_upgrade_epoch_by_height<'a>(
+    mut height_infos: impl Iterator<Item = &'a (Height, HeightInfo)>,
+    height: Height,
+) -> Option<ChainEpoch> {
+    height_infos.find_map(|(infos_height, info)| {
+        if *infos_height == height {
+            Some(info.epoch)
+        } else {
+            None
+        }
+    })
+}
+
+fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
+    if let Ok(value) = std::env::var(env_var_key) {
+        if let Ok(epoch) = value.parse() {
+            return Some(epoch);
+        } else {
+            warn!("Failed to parse {env_var_key}={value}, value should be an integer");
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_upgrade_height_no_env_var() {
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_1");
+        assert_eq!(epoch, None);
+    }
+
+    #[test]
+    fn test_get_upgrade_height_valid_env_var() {
+        std::env::set_var("FOREST_TEST_VAR_2", "10");
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_2");
+        assert_eq!(epoch, Some(10));
+    }
+
+    #[test]
+    fn test_get_upgrade_height_invalid_env_var() {
+        std::env::set_var("FOREST_TEST_VAR_3", "foo");
+        let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
+        assert_eq!(epoch, None);
+    }
 }

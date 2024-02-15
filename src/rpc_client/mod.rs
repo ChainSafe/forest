@@ -114,6 +114,23 @@ impl ApiInfo {
         if response.status() == http0::StatusCode::NOT_FOUND {
             return Err(JsonRpcError::METHOD_NOT_FOUND);
         }
+        if response.status() == http0::StatusCode::FORBIDDEN {
+            let msg = if self.token.is_none() {
+                "Permission denied: Token required."
+            } else {
+                "Permission denied: Insufficient rights."
+            };
+            return Err(JsonRpcError {
+                code: response.status().as_u16() as i64,
+                message: Cow::Borrowed(msg),
+            });
+        }
+        if !response.status().is_success() {
+            return Err(JsonRpcError {
+                code: response.status().as_u16() as i64,
+                message: Cow::Owned(response.text().await?),
+            });
+        }
         let rpc_res: JsonRpcResponse<T::LotusJson> = response.json().await?;
 
         match rpc_res {
@@ -372,6 +389,11 @@ impl<T> RpcRequest<T> {
 
     pub fn set_timeout(&mut self, timeout: Duration) {
         self.timeout = timeout;
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.set_timeout(timeout);
+        self
     }
 
     // Discard type information about the response.

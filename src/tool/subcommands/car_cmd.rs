@@ -3,11 +3,13 @@
 
 use std::path::{Path, PathBuf};
 
+use anyhow::Context;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
+use nonempty::NonEmpty;
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufReader},
@@ -55,12 +57,15 @@ impl CarCommands {
                     .try_collect()
                     .await?;
 
-                let all_roots = car_streams
-                    .iter()
-                    .flat_map(|it| it.header.roots.iter())
-                    .unique()
-                    .cloned()
-                    .collect::<Vec<_>>();
+                let all_roots = NonEmpty::from_vec(
+                    car_streams
+                        .iter()
+                        .flat_map(|it| it.header.roots.iter())
+                        .unique()
+                        .cloned()
+                        .collect_vec(),
+                )
+                .context("car roots cannot be empty")?;
 
                 let frames = crate::db::car::forest::Encoder::compress_stream_default(
                     dedup_block_stream(merge_car_streams(car_streams)).map_err(anyhow::Error::from),
@@ -127,6 +132,7 @@ mod tests {
     use cid::multihash::{Code, MultihashDigest};
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
+    use nonempty::{nonempty, NonEmpty};
     use std::io::Write;
     use tempfile::{Builder, TempPath};
     use tokio::io::AsyncWriteExt;
@@ -180,10 +186,14 @@ mod tests {
         CarBlock { cid, data }
     }
 
-    async fn create_raw_car_file(car_blocks: Vec<CarBlock>, ignored_cids: Vec<Cid>) -> TempPath {
+    async fn create_raw_car_file(
+        car_blocks: NonEmpty<CarBlock>,
+        ignored_cids: Vec<Cid>,
+    ) -> TempPath {
         let temp_path = Builder::new().tempfile().unwrap().into_temp_path();
         let mut writer = tokio::fs::File::create(&temp_path).await.unwrap();
 
+        let roots = nonempty![car_blocks.first().cid];
         let frames = forest::Encoder::compress_stream_default(iter(car_blocks).map(Ok)).map_ok(
             |(cids, bytes)| {
                 (
@@ -196,7 +206,7 @@ mod tests {
         );
 
         // Write zstd frames and include a skippable index
-        forest::Encoder::write(&mut writer, vec![], frames)
+        forest::Encoder::write(&mut writer, roots, frames)
             .await
             .unwrap();
 
@@ -209,8 +219,11 @@ mod tests {
     // Sanity check to verify that we can create valid forest.car.zst files
     #[tokio::test]
     async fn validate_valid_file() {
-        let temp_path =
-            create_raw_car_file(vec![valid_block("this data _does_ match the CID")], vec![]).await;
+        let temp_path = create_raw_car_file(
+            nonempty![valid_block("this data _does_ match the CID")],
+            vec![],
+        )
+        .await;
 
         assert!(validate(&temp_path, false, false).await.is_ok());
     }
@@ -218,7 +231,7 @@ mod tests {
     #[tokio::test]
     async fn validate_invalid_blocks() {
         let temp_path = create_raw_car_file(
-            vec![
+            nonempty![
                 valid_block("car_stream checks the first block"),
                 invalid_block("this data doesn't match the CID"),
             ],
@@ -235,7 +248,7 @@ mod tests {
     #[tokio::test]
     async fn validate_invalid_index() {
         let block = valid_block("this data _does_ match the CID");
-        let temp_path = create_raw_car_file(vec![block.clone()], vec![block.cid]).await;
+        let temp_path = create_raw_car_file(nonempty![block.clone()], vec![block.cid]).await;
 
         assert!(validate(&temp_path, false, false).await.is_err());
         // Ignoring index validity should make the test pass.

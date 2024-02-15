@@ -4,12 +4,13 @@
 use std::io::{self, Cursor};
 use std::path::Path;
 
-use anyhow::ensure;
+use anyhow::{ensure, Context as _};
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
+use nonempty::NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use tokio::fs::File;
@@ -47,7 +48,7 @@ macro_rules! actor_bundle_info {
                             ".car"
                         ).parse().unwrap(),
                     alt_url: concat!(
-                          "https://forest-snapshots.fra1.cdn.digitaloceanspaces.com/actors/",
+                          "https://filecoin-actors.chainsafe.dev/",
                           $version,
                             "/builtin-actors-",
                             $network,
@@ -99,7 +100,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
             let car = CarStream::new(Cursor::new(bytes)).await?;
             ensure!(car.header.version == 1);
             ensure!(car.header.roots.len() == 1);
-            ensure!(&car.header.roots[0] == root);
+            ensure!(car.header.roots.first() == root);
             anyhow::Ok((*root, car.try_collect::<Vec<_>>().await?))
         },
     ))
@@ -127,7 +128,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     stream::iter(blocks)
         .map(io::Result::Ok)
         .forward(CarWriter::new_carv1(
-            roots.into_iter().collect(),
+            NonEmpty::from_vec(roots).context("car roots cannot be empty")?,
             ZstdEncoder::with_quality(
                 File::create(&output).await?,
                 async_compression::Level::Precise(17),
@@ -209,7 +210,8 @@ mod tests {
                     "Roots for {url} and {alt_url} do not match"
                 );
                 assert_eq!(
-                    car_primary.header.roots[0], *manifest,
+                    car_primary.header.roots.first(),
+                    manifest,
                     "Manifest for {url} and {alt_url} does not match"
                 );
 
