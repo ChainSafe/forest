@@ -9,7 +9,7 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::JsonRpseeError;
+use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
@@ -19,14 +19,14 @@ use jsonrpsee::types::Params as JsonRpseeParams;
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
-pub async fn eth_accounts() -> Result<Vec<String>, JsonRpseeError> {
+pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
     Ok(vec![])
 }
 
 pub async fn eth_block_number<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<String, JsonRpseeError> {
+) -> Result<String, JsonRpcError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
     // This is the parent of the head tipset. The head tipset is speculative, has not been
@@ -54,7 +54,7 @@ pub async fn eth_block_number<DB: Blockstore>(
 
 pub async fn eth_chain_id<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<String, JsonRpseeError> {
+) -> Result<String, JsonRpcError> {
     Ok(format!(
         "0x{:x}",
         data.state_manager.chain_config().eth_chain_id
@@ -63,7 +63,7 @@ pub async fn eth_chain_id<DB: Blockstore>(
 
 pub async fn eth_gas_price<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<GasPriceResult, JsonRpseeError> {
+) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;
@@ -78,7 +78,7 @@ pub async fn eth_gas_price<DB: Blockstore>(
 pub async fn eth_get_balance<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<EthBigInt, JsonRpseeError> {
+) -> Result<EthBigInt, JsonRpcError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
 
@@ -98,7 +98,7 @@ pub async fn eth_get_balance<DB: Blockstore>(
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &Arc<ChainStore<DB>>,
     block_param: BlockNumberOrHash,
-) -> Result<Arc<Tipset>, JsonRpseeError> {
+) -> Result<Arc<Tipset>, JsonRpcError> {
     let head = chain.heaviest_tipset();
 
     match block_param {

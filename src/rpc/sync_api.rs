@@ -4,7 +4,7 @@
 
 use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::JsonRpseeError;
+use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::data_types::{RPCState, RPCSyncState};
 
 use anyhow::Result;
@@ -19,7 +19,7 @@ use std::sync::Arc;
 pub async fn sync_check_bad<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<String, JsonRpseeError> {
+) -> Result<String, JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
@@ -29,7 +29,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
 pub async fn sync_mark_bad<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<(), JsonRpseeError> {
+) -> Result<(), JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
     data.bad_blocks
@@ -44,7 +44,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 /// Returns the current status of the `ChainSync` process.
 pub async fn sync_state<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<RPCSyncState, JsonRpseeError> {
+) -> Result<RPCSyncState, JsonRpcError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }

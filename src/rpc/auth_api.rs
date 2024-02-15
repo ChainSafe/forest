@@ -3,7 +3,7 @@
 
 use crate::auth::*;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::JsonRpseeError;
+use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::{auth_api::*, data_types::RPCState};
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
@@ -15,7 +15,7 @@ use std::sync::Arc;
 pub async fn auth_new<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let auth_params: AuthNewParams = params.parse()?;
 
     let ks = data.keystore.read().await;
@@ -28,7 +28,7 @@ pub async fn auth_new<DB: Blockstore>(
 pub async fn auth_verify<DB>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<Vec<String>, JsonRpseeError>
+) -> Result<Vec<String>, JsonRpcError>
 where
     DB: Blockstore,
 {

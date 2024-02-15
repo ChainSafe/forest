@@ -1,7 +1,7 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::error::JsonRpseeError;
+use crate::rpc::error::JsonRpcError;
 use crate::{
     beacon::BeaconEntry, lotus_json::LotusJson, rpc_api::data_types::RPCState,
     shim::clock::ChainEpoch,
@@ -18,7 +18,7 @@ use std::sync::Arc;
 pub async fn beacon_get_entry<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<BeaconEntry>, JsonRpseeError> {
+) -> Result<LotusJson<BeaconEntry>, JsonRpcError> {
     let (first,): (ChainEpoch,) = params.parse()?;
 
     let (_, beacon) = data.beacon.beacon_for_epoch(first)?;

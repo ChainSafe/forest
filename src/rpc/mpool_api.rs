@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::blocks::TipsetKey;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc::error::JsonRpseeError;
+use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
 use crate::shim::{address::Protocol, message::Message};
 
@@ -24,7 +24,7 @@ use super::gas_api::estimate_message_gas;
 pub async fn mpool_get_nonce<DB>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<u64, JsonRpseeError>
+) -> Result<u64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -37,7 +37,7 @@ where
 pub async fn mpool_pending<DB>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpseeError>
+) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -107,7 +107,7 @@ where
 pub async fn mpool_push<DB>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Cid>, JsonRpseeError>
+) -> Result<LotusJson<Cid>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -122,7 +122,7 @@ where
 pub async fn mpool_push_message<DB>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<SignedMessage>, JsonRpseeError>
+) -> Result<LotusJson<SignedMessage>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

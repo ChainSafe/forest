@@ -6,7 +6,7 @@ use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::JsonRpseeError;
+use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::data_types::{
     ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageFilter,
     MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
@@ -47,7 +47,7 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKey);
 pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> anyhow::Result<LotusJson<Option<MiningBaseInfo>>, JsonRpseeError> {
+) -> anyhow::Result<LotusJson<Option<MiningBaseInfo>>, JsonRpcError> {
     let LotusJson((address, epoch, tsk)) = params.parse()?;
 
     let ts = data
@@ -64,7 +64,7 @@ pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<ApiInvocResult, JsonRpseeError> {
+) -> Result<ApiInvocResult, JsonRpcError> {
     let LotusJson((message, key)) = params.parse()?;
 
     let state_manager = &data.state_manager;
@@ -82,7 +82,7 @@ pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<InvocResult, JsonRpseeError> {
+) -> Result<InvocResult, JsonRpcError> {
     let LotusJson((cid, key)) = params.parse()?;
 
     let state_manager = &data.state_manager;
@@ -102,7 +102,7 @@ pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
 /// gets network name from state manager
 pub async fn state_network_name<DB: Blockstore>(
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<String, JsonRpseeError> {
+) -> Result<String, JsonRpcError> {
     let state_manager = &data.state_manager;
     let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
 
@@ -114,7 +114,7 @@ pub async fn state_network_name<DB: Blockstore>(
 pub async fn state_get_network_version<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<NetworkVersion, JsonRpseeError> {
+) -> Result<NetworkVersion, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -126,7 +126,7 @@ pub async fn state_get_network_version<DB: Blockstore>(
 pub async fn state_account_key<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Address>, JsonRpseeError>
+) -> Result<LotusJson<Address>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -145,7 +145,7 @@ where
 pub async fn state_lookup_id<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Address>, JsonRpseeError>
+) -> Result<LotusJson<Address>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -164,7 +164,7 @@ where
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Option<ActorState>>, JsonRpseeError> {
+) -> Result<LotusJson<Option<ActorState>>, JsonRpcError> {
     let LotusJson((addr, tsk)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -177,7 +177,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
 pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<MarketBalance, JsonRpseeError> {
+) -> Result<MarketBalance, JsonRpcError> {
     let LotusJson((address, key)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let tipset = data
@@ -192,7 +192,7 @@ pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_market_deals<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<HashMap<String, MarketDeal>, JsonRpseeError> {
+) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -229,7 +229,7 @@ pub async fn state_market_deals<DB: Blockstore>(
 pub async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<MinerInfo>, JsonRpseeError> {
+) -> Result<LotusJson<MinerInfo>, JsonRpcError> {
     let LotusJson((address, key)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let tipset = data
@@ -242,7 +242,7 @@ pub async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_miner_active_sectors<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
     let LotusJson((miner, tsk)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let bs = data.state_manager.blockstore();
@@ -276,7 +276,7 @@ pub async fn state_miner_active_sectors<DB: Blockstore>(
 pub async fn state_miner_sector_count<DB: Blockstore>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<MinerSectors>, JsonRpseeError> {
+) -> Result<LotusJson<MinerSectors>, JsonRpcError> {
     let LotusJson((miner, tsk)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let bs = data.state_manager.blockstore();
@@ -311,7 +311,7 @@ pub async fn state_miner_sector_count<DB: Blockstore>(
 pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<MinerPower>, JsonRpseeError> {
+) -> Result<LotusJson<MinerPower>, JsonRpcError> {
     let LotusJson((address, key)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let tipset = data
@@ -328,7 +328,7 @@ pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<ApiDeadline>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<ApiDeadline>>, JsonRpcError> {
     let LotusJson((addr, tsk)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -353,7 +353,7 @@ pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<DeadlineInfo>, JsonRpseeError> {
+) -> Result<LotusJson<DeadlineInfo>, JsonRpcError> {
     let LotusJson((addr, tsk)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -372,7 +372,7 @@ pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
     //Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKey)>>,
-) -> Result<LotusJson<BitField>, JsonRpseeError> {
+) -> Result<LotusJson<BitField>, JsonRpcError> {
     let LotusJson((address, key)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let ts = data
@@ -389,7 +389,7 @@ pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<BitField>, JsonRpseeError> {
+) -> Result<LotusJson<BitField>, JsonRpcError> {
     let LotusJson((miner, tsk)): LotusJson<(Address, TipsetKey)> = params.parse()?;
 
     let ts = data
@@ -407,7 +407,7 @@ pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Receipt>, JsonRpseeError> {
+) -> Result<LotusJson<Receipt>, JsonRpcError> {
     let LotusJson((cid, key)): LotusJson<(Cid, TipsetKey)> = params.parse()?;
 
     let state_manager = &data.state_manager;
@@ -425,7 +425,7 @@ pub async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<MessageLookup, JsonRpseeError> {
+) -> Result<MessageLookup, JsonRpcError> {
     let LotusJson((cid, confidence)): LotusJson<(Cid, i64)> = params.parse()?;
 
     let state_manager = &data.state_manager;
@@ -448,7 +448,7 @@ pub async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<MessageLookup, JsonRpseeError> {
+) -> Result<MessageLookup, JsonRpcError> {
     let LotusJson((cid,)): LotusJson<(Cid,)> = params.parse()?;
 
     let state_manager = &data.state_manager;
@@ -473,7 +473,7 @@ pub async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<MessageLookup, JsonRpseeError> {
+) -> Result<MessageLookup, JsonRpcError> {
     let LotusJson((cid, look_back_limit)): LotusJson<(Cid, i64)> = params.parse()?;
 
     let state_manager = &data.state_manager;
@@ -512,7 +512,7 @@ pub async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<String, JsonRpseeError> {
+) -> Result<String, JsonRpcError> {
     let LotusJson((root_cid, save_to_file)): LotusJson<(Cid, Option<PathBuf>)> = params.parse()?;
 
     let network_send = data.network_send.clone();
@@ -674,7 +674,7 @@ fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
 pub async fn state_get_randomness_from_tickets<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let LotusJson((personalization, rand_epoch, entropy, tsk)): LotusJson<RandomnessParams> =
         params.parse()?;
 
@@ -698,7 +698,7 @@ pub async fn state_get_randomness_from_tickets<DB: Blockstore + Send + Sync + 's
 pub async fn state_get_randomness_from_beacon<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let LotusJson((personalization, rand_epoch, entropy, tsk)): LotusJson<RandomnessParams> =
         params.parse()?;
 
@@ -722,7 +722,7 @@ pub async fn state_get_randomness_from_beacon<DB: Blockstore + Send + Sync + 'st
 pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<ApiActorState>, JsonRpseeError> {
+) -> Result<LotusJson<ApiActorState>, JsonRpcError> {
     let LotusJson((addr, tsk)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -747,7 +747,7 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<TokenAmount>, JsonRpseeError> {
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
     let LotusJson((tsk,)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -769,7 +769,7 @@ pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
 pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<TokenAmount>, JsonRpseeError> {
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
     let LotusJson((addr, tsk)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -789,7 +789,7 @@ pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
 pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<Transaction>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<Transaction>>, JsonRpcError> {
     let LotusJson((addr, tsk)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -819,7 +819,7 @@ pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<SectorOnChainInfo>, JsonRpseeError> {
+) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
     let LotusJson((addr, sector_no, tsk)): LotusJson<(Address, u64, TipsetKey)> = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -837,7 +837,7 @@ pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
 pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Option<BigInt>>, JsonRpseeError> {
+) -> Result<LotusJson<Option<BigInt>>, JsonRpcError> {
     let LotusJson((addr, tsk)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -850,7 +850,7 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
 >(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<CirculatingSupply>, JsonRpseeError> {
+) -> Result<LotusJson<CirculatingSupply>, JsonRpcError> {
     let LotusJson((tsk,)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset(&tsk)?;
@@ -868,7 +868,7 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
 pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<Cid>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<Cid>>, JsonRpcError> {
     let LotusJson((from_to, tsk, max_height)): LotusJson<(MessageFilter, TipsetKey, i64)> =
         params.parse()?;
 
@@ -924,7 +924,7 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
 pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
     params: JsonRpseeParams<'_>,
     data: Arc<Arc<RPCState<DB>>>,
-) -> Result<LotusJson<Vec<Address>>, JsonRpseeError> {
+) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
     let LotusJson((tsk,)) = params.parse()?;
 
     let ts = data
