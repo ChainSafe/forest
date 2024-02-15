@@ -163,8 +163,8 @@ impl From<std::time::SystemTimeError> for JsonRpcError {
     }
 }
 
-impl Into<ErrorObjectOwned> for JsonRpcError {
-    fn into(self) -> ErrorObjectOwned {
-        self.error
+impl From<JsonRpcError> for ErrorObjectOwned {
+    fn from(val: JsonRpcError) -> Self {
+        val.error
     }
 }
