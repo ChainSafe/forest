@@ -166,7 +166,6 @@ where
                 if gas_limit < chain_gas_limit {
                     break;
                 }
-
                 gas_limit -= chain_gas_limit;
                 if gas_limit < MIN_GAS {
                     break;
