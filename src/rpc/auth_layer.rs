@@ -7,6 +7,8 @@ use crate::rpc_api::{check_access, ACCESS_MAP};
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
+use hyper::header::{HeaderValue, AUTHORIZATION};
+use hyper::HeaderMap;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::{error::ErrorCode, ErrorObject, Id};
 use jsonrpsee::MethodResponse;
@@ -18,7 +20,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct AuthLayer {
-    pub headers: hyper::HeaderMap,
+    pub headers: HeaderMap,
     pub keystore: Arc<RwLock<KeyStore>>,
 }
 
@@ -29,16 +31,16 @@ impl<S> Layer<S> for AuthLayer {
         AuthMiddleware {
             headers: self.headers.clone(),
             keystore: self.keystore.clone(),
-            inner: service,
+            service,
         }
     }
 }
 
 #[derive(Clone)]
 pub struct AuthMiddleware<S> {
-    pub headers: hyper::HeaderMap,
-    pub inner: S,
-    pub keystore: Arc<RwLock<KeyStore>>,
+    headers: HeaderMap,
+    keystore: Arc<RwLock<KeyStore>>,
+    service: S,
 }
 
 impl<'a, S> RpcServiceT<'a> for AuthMiddleware<S>
@@ -48,12 +50,12 @@ where
     type Future = BoxFuture<'a, MethodResponse>;
 
     fn call(&self, req: jsonrpsee::types::Request<'a>) -> Self::Future {
-        let service = self.inner.clone();
-        let keystore = self.keystore.clone();
         let headers = self.headers.clone();
+        let keystore = self.keystore.clone();
+        let service = self.service.clone();
 
         async move {
-            let auth_header = headers.get(hyper::header::AUTHORIZATION).cloned();
+            let auth_header = headers.get(AUTHORIZATION).cloned();
             let res = check_permissions(keystore, auth_header, req.method_name()).await;
 
             match res {
@@ -78,7 +80,7 @@ async fn auth_verify(token: &str, keystore: Arc<RwLock<KeyStore>>) -> anyhow::Re
 
 async fn check_permissions(
     keystore: Arc<RwLock<KeyStore>>,
-    auth_header: Option<hyper::header::HeaderValue>,
+    auth_header: Option<HeaderValue>,
     method: &str,
 ) -> anyhow::Result<(), ErrorCode> {
     let claims = match auth_header {
