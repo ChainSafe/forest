@@ -29,12 +29,18 @@
 
 ### Added
 
-- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
-  API.
-
 ### Changed
 
 ### Removed
+
+### Fixed
+
+## Forest 0.16.6 "Pinecone Reactivation"
+
+### Added
+
+- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
+  API.
 
 ### Fixed
 
