@@ -108,7 +108,7 @@ pub async fn wallet_import<DB: Blockstore>(
     let mut keystore = data.keystore.write().await;
 
     if let Err(error) = keystore.put(&addr, key.key_info) {
-        return Err(error.into());
+        Err(error.into())
     } else {
         Ok(key.address.to_string())
     }
