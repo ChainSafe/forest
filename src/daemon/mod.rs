@@ -110,16 +110,12 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 }
 
 // Start the daemon and abort if we're interrupted by ctrl-c, SIGTERM, or `forest-cli shutdown`.
-pub async fn start_interruptable(
-    opts: CliOpts,
-    config: Config,
-    rt: tokio::runtime::Handle,
-) -> anyhow::Result<()> {
+pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Result<()> {
     let mut terminate = signal(SignalKind::terminate())?;
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
 
     let result = tokio::select! {
-        ret = start(opts, config, shutdown_send, rt) => ret,
+        ret = start(opts, config, shutdown_send) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -145,7 +141,6 @@ pub(super) async fn start(
     opts: CliOpts,
     config: Config,
     shutdown_send: mpsc::Sender<()>,
-    rt: tokio::runtime::Handle,
 ) -> anyhow::Result<()> {
     let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
     if chain_config.is_testnet() {
@@ -359,36 +354,30 @@ pub(super) async fn start(
                 .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
         );
 
-        let handle = start_rpc(
-            RPCState {
-                state_manager: Arc::clone(&rpc_state_manager),
-                keystore: keystore_rpc,
-                mpool,
-                bad_blocks,
-                sync_state,
-                network_send,
-                network_name,
-                start_time,
-                beacon,
-                chain_store: rpc_chain_store,
-            },
-            rpc_address,
-            FOREST_VERSION_STRING.as_str(),
-            shutdown_send,
-            rt,
-        )
-        .await
-        .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))?;
-
         services.spawn(async move {
-            handle.stopped().await;
-
-            info!("Stopped accepting RPC connections");
-            Ok(())
+            start_rpc(
+                RPCState {
+                    state_manager: Arc::clone(&rpc_state_manager),
+                    keystore: keystore_rpc,
+                    mpool,
+                    bad_blocks,
+                    sync_state,
+                    network_send,
+                    network_name,
+                    start_time,
+                    beacon,
+                    chain_store: rpc_chain_store,
+                },
+                rpc_address,
+                FOREST_VERSION_STRING.as_str(),
+                shutdown_send,
+            )
+            .await
+            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");
-    }
+    };
 
     if opts.detach {
         unblock_parent_process()?;

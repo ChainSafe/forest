@@ -920,35 +920,23 @@ where
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
-    let rt = tokio::runtime::Handle::current();
-    let handle = start_rpc(state, rpc_address, forest_version, shutdown_send, rt)
-        .await
-        .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))?;
-    let server_handle = handle.clone();
-
-    // Would be better to do it without a loop
-    loop {
-        tokio::select! {
-            ret = handle.clone().stopped() => {
-                info!("Stopped accepting RPC connections");
-
-                crate::utils::io::terminal_cleanup();
-                return Ok(ret);
-            },
-            _ = ctrl_c() => {
-                info!("Keyboard interrupt.");
-                let _ = server_handle.stop();
-            },
-            _ = terminate.recv() => {
-                info!("Received SIGTERM.");
-                let _ = server_handle.stop();
-            },
-            _ = shutdown_recv.recv() => {
-                info!("Client requested a shutdown.");
-                let _ = server_handle.stop();
-            },
-        };
-    }
+    let result = tokio::select! {
+        ret = crate::rpc::start_rpc(state, rpc_address, forest_version, shutdown_send) => ret,
+        _ = ctrl_c() => {
+            info!("Keyboard interrupt.");
+            Ok(())
+        },
+        _ = terminate.recv() => {
+            info!("Received SIGTERM.");
+            Ok(())
+        },
+        _ = shutdown_recv.recv() => {
+            info!("Client requested a shutdown.");
+            Ok(())
+        },
+    };
+    crate::utils::io::terminal_cleanup();
+    result.map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
 }
 
 async fn run_tests(

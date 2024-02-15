@@ -65,8 +65,7 @@ pub async fn start_rpc<DB>(
     rpc_endpoint: SocketAddr,
     forest_version: &'static str,
     shutdown_send: Sender<()>,
-    rt: tokio::runtime::Handle,
-) -> Result<ServerHandle, JSONRPCError>
+) -> Result<(), JSONRPCError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -82,7 +81,7 @@ where
         shutdown_send,
     )?;
 
-    let (stop_handle, handle) = stop_channel();
+    let (stop_handle, _handle) = stop_channel();
 
     let per_conn = PerConnection {
         methods: module.into(),
@@ -121,17 +120,14 @@ where
         }
     });
 
-    let hyper = hyper::Server::bind(&rpc_endpoint).serve(make_service);
-
-    // TODO: don't spawn a task here
-    tokio::spawn(async move {
-        let graceful = hyper.with_graceful_shutdown(async move { stop_handle.shutdown().await });
-        graceful.await.unwrap()
-    });
-
     info!("Ready for RPC connections");
+    hyper::Server::bind(&rpc_endpoint)
+        .serve(make_service)
+        .await?;
 
-    Ok(handle)
+    info!("Stopped accepting RPC connections");
+
+    Ok(())
 }
 
 fn register_methods<DB>(
