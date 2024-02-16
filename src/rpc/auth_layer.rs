@@ -10,7 +10,7 @@ use futures::FutureExt;
 use hyper::header::{HeaderValue, AUTHORIZATION};
 use hyper::HeaderMap;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
-use jsonrpsee::types::{error::ErrorCode, ErrorObject, Id};
+use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
 use tokio::sync::RwLock;
 use tower::Layer;
@@ -60,7 +60,7 @@ where
 
             match res {
                 Ok(()) => service.call(req).await,
-                Err(code) => MethodResponse::error(Id::from(req.id()), ErrorObject::from(code)),
+                Err(code) => MethodResponse::error(req.id(), ErrorObject::from(code)),
             }
         }
         .boxed()
