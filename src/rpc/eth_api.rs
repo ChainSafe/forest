@@ -14,7 +14,7 @@ use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 use num_bigint::BigInt;
@@ -99,14 +99,12 @@ pub async fn eth_get_balance<DB: Blockstore>(
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &Arc<ChainStore<DB>>,
     block_param: BlockNumberOrHash,
-) -> Result<Arc<Tipset>, JsonRpcError> {
+) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
 
     match block_param {
         BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
-            Predefined::Earliest => {
-                Err(anyhow::anyhow!("block param \"earliest\" is not supported").into())
-            }
+            Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
             Predefined::Pending => Ok(head),
             Predefined::Latest => {
                 let parent = chain.chain_index.load_required_tipset(head.parents())?;
@@ -116,7 +114,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         BlockNumberOrHash::BlockNumber(number) => {
             let height = ChainEpoch::from(number);
             if height > head.epoch() - 1 {
-                return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
+                bail!("requested a future epoch (beyond \"latest\")");
             }
             let ts =
                 chain
@@ -139,7 +137,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 )?;
                 // verify that it equals the expected tipset
                 if walk_ts != ts {
-                    return Err(anyhow::anyhow!("tipset is not canonical").into());
+                    bail!("tipset is not canonical");
                 }
             }
             Ok(ts)
