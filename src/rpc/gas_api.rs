@@ -13,7 +13,7 @@ use crate::shim::address::Address;
 use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
@@ -25,7 +25,7 @@ const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 /// Estimate the fee cap
 pub async fn gas_estimate_fee_cap<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, TipsetKey)> =
@@ -56,7 +56,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 
 /// Estimate the fee cap
 pub async fn gas_estimate_gas_premium<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((nblocksincl, _sender, _gas_limit, _)): LotusJson<(
@@ -154,7 +154,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 
 /// Estimate the gas limit
 pub async fn gas_estimate_gas_limit<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<i64, JsonRpcError>
 where
@@ -210,7 +210,7 @@ where
 
 /// Estimates the gas parameters for a given message
 pub async fn gas_estimate_message_gas<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Message>, JsonRpcError>
 where

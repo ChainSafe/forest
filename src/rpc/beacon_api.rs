@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ use std::sync::Arc;
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
 pub async fn beacon_get_entry<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<BeaconEntry>, JsonRpcError> {
     let (first,): (ChainEpoch,) = params.parse()?;

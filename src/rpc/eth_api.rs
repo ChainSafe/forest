@@ -16,7 +16,7 @@ use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
 use anyhow::{Context, Result};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
@@ -77,7 +77,7 @@ pub async fn eth_gas_price<DB: Blockstore>(
 }
 
 pub async fn eth_get_balance<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<EthBigInt, JsonRpcError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =

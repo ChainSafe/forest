@@ -13,7 +13,7 @@ use crate::rpc_api::{
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -70,7 +70,7 @@ pub async fn net_info<DB: Blockstore>(
 }
 
 pub async fn net_connect<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<(), JsonRpcError> {
     let (AddrInfo { id, addrs },) = params.parse()?;
@@ -94,7 +94,7 @@ pub async fn net_connect<DB: Blockstore>(
 }
 
 pub async fn net_disconnect<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<(), JsonRpcError> {
     let (id,): (String,) = params.parse()?;

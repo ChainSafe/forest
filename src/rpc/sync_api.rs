@@ -10,7 +10,7 @@ use crate::rpc_api::data_types::{RPCState, RPCSyncState};
 
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use parking_lot::RwLock;
 
@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
@@ -28,7 +28,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
 
 /// Marks a block as bad, meaning it will never be synced.
 pub async fn sync_mark_bad<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;

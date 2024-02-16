@@ -17,13 +17,13 @@ use ahash::{HashSet, HashSetExt};
 use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 
 use super::gas_api::estimate_message_gas;
 
 /// Gets next nonce for the specified sender.
 pub async fn mpool_get_nonce<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<u64, JsonRpcError>
 where
@@ -36,7 +36,7 @@ where
 
 /// Return `Vec` of pending messages in `mpool`
 pub async fn mpool_pending<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
 where
@@ -106,7 +106,7 @@ where
 
 /// Add `SignedMessage` to `mpool`, return message CID
 pub async fn mpool_push<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Cid>, JsonRpcError>
 where
@@ -121,7 +121,7 @@ where
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub async fn mpool_push_message<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<SignedMessage>, JsonRpcError>
 where

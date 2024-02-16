@@ -24,14 +24,14 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
-use jsonrpsee::types::Params as JsonRpseeParams;
+use jsonrpsee::types::Params;
 use once_cell::sync::Lazy;
 use sha2::Sha256;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub async fn chain_get_message<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Message>, JsonRpcError> {
     let LotusJson((msg_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -48,7 +48,7 @@ pub async fn chain_get_message<DB: Blockstore>(
 }
 
 pub async fn chain_get_parent_messages<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -67,7 +67,7 @@ pub async fn chain_get_parent_messages<DB: Blockstore>(
 }
 
 pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -133,7 +133,7 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
 }
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
@@ -145,7 +145,7 @@ pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
 }
 
 pub async fn chain_export<DB>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<Option<String>, JsonRpcError>
 where
@@ -209,7 +209,7 @@ where
 }
 
 pub async fn chain_read_obj<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -223,7 +223,7 @@ pub async fn chain_read_obj<DB: Blockstore>(
 }
 
 pub async fn chain_has_obj<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<bool, JsonRpcError> {
     let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -232,7 +232,7 @@ pub async fn chain_has_obj<DB: Blockstore>(
 }
 
 pub async fn chain_get_block_messages<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<BlockMessages, JsonRpcError> {
     let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -264,7 +264,7 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 }
 
 pub async fn chain_get_tipset_by_height<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let LotusJson((height, tsk)): LotusJson<(ChainEpoch, TipsetKey)> = params.parse()?;
@@ -296,7 +296,7 @@ pub async fn chain_head<DB: Blockstore>(
 }
 
 pub async fn chain_get_block<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
     let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
@@ -310,7 +310,7 @@ pub async fn chain_get_block<DB: Blockstore>(
 }
 
 pub async fn chain_get_tipset<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
@@ -325,7 +325,7 @@ pub async fn chain_get_tipset<DB: Blockstore>(
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub async fn chain_set_head<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
@@ -354,7 +354,7 @@ pub async fn chain_set_head<DB: Blockstore>(
 }
 
 pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
-    params: JsonRpseeParams<'_>,
+    params: Params<'_>,
     data: Arc<Arc<RPCState<DB>>>,
 ) -> Result<String, JsonRpcError> {
     let (basefee_lookback,): (u32,) = params.parse()?;
