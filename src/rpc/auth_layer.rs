@@ -60,7 +60,7 @@ where
 
             match res {
                 Ok(()) => service.call(req).await,
-                Err(code) => MethodResponse::error(Id::Null, ErrorObject::from(code)),
+                Err(code) => MethodResponse::error(Id::from(req.id()), ErrorObject::from(code)),
             }
         }
         .boxed()
