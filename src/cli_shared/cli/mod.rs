@@ -50,9 +50,6 @@ pub struct CliOpts {
     /// Disable Metrics endpoint
     #[arg(short, long)]
     pub no_metrics: bool,
-    /// Client JWT token to use for JSON-RPC authentication
-    #[arg(short, long)]
-    pub token: Option<String>,
     /// Address used for metrics collection server. By defaults binds on
     /// localhost on port 6116.
     #[arg(long)]
@@ -163,10 +160,6 @@ impl CliOpts {
             cfg.client.enable_rpc = true;
             if let Some(rpc_address) = self.rpc_address {
                 cfg.client.rpc_address = rpc_address;
-            }
-
-            if self.token.is_some() {
-                cfg.client.rpc_token = self.token.to_owned();
             }
         } else {
             cfg.client.enable_rpc = false;
