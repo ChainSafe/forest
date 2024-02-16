@@ -72,7 +72,7 @@ where
 
     register_methods(
         &mut module,
-        state.state_manager.chain_config().block_delay_secs as u64,
+        u64::from(state.state_manager.chain_config().block_delay_secs),
         forest_version,
         shutdown_send,
     )?;
