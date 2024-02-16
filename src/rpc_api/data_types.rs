@@ -50,6 +50,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
+pub type Data<T> = Arc<Arc<T>>;
+
 /// This is where you store persistent data, or at least access to stateful
 /// data.
 pub struct RPCState<DB>

@@ -6,13 +6,14 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::{data_types::RPCState, node_api::NodeStatusResult};
+use crate::rpc_api::{
+    data_types::{Data, RPCState},
+    node_api::NodeStatusResult,
+};
 use fvm_ipld_blockstore::Blockstore;
 
-use std::sync::Arc;
-
 pub async fn node_status<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
 

@@ -4,13 +4,12 @@
 #![allow(clippy::redundant_allocation)]
 
 use std::convert::TryFrom;
-use std::sync::Arc;
 
 use crate::blocks::TipsetKey;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
+use crate::rpc_api::data_types::{Data, MessageSendSpec, RPCState};
 use crate::shim::{address::Protocol, message::Message};
 
 use ahash::{HashSet, HashSetExt};
@@ -24,7 +23,7 @@ use super::gas_api::estimate_message_gas;
 /// Gets next nonce for the specified sender.
 pub async fn mpool_get_nonce<DB>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<u64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -37,7 +36,7 @@ where
 /// Return `Vec` of pending messages in `mpool`
 pub async fn mpool_pending<DB>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -107,7 +106,7 @@ where
 /// Add `SignedMessage` to `mpool`, return message CID
 pub async fn mpool_push<DB>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Cid>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -122,7 +121,7 @@ where
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub async fn mpool_push_message<DB>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<SignedMessage>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,

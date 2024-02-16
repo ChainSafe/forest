@@ -12,7 +12,7 @@ use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
-    data_types::{BlockMessages, RPCState},
+    data_types::{BlockMessages, Data, RPCState},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 
 pub async fn chain_get_message<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Message>, JsonRpcError> {
     let LotusJson((msg_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -49,7 +49,7 @@ pub async fn chain_get_message<DB: Blockstore>(
 
 pub async fn chain_get_parent_messages<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -68,7 +68,7 @@ pub async fn chain_get_parent_messages<DB: Blockstore>(
 
 pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -134,7 +134,7 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
 
@@ -146,7 +146,7 @@ pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
 
 pub async fn chain_export<DB>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<Option<String>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -210,7 +210,7 @@ where
 
 pub async fn chain_read_obj<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -224,7 +224,7 @@ pub async fn chain_read_obj<DB: Blockstore>(
 
 pub async fn chain_has_obj<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<bool, JsonRpcError> {
     let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -233,7 +233,7 @@ pub async fn chain_has_obj<DB: Blockstore>(
 
 pub async fn chain_get_block_messages<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<BlockMessages, JsonRpcError> {
     let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -265,7 +265,7 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 
 pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let LotusJson((height, tsk)): LotusJson<(ChainEpoch, TipsetKey)> = params.parse()?;
 
@@ -282,14 +282,14 @@ pub async fn chain_get_tipset_by_height<DB: Blockstore>(
 }
 
 pub async fn chain_get_genesis<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
     let genesis = data.state_manager.chain_store().genesis_block_header();
     Ok(Some(Tipset::from(genesis).into()))
 }
 
 pub async fn chain_head<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
     Ok((*heaviest).clone().into())
@@ -297,7 +297,7 @@ pub async fn chain_head<DB: Blockstore>(
 
 pub async fn chain_get_block<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
     let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -311,7 +311,7 @@ pub async fn chain_get_block<DB: Blockstore>(
 
 pub async fn chain_get_tipset<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
 
@@ -326,7 +326,7 @@ pub async fn chain_get_tipset<DB: Blockstore>(
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub async fn chain_set_head<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
 
@@ -355,7 +355,7 @@ pub async fn chain_set_head<DB: Blockstore>(
 
 pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     let (basefee_lookback,): (u32,) = params.parse()?;
 

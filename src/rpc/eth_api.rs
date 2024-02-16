@@ -11,7 +11,11 @@ use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
+use crate::rpc_api::{
+    data_types::{Data, RPCState},
+    eth_api::BigInt as EthBigInt,
+    eth_api::*,
+};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
 use anyhow::{bail, Context, Result};
@@ -26,7 +30,7 @@ pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
 }
 
 pub async fn eth_block_number<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
@@ -54,7 +58,7 @@ pub async fn eth_block_number<DB: Blockstore>(
 }
 
 pub async fn eth_chain_id<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     Ok(format!(
         "0x{:x}",
@@ -63,7 +67,7 @@ pub async fn eth_chain_id<DB: Blockstore>(
 }
 
 pub async fn eth_gas_price<DB: Blockstore>(
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
@@ -78,7 +82,7 @@ pub async fn eth_gas_price<DB: Blockstore>(
 
 pub async fn eth_get_balance<DB: Blockstore>(
     params: Params<'_>,
-    data: Arc<Arc<RPCState<DB>>>,
+    data: Data<RPCState<DB>>,
 ) -> Result<EthBigInt, JsonRpcError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
