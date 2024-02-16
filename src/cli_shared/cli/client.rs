@@ -42,7 +42,6 @@ pub struct Client {
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
     pub enable_metrics_endpoint: bool,
-    pub rpc_token: Option<String>,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
@@ -85,7 +84,6 @@ impl Default for Client {
             genesis_file: None,
             enable_rpc: true,
             enable_metrics_endpoint: true,
-            rpc_token: None,
             snapshot_path: None,
             snapshot: false,
             consume_snapshot: false,

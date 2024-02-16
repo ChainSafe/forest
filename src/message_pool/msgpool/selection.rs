@@ -141,7 +141,7 @@ where
         // 2. Sort the chains
         chains.sort(false);
 
-        if !chains.is_empty() && chains[0].gas_perf < 0.0 {
+        if chains.get_at(0).is_some_and(|it| it.gas_perf < 0.0) {
             tracing::warn!(
                 "all messages in mpool have non-positive gas performance {}",
                 chains[0].gas_perf
