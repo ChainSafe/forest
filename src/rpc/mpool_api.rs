@@ -4,10 +4,9 @@
 
 use std::convert::TryFrom;
 
-use crate::blocks::TipsetKey;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc_api::data_types::{MessageSendSpec, RPCState};
+use crate::rpc_api::data_types::*;
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
@@ -34,16 +33,15 @@ where
 /// Return `Vec` of pending messages in `mpool`
 pub async fn mpool_pending<DB>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((cid_vec,))): Params<LotusJson<(Vec<Cid>,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let tsk = TipsetKey::from_iter(cid_vec);
     let mut ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending()?;
 
@@ -94,6 +92,7 @@ where
         ts = data
             .state_manager
             .chain_store()
+            .chain_index
             .load_required_tipset(ts.parents())?;
     }
     Ok(pending.into_iter().collect::<Vec<_>>().into())

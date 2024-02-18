@@ -122,7 +122,11 @@ where
     }
 
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
-        Ok(self.sm.chain_store().load_required_tipset(tsk)?)
+        Ok(self
+            .sm
+            .chain_store()
+            .chain_index
+            .load_required_tipset(tsk)?)
     }
 
     fn chain_compute_base_fee(&self, ts: &Tipset) -> Result<TokenAmount, Error> {
