@@ -6,6 +6,7 @@ use crate::blocks::TipsetKey;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc_api::chain_api::ChainExportParams;
+use crate::rpc_api::data_types::ApiTipsetKey;
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::NaiveDateTime;
@@ -81,7 +82,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: chain_head.key().clone(),
+                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
                     skip_checksum,
                     dry_run,
                 };

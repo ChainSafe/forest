@@ -56,6 +56,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
     block_sanity_checks(header).map_err(to_errs)?;
 
     let base_tipset = chain_store
+        .chain_index
         .load_required_tipset(&header.parents)
         .map_err(to_errs)?;
 

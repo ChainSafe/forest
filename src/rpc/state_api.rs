@@ -6,10 +6,7 @@ use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, ApiInvocResult, CirculatingSupply, MarketDeal, MessageFilter,
-    MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo, Transaction,
-};
+use crate::rpc_api::data_types::*;
 use crate::shim::{
     address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt, message::Message,
     state_tree::ActorState, version::NetworkVersion,
@@ -40,16 +37,18 @@ use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
 
-type RandomnessParams = (i64, ChainEpoch, Vec<u8>, TipsetKey);
+type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
 pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, epoch, tsk))): Params<LotusJson<(Address, ChainEpoch, TipsetKey)>>,
+    Params(LotusJson((address, epoch, ApiTipsetKey(tsk)))): Params<
+        LotusJson<(Address, ChainEpoch, ApiTipsetKey)>,
+    >,
 ) -> anyhow::Result<LotusJson<Option<MiningBaseInfo>>> {
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
 
     data.state_manager
         .miner_get_base_info(data.state_manager.beacon_schedule(), ts, address, epoch)
@@ -59,13 +58,13 @@ pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
 /// runs the given message and returns its result without any persisted changes.
 pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((message, key))): Params<LotusJson<(Message, TipsetKey)>>,
+    Params(LotusJson((message, ApiTipsetKey(key)))): Params<LotusJson<(Message, ApiTipsetKey)>>,
 ) -> Result<ApiInvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
     // Handle expensive fork error?
     // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
     Ok(state_manager.call(&message, Some(tipset))?)
@@ -75,13 +74,13 @@ pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
 /// executed in the indicated tipset.
 pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((cid, key))): Params<LotusJson<(Cid, TipsetKey)>>,
+    Params(LotusJson((cid, ApiTipsetKey(key)))): Params<LotusJson<(Cid, ApiTipsetKey)>>,
 ) -> Result<InvocResult, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
     let (msg, ret) = state_manager.replay(&tipset, cid).await?;
 
     Ok(InvocResult {
@@ -105,9 +104,9 @@ pub async fn state_network_name<DB: Blockstore>(
 
 pub async fn state_get_network_version<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<NetworkVersion, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
@@ -120,10 +119,12 @@ pub async fn state_account_key<DB: Blockstore>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let ts_opt = data.chain_store.load_tipset(&tipset_keys)?;
     Ok(LotusJson(
         data.state_manager
-            .resolve_to_deterministic_address(address, ts_opt)
+            .resolve_to_deterministic_address(
+                address,
+                data.chain_store.chain_index.load_tipset(&tipset_keys)?,
+            )
             .await?,
     ))
 }
@@ -132,26 +133,26 @@ where
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
 pub async fn state_lookup_id<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((address, tipset_keys))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Address>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let ts = data.chain_store.load_required_tipset(&tipset_keys)?;
+    let ts = data
+        .chain_store
+        .load_required_tipset_with_fallback(&tipset_keys.0)?;
     let ret = data
         .state_manager
         .lookup_id(&address, ts.as_ref())?
-        .with_context(|| {
-            format!("Failed to lookup the id address for address: {address} and tipset keys: {tipset_keys}")
-        })?;
+        .with_context(|| format!("Failed to lookup the id address for address: {address} and tipset keys: {tipset_keys}"))?;
     Ok(LotusJson(ret))
 }
 
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Option<ActorState>>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let state = data.state_manager.get_actor(&addr, *ts.parent_state());
     state.map(Into::into).map_err(|e| e.into())
 }
@@ -160,12 +161,12 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
 /// Market
 pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((address, ApiTipsetKey(key)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<MarketBalance, JsonRpcError> {
     let tipset = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
     data.state_manager
         .market_balance(&address, &tipset)
         .map_err(|e| e.into())
@@ -173,9 +174,9 @@ pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn state_market_deals<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<HashMap<String, MarketDeal>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
@@ -208,21 +209,21 @@ pub async fn state_market_deals<DB: Blockstore>(
 /// looks up the miner info of the given address.
 pub async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((address, ApiTipsetKey(key)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<MinerInfo>, JsonRpcError> {
     let tipset = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
     Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
 }
 
 pub async fn state_miner_active_sectors<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((miner, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Vec<SectorOnChainInfo>>, JsonRpcError> {
     let bs = data.state_manager.blockstore();
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let policy = &data.state_manager.chain_config().policy;
     let actor = data
         .state_manager
@@ -251,10 +252,10 @@ pub async fn state_miner_active_sectors<DB: Blockstore>(
 // Returns the number of sectors in a miner's sector set and proving set
 pub async fn state_miner_sector_count<DB: Blockstore>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((miner, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<MinerSectors>, JsonRpcError> {
     let bs = data.state_manager.blockstore();
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let policy = &data.state_manager.chain_config().policy;
     let actor = data
         .state_manager
@@ -284,12 +285,12 @@ pub async fn state_miner_sector_count<DB: Blockstore>(
 /// looks up the miner power of the given address.
 pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((address, ApiTipsetKey(key)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<MinerPower>, JsonRpcError> {
     let tipset = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
 
     data.state_manager
         .miner_power(&address, &tipset)
@@ -299,9 +300,9 @@ pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Vec<ApiDeadline>>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let policy = &data.state_manager.chain_config().policy;
     let actor = data
         .state_manager
@@ -322,9 +323,9 @@ pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<DeadlineInfo>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let policy = &data.state_manager.chain_config().policy;
     let actor = data
         .state_manager
@@ -338,12 +339,12 @@ pub async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static
 /// looks up the miner power of the given address.
 pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, key))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((address, ApiTipsetKey(key)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<BitField>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
 
     data.state_manager
         .miner_faults(&address, &ts)
@@ -353,12 +354,12 @@ pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((miner, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((miner, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<BitField>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
 
     data.state_manager
         .miner_recoveries(&miner, &ts)
@@ -369,13 +370,13 @@ pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
 /// returns the message receipt for the given message
 pub async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((cid, key))): Params<LotusJson<(Cid, TipsetKey)>>,
+    Params(LotusJson((cid, ApiTipsetKey(key)))): Params<LotusJson<(Cid, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Receipt>, JsonRpcError> {
     let state_manager = &data.state_manager;
     let tipset = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&key)?;
+        .load_required_tipset_with_fallback(&key)?;
     state_manager
         .get_receipt(tipset, cid)
         .map(|s| s.into())
@@ -626,12 +627,14 @@ fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
 /// Get randomness from tickets
 pub async fn state_get_randomness_from_tickets<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
+    Params(LotusJson((personalization, rand_epoch, entropy, ApiTipsetKey(tsk)))): Params<
         LotusJson<RandomnessParams>,
     >,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let tipset = state_manager.chain_store().load_required_tipset(&tsk)?;
+    let tipset = state_manager
+        .chain_store()
+        .load_required_tipset_with_fallback(&tsk)?;
     let chain_config = state_manager.chain_config();
     let chain_index = &data.chain_store.chain_index;
     let beacon = state_manager.beacon_schedule();
@@ -649,12 +652,14 @@ pub async fn state_get_randomness_from_tickets<DB: Blockstore + Send + Sync + 's
 /// Get randomness from beacon
 pub async fn state_get_randomness_from_beacon<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((personalization, rand_epoch, entropy, tsk))): Params<
+    Params(LotusJson((personalization, rand_epoch, entropy, ApiTipsetKey(tsk)))): Params<
         LotusJson<RandomnessParams>,
     >,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let state_manager = &data.state_manager;
-    let tipset = state_manager.chain_store().load_required_tipset(&tsk)?;
+    let tipset = state_manager
+        .chain_store()
+        .load_required_tipset_with_fallback(&tsk)?;
     let chain_config = state_manager.chain_config();
     let chain_index = &data.chain_store.chain_index;
     let beacon = state_manager.beacon_schedule();
@@ -672,9 +677,9 @@ pub async fn state_get_randomness_from_beacon<DB: Blockstore + Send + Sync + 'st
 /// Get read state
 pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<ApiActorState>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let actor = data
         .state_manager
         .get_actor(&addr, *ts.parent_state())?
@@ -695,9 +700,9 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
 
     let height = ts.epoch();
 
@@ -715,9 +720,9 @@ pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let height = ts.epoch();
     let store = data.state_manager.blockstore();
     let actor = data
@@ -733,9 +738,9 @@ pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
 
 pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Vec<Transaction>>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let store = data.state_manager.blockstore();
     let actor = data
         .state_manager
@@ -761,9 +766,11 @@ pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
 /// Get state sector info using sector no
 pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, sector_no, tsk))): Params<LotusJson<(Address, u64, TipsetKey)>>,
+    Params(LotusJson((addr, sector_no, ApiTipsetKey(tsk)))): Params<
+        LotusJson<(Address, u64, ApiTipsetKey)>,
+    >,
 ) -> Result<LotusJson<SectorOnChainInfo>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
 
     Ok(LotusJson(
         data.state_manager
@@ -777,9 +784,9 @@ pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
 
 pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((addr, tsk))): Params<LotusJson<(Address, TipsetKey)>>,
+    Params(LotusJson((addr, ApiTipsetKey(tsk)))): Params<LotusJson<(Address, ApiTipsetKey)>>,
 ) -> Result<LotusJson<Option<BigInt>>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
     let status = data.state_manager.verified_client_status(&addr, &ts)?;
     Ok(status.into())
 }
@@ -788,9 +795,9 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
     DB: Blockstore + Send + Sync + 'static,
 >(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<LotusJson<CirculatingSupply>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
 
     let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
 
@@ -805,10 +812,12 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
 pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
     Params(LotusJson((from_to, tsk, max_height))): Params<
-        LotusJson<(MessageFilter, TipsetKey, i64)>,
+        LotusJson<(MessageFilter, ApiTipsetKey, i64)>,
     >,
 ) -> Result<LotusJson<Vec<Cid>>, JsonRpcError> {
-    let ts = data.chain_store.load_required_tipset(&tsk)?;
+    let ts = data
+        .chain_store
+        .load_required_tipset_with_fallback(&tsk.0)?;
 
     if from_to.is_empty() {
         return Err(JsonRpcError::Provided {
@@ -852,6 +861,7 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
         let next = data
             .state_manager
             .chain_store()
+            .chain_index
             .load_tipset(cur_ts.parents())?
             .ok_or("failed to load next tipset")?;
         cur_ts = next;
@@ -862,12 +872,12 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
 
 pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
     data: Data<RPCState<DB>>,
-    Params(LotusJson((tsk,))): Params<LotusJson<(TipsetKey,)>>,
+    Params(LotusJson((ApiTipsetKey(tsk),))): Params<LotusJson<(ApiTipsetKey,)>>,
 ) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset(&tsk)?;
+        .load_required_tipset_with_fallback(&tsk)?;
     let store = data.state_manager.blockstore();
     let actor = data
         .state_manager
