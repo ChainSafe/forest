@@ -53,7 +53,7 @@ use serde_json::Value;
 use tokio::sync::RwLock;
 
 // Define a static variable for the default PeerId
-static DEFAULT_PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::random());
+static DEFAULT_PEER_ID: Lazy<PeerId> = Lazy::new(PeerId::random);
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
