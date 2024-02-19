@@ -60,13 +60,42 @@ where
 {
     // Load genesis state into the database and get the Cid
     let header = load_car(db, reader).await?;
-    if header.roots.len() != 1 {
-        panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
-    }
+    assert_eq!(
+        header.roots.len(),
+        1,
+        "Invalid Genesis. Genesis Tipset must have only 1 Block."
+    );
 
     let genesis_block = CachingBlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 
     Ok(genesis_block)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cid::Cid;
+
+    #[tokio::test]
+    async fn test_process_car_genesis_mainnet() {
+        use crate::networks::mainnet::{DEFAULT_GENESIS, GENESIS_CID};
+
+        let header = load_header_from_car(DEFAULT_GENESIS).await;
+        assert_eq!(header.cid(), &GENESIS_CID as &Cid);
+    }
+
+    #[tokio::test]
+    async fn test_process_car_genesis_calibnet() {
+        use crate::networks::calibnet::{DEFAULT_GENESIS, GENESIS_CID};
+
+        let header = load_header_from_car(DEFAULT_GENESIS).await;
+        assert_eq!(header.cid(), &GENESIS_CID as &Cid);
+    }
+
+    async fn load_header_from_car(genesis_bytes: &[u8]) -> CachingBlockHeader {
+        let db = crate::db::MemoryDB::default();
+        process_car(genesis_bytes, &db).await.unwrap()
+    }
 }
