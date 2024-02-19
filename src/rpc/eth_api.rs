@@ -15,6 +15,7 @@ use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::bail;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use nonempty::nonempty;
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
@@ -122,7 +123,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
             let tsk = TipsetKey {
-                cids: FrozenCidVec::from_iter([hash.to_cid()]),
+                cids: FrozenCidVec::from(nonempty![hash.to_cid()]),
             };
             let ts = chain.chain_index.load_required_tipset(&tsk)?;
             // verify that the tipset is in the canonical chain

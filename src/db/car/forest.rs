@@ -145,7 +145,7 @@ impl<ReaderT: super::RandomAccessFileReader> ForestCar<ReaderT> {
     }
 
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        Tipset::load_required(self, &TipsetKey::from_iter(self.roots().clone()))
+        Tipset::load_required(self, &TipsetKey::from(self.roots().clone()))
     }
 
     pub fn into_dyn(self) -> ForestCar<Box<dyn super::RandomAccessFileReader>> {

@@ -46,11 +46,9 @@ impl TipsetKey {
     }
 }
 
-impl FromIterator<Cid> for TipsetKey {
-    fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
-        Self {
-            cids: iter.into_iter().collect(),
-        }
+impl From<NonEmpty<Cid>> for TipsetKey {
+    fn from(value: NonEmpty<Cid>) -> Self {
+        Self { cids: value.into() }
     }
 }
 
@@ -254,12 +252,21 @@ impl Tipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key.get_or_init(|| {
-            TipsetKey::from_iter(self.headers.iter().map(CachingBlockHeader::cid).copied())
+            TipsetKey::from(NonEmpty {
+                head: *self.headers.head.cid(),
+                tail: self
+                    .headers
+                    .tail
+                    .iter()
+                    .map(CachingBlockHeader::cid)
+                    .copied()
+                    .collect(),
+            })
         })
     }
-    /// Returns slice of `CIDs` for the current tipset
-    pub fn cids(&self) -> Vec<Cid> {
-        self.key().cids.clone().into_iter().collect()
+    /// Returns a non-empty collection of `CIDs` for the current tipset
+    pub fn cids(&self) -> NonEmpty<Cid> {
+        NonEmpty::from_vec(self.key().cids.clone().into_iter().collect()).unwrap()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKey {
@@ -407,8 +414,12 @@ impl FullTipset {
     }
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
-        self.key
-            .get_or_init(|| TipsetKey::from_iter(self.blocks.iter().map(Block::cid).copied()))
+        self.key.get_or_init(|| {
+            TipsetKey::from(NonEmpty {
+                head: *self.blocks.head.cid(),
+                tail: self.blocks.tail.iter().map(Block::cid).copied().collect(),
+            })
+        })
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -701,7 +712,7 @@ mod test {
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            parents: TipsetKey::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
+            parents: TipsetKey::from(nonempty![Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
             ..Default::default()
         };
         assert_eq!(

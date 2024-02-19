@@ -202,8 +202,20 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiTipsetKey(pub Option<TipsetKey>);
+
+impl From<TipsetKey> for ApiTipsetKey {
+    fn from(value: TipsetKey) -> Self {
+        Self(Some(value))
+    }
+}
+
+impl From<&TipsetKey> for ApiTipsetKey {
+    fn from(value: &TipsetKey) -> Self {
+        value.clone().into()
+    }
+}
 
 impl HasLotusJson for ApiTipsetKey {
     type LotusJson = LotusJson<Vec<Cid>>;
@@ -221,11 +233,7 @@ impl HasLotusJson for ApiTipsetKey {
     }
 
     fn from_lotus_json(LotusJson(lotus_json): Self::LotusJson) -> Self {
-        Self(if lotus_json.is_empty() {
-            None
-        } else {
-            Some(TipsetKey::from_iter(lotus_json))
-        })
+        Self(NonEmpty::from_vec(lotus_json).map(From::from))
     }
 }
 

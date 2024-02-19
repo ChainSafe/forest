@@ -8,6 +8,7 @@ use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
+use nonempty::NonEmpty;
 
 use super::{print_pretty_json, print_rpc_res_cids};
 
@@ -92,8 +93,10 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                api.chain_set_head(TipsetKey::from_iter(cids.clone()))
-                    .await?;
+                api.chain_set_head(TipsetKey::from(
+                    NonEmpty::from_vec(cids).expect("cids cannot be empty"),
+                ))
+                .await?;
                 Ok(())
             }
         }
@@ -113,7 +116,7 @@ async fn tipset_by_epoch_or_offset(
         false => epoch_or_offset,
     };
 
-    api.chain_get_tipset_by_height(target_epoch, current_head.key().clone())
+    api.chain_get_tipset_by_height(target_epoch, current_head.key().into())
         .await
 }
 

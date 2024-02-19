@@ -3,6 +3,7 @@
 
 use super::*;
 use cid::Cid;
+use nonempty::NonEmpty;
 use serde::{Deserialize, Serialize};
 
 #[cfg(doc)]
@@ -25,17 +26,16 @@ pub struct FrozenCidVec {
 }
 
 impl FrozenCidVec {
-    /// Returns true if the slice has a length of 0.
-    ///
-    /// See also [`is_empty`](https://doc.rust-lang.org/std/primitive.slice.html#method.is_empty).
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
     /// Returns `true` if the slice contains an element with the given value.
     ///
     /// See also [`contains`](https://doc.rust-lang.org/std/primitive.slice.html#method.contains).
     pub fn contains(&self, cid: Cid) -> bool {
         self.inner.contains(&SmallCid::from(cid))
+    }
+
+    /// Returns a non-empty collection of `CID`
+    pub(crate) fn into_cids(self) -> NonEmpty<Cid> {
+        NonEmpty::from_vec(self.into_iter().map(From::from).collect()).unwrap()
     }
 }
 
@@ -106,24 +106,25 @@ impl quickcheck::Arbitrary for SmallCid {
 #[cfg(test)]
 impl quickcheck::Arbitrary for FrozenCidVec {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        Vec::<MaybeCompactedCid>::arbitrary(g)
-            .into_iter()
-            .map(Cid::from)
-            .collect()
+        NonEmpty {
+            head: Cid::arbitrary(g),
+            tail: Vec::arbitrary(g),
+        }
+        .into()
+    }
+}
+
+impl From<NonEmpty<Cid>> for FrozenCidVec {
+    fn from(value: NonEmpty<Cid>) -> Self {
+        Self {
+            inner: value.into_iter().map(From::from).collect(),
+        }
     }
 }
 
 /////////////////////////////////
 // FrozenCidVec collection Ops //
 /////////////////////////////////
-
-impl FromIterator<Cid> for FrozenCidVec {
-    fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
-        Self {
-            inner: iter.into_iter().map(SmallCid::from).collect(),
-        }
-    }
-}
 
 pub struct IntoIter {
     inner: std::vec::IntoIter<SmallCid>,

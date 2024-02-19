@@ -22,6 +22,7 @@ use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools;
+use nonempty::nonempty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast::{self, Sender as Publisher};
@@ -115,7 +116,7 @@ where
             .read_obj::<TipsetKey>(HEAD_KEY)?
             .is_some_and(|tipset_keys| chain_index.load_tipset(&tipset_keys).is_ok())
         {
-            let tipset_keys = TipsetKey::from_iter([*genesis_block_header.cid()]);
+            let tipset_keys = TipsetKey::from(nonempty![*genesis_block_header.cid()]);
             settings.write_obj(HEAD_KEY, &tipset_keys)?;
         }
 
