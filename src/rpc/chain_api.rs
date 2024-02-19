@@ -457,6 +457,12 @@ mod tests {
     };
 
     #[test]
+    fn demo_genesis() {
+        let store = ChainStore::calibnet();
+        assert!(!store.genesis_block_header().parents.cids.is_empty())
+    }
+
+    #[test]
     fn revert_to_ancestor_linear() {
         let store = ChainStore::calibnet();
         chain4u! {
