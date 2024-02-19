@@ -31,7 +31,7 @@ use super::{Block, CachingBlockHeader, Ticket};
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
 pub struct TipsetKey {
-    pub cids: SmallCidNonEmptyVec,
+    cids: SmallCidNonEmptyVec,
 }
 
 impl TipsetKey {
@@ -44,6 +44,11 @@ impl TipsetKey {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
+    }
+
+    /// Returns `true` if the tipset key contains the given cid.
+    pub fn contains(&self, cid: Cid) -> bool {
+        self.cids.contains(cid)
     }
 
     /// Returns a non-empty collection of `CID`
