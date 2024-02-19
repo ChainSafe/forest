@@ -227,7 +227,7 @@ where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
     {
         let request = ChainExchangeRequest {
-            start: tsk.cids.clone().into_cids(),
+            start: tsk.to_cids(),
             request_len,
             options,
         };

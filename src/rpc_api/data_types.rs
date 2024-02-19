@@ -227,7 +227,7 @@ impl HasLotusJson for ApiTipsetKey {
     fn into_lotus_json(self) -> Self::LotusJson {
         LotusJson(
             self.0
-                .map(|ts| ts.cids.into_cids().into_iter().collect::<Vec<Cid>>())
+                .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
                 .unwrap_or_default(),
         )
     }
@@ -976,7 +976,7 @@ mod tests {
         let api_ts = api_ts_lotus_json.into_inner();
         let cids_from_api_ts = api_ts
             .0
-            .map(|ts| ts.cids.into_cids().into_iter().collect::<Vec<Cid>>())
+            .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
             .unwrap_or_default();
         assert_eq!(cids_from_api_ts, cids);
     }

@@ -26,7 +26,7 @@ pub async fn export<D: Digest>(
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
     let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
-    let roots = tipset.key().cids.clone().into_cids();
+    let roots = tipset.key().to_cids();
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);

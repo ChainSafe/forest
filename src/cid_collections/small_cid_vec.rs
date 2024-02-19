@@ -32,7 +32,7 @@ impl SmallCidNonEmptyVec {
     }
 
     /// Returns a non-empty collection of `CID`
-    pub(crate) fn into_cids(self) -> NonEmpty<Cid> {
+    pub fn into_cids(self) -> NonEmpty<Cid> {
         self.inner.map(From::from)
     }
 }

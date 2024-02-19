@@ -463,7 +463,7 @@ async fn merge_snapshots(
 
     let store = ManyCar::try_from(snapshot_files)?;
     let heaviest_tipset = store.heaviest_tipset()?;
-    let roots = heaviest_tipset.key().cids.clone().into_cids();
+    let roots = heaviest_tipset.key().to_cids();
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())

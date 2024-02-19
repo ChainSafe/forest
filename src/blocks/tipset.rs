@@ -40,10 +40,20 @@ impl TipsetKey {
         use fvm_ipld_encoding::RawBytes;
 
         let mut bytes = Vec::new();
-        for cid in self.cids.clone().into_cids() {
+        for cid in self.to_cids() {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
+    }
+
+    /// Returns a non-empty collection of `CID`
+    pub fn into_cids(self) -> NonEmpty<Cid> {
+        self.cids.into_cids()
+    }
+
+    /// Returns a non-empty collection of `CID`
+    pub fn to_cids(&self) -> NonEmpty<Cid> {
+        self.cids.clone().into_cids()
     }
 }
 
@@ -56,9 +66,7 @@ impl From<NonEmpty<Cid>> for TipsetKey {
 impl fmt::Display for TipsetKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
-            .cids
-            .clone()
-            .into_cids()
+            .to_cids()
             .into_iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
@@ -162,9 +170,7 @@ impl Tipset {
     /// present but invalid. If the tipset is missing, None is returned.
     pub fn load(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
-            .cids
-            .clone()
-            .into_cids()
+            .to_cids()
             .into_iter()
             .map(|key| CachingBlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<Vec<_>>>>()?
@@ -180,7 +186,6 @@ impl Tipset {
         Ok(
             match settings.read_obj::<TipsetKey>(crate::db::setting_keys::HEAD_KEY)? {
                 Some(tsk) => tsk
-                    .cids
                     .into_cids()
                     .into_iter()
                     .map(|key| CachingBlockHeader::load(store, key))
@@ -270,7 +275,7 @@ impl Tipset {
     }
     /// Returns a non-empty collection of `CIDs` for the current tipset
     pub fn cids(&self) -> NonEmpty<Cid> {
-        self.key().cids.clone().into_cids()
+        self.key().to_cids()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKey {

@@ -247,8 +247,7 @@ async fn benchmark_exporting(
         compression_level,
         par_buffer(1024, blocks.map_err(anyhow::Error::from)),
     );
-    crate::db::car::forest::Encoder::write(&mut dest, ts.key().cids.clone().into_cids(), frames)
-        .await?;
+    crate::db::car::forest::Encoder::write(&mut dest, ts.key().to_cids(), frames).await?;
     dest.flush().await?;
     Ok(())
 }
