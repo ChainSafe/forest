@@ -44,16 +44,15 @@ pub async fn eth_block_number<DB: Blockstore>(
     }
     // First non-null parent.
     let effective_parent = heaviest.parents();
-    let parent = data
+    if let Ok(Some(parent)) = data
         .state_manager
         .chain_store()
-        .load_tipset(effective_parent);
-    match parent {
-        Ok(parent) => match parent {
-            Some(parent) => Ok(format!("0x{:x}", parent.epoch())),
-            None => Ok("0x0".to_string()),
-        },
-        Err(_) => Ok("0x0".to_string()),
+        .chain_index
+        .load_tipset(effective_parent)
+    {
+        Ok(format!("0x{:x}", parent.epoch()))
+    } else {
+        Ok("0x0".to_string())
     }
 }
 

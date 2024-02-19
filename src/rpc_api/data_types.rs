@@ -223,6 +223,43 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct ApiTipsetKey(pub Option<TipsetKey>);
+
+impl HasLotusJson for ApiTipsetKey {
+    type LotusJson = LotusJson<Vec<Cid>>;
+
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        LotusJson(
+            self.0
+                .map(|ts| ts.cids.into_iter().collect::<Vec<Cid>>())
+                .unwrap_or_default(),
+        )
+    }
+
+    fn from_lotus_json(LotusJson(lotus_json): Self::LotusJson) -> Self {
+        Self(if lotus_json.is_empty() {
+            None
+        } else {
+            Some(TipsetKey::from_iter(lotus_json))
+        })
+    }
+}
+
+impl std::fmt::Display for ApiTipsetKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(tsk) = &self.0 {
+            write!(f, "{tsk}")
+        } else {
+            write!(f, "")
+        }
+    }
+}
+
 const EMPTY_ADDRESS_VALUE: &str = "<empty>";
 
 /// This wrapper is needed because of a bug in Lotus.
@@ -916,3 +953,44 @@ pub struct Transaction {
 }
 
 lotus_json_with_self!(Transaction);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn test_api_tipset_key(cids: Vec<Cid>) {
+        test_api_tipset_key_inner(cids)
+    }
+
+    #[test]
+    fn test_api_tipset_key_empty() {
+        test_api_tipset_key_inner(vec![])
+    }
+
+    #[test]
+    fn test_api_tipset_key_deserialization_empty_vec() {
+        let api_ts_lotus_json: LotusJson<ApiTipsetKey> = serde_json::from_str("[]").unwrap();
+        assert!(api_ts_lotus_json.into_inner().0.is_none());
+    }
+
+    #[test]
+    fn test_api_tipset_key_deserialization_null() {
+        let api_ts_lotus_json: LotusJson<ApiTipsetKey> = serde_json::from_str("null").unwrap();
+        assert!(api_ts_lotus_json.into_inner().0.is_none());
+    }
+
+    fn test_api_tipset_key_inner(cids: Vec<Cid>) {
+        let cids_lotus_json = LotusJson(cids.clone());
+        let lotus_json_str = serde_json::to_string_pretty(&cids_lotus_json).unwrap();
+        let api_ts_lotus_json: LotusJson<ApiTipsetKey> =
+            serde_json::from_str(&lotus_json_str).unwrap();
+        let api_ts = api_ts_lotus_json.into_inner();
+        let cids_from_api_ts = api_ts
+            .0
+            .map(|ts| ts.cids.into_iter().collect::<Vec<Cid>>())
+            .unwrap_or_default();
+        assert_eq!(cids_from_api_ts, cids);
+    }
+}

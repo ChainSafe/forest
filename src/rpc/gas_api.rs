@@ -96,6 +96,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         let pts = data
             .state_manager
             .chain_store()
+            .chain_index
             .load_required_tipset(ts.parents())?;
         blocks += pts.block_headers().len();
         let msgs = crate::chain::messages_for_tipset(data.state_manager.blockstore_owned(), &pts)?;
