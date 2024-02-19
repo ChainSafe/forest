@@ -3,7 +3,7 @@
 
 use std::{fmt, sync::OnceLock};
 
-use crate::cid_collections::FrozenCidVec;
+use crate::cid_collections::SmallCidNonEmptyVec;
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::networks::{calibnet, mainnet};
 use crate::shim::clock::ChainEpoch;
@@ -31,15 +31,16 @@ use super::{Block, CachingBlockHeader, Ticket};
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(transparent)]
 pub struct TipsetKey {
-    pub cids: FrozenCidVec,
+    pub cids: SmallCidNonEmptyVec,
 }
 
 impl TipsetKey {
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
+
         let mut bytes = Vec::new();
-        for cid in self.cids.clone() {
+        for cid in self.cids.clone().into_cids() {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
@@ -57,6 +58,7 @@ impl fmt::Display for TipsetKey {
         let s = self
             .cids
             .clone()
+            .into_cids()
             .into_iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
@@ -162,6 +164,7 @@ impl Tipset {
         Ok(tsk
             .cids
             .clone()
+            .into_cids()
             .into_iter()
             .map(|key| CachingBlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<Vec<_>>>>()?
@@ -178,6 +181,7 @@ impl Tipset {
             match settings.read_obj::<TipsetKey>(crate::db::setting_keys::HEAD_KEY)? {
                 Some(tsk) => tsk
                     .cids
+                    .into_cids()
                     .into_iter()
                     .map(|key| CachingBlockHeader::load(store, key))
                     .collect::<anyhow::Result<Option<Vec<_>>>>()?
@@ -266,7 +270,7 @@ impl Tipset {
     }
     /// Returns a non-empty collection of `CIDs` for the current tipset
     pub fn cids(&self) -> NonEmpty<Cid> {
-        NonEmpty::from_vec(self.key().cids.clone().into_iter().collect()).unwrap()
+        self.key().cids.clone().into_cids()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKey {
@@ -531,13 +535,13 @@ mod lotus_json {
                             "ParentMessageReceipts": { "/": "baeaaaaa" },
                             "ParentStateRoot": { "/":"baeaaaaa" },
                             "ParentWeight": "0",
-                            "Parents": null,
+                            "Parents": [{ "/": "baeaaaaa" }],
                             "Timestamp": 0,
                             "WinPoStProof": null
                         }
                     ],
                     "Cids": [
-                        { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                        { "/": "bafy2bzacedlii5jr5pqn74s5wipsanuot4un4vjvzai5yhnklmuy7udo3jwcq" }
                     ],
                     "Height": 0
                 }),

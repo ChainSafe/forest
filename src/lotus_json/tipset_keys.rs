@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::blocks::TipsetKey;
-use crate::cid_collections::FrozenCidVec;
+use crate::cid_collections::SmallCidNonEmptyVec;
 use ::cid::Cid;
 use ::nonempty::{nonempty, NonEmpty};
 
@@ -14,7 +14,7 @@ impl HasLotusJson for TipsetKey {
         vec![(
             json!([{"/": "baeaaaaa"}]),
             TipsetKey {
-                cids: FrozenCidVec::from(nonempty![::cid::Cid::default()]),
+                cids: SmallCidNonEmptyVec::from(nonempty![::cid::Cid::default()]),
             },
         )]
     }

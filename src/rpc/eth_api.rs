@@ -7,7 +7,7 @@ use std::{ops::Add, sync::Arc};
 use super::gas_api;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
-use crate::cid_collections::FrozenCidVec;
+use crate::cid_collections::SmallCidNonEmptyVec;
 use crate::lotus_json::LotusJson;
 use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
@@ -123,7 +123,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
             let tsk = TipsetKey {
-                cids: FrozenCidVec::from(nonempty![hash.to_cid()]),
+                cids: SmallCidNonEmptyVec::from(nonempty![hash.to_cid()]),
             };
             let ts = chain.chain_index.load_required_tipset(&tsk)?;
             // verify that the tipset is in the canonical chain

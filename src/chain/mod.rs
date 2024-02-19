@@ -11,7 +11,6 @@ use crate::utils::stream::par_buffer;
 use anyhow::Context as _;
 use digest::Digest;
 use fvm_ipld_blockstore::Blockstore;
-use nonempty::NonEmpty;
 use std::sync::Arc;
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
@@ -27,8 +26,7 @@ pub async fn export<D: Digest>(
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
     let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
-    let roots = NonEmpty::from_vec(tipset.key().cids.clone().into_iter().collect())
-        .context("Tipset key is empty")?;
+    let roots = tipset.key().cids.clone().into_cids();
 
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);

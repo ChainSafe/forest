@@ -24,7 +24,6 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use nonempty::NonEmpty;
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
@@ -228,8 +227,7 @@ where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
     {
         let request = ChainExchangeRequest {
-            start: NonEmpty::from_vec(tsk.cids.clone().into_iter().collect())
-                .ok_or_else(|| "tipset keys cannot be empty".to_owned())?,
+            start: tsk.cids.clone().into_cids(),
             request_len,
             options,
         };

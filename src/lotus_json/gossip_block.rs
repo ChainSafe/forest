@@ -25,7 +25,7 @@ impl HasLotusJson for GossipBlock {
                 "Header": {
                     "BeaconEntries": null,
                     "Miner": "f00",
-                    "Parents": null,
+                    "Parents": [{"/":"baeaaaaa"}],
                     "ParentWeight": "0",
                     "Height": 0,
                     "ParentStateRoot": {
