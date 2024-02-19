@@ -18,30 +18,25 @@ use crate::blocks::TipsetKey;
 /// This may be expanded to have [`smallvec`](https://docs.rs/smallvec/1.11.0/smallvec/index.html)-style indirection
 /// to save more on heap allocations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-#[serde(transparent)] // treat the named field as anonymous, so we serialize equivalent to Vec<Cid>
-pub struct SmallCidNonEmptyVec {
-    inner: NonEmpty<SmallCid>,
-}
+pub struct SmallCidNonEmptyVec(NonEmpty<SmallCid>);
 
 impl SmallCidNonEmptyVec {
     /// Returns `true` if the slice contains an element with the given value.
     ///
     /// See also [`contains`](https://doc.rust-lang.org/std/primitive.slice.html#method.contains).
     pub fn contains(&self, cid: Cid) -> bool {
-        self.inner.contains(&SmallCid::from(cid))
+        self.0.contains(&SmallCid::from(cid))
     }
 
     /// Returns a non-empty collection of `CID`
     pub fn into_cids(self) -> NonEmpty<Cid> {
-        self.inner.map(From::from)
+        self.0.map(From::from)
     }
 }
 
 impl Default for SmallCidNonEmptyVec {
     fn default() -> Self {
-        Self {
-            inner: nonempty![Cid::default().into()],
-        }
+        Self(nonempty![Cid::default().into()])
     }
 }
 
@@ -122,8 +117,6 @@ impl quickcheck::Arbitrary for SmallCidNonEmptyVec {
 
 impl From<NonEmpty<Cid>> for SmallCidNonEmptyVec {
     fn from(value: NonEmpty<Cid>) -> Self {
-        Self {
-            inner: value.map(From::from),
-        }
+        Self(value.map(From::from))
     }
 }

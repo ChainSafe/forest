@@ -29,10 +29,7 @@ use super::{Block, CachingBlockHeader, Ticket};
 /// blocks in a tipset (which is by ticket)
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[serde(transparent)]
-pub struct TipsetKey {
-    cids: SmallCidNonEmptyVec,
-}
+pub struct TipsetKey(SmallCidNonEmptyVec);
 
 impl TipsetKey {
     // Special encoding to match Lotus.
@@ -46,25 +43,25 @@ impl TipsetKey {
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
 
-    /// Returns `true` if the tipset key contains the given cid.
+    /// Returns `true` if the tipset key contains the given CID.
     pub fn contains(&self, cid: Cid) -> bool {
-        self.cids.contains(cid)
+        self.0.contains(cid)
     }
 
     /// Returns a non-empty collection of `CID`
     pub fn into_cids(self) -> NonEmpty<Cid> {
-        self.cids.into_cids()
+        self.0.into_cids()
     }
 
     /// Returns a non-empty collection of `CID`
     pub fn to_cids(&self) -> NonEmpty<Cid> {
-        self.cids.clone().into_cids()
+        self.0.clone().into_cids()
     }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
     fn from(value: NonEmpty<Cid>) -> Self {
-        Self { cids: value.into() }
+        Self(value.into())
     }
 }
 
