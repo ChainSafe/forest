@@ -458,8 +458,9 @@ mod tests {
 
     #[test]
     fn demo_genesis() {
-        let store = ChainStore::calibnet();
-        assert!(!store.genesis_block_header().parents.cids.is_empty())
+        for store in [ChainStore::calibnet(), ChainStore::mainnet()] {
+            assert!(!store.genesis_block_header().parents.cids.is_empty())
+        }
     }
 
     #[test]
@@ -533,14 +534,11 @@ mod tests {
     }
 
     impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
-        fn calibnet() -> Self {
+        fn _load(genesis_car: &'static [u8], genesis_cid: Cid) -> Self {
             let db = Arc::new(Chain4U::with_blockstore(
-                PlainCar::new(networks::calibnet::DEFAULT_GENESIS).unwrap(),
+                PlainCar::new(genesis_car).unwrap(),
             ));
-            let genesis_block_header = db
-                .get_cbor(&networks::calibnet::GENESIS_CID)
-                .unwrap()
-                .unwrap();
+            let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
             ChainStore::new(
                 db,
                 Arc::new(MemoryDB::default()),
@@ -548,6 +546,18 @@ mod tests {
                 genesis_block_header,
             )
             .unwrap()
+        }
+        fn calibnet() -> Self {
+            Self::_load(
+                networks::calibnet::DEFAULT_GENESIS,
+                *networks::calibnet::GENESIS_CID,
+            )
+        }
+        fn mainnet() -> Self {
+            Self::_load(
+                networks::mainnet::DEFAULT_GENESIS,
+                *networks::mainnet::GENESIS_CID,
+            )
         }
     }
 
