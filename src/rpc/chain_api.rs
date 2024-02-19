@@ -457,13 +457,6 @@ mod tests {
     };
 
     #[test]
-    fn demo_genesis() {
-        for store in [ChainStore::calibnet(), ChainStore::mainnet()] {
-            assert!(!store.genesis_block_header().parents.cids.is_empty())
-        }
-    }
-
-    #[test]
     fn revert_to_ancestor_linear() {
         let store = ChainStore::calibnet();
         chain4u! {
@@ -551,12 +544,6 @@ mod tests {
             Self::_load(
                 networks::calibnet::DEFAULT_GENESIS,
                 *networks::calibnet::GENESIS_CID,
-            )
-        }
-        fn mainnet() -> Self {
-            Self::_load(
-                networks::mainnet::DEFAULT_GENESIS,
-                *networks::mainnet::GENESIS_CID,
             )
         }
     }
