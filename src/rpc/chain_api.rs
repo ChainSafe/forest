@@ -284,6 +284,8 @@ fn impl_chain_get_path(
     let mut all_reverts = vec![];
     let mut all_applies = vec![];
 
+    // This loop is guaranteed to terminate if the blockstore contain no cycles.
+    // This is currently computationally infeasible.
     while to_revert != to_apply {
         if to_revert.epoch() > to_apply.epoch() {
             let next = chain_store
