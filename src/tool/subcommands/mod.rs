@@ -58,4 +58,16 @@ pub enum Subcommand {
     /// API tooling
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
+
+    /// Print a DOT graph of the `ancestors` tipsets before `height`.
+    GraphAncestors {
+        /// Multiaddr of the RPC host.
+        #[arg(long)]
+        host: String,
+        /// If omitted, defaults to the HEAD of the node.
+        #[arg(long)]
+        height: Option<u32>,
+        #[arg(long)]
+        ancestors: u32,
+    },
 }
