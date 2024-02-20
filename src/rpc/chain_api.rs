@@ -476,10 +476,48 @@ mod tests {
 
         // over multi-member tipset
         assert_path_change(&store, e, b, [Revert(&[e][..]), Revert(&[c, d])]);
+    }
 
-        // TODO(aatifsyed): how should we handle incomplete `TipsetKey`s from the user?
-        // assert_path_change(&store, e, c, [Revert(e)]); // fails
-        // assert_path_change(&store, c, a, [Revert(&[c]), Revert(&[b])]); // passes
+    /// Mirror how lotus handles passing an incomplete `TipsetKey`s.
+    /// Tested on lotus `1.23.2`
+    #[test]
+    fn incomplete_tipsets() {
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header()]
+            -> [a, b] -> [c] -> [d, _e] // this pattern 2 -> 1 -> 2 can be found at calibnet epoch 1369126
+        };
+
+        // apply to descendant with incomplete `from`
+        assert_path_change(
+            &store,
+            a,
+            c,
+            [
+                Revert(&[a][..]), // revert the incomplete tipset
+                Apply(&[a, b]),   // apply the complete one
+                Apply(&[c]),      // apply the destination
+            ],
+        );
+
+        // apply to descendant with incomplete `to`
+        assert_path_change(&store, c, d, [Apply(d)]);
+
+        // revert to ancestor with incomplete `from`
+        assert_path_change(&store, d, c, [Revert(d)]);
+
+        // revert to ancestor with incomplete `to`
+        assert_path_change(
+            &store,
+            c,
+            a,
+            [
+                Revert(&[c][..]),
+                Revert(&[a, b]), // revert the complete tipset
+                Apply(&[a]),     // apply the incomplete one
+            ],
+        );
     }
 
     #[test]
