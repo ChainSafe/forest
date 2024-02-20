@@ -143,7 +143,7 @@ where
         .as_ref()
         .context("no bundle for network version NV21 (fixed again)")?;
 
-    blockstore.get(new_manifest_cid)?.context(format!(
+    blockstore.get(new_manifest_cid)?.with_context(|| format!(
         "manifest for network version NV21 (fixed again) not found in blockstore: {new_manifest_cid}"
     ))?;
 

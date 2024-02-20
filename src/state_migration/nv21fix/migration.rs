@@ -143,9 +143,11 @@ where
         .as_ref()
         .context("no bundle for calibration network version NV21 (fixed)")?;
 
-    blockstore.get(new_manifest_cid)?.context(format!(
-        "manifest for network version NV21 (fixed) not found in blockstore: {new_manifest_cid}"
-    ))?;
+    blockstore.get(new_manifest_cid)?.with_context(|| {
+        format!(
+            "manifest for network version NV21 (fixed) not found in blockstore: {new_manifest_cid}"
+        )
+    })?;
 
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());

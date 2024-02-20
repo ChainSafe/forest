@@ -200,10 +200,7 @@ pub(super) async fn start(
         // Start Prometheus server port
         let prometheus_listener = TcpListener::bind(config.client.metrics_address)
             .await
-            .context(format!(
-                "could not bind to {}",
-                config.client.metrics_address
-            ))?;
+            .with_context(|| format!("could not bind to {}", config.client.metrics_address))?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
@@ -344,10 +341,12 @@ pub(super) async fn start(
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_listen = tokio::net::TcpListener::bind(config.client.rpc_address)
             .await
-            .context(format!(
-                "could not bind to rpc address {}",
-                config.client.rpc_address
-            ))?;
+            .with_context(|| {
+                format!(
+                    "could not bind to rpc address {}",
+                    config.client.rpc_address
+                )
+            })?;
 
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);

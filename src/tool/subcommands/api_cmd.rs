@@ -903,7 +903,7 @@ where
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
     let rpc_endpoint = tokio::net::TcpListener::bind(rpc_address)
         .await
-        .context(format!("could not bind to rpc address {}", rpc_address))?;
+        .with_context(|| format!("could not bind to rpc address {}", rpc_address))?;
     let forest_version = FOREST_VERSION_STRING.as_str();
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
