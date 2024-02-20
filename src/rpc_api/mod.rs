@@ -416,7 +416,7 @@ pub mod net_api {
 
     pub const NET_INFO: &str = "Filecoin.NetInfo";
 
-    #[derive(Debug, Default, Serialize, Deserialize)]
+    #[derive(Debug, Default, Serialize, Deserialize, Clone)]
     pub struct NetInfoResult {
         pub num_peers: usize,
         pub num_connections: u32,
@@ -454,25 +454,25 @@ pub mod node_api {
 
     use crate::lotus_json::lotus_json_with_self;
 
-    #[derive(Debug, Serialize, Deserialize, Default)]
+    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
     pub struct NodeSyncStatus {
         pub epoch: u64,
         pub behind: u64,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Default)]
+    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
     pub struct NodePeerStatus {
         pub peers_to_publish_msgs: u32,
         pub peers_to_publish_blocks: u32,
     }
 
-    #[derive(Debug, Serialize, Deserialize, Default)]
+    #[derive(Debug, Serialize, Deserialize, Default, Clone)]
     pub struct NodeChainStatus {
         pub blocks_per_tipset_last_100: f64,
         pub blocks_per_tipset_last_finality: f64,
     }
 
-    #[derive(Debug, Deserialize, Default, Serialize)]
+    #[derive(Debug, Deserialize, Default, Serialize, Clone)]
     pub struct NodeStatus {
         pub sync_status: NodeSyncStatus,
         pub peer_status: NodePeerStatus,
@@ -504,12 +504,12 @@ pub mod eth_api {
 
     const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    #[derive(Debug, Deserialize, Serialize, Default)]
+    #[derive(Debug, Deserialize, Serialize, Default, Clone)]
     pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(GasPriceResult);
 
-    #[derive(PartialEq, Debug, Deserialize, Serialize, Default)]
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
     pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
     lotus_json_with_self!(BigInt);
