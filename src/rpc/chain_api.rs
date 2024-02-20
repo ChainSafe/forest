@@ -56,7 +56,7 @@ pub async fn chain_get_parent_messages<DB: Blockstore>(
     let store = data.state_manager.blockstore();
     let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
-        .context(format!("can't find block header with cid {block_cid}"))?;
+        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
     if block_header.epoch == 0 {
         Ok(LotusJson(vec![]))
     } else {
