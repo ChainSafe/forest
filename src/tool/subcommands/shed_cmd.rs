@@ -1,13 +1,10 @@
 // Copyright 2019-2023 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::collections::BTreeMap;
-
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
-use clap::{Subcommand, ValueEnum};
+use clap::Subcommand;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
-use itertools::Itertools as _;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
@@ -23,15 +20,7 @@ pub enum ShedCommands {
         height: Option<u32>,
         #[arg(long)]
         ancestors: u32,
-        #[arg(long, default_value = "yaml")]
-        output: GraphAncestorsOutputFormat,
     },
-}
-
-#[derive(Clone, ValueEnum)]
-pub enum GraphAncestorsOutputFormat {
-    Yaml,
-    Dot,
 }
 
 impl ShedCommands {
@@ -41,7 +30,6 @@ impl ShedCommands {
                 host,
                 height,
                 ancestors,
-                output,
             } => {
                 let client = host
                     .parse::<ApiInfo>()
@@ -58,45 +46,21 @@ impl ShedCommands {
                     .checked_sub(ancestors)
                     .context("couldn't set start height")?;
 
-                let epoch2cids = futures::stream::iter((start_height..end_height).map(|epoch| {
-                    client
-                        .chain_get_tipset_by_height(i64::from(epoch), head.key().clone())
-                        .map_ok(|tipset| {
-                            let cids = tipset.block_headers().iter().map(|it| it.cid().to_string());
-                            (tipset.epoch(), cids.collect::<Vec<_>>())
-                        })
-                }))
-                .buffer_unordered(ancestors.try_into().unwrap_or(usize::MAX))
-                .try_collect::<BTreeMap<_, _>>()
-                .await?;
+                let mut epoch2cids =
+                    futures::stream::iter((start_height..=end_height).map(|epoch| {
+                        client
+                            .chain_get_tipset_by_height(i64::from(epoch), head.key().clone())
+                            .map_ok(|tipset| {
+                                let cids = tipset.block_headers().iter().map(|it| *it.cid());
+                                (tipset.epoch(), cids.collect::<Vec<_>>())
+                            })
+                    }))
+                    .buffered(12);
 
-                match output {
-                    GraphAncestorsOutputFormat::Yaml => {
-                        println!("{}", serde_yaml::to_string(&epoch2cids)?);
-                    }
-                    GraphAncestorsOutputFormat::Dot => {
-                        println!("digraph {{");
-
-                        for (epoch, cids) in &epoch2cids {
-                            // needs a `cluster` prefix to render as desired
-                            println!("\tsubgraph cluster_{} {{", epoch);
-                            println!("\t\tlabel = {};", epoch);
-
-                            for cid in cids {
-                                println!("\t\t{};", cid);
-                            }
-                            println!("\t}} // subgraph");
-                        }
-
-                        for ((_, cids), (_, next_cids)) in epoch2cids.iter().tuple_windows() {
-                            for cid in cids {
-                                for next in next_cids {
-                                    println!("\t{} -> {} [ style = invis ];", cid, next);
-                                }
-                            }
-                        }
-
-                        println!("}} // digraph");
+                while let Some((epoch, cids)) = epoch2cids.try_next().await? {
+                    println!("{}:", epoch);
+                    for cid in cids {
+                        println!("- {}", cid);
                     }
                 }
             }
