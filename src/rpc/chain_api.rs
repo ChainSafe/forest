@@ -175,7 +175,7 @@ where
         .into());
     }
 
-    let head = data.chain_store.load_required_tipset_with_fallback(&tsk)?;
+    let head = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
     let start_ts =
         data.chain_store
             .chain_index
@@ -299,10 +299,10 @@ fn impl_chain_get_path(
     let mut to_revert = chain_store
         // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3974
         //                  refactor this method
-        .load_required_tipset_with_fallback(&Some(from.clone()))
+        .load_required_tipset_or_heaviest(&Some(from.clone()))
         .context("couldn't load `from`")?;
     let mut to_apply = chain_store
-        .load_required_tipset_with_fallback(&Some(to.clone()))
+        .load_required_tipset_or_heaviest(&Some(to.clone()))
         .context("couldn't load `to`")?;
 
     let mut all_reverts = vec![];
@@ -313,13 +313,13 @@ fn impl_chain_get_path(
     while to_revert != to_apply {
         if to_revert.epoch() > to_apply.epoch() {
             let next = chain_store
-                .load_required_tipset_with_fallback(&Some(to_revert.parents().clone()))
+                .load_required_tipset_or_heaviest(&Some(to_revert.parents().clone()))
                 .context("couldn't load ancestor of `from`")?;
             all_reverts.push(to_revert);
             to_revert = next;
         } else {
             let next = chain_store
-                .load_required_tipset_with_fallback(&Some(to_apply.parents().clone()))
+                .load_required_tipset_or_heaviest(&Some(to_apply.parents().clone()))
                 .context("couldn't load ancestor of `to`")?;
             all_applies.push(to_apply);
             to_apply = next;
@@ -342,7 +342,7 @@ pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset_with_fallback(&tsk)?;
+        .load_required_tipset_or_heaviest(&tsk)?;
     let tss = data
         .state_manager
         .chain_store()
@@ -388,7 +388,7 @@ pub async fn chain_get_tipset<DB: Blockstore>(
     let ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset_with_fallback(&tsk)?;
+        .load_required_tipset_or_heaviest(&tsk)?;
     Ok((*ts).clone().into())
 }
 
@@ -403,7 +403,7 @@ pub async fn chain_set_head<DB: Blockstore>(
     let new_head = data
         .state_manager
         .chain_store()
-        .load_required_tipset_with_fallback(&tsk)?;
+        .load_required_tipset_or_heaviest(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().cids.clone() {

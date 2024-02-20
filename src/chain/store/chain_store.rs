@@ -192,18 +192,18 @@ where
         &self.db
     }
 
-    /// Returns Tipset from key-value store from provided CIDs
-    /// or falls back to the heaviest tipset when no CIDs are provided.
+    /// Lotus often treats an empty [`TipsetKey`] as shorthand for "the heaviest tipset".
+    /// You may opt-in to that behaviour by calling this method with [`None`].
+    ///
     /// This calls fails if the tipset is missing or invalid.
     #[tracing::instrument(skip_all)]
-    pub fn load_required_tipset_with_fallback(
+    pub fn load_required_tipset_or_heaviest<'a>(
         &self,
-        tsk_opt: &Option<TipsetKey>,
+        maybe_key: impl Into<Option<&'a TipsetKey>>,
     ) -> Result<Arc<Tipset>, Error> {
-        if let Some(tsk) = tsk_opt {
-            self.chain_index.load_required_tipset(tsk)
-        } else {
-            Ok(self.heaviest_tipset())
+        match maybe_key.into() {
+            Some(key) => self.chain_index.load_required_tipset(key),
+            None => Ok(self.heaviest_tipset()),
         }
     }
 
