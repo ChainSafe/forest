@@ -6,6 +6,7 @@ use std::{
     str::{self, FromStr},
 };
 
+use crate::{cli::humantoken, shim::address::Address};
 use crate::{key_management::Key, utils::io::read_file_to_string};
 use crate::{key_management::KeyInfo, rpc_client::ApiInfo};
 use crate::{lotus_json::LotusJson, KeyStore};
@@ -14,6 +15,7 @@ use crate::{
         address::{Protocol, StrictAddress},
         crypto::{Signature, SignatureType},
         econ::TokenAmount,
+        message::{Message, METHOD_SEND},
     },
     KeyStoreConfig,
 };
@@ -23,6 +25,7 @@ use clap::{arg, Subcommand};
 use dialoguer::{theme::ColorfulTheme, Password};
 use directories::ProjectDirs;
 use num::BigInt;
+use num::Zero as _;
 
 use crate::cli::humantoken::TokenAmountPretty as _;
 
@@ -105,10 +108,26 @@ pub enum WalletCommands {
         /// The address of the wallet to delete
         address: String,
     },
+    /// Send funds between accounts
+    Send {
+        /// optionally specify the account to send funds from (otherwise the default
+        /// one will be used)
+        #[arg(long)]
+        from: Option<String>,
+        target_address: String,
+        #[arg(value_parser = humantoken::parse)]
+        amount: TokenAmount,
+        #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
+        gas_feecap: TokenAmount,
+        /// In milliGas
+        #[arg(long, default_value_t = 0)]
+        gas_limit: i64,
+        #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
+        gas_premium: TokenAmount,
+    },
 }
-
 impl WalletCommands {
-    pub async fn run(&self, api: ApiInfo, remote_wallet: bool) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo, remote_wallet: bool) -> anyhow::Result<()> {
         let local_keystore = if !remote_wallet {
             let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
                 bail!("Failed to find wallet directory");
@@ -154,14 +173,14 @@ impl WalletCommands {
                 } else {
                     api.wallet_default_address().await?
                 }
-                .unwrap_or_else(|| "No default wallet address set".to_string());
+                .context("No default wallet address set")?;
                 println!("{default_addr}");
                 Ok(())
             }
             Self::Export {
                 address: address_string,
             } => {
-                let StrictAddress(address) = StrictAddress::from_str(address_string)
+                let StrictAddress(address) = StrictAddress::from_str(&address_string)
                     .with_context(|| format!("Invalid address: {address_string}"))?;
 
                 let key_info = if let Some(keystore) = local_keystore {
@@ -175,7 +194,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Has { key } => {
-                let StrictAddress(address) = StrictAddress::from_str(key)
+                let StrictAddress(address) = StrictAddress::from_str(&key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
                 let response = if let Some(keystore) = local_keystore {
@@ -187,7 +206,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Delete { address } => {
-                let StrictAddress(address) = StrictAddress::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
 
                 if let Some(mut keystore) = local_keystore {
@@ -283,7 +302,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::SetDefault { key } => {
-                let StrictAddress(key) = StrictAddress::from_str(key)
+                let StrictAddress(key) = StrictAddress::from_str(&key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
                 if let Some(mut keystore) = local_keystore {
@@ -297,7 +316,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Sign { address, message } => {
-                let StrictAddress(address) = StrictAddress::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
@@ -329,7 +348,7 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let StrictAddress(address) = StrictAddress::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
                 let signature = match address.protocol() {
                     Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
@@ -346,6 +365,48 @@ impl WalletCommands {
                 };
 
                 println!("{response}");
+                Ok(())
+            }
+            Self::Send {
+                from,
+                target_address,
+                amount,
+                gas_feecap,
+                gas_limit,
+                gas_premium,
+            } => {
+                let from: Address = if let Some(from) = from {
+                    StrictAddress::from_str(&from)?.into()
+                } else {
+                    StrictAddress::from_str(
+                        &if let Some(keystore) = local_keystore {
+                            crate::key_management::get_default(&keystore)?.map(|s| s.to_string())
+                        } else {
+                            api.wallet_default_address().await?
+                        }
+                        .context(
+                            "No default wallet address selected. Please set a default address.",
+                        )?,
+                    )?
+                    .into()
+                };
+
+                let message = Message {
+                    from,
+                    to: StrictAddress::from_str(&target_address)?.into(),
+                    value: amount,
+                    method_num: METHOD_SEND,
+                    gas_limit: gas_limit as u64,
+                    gas_fee_cap: gas_feecap,
+                    gas_premium: gas_premium,
+                    // JANK(aatifsyed): Why are we using a testing build of fvm_shared?
+                    ..Default::default()
+                };
+
+                let signed_msg = api.mpool_push_message(message, None).await?;
+
+                println!("{}", signed_msg.cid().unwrap());
+
                 Ok(())
             }
         }
