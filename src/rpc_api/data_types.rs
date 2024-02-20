@@ -53,7 +53,13 @@ use serde_json::Value;
 use tokio::sync::RwLock;
 
 // Define a static variable for the default PeerId
-static DEFAULT_PEER_ID: Lazy<PeerId> = Lazy::new(PeerId::random);
+static DEFAULT_PEER_ID: Lazy<PeerId> = Lazy::new(|| {
+    let path = crate::Client::default().data_dir;
+    let keypair = crate::libp2p::keypair::get_or_create_keypair(&path)
+        .expect("Failed to create or retrieve the network keypair");
+
+    PeerId::from(keypair.public())
+});
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
