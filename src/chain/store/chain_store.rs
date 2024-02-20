@@ -193,7 +193,7 @@ where
     }
 
     /// Lotus often treats an empty [`TipsetKey`] as shorthand for "the heaviest tipset".
-    /// You may opt-in to that behaviour by calling this method with [`None`].
+    /// You may opt-in to that behavior by calling this method with [`None`].
     ///
     /// This calls fails if the tipset is missing or invalid.
     #[tracing::instrument(skip_all)]
