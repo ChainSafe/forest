@@ -9,9 +9,7 @@ RUN git clone --depth 1 --branch v1.25.2 https://github.com/filecoin-project/lot
 
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \
-    make 2k
-
-RUN strip lotus*
+    make 2k && strip lotus*
 
 FROM ubuntu:22.04
 
