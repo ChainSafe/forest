@@ -38,6 +38,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
     access.insert(chain_api::CHAIN_EXPORT, Access::Read);
     access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
+    access.insert(chain_api::CHAIN_GET_PATH, Access::Read);
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
@@ -188,10 +189,14 @@ pub mod beacon_api {
 
 /// Chain API
 pub mod chain_api {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, sync::Arc};
 
     use super::data_types::ApiTipsetKey;
+    use crate::blocks::{RawBlockHeader, Tipset};
     use crate::lotus_json::lotus_json_with_self;
+    #[cfg(test)]
+    use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
+    use crate::lotus_json::{HasLotusJson, LotusJson};
     use crate::shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
 
@@ -222,12 +227,93 @@ pub mod chain_api {
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
     pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
+    pub const CHAIN_GET_PATH: &str = "Filecoin.ChainGetPath";
     pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
     pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
     pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
     pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
     pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
     pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
+
+    #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+    #[serde(rename_all = "snake_case")]
+    pub enum PathChange<T = Arc<Tipset>> {
+        Revert(T),
+        Apply(T),
+    }
+    impl HasLotusJson for PathChange {
+        type LotusJson = PathChange<LotusJson<Tipset>>;
+
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            use serde_json::json;
+            vec![(
+                json!({
+                    "revert": {
+                        "Blocks": [
+                            {
+                                "BeaconEntries": null,
+                                "ForkSignaling": 0,
+                                "Height": 0,
+                                "Messages": { "/": "baeaaaaa" },
+                                "Miner": "f00",
+                                "ParentBaseFee": "0",
+                                "ParentMessageReceipts": { "/": "baeaaaaa" },
+                                "ParentStateRoot": { "/":"baeaaaaa" },
+                                "ParentWeight": "0",
+                                "Parents": null,
+                                "Timestamp": 0,
+                                "WinPoStProof": null
+                            }
+                        ],
+                        "Cids": [
+                            { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                        ],
+                        "Height": 0
+                    }
+                }),
+                Self::Revert(Arc::new(Tipset::from(RawBlockHeader::default()))),
+            )]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            match self {
+                PathChange::Revert(it) => PathChange::Revert(LotusJson(Tipset::clone(&it))),
+                PathChange::Apply(it) => PathChange::Apply(LotusJson(Tipset::clone(&it))),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json {
+                PathChange::Revert(it) => PathChange::Revert(it.into_inner().into()),
+                PathChange::Apply(it) => PathChange::Apply(it.into_inner().into()),
+            }
+        }
+    }
+
+    #[cfg(test)]
+    impl<T> quickcheck::Arbitrary for PathChange<T>
+    where
+        T: quickcheck::Arbitrary,
+    {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let inner = T::arbitrary(g);
+            g.choose(&[PathChange::Apply(inner.clone()), PathChange::Revert(inner)])
+                .unwrap()
+                .clone()
+        }
+    }
+
+    #[test]
+    fn snapshots() {
+        assert_all_snapshots::<PathChange>()
+    }
+
+    #[cfg(test)]
+    quickcheck::quickcheck! {
+        fn quickcheck(val: PathChange) -> () {
+            assert_unchanged_via_json(val)
+        }
+    }
 }
 
 /// Message Pool API

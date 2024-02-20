@@ -55,6 +55,11 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
     }
 
+    #[allow(unused)] // consistency
+    pub async fn chain_get_tipset(&self, tsk: TipsetKey) -> Result<Tipset, JsonRpcError> {
+        self.call(Self::chain_get_tipset_req(tsk)).await
+    }
+
     pub fn chain_get_tipset_req(tsk: TipsetKey) -> RpcRequest<Tipset> {
         RpcRequest::new(CHAIN_GET_TIPSET, (tsk,))
     }
@@ -102,6 +107,10 @@ impl ApiInfo {
 
     pub fn chain_read_obj_req(cid: Cid) -> RpcRequest<Vec<u8>> {
         RpcRequest::new(CHAIN_READ_OBJ, (cid,))
+    }
+
+    pub fn chain_get_path_req(from: TipsetKey, to: TipsetKey) -> RpcRequest<Vec<PathChange>> {
+        RpcRequest::new(CHAIN_GET_PATH, (from, to))
     }
 
     pub fn chain_has_obj_req(cid: Cid) -> RpcRequest<bool> {

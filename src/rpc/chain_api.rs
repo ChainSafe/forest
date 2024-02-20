@@ -4,6 +4,7 @@
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
+use crate::chain::ChainStore;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
@@ -16,7 +17,7 @@ use crate::rpc_api::{
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
@@ -262,6 +263,75 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
+/// Find the path between two tipsets, as a series of [`PathChange`]s.
+///
+/// ```text
+/// 0 - A - B - C - D
+///     ^~~~~~~~> apply B, C
+///
+/// 0 - A - B - C - D
+///     <~~~~~~~^ revert C, B
+///
+///     <~~~~~~~~ revert C, B
+/// 0 - A - B  - C
+///     |
+///      -- B' - C'
+///      ~~~~~~~~> then apply B', C'
+/// ```
+///
+/// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
+pub async fn chain_get_path<DB: Blockstore>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
+    let LotusJson((from, to)) = params.parse()?;
+
+    impl_chain_get_path(&data.chain_store, &from, &to)
+        .map(LotusJson)
+        .map_err(Into::into)
+}
+
+fn impl_chain_get_path(
+    chain_store: &ChainStore<impl Blockstore>,
+    from: &TipsetKey,
+    to: &TipsetKey,
+) -> anyhow::Result<Vec<PathChange>> {
+    let mut to_revert = chain_store
+        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3974
+        //                  refactor this method
+        .load_required_tipset_with_fallback(&Some(from.clone()))
+        .context("couldn't load `from`")?;
+    let mut to_apply = chain_store
+        .load_required_tipset_with_fallback(&Some(to.clone()))
+        .context("couldn't load `to`")?;
+
+    let mut all_reverts = vec![];
+    let mut all_applies = vec![];
+
+    // This loop is guaranteed to terminate if the blockstore contain no cycles.
+    // This is currently computationally infeasible.
+    while to_revert != to_apply {
+        if to_revert.epoch() > to_apply.epoch() {
+            let next = chain_store
+                .load_required_tipset_with_fallback(&Some(to_revert.parents().clone()))
+                .context("couldn't load ancestor of `from`")?;
+            all_reverts.push(to_revert);
+            to_revert = next;
+        } else {
+            let next = chain_store
+                .load_required_tipset_with_fallback(&Some(to_apply.parents().clone()))
+                .context("couldn't load ancestor of `to`")?;
+            all_applies.push(to_apply);
+            to_apply = next;
+        }
+    }
+    Ok(all_reverts
+        .into_iter()
+        .map(PathChange::Revert)
+        .chain(all_applies.into_iter().rev().map(PathChange::Apply))
+        .collect())
+}
+
 pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     params: Params<'_>,
     data: Data<RPCState<DB>>,
@@ -404,4 +474,229 @@ fn load_api_messages_from_tipset(
     }
 
     Ok(messages)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use PathChange::{Apply, Revert};
+
+    use crate::{
+        blocks::{chain4u, Chain4U, RawBlockHeader},
+        db::{car::PlainCar, MemoryDB},
+        networks::{self, ChainConfig},
+    };
+
+    #[test]
+    fn revert_to_ancestor_linear() {
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header()]
+            -> [a] -> [b] -> [c, d] -> [e]
+        };
+
+        // simple
+        assert_path_change(&store, b, a, [Revert(&[b])]);
+
+        // from multi-member tipset
+        assert_path_change(&store, [c, d], a, [Revert(&[c, d][..]), Revert(&[b])]);
+
+        // to multi-member tipset
+        assert_path_change(&store, e, [c, d], [Revert(e)]);
+
+        // over multi-member tipset
+        assert_path_change(&store, e, b, [Revert(&[e][..]), Revert(&[c, d])]);
+    }
+
+    /// Mirror how lotus handles passing an incomplete `TipsetKey`s.
+    /// Tested on lotus `1.23.2`
+    #[test]
+    fn incomplete_tipsets() {
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header()]
+            -> [a, b] -> [c] -> [d, _e] // this pattern 2 -> 1 -> 2 can be found at calibnet epoch 1369126
+        };
+
+        // apply to descendant with incomplete `from`
+        assert_path_change(
+            &store,
+            a,
+            c,
+            [
+                Revert(&[a][..]), // revert the incomplete tipset
+                Apply(&[a, b]),   // apply the complete one
+                Apply(&[c]),      // apply the destination
+            ],
+        );
+
+        // apply to descendant with incomplete `to`
+        assert_path_change(&store, c, d, [Apply(d)]);
+
+        // revert to ancestor with incomplete `from`
+        assert_path_change(&store, d, c, [Revert(d)]);
+
+        // revert to ancestor with incomplete `to`
+        assert_path_change(
+            &store,
+            c,
+            a,
+            [
+                Revert(&[c][..]),
+                Revert(&[a, b]), // revert the complete tipset
+                Apply(&[a]),     // apply the incomplete one
+            ],
+        );
+    }
+
+    #[test]
+    fn apply_to_descendant_linear() {
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header()]
+            -> [a] -> [b] -> [c, d] -> [e]
+        };
+
+        // simple
+        assert_path_change(&store, a, b, [Apply(&[b])]);
+
+        // from multi-member tipset
+        assert_path_change(&store, [c, d], e, [Apply(e)]);
+
+        // to multi-member tipset
+        assert_path_change(&store, b, [c, d], [Apply([c, d])]);
+
+        // over multi-member tipset
+        assert_path_change(&store, b, e, [Apply(&[c, d][..]), Apply(&[e])]);
+    }
+
+    #[test]
+    fn cross_fork_simple() {
+        let store = ChainStore::calibnet();
+        chain4u! {
+            in store.blockstore();
+            [_genesis = store.genesis_block_header()]
+            -> [a] -> [b1] -> [c1]
+        };
+        chain4u! {
+            from [a] in store.blockstore();
+            [b2] -> [c2]
+        };
+
+        // same height
+        assert_path_change(&store, b1, b2, [Revert(b1), Apply(b2)]);
+
+        // different height
+        assert_path_change(&store, b1, c2, [Revert(b1), Apply(b2), Apply(c2)]);
+
+        let _ = (a, c1);
+    }
+
+    impl ChainStore<Chain4U<PlainCar<&'static [u8]>>> {
+        fn _load(genesis_car: &'static [u8], genesis_cid: Cid) -> Self {
+            let db = Arc::new(Chain4U::with_blockstore(
+                PlainCar::new(genesis_car).unwrap(),
+            ));
+            let genesis_block_header = db.get_cbor(&genesis_cid).unwrap().unwrap();
+            ChainStore::new(
+                db,
+                Arc::new(MemoryDB::default()),
+                Arc::new(ChainConfig::calibnet()),
+                genesis_block_header,
+            )
+            .unwrap()
+        }
+        fn calibnet() -> Self {
+            Self::_load(
+                networks::calibnet::DEFAULT_GENESIS,
+                *networks::calibnet::GENESIS_CID,
+            )
+        }
+    }
+
+    /// Utility for writing ergonomic tests
+    trait MakeTipset {
+        fn make_tipset(self) -> Tipset;
+    }
+
+    impl MakeTipset for &RawBlockHeader {
+        fn make_tipset(self) -> Tipset {
+            Tipset::from(CachingBlockHeader::new(self.clone()))
+        }
+    }
+
+    impl<const N: usize> MakeTipset for [&RawBlockHeader; N] {
+        fn make_tipset(self) -> Tipset {
+            self.as_slice().make_tipset()
+        }
+    }
+
+    impl<const N: usize> MakeTipset for &[&RawBlockHeader; N] {
+        fn make_tipset(self) -> Tipset {
+            self.as_slice().make_tipset()
+        }
+    }
+
+    impl MakeTipset for &[&RawBlockHeader] {
+        fn make_tipset(self) -> Tipset {
+            Tipset::new(self.iter().cloned().cloned()).unwrap()
+        }
+    }
+
+    #[track_caller]
+    fn assert_path_change<T: MakeTipset>(
+        store: &ChainStore<impl Blockstore>,
+        from: impl MakeTipset,
+        to: impl MakeTipset,
+        expected: impl IntoIterator<Item = PathChange<T>>,
+    ) {
+        fn print(path_change: &PathChange) {
+            let it = match path_change {
+                Revert(it) => {
+                    print!("Revert(");
+                    it
+                }
+                Apply(it) => {
+                    print!(" Apply(");
+                    it
+                }
+            };
+            println!(
+                "epoch = {}, key.cid = {})",
+                it.epoch(),
+                it.key().cid().unwrap()
+            )
+        }
+
+        let actual =
+            impl_chain_get_path(store, from.make_tipset().key(), to.make_tipset().key()).unwrap();
+        let expected = expected
+            .into_iter()
+            .map(|change| match change {
+                PathChange::Revert(it) => PathChange::Revert(Arc::new(it.make_tipset())),
+                PathChange::Apply(it) => PathChange::Apply(Arc::new(it.make_tipset())),
+            })
+            .collect::<Vec<_>>();
+        if expected != actual {
+            println!("SUMMARY");
+            println!("=======");
+            println!("expected:");
+            for it in &expected {
+                print(it)
+            }
+            println!();
+            println!("actual:");
+            for it in &actual {
+                print(it)
+            }
+            println!("=======\n")
+        }
+        assert_eq!(
+            expected, actual,
+            "expected change (left) does not match actual change (right)"
+        )
+    }
 }

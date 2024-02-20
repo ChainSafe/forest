@@ -7,6 +7,7 @@ pub mod benchmark_cmd;
 pub mod car_cmd;
 pub mod db_cmd;
 pub mod fetch_params_cmd;
+mod shed_cmd;
 pub mod snapshot_cmd;
 pub mod state_migration_cmd;
 
@@ -58,4 +59,8 @@ pub enum Subcommand {
     /// API tooling
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
+
+    /// Miscellaneous, semver-exempt commands for developer use.
+    #[command(subcommand)]
+    Shed(shed_cmd::ShedCommands),
 }
