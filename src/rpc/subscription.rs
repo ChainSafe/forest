@@ -23,9 +23,9 @@ use rustc_hash::FxHashMap;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit};
 
-pub const NOTIF_METHOD_NAME: &'static str = "xrpc.ch.val";
-pub const CANCEL_METHOD_NAME: &'static str = "xrpc.cancel";
-pub const CLOSE_METHOD_NAME: &'static str = "xrpc.ch.close";
+pub const NOTIF_METHOD_NAME: &str = "xrpc.ch.val";
+pub const CANCEL_METHOD_NAME: &str = "xrpc.cancel";
+pub const CLOSE_METHOD_NAME: &str = "xrpc.ch.close";
 
 /// Type-alias for subscribers.
 pub type Subscribers = Arc<
