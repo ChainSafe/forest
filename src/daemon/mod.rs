@@ -339,27 +339,20 @@ pub(super) async fn start(
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-        let rpc_listen = tokio::net::TcpListener::bind(config.client.rpc_address)
-            .await
-            .with_context(|| {
-                format!(
-                    "could not bind to rpc address {}",
-                    config.client.rpc_address
-                )
-            })?;
-
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
+        let rpc_address = config.client.rpc_address;
+
+        info!("JSON-RPC endpoint will listen at {rpc_address}");
+        let beacon = Arc::new(
+            rpc_state_manager
+                .chain_config()
+                .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
+        );
 
         services.spawn(async move {
-            info!("JSON-RPC endpoint started at {}", config.client.rpc_address);
-            let beacon = Arc::new(
-                rpc_state_manager
-                    .chain_config()
-                    .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
-            );
             start_rpc(
-                Arc::new(RPCState {
+                RPCState {
                     state_manager: Arc::clone(&rpc_state_manager),
                     keystore: keystore_rpc,
                     mpool,
@@ -370,8 +363,8 @@ pub(super) async fn start(
                     start_time,
                     beacon,
                     chain_store: rpc_chain_store,
-                }),
-                rpc_listen,
+                },
+                rpc_address,
                 FOREST_VERSION_STRING.as_str(),
                 shutdown_send,
             )

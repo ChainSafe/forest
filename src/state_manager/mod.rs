@@ -185,7 +185,7 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -199,7 +199,7 @@ pub struct InvocResult {
 type StateCallResult = Result<InvocResult, Error>;
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
     escrow: TokenAmount,

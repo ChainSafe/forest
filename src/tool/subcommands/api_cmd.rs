@@ -18,6 +18,7 @@ use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::ChainConfig;
 use crate::networks::NetworkChain;
+use crate::rpc::start_rpc;
 use crate::rpc_api::data_types::{MessageFilter, MessageLookup};
 use crate::rpc_api::eth_api::Address as EthAddress;
 use crate::rpc_api::{data_types::RPCState, eth_api::*};
@@ -127,8 +128,14 @@ impl ApiCommands {
                 data_dir,
                 auto_download_snapshot,
             } => {
-                start_offline_server(snapshot_file, chain, port, data_dir, auto_download_snapshot)
-                    .await?
+                start_offline_server(
+                    snapshot_file,
+                    chain,
+                    port,
+                    data_dir.clone(),
+                    auto_download_snapshot,
+                )
+                .await?;
             }
             Self::Compare {
                 forest,
@@ -874,7 +881,7 @@ async fn start_offline_server(
         state_manager.chain_config().clone(),
         &mut JoinSet::new(),
     )?;
-    let rpc_state = Arc::new(RPCState {
+    let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
         mpool: Arc::new(message_pool),
@@ -885,30 +892,29 @@ async fn start_offline_server(
         start_time: chrono::Utc::now(),
         chain_store,
         beacon,
-    });
+    };
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port).await?;
 
+    // TODO: this should more be done in a script
     // Cleanup offline RPC resources
     std::fs::remove_file(&snapshot_path)?;
     std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
 
-pub async fn start_offline_rpc<DB>(state: Arc<RPCState<DB>>, rpc_port: u16) -> anyhow::Result<()>
+pub async fn start_offline_rpc<DB>(state: RPCState<DB>, rpc_port: u16) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
-    let rpc_endpoint = tokio::net::TcpListener::bind(rpc_address)
-        .await
-        .with_context(|| format!("could not bind to rpc address {}", rpc_address))?;
     let forest_version = FOREST_VERSION_STRING.as_str();
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
+
     let result = tokio::select! {
-        ret = crate::rpc::start_rpc(state, rpc_endpoint, forest_version, shutdown_send) => ret,
+        ret = start_rpc(state, rpc_address, forest_version, shutdown_send) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
