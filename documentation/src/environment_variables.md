@@ -6,7 +6,7 @@ process.
 
 | Environment variable       | Value                            | Default | Description                                                               |
 | -------------------------- | -------------------------------- | ------- | ------------------------------------------------------------------------- |
-| FOREST_KEYSTORE_PHRASE_ENV | any text                         | empty   | The passphrase for the encrypted keystore                                 |
+| FOREST_KEYSTORE_PHRASE     | any text                         | empty   | The passphrase for the encrypted keystore                                 |
 | FOREST_CAR_LOADER_FILE_IO  | 1 or true                        | false   | Load CAR files with `RandomAccessFile` instead of `Mmap`                  |
 | FOREST_DB_DEV_MODE         | [see here](#-forest_db_dev_mode) | current | The database to use in development mode                                   |
 | FOREST_ACTOR_BUNDLE_PATH   | file path                        | empty   | Path to the local actor bundle, download from remote servers when not set |
