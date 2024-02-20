@@ -4,26 +4,32 @@
 
 use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::data_types::{RPCState, RPCSyncState};
-use cid::Cid;
+use crate::rpc::error::JsonRpcError;
+use crate::rpc_api::data_types::{Data, RPCState, RPCSyncState};
+
+use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use parking_lot::RwLock;
 
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
+    params: Params<'_>,
     data: Data<RPCState<DB>>,
-    Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<String, JsonRpcError> {
+    let LotusJson((cid,)) = params.parse()?;
+
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
 /// Marks a block as bad, meaning it will never be synced.
 pub async fn sync_mark_bad<DB: Blockstore>(
+    params: Params<'_>,
     data: Data<RPCState<DB>>,
-    Params(LotusJson((cid,))): Params<LotusJson<(Cid,)>>,
 ) -> Result<(), JsonRpcError> {
+    let LotusJson((cid,)) = params.parse()?;
+
     data.bad_blocks
         .put(cid, "Marked bad manually through RPC API".to_string());
     Ok(())
@@ -58,8 +64,7 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
-    use cid::Cid;
-    use serde_json::from_str;
+    use jsonrpsee::types::params::Params;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -142,23 +147,20 @@ mod tests {
     async fn set_check_bad() {
         let (state, _) = state_setup();
 
-        let cid = from_str::<LotusJson<Cid>>(
-            r#"{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}"#,
-        )
-        .unwrap()
-        .into_inner();
-        match sync_check_bad(Data(state.clone()), Params(LotusJson((cid,)))).await {
+        let cid = r#"[{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}]"#;
+
+        match sync_check_bad(Params::new(Some(cid)), Arc::new(state.clone())).await {
             Ok(reason) => assert_eq!(reason, ""),
             Err(e) => std::panic::panic_any(e),
         }
 
         // Mark that block as bad manually and check again to verify
         assert!(
-            sync_mark_bad(Data(state.clone()), Params(LotusJson((cid,))))
+            sync_mark_bad(Params::new(Some(cid)), Arc::new(state.clone()))
                 .await
                 .is_ok()
         );
-        match sync_check_bad(Data(state), Params(LotusJson((cid,)))).await {
+        match sync_check_bad(Params::new(Some(cid)), Arc::new(state.clone())).await {
             Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
             Err(e) => std::panic::panic_any(e),
         }
@@ -170,7 +172,7 @@ mod tests {
 
         let st_copy = state.sync_state.clone();
 
-        match sync_state(Data(state.clone())).await {
+        match sync_state(Arc::new(state.clone())).await {
             Ok(ret) => assert_eq!(
                 ret.active_syncs,
                 nonempty![clone_state(st_copy.as_ref()).await]
@@ -182,7 +184,7 @@ mod tests {
         st_copy.write().set_stage(SyncStage::Messages);
         st_copy.write().set_epoch(4);
 
-        match sync_state(Data(state.clone())).await {
+        match sync_state(Arc::new(state.clone())).await {
             Ok(ret) => {
                 assert_eq!(
                     ret.active_syncs,

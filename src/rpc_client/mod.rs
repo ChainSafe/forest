@@ -23,6 +23,7 @@ use std::time::Duration;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::net::global_http_client;
+use base64::prelude::{Engine, BASE64_STANDARD};
 use jsonrpc_v2::{Id, RequestObject, V2};
 use serde::Deserialize;
 use tracing::debug;
@@ -152,13 +153,17 @@ impl ApiInfo {
 
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
+        // A 16 byte key (base64 encoded) is expected for `Sec-WebSocket-Key` during a websocket handshake
+        // See 5. in https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
+        let key = BASE64_STANDARD.encode(b"TheGreatOldOnes.");
+
         let request = tungstenite::http::Request::builder()
             .method("GET")
             .uri(api_url.to_string())
             .header("Host", api_url.host)
             .header("Upgrade", "websocket")
             .header("Connection", "upgrade")
-            .header("Sec-Websocket-Key", "key123")
+            .header("Sec-Websocket-Key", key)
             .header("Sec-Websocket-Version", "13")
             .body(())
             .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
@@ -169,17 +174,24 @@ impl ApiInfo {
 
         write.send(WsMessage::Binary(payload)).await?;
 
-        if let Some(message) = read.next().await {
-            let data = message?.into_data();
-            let rpc_res: JsonRpcResponse<T::LotusJson> =
-                serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
+        match tokio::time::timeout(req.timeout, read.next()).await {
+            Ok(v) => {
+                if let Some(message) = v {
+                    let data = message?.into_data();
+                    let rpc_res: JsonRpcResponse<T::LotusJson> =
+                        serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
-            match rpc_res {
-                JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-                JsonRpcResponse::Error { error, .. } => Err(error),
+                    match rpc_res {
+                        JsonRpcResponse::Result { result, .. } => {
+                            Ok(HasLotusJson::from_lotus_json(result))
+                        }
+                        JsonRpcResponse::Error { error, .. } => Err(error),
+                    }
+                } else {
+                    Err(JsonRpcError::INVALID_REQUEST)
+                }
             }
-        } else {
-            Err(JsonRpcError::INVALID_REQUEST)
+            Err(_) => Err(JsonRpcError::TIMED_OUT),
         }
     }
 }
@@ -218,6 +230,10 @@ impl JsonRpcError {
     pub const INVALID_PARAMS: JsonRpcError = JsonRpcError {
         code: -32602,
         message: Cow::Borrowed("Invalid method parameter(s)."),
+    };
+    pub const TIMED_OUT: JsonRpcError = JsonRpcError {
+        code: 0,
+        message: Cow::Borrowed("Operation timed out."),
     };
 }
 

@@ -16,7 +16,7 @@ mod service;
 // Re-export some libp2p types
 pub use cid::multihash::Multihash;
 pub use libp2p::{
-    identity::{ed25519, Keypair, PeerId},
+    identity::{ed25519, Keypair, ParseError, PeerId},
     multiaddr::{Multiaddr, Protocol},
 };
 

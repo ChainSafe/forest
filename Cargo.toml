@@ -42,7 +42,6 @@ clap = { version = "4.4", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.2", features = ["parking_lot"] }
 convert_case = "0.6.0"
-crossbeam = "0.8"
 crossbeam-channel = "0.5"
 crypto_secretbox = "0.1.1"
 daemonize-me = "2.0"
@@ -87,12 +86,16 @@ http0 = { package = "http", version = "0.2" }
 human-repr = "1.0"
 human_bytes = "0.4"
 humantime = "2.1.0"
-indexmap = { version = "2.2", features = ["serde"] }
-indicatif = { version = "0.17.8", features = ["tokio"] }
+# TODO(aatifsyed): bump this to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
+# Tracking issue: https://github.com/ChainSafe/forest/issues/3961
+hyper = { version = "0.14", features = ["full"] }
+indexmap = { version = "2.1", features = ["serde"] }
+indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
+jsonrpsee = { version = "0.21.0", features = ["full"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -185,6 +188,7 @@ tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
 tokio-tungstenite = "0.21.0"
 tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
+tower = { version = "0.4", features = ["full"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7.1"
