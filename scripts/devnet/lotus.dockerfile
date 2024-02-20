@@ -11,6 +11,8 @@ RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \
     make 2k
 
+RUN strip lotus*
+
 FROM ubuntu:22.04
 
 # Needed for the healthcheck
@@ -32,5 +34,8 @@ COPY --from=lotus-builder /usr/lib/*/libOpenCL.so.1 /lib/
 COPY --from=lotus-builder /lotus/lotus /lotus/lotus-miner /lotus/lotus-seed /usr/local/bin/
 
 WORKDIR /lotus
+
+# Basic verification of dynamically linked dependencies
+RUN lotus -v
 
 CMD ["/bin/bash"]
