@@ -59,8 +59,10 @@ pub enum Subcommand {
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
 
-    /// Print a DOT graph of the `ancestors` tipsets before `height`.
-    GraphAncestors {
+    /// Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards.
+    ///
+    /// Useful for getting blocks to live test an RPC endpoint.
+    SummarizeTipsets {
         /// Multiaddr of the RPC host.
         #[arg(long)]
         host: String,
@@ -69,5 +71,13 @@ pub enum Subcommand {
         height: Option<u32>,
         #[arg(long)]
         ancestors: u32,
+        #[arg(long, default_value = "yaml")]
+        output: GraphAncestorsOutputFormat,
     },
+}
+
+#[derive(clap::ValueEnum, Clone)]
+pub enum GraphAncestorsOutputFormat {
+    Yaml,
+    Dot,
 }
