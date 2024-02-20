@@ -95,7 +95,7 @@ integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
-jsonrpsee = { version = "0.21.0", features = ["full"] }
+jsonrpsee = { git = "https://github.com/elmattic/jsonrpsee.git", branch = "visibility-changes", features = ["full"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -157,6 +157,7 @@ reqwest = { version = "0.11.24", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
+rustc-hash = "1.1.0"
 rustyline = "13"
 scopeguard = "1.1.0"
 semver = "1.0"

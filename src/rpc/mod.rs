@@ -9,10 +9,12 @@ mod common_api;
 mod error;
 mod eth_api;
 mod gas_api;
+mod module;
 mod mpool_api;
 mod net_api;
 mod node_api;
 mod state_api;
+mod subscription;
 mod sync_api;
 mod wallet_api;
 
