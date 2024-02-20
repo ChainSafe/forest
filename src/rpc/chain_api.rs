@@ -40,7 +40,7 @@ pub async fn chain_get_message<DB: Blockstore>(
         .state_manager
         .blockstore()
         .get_cbor(&msg_cid)?
-        .context(format!("can't find message with cid {msg_cid}"))?;
+        .with_context(|| format!("can't find message with cid {msg_cid}"))?;
     Ok(LotusJson(match chain_message {
         ChainMessage::Signed(m) => m.into_message(),
         ChainMessage::Unsigned(m) => m,
