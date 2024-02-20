@@ -1,9 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+//! Subscription related types and traits for server implementations.
+//!
 //! Most of the code in this module comes from the `jsonrpsee` crate.
-//! See <https://github.com/paritytech/jsonrpsee/blob/v0.21.0/core/src/server/subscription.rs>
+//! See <https://github.com/paritytech/jsonrpsee/blob/v0.21.0/core/src/server/subscription.rs>.
 //! We slightly customized it from the original design to support Filecoin `pubsub` specification.
-//! TODO: list unchanged types
+//! The main types that have changed are the `PendingSubscriptionSink` and `SubscriptionSink`.
+//! The remaining types and methods must be duplicated because they are private.
 
 use jsonrpsee::core::server::error::{
     DisconnectError, PendingSubscriptionAcceptError, SendTimeoutError, TrySendError,
