@@ -191,10 +191,12 @@ pub mod beacon_api {
 pub mod chain_api {
     use std::{path::PathBuf, sync::Arc};
 
-    use crate::blocks::{RawBlockHeader, Tipset, TipsetKey};
+    use super::data_types::ApiTipsetKey;
+    use crate::blocks::{RawBlockHeader, Tipset};
+    use crate::lotus_json::lotus_json_with_self;
     #[cfg(test)]
     use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
-    use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
+    use crate::lotus_json::{HasLotusJson, LotusJson};
     use crate::shim::clock::ChainEpoch;
     use serde::{Deserialize, Serialize};
 
@@ -208,7 +210,7 @@ pub mod chain_api {
         pub recent_roots: i64,
         pub output_path: PathBuf,
         #[serde(with = "crate::lotus_json")]
-        pub tipset_keys: TipsetKey,
+        pub tipset_keys: ApiTipsetKey,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }

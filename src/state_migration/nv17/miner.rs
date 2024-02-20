@@ -616,8 +616,8 @@ mod tests {
         let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/9/");
 
         let mut chain_config = ChainConfig::calibnet();
-        if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
-            *bundle = new_manifest_cid;
+        if let Some(entry) = chain_config.height_infos.get_mut(&Height::Shark) {
+            entry.bundle = Some(new_manifest_cid);
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &tree_root, 200).unwrap();
@@ -649,8 +649,8 @@ mod tests {
         let state_tree_old_root = state_tree_old.flush().unwrap();
         let (new_manifest_cid, _new_manifest) = make_test_manifest(&store, "fil/9/");
         let mut chain_config = ChainConfig::calibnet();
-        if let Some(bundle) = &mut chain_config.height_infos[Height::Shark as usize].bundle {
-            *bundle = new_manifest_cid;
+        if let Some(entry) = chain_config.height_infos.get_mut(&Height::Shark) {
+            entry.bundle = Some(new_manifest_cid);
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &state_tree_old_root, 200).unwrap();

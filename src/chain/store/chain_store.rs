@@ -172,13 +172,14 @@ where
 
     /// Returns the currently tracked heaviest tipset.
     pub fn heaviest_tipset(&self) -> Arc<Tipset> {
-        self.load_required_tipset(
-            &self
-                .settings
-                .require_obj::<TipsetKey>(HEAD_KEY)
-                .expect("failed to load heaviest tipset"),
-        )
-        .expect("failed to load heaviest tipset")
+        self.chain_index
+            .load_required_tipset(
+                &self
+                    .settings
+                    .require_obj::<TipsetKey>(HEAD_KEY)
+                    .expect("failed to load heaviest tipset"),
+            )
+            .expect("failed to load heaviest tipset")
     }
 
     /// Returns a reference to the publisher of head changes.
@@ -192,22 +193,18 @@ where
     }
 
     /// Returns Tipset from key-value store from provided CIDs
-    #[tracing::instrument(skip_all)]
-    pub fn load_tipset(&self, tsk: &TipsetKey) -> Result<Option<Arc<Tipset>>, Error> {
-        if tsk.cids.is_empty() {
-            return Ok(Some(self.heaviest_tipset()));
-        }
-        self.chain_index.load_tipset(tsk)
-    }
-
-    /// Returns Tipset from key-value store from provided CIDs.
+    /// or falls back to the heaviest tipset when no CIDs are provided.
     /// This calls fails if the tipset is missing or invalid.
     #[tracing::instrument(skip_all)]
-    pub fn load_required_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
-        if tsk.cids.is_empty() {
-            return Ok(self.heaviest_tipset());
+    pub fn load_required_tipset_with_fallback(
+        &self,
+        tsk_opt: &Option<TipsetKey>,
+    ) -> Result<Arc<Tipset>, Error> {
+        if let Some(tsk) = tsk_opt {
+            self.chain_index.load_required_tipset(tsk)
+        } else {
+            Ok(self.heaviest_tipset())
         }
-        self.chain_index.load_required_tipset(tsk)
     }
 
     /// Determines if provided tipset is heavier than existing known heaviest

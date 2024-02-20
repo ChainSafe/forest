@@ -30,7 +30,10 @@ where
     }
 
     let inner = move || {
-        let root = match cs.load_tipset(&TipsetKey::from_iter(request.start.clone()))? {
+        let root = match cs
+            .chain_index
+            .load_tipset(&TipsetKey::from_iter(request.start.clone()))?
+        {
             Some(tipset) => tipset,
             None => {
                 return Ok(ChainExchangeResponse {
@@ -142,21 +145,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
+    use super::{
+        super::{HEADERS, MESSAGES},
+        *,
+    };
     use crate::blocks::{CachingBlockHeader, RawBlockHeader};
     use crate::db::MemoryDB;
     use crate::genesis::EXPORT_SR_40;
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::utils::db::car_util::load_car;
+    use nonempty::NonEmpty;
+    use std::sync::Arc;
 
-    use super::{
-        super::{HEADERS, MESSAGES},
-        *,
-    };
-
-    async fn populate_db() -> (Vec<Cid>, Arc<MemoryDB>) {
+    async fn populate_db() -> (NonEmpty<Cid>, Arc<MemoryDB>) {
         let db = Arc::new(MemoryDB::default());
         // The cids are the tipset cids of the most recent tipset (39th)
         let header = load_car(&db, EXPORT_SR_40).await.unwrap();

@@ -95,7 +95,7 @@ impl ForestBehaviour {
             ],
             Default::default(),
         );
-        crate::libp2p_bitswap::register_metrics(&mut crate::metrics::DEFAULT_REGISTRY.write());
+        crate::libp2p_bitswap::register_metrics(&mut crate::metrics::default_registry());
 
         let discovery = DiscoveryConfig::new(local_key.public(), network_name)
             .with_mdns(config.mdns)

@@ -75,7 +75,7 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(Height::Lightning as usize)
+        .get(&Height::Lightning)
         .ok_or_else(|| anyhow!("no height info for network version NV19"))?
         .bundle
         .as_ref()

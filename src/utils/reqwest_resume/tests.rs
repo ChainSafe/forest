@@ -5,9 +5,10 @@ use crate::utils::reqwest_resume::get;
 use axum::body::Body;
 use axum::response::IntoResponse;
 use bytes::Bytes;
-use const_random::const_random;
 use futures::stream;
 use http_range_header::parse_range_header;
+use once_cell::sync::Lazy;
+use rand::Rng;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::ops::Range;
 use std::time::Duration;
@@ -17,7 +18,10 @@ use tokio_stream::StreamExt as _;
 const CHUNK_LEN: usize = 2048;
 // `RANDOM_BYTES` size is arbitrarily chosen. We could use something smaller or bigger here.
 // The only constraint is that `CHUNK_LEN < RANDOM_BYTES.len()`.
-const RANDOM_BYTES: [u8; 8192] = const_random!([u8; 8192]);
+static RANDOM_BYTES: Lazy<Bytes> = Lazy::new(|| {
+    let mut rng = rand::thread_rng();
+    (0..8192).map(|_| rng.gen()).collect()
+});
 
 fn get_range(value: &http::HeaderValue) -> Range<usize> {
     let s = std::str::from_utf8(value.as_bytes()).unwrap();
@@ -43,7 +47,7 @@ async fn handle_request(headers: http::HeaderMap) -> impl IntoResponse {
     let (status_code, body) = if range.is_empty() {
         (http::StatusCode::RANGE_NOT_SATISFIABLE, Body::empty())
     } else {
-        let mut subset: Bytes = RANDOM_BYTES[range.clone()].into();
+        let mut subset = RANDOM_BYTES.slice(range);
         subset.truncate(CHUNK_LEN);
         (
             http::StatusCode::PARTIAL_CONTENT,
@@ -92,7 +96,7 @@ async fn test_resumable_get() {
         .collect::<Vec<Bytes>>()
         .await
         .concat();
-    assert_eq!(Bytes::from_static(&RANDOM_BYTES), data);
+    assert_eq!(*RANDOM_BYTES, data);
 }
 
 #[tokio::test]
@@ -109,7 +113,7 @@ async fn test_non_resumable_get() {
 
     let data = stream.next().await.unwrap().unwrap();
     assert!(data.len() <= CHUNK_LEN);
-    assert_eq!(Bytes::from_static(&RANDOM_BYTES[0..data.len()]), data);
+    assert_eq!(RANDOM_BYTES[0..data.len()], data);
     let item = stream.next().await.unwrap();
     let err = item.unwrap_err();
     assert!(err.is_body());
