@@ -297,12 +297,10 @@ fn impl_chain_get_path(
     to: &TipsetKey,
 ) -> anyhow::Result<Vec<PathChange>> {
     let mut to_revert = chain_store
-        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3974
-        //                  refactor this method
-        .load_required_tipset_or_heaviest(&Some(from.clone()))
+        .load_required_tipset_or_heaviest(from)
         .context("couldn't load `from`")?;
     let mut to_apply = chain_store
-        .load_required_tipset_or_heaviest(&Some(to.clone()))
+        .load_required_tipset_or_heaviest(to)
         .context("couldn't load `to`")?;
 
     let mut all_reverts = vec![];
@@ -313,13 +311,13 @@ fn impl_chain_get_path(
     while to_revert != to_apply {
         if to_revert.epoch() > to_apply.epoch() {
             let next = chain_store
-                .load_required_tipset_or_heaviest(&Some(to_revert.parents().clone()))
+                .load_required_tipset_or_heaviest(to_revert.parents())
                 .context("couldn't load ancestor of `from`")?;
             all_reverts.push(to_revert);
             to_revert = next;
         } else {
             let next = chain_store
-                .load_required_tipset_or_heaviest(&Some(to_apply.parents().clone()))
+                .load_required_tipset_or_heaviest(to_apply.parents())
                 .context("couldn't load ancestor of `to`")?;
             all_applies.push(to_apply);
             to_apply = next;
