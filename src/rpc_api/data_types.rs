@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
@@ -41,7 +41,6 @@ use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
-use jsonrpc_v2::{MapRouter as JsonRpcMapRouter, Server as JsonRpcServer};
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use nonempty::NonEmpty;
@@ -50,6 +49,8 @@ use parking_lot::RwLock as SyncRwLock;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
+
+pub type Data<T> = Arc<Arc<T>>;
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
@@ -69,7 +70,7 @@ where
     pub beacon: Arc<BeaconSchedule>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
     #[serde(with = "crate::lotus_json")]
@@ -77,8 +78,6 @@ pub struct RPCSyncState {
 }
 
 lotus_json_with_self!(RPCSyncState);
-
-pub type JsonRpcServerState = Arc<JsonRpcServer<JsonRpcMapRouter>>;
 
 // Chain API
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -109,6 +108,28 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
+// TODO: remove Clone. Tracking issue: https://github.com/ChainSafe/fil-actor-states/issues/255
+impl Clone for MarketDeal {
+    fn clone(&self) -> Self {
+        Self {
+            proposal: DealProposal {
+                piece_cid: self.proposal.piece_cid,
+                piece_size: self.proposal.piece_size,
+                verified_deal: self.proposal.verified_deal,
+                client: self.proposal.client,
+                provider: self.proposal.provider,
+                label: self.proposal.label.clone(),
+                start_epoch: self.proposal.start_epoch,
+                end_epoch: self.proposal.end_epoch,
+                storage_price_per_epoch: self.proposal.storage_price_per_epoch.clone(),
+                provider_collateral: self.proposal.provider_collateral.clone(),
+                client_collateral: self.proposal.client_collateral.clone(),
+            },
+            state: DealState { ..self.state },
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
@@ -126,7 +147,7 @@ pub struct MessageLookup {
 lotus_json_with_self!(MessageLookup);
 
 // Net API
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
@@ -716,7 +737,7 @@ pub struct ApiDeadline {
 }
 
 lotus_json_with_self!(ApiDeadline);
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
     #[serde(with = "crate::lotus_json")]
