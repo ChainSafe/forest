@@ -33,8 +33,6 @@
   `Filecoin.ChainGetPath` lotus-compatible RPC API.
 - [#3849](https://github.com/ChainSafe/forest/pull/3849/) Add
   `forest-tool shed summarize-tipsets`.
-- [#3866](https://github.com/ChainSafe/forest/pull/3866) Implement Offline RPC
-  API.
 
 ### Changed
 
