@@ -4,6 +4,8 @@
 use thiserror::Error;
 
 mod block;
+#[cfg(test)]
+mod chain4u;
 mod election_proof;
 mod gossip_block;
 mod header;
@@ -34,7 +36,11 @@ pub enum Error {
 }
 
 #[cfg(test)]
+pub(crate) use chain4u::{chain4u, Chain4U, HeaderBuilder};
+
+#[cfg(any(test, doc))]
 mod tests {
+
     mod serialization_vectors;
     mod ticket_test;
 }

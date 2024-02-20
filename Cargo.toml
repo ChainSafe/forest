@@ -206,6 +206,7 @@ termios = "0.3"
 [dev-dependencies]
 ariadne = "0.4.0"
 assert_cmd = "2"
+bimap = "0.6.3"
 cargo_metadata = "0.18.0"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
@@ -216,6 +217,7 @@ http-range-header = "0.4.0"
 libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
+petgraph = "0.6.4"
 predicates = "3.1"
 proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
