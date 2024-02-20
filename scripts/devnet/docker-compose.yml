@@ -178,7 +178,7 @@ services:
       - ./forest_config.toml.tpl:/forest/forest_config.toml.tpl
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-      - RUST_LOG="info,forest_filecoin::blocks::header=debug"
+      - RUST_LOG=info,forest_filecoin::blocks::header=debug
       - FOREST_SHARK_HEIGHT=${SHARK_HEIGHT}
       - FOREST_HYGGE_HEIGHT=${HYGGE_HEIGHT}
       - FOREST_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}
