@@ -7,6 +7,7 @@ pub mod benchmark_cmd;
 pub mod car_cmd;
 pub mod db_cmd;
 pub mod fetch_params_cmd;
+mod shed_cmd;
 pub mod snapshot_cmd;
 pub mod state_migration_cmd;
 
@@ -59,25 +60,7 @@ pub enum Subcommand {
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
 
-    /// Enumerate the tipset CIDs for a span of epochs starting at `height` and working backwards.
-    ///
-    /// Useful for getting blocks to live test an RPC endpoint.
-    SummarizeTipsets {
-        /// Multiaddr of the RPC host.
-        #[arg(long)]
-        host: String,
-        /// If omitted, defaults to the HEAD of the node.
-        #[arg(long)]
-        height: Option<u32>,
-        #[arg(long)]
-        ancestors: u32,
-        #[arg(long, default_value = "yaml")]
-        output: GraphAncestorsOutputFormat,
-    },
-}
-
-#[derive(clap::ValueEnum, Clone)]
-pub enum GraphAncestorsOutputFormat {
-    Yaml,
-    Dot,
+    /// Miscellaneous, semver-exempt commands for developer use.
+    #[command(subcommand)]
+    Shed(shed_cmd::ShedCommands),
 }
