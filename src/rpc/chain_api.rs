@@ -75,7 +75,7 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     let store = data.state_manager.blockstore();
     let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
-        .context(format!("can't find block header with cid {block_cid}"))?;
+        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
     let mut receipts = Vec::new();
     if block_header.epoch == 0 {
         return Ok(LotusJson(vec![]));
