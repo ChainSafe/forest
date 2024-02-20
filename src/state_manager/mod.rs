@@ -1287,10 +1287,12 @@ where
             .cs
             .chain_index
             .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
-            .context(format!(
+            .with_context(|| {
+                format!(
             "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
             *epochs.end(),
-        ))?;
+        )
+            })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = itertools::unfold(Some(end), |tipset| {

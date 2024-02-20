@@ -200,10 +200,7 @@ pub(super) async fn start(
         // Start Prometheus server port
         let prometheus_listener = TcpListener::bind(config.client.metrics_address)
             .await
-            .context(format!(
-                "could not bind to {}",
-                config.client.metrics_address
-            ))?;
+            .with_context(|| format!("could not bind to {}", config.client.metrics_address))?;
         info!(
             "Prometheus server started at {}",
             config.client.metrics_address
@@ -342,7 +339,6 @@ pub(super) async fn start(
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
-
         let rpc_state_manager = Arc::clone(&state_manager);
         let rpc_chain_store = Arc::clone(&chain_store);
         let rpc_address = config.client.rpc_address;
