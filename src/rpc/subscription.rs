@@ -93,7 +93,7 @@ impl IsUnsubscribed {
 pub struct PendingSubscriptionSink {
     /// Sink.
     pub(crate) inner: MethodSink,
-    /// MethodCallback.
+    /// `MethodCallback`.
     pub(crate) method: &'static str,
     /// Shared Mutex of subscriptions for this method.
     pub(crate) subscribers: Subscribers,
