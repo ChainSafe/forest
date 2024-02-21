@@ -21,9 +21,12 @@ mod wallet_api;
 use std::error::Error as StdError;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
+use crate::rpc::module::RpcModule as FilRpcModule;
+use crate::rpc::subscription::create_notif_message;
 use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
@@ -43,6 +46,7 @@ use jsonrpsee::server::{
     stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder,
 };
 use jsonrpsee::Methods;
+use tokio::sync::broadcast::{self, Receiver, Sender as Publisher};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tower::Service;
@@ -78,6 +82,45 @@ where
         forest_version,
         shutdown_send,
     )?;
+
+    // For testing purposes
+    let mut fil_module = FilRpcModule::new(state.clone());
+    fil_module.register_subscription_raw("Filecoin.ChainNotify", |_params, pending, _state| {
+        tokio::spawn(async move {
+            let sink = pending.accept().await.unwrap();
+
+            let (ping, mut rx): (Publisher<()>, Receiver<()>) = broadcast::channel(1);
+
+            tokio::task::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+                loop {
+                    interval.tick().await;
+                    ping.send(()).unwrap();
+                }
+            });
+
+            loop {
+                tokio::select! {
+                    Ok(_v) = rx.recv() => {
+                        let data = "Hello";
+                        if let Ok(msg) = create_notif_message(&sink, &data) {
+                            // This fails only if the connection is closed
+                            if let Ok(()) = sink.send(msg).await {
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    },
+                    _ = sink.closed() => {
+                        break;
+                    }
+                }
+            }
+        });
+    })?;
+    module.merge(fil_module)?;
 
     let (stop_handle, _handle) = stop_channel();
 
