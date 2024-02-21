@@ -218,7 +218,7 @@ impl ApiInfo {
         from_to: MessageFilter,
         tsk: TipsetKey,
         max_height: i64,
-    ) -> RpcRequest<Vec<Address>> {
+    ) -> RpcRequest<Vec<Cid>> {
         RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))
     }
 
