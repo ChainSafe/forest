@@ -3,6 +3,7 @@
 
 use crate::rpc::subscription::{
     close_channel_response, PendingSubscriptionSink, Subscribers, SubscriptionKey,
+    CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
 };
 
 use jsonrpsee::server::{
@@ -37,8 +38,6 @@ impl<Context> RpcModule<Context> {
     pub fn register_subscription_raw<R, F>(
         &mut self,
         subscribe_method_name: &'static str,
-        notif_method_name: &'static str,
-        unsubscribe_method_name: &'static str,
         callback: F,
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
@@ -46,8 +45,7 @@ impl<Context> RpcModule<Context> {
         F: (Fn(Params, PendingSubscriptionSink, Arc<Context>) -> R) + Send + Sync + Clone + 'static,
         R: IntoSubscriptionCloseResponse,
     {
-        let subscribers =
-            self.verify_and_register_unsubscribe(subscribe_method_name, unsubscribe_method_name)?;
+        let subscribers = self.verify_and_register_unsubscribe(subscribe_method_name)?;
         let ctx = self.ctx.clone();
 
         // Subscribe
@@ -76,7 +74,7 @@ impl<Context> RpcModule<Context> {
 
                     let sink = PendingSubscriptionSink {
                         inner: method_sink.clone(),
-                        method: notif_method_name,
+                        method: NOTIF_METHOD_NAME,
                         subscribers: subscribers.clone(),
                         uniq_sub,
                         id: id.clone().into_owned(),
@@ -105,16 +103,15 @@ impl<Context> RpcModule<Context> {
     fn verify_and_register_unsubscribe(
         &mut self,
         subscribe_method_name: &'static str,
-        unsubscribe_method_name: &'static str,
     ) -> Result<Subscribers, RegisterMethodError> {
-        if subscribe_method_name == unsubscribe_method_name {
+        if subscribe_method_name == CANCEL_METHOD_NAME {
             return Err(RegisterMethodError::SubscriptionNameConflict(
                 subscribe_method_name.into(),
             ));
         }
 
         self.methods.verify_method_name(subscribe_method_name)?;
-        self.methods.verify_method_name(unsubscribe_method_name)?;
+        self.methods.verify_method_name(CANCEL_METHOD_NAME)?;
 
         let subscribers = Subscribers::default();
 
@@ -122,7 +119,7 @@ impl<Context> RpcModule<Context> {
         {
             let subscribers = subscribers.clone();
             self.methods.mut_callbacks().insert(
-                unsubscribe_method_name,
+                CANCEL_METHOD_NAME,
                 MethodCallback::Unsubscription(Arc::new(
                     move |id, params, conn_id, max_response_size| {
                         let sub_id = match params.one::<SubscriptionId>() {
