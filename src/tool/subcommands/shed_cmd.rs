@@ -1,7 +1,9 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_client::ApiInfo;
+use std::path::PathBuf;
+
+use crate::{libp2p::keypair::get_keypair, rpc_client::ApiInfo};
 use anyhow::Context as _;
 use clap::Subcommand;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
@@ -21,6 +23,11 @@ pub enum ShedCommands {
         height: Option<u32>,
         #[arg(long)]
         ancestors: u32,
+    },
+    /// Generate a `PeerId` from the given key-pair file.
+    PeerIdFromKeyPair {
+        /// Path to the key-pair file.
+        keypair: PathBuf,
     },
 }
 
@@ -65,6 +72,11 @@ impl ShedCommands {
                         println!("- {}", cid);
                     }
                 }
+            }
+            ShedCommands::PeerIdFromKeyPair { keypair } => {
+                let keypair = get_keypair(&keypair)
+                    .with_context(|| format!("couldn't get keypair from {}", keypair.display()))?;
+                println!("{}", keypair.public().to_peer_id());
             }
         }
         Ok(())
