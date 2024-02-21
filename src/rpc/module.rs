@@ -47,11 +47,7 @@ impl RpcModule {
         callback: F,
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
-        F: (Fn(Params, PendingSubscriptionSink) -> tokio::sync::broadcast::Receiver<R>)
-            + Send
-            + Sync
-            + Clone
-            + 'static,
+        F: (Fn(Params) -> tokio::sync::broadcast::Receiver<R>) + Send + Sync + Clone + 'static,
         R: serde::Serialize,
     {
         todo!()
