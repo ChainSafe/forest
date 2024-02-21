@@ -403,6 +403,50 @@ impl WalletCommands {
                     ..Default::default()
                 };
 
+                /////////////////////////
+                // let from = umsg.from;
+
+                // let mut keystore = data.keystore.as_ref().write().await;
+                // let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
+                // let key_addr = data
+                //     .state_manager
+                //     .resolve_to_key_addr(&from, &heaviest_tipset)
+                //     .await?;
+
+                // if umsg.sequence != 0 {
+                //     return Err(
+                //         "Expected nonce for MpoolPushMessage is 0, and will be calculated for you."
+                //             .into(),
+                //     );
+                // }
+                // let mut umsg =
+                //     estimate_message_gas::<DB>(&data, umsg, spec, Default::default()).await?;
+                // if umsg.gas_premium > umsg.gas_fee_cap {
+                //     return Err("After estimation, gas premium is greater than gas fee cap".into());
+                // }
+
+                // if from.protocol() == Protocol::ID {
+                //     umsg.from = key_addr;
+                // }
+                // let nonce = data.mpool.get_sequence(&from)?;
+                // umsg.sequence = nonce;
+                // let key = crate::key_management::Key::try_from(crate::key_management::try_find(
+                //     &key_addr,
+                //     &mut keystore,
+                // )?)?;
+                // let sig = crate::key_management::sign(
+                //     *key.key_info.key_type(),
+                //     key.key_info.private_key(),
+                //     umsg.cid().unwrap().to_bytes().as_slice(),
+                // )?;
+
+                // let smsg = SignedMessage::new_from_parts(umsg, sig)?;
+
+                // data.mpool.as_ref().push(smsg.clone()).await?;
+
+                // Ok(smsg.into());
+                /////////////////////////
+
                 let signed_msg = api.mpool_push_message(message, None).await?;
 
                 println!("{}", signed_msg.cid().unwrap());
