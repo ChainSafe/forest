@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::subscription::{
-    close_channel_response, PendingSubscriptionSink, Subscribers, SubscriptionKey,
-    CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
+    PendingSubscriptionSink, Subscribers, SubscriptionKey, CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
 };
 
 use jsonrpsee::server::{
@@ -29,9 +28,20 @@ impl<Context> From<RpcModule<Context>> for Methods {
 impl<Context> RpcModule<Context> {
     /// Create a new module with a given shared `Context`.
     pub fn new(ctx: Context) -> Self {
+        let mut methods = Methods::default();
+
+        methods
+            .verify_and_insert(
+                CANCEL_METHOD_NAME,
+                MethodCallback::Sync(Arc::new(|id, _params, max_response| {
+                    MethodResponse::response(id, ResponsePayload::result(false), max_response)
+                })),
+            )
+            .expect("Inserting a method into an empty methods map is infallible.");
+
         Self {
             ctx: Arc::new(ctx),
-            methods: Default::default(),
+            methods,
         }
     }
 
@@ -111,43 +121,8 @@ impl<Context> RpcModule<Context> {
         }
 
         self.methods.verify_method_name(subscribe_method_name)?;
-        self.methods.verify_method_name(CANCEL_METHOD_NAME)?;
 
         let subscribers = Subscribers::default();
-
-        // Unsubscribe
-        {
-            let subscribers = subscribers.clone();
-            self.methods.mut_callbacks().insert(
-                CANCEL_METHOD_NAME,
-                MethodCallback::Unsubscription(Arc::new(
-                    move |id, params, conn_id, max_response_size| {
-                        let sub_id = match params.one::<SubscriptionId>() {
-                            Ok(sub_id) => sub_id,
-                            Err(_) => {
-                                return MethodResponse::response(
-                                    id,
-                                    ResponsePayload::result(false),
-                                    max_response_size,
-                                );
-                            }
-                        };
-
-                        let key = SubscriptionKey {
-                            conn_id,
-                            sub_id: sub_id.into_owned(),
-                        };
-                        let option = subscribers.lock().remove(&key);
-
-                        if let Some((_, _, channel_id)) = option {
-                            close_channel_response(channel_id)
-                        } else {
-                            MethodResponse::error(id, ErrorCode::InternalError)
-                        }
-                    },
-                )),
-            );
-        }
 
         Ok(subscribers)
     }
