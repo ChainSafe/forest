@@ -902,7 +902,7 @@ async fn start_offline_server(
 
     // TODO: this should more be done in a script
     // Cleanup offline RPC resources
-    info!("Cleaning offline RPC data directory: {:?}", db_path);
+    info!("Cleaning offline RPC data directory: {}", db_path.display());
     std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
