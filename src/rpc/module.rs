@@ -41,6 +41,22 @@ impl RpcModule {
         Self { methods }
     }
 
+    pub fn register_subscription<R, F>(
+        &mut self,
+        subscribe_method_name: &'static str,
+        callback: F,
+    ) -> Result<&mut MethodCallback, RegisterMethodError>
+    where
+        F: (Fn(Params, PendingSubscriptionSink) -> tokio::sync::broadcast::Receiver<R>)
+            + Send
+            + Sync
+            + Clone
+            + 'static,
+        R: serde::Serialize,
+    {
+        todo!()
+    }
+
     pub fn register_subscription_raw<R, F>(
         &mut self,
         subscribe_method_name: &'static str,
