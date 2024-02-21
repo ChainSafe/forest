@@ -47,7 +47,7 @@ impl RpcModule {
         callback: F,
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
-        F: (Fn(Params) -> tokio::sync::broadcast::Receiver<R>) + Send + Sync + Clone + 'static,
+        F: (Fn(Params) -> tokio::sync::broadcast::Receiver<R>) + Send + Sync + 'static,
         R: serde::Serialize,
     {
         todo!()
@@ -59,7 +59,7 @@ impl RpcModule {
         callback: F,
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
-        F: (Fn(Params, PendingSubscriptionSink) -> R) + Send + Sync + Clone + 'static,
+        F: (Fn(Params, PendingSubscriptionSink) -> R) + Send + Sync + 'static,
         R: IntoSubscriptionCloseResponse,
     {
         let subscribers = self.verify_and_register_unsubscribe(subscribe_method_name)?;
