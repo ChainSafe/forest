@@ -295,7 +295,7 @@ impl RpcTest {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
-                let forest_status = if (self.check_semantics)(forest.clone(), lotus.clone()) {
+                let forest_status = if (self.check_semantics)(forest, lotus) {
                     EndpointStatus::Valid
                 } else {
                     EndpointStatus::InvalidResponse
@@ -902,7 +902,7 @@ async fn start_offline_server(
 
     // TODO: this should more be done in a script
     // Cleanup offline RPC resources
-    std::fs::remove_file(&snapshot_path)?;
+    info!("Cleaning offline RPC data directory: {}", db_path.display());
     std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
@@ -979,7 +979,6 @@ async fn run_tests(
         if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
             || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
         {
-            // Your code here {
             success_results
                 .entry(result_entry)
                 .and_modify(|v| *v += 1)
