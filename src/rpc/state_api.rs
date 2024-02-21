@@ -34,7 +34,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
-use jsonrpsee::types::Params;
+use jsonrpsee::types::{error::ErrorObject, Params};
 use libipld_core::ipld::Ipld;
 use nonempty::nonempty;
 use num_bigint::BigInt;
@@ -896,10 +896,12 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
         .load_required_tipset_with_fallback(&tsk.0)?;
 
     if from_to.is_empty() {
-        return Err(JsonRpcError::Provided {
-            code: 1,
-            message: "must specify at least To or From in message filter",
-        });
+        return Err(ErrorObject::owned(
+            1,
+            "must specify at least To or From in message filter",
+            Some(from_to),
+        )
+        .into());
     } else if let Some(to) = from_to.to {
         // this is following lotus logic, it probably should be `if let` instead of `else if let`
         // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
