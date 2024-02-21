@@ -308,8 +308,8 @@ pub struct MinerInfoLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
-    //#[serde(with = "crate::lotus_json")]
-    pub peer_id: Option<PeerId>,
+    #[serde(with = "crate::lotus_json")]
+    pub peer_id: Option<String>,
     #[serde(with = "crate::lotus_json")]
     pub multiaddrs: Vec<Vec<u8>>,
     pub window_po_st_proof_type: fvm_shared2::sector::RegisteredPoStProof,
@@ -342,7 +342,7 @@ impl HasLotusJson for MinerInfo {
                 .map(|a| a.into())
                 .collect(),
             worker_change_epoch: self.worker_change_epoch,
-            peer_id: PeerId::try_from(self.peer_id).ok(),
+            peer_id: PeerId::try_from(self.peer_id).map(|id| id.to_base58()).ok(),
             multiaddrs: self.multiaddrs.into_iter().map(|addr| addr.0).collect(),
             window_po_st_proof_type: self.window_post_proof_type,
             sector_size: self.sector_size,
@@ -368,7 +368,7 @@ impl HasLotusJson for MinerInfo {
                 .map(|a| a.into())
                 .collect(),
             worker_change_epoch: lotus_json.worker_change_epoch,
-            peer_id: lotus_json.peer_id.unwrap_or(PeerId::random()).to_bytes(),
+            peer_id: lotus_json.peer_id.map_or_else(Vec::new, |s| s.into_bytes()),
             multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
             window_post_proof_type: lotus_json.window_po_st_proof_type,
             sector_size: lotus_json.sector_size,
