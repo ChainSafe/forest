@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! In the Filecoin ecosystem, there are TWO different ways to present a domain object:
@@ -387,7 +387,7 @@ where
 }
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
-#[derive(Debug, Serialize, Deserialize, From, Default)]
+#[derive(Debug, Serialize, Deserialize, From, Default, Clone)]
 #[serde(bound = "T: HasLotusJson + Clone")]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 

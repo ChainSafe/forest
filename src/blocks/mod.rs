@@ -1,9 +1,11 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use thiserror::Error;
 
 mod block;
+#[cfg(test)]
+mod chain4u;
 mod election_proof;
 mod gossip_block;
 mod header;
@@ -34,7 +36,11 @@ pub enum Error {
 }
 
 #[cfg(test)]
+pub(crate) use chain4u::{chain4u, Chain4U, HeaderBuilder};
+
+#[cfg(any(test, doc))]
 mod tests {
+
     mod serialization_vectors;
     mod ticket_test;
 }

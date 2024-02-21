@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
@@ -185,7 +185,7 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
@@ -199,7 +199,7 @@ pub struct InvocResult {
 type StateCallResult = Result<InvocResult, Error>;
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
     escrow: TokenAmount,
@@ -1287,10 +1287,12 @@ where
             .cs
             .chain_index
             .tipset_by_height(*epochs.end(), heaviest, ResolveNullTipset::TakeOlder)
-            .context(format!(
+            .with_context(|| {
+                format!(
             "couldn't get a tipset at height {} behind heaviest tipset at height {heaviest_epoch}",
             *epochs.end(),
-        ))?;
+        )
+            })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
         let tipsets = itertools::unfold(Some(end), |tipset| {

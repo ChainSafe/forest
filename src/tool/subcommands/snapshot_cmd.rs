@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -427,7 +427,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
     let beacon = Arc::new(chain_config.get_beacon_schedule(timestamp));
     let tipset = chain_index
         .tipset_by_height(epoch, Arc::new(ts), ResolveNullTipset::TakeOlder)
-        .context(format!("couldn't get a tipset at height {}", epoch))?;
+        .with_context(|| format!("couldn't get a tipset at height {}", epoch))?;
 
     let mut message_calls = vec![];
 
