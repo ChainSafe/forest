@@ -368,9 +368,7 @@ impl HasLotusJson for MinerInfo {
                 .map(|a| a.into())
                 .collect(),
             worker_change_epoch: lotus_json.worker_change_epoch,
-            peer_id: lotus_json
-                .peer_id
-                .map_or_else(|| Vec::new(), |s| s.into_bytes()),
+            peer_id: lotus_json.peer_id.map_or_else(Vec::new, |s| s.into_bytes()),
             multiaddrs: lotus_json.multiaddrs.into_iter().map(BytesDe).collect(),
             window_post_proof_type: lotus_json.window_po_st_proof_type,
             sector_size: lotus_json.sector_size,
