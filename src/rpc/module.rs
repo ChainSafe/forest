@@ -56,7 +56,12 @@ impl<Context> RpcModule<Context> {
                 subscribe_method_name,
                 MethodCallback::Subscription(Arc::new(move |id, params, method_sink, conn| {
                     let sub_id: SubscriptionId<'_> = match id {
-                        Id::Null => unreachable!(), // TODO: properly raise an error!
+                        Id::Null => {
+                            return Box::pin(std::future::ready(MethodResponse::error(
+                                id,
+                                ErrorCode::InvalidParams,
+                            )))
+                        }
                         Id::Str(ref s) => s.to_string().into(),
                         Id::Number(n) => n.into(),
                     };
