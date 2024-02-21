@@ -288,7 +288,7 @@ impl RpcTest {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
-                let forest_status = if (self.check_semantics)(forest.clone(), lotus.clone()) {
+                let forest_status = if (self.check_semantics)(forest, lotus) {
                     EndpointStatus::Valid
                 } else {
                     EndpointStatus::InvalidResponse
