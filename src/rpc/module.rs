@@ -14,20 +14,19 @@ use std::sync::Arc;
 use tokio::sync::oneshot;
 
 #[derive(Debug, Clone)]
-pub struct RpcModule<Context> {
-    ctx: Arc<Context>,
+pub struct RpcModule {
     methods: Methods,
 }
 
-impl<Context> From<RpcModule<Context>> for Methods {
-    fn from(module: RpcModule<Context>) -> Methods {
+impl From<RpcModule> for Methods {
+    fn from(module: RpcModule) -> Methods {
         module.methods
     }
 }
 
-impl<Context> RpcModule<Context> {
+impl RpcModule {
     /// Create a new module with a given shared `Context`.
-    pub fn new(ctx: Context) -> Self {
+    pub fn new() -> Self {
         let mut methods = Methods::default();
 
         methods
@@ -39,10 +38,7 @@ impl<Context> RpcModule<Context> {
             )
             .expect("Inserting a method into an empty methods map is infallible.");
 
-        Self {
-            ctx: Arc::new(ctx),
-            methods,
-        }
+        Self { methods }
     }
 
     pub fn register_subscription_raw<R, F>(
@@ -51,12 +47,10 @@ impl<Context> RpcModule<Context> {
         callback: F,
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
-        Context: Send + Sync + 'static,
-        F: (Fn(Params, PendingSubscriptionSink, Arc<Context>) -> R) + Send + Sync + Clone + 'static,
+        F: (Fn(Params, PendingSubscriptionSink) -> R) + Send + Sync + Clone + 'static,
         R: IntoSubscriptionCloseResponse,
     {
         let subscribers = self.verify_and_register_unsubscribe(subscribe_method_name)?;
-        let ctx = self.ctx.clone();
 
         // Subscribe
         let callback = {
@@ -93,7 +87,7 @@ impl<Context> RpcModule<Context> {
                         channel_id: conn.id_provider.next_id(),
                     };
 
-                    callback(params, sink, ctx.clone());
+                    callback(params, sink);
 
                     let id = id.clone().into_owned();
 

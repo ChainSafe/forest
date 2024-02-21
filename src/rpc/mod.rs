@@ -84,8 +84,8 @@ where
     )?;
 
     // For testing purposes
-    let mut fil_module = FilRpcModule::new(state.clone());
-    fil_module.register_subscription_raw("Filecoin.ChainNotify", |_params, pending, _state| {
+    let mut fil_module = FilRpcModule::new();
+    fil_module.register_subscription_raw("Filecoin.ChainNotify", |_params, pending| {
         tokio::spawn(async move {
             let sink = pending.accept().await.unwrap();
 
