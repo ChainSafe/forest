@@ -40,6 +40,7 @@ pub struct SubscriptionKey {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub(crate) enum SubNotifResultOrError {
     Result,
     Error,
@@ -339,6 +340,7 @@ pub(crate) fn sub_message_to_json(
 }
 
 /// Creates a notification message.
+#[allow(unused)]
 pub fn create_notif_message(
     sink: &SubscriptionSink,
     result: &impl serde::Serialize,
