@@ -13,9 +13,7 @@ use jsonrpsee::core::server::error::{
 };
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
 use jsonrpsee::helpers::MethodResponseResult;
-use jsonrpsee::server::{
-    ConnectionId, SubscriptionMessage, SubscriptionMessageInner, SubscriptionPermit,
-};
+use jsonrpsee::server::{SubscriptionMessage, SubscriptionMessageInner, SubscriptionPermit};
 use jsonrpsee::types::{ErrorObjectOwned, Id, ResponsePayload, SubscriptionId};
 
 use parking_lot::Mutex;
@@ -35,7 +33,6 @@ pub type Subscribers = Arc<
 /// Represent a unique subscription entry based on [`SubscriptionId`] and [`ConnectionId`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SubscriptionKey {
-    pub(crate) conn_id: ConnectionId,
     pub(crate) sub_id: SubscriptionId<'static>,
 }
 
@@ -173,11 +170,6 @@ impl PendingSubscriptionSink {
         }
     }
 
-    /// Returns connection identifier, which was used to perform pending subscription request
-    pub fn connection_id(&self) -> ConnectionId {
-        self.uniq_sub.conn_id
-    }
-
     /// Returns the channel identifier
     pub fn channel_id<'a>(&self) -> SubscriptionId<'a> {
         self.channel_id.clone()
@@ -212,11 +204,6 @@ impl SubscriptionSink {
     /// Get the method name.
     pub fn method_name(&self) -> &str {
         self.method
-    }
-
-    /// Get the connection ID.
-    pub fn connection_id(&self) -> ConnectionId {
-        self.uniq_sub.conn_id
     }
 
     /// Get the channel ID.

@@ -113,7 +113,6 @@ impl RpcModule {
                     };
 
                     let uniq_sub = SubscriptionKey {
-                        conn_id: conn.conn_id,
                         sub_id: sub_id.clone(),
                     };
 
