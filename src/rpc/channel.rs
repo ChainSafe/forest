@@ -11,7 +11,7 @@
 use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
 use jsonrpsee::server::{SubscriptionMessage, SubscriptionMessageInner, SubscriptionPermit};
-use jsonrpsee::types::{Id, ResponsePayload, SubscriptionId};
+use jsonrpsee::types::{Id, ResponsePayload};
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
@@ -22,15 +22,16 @@ pub const NOTIF_METHOD_NAME: &str = "xrpc.ch.val";
 pub const CANCEL_METHOD_NAME: &str = "xrpc.cancel";
 pub const CLOSE_METHOD_NAME: &str = "xrpc.ch.close";
 
+pub type ChannelId = u64;
+
 /// Type-alias for subscribers.
-pub type Subscribers = Arc<
-    Mutex<FxHashMap<SubscriptionKey, (MethodSink, mpsc::Receiver<()>, SubscriptionId<'static>)>>,
->;
+pub type Subscribers =
+    Arc<Mutex<FxHashMap<ChannelId, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
 
 /// Represent a unique subscription entry based on [`SubscriptionId`] and [`ConnectionId`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SubscriptionKey {
-    pub(crate) sub_id: SubscriptionId<'static>,
+    pub(crate) sub_id: ChannelId,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -64,8 +65,6 @@ pub struct PendingSubscriptionSink {
     pub(crate) method: &'static str,
     /// Shared Mutex of subscriptions for this method.
     pub(crate) subscribers: Subscribers,
-    /// Unique subscription.
-    pub(crate) uniq_sub: SubscriptionKey,
     /// ID of the `subscription call` (i.e. not the same as subscription id) which is used
     /// to reply to subscription method call and must only be used once.
     pub(crate) id: Id<'static>,
@@ -73,8 +72,8 @@ pub struct PendingSubscriptionSink {
     pub(crate) subscribe: oneshot::Sender<MethodResponse>,
     /// Subscription permit.
     pub(crate) permit: OwnedSemaphorePermit,
-    /// Needed by Filecoin `pubsub` specification.
-    pub(crate) channel_id: SubscriptionId<'static>,
+    /// Channel identifier.
+    pub(crate) channel_id: ChannelId,
 }
 
 impl PendingSubscriptionSink {
@@ -109,14 +108,13 @@ impl PendingSubscriptionSink {
         if success {
             let (_tx, rx) = mpsc::channel(1);
             self.subscribers.lock().insert(
-                self.uniq_sub.clone(),
+                self.channel_id.clone(),
                 (self.inner.clone(), rx, self.channel_id.clone()),
             );
             Ok(SubscriptionSink {
                 inner: self.inner,
                 method: self.method,
                 subscribers: self.subscribers,
-                uniq_sub: self.uniq_sub,
                 _permit: Arc::new(self.permit),
                 channel_id: self.channel_id.clone(),
             })
@@ -126,7 +124,7 @@ impl PendingSubscriptionSink {
     }
 
     /// Returns the channel identifier
-    pub fn channel_id<'a>(&self) -> SubscriptionId<'a> {
+    pub fn channel_id(&self) -> ChannelId {
         self.channel_id.clone()
     }
 }
@@ -140,19 +138,17 @@ pub struct SubscriptionSink {
     method: &'static str,
     /// Shared Mutex of subscriptions for this method.
     subscribers: Subscribers,
-    /// Unique subscription.
-    uniq_sub: SubscriptionKey,
     /// Subscription permit.
     _permit: Arc<SubscriptionPermit>,
-    /// Channel ID.
-    channel_id: SubscriptionId<'static>,
+    /// Channel identifier.
+    channel_id: ChannelId,
 }
 
 impl SubscriptionSink {
-    /// Get the subscription ID.
-    pub fn subscription_id(&self) -> SubscriptionId<'static> {
-        self.uniq_sub.sub_id.clone()
-    }
+    // /// Get the subscription ID.
+    // pub fn subscription_id(&self) -> SubscriptionId<'static> {
+    //     self.uniq_sub.sub_id.clone()
+    // }
 
     /// Get the method name.
     pub fn method_name(&self) -> &str {
@@ -160,7 +156,7 @@ impl SubscriptionSink {
     }
 
     /// Get the channel ID.
-    pub fn channel_id(&self) -> SubscriptionId<'static> {
+    pub fn channel_id(&self) -> ChannelId {
         self.channel_id.clone()
     }
 
@@ -183,7 +179,7 @@ impl SubscriptionSink {
         let json = sub_message_to_json(
             msg,
             SubNotifResultOrError::Result,
-            &self.subscription_id(),
+            self.channel_id(),
             self.method,
         );
         self.inner.send(json).await.map_err(Into::into)
@@ -205,14 +201,14 @@ impl SubscriptionSink {
 
 impl Drop for SubscriptionSink {
     fn drop(&mut self) {
-        self.subscribers.lock().remove(&self.uniq_sub);
+        self.subscribers.lock().remove(&self.channel_id);
     }
 }
 
 pub(crate) fn sub_message_to_json(
     msg: SubscriptionMessage,
     result_or_err: SubNotifResultOrError,
-    sub_id: &SubscriptionId,
+    sub_id: ChannelId,
     method: &str,
 ) -> String {
     let result_or_err = result_or_err.as_str();
@@ -245,7 +241,7 @@ pub fn create_notif_message(
 }
 
 /// Creates a close channel method response.
-pub fn close_channel_message(channel_id: SubscriptionId) -> SubscriptionMessage {
+pub fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
     let channel_id =
         serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
     let msg =

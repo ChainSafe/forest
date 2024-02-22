@@ -3,23 +3,26 @@
 
 use crate::rpc::channel::{
     close_channel_message, create_notif_message, PendingSubscriptionSink, Subscribers,
-    SubscriptionKey, CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
+    CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
 };
 
 use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, MethodResponse, Methods, RegisterMethodError,
 };
-use jsonrpsee::types::{error::ErrorCode, Id, Params, SubscriptionId};
+use jsonrpsee::types::{error::ErrorCode, Params};
 use jsonrpsee::IntoResponse;
 use tokio::sync::broadcast::error::RecvError;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 
+use super::channel::ChannelId;
 use super::error::JsonRpcError;
 
 #[derive(Debug, Clone)]
 pub struct RpcModule {
+    id_provider: Arc<AtomicU64>,
     channels: Subscribers,
     methods: Methods,
 }
@@ -43,10 +46,8 @@ impl RpcModule {
                     let channels = channels.clone();
                     move |id, params, max_response| {
                         let cb = || {
-                            let channel_id: u64 = params.parse()?;
-                            channels.lock().remove(&SubscriptionKey {
-                                sub_id: SubscriptionId::Num(channel_id),
-                            });
+                            let channel_id: ChannelId = params.parse()?;
+                            channels.lock().remove(&channel_id);
                             Ok::<bool, JsonRpcError>(true)
                         };
                         let ret = cb().into_response();
@@ -56,7 +57,11 @@ impl RpcModule {
             )
             .expect("Inserting a method into an empty methods map is infallible.");
 
-        Self { channels, methods }
+        Self {
+            id_provider: Arc::new(AtomicU64::new(0)),
+            channels,
+            methods,
+        }
     }
 
     pub fn register_channel<R, F>(
@@ -127,46 +132,35 @@ impl RpcModule {
         let callback = {
             self.methods.verify_and_insert(
                 subscribe_method_name,
-                MethodCallback::Subscription(Arc::new(move |id, params, method_sink, conn| {
-                    let sub_id: SubscriptionId<'_> = match id {
-                        Id::Null => {
-                            return Box::pin(std::future::ready(MethodResponse::error(
-                                id,
-                                ErrorCode::InvalidParams,
-                            )))
-                        }
-                        Id::Str(ref s) => s.to_string().into(),
-                        Id::Number(n) => n.into(),
-                    };
+                MethodCallback::Subscription(Arc::new({
+                    let id_provider = self.id_provider.clone();
+                    move |id, params, method_sink, conn| {
+                        let channel_id = id_provider.fetch_add(1, Ordering::Relaxed);
 
-                    let uniq_sub = SubscriptionKey {
-                        sub_id: sub_id.clone(),
-                    };
+                        // response to the subscription call.
+                        let (tx, rx) = oneshot::channel();
 
-                    // response to the subscription call.
-                    let (tx, rx) = oneshot::channel();
+                        let sink = PendingSubscriptionSink {
+                            inner: method_sink.clone(),
+                            method: NOTIF_METHOD_NAME,
+                            subscribers: subscribers.clone(),
+                            id: id.clone().into_owned(),
+                            subscribe: tx,
+                            permit: conn.subscription_permit,
+                            channel_id,
+                        };
 
-                    let sink = PendingSubscriptionSink {
-                        inner: method_sink.clone(),
-                        method: NOTIF_METHOD_NAME,
-                        subscribers: subscribers.clone(),
-                        uniq_sub,
-                        id: id.clone().into_owned(),
-                        subscribe: tx,
-                        permit: conn.subscription_permit,
-                        channel_id: conn.id_provider.next_id(),
-                    };
+                        callback(params, sink);
 
-                    callback(params, sink);
+                        let id = id.clone().into_owned();
 
-                    let id = id.clone().into_owned();
-
-                    Box::pin(async move {
-                        match rx.await {
-                            Ok(rp) => rp,
-                            Err(_) => MethodResponse::error(id, ErrorCode::InternalError),
-                        }
-                    })
+                        Box::pin(async move {
+                            match rx.await {
+                                Ok(rp) => rp,
+                                Err(_) => MethodResponse::error(id, ErrorCode::InternalError),
+                            }
+                        })
+                    }
                 })),
             )?
         };
