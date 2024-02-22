@@ -89,25 +89,7 @@ where
 
     fil_module.register_channel("Filecoin.ChainNotify", {
         let state_clone = state.clone();
-        move |_params| {
-            let state = state_clone.clone();
-            let (sender, receiver) = tokio::sync::broadcast::channel(100);
-            tokio::spawn(async move {
-                let mut subscriber = state.chain_store.publisher().subscribe();
-
-                while let Ok(HeadChange::Apply(tipset)) = subscriber.recv().await {
-                    let tipset: LotusJson<Tipset> = LotusJson((*tipset).clone());
-                    let v: Value = json!({
-                        "Type": "current",
-                        "Val": tipset,
-                    });
-                    if sender.send(v).is_err() {
-                        break;
-                    }
-                }
-            });
-            receiver
-        }
+        move |params| chain_api::chain_notify(params, state_clone.clone())
     })?;
     module.merge(fil_module)?;
 
