@@ -16,6 +16,7 @@ use tokio::sync::oneshot;
 
 #[derive(Debug, Clone)]
 pub struct RpcModule {
+    channels: Subscribers,
     methods: Methods,
 }
 
@@ -39,7 +40,10 @@ impl RpcModule {
             )
             .expect("Inserting a method into an empty methods map is infallible.");
 
-        Self { methods }
+        Self {
+            channels: Subscribers::default(),
+            methods,
+        }
     }
 
     pub fn register_channel<R, F>(
@@ -80,7 +84,7 @@ impl RpcModule {
         })
     }
 
-    pub fn register_subscription_raw<R, F>(
+    fn register_subscription_raw<R, F>(
         &mut self,
         subscribe_method_name: &'static str,
         callback: F,
@@ -89,7 +93,8 @@ impl RpcModule {
         F: (Fn(Params, PendingSubscriptionSink) -> R) + Send + Sync + 'static,
         R: IntoSubscriptionCloseResponse,
     {
-        let subscribers = self.verify_and_register_unsubscribe(subscribe_method_name)?;
+        self.verify_and_register_unsubscribe(subscribe_method_name)?;
+        let subscribers = self.channels.clone();
 
         // Subscribe
         let callback = {
@@ -146,7 +151,7 @@ impl RpcModule {
     fn verify_and_register_unsubscribe(
         &mut self,
         subscribe_method_name: &'static str,
-    ) -> Result<Subscribers, RegisterMethodError> {
+    ) -> Result<(), RegisterMethodError> {
         if subscribe_method_name == CANCEL_METHOD_NAME {
             return Err(RegisterMethodError::SubscriptionNameConflict(
                 subscribe_method_name.into(),
@@ -155,8 +160,6 @@ impl RpcModule {
 
         self.methods.verify_method_name(subscribe_method_name)?;
 
-        let subscribers = Subscribers::default();
-
-        Ok(subscribers)
+        Ok(())
     }
 }
