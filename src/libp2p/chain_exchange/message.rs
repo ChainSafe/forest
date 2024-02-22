@@ -234,17 +234,17 @@ fn fts_from_bundle_parts(
     }
 
     let blocks = headers
-        .into_iter()
+        .into_iter().zip(bls_msg_includes.iter()).zip(secp_msg_includes.iter())
         .enumerate()
-        .map(|(i, header)| {
-            let message_count = bls_msg_includes[i].len() + secp_msg_includes[i].len();
+        .map(|(i, ((header, bls_msg_i), secp_msg_i))| {
+            let message_count = bls_msg_i.len() + secp_msg_i.len();
             if message_count > BLOCK_MESSAGE_LIMIT {
                 return Err(format!(
                     "Block {i} in bundle has too many messages ({message_count} > {BLOCK_MESSAGE_LIMIT})"
                 ));
             }
-            let bls_messages = values_from_indexes(&bls_msg_includes[i], bls_msgs)?;
-            let secp_messages = values_from_indexes(&secp_msg_includes[i], secp_msgs)?;
+            let bls_messages = values_from_indexes(bls_msg_i, bls_msgs)?;
+            let secp_messages = values_from_indexes(secp_msg_i, secp_msgs)?;
 
             Ok(Block {
                 header,

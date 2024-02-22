@@ -151,8 +151,7 @@ where
 
     let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
     let mut i = 0;
-    'l: while i < chains.len() {
-        let chain = &mut chains[i];
+    'l: while let Some(chain) = chains.get_mut_at(i) {
         // we can exceed this if we have picked (some) longer chain already
         if msgs.len() > REPUB_MSG_LIMIT {
             break;
@@ -191,6 +190,7 @@ where
         chains.trim_msgs_at(i, gas_limit, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
+            #[allow(clippy::indexing_slicing)]
             if chains[j].compare(&chains[j + 1]) == Ordering::Less {
                 break;
             }
