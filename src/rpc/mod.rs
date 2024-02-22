@@ -90,11 +90,9 @@ where
     fil_module.register_subscription("Filecoin.ChainNotify", {
         let state_clone = state.clone();
         move |_params| {
-            let state_clone = state_clone.clone();
+            let state = state_clone.clone();
             let (sender, receiver) = tokio::sync::broadcast::channel(100);
             tokio::spawn(async move {
-                let state = state_clone.clone();
-
                 let mut subscriber = state.chain_store.publisher().subscribe();
 
                 while let Ok(HeadChange::Apply(tipset)) = subscriber.recv().await {
