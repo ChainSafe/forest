@@ -5,7 +5,8 @@
 //! Most of the code in this module comes from the `jsonrpsee` crate.
 //! See <https://github.com/paritytech/jsonrpsee/blob/v0.21.0/core/src/server/subscription.rs>.
 //! We slightly customized it from the original design to support Filecoin `pubsub` specification.
-//! The main types that have changed are the `PendingSubscriptionSink` and `SubscriptionSink`.
+//! The principal changed types are the `PendingSubscriptionSink` and `SubscriptionSink`, adding an `u64` channel identifier member.
+//!
 //! The remaining types and methods must be duplicated because they are private.
 
 use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
