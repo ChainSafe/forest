@@ -10,9 +10,12 @@ use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, MethodResponse, Methods, RegisterMethodError,
 };
 use jsonrpsee::types::{error::ErrorCode, Id, Params, ResponsePayload, SubscriptionId};
+use jsonrpsee::IntoResponse;
 
 use std::sync::Arc;
 use tokio::sync::oneshot;
+
+use super::error::JsonRpcError;
 
 #[derive(Debug, Clone)]
 pub struct RpcModule {
@@ -31,19 +34,28 @@ impl RpcModule {
     pub fn new() -> Self {
         let mut methods = Methods::default();
 
+        let channels = Subscribers::default();
         methods
             .verify_and_insert(
                 CANCEL_METHOD_NAME,
-                MethodCallback::Sync(Arc::new(|id, _params, max_response| {
-                    MethodResponse::response(id, ResponsePayload::result(false), max_response)
+                MethodCallback::Sync(Arc::new({
+                    let channels = channels.clone();
+                    move |id, params, max_response| {
+                        let cb = || {
+                            let channel_id: u64 = params.parse()?;
+                            channels.lock().remove(&SubscriptionKey {
+                                sub_id: SubscriptionId::Num(channel_id),
+                            });
+                            Ok::<bool, JsonRpcError>(true)
+                        };
+                        let ret = cb().into_response();
+                        MethodResponse::response(id, ret, max_response)
+                    }
                 })),
             )
             .expect("Inserting a method into an empty methods map is infallible.");
 
-        Self {
-            channels: Subscribers::default(),
-            methods,
-        }
+        Self { channels, methods }
     }
 
     pub fn register_channel<R, F>(
