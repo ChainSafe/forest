@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod behaviour;
@@ -16,7 +16,7 @@ mod service;
 // Re-export some libp2p types
 pub use cid::multihash::Multihash;
 pub use libp2p::{
-    identity::{ed25519, Keypair, PeerId},
+    identity::{ed25519, Keypair, ParseError, PeerId},
     multiaddr::{Multiaddr, Protocol},
 };
 

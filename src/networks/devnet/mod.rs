@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use ahash::HashMap;
@@ -78,7 +78,7 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
             // height is TBD.
             // likely to be `get_upgrade_epoch_by_height(HEIGHT_INFOS.iter(), Height::Pineapple).unwrap()`.
             // remember to remove `#[allow(dead_code)]` from `get_upgrade_epoch_by_height`
-            height: i64::MAX,
+            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT").unwrap_or(i64::MAX),
             config: &DRAND_QUICKNET,
         },
     ]

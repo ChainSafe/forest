@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
@@ -9,12 +9,17 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::cid_collections::FrozenCidVec;
 use crate::lotus_json::LotusJson;
-use crate::rpc_api::{data_types::RPCState, eth_api::BigInt as EthBigInt, eth_api::*};
+use crate::rpc::error::JsonRpcError;
+use crate::rpc_api::{
+    data_types::{Data, RPCState},
+    eth_api::BigInt as EthBigInt,
+    eth_api::*,
+};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::bail;
+use anyhow::{bail, Context, Result};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
+use jsonrpsee::types::Params;
 use num_bigint::BigInt;
 use num_traits::Zero as _;
 
@@ -74,9 +79,12 @@ pub async fn eth_gas_price<DB: Blockstore>(
 }
 
 pub async fn eth_get_balance<DB: Blockstore>(
+    params: Params<'_>,
     data: Data<RPCState<DB>>,
-    Params(LotusJson((address, block_param))): Params<LotusJson<(Address, BlockNumberOrHash)>>,
 ) -> Result<EthBigInt, JsonRpcError> {
+    let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
+        params.parse()?;
+
     let fil_addr = address.to_filecoin_address()?;
 
     let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
@@ -84,12 +92,8 @@ pub async fn eth_get_balance<DB: Blockstore>(
     let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), ts.parent_state())?;
 
     let actor = state
-        .get_actor(&fil_addr)
-        .map_err(|_e| JsonRpcError::Provided {
-            code: http::StatusCode::SERVICE_UNAVAILABLE.as_u16() as _,
-            message: "Failed to retrieve actor",
-        })?
-        .ok_or(JsonRpcError::INTERNAL_ERROR)?;
+        .get_actor(&fil_addr)?
+        .context("Failed to retrieve actor")?;
 
     Ok(EthBigInt(actor.balance.atto().clone()))
 }

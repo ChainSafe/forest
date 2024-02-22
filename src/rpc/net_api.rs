@@ -1,18 +1,20 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::{
-    data_types::{AddrInfo, RPCState},
+    data_types::{AddrInfo, Data, RPCState},
     net_api::*,
 };
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpc_v2::{Data, Error as JsonRpcError, Params};
-use tracing::error;
+use jsonrpsee::types::Params;
+
+use anyhow::Result;
 
 pub async fn net_addrs_listen<DB: Blockstore>(
     data: Data<RPCState<DB>>,
@@ -66,9 +68,11 @@ pub async fn net_info<DB: Blockstore>(
 }
 
 pub async fn net_connect<DB: Blockstore>(
+    params: Params<'_>,
     data: Data<RPCState<DB>>,
-    Params((AddrInfo { id, addrs },)): Params<(AddrInfo,)>,
 ) -> Result<(), JsonRpcError> {
+    let (AddrInfo { id, addrs },) = params.parse()?;
+
     let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
     let peer_id = PeerId::from_bytes(&id)?;
 
@@ -83,15 +87,16 @@ pub async fn net_connect<DB: Blockstore>(
     if success {
         Ok(())
     } else {
-        error!("Peer could not be dialed from any address provided");
-        Err(JsonRpcError::INTERNAL_ERROR)
+        Err(anyhow::anyhow!("Peer could not be dialed from any address provided").into())
     }
 }
 
 pub async fn net_disconnect<DB: Blockstore>(
+    params: Params<'_>,
     data: Data<RPCState<DB>>,
-    Params((id,)): Params<(String,)>,
 ) -> Result<(), JsonRpcError> {
+    let (id,): (String,) = params.parse()?;
+
     let peer_id = PeerId::from_str(&id)?;
 
     let (tx, rx) = oneshot::channel();
