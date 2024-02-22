@@ -9,7 +9,7 @@ use crate::rpc::channel::{
 use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, MethodResponse, Methods, RegisterMethodError,
 };
-use jsonrpsee::types::{error::ErrorCode, Id, Params, ResponsePayload, SubscriptionId};
+use jsonrpsee::types::{error::ErrorCode, Id, Params, SubscriptionId};
 use jsonrpsee::IntoResponse;
 
 use std::sync::Arc;

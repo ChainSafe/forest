@@ -52,33 +52,6 @@ impl SubNotifResultOrError {
     }
 }
 
-/// Represents a subscription until it is unsubscribed.
-///
-// NOTE: The reason why we use `mpsc` here is because it allows `IsUnsubscribed::unsubscribed`
-// to be &self instead of &mut self.
-#[derive(Debug, Clone)]
-pub struct IsUnsubscribed(mpsc::Sender<()>);
-
-impl IsUnsubscribed {
-    /// Returns true if the unsubscribe method has been invoked or the subscription has been canceled.
-    ///
-    /// This can be called multiple times as the element in the channel is never
-    /// removed.
-    pub fn is_unsubscribed(&self) -> bool {
-        self.0.is_closed()
-    }
-
-    /// Wrapper over [`tokio::sync::mpsc::Sender::closed`]
-    ///
-    /// # Cancel safety
-    ///
-    /// This method is cancel safe. Once the channel is closed,
-    /// it stays closed forever and all future calls to closed will return immediately.
-    pub async fn unsubscribed(&self) {
-        self.0.closed().await;
-    }
-}
-
 /// Represents a single subscription that is waiting to be accepted or rejected.
 ///
 /// If this is dropped without calling `PendingSubscription::reject` or `PendingSubscriptionSink::accept`
@@ -161,7 +134,6 @@ impl PendingSubscriptionSink {
                 method: self.method,
                 subscribers: self.subscribers,
                 uniq_sub: self.uniq_sub,
-                unsubscribe: IsUnsubscribed(tx),
                 _permit: Arc::new(self.permit),
                 channel_id: self.channel_id.clone(),
             })
@@ -187,8 +159,6 @@ pub struct SubscriptionSink {
     subscribers: Subscribers,
     /// Unique subscription.
     uniq_sub: SubscriptionKey,
-    /// A future to that fires once the unsubscribe method has been called.
-    unsubscribe: IsUnsubscribed,
     /// Subscription permit.
     _permit: Arc<SubscriptionPermit>,
     /// Channel ID.
@@ -282,7 +252,7 @@ impl SubscriptionSink {
 
     /// Returns whether the subscription is closed.
     pub fn is_closed(&self) -> bool {
-        self.inner.is_closed() || !self.is_active_subscription()
+        self.inner.is_closed()
     }
 
     /// Completes when the subscription has been closed.
@@ -290,20 +260,13 @@ impl SubscriptionSink {
         // Both are cancel-safe thus ok to use select here.
         tokio::select! {
             _ = self.inner.closed() => (),
-            _ = self.unsubscribe.unsubscribed() => (),
         }
-    }
-
-    fn is_active_subscription(&self) -> bool {
-        !self.unsubscribe.is_unsubscribed()
     }
 }
 
 impl Drop for SubscriptionSink {
     fn drop(&mut self) {
-        if self.is_active_subscription() {
-            self.subscribers.lock().remove(&self.uniq_sub);
-        }
+        self.subscribers.lock().remove(&self.uniq_sub);
     }
 }
 

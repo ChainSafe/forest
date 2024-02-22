@@ -22,10 +22,7 @@ use std::error::Error as StdError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::blocks::Tipset;
-use crate::chain::HeadChange;
 use crate::key_management::KeyStore;
-use crate::lotus_json::LotusJson;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::module::RpcModule as FilRpcModule;
 use crate::rpc::{
@@ -47,7 +44,6 @@ use jsonrpsee::server::{
     stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder,
 };
 use jsonrpsee::Methods;
-use serde_json::{json, Value};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tower::Service;
