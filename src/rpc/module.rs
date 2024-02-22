@@ -45,8 +45,10 @@ impl RpcModule {
                 MethodCallback::Sync(Arc::new({
                     let channels = channels.clone();
                     move |id, params, max_response| {
+                        eprintln!("Got cancel request: {id}");
                         let cb = || {
                             let channel_id: ChannelId = params.parse()?;
+                            eprintln!("Got cancel request: {id} {channel_id}");
                             channels.lock().remove(&channel_id);
                             Ok::<bool, JsonRpcError>(true)
                         };
@@ -134,7 +136,7 @@ impl RpcModule {
                 subscribe_method_name,
                 MethodCallback::Subscription(Arc::new({
                     let id_provider = self.id_provider.clone();
-                    move |id, params, method_sink, conn| {
+                    move |id, params, method_sink, _conn| {
                         let channel_id = id_provider.fetch_add(1, Ordering::Relaxed);
 
                         // response to the subscription call.
@@ -146,7 +148,6 @@ impl RpcModule {
                             subscribers: subscribers.clone(),
                             id: id.clone().into_owned(),
                             subscribe: tx,
-                            permit: conn.subscription_permit,
                             channel_id,
                         };
 

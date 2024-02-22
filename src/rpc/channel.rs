@@ -11,13 +11,13 @@
 
 use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
-use jsonrpsee::server::{SubscriptionMessage, SubscriptionMessageInner, SubscriptionPermit};
+use jsonrpsee::server::{SubscriptionMessage, SubscriptionMessageInner};
 use jsonrpsee::types::{Id, ResponsePayload};
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit};
+use tokio::sync::{mpsc, oneshot};
 
 pub const NOTIF_METHOD_NAME: &str = "xrpc.ch.val";
 pub const CANCEL_METHOD_NAME: &str = "xrpc.cancel";
@@ -71,8 +71,6 @@ pub struct PendingSubscriptionSink {
     pub(crate) id: Id<'static>,
     /// Sender to answer the subscribe call.
     pub(crate) subscribe: oneshot::Sender<MethodResponse>,
-    /// Subscription permit.
-    pub(crate) permit: OwnedSemaphorePermit,
     /// Channel identifier.
     pub(crate) channel_id: ChannelId,
 }
@@ -116,7 +114,6 @@ impl PendingSubscriptionSink {
                 inner: self.inner,
                 method: self.method,
                 subscribers: self.subscribers,
-                _permit: Arc::new(self.permit),
                 channel_id: self.channel_id.clone(),
             })
         } else {
@@ -139,8 +136,6 @@ pub struct SubscriptionSink {
     method: &'static str,
     /// Shared Mutex of subscriptions for this method.
     subscribers: Subscribers,
-    /// Subscription permit.
-    _permit: Arc<SubscriptionPermit>,
     /// Channel identifier.
     channel_id: ChannelId,
 }
