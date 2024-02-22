@@ -45,10 +45,10 @@ impl RpcModule {
                 MethodCallback::Sync(Arc::new({
                     let channels = channels.clone();
                     move |id, params, max_response| {
-                        eprintln!("Got cancel request: {id}");
+                        tracing::debug!("Got cancel request: {id}");
                         let cb = || {
                             let channel_id: ChannelId = params.parse()?;
-                            eprintln!("Got cancel request: {id} {channel_id}");
+                            tracing::debug!("Got cancel request: {id} {channel_id}");
                             channels.lock().remove(&channel_id);
                             Ok::<bool, JsonRpcError>(true)
                         };
@@ -77,6 +77,8 @@ impl RpcModule {
     {
         self.register_subscription_raw(subscribe_method_name, {
             move |params, pending| {
+                tracing::debug!("Creating channel");
+
                 let mut receiver = callback(params);
                 tokio::spawn(async move {
                     let sink = pending.accept().await.unwrap();
