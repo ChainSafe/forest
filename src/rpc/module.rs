@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::subscription::{
-    PendingSubscriptionSink, Subscribers, SubscriptionKey, CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
+    create_notif_message, PendingSubscriptionSink, Subscribers, SubscriptionKey,
+    CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
 };
 
 use jsonrpsee::server::{
@@ -48,9 +49,35 @@ impl RpcModule {
     ) -> Result<&mut MethodCallback, RegisterMethodError>
     where
         F: (Fn(Params) -> tokio::sync::broadcast::Receiver<R>) + Send + Sync + 'static,
-        R: serde::Serialize,
+        R: serde::Serialize + Clone + Send + 'static,
     {
-        todo!()
+        self.register_subscription_raw(subscribe_method_name, {
+            move |params, pending| {
+                let mut receiver = callback(params);
+                tokio::spawn(async move {
+                    let sink = pending.accept().await.unwrap();
+
+                    loop {
+                        tokio::select! {
+                            Ok(msg) = receiver.recv() => {
+                                if let Ok(msg) = create_notif_message(&sink, &msg) {
+                                    // This fails only if the connection is closed
+                                    if let Ok(()) = sink.send(msg).await {
+                                    } else {
+                                        break;
+                                    }
+                                } else {
+                                    break;
+                                }
+                            },
+                            _ = sink.closed() => {
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+        })
     }
 
     pub fn register_subscription_raw<R, F>(

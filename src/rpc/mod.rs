@@ -28,7 +28,6 @@ use crate::key_management::KeyStore;
 use crate::lotus_json::LotusJson;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::module::RpcModule as FilRpcModule;
-use crate::rpc::subscription::create_notif_message;
 use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
@@ -88,40 +87,28 @@ where
     // For testing purposes
     let mut fil_module = FilRpcModule::new();
 
-    fil_module.register_subscription_raw("Filecoin.ChainNotify", {
+    fil_module.register_subscription("Filecoin.ChainNotify", {
         let state_clone = state.clone();
-        move |_params, pending| {
+        move |_params| {
             let state_clone = state_clone.clone();
+            let (sender, receiver) = tokio::sync::broadcast::channel(100);
             tokio::spawn(async move {
                 let state = state_clone.clone();
-                let sink = pending.accept().await.unwrap();
 
                 let mut subscriber = state.chain_store.publisher().subscribe();
 
-                loop {
-                    tokio::select! {
-                        Ok(HeadChange::Apply(tipset)) = subscriber.recv() => {
-                            let tipset: LotusJson<Tipset> = LotusJson((*tipset).clone());
-                            let v: Value = json!({
-                                "Type": "current",
-                                "Val": tipset,
-                            });
-                            if let Ok(msg) = create_notif_message(&sink, &v) {
-                                // This fails only if the connection is closed
-                                if let Ok(()) = sink.send(msg).await {
-                                } else {
-                                    break;
-                                }
-                            } else {
-                                break;
-                            }
-                        },
-                        _ = sink.closed() => {
-                            break;
-                        }
+                while let Ok(HeadChange::Apply(tipset)) = subscriber.recv().await {
+                    let tipset: LotusJson<Tipset> = LotusJson((*tipset).clone());
+                    let v: Value = json!({
+                        "Type": "current",
+                        "Val": tipset,
+                    });
+                    if sender.send(v).is_err() {
+                        break;
                     }
                 }
             });
+            receiver
         }
     })?;
     module.merge(fil_module)?;
