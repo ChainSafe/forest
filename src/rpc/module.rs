@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::channel::{
-    create_notif_message, PendingSubscriptionSink, Subscribers, SubscriptionKey,
-    CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
+    close_channel_message, create_notif_message, PendingSubscriptionSink, Subscribers,
+    SubscriptionKey, CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
 };
 
 use jsonrpsee::server::{
@@ -11,6 +11,7 @@ use jsonrpsee::server::{
 };
 use jsonrpsee::types::{error::ErrorCode, Id, Params, SubscriptionId};
 use jsonrpsee::IntoResponse;
+use tokio::sync::broadcast::error::RecvError;
 
 use std::sync::Arc;
 use tokio::sync::oneshot;
@@ -75,15 +76,29 @@ impl RpcModule {
 
                     loop {
                         tokio::select! {
-                            Ok(msg) = receiver.recv() => {
-                                if let Ok(msg) = create_notif_message(&sink, &msg) {
-                                    // This fails only if the connection is closed
-                                    if let Ok(()) = sink.send(msg).await {
-                                    } else {
-                                        break;
+                            action = receiver.recv() => {
+                                match action {
+                                    Ok(msg) => {
+                                        if let Ok(msg) = create_notif_message(&sink, &msg) {
+                                            // This fails only if the connection is closed
+                                            if let Ok(()) = sink.send(msg).await {
+                                            } else {
+                                                break;
+                                            }
+                                        } else {
+                                            break;
+                                        }
                                     }
-                                } else {
-                                    break;
+                                    Err(RecvError::Closed) => {
+                                        let msg = close_channel_message(sink.channel_id());
+                                        // This fails only if the connection is closed
+                                        if let Ok(()) = sink.send(msg).await {
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    Err(RecvError::Lagged(_)) => {
+                                    }
                                 }
                             },
                             _ = sink.closed() => {

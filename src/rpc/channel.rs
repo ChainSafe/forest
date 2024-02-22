@@ -8,17 +8,14 @@
 //! The main types that have changed are the `PendingSubscriptionSink` and `SubscriptionSink`.
 //! The remaining types and methods must be duplicated because they are private.
 
-use jsonrpsee::core::server::error::{
-    DisconnectError, PendingSubscriptionAcceptError, SendTimeoutError, TrySendError,
-};
+use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
-use jsonrpsee::helpers::MethodResponseResult;
 use jsonrpsee::server::{SubscriptionMessage, SubscriptionMessageInner, SubscriptionPermit};
-use jsonrpsee::types::{ErrorObjectOwned, Id, ResponsePayload, SubscriptionId};
+use jsonrpsee::types::{Id, ResponsePayload, SubscriptionId};
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot, OwnedSemaphorePermit};
 
 pub const NOTIF_METHOD_NAME: &str = "xrpc.ch.val";
@@ -81,20 +78,6 @@ pub struct PendingSubscriptionSink {
 }
 
 impl PendingSubscriptionSink {
-    /// Reject the subscription by responding to the subscription method call with
-    /// the error message from [`jsonrpsee_types::error::ErrorObject`].
-    ///
-    /// # Note
-    ///
-    /// If this is used in the async subscription callback
-    /// the return value is simply ignored because no further notification are propagated
-    /// once reject has been called.
-    pub async fn reject(self, err: impl Into<ErrorObjectOwned>) {
-        let err = MethodResponse::subscription_error(self.id, err.into());
-        _ = self.inner.send(err.result.clone()).await;
-        _ = self.subscribe.send(err);
-    }
-
     /// Attempt to accept the subscription and respond the subscription method call.
     ///
     /// # Panics
@@ -124,7 +107,7 @@ impl PendingSubscriptionSink {
             .map_err(|_| PendingSubscriptionAcceptError)?;
 
         if success {
-            let (tx, rx) = mpsc::channel(1);
+            let (_tx, rx) = mpsc::channel(1);
             self.subscribers.lock().insert(
                 self.uniq_sub.clone(),
                 (self.inner.clone(), rx, self.channel_id.clone()),
@@ -206,50 +189,6 @@ impl SubscriptionSink {
         self.inner.send(json).await.map_err(Into::into)
     }
 
-    /// Similar to to `SubscriptionSink::send` but only waits for a limited time.
-    pub async fn send_timeout(
-        &self,
-        msg: SubscriptionMessage,
-        timeout: Duration,
-    ) -> Result<(), SendTimeoutError> {
-        // Only possible to trigger when the connection is dropped.
-        if self.is_closed() {
-            return Err(SendTimeoutError::Closed(msg));
-        }
-
-        let json = sub_message_to_json(
-            msg,
-            SubNotifResultOrError::Result,
-            &self.subscription_id(),
-            self.method,
-        );
-        self.inner
-            .send_timeout(json, timeout)
-            .await
-            .map_err(Into::into)
-    }
-
-    /// Attempts to immediately send out the message as JSON string to the subscribers but fails if the
-    /// channel is full or the connection/subscription is closed
-    ///
-    ///
-    /// This differs from [`SubscriptionSink::send`] where it will until there is capacity
-    /// in the channel.
-    pub fn try_send(&mut self, msg: SubscriptionMessage) -> Result<(), TrySendError> {
-        // Only possible to trigger when the connection is dropped.
-        if self.is_closed() {
-            return Err(TrySendError::Closed(msg));
-        }
-
-        let json = sub_message_to_json(
-            msg,
-            SubNotifResultOrError::Result,
-            &self.uniq_sub.sub_id,
-            self.method,
-        );
-        self.inner.try_send(json).map_err(Into::into)
-    }
-
     /// Returns whether the subscription is closed.
     pub fn is_closed(&self) -> bool {
         self.inner.is_closed()
@@ -306,14 +245,10 @@ pub fn create_notif_message(
 }
 
 /// Creates a close channel method response.
-pub fn close_channel_response(channel_id: SubscriptionId) -> MethodResponse {
+pub fn close_channel_message(channel_id: SubscriptionId) -> SubscriptionMessage {
     let channel_id =
         serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
     let msg =
         format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{channel_id}]}}"#,);
-    MethodResponse {
-        result: msg,
-        success_or_error: MethodResponseResult::Success,
-        is_subscription: false,
-    }
+    SubscriptionMessage::from_complete_message(msg)
 }
