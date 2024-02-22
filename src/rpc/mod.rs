@@ -22,8 +22,10 @@ use std::error::Error as StdError;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use crate::blocks::Tipset;
 use crate::chain::HeadChange;
 use crate::key_management::KeyStore;
+use crate::lotus_json::LotusJson;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::module::RpcModule as FilRpcModule;
 use crate::rpc::subscription::create_notif_message;
@@ -46,7 +48,7 @@ use jsonrpsee::server::{
     stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder,
 };
 use jsonrpsee::Methods;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tower::Service;
@@ -99,9 +101,11 @@ where
                 loop {
                     tokio::select! {
                         Ok(HeadChange::Apply(tipset)) = subscriber.recv() => {
-                            let epoch = tipset.epoch();
-                            let data = format!(r#"{{ "Type": "current", "Val": {{ "Height": {epoch} }} }}"#);
-                            let v: Value = serde_json::from_str(&data).unwrap();
+                            let tipset: LotusJson<Tipset> = LotusJson((*tipset).clone());
+                            let v: Value = json!({
+                                "Type": "current",
+                                "Val": tipset,
+                            });
                             if let Ok(msg) = create_notif_message(&sink, &v) {
                                 // This fails only if the connection is closed
                                 if let Ok(()) = sink.send(msg).await {
