@@ -87,7 +87,7 @@ where
     // For testing purposes
     let mut fil_module = FilRpcModule::new();
 
-    fil_module.register_subscription("Filecoin.ChainNotify", {
+    fil_module.register_channel("Filecoin.ChainNotify", {
         let state_clone = state.clone();
         move |_params| {
             let state = state_clone.clone();

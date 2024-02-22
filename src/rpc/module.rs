@@ -42,7 +42,7 @@ impl RpcModule {
         Self { methods }
     }
 
-    pub fn register_subscription<R, F>(
+    pub fn register_channel<R, F>(
         &mut self,
         subscribe_method_name: &'static str,
         callback: F,
