@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::subscription::{
+use crate::rpc::channel::{
     create_notif_message, PendingSubscriptionSink, Subscribers, SubscriptionKey,
     CANCEL_METHOD_NAME, NOTIF_METHOD_NAME,
 };
