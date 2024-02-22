@@ -457,6 +457,11 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     let state = data.clone();
     let mut subscriber = state.chain_store.publisher().subscribe();
 
+    let ts = data.chain_store.heaviest_tipset();
+    let (change, headers) = ("current".into(), ts.block_headers().clone().into());
+    let data = ApiHeadChange { change, headers };
+    if sender.send(data).is_err() {}
+
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
             let (change, headers) = match v {
