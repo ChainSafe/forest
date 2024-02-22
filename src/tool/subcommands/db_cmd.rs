@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::path::PathBuf;
+
 use crate::cli::subcommands::prompt_confirm;
 use crate::cli_shared::{chain_path, read_config};
 use crate::db::db_engine::db_root;
@@ -14,7 +16,7 @@ pub enum DBCommands {
     Stats {
         /// Optional TOML file containing forest daemon configuration
         #[arg(short, long)]
-        config: Option<String>,
+        config: Option<PathBuf>,
         /// Optional chain, will override the chain section of configuration file if used
         #[arg(long)]
         chain: Option<NetworkChain>,
@@ -26,7 +28,7 @@ pub enum DBCommands {
         force: bool,
         /// Optional TOML file containing forest daemon configuration
         #[arg(short, long)]
-        config: Option<String>,
+        config: Option<PathBuf>,
         /// Optional chain, will override the chain section of configuration file if used
         #[arg(long)]
         chain: Option<NetworkChain>,
@@ -39,7 +41,7 @@ impl DBCommands {
             Self::Stats { config, chain } => {
                 use human_repr::HumanCount;
 
-                let (_, config) = read_config(config, chain)?;
+                let (_, config) = read_config(config.as_ref(), chain.clone())?;
 
                 let dir = db_root(&chain_path(&config))?;
                 println!("Database path: {}", dir.display());
@@ -52,7 +54,7 @@ impl DBCommands {
                 config,
                 chain,
             } => {
-                let (_, config) = read_config(config, chain)?;
+                let (_, config) = read_config(config.as_ref(), chain.clone())?;
 
                 let dir = chain_path(&config);
                 if !dir.is_dir() {

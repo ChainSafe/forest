@@ -3,9 +3,10 @@
 
 pub mod common;
 
+use common::{daemon, CommonArgs};
 use predicates::prelude::*;
 
-use crate::common::tool;
+use crate::common::{create_tmp_config, tool};
 
 // Exporting an empty archive should fail but not panic
 #[test]
@@ -67,4 +68,105 @@ fn peer_id_from_keypair() {
         .arg(temp_dir.path().join("azathoth"))
         .assert()
         .failure();
+}
+
+#[test]
+fn backup_tool_roundtrip_all() {
+    let (config_file, data_dir) = create_tmp_config();
+
+    // Create a pantheon of Old Gods in the data directory
+    let old_gods = data_dir.path().join("old_gods");
+    std::fs::create_dir(&old_gods).unwrap();
+    let gods = vec![
+        (
+            "cthulhu",
+            "ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn",
+        ),
+        ("azathoth", "Azathoth is the blind idiot god"),
+        ("nyarlathotep", "Nyarlathotep is the crawling chaos"),
+    ];
+
+    for (name, chant) in &gods {
+        std::fs::write(old_gods.join(name), chant).unwrap();
+    }
+
+    let backup_file = tempfile::Builder::new().suffix(".tar").tempfile().unwrap();
+
+    tool()
+        .arg("backup")
+        .arg("create")
+        .arg("--all")
+        .arg("--daemon-config")
+        .arg(&config_file)
+        .arg("--backup-file")
+        .arg(backup_file.path())
+        .assert()
+        .success();
+
+    // remove the old gods
+    std::fs::remove_dir_all(&old_gods).unwrap();
+
+    tool()
+        .arg("backup")
+        .arg("restore")
+        .arg("--force")
+        .arg("--daemon-config")
+        .arg(&config_file)
+        .arg(backup_file.path())
+        .assert()
+        .success();
+
+    assert!(old_gods.exists());
+    for (name, chant) in gods {
+        assert_eq!(std::fs::read_to_string(old_gods.join(name)).unwrap(), chant);
+    }
+}
+
+#[test]
+fn backup_tool_roundtrip_keys() {
+    let (config_file, data_dir) = create_tmp_config();
+    daemon()
+        .common_args()
+        .arg("--config")
+        .arg(&config_file)
+        .arg("--encrypt-keystore")
+        .arg("false")
+        .assert()
+        .success();
+
+    let backup_file = tempfile::Builder::new().suffix(".tar").tempfile().unwrap();
+    let keypair = std::fs::read(data_dir.path().join("libp2p").join("keypair")).unwrap();
+    let keystore = std::fs::read(data_dir.path().join("keystore.json")).unwrap();
+
+    tool()
+        .arg("backup")
+        .arg("create")
+        .arg("--daemon-config")
+        .arg(&config_file)
+        .arg("--backup-file")
+        .arg(backup_file.path())
+        .assert()
+        .success();
+
+    std::fs::remove_file(data_dir.path().join("libp2p").join("keypair")).unwrap();
+    std::fs::remove_file(data_dir.path().join("keystore.json")).unwrap();
+
+    tool()
+        .arg("backup")
+        .arg("restore")
+        .arg("--force")
+        .arg("--daemon-config")
+        .arg(&config_file)
+        .arg(backup_file.path())
+        .assert()
+        .success();
+
+    assert_eq!(
+        std::fs::read(data_dir.path().join("libp2p").join("keypair")).unwrap(),
+        keypair
+    );
+    assert_eq!(
+        std::fs::read(data_dir.path().join("keystore.json")).unwrap(),
+        keystore
+    );
 }
