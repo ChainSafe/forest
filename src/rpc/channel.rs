@@ -9,7 +9,7 @@
 //!
 //! The remaining types and methods must be duplicated because they are private.
 //!
-//! The sequence diagram of a channel lifetime is as follow:
+//! The sequence diagram of a channel lifetime is as follows:
 //! ```text
 //!  ┌─────────────┐                                                       ┌─────────────┐
 //!  │  WS Client  │                                                       │    Node     │
