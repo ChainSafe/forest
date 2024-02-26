@@ -356,7 +356,7 @@ impl RpcModule {
                         match result {
                             Ok(channel_id) => {
                                 let resp = close_channel_response(channel_id);
-                                tracing::debug!("Sending close response: {:?}", resp);
+                                tracing::debug!("Sending close message: {:?}", resp.result);
                                 resp
                             }
                             Err(_e) => {
@@ -386,11 +386,10 @@ impl RpcModule {
     {
         self.register_channel_raw(subscribe_method_name, {
             move |params, pending| {
-                tracing::debug!("Creating channel");
-
                 let mut receiver = callback(params);
                 tokio::spawn(async move {
                     let sink = pending.accept().await.unwrap();
+                    tracing::debug!("Channel created (chann_id={})", sink.channel_id);
 
                     loop {
                         tokio::select! {
