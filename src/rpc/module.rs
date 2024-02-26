@@ -47,7 +47,8 @@ impl RpcModule {
                     move |id, params, max_response| {
                         tracing::debug!("Got cancel request: {id}");
                         let cb = || {
-                            let channel_id: ChannelId = params.parse()?;
+                            let arr: [ChannelId; 1] = params.parse()?;
+                            let channel_id = arr[0];
                             tracing::debug!("Got cancel request: {id} {channel_id}");
                             channels.lock().remove(&channel_id);
                             Ok::<bool, JsonRpcError>(true)
