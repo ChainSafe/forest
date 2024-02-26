@@ -76,7 +76,7 @@ impl RpcModule {
         F: (Fn(Params) -> tokio::sync::broadcast::Receiver<R>) + Send + Sync + 'static,
         R: serde::Serialize + Clone + Send + 'static,
     {
-        self.register_subscription_raw(subscribe_method_name, {
+        self.register_channel_raw(subscribe_method_name, {
             move |params, pending| {
                 tracing::debug!("Creating channel");
 
@@ -121,7 +121,7 @@ impl RpcModule {
         })
     }
 
-    fn register_subscription_raw<R, F>(
+    fn register_channel_raw<R, F>(
         &mut self,
         subscribe_method_name: &'static str,
         callback: F,
