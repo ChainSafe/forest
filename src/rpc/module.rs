@@ -130,7 +130,7 @@ impl RpcModule {
         F: (Fn(Params, PendingSubscriptionSink) -> R) + Send + Sync + 'static,
         R: IntoSubscriptionCloseResponse,
     {
-        self.verify_and_register_unsubscribe(subscribe_method_name)?;
+        self.methods.verify_method_name(subscribe_method_name)?;
         let subscribers = self.channels.clone();
 
         // Subscribe
@@ -170,20 +170,5 @@ impl RpcModule {
         };
 
         Ok(callback)
-    }
-
-    fn verify_and_register_unsubscribe(
-        &mut self,
-        subscribe_method_name: &'static str,
-    ) -> Result<(), RegisterMethodError> {
-        if subscribe_method_name == CANCEL_METHOD_NAME {
-            return Err(RegisterMethodError::SubscriptionNameConflict(
-                subscribe_method_name.into(),
-            ));
-        }
-
-        self.methods.verify_method_name(subscribe_method_name)?;
-
-        Ok(())
     }
 }
