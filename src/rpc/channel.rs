@@ -329,7 +329,6 @@ impl RpcModule {
                 MethodCallback::Sync(Arc::new({
                     let channels = channels.clone();
                     move |id, params, max_response| {
-                        tracing::debug!("Got cancel request: {id}");
                         let cb = || {
                             let arr: [ChannelId; 1] = params.parse()?;
                             let channel_id = arr[0];
@@ -338,7 +337,9 @@ impl RpcModule {
                             Ok::<bool, JsonRpcError>(true)
                         };
                         let ret = cb().into_response();
-                        MethodResponse::response(id, ret, max_response)
+                        let resp = MethodResponse::response(id, ret, max_response);
+                        tracing::debug!("Sending close response: {:?}", resp);
+                        resp
                     }
                 })),
             )
