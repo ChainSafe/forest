@@ -66,8 +66,7 @@ use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
     SubscriptionMessage, SubscriptionMessageInner,
 };
-use jsonrpsee::types::{error::ErrorCode, Id, Params, ResponsePayload};
-use jsonrpsee::IntoResponse;
+use jsonrpsee::types::{error::ErrorCode, ErrorObjectOwned, Id, Params, ResponsePayload};
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
@@ -338,7 +337,7 @@ impl RpcModule {
                 CANCEL_METHOD_NAME,
                 MethodCallback::Sync(Arc::new({
                     let channels = channels.clone();
-                    move |_id, params: Params, _max_response| {
+                    move |id, params: Params, _max_response| {
                         let cb = || {
                             let arr: [Id<'_>; 1] = params.parse()?;
                             let sub_id = arr[0].clone().into_owned();
@@ -346,11 +345,14 @@ impl RpcModule {
                             tracing::debug!("Got cancel request: id={sub_id}");
 
                             let opt = channels.lock().remove(&sub_id);
-                            let channel_id = match opt {
-                                Some((_, _, channel_id)) => channel_id,
-                                None => todo!(),
-                            };
-                            Ok::<ChannelId, JsonRpcError>(channel_id)
+                            match opt {
+                                Some((_, _, channel_id)) => {
+                                    Ok::<ChannelId, JsonRpcError>(channel_id)
+                                }
+                                None => Err::<ChannelId, JsonRpcError>(JsonRpcError::from(
+                                    anyhow::anyhow!("channel not found"),
+                                )),
+                            }
                         };
                         let result = cb();
                         match result {
@@ -359,8 +361,9 @@ impl RpcModule {
                                 tracing::debug!("Sending close message: {:?}", resp.result);
                                 resp
                             }
-                            Err(_e) => {
-                                todo!()
+                            Err(e) => {
+                                let error: ErrorObjectOwned = e.into();
+                                MethodResponse::error(id, error)
                             }
                         }
                     }
@@ -389,7 +392,7 @@ impl RpcModule {
                 let mut receiver = callback(params);
                 tokio::spawn(async move {
                     let sink = pending.accept().await.unwrap();
-                    tracing::debug!("Channel created (chann_id={})", sink.channel_id);
+                    tracing::debug!("Channel created: chann_id={}", sink.channel_id);
 
                     loop {
                         tokio::select! {
