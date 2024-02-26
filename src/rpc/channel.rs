@@ -79,7 +79,6 @@ use super::error::JsonRpcError;
 
 pub const NOTIF_METHOD_NAME: &str = "xrpc.ch.val";
 pub const CANCEL_METHOD_NAME: &str = "xrpc.cancel";
-pub const CLOSE_METHOD_NAME: &str = "xrpc.ch.close";
 
 pub type ChannelId = u64;
 
@@ -292,19 +291,20 @@ fn create_notif_message(
     Ok(SubscriptionMessage::from_complete_message(msg))
 }
 
+fn close_payload(channel_id: ChannelId) -> String {
+    format!(
+        r#"{{"jsonrpc":"2.0","method":"xrpc.ch.close","params":[{}]}}"#,
+        channel_id
+    )
+}
+
 fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
-    let channel_id =
-        serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
-    let msg =
-        format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{channel_id}]}}"#,);
-    SubscriptionMessage::from_complete_message(msg)
+    SubscriptionMessage::from_complete_message(close_payload(channel_id))
 }
 
 fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
-    let msg =
-        format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{channel_id}]}}"#,);
     MethodResponse {
-        result: msg,
+        result: close_payload(channel_id),
         success_or_error: MethodResponseResult::Success,
         is_subscription: false,
     }
