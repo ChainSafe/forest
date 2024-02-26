@@ -10,7 +10,6 @@ mod common_api;
 mod error;
 mod eth_api;
 mod gas_api;
-mod module;
 mod mpool_api;
 mod net_api;
 mod node_api;
@@ -24,8 +23,8 @@ use std::sync::Arc;
 
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
+use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
-use crate::rpc::module::RpcModule as FilRpcModule;
 use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
