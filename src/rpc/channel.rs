@@ -42,6 +42,7 @@
 //!         │                                 │  params:[<channId>,<payload>] }│  │
 //!         │                                 └────────────────────────────────┘  │
 //!         │                                                                     │
+//!         │                          A few moments later                        │
 //!         │  ┌────────────────────────────────┐                                 │
 //!         │──┤ Cancel subscription            ├───────────────────────────────▶ │
 //!         │  │                                │                                 │
@@ -50,7 +51,13 @@
 //!         │  │  params:[<id>],                │                                 │
 //!         │  │  id:null }                     │                                 │
 //!         │  └────────────────────────────────┘                                 │
-//!         │                                                                     │
+//!         │                                 ┌────────────────────────────────┐  │
+//!         │ ◀───────────────────────────────┤ Closed channel message         ├──│
+//!         │                                 │                                │  │
+//!         │                                 │{ jsonrpc:'2.0',                │  │
+//!         │                                 │  method:'xrpc.ch.close',       │  │
+//!         │                                 │  params:[<channId>] }          │  │
+//!         │                                 └────────────────────────────────┘  │
 //! ```
 
 use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
