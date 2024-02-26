@@ -61,7 +61,7 @@
 //! ```
 
 use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
-use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
+use jsonrpsee::core::server::helpers::{MethodResponse, MethodResponseResult, MethodSink};
 use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
     SubscriptionMessage, SubscriptionMessageInner,
@@ -86,7 +86,7 @@ pub type ChannelId = u64;
 
 /// Type-alias for subscribers.
 pub type Subscribers =
-    Arc<Mutex<FxHashMap<ChannelId, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
+    Arc<Mutex<FxHashMap<ChannelId, (MethodSink, mpsc::Receiver<()>, ChannelId, Id<'static>)>>>;
 
 /// Represent a unique subscription entry based on [`SubscriptionId`] and [`ConnectionId`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -142,6 +142,7 @@ impl PendingSubscriptionSink {
     /// Panics if the subscription response exceeded the `max_response_size`.
     pub async fn accept(self) -> Result<SubscriptionSink, PendingSubscriptionAcceptError> {
         let channel_id = self.channel_id();
+        let id = self.id.clone();
         let response = MethodResponse::subscription_response(
             self.id,
             ResponsePayload::result_borrowed(&channel_id),
@@ -167,7 +168,7 @@ impl PendingSubscriptionSink {
             let (_tx, rx) = mpsc::channel(1);
             self.subscribers.lock().insert(
                 self.channel_id.clone(),
-                (self.inner.clone(), rx, self.channel_id.clone()),
+                (self.inner.clone(), rx, self.channel_id.clone(), id), // TODO: do we really need a channel_id in key?
             );
             Ok(SubscriptionSink {
                 inner: self.inner,
@@ -254,11 +255,11 @@ impl SubscriptionSink {
     }
 }
 
-impl Drop for SubscriptionSink {
-    fn drop(&mut self) {
-        self.subscribers.lock().remove(&self.channel_id);
-    }
-}
+// impl Drop for SubscriptionSink {
+//     fn drop(&mut self) {
+//         self.subscribers.lock().remove(&self.channel_id);
+//     }
+// }
 
 pub(crate) fn sub_message_to_json(
     msg: SubscriptionMessage,
@@ -304,6 +305,15 @@ pub fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
     SubscriptionMessage::from_complete_message(msg)
 }
 
+pub fn close_channel_response(sub_id: Id) -> MethodResponse {
+    let msg = format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{sub_id}]}}"#,);
+    MethodResponse {
+        result: msg,
+        success_or_error: MethodResponseResult::Success,
+        is_subscription: false,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RpcModule {
     id_provider: Arc<AtomicU64>,
@@ -333,13 +343,25 @@ impl RpcModule {
                             let arr: [ChannelId; 1] = params.parse()?;
                             let channel_id = arr[0];
                             tracing::debug!("Got cancel request: {id} {channel_id}");
-                            channels.lock().remove(&channel_id);
-                            Ok::<bool, JsonRpcError>(true)
+                            // TODO: we need to associate the sub_id to the channel_id
+                            let opt = channels.lock().remove(&channel_id);
+                            let sub_id = match opt {
+                                Some((_, _, _, id)) => id.clone(),
+                                None => todo!(),
+                            };
+                            Ok::<Id<'_>, JsonRpcError>(sub_id)
                         };
-                        let ret = cb().into_response();
-                        let resp = MethodResponse::response(id, ret, max_response);
-                        tracing::debug!("Sending close response: {:?}", resp);
-                        resp
+                        let result = cb();
+                        match result {
+                            Ok(sub_id) => {
+                                let resp = close_channel_response(sub_id);
+                                tracing::debug!("Sending close response: {:?}", resp);
+                                resp
+                            }
+                            Err(_e) => {
+                                todo!()
+                            }
+                        }
                     }
                 })),
             )
