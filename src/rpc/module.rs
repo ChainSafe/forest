@@ -134,41 +134,37 @@ impl RpcModule {
         let subscribers = self.channels.clone();
 
         // Subscribe
-        let callback = {
-            self.methods.verify_and_insert(
-                subscribe_method_name,
-                MethodCallback::Subscription(Arc::new({
-                    let id_provider = self.id_provider.clone();
-                    move |id, params, method_sink, _conn| {
-                        let channel_id = id_provider.fetch_add(1, Ordering::Relaxed);
+        self.methods.verify_and_insert(
+            subscribe_method_name,
+            MethodCallback::Subscription(Arc::new({
+                let id_provider = self.id_provider.clone();
+                move |id, params, method_sink, _conn| {
+                    let channel_id = id_provider.fetch_add(1, Ordering::Relaxed);
 
-                        // response to the subscription call.
-                        let (tx, rx) = oneshot::channel();
+                    // response to the subscription call.
+                    let (tx, rx) = oneshot::channel();
 
-                        let sink = PendingSubscriptionSink {
-                            inner: method_sink.clone(),
-                            method: NOTIF_METHOD_NAME,
-                            subscribers: subscribers.clone(),
-                            id: id.clone().into_owned(),
-                            subscribe: tx,
-                            channel_id,
-                        };
+                    let sink = PendingSubscriptionSink {
+                        inner: method_sink.clone(),
+                        method: NOTIF_METHOD_NAME,
+                        subscribers: subscribers.clone(),
+                        id: id.clone().into_owned(),
+                        subscribe: tx,
+                        channel_id,
+                    };
 
-                        callback(params, sink);
+                    callback(params, sink);
 
-                        let id = id.clone().into_owned();
+                    let id = id.clone().into_owned();
 
-                        Box::pin(async move {
-                            match rx.await {
-                                Ok(rp) => rp,
-                                Err(_) => MethodResponse::error(id, ErrorCode::InternalError),
-                            }
-                        })
-                    }
-                })),
-            )?
-        };
-
-        Ok(callback)
+                    Box::pin(async move {
+                        match rx.await {
+                            Ok(rp) => rp,
+                            Err(_) => MethodResponse::error(id, ErrorCode::InternalError),
+                        }
+                    })
+                }
+            })),
+        )
     }
 }
