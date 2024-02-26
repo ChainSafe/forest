@@ -86,7 +86,7 @@ pub type ChannelId = u64;
 
 /// Type-alias for subscribers.
 pub type Subscribers =
-    Arc<Mutex<FxHashMap<ChannelId, (MethodSink, mpsc::Receiver<()>, ChannelId, Id<'static>)>>>;
+    Arc<Mutex<FxHashMap<Id<'static>, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
 
 /// Represent a unique subscription entry based on [`SubscriptionId`] and [`ConnectionId`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -166,10 +166,9 @@ impl PendingSubscriptionSink {
 
         if success {
             let (_tx, rx) = mpsc::channel(1);
-            self.subscribers.lock().insert(
-                self.channel_id.clone(),
-                (self.inner.clone(), rx, self.channel_id.clone(), id), // TODO: do we really need a channel_id in key?
-            );
+            self.subscribers
+                .lock()
+                .insert(id, (self.inner.clone(), rx, self.channel_id.clone()));
             Ok(SubscriptionSink {
                 inner: self.inner,
                 method: self.method,
@@ -305,8 +304,9 @@ pub fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
     SubscriptionMessage::from_complete_message(msg)
 }
 
-pub fn close_channel_response(sub_id: Id) -> MethodResponse {
-    let msg = format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{sub_id}]}}"#,);
+pub fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
+    let msg =
+        format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{channel_id}]}}"#,);
     MethodResponse {
         result: msg,
         success_or_error: MethodResponseResult::Success,
@@ -338,23 +338,24 @@ impl RpcModule {
                 CANCEL_METHOD_NAME,
                 MethodCallback::Sync(Arc::new({
                     let channels = channels.clone();
-                    move |id, params, max_response| {
+                    move |_id, params: Params, _max_response| {
                         let cb = || {
-                            let arr: [ChannelId; 1] = params.parse()?;
-                            let channel_id = arr[0];
-                            tracing::debug!("Got cancel request: {id} {channel_id}");
-                            // TODO: we need to associate the sub_id to the channel_id
-                            let opt = channels.lock().remove(&channel_id);
-                            let sub_id = match opt {
-                                Some((_, _, _, id)) => id.clone(),
+                            let arr: [Id<'_>; 1] = params.parse()?;
+                            let sub_id = arr[0].clone().into_owned();
+
+                            tracing::debug!("Got cancel request: id={sub_id}");
+
+                            let opt = channels.lock().remove(&sub_id);
+                            let channel_id = match opt {
+                                Some((_, _, channel_id)) => channel_id.clone(),
                                 None => todo!(),
                             };
-                            Ok::<Id<'_>, JsonRpcError>(sub_id)
+                            Ok::<ChannelId, JsonRpcError>(channel_id)
                         };
                         let result = cb();
                         match result {
-                            Ok(sub_id) => {
-                                let resp = close_channel_response(sub_id);
+                            Ok(channel_id) => {
+                                let resp = close_channel_response(channel_id);
                                 tracing::debug!("Sending close response: {:?}", resp);
                                 resp
                             }
