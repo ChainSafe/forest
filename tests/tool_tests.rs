@@ -41,3 +41,30 @@ fn state_migration_actor_bundle_runs() {
     assert!(bundle.exists());
     assert!(zstd::decode_all(std::fs::File::open(&bundle).unwrap()).is_ok());
 }
+
+#[test]
+fn peer_id_from_keypair() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let keypair = libp2p::identity::ed25519::Keypair::generate();
+
+    let keypair_file = temp_dir.path().join("keypair");
+    std::fs::write(&keypair_file, keypair.to_bytes()).unwrap();
+
+    let keypair: libp2p::identity::Keypair = keypair.into();
+    let expected_peer_id = keypair.public().to_peer_id().to_string();
+
+    tool()
+        .arg("shed")
+        .arg("peer-id-from-key-pair")
+        .arg(&keypair_file)
+        .assert()
+        .success()
+        .stdout(format!("{expected_peer_id}\n"));
+
+    tool()
+        .arg("shed")
+        .arg("peer-id-from-key-pair")
+        .arg(temp_dir.path().join("azathoth"))
+        .assert()
+        .failure();
+}

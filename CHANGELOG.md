@@ -33,6 +33,8 @@
   `Filecoin.ChainGetPath` lotus-compatible RPC API.
 - [#3849](https://github.com/ChainSafe/forest/pull/3849/) Add
   `forest-tool shed summarize-tipsets`.
+- [#3893](https://github.com/ChainSafe/forest/pull/3983) Add
+  `forest-tool shed peer-id-from-key-pair`.
 
 ### Changed
 
