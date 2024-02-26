@@ -347,7 +347,7 @@ impl RpcModule {
 
                             let opt = channels.lock().remove(&sub_id);
                             let channel_id = match opt {
-                                Some((_, _, channel_id)) => channel_id.clone(),
+                                Some((_, _, channel_id)) => channel_id,
                                 None => todo!(),
                             };
                             Ok::<ChannelId, JsonRpcError>(channel_id)
