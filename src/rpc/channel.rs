@@ -8,6 +8,59 @@
 //! The principal changed types are the `PendingSubscriptionSink` and `SubscriptionSink`, adding an `u64` channel identifier member.
 //!
 //! The remaining types and methods must be duplicated because they are private.
+//!
+//! The sequence diagram of a channel lifetime is as follow:
+//! ```text
+//!  ┌─────────────┐                                                       ┌─────────────┐
+//!  │  WS Client  │                                                       │    Node     │
+//!  └─────────────┘                                                       └─────────────┘
+//!         │                                                                     │
+//!         │                                                                     │
+//!         │  ┌────────────────────────────────┐                                 │
+//!         │──┤ Subscription message           ├───────────────────────────────▶ │
+//!         │  │                                │                                 │
+//!         │  │{                               │                                 │
+//!         │  │  jsonrpc:'2.0',                │                                 │
+//!         │  │  id:<id>,                      │                                 │
+//!         │  │  method:'Filecoin.ChainNotify',│                                 │
+//!         │  │  params:[],                    │                                 │
+//!         │  │}                               │                                 │
+//!         │  └────────────────────────────────┘                                 │
+//!         │                                                                     │
+//!         │                                                                     │
+//!         │                                 ┌────────────────────────────────┐  │
+//!         │ ◀───────────────────────────────┤ Opened channel message         ├──│
+//!         │                                 │                                │  │
+//!         │                                 │{                               │  │
+//!         │                                 │  jsonrpc:'2.0',                │  │
+//!         │                                 │  id:<id>,                      │  │
+//!         │                                 │  result:<channId>,             │  │
+//!         │                                 │}                               │  │
+//!         │                                 └────────────────────────────────┘  │
+//!         │                                                                     │
+//!         │                                                                     │
+//!         │                                 ┌────────────────────────────────┐  │
+//!         │ ◀───────────────────────────────┤ Notification message           ├──│
+//!         │                                 │                                │  │
+//!         │                                 │{                               │  │
+//!         │                                 │  jsonrpc:'2.0',                │  │
+//!         │                                 │  method:'xrpc.ch.val',         │  │
+//!         │                                 │  params:[<channId>,<payload>], │  │
+//!         │                                 │}                               │  │
+//!         │                                 └────────────────────────────────┘  │
+//!         │                                                                     │
+//!         │  ┌────────────────────────────────┐                                 │
+//!         │──┤ Cancel channel message         ├───────────────────────────────▶ │
+//!         │  │                                │                                 │
+//!         │  │{                               │                                 │
+//!         │  │  jsonrpc:'2.0',                │                                 │
+//!         │  │  id:null,                      │                                 │
+//!         │  │  method:'xrpc.cancel',         │                                 │
+//!         │  │  params:[<id>],                │                                 │
+//!         │  │}                               │                                 │
+//!         │  └────────────────────────────────┘                                 │
+//!         │                                                                     │
+//! ```
 
 use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodSink};
