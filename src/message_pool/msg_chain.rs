@@ -544,29 +544,25 @@ where
     }
 
     if node_vec.len() > 1 {
-        // link next pointers
-        for (i, k1) in node_vec.iter().enumerate().take(node_vec.len() - 1) {
-            let k2 = node_vec.get(i + 1);
-            if let Some(n1) = chains.get_mut(*k1) {
-                n1.next = k2.cloned();
-            } else {
-                return Err(Error::Other(format!("{k1:?} should present in `chains`")));
-            }
-        }
+        for (&k1, &k2) in node_vec.iter().zip(node_vec.iter().skip(1)) {
+            // link next pointers
+            let n1 = chains
+                .get_mut(k1)
+                .ok_or_else(|| Error::Other(format!("{k1:?} should present in `chains`")))?;
+            n1.next = Some(k2);
+            // Should we link or clear n1.prev as well?
 
-        // link prev pointers
-        for (i, k2) in node_vec.iter().enumerate().skip(1) {
-            let k1 = node_vec.get(i - 1);
-            if let Some(n2) = chains.get_mut(*k2) {
-                n2.prev = k1.cloned();
-            } else {
-                return Err(Error::Other(format!("{k2:?} should present in `chains`")));
-            }
+            // link prev pointers
+            let n2 = chains
+                .get_mut(k2)
+                .ok_or_else(|| Error::Other(format!("{k2:?} should present in `chains`")))?;
+            n2.prev = Some(k1);
+            // Should we link or clear n2.next as well?
         }
     }
 
     // Update the main chain key_vec with this node_vec
-    chains.key_vec.extend(node_vec.iter());
+    chains.key_vec.extend(node_vec);
 
     Ok(())
 }
