@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
+pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::module::RpcModule as FilRpcModule;
 use crate::rpc::{
     beacon_api::beacon_get_entry,
