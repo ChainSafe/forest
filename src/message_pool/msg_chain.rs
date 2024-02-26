@@ -200,9 +200,10 @@ impl Chains {
         let mut i = chain_node.msgs.len() as i64 - 1;
 
         while i >= 0 && (chain_node.gas_limit > gas_limit || (chain_node.gas_perf < 0.0)) {
-            let gas_reward = get_gas_reward(&chain_node.msgs[i as usize], base_fee);
+            let msg = &chain_node.msgs[i as usize];
+            let gas_reward = get_gas_reward(msg, base_fee);
             chain_node.gas_reward -= gas_reward;
-            chain_node.gas_limit -= chain_node.msgs[i as usize].gas_limit();
+            chain_node.gas_limit -= msg.gas_limit();
             if chain_node.gas_limit > 0 {
                 chain_node.gas_perf = get_gas_perf(&chain_node.gas_reward, chain_node.gas_limit);
                 if chain_node.bp != 0.0 {
@@ -397,8 +398,7 @@ where
     let mut i = 0;
     let mut rewards = Vec::with_capacity(msgs.len());
 
-    while i < msgs.len() {
-        let m = &msgs[i];
+    while let Some(m) = msgs.get(i) {
         if m.sequence() < cur_seq {
             warn!(
                 "encountered message from actor {} with nonce {} less than the current nonce {}",
@@ -454,13 +454,13 @@ where
     let mut cur_chain = MsgChainNode::default();
     let mut node_vec = vec![];
 
-    let new_chain = |m: SignedMessage, i: usize| -> MsgChainNode {
+    let new_chain = |m: SignedMessage, reward: &TokenAmount| -> MsgChainNode {
         let gl = m.gas_limit();
         MsgChainNode {
             msgs: vec![m],
-            gas_reward: rewards[i].clone(),
+            gas_reward: reward.clone(),
             gas_limit: gl,
-            gas_perf: get_gas_perf(&rewards[i], gl),
+            gas_perf: get_gas_perf(reward, gl),
             eff_perf: 0.0,
             bp: 0.0,
             parent_offset: 0.0,
@@ -473,13 +473,13 @@ where
 
     // creates msg chain nodes in chunks based on gas_perf obtained from the current
     // chain's gas limit.
-    for (i, m) in msgs.into_iter().enumerate() {
+    for (i, (m, reward)) in msgs.into_iter().zip(rewards.iter()).enumerate() {
         if i == 0 {
-            cur_chain = new_chain(m, i);
+            cur_chain = new_chain(m, reward);
             continue;
         }
 
-        let gas_reward = cur_chain.gas_reward.clone() + &rewards[i];
+        let gas_reward = cur_chain.gas_reward.clone() + reward;
         let gas_limit = cur_chain.gas_limit + m.gas_limit();
         let gas_perf = get_gas_perf(&gas_reward, gas_limit);
 
@@ -487,7 +487,7 @@ where
         // then make a new chain
         if gas_perf < cur_chain.gas_perf {
             chains.push_with(cur_chain, &mut node_vec);
-            cur_chain = new_chain(m, i);
+            cur_chain = new_chain(m, reward);
         } else {
             cur_chain.msgs.push(m);
             cur_chain.gas_reward = gas_reward;
@@ -538,20 +538,26 @@ where
         chains.drop_invalid(&mut node_vec);
     }
 
-    // link next pointers
-    for i in 0..node_vec.len() - 1 {
-        let k1 = node_vec.get(i).unwrap();
-        let k2 = node_vec.get(i + 1);
-        let n1 = chains.get_mut(*k1).unwrap();
-        n1.next = k2.cloned();
-    }
+    if node_vec.len() > 1 {
+        // link next pointers
+        for (i, k1) in node_vec.iter().enumerate().take(node_vec.len() - 1) {
+            let k2 = node_vec.get(i + 1);
+            if let Some(n1) = chains.get_mut(*k1) {
+                n1.next = k2.cloned();
+            } else {
+                return Err(Error::Other(format!("{k1:?} should present in `chains`")));
+            }
+        }
 
-    // link prev pointers
-    for i in (0..node_vec.len() - 1).rev() {
-        let k1 = node_vec.get(i);
-        let k2 = node_vec.get(i + 1).unwrap();
-        let n2 = chains.get_mut(*k2).unwrap();
-        n2.prev = k1.cloned();
+        // link prev pointers
+        for (i, k2) in node_vec.iter().enumerate().skip(1) {
+            let k1 = node_vec.get(i - 1);
+            if let Some(n2) = chains.get_mut(*k2) {
+                n2.prev = k1.cloned();
+            } else {
+                return Err(Error::Other(format!("{k2:?} should present in `chains`")));
+            }
+        }
     }
 
     // Update the main chain key_vec with this node_vec
