@@ -44,7 +44,7 @@ where
     let mut ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset_with_fallback(&tsk)?;
+        .load_required_tipset_or_heaviest(&tsk)?;
 
     let (mut pending, mpts) = data.mpool.pending()?;
 
