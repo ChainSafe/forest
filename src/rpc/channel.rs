@@ -278,9 +278,7 @@ pub(crate) fn sub_message_to_json(
     }
 }
 
-/// Creates a notification message.
-#[allow(unused)]
-pub fn create_notif_message(
+fn create_notif_message(
     sink: &SubscriptionSink,
     result: &impl serde::Serialize,
 ) -> anyhow::Result<SubscriptionMessage> {
@@ -294,8 +292,7 @@ pub fn create_notif_message(
     Ok(SubscriptionMessage::from_complete_message(msg))
 }
 
-/// Creates a close channel method response.
-pub fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
+fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
     let channel_id =
         serde_json::to_string(&channel_id).expect("JSON serialization infallible; qed");
     let msg =
@@ -303,7 +300,7 @@ pub fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
     SubscriptionMessage::from_complete_message(msg)
 }
 
-pub fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
+fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
     let msg =
         format!(r#"{{"jsonrpc":"2.0","method":"{CLOSE_METHOD_NAME}","params":[{channel_id}]}}"#,);
     MethodResponse {
