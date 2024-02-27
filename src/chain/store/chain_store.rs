@@ -508,7 +508,6 @@ pub mod headchange_json {
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
         Apply(LotusJson<Tipset>),
-        Current(LotusJson<Tipset>),
     }
 
     impl From<HeadChange> for HeadChangeJson {
