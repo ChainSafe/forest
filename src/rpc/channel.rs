@@ -42,7 +42,7 @@
 //!         │                                                                     │
 //!         │                                                                     │
 //!         │                                                                     │
-//!         │                          A few moments later                        │
+//!         │                      After a few notifications                      │
 //!         │  ┌────────────────────────────────┐                                 │
 //!         │──┤ Cancel subscription            ├───────────────────────────────▶ │
 //!         │  │                                │                                 │
