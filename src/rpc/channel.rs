@@ -234,10 +234,6 @@ fn close_payload(channel_id: ChannelId) -> String {
     )
 }
 
-fn close_channel_message(channel_id: ChannelId) -> String {
-    close_payload(channel_id)
-}
-
 fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
     MethodResponse {
         result: close_payload(channel_id),
@@ -333,23 +329,22 @@ impl RpcModule {
                             action = receiver.recv() => {
                                 match action {
                                     Ok(msg) => {
-                                        if let Ok(msg) = create_notif_message(&sink, &msg) {
-                                            // This fails only if the connection is closed
-                                            if let Ok(()) = sink.send(msg).await {
-                                            } else {
+                                        match create_notif_message(&sink, &msg) {
+                                            Ok(msg) => {
+                                                // This fails only if the connection is closed
+                                                if sink.send(msg).await.is_err() {
+                                                    break;
+                                                }
+                                            }
+                                            Err(e) => {
+                                                tracing::error!("Failed to serialize channel message: {:?}", e);
                                                 break;
                                             }
-                                        } else {
-                                            break;
                                         }
                                     }
                                     Err(RecvError::Closed) => {
-                                        let msg = close_channel_message(sink.channel_id());
-                                        // This fails only if the connection is closed
-                                        if let Ok(()) = sink.send(msg).await {
-                                        } else {
-                                            break;
-                                        }
+                                        let _ = sink.send(close_payload(sink.channel_id())).await;
+                                        break;
                                     }
                                     Err(RecvError::Lagged(_)) => {
                                     }
