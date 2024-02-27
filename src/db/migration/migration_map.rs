@@ -88,6 +88,7 @@ create_migrations!(
     "0.16.3" -> "0.16.4" @ MigrationVoid,
     "0.16.4" -> "0.16.5" @ MigrationVoid,
     "0.16.5" -> "0.16.6" @ MigrationVoid,
+    "0.16.6" -> "0.16.7" @ MigrationVoid,
 );
 
 pub struct Migration {
