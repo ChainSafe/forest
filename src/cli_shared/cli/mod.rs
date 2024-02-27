@@ -16,6 +16,7 @@ use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
 use directories::ProjectDirs;
+use libp2p::Multiaddr;
 use tracing::error;
 
 pub use self::{client::*, config::*};
@@ -57,6 +58,9 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
+    /// P2P addresses, e.g. `--p2p-address /ip4/0.0.0.0/tcp/12345 --p2p-address /ip4/0.0.0.0/tcp/12346`
+    #[arg(long)]
+    pub p2p_address: Option<Vec<Multiaddr>>,
     /// Allow Kademlia (default: true)
     #[arg(short, long)]
     pub kademlia: Option<bool>,
@@ -172,6 +176,10 @@ impl CliOpts {
             if let Some(metrics_address) = self.metrics_address {
                 cfg.client.metrics_address = metrics_address;
             }
+        }
+
+        if let Some(addresses) = &self.p2p_address {
+            cfg.network.listening_multiaddrs = addresses.clone();
         }
 
         if self.import_snapshot.is_some() && self.import_chain.is_some() {
