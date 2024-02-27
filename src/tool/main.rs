@@ -22,6 +22,7 @@ where
         .block_on(async {
             // Run command
             match cmd {
+                Subcommand::Backup(cmd) => cmd.run(),
                 Subcommand::Benchmark(cmd) => cmd.run().await,
                 Subcommand::StateMigration(cmd) => cmd.run().await,
                 Subcommand::Snapshot(cmd) => cmd.run().await,

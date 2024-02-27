@@ -64,7 +64,7 @@ where
         panic!("Invalid Genesis. Genesis Tipset must have only 1 Block.");
     }
 
-    let genesis_block = CachingBlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
+    let genesis_block = CachingBlockHeader::load(db, *header.roots.first())?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 

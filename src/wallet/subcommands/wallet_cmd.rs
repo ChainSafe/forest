@@ -104,7 +104,7 @@ pub enum WalletCommands {
 }
 
 impl WalletCommands {
-    pub async fn run(&self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
@@ -215,14 +215,14 @@ impl WalletCommands {
                 Ok(())
             }
             Self::SetDefault { key } => {
-                let StrictAddress(key) = StrictAddress::from_str(key)
+                let StrictAddress(key) = StrictAddress::from_str(&key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
                 api.wallet_set_default(key).await?;
                 Ok(())
             }
             Self::Sign { address, message } => {
-                let StrictAddress(address) = StrictAddress::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
 
                 let message = hex::decode(message).context("Message has to be a hex string")?;
@@ -244,7 +244,7 @@ impl WalletCommands {
             } => {
                 let sig_bytes =
                     hex::decode(signature).context("Signature has to be a hex string")?;
-                let StrictAddress(address) = StrictAddress::from_str(address)
+                let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
                 let signature = match address.protocol() {
                     Protocol::Secp256k1 => Signature::new_secp256k1(sig_bytes),
