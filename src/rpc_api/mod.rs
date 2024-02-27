@@ -9,6 +9,8 @@
 //!
 //! Future work:
 //! - Have an `RpcEndpoint` trait.
+use crate::rpc::CANCEL_METHOD_NAME;
+
 use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
 
@@ -146,6 +148,10 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
     access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
+
+    // Pubsub API
+    access.insert(CANCEL_METHOD_NAME, Access::Read);
+
     access
 });
 

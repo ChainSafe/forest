@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::TipsetKey;
+use crate::blocks::{CachingBlockHeader, TipsetKey};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
@@ -953,6 +953,17 @@ pub struct Transaction {
 }
 
 lotus_json_with_self!(Transaction);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiHeadChange {
+    #[serde(rename = "Type")]
+    pub change: String,
+    #[serde(rename = "Val", with = "crate::lotus_json")]
+    pub headers: Vec<CachingBlockHeader>,
+}
+
+lotus_json_with_self!(ApiHeadChange);
 
 #[cfg(test)]
 mod tests {

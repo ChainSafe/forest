@@ -5,6 +5,7 @@ mod auth_api;
 mod auth_layer;
 mod beacon_api;
 mod chain_api;
+mod channel;
 mod common_api;
 mod error;
 mod eth_api;
@@ -22,6 +23,8 @@ use std::sync::Arc;
 
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
+use crate::rpc::channel::RpcModule as FilRpcModule;
+pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::{
     beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
@@ -76,6 +79,14 @@ where
         forest_version,
         shutdown_send,
     )?;
+
+    let mut pubsub_module = FilRpcModule::default();
+
+    pubsub_module.register_channel("Filecoin.ChainNotify", {
+        let state_clone = state.clone();
+        move |params| chain_api::chain_notify(params, &state_clone)
+    })?;
+    module.merge(pubsub_module)?;
 
     let (stop_handle, _handle) = stop_channel();
 
