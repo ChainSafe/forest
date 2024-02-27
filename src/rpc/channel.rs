@@ -86,12 +86,6 @@ pub type ChannelId = u64;
 pub type Subscribers =
     Arc<Mutex<FxHashMap<Id<'static>, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
 
-/// Represent a unique subscription entry based on [`SubscriptionId`] and [`ConnectionId`].
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct SubscriptionKey {
-    pub(crate) sub_id: ChannelId,
-}
-
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub(crate) enum SubNotifResultOrError {
@@ -243,12 +237,6 @@ impl SubscriptionSink {
         }
     }
 }
-
-// impl Drop for SubscriptionSink {
-//     fn drop(&mut self) {
-//         self.subscribers.lock().remove(&self.channel_id);
-//     }
-// }
 
 pub(crate) fn sub_message_to_json(
     msg: SubscriptionMessage,
