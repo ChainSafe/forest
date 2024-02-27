@@ -456,7 +456,9 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store.heaviest_tipset();
     let (change, headers) = ("current".into(), current.block_headers().clone().into());
-    let _ = sender.send(ApiHeadChange { change, headers });
+    sender
+        .send(ApiHeadChange { change, headers })
+        .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store.publisher().subscribe();
 
