@@ -95,7 +95,7 @@ integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
 jsonrpc-v2 = { version = "0.12", default-features = false, features = ["easy-errors", "macros", "bytes-v10"] }
-jsonrpsee = { git = "https://github.com/elmattic/jsonrpsee.git", branch = "visibility-changes", features = ["full"] }
+jsonrpsee = { version = "0.21.0", features = ["full"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"

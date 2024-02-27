@@ -60,7 +60,6 @@
 //!         │                                 └────────────────────────────────┘  │
 //! ```
 
-use jsonrpsee::core::server::error::{DisconnectError, PendingSubscriptionAcceptError};
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodResponseResult, MethodSink};
 use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
@@ -132,7 +131,7 @@ impl PendingSubscriptionSink {
     /// # Panics
     ///
     /// Panics if the subscription response exceeded the `max_response_size`.
-    pub async fn accept(self) -> Result<SubscriptionSink, PendingSubscriptionAcceptError> {
+    pub async fn accept(self) -> Result<SubscriptionSink, String> {
         let channel_id = self.channel_id();
         let id = self.id.clone();
         let response = MethodResponse::subscription_response(
@@ -151,10 +150,10 @@ impl PendingSubscriptionSink {
         self.inner
             .send(response.result.clone())
             .await
-            .map_err(|_| PendingSubscriptionAcceptError)?;
+            .map_err(|e| e.to_string())?;
         self.subscribe
             .send(response)
-            .map_err(|_| PendingSubscriptionAcceptError)?;
+            .map_err(|e| format!("accept error: {}", e.result))?;
 
         if success {
             let (_tx, rx) = mpsc::channel(1);
@@ -209,10 +208,10 @@ impl SubscriptionSink {
     /// # Cancel safety
     ///
     /// This method is cancel-safe and dropping a future loses its spot in the waiting queue.
-    pub async fn send(&self, msg: SubscriptionMessage) -> Result<(), DisconnectError> {
+    pub async fn send(&self, msg: String) -> Result<(), String> {
         // Only possible to trigger when the connection is dropped.
         if self.is_closed() {
-            return Err(DisconnectError(msg));
+            return Err(format!("disconnect error: {}", msg));
         }
 
         let json = sub_message_to_json(
@@ -221,7 +220,7 @@ impl SubscriptionSink {
             self.channel_id(),
             self.method,
         );
-        self.inner.send(json).await.map_err(Into::into)
+        self.inner.send(json).await.map_err(|e| e.to_string())
     }
 
     /// Returns whether the subscription is closed.
@@ -239,34 +238,25 @@ impl SubscriptionSink {
 }
 
 pub(crate) fn sub_message_to_json(
-    msg: SubscriptionMessage,
+    msg: String,
     result_or_err: SubNotifResultOrError,
     sub_id: ChannelId,
     method: &str,
 ) -> String {
-    let result_or_err = result_or_err.as_str();
-
-    match msg.0 {
-        SubscriptionMessageInner::Complete(msg) => msg,
-        SubscriptionMessageInner::NeedsData(result) => {
-            format!(
-                r#"{{"jsonrpc":"2.0","method":"{method}","params":{{"subscription":{sub_id},"{result_or_err}":{result}}}}}"#,
-            )
-        }
-    }
+    msg
 }
 
 fn create_notif_message(
     sink: &SubscriptionSink,
     result: &impl serde::Serialize,
-) -> anyhow::Result<SubscriptionMessage> {
+) -> anyhow::Result<String> {
     let method = sink.method_name();
     let channel_id = sink.channel_id();
     let result = serde_json::to_string(result)?;
     let msg =
         format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{channel_id},{result}]}}"#,);
 
-    Ok(SubscriptionMessage::from_complete_message(msg))
+    Ok(msg)
 }
 
 fn close_payload(channel_id: ChannelId) -> String {
@@ -276,8 +266,8 @@ fn close_payload(channel_id: ChannelId) -> String {
     )
 }
 
-fn close_channel_message(channel_id: ChannelId) -> SubscriptionMessage {
-    SubscriptionMessage::from_complete_message(close_payload(channel_id))
+fn close_channel_message(channel_id: ChannelId) -> String {
+    close_payload(channel_id)
 }
 
 fn close_channel_response(channel_id: ChannelId) -> MethodResponse {

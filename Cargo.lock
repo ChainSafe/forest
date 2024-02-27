@@ -5025,7 +5025,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9579d0ca9fb30da026bac2f0f7d9576ec93489aeb7cd4971dd5b4617d82c79b2"
 dependencies = [
  "jsonrpsee-client-transport",
  "jsonrpsee-core",
@@ -5042,7 +5043,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-client-transport"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f9f9ed46590a8d5681975f126e22531698211b926129a40a2db47cbca429220"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -5065,7 +5067,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-core"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "776d009e2f591b78c038e0d053a796f94575d66ca4e77dd84bfc5e81419e436c"
 dependencies = [
  "anyhow",
  "async-lock 3.3.0",
@@ -5091,7 +5094,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-http-client"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78b7de9f3219d95985eb77fd03194d7c1b56c19bce1abfcc9d07462574b15572"
 dependencies = [
  "async-trait",
  "hyper 0.14.28",
@@ -5110,7 +5114,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-proc-macros"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d94b7505034e2737e688e1153bf81e6f93ad296695c43958d6da2e4321f0a990"
 dependencies = [
  "heck",
  "proc-macro-crate 2.0.2",
@@ -5122,7 +5127,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-server"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cc7c6d1a2c58f6135810284a390d9f823d0f508db74cd914d8237802de80f98"
 dependencies = [
  "futures-util",
  "http 0.2.11",
@@ -5145,7 +5151,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-types"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3266dfb045c9174b24c77c2dfe0084914bb23a6b2597d70c9dc6018392e1cd1b"
 dependencies = [
  "anyhow",
  "beef",
@@ -5157,7 +5164,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-wasm-client"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30f36d27503d0efc0355c1630b74ecfb367050847bf7241a0ed75fab6dfa96c0"
 dependencies = [
  "jsonrpsee-client-transport",
  "jsonrpsee-core",
@@ -5167,7 +5175,8 @@ dependencies = [
 [[package]]
 name = "jsonrpsee-ws-client"
 version = "0.21.0"
-source = "git+https://github.com/elmattic/jsonrpsee.git?branch=visibility-changes#bda720c94768bdb52b5fab85ef4c95f28281ca78"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "073c077471e89c4b511fa88b3df9a0f0abdf4a0a2e6683dd2ab36893af87bb2d"
 dependencies = [
  "http 0.2.11",
  "jsonrpsee-client-transport",
@@ -8132,9 +8141,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.3.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "048a63e5b3ac996d78d402940b5fa47973d2d080c6c6fffa1d0f19c4445310b7"
+checksum = "5ede67b28608b4c60685c7d54122d4400d90f62b40caee7700e700380a390fa8"
 
 [[package]]
 name = "rustls-webpki"
