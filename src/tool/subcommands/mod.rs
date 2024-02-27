@@ -1,15 +1,16 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod api_cmd;
-pub mod archive_cmd;
-pub mod benchmark_cmd;
-pub mod car_cmd;
-pub mod db_cmd;
-pub mod fetch_params_cmd;
+mod api_cmd;
+mod archive_cmd;
+mod backup_cmd;
+mod benchmark_cmd;
+mod car_cmd;
+mod db_cmd;
+mod fetch_params_cmd;
 mod shed_cmd;
-pub mod snapshot_cmd;
-pub mod state_migration_cmd;
+mod snapshot_cmd;
+mod state_migration_cmd;
 
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::cli_shared::cli::*;
@@ -28,6 +29,10 @@ pub struct Cli {
 /// forest-tool sub-commands
 #[derive(clap::Subcommand)]
 pub enum Subcommand {
+    /// Create and restore backups
+    #[command(subcommand)]
+    Backup(backup_cmd::BackupCommands),
+
     /// Benchmark various Forest subsystems
     #[command(subcommand)]
     Benchmark(benchmark_cmd::BenchmarkCommands),
