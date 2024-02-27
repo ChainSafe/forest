@@ -29,6 +29,10 @@
 
 ### Added
 
+- [#3995](https://github.com/ChainSafe/forest/pull/3995) Add
+  `--p2p-listening-address` option to `forest` to override p2p addresses that
+  forest listens on
+
 ### Changed
 
 ### Removed
@@ -51,9 +55,6 @@ upgrade will result in difficulty connecting to the mainnet network.
   `forest-tool shed peer-id-from-key-pair`.
 - [#3981](https://github.com/ChainSafe/forest/issues/3981) Add
   `forest-tool backup create|restore`.
-- [#3995](https://github.com/ChainSafe/forest/pull/3995) Add
-  `--p2p-listening-address` option to `forest` to override p2p addresses that
-  forest listens on
 
 ### Fixed
 
