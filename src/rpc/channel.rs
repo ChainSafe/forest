@@ -249,7 +249,6 @@ pub(crate) fn sub_message_to_json(
     match msg.0 {
         SubscriptionMessageInner::Complete(msg) => msg,
         SubscriptionMessageInner::NeedsData(result) => {
-            let sub_id = serde_json::to_string(&sub_id).expect("valid JSON; qed");
             format!(
                 r#"{{"jsonrpc":"2.0","method":"{method}","params":{{"subscription":{sub_id},"{result_or_err}":{result}}}}}"#,
             )
@@ -262,8 +261,7 @@ fn create_notif_message(
     result: &impl serde::Serialize,
 ) -> anyhow::Result<SubscriptionMessage> {
     let method = sink.method_name();
-    let channel_id =
-        serde_json::to_string(&sink.channel_id()).expect("JSON serialization infallible; qed");
+    let channel_id = sink.channel_id();
     let result = serde_json::to_string(result)?;
     let msg =
         format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{channel_id},{result}]}}"#,);
