@@ -452,13 +452,13 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     data: Arc<RPCState<DB>>,
 ) -> Subscriber<ApiHeadChange> {
     let (sender, receiver) = broadcast::channel(100);
-    let state = data.clone();
-    let mut subscriber = state.chain_store.publisher().subscribe();
 
-    let ts = data.chain_store.heaviest_tipset();
-    let (change, headers) = ("current".into(), ts.block_headers().clone().into());
-    let data = ApiHeadChange { change, headers };
-    let _ = sender.send(data);
+    // As soon as the channel is created, send the current tipset
+    let current = data.chain_store.heaviest_tipset();
+    let (change, headers) = ("current".into(), current.block_headers().clone().into());
+    let _ = sender.send(ApiHeadChange { change, headers });
+
+    let mut subscriber = data.chain_store.publisher().subscribe();
 
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
@@ -466,8 +466,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
             };
 
-            let data = ApiHeadChange { change, headers };
-            if sender.send(data).is_err() {
+            if sender.send(ApiHeadChange { change, headers }).is_err() {
                 break;
             }
         }
