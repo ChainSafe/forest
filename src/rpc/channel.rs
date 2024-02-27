@@ -188,7 +188,7 @@ impl PendingSubscriptionSink {
 pub struct SubscriptionSink {
     /// Sink.
     inner: MethodSink,
-    /// MethodCallback.
+    /// `MethodCallback`.
     method: &'static str,
     /// Channel identifier.
     channel_id: ChannelId,
