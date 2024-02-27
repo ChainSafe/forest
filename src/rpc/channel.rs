@@ -63,7 +63,6 @@
 use jsonrpsee::core::server::helpers::{MethodResponse, MethodResponseResult, MethodSink};
 use jsonrpsee::server::{
     IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
-    SubscriptionMessage, SubscriptionMessageInner,
 };
 use jsonrpsee::types::{error::ErrorCode, ErrorObjectOwned, Id, Params, ResponsePayload};
 
@@ -84,22 +83,6 @@ pub type ChannelId = u64;
 /// Type-alias for subscribers.
 pub type Subscribers =
     Arc<Mutex<FxHashMap<Id<'static>, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
-
-#[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
-pub(crate) enum SubNotifResultOrError {
-    Result,
-    Error,
-}
-
-impl SubNotifResultOrError {
-    pub(crate) const fn as_str(&self) -> &str {
-        match self {
-            Self::Result => "result",
-            Self::Error => "error",
-        }
-    }
-}
 
 /// Represents a single subscription that is waiting to be accepted or rejected.
 ///
@@ -214,13 +197,7 @@ impl SubscriptionSink {
             return Err(format!("disconnect error: {}", msg));
         }
 
-        let json = sub_message_to_json(
-            msg,
-            SubNotifResultOrError::Result,
-            self.channel_id(),
-            self.method,
-        );
-        self.inner.send(json).await.map_err(|e| e.to_string())
+        self.inner.send(msg).await.map_err(|e| e.to_string())
     }
 
     /// Returns whether the subscription is closed.
@@ -235,15 +212,6 @@ impl SubscriptionSink {
             _ = self.inner.closed() => (),
         }
     }
-}
-
-pub(crate) fn sub_message_to_json(
-    msg: String,
-    result_or_err: SubNotifResultOrError,
-    sub_id: ChannelId,
-    method: &str,
-) -> String {
-    msg
 }
 
 fn create_notif_message(
