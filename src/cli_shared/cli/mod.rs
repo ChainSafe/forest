@@ -58,7 +58,7 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
-    /// P2P addresses, e.g. `--p2p-address /ip4/0.0.0.0/tcp/12345 --p2p-address /ip4/0.0.0.0/tcp/12346`
+    /// P2P addresses, e.g., `--p2p-address /ip4/0.0.0.0/tcp/12345 --p2p-address /ip4/0.0.0.0/tcp/12346`
     #[arg(long)]
     pub p2p_address: Option<Vec<Multiaddr>>,
     /// Allow Kademlia (default: true)
