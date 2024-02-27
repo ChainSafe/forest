@@ -35,6 +35,8 @@
   `forest-tool shed summarize-tipsets`.
 - [#3893](https://github.com/ChainSafe/forest/pull/3983) Add
   `forest-tool shed peer-id-from-key-pair`.
+- [#3981](https://github.com/ChainSafe/forest/issues/3981) Add
+  `forest-tool backup create|restore`.
 
 ### Changed
 
