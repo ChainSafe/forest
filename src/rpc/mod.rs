@@ -84,7 +84,7 @@ where
 
     pubsub_module.register_channel("Filecoin.ChainNotify", {
         let state_clone = state.clone();
-        move |params| chain_api::chain_notify(params, state_clone.clone())
+        move |params| chain_api::chain_notify(params, &state_clone)
     })?;
     module.merge(pubsub_module)?;
 

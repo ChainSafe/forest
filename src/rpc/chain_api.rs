@@ -4,8 +4,7 @@
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::ChainStore;
-use crate::chain::HeadChange;
+use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
@@ -29,8 +28,10 @@ use jsonrpsee::types::Params;
 use once_cell::sync::Lazy;
 use sha2::Sha256;
 use std::sync::Arc;
-use tokio::sync::broadcast::{self, Receiver as Subscriber};
-use tokio::sync::Mutex;
+use tokio::sync::{
+    broadcast::{self, Receiver as Subscriber},
+    Mutex,
+};
 
 pub async fn chain_get_message<DB: Blockstore>(
     params: Params<'_>,
@@ -449,7 +450,7 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
-    data: Arc<RPCState<DB>>,
+    data: &RPCState<DB>,
 ) -> Subscriber<ApiHeadChange> {
     let (sender, receiver) = broadcast::channel(100);
 
