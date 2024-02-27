@@ -118,6 +118,7 @@ libp2p = { version = "0.53", default-features = false, features = [
   'tokio',
   'macros',
   'serde',
+  'rsa',
 ] }
 libsecp256k1 = "0.7"
 lru = "0.12"
