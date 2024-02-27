@@ -24,10 +24,13 @@ cat <<- EOF > $CONFIG_PATH
 	kademlia = true
 EOF
 
-$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --rpc false --metrics-address 127.0.0.1:6117 &
+$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --save-token ./admin_token --rpc-address 127.0.0.1:12345 --metrics-address 127.0.0.1:6117 &
 FOREST_NODE_PID=$!
 # Verify that more peers are connected via kademlia
 until (( $(curl http://127.0.0.1:6117/metrics | grep full_peers | tail -n 1 | cut --delimiter=" " --fields=2) > 1 )); do
     sleep 1s;
 done
+
+FULLNODE_API_INFO="$(cat admin_token):/ip4/127.0.0.1/tcp/12345/http" $FOREST_CLI_PATH sync wait # allow the node to re-sync
+
 kill -KILL $FOREST_NODE_PID

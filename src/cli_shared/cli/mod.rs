@@ -40,7 +40,7 @@ OPTIONS:
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
     #[arg(short, long)]
-    pub config: Option<String>,
+    pub config: Option<PathBuf>,
     /// The genesis CAR file
     #[arg(short, long)]
     pub genesis: Option<String>,
@@ -151,7 +151,7 @@ pub struct CliOpts {
 
 impl CliOpts {
     pub fn to_config(&self) -> Result<(Config, Option<ConfigPath>), anyhow::Error> {
-        let (path, mut cfg) = read_config(&self.config, &self.chain)?;
+        let (path, mut cfg) = read_config(self.config.as_ref(), self.chain.clone())?;
 
         if let Some(genesis_file) = &self.genesis {
             cfg.client.genesis_file = Some(genesis_file.to_owned());
@@ -250,9 +250,9 @@ impl ConfigPath {
     }
 }
 
-pub fn find_config_path(config: &Option<String>) -> Option<ConfigPath> {
+pub fn find_config_path(config: Option<&PathBuf>) -> Option<ConfigPath> {
     if let Some(s) = config {
-        return Some(ConfigPath::Cli(PathBuf::from(s)));
+        return Some(ConfigPath::Cli(s.to_owned()));
     }
     if let Ok(s) = std::env::var("FOREST_CONFIG_PATH") {
         return Some(ConfigPath::Env(PathBuf::from(s)));
