@@ -66,8 +66,8 @@ use jsonrpsee::server::{
 };
 use jsonrpsee::types::{error::ErrorCode, ErrorObjectOwned, Id, Params, ResponsePayload};
 
+use ahash::HashMap;
 use parking_lot::Mutex;
-use rustc_hash::FxHashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast::error::RecvError;
@@ -82,7 +82,7 @@ pub type ChannelId = u64;
 
 /// Type-alias for subscribers.
 pub type Subscribers =
-    Arc<Mutex<FxHashMap<Id<'static>, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
+    Arc<Mutex<HashMap<Id<'static>, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
 
 /// Represents a single subscription that is waiting to be accepted or rejected.
 ///

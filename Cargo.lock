@@ -3367,7 +3367,6 @@ dependencies = [
  "reqwest",
  "rlimit",
  "rs-car-ipfs",
- "rustc-hash",
  "rustyline",
  "scopeguard",
  "semver",
