@@ -166,12 +166,11 @@ impl PendingSubscriptionSink {
             let (_tx, rx) = mpsc::channel(1);
             self.subscribers
                 .lock()
-                .insert(id, (self.inner.clone(), rx, self.channel_id.clone()));
+                .insert(id, (self.inner.clone(), rx, self.channel_id));
             Ok(SubscriptionSink {
                 inner: self.inner,
                 method: self.method,
-                subscribers: self.subscribers,
-                channel_id: self.channel_id.clone(),
+                channel_id: self.channel_id,
             })
         } else {
             panic!("The subscription response was too big; adjust the `max_response_size` or change Subscription ID generation");
@@ -180,7 +179,7 @@ impl PendingSubscriptionSink {
 
     /// Returns the channel identifier
     pub fn channel_id(&self) -> ChannelId {
-        self.channel_id.clone()
+        self.channel_id
     }
 }
 
@@ -191,18 +190,11 @@ pub struct SubscriptionSink {
     inner: MethodSink,
     /// MethodCallback.
     method: &'static str,
-    /// Shared Mutex of subscriptions for this method.
-    subscribers: Subscribers,
     /// Channel identifier.
     channel_id: ChannelId,
 }
 
 impl SubscriptionSink {
-    // /// Get the subscription ID.
-    // pub fn subscription_id(&self) -> SubscriptionId<'static> {
-    //     self.uniq_sub.sub_id.clone()
-    // }
-
     /// Get the method name.
     pub fn method_name(&self) -> &str {
         self.method
@@ -210,7 +202,7 @@ impl SubscriptionSink {
 
     /// Get the channel ID.
     pub fn channel_id(&self) -> ChannelId {
-        self.channel_id.clone()
+        self.channel_id
     }
 
     /// Send out a response on the subscription and wait until there is capacity.
@@ -323,9 +315,8 @@ impl From<RpcModule> for Methods {
     }
 }
 
-impl RpcModule {
-    /// Create a new module with a given shared `Context`.
-    pub fn new() -> Self {
+impl Default for RpcModule {
+    fn default() -> Self {
         let mut methods = Methods::default();
 
         let channels = Subscribers::default();
@@ -374,7 +365,9 @@ impl RpcModule {
             methods,
         }
     }
+}
 
+impl RpcModule {
     pub fn register_channel<R, F>(
         &mut self,
         subscribe_method_name: &'static str,

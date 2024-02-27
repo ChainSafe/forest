@@ -80,14 +80,13 @@ where
         shutdown_send,
     )?;
 
-    // For testing purposes
-    let mut fil_module = FilRpcModule::new();
+    let mut pubsub_module = FilRpcModule::default();
 
-    fil_module.register_channel("Filecoin.ChainNotify", {
+    pubsub_module.register_channel("Filecoin.ChainNotify", {
         let state_clone = state.clone();
         move |params| chain_api::chain_notify(params, state_clone.clone())
     })?;
-    module.merge(fil_module)?;
+    module.merge(pubsub_module)?;
 
     let (stop_handle, _handle) = stop_channel();
 
