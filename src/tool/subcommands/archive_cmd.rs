@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 //! Archives are key-value pairs encoded as
@@ -426,10 +426,12 @@ async fn do_export(
 
     let writer = tokio::fs::File::create(&output_path)
         .await
-        .context(format!(
-            "unable to create a snapshot - is the output path '{}' correct?",
-            output_path.to_str().unwrap_or_default()
-        ))?;
+        .with_context(|| {
+            format!(
+                "unable to create a snapshot - is the output path '{}' correct?",
+                output_path.to_str().unwrap_or_default()
+            )
+        })?;
 
     info!(
         "exporting snapshot at location: {}",

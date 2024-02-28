@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{fmt, sync::OnceLock};
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::info;
 
-use super::{Block, CachingBlockHeader, Ticket};
+use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
 
 /// A set of `CIDs` forming a unique key for a Tipset.
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
@@ -87,6 +87,12 @@ pub struct Tipset {
     /// Sorted
     headers: NonEmpty<CachingBlockHeader>,
     key: OnceCell<TipsetKey>,
+}
+
+impl From<RawBlockHeader> for Tipset {
+    fn from(value: RawBlockHeader) -> Self {
+        Self::from(CachingBlockHeader::from(value))
+    }
 }
 
 impl From<&CachingBlockHeader> for Tipset {
@@ -262,9 +268,8 @@ impl Tipset {
     }
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
-        self.key.get_or_init(|| {
-            TipsetKey::from(self.headers.map(CachingBlockHeader::cid))
-        })
+        self.key
+            .get_or_init(|| TipsetKey::from(self.headers.clone().map(|h| *h.cid())))
     }
     /// Returns a non-empty collection of `CIDs` for the current tipset
     pub fn cids(&self) -> NonEmpty<Cid> {

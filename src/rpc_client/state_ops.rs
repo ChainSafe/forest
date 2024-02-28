@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
@@ -211,7 +211,7 @@ impl ApiInfo {
         from_to: MessageFilter,
         tsk: ApiTipsetKey,
         max_height: i64,
-    ) -> RpcRequest<Vec<Address>> {
+    ) -> RpcRequest<Vec<Cid>> {
         RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))
     }
 

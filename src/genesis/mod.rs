@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::CachingBlockHeader;
@@ -66,7 +66,7 @@ where
         "Invalid Genesis. Genesis Tipset must have only 1 Block."
     );
 
-    let genesis_block = CachingBlockHeader::load(db, header.roots[0])?.ok_or_else(|| {
+    let genesis_block = CachingBlockHeader::load(db, *header.roots.first())?.ok_or_else(|| {
         anyhow::anyhow!("Could not find genesis block despite being loaded using a genesis file")
     })?;
 
