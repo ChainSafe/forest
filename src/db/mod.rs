@@ -128,7 +128,13 @@ pub trait GarbageCollectable {
 /// We don't care about collisions here as main use-case is garbage collection.
 pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<S>) -> u32 {
     let digest = hash.digest();
-    u32::from_le_bytes(digest[0..4].try_into().expect("shouldn't fail"))
+    u32::from_le_bytes(
+        digest
+            .get(0..4)
+            .expect("shouldn't fail")
+            .try_into()
+            .expect("shouldn't fail"),
+    )
 }
 
 pub mod db_engine {

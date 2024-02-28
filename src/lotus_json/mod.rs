@@ -337,6 +337,7 @@ pub mod hexify {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
+        #[allow(clippy::indexing_slicing)]
         if s.len() > 2 && &s[..2] == "0x" {
             T::from_str_radix(&s[2..], 16).map_err(serde::de::Error::custom)
         } else {
