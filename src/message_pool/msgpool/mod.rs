@@ -190,6 +190,7 @@ where
         chains.trim_msgs_at(i, gas_limit, &base_fee);
         let mut j = i;
         while j < chains.len() - 1 {
+            #[allow(clippy::indexing_slicing)]
             if chains[j].compare(&chains[j + 1]) == Ordering::Less {
                 break;
             }
