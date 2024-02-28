@@ -15,6 +15,7 @@ pub struct BeaconEntryLotusJson {
 impl HasLotusJson for BeaconEntry {
     type LotusJson = BeaconEntryLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!({"Round": 0, "Data": null}), BeaconEntry::default())]
     }

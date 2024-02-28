@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::beacon::{BeaconEntry, BeaconSchedule};
-use crate::blocks::TipsetKey;
+use crate::blocks::{CachingBlockHeader, TipsetKey};
 use crate::chain::ChainStore;
 use crate::chain_sync::{BadBlockCache, SyncState};
 use crate::key_management::KeyStore;
@@ -206,6 +206,7 @@ pub struct ApiMessageLotusJson {
 
 impl HasLotusJson for ApiMessage {
     type LotusJson = ApiMessageLotusJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -229,6 +230,7 @@ pub struct ApiTipsetKey(pub Option<TipsetKey>);
 impl HasLotusJson for ApiTipsetKey {
     type LotusJson = LotusJson<Vec<Cid>>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -328,6 +330,7 @@ pub struct MinerInfoLotusJson {
 
 impl HasLotusJson for MinerInfo {
     type LotusJson = MinerInfoLotusJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -399,6 +402,7 @@ pub struct BeneficiaryTermLotusJson {
 impl HasLotusJson for BeneficiaryTerm {
     type LotusJson = BeneficiaryTermLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(Value, Self)> {
         vec![]
     }
@@ -435,6 +439,7 @@ pub struct PendingBeneficiaryChangeLotusJson {
 impl HasLotusJson for PendingBeneficiaryChange {
     type LotusJson = PendingBeneficiaryChangeLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(Value, Self)> {
         vec![]
     }
@@ -509,6 +514,7 @@ lotus_json_with_self!(MiningBaseInfo);
 
 impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -586,6 +592,7 @@ pub struct ActorStateJson {
 
 impl HasLotusJson for ActorState {
     type LotusJson = ActorStateJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -953,6 +960,17 @@ pub struct Transaction {
 }
 
 lotus_json_with_self!(Transaction);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiHeadChange {
+    #[serde(rename = "Type")]
+    pub change: String,
+    #[serde(rename = "Val", with = "crate::lotus_json")]
+    pub headers: Vec<CachingBlockHeader>,
+}
+
+lotus_json_with_self!(ApiHeadChange);
 
 #[cfg(test)]
 mod tests {

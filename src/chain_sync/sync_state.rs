@@ -138,6 +138,7 @@ mod lotus_json {
     use std::sync::Arc;
 
     use serde::{Deserialize, Serialize};
+    #[cfg(test)]
     use serde_json::json;
 
     #[derive(Serialize, Deserialize)]
@@ -161,6 +162,7 @@ mod lotus_json {
     impl HasLotusJson for SyncState {
         type LotusJson = SyncStateLotusJson;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             vec![(
                 json!({

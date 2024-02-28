@@ -36,7 +36,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpsee::types::{error::ErrorObject, Params};
 use libipld_core::ipld::Ipld;
-use nonempty::nonempty;
+use nonempty::{nonempty, NonEmpty};
 use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::path::PathBuf;
@@ -753,7 +753,7 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
         .blockstore()
         .get(&actor.state)?
         .context("Failed to get block from blockstore")?;
-    let state = fvm_ipld_encoding::from_slice::<Vec<Cid>>(&blk)?[0];
+    let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
 
     Ok(LotusJson(ApiActorState::new(
         actor.balance.clone().into(),

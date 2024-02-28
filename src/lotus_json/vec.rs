@@ -11,6 +11,7 @@ where
 {
     type LotusJson = VecLotusJson<T::LotusJson>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only Vec<Cid> is tested, below")
     }
