@@ -109,12 +109,16 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
         // Theoretically it should be easily parallelizable with `rayon`.
         // In practice, there is a massive performance loss when providing
         // more than a single reader.
+        if let Ok(Some(value)) = self.writer.get(k) {
+            return Ok(Some(value));
+        }
         for reader in self.read_only.read().iter() {
-            if let Some(val) = reader.get(k)? {
+            let opt = reader.get(k)?;
+            if let Some(val) = opt {
                 return Ok(Some(val));
             }
         }
-        self.writer.get(k)
+        Ok(None)
     }
 
     fn put_keyed(&self, k: &Cid, block: &[u8]) -> anyhow::Result<()> {
