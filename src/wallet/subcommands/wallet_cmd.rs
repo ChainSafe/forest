@@ -6,7 +6,7 @@ use std::{
     str::{self, FromStr},
 };
 
-use crate::{cli::humantoken, shim::address::Address};
+use crate::{cli::humantoken, message::SignedMessage, shim::address::Address};
 use crate::{key_management::Key, utils::io::read_file_to_string};
 use crate::{key_management::KeyInfo, rpc_client::ApiInfo};
 use crate::{lotus_json::LotusJson, KeyStore};
@@ -379,8 +379,8 @@ impl WalletCommands {
                     StrictAddress::from_str(&from)?.into()
                 } else {
                     StrictAddress::from_str(
-                        &if let Some(keystore) = local_keystore {
-                            crate::key_management::get_default(&keystore)?.map(|s| s.to_string())
+                        &if let Some(keystore) = &local_keystore {
+                            crate::key_management::get_default(keystore)?.map(|s| s.to_string())
                         } else {
                             api.wallet_default_address().await?
                         }
@@ -390,6 +390,8 @@ impl WalletCommands {
                     )?
                     .into()
                 };
+
+                dbg!(&from);
 
                 let message = Message {
                     from,
@@ -403,51 +405,35 @@ impl WalletCommands {
                     ..Default::default()
                 };
 
-                /////////////////////////
-                // let from = umsg.from;
+                let signed_msg = if let Some(keystore) = local_keystore {
+                    let spec = None;
+                    let tsk = Default::default();
+                    let mut message = api.gas_estimate_message_gas(message, spec, tsk).await?;
 
-                // let mut keystore = data.keystore.as_ref().write().await;
-                // let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
-                // let key_addr = data
-                //     .state_manager
-                //     .resolve_to_key_addr(&from, &heaviest_tipset)
-                //     .await?;
+                    if message.gas_premium > message.gas_fee_cap {
+                        anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
+                    }
 
-                // if umsg.sequence != 0 {
-                //     return Err(
-                //         "Expected nonce for MpoolPushMessage is 0, and will be calculated for you."
-                //             .into(),
-                //     );
-                // }
-                // let mut umsg =
-                //     estimate_message_gas::<DB>(&data, umsg, spec, Default::default()).await?;
-                // if umsg.gas_premium > umsg.gas_fee_cap {
-                //     return Err("After estimation, gas premium is greater than gas fee cap".into());
-                // }
+                    dbg!(&message.gas_limit);
 
-                // if from.protocol() == Protocol::ID {
-                //     umsg.from = key_addr;
-                // }
-                // let nonce = data.mpool.get_sequence(&from)?;
-                // umsg.sequence = nonce;
-                // let key = crate::key_management::Key::try_from(crate::key_management::try_find(
-                //     &key_addr,
-                //     &mut keystore,
-                // )?)?;
-                // let sig = crate::key_management::sign(
-                //     *key.key_info.key_type(),
-                //     key.key_info.private_key(),
-                //     umsg.cid().unwrap().to_bytes().as_slice(),
-                // )?;
+                    message.sequence = api.mpool_get_nonce(from).await?;
 
-                // let smsg = SignedMessage::new_from_parts(umsg, sig)?;
+                    dbg!(&message.sequence);
 
-                // data.mpool.as_ref().push(smsg.clone()).await?;
+                    let key = crate::key_management::find_key(&from, &keystore)?;
+                    let sig = crate::key_management::sign(
+                        *key.key_info.key_type(),
+                        key.key_info.private_key(),
+                        message.cid().unwrap().to_bytes().as_slice(),
+                    )?;
 
-                // Ok(smsg.into());
-                /////////////////////////
-
-                let signed_msg = api.mpool_push_message(message, None).await?;
+                    let smsg = SignedMessage::new_from_parts(message, sig)?;
+                    dbg!(&smsg);
+                    api.mpool_push(smsg.clone()).await?;
+                    smsg
+                } else {
+                    api.mpool_push_message(message, None).await?
+                };
 
                 println!("{}", signed_msg.cid().unwrap());
 
