@@ -19,6 +19,7 @@ quickcheck! {
 impl HasLotusJson for RawBytes {
     type LotusJson = VecU8LotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!("aGVsbG8gd29ybGQh"),

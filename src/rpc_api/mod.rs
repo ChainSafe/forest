@@ -198,7 +198,9 @@ pub mod chain_api {
     use std::{path::PathBuf, sync::Arc};
 
     use super::data_types::ApiTipsetKey;
-    use crate::blocks::{RawBlockHeader, Tipset};
+    #[cfg(test)]
+    use crate::blocks::RawBlockHeader;
+    use crate::blocks::Tipset;
     use crate::lotus_json::lotus_json_with_self;
     #[cfg(test)]
     use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -250,6 +252,7 @@ pub mod chain_api {
     impl HasLotusJson for PathChange {
         type LotusJson = PathChange<LotusJson<Tipset>>;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             use serde_json::json;
             vec![(
@@ -618,6 +621,7 @@ pub mod eth_api {
     impl HasLotusJson for BlockNumberOrHash {
         type LotusJson = String;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             vec![]
         }

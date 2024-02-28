@@ -16,6 +16,7 @@ pub struct SectorInfoLotusJson {
 impl HasLotusJson for SectorInfo {
     type LotusJson = SectorInfoLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
