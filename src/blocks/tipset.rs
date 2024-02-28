@@ -263,16 +263,7 @@ impl Tipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key.get_or_init(|| {
-            TipsetKey::from(NonEmpty {
-                head: *self.headers.head.cid(),
-                tail: self
-                    .headers
-                    .tail
-                    .iter()
-                    .map(CachingBlockHeader::cid)
-                    .copied()
-                    .collect(),
-            })
+            TipsetKey::from(self.headers.map(CachingBlockHeader::cid))
         })
     }
     /// Returns a non-empty collection of `CIDs` for the current tipset
