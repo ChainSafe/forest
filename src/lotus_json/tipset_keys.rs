@@ -13,7 +13,7 @@ impl HasLotusJson for TipsetKey {
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!([{"/": "baeaaaaa"}]),
-            TipsetKey::from(::nonempty::nonempty![::cid::Cid::default()]),
+            ::nonempty::nonempty![::cid::Cid::default()].into(),
         )]
     }
 

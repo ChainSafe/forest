@@ -539,13 +539,13 @@ mod lotus_json {
                             "ParentMessageReceipts": { "/": "baeaaaaa" },
                             "ParentStateRoot": { "/":"baeaaaaa" },
                             "ParentWeight": "0",
-                            "Parents": [{ "/": "baeaaaaa" }],
+                            "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
                             "Timestamp": 0,
                             "WinPoStProof": null
                         }
                     ],
                     "Cids": [
-                        { "/": "bafy2bzacedlii5jr5pqn74s5wipsanuot4un4vjvzai5yhnklmuy7udo3jwcq" }
+                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
                     ],
                     "Height": 0
                 }),
