@@ -24,7 +24,7 @@ use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::net::global_http_client;
 use base64::prelude::{Engine, BASE64_STANDARD};
-use jsonrpc_v2::{Id, RequestObject, V2};
+use jsonrpsee::types::{params::TwoPointZero, Id, Request};
 use serde::Deserialize;
 use tracing::debug;
 
@@ -92,11 +92,9 @@ impl ApiInfo {
     }
 
     pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
-        let rpc_req = RequestObject::request()
-            .with_method(req.method_name)
-            .with_params(req.params)
-            .with_id(0)
-            .finish();
+        let params = serde_json::value::to_raw_value(&req.params)
+            .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
+        let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
         let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint).to_string();
 
@@ -132,7 +130,9 @@ impl ApiInfo {
                 message: Cow::Owned(response.text().await?),
             });
         }
-        let rpc_res: JsonRpcResponse<T::LotusJson> = response.json().await?;
+        let json = response.bytes().await?;
+        let rpc_res: JsonRpcResponse<T::LotusJson> =
+            serde_json::from_slice(&json).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
         match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
@@ -141,11 +141,9 @@ impl ApiInfo {
     }
 
     pub async fn ws_call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
-        let rpc_req = RequestObject::request()
-            .with_method(req.method_name)
-            .with_params(req.params)
-            .with_id(0)
-            .finish();
+        let params = serde_json::value::to_raw_value(&req.params)
+            .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
+        let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
         let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
 
@@ -276,16 +274,18 @@ impl From<reqwest::Error> for JsonRpcError {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-pub enum JsonRpcResponse<R> {
+pub enum JsonRpcResponse<'a, R> {
     Result {
-        jsonrpc: V2,
+        jsonrpc: TwoPointZero,
         result: R,
-        id: Id,
+        #[serde(borrow)]
+        id: Id<'a>,
     },
     Error {
-        jsonrpc: V2,
+        jsonrpc: TwoPointZero,
         error: JsonRpcError,
-        id: Id,
+        #[serde(borrow)]
+        id: Id<'a>,
     },
 }
 
