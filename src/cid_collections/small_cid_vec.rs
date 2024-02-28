@@ -3,7 +3,7 @@
 
 use super::*;
 use cid::Cid;
-use nonempty::{nonempty, NonEmpty};
+use nonempty::NonEmpty;
 use serde::{Deserialize, Serialize};
 
 #[cfg(doc)]
@@ -31,12 +31,6 @@ impl SmallCidNonEmptyVec {
     /// Returns a non-empty collection of `CID`
     pub fn into_cids(self) -> NonEmpty<Cid> {
         self.0.map(From::from)
-    }
-}
-
-impl Default for SmallCidNonEmptyVec {
-    fn default() -> Self {
-        Self(nonempty![Cid::default().into()])
     }
 }
 

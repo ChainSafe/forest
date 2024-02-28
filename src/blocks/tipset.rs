@@ -27,7 +27,7 @@ use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct TipsetKey(SmallCidNonEmptyVec);
 
@@ -714,7 +714,6 @@ mod test {
     fn ensure_parent_cids_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
-            parents: TipsetKey::default(),
             ..Default::default()
         };
         let h1 = RawBlockHeader {

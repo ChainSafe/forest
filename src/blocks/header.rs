@@ -15,12 +15,24 @@ use crate::utils::{cid::CidCborExt as _, encoding::blake2b_256};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
+use nonempty::nonempty;
 use num::BigInt;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
-#[derive(Deserialize_tuple, Serialize_tuple, Default, Clone, Hash, Eq, PartialEq, Debug)]
+// See <https://github.com/filecoin-project/lotus/blob/d3ca54d617f4783a1a492993f06e737ea87a5834/chain/gen/genesis/genesis.go#L627>
+// and <https://github.com/filecoin-project/lotus/commit/13e5b72cdbbe4a02f3863c04f9ecb69c21c3f80f#diff-fda2789d966ea533e74741c076f163070cbc7eb265b5513cd0c0f3bdee87245cR437>
+static FILECOIN_GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+    "bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"
+        .parse()
+        .expect("Infallible")
+});
+
+pub static GENESIS_BLOCK_PARENTS: Lazy<TipsetKey> =
+    Lazy::new(|| nonempty![*FILECOIN_GENESIS_CID].into());
+
+#[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {
     /// The address of the miner actor that mined this block
     pub miner_address: Address,
@@ -53,6 +65,29 @@ pub struct RawBlockHeader {
     pub fork_signal: u64,
     /// The base fee of the parent block
     pub parent_base_fee: TokenAmount,
+}
+
+impl Default for RawBlockHeader {
+    fn default() -> Self {
+        Self {
+            parents: GENESIS_BLOCK_PARENTS.clone(),
+            miner_address: Default::default(),
+            ticket: Default::default(),
+            election_proof: Default::default(),
+            beacon_entries: Default::default(),
+            winning_post_proof: Default::default(),
+            weight: Default::default(),
+            epoch: Default::default(),
+            state_root: Default::default(),
+            message_receipts: Default::default(),
+            messages: Default::default(),
+            bls_aggregate: Default::default(),
+            timestamp: Default::default(),
+            signature: Default::default(),
+            fork_signal: Default::default(),
+            parent_base_fee: Default::default(),
+        }
+    }
 }
 
 impl RawBlockHeader {
