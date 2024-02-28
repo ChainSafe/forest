@@ -34,6 +34,7 @@ pub struct MessageLotusJson {
 impl HasLotusJson for Message {
     type LotusJson = MessageLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({

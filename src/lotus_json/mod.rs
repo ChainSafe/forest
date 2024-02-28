@@ -127,6 +127,7 @@ use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
 use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(test)]
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
 #[cfg(test)]
@@ -142,6 +143,7 @@ pub trait HasLotusJson: Sized {
     ///
     /// If using [`decl_and_test`], this test is automatically run for you, but if the test
     /// is out-of-module, you must call [`assert_all_snapshots`] manually.
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)>;
     fn into_lotus_json(self) -> Self::LotusJson;
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self;
@@ -421,7 +423,7 @@ macro_rules! lotus_json_with_self {
         $(
             impl $crate::lotus_json::HasLotusJson for $domain_ty {
                 type LotusJson = Self;
-                fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                #[cfg(test)] fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
                 }
                 fn into_lotus_json(self) -> Self::LotusJson {
@@ -460,6 +462,7 @@ pub struct ClaimLotusJson {
 
 impl HasLotusJson for Claim {
     type LotusJson = ClaimLotusJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -479,6 +482,7 @@ impl HasLotusJson for Claim {
 
 impl<T: HasLotusJson> HasLotusJson for (T,) {
     type LotusJson = (T::LotusJson,);
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
     }
@@ -492,6 +496,7 @@ impl<T: HasLotusJson> HasLotusJson for (T,) {
 
 impl<A: HasLotusJson, B: HasLotusJson> HasLotusJson for (A, B) {
     type LotusJson = (A::LotusJson, B::LotusJson);
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
     }
@@ -508,6 +513,7 @@ impl<A: HasLotusJson, B: HasLotusJson> HasLotusJson for (A, B) {
 
 impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson> HasLotusJson for (A, B, C) {
     type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson);
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
     }
@@ -531,6 +537,7 @@ impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson, D: HasLotusJson> HasLotu
     for (A, B, C, D)
 {
     type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson, D::LotusJson);
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
     }
@@ -554,6 +561,7 @@ impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson, D: HasLotusJson> HasLotu
 
 impl HasLotusJson for Ipld {
     type LotusJson = IpldJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
@@ -567,6 +575,7 @@ impl HasLotusJson for Ipld {
 
 impl HasLotusJson for BitField {
     type LotusJson = BitFieldJson;
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![]
     }
