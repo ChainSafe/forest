@@ -10,6 +10,7 @@ where
 {
     type LotusJson = NonEmpty<<T as HasLotusJson>::LotusJson>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only NonEmpty<Cid> is tested, below")
     }

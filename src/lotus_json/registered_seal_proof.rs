@@ -8,6 +8,7 @@ use fvm_shared3::sector::RegisteredSealProof as RegisteredSealProofV3;
 impl HasLotusJson for RegisteredSealProof {
     type LotusJson = i64;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!(0),

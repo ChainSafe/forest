@@ -16,6 +16,7 @@ pub struct PoStProofLotusJson {
 impl HasLotusJson for PoStProof {
     type LotusJson = PoStProofLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({
