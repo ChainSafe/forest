@@ -35,6 +35,7 @@ impl<D: Digest, W: AsyncWriteExt> AsyncWrite for AsyncWriterWithChecksum<D, W> {
         if let Some(hasher) = &mut this.hasher {
             if let Poll::Ready(Ok(size)) = w {
                 if size > 0 {
+                    #[allow(clippy::indexing_slicing)]
                     hasher.update(&buf[..size]);
                 }
             }

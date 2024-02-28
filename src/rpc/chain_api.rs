@@ -4,12 +4,12 @@
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
-use crate::chain::ChainStore;
+use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
+use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
     data_types::{ApiTipsetKey, BlockMessages, Data, RPCState},
@@ -28,7 +28,10 @@ use jsonrpsee::types::Params;
 use once_cell::sync::Lazy;
 use sha2::Sha256;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{
+    broadcast::{self, Receiver as Subscriber},
+    Mutex,
+};
 
 pub async fn chain_get_message<DB: Blockstore>(
     params: Params<'_>,
@@ -443,6 +446,35 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     }
 
     Ok(min_base_fee.atto().to_string())
+}
+
+pub(crate) fn chain_notify<DB: Blockstore>(
+    _params: Params<'_>,
+    data: &RPCState<DB>,
+) -> Subscriber<ApiHeadChange> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    // As soon as the channel is created, send the current tipset
+    let current = data.chain_store.heaviest_tipset();
+    let (change, headers) = ("current".into(), current.block_headers().clone().into());
+    sender
+        .send(ApiHeadChange { change, headers })
+        .expect("receiver is not dropped");
+
+    let mut subscriber = data.chain_store.publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let (change, headers) = match v {
+                HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
+            };
+
+            if sender.send(ApiHeadChange { change, headers }).is_err() {
+                break;
+            }
+        }
+    });
+    receiver
 }
 
 fn load_api_messages_from_tipset(

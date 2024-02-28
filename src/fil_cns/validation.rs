@@ -434,7 +434,11 @@ fn verify_winning_post(
     prover: u64,
 ) -> Result<(), anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    rand.0[31] &= 0x3f;
+    if let Some(b31) = rand.0.get_mut(31) {
+        *b31 &= 0x3f;
+    } else {
+        anyhow::bail!("rand should have at least 32 bytes");
+    }
 
     // Convert sector info into public replica
     let replicas = to_fil_public_replica_infos(challenge_sectors, ProofType::Winning)

@@ -883,14 +883,14 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             .load_required_tipset(current_head.parents())?;
         let mut i = 0;
         let mut fork_length = 1;
-        while i < fork_tipsets.len() {
-            if fork_tipsets[i].epoch() == 0 {
+        while let Some(fork_tipset) = fork_tipsets.get(i) {
+            if fork_tipset.epoch() == 0 {
                 return Err(TipsetRangeSyncerError::ForkAtGenesisBlock(format!(
                     "{:?}",
                     oldest_tipset.cids()
                 )));
             }
-            if potential_common_ancestor == fork_tipsets[i] {
+            if &potential_common_ancestor == fork_tipset {
                 // Remove elements from the vector since the Drain
                 // iterator is immediately dropped
                 let mut fork_tipsets = fork_tipsets;
@@ -902,7 +902,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             // If the potential common ancestor has an epoch which
             // is lower than the current fork tipset under evaluation
             // move to the next iteration without updated the potential common ancestor
-            if potential_common_ancestor.epoch() < fork_tipsets[i].epoch() {
+            if potential_common_ancestor.epoch() < fork_tipset.epoch() {
                 i += 1;
             } else {
                 fork_length += 1;

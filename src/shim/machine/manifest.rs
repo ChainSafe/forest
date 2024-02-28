@@ -147,6 +147,7 @@ macro_rules! static_assert_contains_matching {
             'ok: {
                 while let Some(new_ix) = cur_ix.checked_sub(1) {
                     cur_ix = new_ix;
+                    #[allow(clippy::indexing_slicing)]
                     match slice[cur_ix] {
                         $must_match => break 'ok,
                         _ => continue,
