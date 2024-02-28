@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
@@ -60,7 +60,7 @@ mod shim;
 mod state_manager;
 mod state_migration;
 mod statediff;
-#[cfg(test)]
+#[cfg(any(test, doc))]
 mod test_utils;
 mod tool;
 mod utils;

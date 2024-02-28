@@ -1,13 +1,12 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ffi::OsString;
 
 use super::subcommands::Cli;
-use crate::cli_shared::logger::setup_minimal_logger;
-use clap::Parser;
-
 use super::subcommands::Subcommand;
+use crate::cli_shared::logger::setup_minimal_logger;
+use clap::Parser as _;
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
@@ -23,14 +22,16 @@ where
         .block_on(async {
             // Run command
             match cmd {
+                Subcommand::Backup(cmd) => cmd.run(),
                 Subcommand::Benchmark(cmd) => cmd.run().await,
-                Subcommand::StateMigration(state_migration) => state_migration.run().await,
+                Subcommand::StateMigration(cmd) => cmd.run().await,
                 Subcommand::Snapshot(cmd) => cmd.run().await,
                 Subcommand::Fetch(cmd) => cmd.run().await,
                 Subcommand::Archive(cmd) => cmd.run().await,
                 Subcommand::DB(cmd) => cmd.run().await,
                 Subcommand::Car(cmd) => cmd.run().await,
                 Subcommand::Api(cmd) => cmd.run().await,
+                Subcommand::Shed(cmd) => cmd.run().await,
             }
         })
 }

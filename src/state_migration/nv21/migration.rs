@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::sync::Arc;
@@ -117,9 +117,9 @@ where
         .as_ref()
         .context("no bundle for network version NV21")?;
 
-    blockstore.get(new_manifest_cid)?.context(format!(
-        "manifest for network version NV21 not found in blockstore: {new_manifest_cid}"
-    ))?;
+    blockstore.get(new_manifest_cid)?.with_context(|| {
+        format!("manifest for network version NV21 not found in blockstore: {new_manifest_cid}")
+    })?;
 
     // Add migration specification verification
     let verifier = Arc::new(Verifier::default());

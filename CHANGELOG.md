@@ -35,6 +35,28 @@
 
 ### Fixed
 
+## Forest 0.16.7 "Etaoin shrdlu"
+
+Mandatory release that includes a fix for a bug in the `libp2p` usage. This is
+necessary after the PL-managed bootstrap nodes were decommissioned. Failure to
+upgrade will result in difficulty connecting to the mainnet network.
+
+### Added
+
+- [#3849](https://github.com/ChainSafe/forest/pull/3849/) Implement the
+  `Filecoin.ChainGetPath` lotus-compatible RPC API.
+- [#3849](https://github.com/ChainSafe/forest/pull/3849/) Add
+  `forest-tool shed summarize-tipsets`.
+- [#3893](https://github.com/ChainSafe/forest/pull/3983) Add
+  `forest-tool shed peer-id-from-key-pair`.
+- [#3981](https://github.com/ChainSafe/forest/issues/3981) Add
+  `forest-tool backup create|restore`.
+
+### Fixed
+
+- [#3996](https://github.com/ChainSafe/forest/pull/3996) Fixed a bug in the
+  `libp2p` usage that caused the connections to not get upgraded to secure ones.
+
 ## Forest 0.16.6 "Pinecone Reactivation"
 
 ### Added

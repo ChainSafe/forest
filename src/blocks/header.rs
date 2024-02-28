@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ops::Deref;
@@ -89,10 +89,14 @@ impl RawBlockHeader {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
+        tracing::debug!(
+            "beacon network at {}: {:?}, is_chained: {}",
+            self.epoch,
+            curr_beacon.network(),
+            curr_beacon.network().is_chained()
+        );
         // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
-        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R53>
-        // for not using `if curr_beacon.network().is_chained()`
-        if network_version <= NetworkVersion::V21 {
+        if curr_beacon.network().is_chained() {
             let (pb_epoch, _) = b_schedule
                 .beacon_for_epoch(parent_epoch)
                 .map_err(|e| Error::Validation(e.to_string()))?;
@@ -125,9 +129,8 @@ impl RawBlockHeader {
             return Ok(());
         }
 
-        // See <https://github.com/filecoin-project/lotus/pull/11572/files#diff-587eaf0df6b60dbf741d19bbe39439f6f48ffe171e82a71c76b82484ba48f386R83>
-        // for not using `if curr_beacon.network().is_chained() && prev_entry.round() == 0`
-        if network_version <= NetworkVersion::V21 && prev_entry.round() == 0 {
+        // We skip verifying the genesis entry when randomness is "chained".
+        if curr_beacon.network().is_chained() && prev_entry.round() == 0 {
             // This basically means that the drand entry of the first non-genesis tipset isn't verified IF we are starting on Drand mainnet (the "chained" drand)
             // Networks that start on drand quicknet, or other unchained randomness sources, will still verify it
             return Ok(());
@@ -259,6 +262,12 @@ impl CachingBlockHeader {
                 Err(e) => Err(e),
             },
         }
+    }
+}
+
+impl From<CachingBlockHeader> for RawBlockHeader {
+    fn from(value: CachingBlockHeader) -> Self {
+        value.into_raw()
     }
 }
 
