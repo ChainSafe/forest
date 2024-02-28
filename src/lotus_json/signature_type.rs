@@ -21,6 +21,7 @@ pub enum SignatureTypeLotusJson {
 impl HasLotusJson for SignatureType {
     type LotusJson = SignatureTypeLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!(2), SignatureType::Bls)]
     }

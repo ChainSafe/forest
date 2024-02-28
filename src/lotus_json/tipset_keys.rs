@@ -4,15 +4,16 @@
 use super::*;
 use crate::blocks::TipsetKey;
 use ::cid::Cid;
-use ::nonempty::{nonempty, NonEmpty};
+use ::nonempty::NonEmpty;
 
 impl HasLotusJson for TipsetKey {
     type LotusJson = LotusJson<NonEmpty<Cid>>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!([{"/": "baeaaaaa"}]),
-            TipsetKey::from(nonempty![::cid::Cid::default()]),
+            TipsetKey::from(::nonempty::nonempty![::cid::Cid::default()]),
         )]
     }
 

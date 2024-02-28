@@ -43,6 +43,7 @@ pub struct BlockHeaderLotusJson {
 impl HasLotusJson for CachingBlockHeader {
     type LotusJson = BlockHeaderLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         use serde_json::json;
 

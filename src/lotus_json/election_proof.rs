@@ -15,6 +15,7 @@ pub struct ElectionProofLotusJson {
 impl HasLotusJson for ElectionProof {
     type LotusJson = ElectionProofLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({

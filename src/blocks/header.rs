@@ -15,22 +15,23 @@ use crate::utils::{cid::CidCborExt as _, encoding::blake2b_256};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
-use nonempty::nonempty;
 use num::BigInt;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_tuple::{Deserialize_tuple, Serialize_tuple};
 
 // See <https://github.com/filecoin-project/lotus/blob/d3ca54d617f4783a1a492993f06e737ea87a5834/chain/gen/genesis/genesis.go#L627>
 // and <https://github.com/filecoin-project/lotus/commit/13e5b72cdbbe4a02f3863c04f9ecb69c21c3f80f#diff-fda2789d966ea533e74741c076f163070cbc7eb265b5513cd0c0f3bdee87245cR437>
-static FILECOIN_GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
+#[cfg(test)]
+static FILECOIN_GENESIS_CID: once_cell::sync::Lazy<Cid> = once_cell::sync::Lazy::new(|| {
     "bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"
         .parse()
         .expect("Infallible")
 });
 
-pub static GENESIS_BLOCK_PARENTS: Lazy<TipsetKey> =
-    Lazy::new(|| nonempty![*FILECOIN_GENESIS_CID].into());
+#[cfg(test)]
+pub static GENESIS_BLOCK_PARENTS: once_cell::sync::Lazy<TipsetKey> =
+    once_cell::sync::Lazy::new(|| nonempty::nonempty![*FILECOIN_GENESIS_CID].into());
 
 #[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {
@@ -67,6 +68,7 @@ pub struct RawBlockHeader {
     pub parent_base_fee: TokenAmount,
 }
 
+#[cfg(test)]
 impl Default for RawBlockHeader {
     fn default() -> Self {
         Self {
@@ -215,7 +217,8 @@ impl RawBlockHeader {
 }
 
 /// A [`RawBlockHeader`] which caches calls to [`RawBlockHeader::cid`] and [`RawBlockHeader::verify_signature_against`]
-#[derive(Debug, Default)]
+#[cfg_attr(test, derive(Default))]
+#[derive(Debug)]
 pub struct CachingBlockHeader {
     uncached: RawBlockHeader,
     cid: OnceCell<Cid>,
