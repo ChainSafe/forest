@@ -17,7 +17,8 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use parking_lot::{Mutex, RwLock};
-use std::{io, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
+use tracing::debug;
 
 pub struct ManyCar<WriterT = MemoryDB> {
     shared_cache: Arc<Mutex<ZstdFrameCache>>,
@@ -54,7 +55,7 @@ impl<WriterT> ManyCar<WriterT> {
         self
     }
 
-    pub fn read_only<ReaderT: super::RandomAccessFileReader>(&self, any_car: AnyCar<ReaderT>) {
+    fn read_only<ReaderT: super::RandomAccessFileReader>(&self, any_car: AnyCar<ReaderT>) {
         let mut read_only = self.read_only.write();
         let key = read_only.len() as u64;
         read_only.push(
@@ -64,14 +65,29 @@ impl<WriterT> ManyCar<WriterT> {
         );
     }
 
-    pub fn with_read_only_files(self, files: impl Iterator<Item = PathBuf>) -> io::Result<Self> {
+    pub fn with_read_only_files(
+        self,
+        files: impl Iterator<Item = PathBuf>,
+    ) -> anyhow::Result<Self> {
         self.read_only_files(files)?;
         Ok(self)
     }
 
-    pub fn read_only_files(&self, files: impl Iterator<Item = PathBuf>) -> io::Result<()> {
+    pub fn read_only_files(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()> {
+        let mut cars = vec![];
         for file in files {
-            self.read_only(AnyCar::new(EitherMmapOrRandomAccessFile::open(file)?)?);
+            let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(&file)?)?;
+            debug!("Loaded car DB at {}", file.display());
+
+            let epoch = car.heaviest_tipset()?.epoch();
+            cars.push((car, epoch));
+        }
+
+        // Sort by descending epochs
+        cars.sort_by(|(_, a), (_, b)| b.cmp(a));
+
+        for (car, _) in cars {
+            self.read_only(car);
         }
 
         Ok(())
@@ -98,8 +114,8 @@ impl<ReaderT: super::RandomAccessFileReader> From<AnyCar<ReaderT>> for ManyCar<M
 }
 
 impl TryFrom<Vec<PathBuf>> for ManyCar<MemoryDB> {
-    type Error = io::Error;
-    fn try_from(files: Vec<PathBuf>) -> io::Result<Self> {
+    type Error = anyhow::Error;
+    fn try_from(files: Vec<PathBuf>) -> anyhow::Result<Self> {
         ManyCar::default().with_read_only_files(files.into_iter())
     }
 }

@@ -17,7 +17,7 @@ use std::{
     time,
 };
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tracing::info;
 use url::Url;
 use walkdir::WalkDir;
 
@@ -25,7 +25,7 @@ pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> 
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
     }
-    for file in WalkDir::new(forest_car_db_dir)
+    let iter = WalkDir::new(forest_car_db_dir)
         .max_depth(1)
         .into_iter()
         .filter_map(|entry| {
@@ -37,13 +37,8 @@ pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> 
                 }
             }
             None
-        })
-    {
-        let car = ForestCar::try_from(file.as_path())
-            .with_context(|| format!("Error loading car DB at {}", file.display()))?;
-        store.read_only(car.into());
-        debug!("Loaded car DB at {}", file.display());
-    }
+        });
+    store.read_only_files(iter)?;
 
     Ok(())
 }
