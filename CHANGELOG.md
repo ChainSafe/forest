@@ -30,7 +30,7 @@
 ### Added
 
 - [#3995](https://github.com/ChainSafe/forest/pull/3995) Add
-  `--p2p-listening-address` option to `forest` to override p2p addresses that
+  `--p2p-listen-address` option to `forest` to override p2p addresses that
   forest listens on
 
 ### Changed
