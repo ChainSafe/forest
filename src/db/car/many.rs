@@ -225,19 +225,21 @@ mod tests {
         assert!(many.heaviest_tipset().is_err());
     }
 
-    // #[test]
-    // fn many_car_idempotent() {
-    //     let many = ManyCar::new(MemoryDB::default())
-    //         .with_read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap())
-    //         .with_read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap());
-    //     assert_eq!(
-    //         many.heaviest_tipset().unwrap(),
-    //         AnyCar::try_from(mainnet::DEFAULT_GENESIS)
-    //             .unwrap()
-    //             .heaviest_tipset()
-    //             .unwrap()
-    //     );
-    // }
+    #[test]
+    fn many_car_idempotent() {
+        let many = ManyCar::new(MemoryDB::default())
+            .with_read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap())
+            .unwrap()
+            .with_read_only(AnyCar::try_from(mainnet::DEFAULT_GENESIS).unwrap())
+            .unwrap();
+        assert_eq!(
+            many.heaviest_tipset().unwrap(),
+            AnyCar::try_from(mainnet::DEFAULT_GENESIS)
+                .unwrap()
+                .heaviest_tipset()
+                .unwrap()
+        );
+    }
 
     #[test]
     fn many_car_calibnet_heaviest() {
