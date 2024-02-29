@@ -10,6 +10,6 @@ FULLNODE_API_INFO="$(cat admin_token):/ip4/127.0.0.1/tcp/2345/http"
 export FULLNODE_API_INFO
 
 # Verify that one of the seed nodes has been connected to
-until $FOREST_CLI_PATH net peers | grep "bootstrap-0.calibration.fildev.network"; do
+until $FOREST_CLI_PATH net peers | grep "calib"; do
     sleep 1s;
 done

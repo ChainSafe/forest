@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod cli;
@@ -20,8 +20,8 @@ pub fn chain_path(config: &Config) -> PathBuf {
 }
 
 pub fn read_config(
-    config_path_opt: &Option<String>,
-    chain_opt: &Option<NetworkChain>,
+    config_path_opt: Option<&PathBuf>,
+    chain_opt: Option<NetworkChain>,
 ) -> anyhow::Result<(Option<ConfigPath>, Config)> {
     let (path, mut config) = match find_config_path(config_path_opt) {
         Some(path) => {
@@ -33,7 +33,7 @@ pub fn read_config(
         None => (None, Config::default()),
     };
     if let Some(chain) = chain_opt {
-        config.chain = chain.clone();
+        config.chain = chain;
     }
     Ok((path, config))
 }
@@ -44,7 +44,7 @@ mod tests {
 
     #[test]
     fn read_config_default() {
-        let (config_path, config) = read_config(&None, &None).unwrap();
+        let (config_path, config) = read_config(None, None).unwrap();
 
         assert!(config_path.is_none());
         assert_eq!(config.chain, NetworkChain::Mainnet);
@@ -52,7 +52,7 @@ mod tests {
 
     #[test]
     fn read_config_calibnet_override() {
-        let (config_path, config) = read_config(&None, &Some(NetworkChain::Calibnet)).unwrap();
+        let (config_path, config) = read_config(None, Some(NetworkChain::Calibnet)).unwrap();
 
         assert!(config_path.is_none());
         assert_eq!(config.chain, NetworkChain::Calibnet);
@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn read_config_butterflynet_override() {
-        let (config_path, config) = read_config(&None, &Some(NetworkChain::Butterflynet)).unwrap();
+        let (config_path, config) = read_config(None, Some(NetworkChain::Butterflynet)).unwrap();
 
         assert!(config_path.is_none());
         assert_eq!(config.chain, NetworkChain::Butterflynet);
@@ -73,8 +73,7 @@ mod tests {
         let serialized_config = toml::to_string(&default_config).unwrap();
         std::fs::write(path.clone(), serialized_config).unwrap();
 
-        let (config_path, config) =
-            read_config(&Some(path.to_str().unwrap().into()), &None).unwrap();
+        let (config_path, config) = read_config(Some(&path), None).unwrap();
 
         assert_eq!(config_path.unwrap(), ConfigPath::Cli(path));
         assert_eq!(config.chain, NetworkChain::Mainnet);

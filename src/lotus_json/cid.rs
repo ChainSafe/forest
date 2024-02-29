@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -12,6 +12,7 @@ pub struct CidLotusJsonGeneric<const S: usize> {
 impl<const S: usize> HasLotusJson for ::cid::CidGeneric<S> {
     type LotusJson = CidLotusJsonGeneric<S>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only Cid<64> is tested, below")
     }

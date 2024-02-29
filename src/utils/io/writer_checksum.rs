@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::{pin::Pin, task::Poll};
 
@@ -35,6 +35,7 @@ impl<D: Digest, W: AsyncWriteExt> AsyncWrite for AsyncWriterWithChecksum<D, W> {
         if let Some(hasher) = &mut this.hasher {
             if let Poll::Ready(Ok(size)) = w {
                 if size > 0 {
+                    #[allow(clippy::indexing_slicing)]
                     hasher.update(&buf[..size]);
                 }
             }

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{io, marker::PhantomData, pin::Pin, task::Poll};
@@ -61,6 +61,7 @@ where
                 warn!("{err}");
                 return Poll::Ready(Err(err));
             }
+            #[allow(clippy::indexing_slicing)]
             this.bytes.extend_from_slice(&buf[..n.min(buf.len())]);
             // This is what `FramedRead` does internally
             // Assuming io will be re-used to send new messages.

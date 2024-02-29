@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::time::Duration;
@@ -28,7 +28,7 @@ pub const IGNORE_DRAND_VAR: &str = "IGNORE_DRAND";
 
 /// Type of the `drand` network. `mainnet` is chained and `quicknet` is unchained.
 /// For the details, see <https://github.com/filecoin-project/FIPs/blob/1bd887028ac1b50b6f2f94913e07ede73583da5b/FIPS/fip-0063.md#specification>
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum DrandNetwork {
     Mainnet,
     Quicknet,

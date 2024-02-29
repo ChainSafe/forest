@@ -1,7 +1,7 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use tracing::{info, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
     libp2p::Keypair,
@@ -14,7 +14,7 @@ const KEYPAIR_FILE: &str = "keypair";
 /// Returns the libp2p key-pair for the node, generating a new one if it doesn't exist
 /// in the data directory.
 pub fn get_or_create_keypair(data_dir: &Path) -> anyhow::Result<Keypair> {
-    match get_keypair(data_dir) {
+    match get_keypair(&data_dir.join(KEYPAIR_FILE)) {
         Some(keypair) => Ok(keypair),
         None => create_and_save_keypair(data_dir),
     }
@@ -43,9 +43,8 @@ fn create_and_save_keypair(path: &Path) -> anyhow::Result<Keypair> {
 }
 
 // Fetch key-pair from disk, returning none if it cannot be decoded.
-fn get_keypair(data_dir: &Path) -> Option<Keypair> {
-    let path_to_file = data_dir.join(KEYPAIR_FILE);
-    match read_file_to_vec(&path_to_file) {
+pub fn get_keypair(path_to_file: &Path) -> Option<Keypair> {
+    match read_file_to_vec(path_to_file) {
         Err(e) => {
             info!("Networking keystore not found!");
             trace!("Error {e}");
@@ -53,7 +52,7 @@ fn get_keypair(data_dir: &Path) -> Option<Keypair> {
         }
         Ok(mut vec) => match crate::libp2p::ed25519::Keypair::try_from_bytes(&mut vec) {
             Ok(kp) => {
-                info!("Recovered libp2p keypair from {}", path_to_file.display());
+                debug!("Recovered libp2p keypair from {}", path_to_file.display());
                 Some(kp.into())
             }
             Err(e) => {

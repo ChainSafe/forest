@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::shim::{
@@ -160,7 +160,11 @@ fn generate_winning_post_sector_challenge(
     eligible_sector_count: u64,
 ) -> Result<Vec<u64>, anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    rand.0[31] &= 0x3f;
+    if let Some(b31) = rand.0.get_mut(31) {
+        *b31 &= 0x3f;
+    } else {
+        anyhow::bail!("rand should have at least 32 bytes");
+    }
 
     post::generate_winning_post_sector_challenge(
         proof.try_into()?,

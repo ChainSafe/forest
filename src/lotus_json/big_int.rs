@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -8,6 +8,7 @@ use num::BigInt;
 impl HasLotusJson for BigInt {
     type LotusJson = Stringify<BigInt>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("1"), BigInt::from(1))]
     }

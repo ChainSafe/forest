@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -210,6 +210,7 @@ async fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> 
     .await??;
 
     let str_sum = hash.to_hex();
+    #[allow(clippy::indexing_slicing)]
     let str_sum = &str_sum[..32];
     if str_sum == info.digest {
         debug!("Parameter file {:?} is ok", path);

@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
@@ -10,6 +10,7 @@ where
 {
     type LotusJson = NonEmpty<<T as HasLotusJson>::LotusJson>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         unimplemented!("only NonEmpty<Cid> is tested, below")
     }

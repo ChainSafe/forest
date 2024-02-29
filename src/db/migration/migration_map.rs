@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
@@ -88,6 +88,7 @@ create_migrations!(
     "0.16.3" -> "0.16.4" @ MigrationVoid,
     "0.16.4" -> "0.16.5" @ MigrationVoid,
     "0.16.5" -> "0.16.6" @ MigrationVoid,
+    "0.16.6" -> "0.16.7" @ MigrationVoid,
 );
 
 pub struct Migration {

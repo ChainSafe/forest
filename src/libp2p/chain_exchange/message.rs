@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{convert::TryFrom, sync::Arc};
@@ -220,6 +220,10 @@ fn fts_from_bundle_parts(
             format!("Invalid formed Tipset bundle, lengths of includes does not match blocks. Header len: {}, bls_msg len: {}, secp_msg len: {}", headers.len(), bls_msg_includes.len(), secp_msg_includes.len()),
         );
     }
+    let zipped = headers
+        .into_iter()
+        .zip(bls_msg_includes.iter())
+        .zip(secp_msg_includes.iter());
 
     fn values_from_indexes<T: Clone>(indexes: &[u64], values: &[T]) -> Result<Vec<T>, String> {
         indexes
@@ -233,18 +237,17 @@ fn fts_from_bundle_parts(
             .collect()
     }
 
-    let blocks = headers
-        .into_iter()
+    let blocks = zipped
         .enumerate()
-        .map(|(i, header)| {
-            let message_count = bls_msg_includes[i].len() + secp_msg_includes[i].len();
+        .map(|(i, ((header, bls_msg_include), secp_msg_include))| {
+            let message_count = bls_msg_include.len() + secp_msg_include.len();
             if message_count > BLOCK_MESSAGE_LIMIT {
                 return Err(format!(
                     "Block {i} in bundle has too many messages ({message_count} > {BLOCK_MESSAGE_LIMIT})"
                 ));
             }
-            let bls_messages = values_from_indexes(&bls_msg_includes[i], bls_msgs)?;
-            let secp_messages = values_from_indexes(&secp_msg_includes[i], secp_msgs)?;
+            let bls_messages = values_from_indexes(bls_msg_include, bls_msgs)?;
+            let secp_messages = values_from_indexes(secp_msg_include, secp_msgs)?;
 
             Ok(Block {
                 header,

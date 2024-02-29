@@ -12,6 +12,8 @@ stop_services() {
     for port in "${PORTS[@]}"; do
         fuser -k "$port/tcp" || true
     done
+    # Remove downloaded snapshot file
+    rm -rf "$snapshot"
 }
 
 # Fetch latest calibnet snapshot

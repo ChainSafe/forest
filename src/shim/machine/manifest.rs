@@ -1,4 +1,4 @@
-// Copyright 2019-2023 ChainSafe Systems
+// Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 // Copyright 2021-2023 Protocol Labs
 // SPDX-License-Identifier: Apache-2.0, MIT
@@ -147,6 +147,7 @@ macro_rules! static_assert_contains_matching {
             'ok: {
                 while let Some(new_ix) = cur_ix.checked_sub(1) {
                     cur_ix = new_ix;
+                    #[allow(clippy::indexing_slicing)]
                     match slice[cur_ix] {
                         $must_match => break 'ok,
                         _ => continue,
