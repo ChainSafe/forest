@@ -51,14 +51,14 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Thunder,
             HeightInfo {
-                epoch: get_upgrade_height_from_env("FOREST_THUNDER_HEIGHT").unwrap_or(-1),
+                epoch: get_upgrade_height_from_env("FOREST_THUNDER_HEIGHT").unwrap_or(-23),
                 bundle: None,
             },
         ),
         (
             Height::Watermelon,
             HeightInfo {
-                epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(10),
+                epoch: get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-1),
                 bundle: Some(
                     Cid::try_from("bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o")
                         .unwrap(),

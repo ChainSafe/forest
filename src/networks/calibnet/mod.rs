@@ -7,7 +7,10 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
+use super::{
+    drand::DRAND_MAINNET, get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height,
+    HeightInfo,
+};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -191,10 +194,11 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 ),
             },
         ),
+        // TODO: This shouldn't be modifiable outside of testing
         (
             Height::Dragon,
             HeightInfo {
-                epoch: 1_413_574,
+                epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(1_427_974),
                 bundle: Some(
                     Cid::try_from("bafy2bzaceap46ftyyuhninmzelt2ev6kus5itrggszrk5wuhzf2khm47dtrfa")
                         .unwrap(),
