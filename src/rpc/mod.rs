@@ -80,7 +80,7 @@ where
         forest_version,
         shutdown_send,
     )
-    .map_err(map_rpc_err)?;
+    .map_err(to_rpc_err)?;
 
     let mut pubsub_module = FilRpcModule::default();
 
@@ -89,8 +89,8 @@ where
             let state_clone = state.clone();
             move |params| chain_api::chain_notify(params, &state_clone)
         })
-        .map_err(map_rpc_err)?;
-    module.merge(pubsub_module).map_err(map_rpc_err)?;
+        .map_err(to_rpc_err)?;
+    module.merge(pubsub_module).map_err(to_rpc_err)?;
 
     let (stop_handle, _handle) = stop_channel();
 
@@ -135,7 +135,7 @@ where
     hyper::Server::bind(&rpc_endpoint)
         .serve(make_service)
         .await
-        .map_err(map_rpc_err)?;
+        .map_err(to_rpc_err)?;
 
     info!("Stopped accepting RPC connections");
 
@@ -290,6 +290,6 @@ where
     Ok(())
 }
 
-fn map_rpc_err(e: impl Display) -> RpcError {
+fn to_rpc_err(e: impl Display) -> RpcError {
     RpcError::owned::<String>(RpcErrorCode::InternalError.code(), e.to_string(), None)
 }
