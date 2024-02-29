@@ -21,7 +21,6 @@ use parking_lot::{Mutex, RwLock};
 use std::cmp::Ord;
 use std::collections::BinaryHeap;
 use std::{path::PathBuf, sync::Arc};
-use tracing::debug;
 
 struct WithHeaviestEpoch {
     pub car: AnyCar<Box<dyn super::RandomAccessFileReader>>,
@@ -121,10 +120,7 @@ impl<WriterT> ManyCar<WriterT> {
 
     pub fn read_only_files(&self, files: impl Iterator<Item = PathBuf>) -> anyhow::Result<()> {
         for file in files {
-            let car = AnyCar::new(EitherMmapOrRandomAccessFile::open(&file)?)?;
-            debug!("Loaded car DB at {}", file.display());
-
-            self.read_only(car)?;
+            self.read_only(AnyCar::new(EitherMmapOrRandomAccessFile::open(file)?)?)?;
         }
 
         Ok(())
