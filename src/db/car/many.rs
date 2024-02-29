@@ -135,9 +135,10 @@ impl<WriterT> ManyCar<WriterT> {
     }
 }
 
-impl<ReaderT: super::RandomAccessFileReader> From<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
-    fn from(any_car: AnyCar<ReaderT>) -> Self {
-        ManyCar::default().with_read_only(any_car).unwrap()
+impl<ReaderT: super::RandomAccessFileReader> TryFrom<AnyCar<ReaderT>> for ManyCar<MemoryDB> {
+    type Error = anyhow::Error;
+    fn try_from(any_car: AnyCar<ReaderT>) -> anyhow::Result<Self> {
+        ManyCar::default().with_read_only(any_car)
     }
 }
 
@@ -235,7 +236,7 @@ mod tests {
 
     #[test]
     fn many_car_calibnet_heaviest() {
-        let many = ManyCar::from(AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap());
+        let many = ManyCar::try_from(AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap()).unwrap();
         let heaviest = many.heaviest_tipset().unwrap();
         assert_eq!(
             heaviest.min_ticket_block(),
