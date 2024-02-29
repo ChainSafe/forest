@@ -44,7 +44,7 @@ if [ $exit_code -ne 0 ]; then
 fi
 
 # Compare the ws endpoints
-$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http --n-tipsets 5 --ws
+$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/ws --lotus /ip4/127.0.0.1/tcp/8081/ws --n-tipsets 5 --ws
 exit_code=$?
 
 # Check the result
