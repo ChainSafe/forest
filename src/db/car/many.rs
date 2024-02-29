@@ -24,25 +24,22 @@ use std::{path::PathBuf, sync::Arc};
 
 struct WithHeaviestEpoch {
     pub car: AnyCar<Box<dyn super::RandomAccessFileReader>>,
-    pub heaviest_epoch: ChainEpoch,
+    epoch: ChainEpoch,
 }
 
 impl WithHeaviestEpoch {
     pub fn new(car: AnyCar<Box<dyn super::RandomAccessFileReader>>) -> anyhow::Result<Self> {
-        let heaviest_epoch = car
+        let epoch = car
             .heaviest_tipset()
             .context("store doesn't have a heaviest tipset")?
             .epoch();
-        Ok(Self {
-            car,
-            heaviest_epoch,
-        })
+        Ok(Self { car, epoch })
     }
 }
 
 impl Ord for WithHeaviestEpoch {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.heaviest_epoch.cmp(&other.heaviest_epoch)
+        self.epoch.cmp(&other.epoch)
     }
 }
 
@@ -56,7 +53,7 @@ impl PartialOrd for WithHeaviestEpoch {
 
 impl PartialEq for WithHeaviestEpoch {
     fn eq(&self, other: &Self) -> bool {
-        self.heaviest_epoch == other.heaviest_epoch
+        self.epoch == other.epoch
     }
 }
 
@@ -102,10 +99,11 @@ impl<WriterT> ManyCar<WriterT> {
         let mut read_only = self.read_only.write();
         let key = read_only.len() as u64;
 
-        let car = any_car
-            .with_cache(self.shared_cache.clone(), key)
-            .into_dyn();
-        read_only.push(WithHeaviestEpoch::new(car)?);
+        read_only.push(WithHeaviestEpoch::new(
+            any_car
+                .with_cache(self.shared_cache.clone(), key)
+                .into_dyn(),
+        )?);
 
         Ok(())
     }
