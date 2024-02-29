@@ -5,13 +5,11 @@ RUN apt-get update && apt-get install -y ca-certificates build-essential clang o
 
 WORKDIR /lotus
 
-RUN git clone --depth 1 --branch hm/drand-test https://github.com/hanabi1224/lotus.git .
+RUN git clone --depth 1 --branch feat/nv22 https://github.com/filecoin-project/lotus.git .
 
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \
-    make 2k
-
-RUN strip lotus*
+    make 2k && strip lotus*
 
 FROM ubuntu:22.04
 
