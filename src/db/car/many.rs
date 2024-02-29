@@ -126,18 +126,12 @@ impl<WriterT> ManyCar<WriterT> {
         Ok(())
     }
 
-    // TODO: update
     pub fn heaviest_tipset(&self) -> anyhow::Result<Tipset> {
-        let tipsets = self
-            .read_only
+        self.read_only
             .read()
-            .iter()
+            .peek()
             .map(|w| AnyCar::heaviest_tipset(&w.car))
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        tipsets
-            .into_iter()
-            .max_by_key(Tipset::epoch)
-            .context("ManyCar store doesn't have a heaviest tipset")
+            .context("ManyCar store doesn't have a heaviest tipset")?
     }
 }
 
