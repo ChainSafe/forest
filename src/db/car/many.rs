@@ -93,7 +93,7 @@ impl<WriterT> ManyCar<WriterT> {
         Ok(self)
     }
 
-    fn read_only<ReaderT: super::RandomAccessFileReader>(
+    pub fn read_only<ReaderT: super::RandomAccessFileReader>(
         &self,
         any_car: AnyCar<ReaderT>,
     ) -> anyhow::Result<()> {
