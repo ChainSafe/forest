@@ -30,7 +30,10 @@ struct WithHeaviestEpoch {
 
 impl WithHeaviestEpoch {
     pub fn new(car: AnyCar<Box<dyn super::RandomAccessFileReader>>) -> anyhow::Result<Self> {
-        let heaviest_epoch = car.heaviest_tipset()?.epoch();
+        let heaviest_epoch = car
+            .heaviest_tipset()
+            .context("store doesn't have a heaviest tipset")?
+            .epoch();
         Ok(Self {
             car,
             heaviest_epoch,
@@ -103,8 +106,7 @@ impl<WriterT> ManyCar<WriterT> {
         let car = any_car
             .with_cache(self.shared_cache.clone(), key)
             .into_dyn();
-        read_only
-            .push(WithHeaviestEpoch::new(car).context("store doesn't have a heaviest tipset")?);
+        read_only.push(WithHeaviestEpoch::new(car)?);
 
         Ok(())
     }
