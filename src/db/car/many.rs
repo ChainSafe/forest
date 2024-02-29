@@ -129,8 +129,7 @@ impl<WriterT: Blockstore> Blockstore for ManyCar<WriterT> {
             return Ok(Some(value));
         }
         for reader in self.read_only.read().iter() {
-            let opt = reader.get(k)?;
-            if let Some(val) = opt {
+            if let Some(val) = reader.get(k)? {
                 return Ok(Some(val));
             }
         }
