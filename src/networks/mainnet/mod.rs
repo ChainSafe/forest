@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
-    parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
@@ -198,6 +198,16 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 epoch: 3_469_380,
                 bundle: Some(
                     Cid::try_from("bafy2bzaceapkgfggvxyllnmuogtwasmsv5qi2qzhc2aybockd6kag2g5lzaio")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::Dragon,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(i64::MAX),
+                bundle: Some(
+                    Cid::try_from("bafy2bzacea6f5icdp6t6fs5sexjxmo3q5d2qu4g4ghq6s5eaob6svnmhvltmw")
                         .unwrap(),
                 ),
             },

@@ -43,6 +43,7 @@ where
                 (Height::Hygge, nv18::run_migration::<DB>),
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
         NetworkChain::Calibnet => {
@@ -53,6 +54,7 @@ where
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::WatermelonFix, nv21fix::run_migration::<DB>),
                 (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
