@@ -14,6 +14,7 @@ pub struct SignatureLotusJson {
 impl HasLotusJson for Signature {
     type LotusJson = SignatureLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({"Type": 2, "Data": "aGVsbG8gd29ybGQh"}),

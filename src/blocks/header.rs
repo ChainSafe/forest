@@ -109,6 +109,7 @@ impl RawBlockHeader {
                     )));
                 }
 
+                #[allow(clippy::indexing_slicing)]
                 curr_beacon
                     .verify_entries(&self.beacon_entries[1..], &self.beacon_entries[0])
                     .map_err(|e| Error::Validation(e.to_string()))?;
