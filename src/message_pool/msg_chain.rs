@@ -150,6 +150,7 @@ impl Chains {
 
     // Retrieves a msg chain node at the given index in the provided NodeKey vec
     pub(in crate::message_pool) fn get_from(&self, i: usize, vec: &[NodeKey]) -> &MsgChainNode {
+        #[allow(clippy::indexing_slicing)]
         self.map.get(vec[i]).unwrap()
     }
 
@@ -159,6 +160,7 @@ impl Chains {
         i: usize,
         vec: &[NodeKey],
     ) -> &mut MsgChainNode {
+        #[allow(clippy::indexing_slicing)]
         self.map.get_mut(vec[i]).unwrap()
     }
 
@@ -200,6 +202,7 @@ impl Chains {
         let mut i = chain_node.msgs.len() as i64 - 1;
 
         while i >= 0 && (chain_node.gas_limit > gas_limit || (chain_node.gas_perf < 0.0)) {
+            #[allow(clippy::indexing_slicing)]
             let msg = &chain_node.msgs[i as usize];
             let gas_reward = get_gas_reward(msg, base_fee);
             chain_node.gas_reward -= gas_reward;
@@ -271,6 +274,7 @@ impl Index<usize> for Chains {
 
 impl IndexMut<usize> for Chains {
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
+        #[allow(clippy::indexing_slicing)]
         self.map.get_mut(self.key_vec[i]).unwrap()
     }
 }
@@ -446,6 +450,7 @@ where
 
     // check we have a sane set of messages to construct the chains
     let msgs = if i > skip {
+        #[allow(clippy::indexing_slicing)]
         msgs[skip..i].to_vec()
     } else {
         return Ok(());

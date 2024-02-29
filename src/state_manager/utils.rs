@@ -160,7 +160,11 @@ fn generate_winning_post_sector_challenge(
     eligible_sector_count: u64,
 ) -> Result<Vec<u64>, anyhow::Error> {
     // Necessary to be valid bls12 381 element.
-    rand.0[31] &= 0x3f;
+    if let Some(b31) = rand.0.get_mut(31) {
+        *b31 &= 0x3f;
+    } else {
+        anyhow::bail!("rand should have at least 32 bytes");
+    }
 
     post::generate_winning_post_sector_challenge(
         proof.try_into()?,

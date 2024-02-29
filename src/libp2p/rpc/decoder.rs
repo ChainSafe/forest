@@ -61,6 +61,7 @@ where
                 warn!("{err}");
                 return Poll::Ready(Err(err));
             }
+            #[allow(clippy::indexing_slicing)]
             this.bytes.extend_from_slice(&buf[..n.min(buf.len())]);
             // This is what `FramedRead` does internally
             // Assuming io will be re-used to send new messages.

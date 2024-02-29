@@ -672,6 +672,7 @@ impl<'de, 'a, R: dec::Read<'de>> de::Deserializer<'de> for &'a mut CidDeserializ
                         Some((0, rest)) => visitor.visit_borrowed_bytes(rest),
                         _ => Err(DecodeError::Msg("Invalid CID".into())),
                     },
+                    #[allow(clippy::indexing_slicing)]
                     Cow::Owned(mut buf) => {
                         if buf.len() <= 1 || buf[0] != 0 {
                             Err(DecodeError::Msg("Invalid CID".into()))

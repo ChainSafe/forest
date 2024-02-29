@@ -266,8 +266,8 @@ impl MinerMigrator {
                 fil_actor_miner_state::v9::Deadlines::new(&policy, self.empty_deadline_v9_cid);
             for (i, c) in in_deadlines.due.iter().enumerate() {
                 if c == &self.empty_deadline_v8_cid {
-                    if i < out_deadlines.due.len() {
-                        out_deadlines.due[i] = *c;
+                    if let Some(due_i) = out_deadlines.due.get_mut(i) {
+                        *due_i = *c;
                     } else {
                         out_deadlines.due.push(*c);
                     }
@@ -313,8 +313,8 @@ impl MinerMigrator {
 
                     let out_deadline_cid = store.put_cbor_default(&out_deadline)?;
 
-                    if i < out_deadlines.due.len() {
-                        out_deadlines.due[i] = out_deadline_cid;
+                    if let Some(due_i) = out_deadlines.due.get_mut(i) {
+                        *due_i = out_deadline_cid;
                     } else {
                         out_deadlines.due.push(out_deadline_cid);
                     }

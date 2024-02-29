@@ -2,7 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 #![recursion_limit = "1024"]
-#![cfg_attr(not(test), deny(clippy::todo, clippy::dbg_macro))]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::todo,
+        clippy::dbg_macro,
+        clippy::indexing_slicing,
+        clippy::get_unwrap
+    )
+)]
 #![cfg_attr(
     doc,
     deny(rustdoc::all),

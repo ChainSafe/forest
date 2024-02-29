@@ -15,6 +15,7 @@ struct Inner(#[serde(with = "base64_standard")] Vec<u8>);
 impl HasLotusJson for Vec<u8> {
     type LotusJson = VecU8LotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![
             (json!("aGVsbG8gd29ybGQh"), Vec::from_iter(*b"hello world!")),

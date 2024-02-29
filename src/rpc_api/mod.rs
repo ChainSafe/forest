@@ -9,6 +9,8 @@
 //!
 //! Future work:
 //! - Have an `RpcEndpoint` trait.
+use crate::rpc::CANCEL_METHOD_NAME;
+
 use ahash::{HashMap, HashMapExt};
 use once_cell::sync::Lazy;
 
@@ -146,6 +148,10 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
     access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
+
+    // Pubsub API
+    access.insert(CANCEL_METHOD_NAME, Access::Read);
+
     access
 });
 
@@ -192,7 +198,9 @@ pub mod chain_api {
     use std::{path::PathBuf, sync::Arc};
 
     use super::data_types::ApiTipsetKey;
-    use crate::blocks::{RawBlockHeader, Tipset};
+    #[cfg(test)]
+    use crate::blocks::RawBlockHeader;
+    use crate::blocks::Tipset;
     use crate::lotus_json::lotus_json_with_self;
     #[cfg(test)]
     use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
@@ -244,6 +252,7 @@ pub mod chain_api {
     impl HasLotusJson for PathChange {
         type LotusJson = PathChange<LotusJson<Tipset>>;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             use serde_json::json;
             vec![(
@@ -525,6 +534,7 @@ pub mod eth_api {
         pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
             if self.is_masked_id() {
                 // This is a masked ID address.
+                #[allow(clippy::indexing_slicing)]
                 let bytes: [u8; 8] =
                     core::array::from_fn(|i| self.0.as_fixed_bytes()[MASKED_ID_PREFIX.len() + i]);
                 Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
@@ -612,6 +622,7 @@ pub mod eth_api {
     impl HasLotusJson for BlockNumberOrHash {
         type LotusJson = String;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             vec![]
         }
@@ -632,6 +643,7 @@ pub mod eth_api {
                 _ => (),
             };
 
+            #[allow(clippy::indexing_slicing)]
             if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
                 if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
                     return Self::BlockNumber(number);

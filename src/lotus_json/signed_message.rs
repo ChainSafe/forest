@@ -26,6 +26,7 @@ impl SignedMessageLotusJson {
 impl HasLotusJson for SignedMessage {
     type LotusJson = SignedMessageLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({

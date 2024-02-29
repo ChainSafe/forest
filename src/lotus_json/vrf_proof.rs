@@ -8,6 +8,7 @@ use super::*;
 impl HasLotusJson for VRFProof {
     type LotusJson = LotusJson<Vec<u8>>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!("aGVsbG8gd29ybGQh"),

@@ -8,6 +8,7 @@ use num::BigInt;
 impl HasLotusJson for BigInt {
     type LotusJson = Stringify<BigInt>;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(json!("1"), BigInt::from(1))]
     }
