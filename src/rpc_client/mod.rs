@@ -36,8 +36,8 @@ pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
-pub const DEFAULT_PROTOCOL: &str = "http";
-pub const WEBSOCKET_PROTOCOL: &str = "ws";
+pub const HTTP_PROTOCOL: &str = "http";
+pub const WS_PROTOCOL: &str = "ws";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug)]
@@ -102,7 +102,8 @@ impl ApiInfo {
             .with_id(0)
             .finish();
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, false).to_string();
+        let api_url =
+            multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, ComProtocol::Http).to_string();
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -159,7 +160,7 @@ impl ApiInfo {
 
         let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, true);
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, ComProtocol::Ws);
 
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
@@ -319,16 +320,21 @@ impl fmt::Display for Url {
     }
 }
 
+// The communication protocol
+enum ComProtocol {
+    Http,
+    Ws,
+}
+
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str, use_websocket: bool) -> Url {
+fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str, com_protocol: ComProtocol) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: (if use_websocket {
-                WEBSOCKET_PROTOCOL
-            } else {
-                DEFAULT_PROTOCOL
-            })
+            protocol: match com_protocol {
+                ComProtocol::Http => HTTP_PROTOCOL,
+                ComProtocol::Ws => WS_PROTOCOL,
+            }
             .to_owned(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
