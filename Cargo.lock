@@ -1061,7 +1061,7 @@ dependencies = [
  "bitflags 2.4.2",
  "boa_interner",
  "boa_macros",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "num-bigint",
  "rustc-hash",
 ]
@@ -1084,7 +1084,7 @@ dependencies = [
  "dashmap",
  "fast-float",
  "icu_normalizer",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "itertools 0.11.0",
  "num-bigint",
  "num-integer",
@@ -1140,7 +1140,7 @@ dependencies = [
  "boa_gc",
  "boa_macros",
  "hashbrown 0.14.3",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "once_cell",
  "phf",
  "rustc-hash",
@@ -2946,7 +2946,7 @@ dependencies = [
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
  "fvm_shared 4.1.2",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "integer-encoding",
  "num-derive",
  "num-traits",
@@ -3295,7 +3295,7 @@ dependencies = [
  "human_bytes",
  "humantime",
  "hyper 0.14.28",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "indicatif",
  "integer-encoding",
  "is-terminal",
@@ -4151,7 +4151,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.11",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "slab",
  "tokio",
  "tokio-util",
@@ -4170,7 +4170,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 1.0.0",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "slab",
  "tokio",
  "tokio-util",
@@ -4808,9 +4808,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.2.4"
+version = "2.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "967d6dd42f16dbf0eb8040cb9e477933562684d3918f7d253f2ff9087fb3e7a3"
+checksum = "7b0b929d511467233429c45a44ac1dcaa21ba0f5ba11e4879e6ed28ddb4f9df4"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
@@ -6843,7 +6843,7 @@ checksum = "f0a21c30f03223ae4a4c892f077b3189133689b8a659a84372f8422384ce94c9"
 dependencies = [
  "deprecate-until",
  "fixedbitset",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "integer-sqrt",
  "num-traits",
  "rustc-hash",
@@ -6901,7 +6901,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
 ]
 
 [[package]]
@@ -7568,7 +7568,7 @@ checksum = "114a62fd597ec71fd75a1c707ca30354749f66b4b1053e79fc79741a16948ebe"
 dependencies = [
  "cov-mark",
  "either",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "itertools 0.12.1",
  "once_cell",
  "ra-ap-rustc_lexer",
@@ -8430,7 +8430,7 @@ dependencies = [
  "chrono",
  "hex",
  "indexmap 1.9.3",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "serde",
  "serde_derive",
  "serde_json",
@@ -8456,7 +8456,7 @@ version = "0.9.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fd075d994154d4a774f95b51fb96bdc2832b0ea48425c92546073816cda1f2f"
 dependencies = [
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "itoa",
  "ryu",
  "serde",
@@ -9470,7 +9470,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "toml_datetime",
  "winnow",
 ]
@@ -9481,7 +9481,7 @@ version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "396e4d48bbb2b7554c944bde63101b5ae446cff6ec4a24227428f15eb72ef338"
 dependencies = [
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "serde",
  "serde_spanned",
  "toml_datetime",
@@ -10051,7 +10051,7 @@ version = "0.110.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dfcdb72d96f01e6c85b6bf20102e7423bdbaad5c337301bab2bbf253d26413c"
 dependencies = [
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "semver",
 ]
 
@@ -10062,7 +10062,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9dbe55c8f9d0dbd25d9447a5a889ff90c0cc3feaa7395310d3d826b2c703eaab"
 dependencies = [
  "bitflags 2.4.2",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "semver",
 ]
 
@@ -10087,7 +10087,7 @@ dependencies = [
  "bumpalo",
  "cfg-if",
  "fxprof-processed-profile",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "libc",
  "log",
  "object 0.31.1",
@@ -10165,7 +10165,7 @@ dependencies = [
  "anyhow",
  "cranelift-entity",
  "gimli 0.27.3",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "log",
  "object 0.31.1",
  "serde",
@@ -10229,7 +10229,7 @@ dependencies = [
  "anyhow",
  "cc",
  "cfg-if",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "libc",
  "log",
  "mach",
