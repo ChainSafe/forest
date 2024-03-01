@@ -746,8 +746,12 @@ fn websocket_tests() -> Vec<RpcTest> {
     vec![test]
 }
 
-// Sanity check `ApiInfo` args
-fn validate_protocols(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<()> {
+// Sanity check `ApiInfo` and `ApiTestFlags` args
+fn validate_protocols(
+    forest: &ApiInfo,
+    lotus: &ApiInfo,
+    config: &ApiTestFlags,
+) -> anyhow::Result<()> {
     let a = forest.multiaddr.clone().pop().map(|p| p.tag());
     let b = lotus.multiaddr.clone().pop().map(|p| p.tag());
 
@@ -756,6 +760,9 @@ fn validate_protocols(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<()> {
         (Some("ws"), Some(x)) if x != "ws" => false,
         (Some(x), Some("http")) if x != "http" => false,
         (Some(x), Some("ws")) if x != "ws" => false,
+        (Some("http"), Some("http")) if config.use_websocket => {
+            bail!("can't use http communication when `--ws` flag is used")
+        }
         _ => true,
     };
     if !is_valid {
@@ -788,7 +795,7 @@ async fn compare_apis(
     snapshot_files: Vec<PathBuf>,
     config: ApiTestFlags,
 ) -> anyhow::Result<()> {
-    validate_protocols(&forest, &lotus)?;
+    validate_protocols(&forest, &lotus, &config)?;
 
     let mut tests = vec![];
 
