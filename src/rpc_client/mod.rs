@@ -37,6 +37,7 @@ pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
 pub const DEFAULT_PROTOCOL: &str = "http";
+pub const WEBSOCKET_PROTOCOL: &str = "ws";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug)]
@@ -91,14 +92,17 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
-    pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+    pub async fn call<T: HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
         let rpc_req = RequestObject::request()
             .with_method(req.method_name)
             .with_params(req.params)
             .with_id(0)
             .finish();
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint).to_string();
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, false).to_string();
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -134,13 +138,19 @@ impl ApiInfo {
         }
         let rpc_res: JsonRpcResponse<T::LotusJson> = response.json().await?;
 
-        match rpc_res {
+        let resp = match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
             JsonRpcResponse::Error { error, .. } => Err(error),
-        }
+        };
+
+        tracing::debug!("Response: {:?}", resp);
+        resp
     }
 
-    pub async fn ws_call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+    pub async fn ws_call<T: HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
         let rpc_req = RequestObject::request()
             .with_method(req.method_name)
             .with_params(req.params)
@@ -149,7 +159,7 @@ impl ApiInfo {
 
         let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, true);
 
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
 
@@ -174,7 +184,7 @@ impl ApiInfo {
 
         write.send(WsMessage::Binary(payload)).await?;
 
-        match tokio::time::timeout(req.timeout, read.next()).await {
+        let resp = match tokio::time::timeout(req.timeout, read.next()).await {
             Ok(v) => {
                 if let Some(message) = v {
                     let data = message?.into_data();
@@ -192,7 +202,10 @@ impl ApiInfo {
                 }
             }
             Err(_) => Err(JsonRpcError::TIMED_OUT),
-        }
+        };
+
+        tracing::debug!("Response: {:?}", resp);
+        resp
     }
 }
 
@@ -307,11 +320,16 @@ impl fmt::Display for Url {
 }
 
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> Url {
+fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str, use_websocket: bool) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: DEFAULT_PROTOCOL.to_owned(),
+            protocol: (if use_websocket {
+                WEBSOCKET_PROTOCOL
+            } else {
+                DEFAULT_PROTOCOL
+            })
+            .to_owned(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
             endpoint: endpoint.into(),

@@ -30,7 +30,7 @@ use crate::utils::db::car_util::load_car;
 use crate::utils::version::FOREST_VERSION_STRING;
 use crate::Client;
 use ahash::HashMap;
-use anyhow::Context as _;
+use anyhow::{bail, Context as _};
 use clap::{Subcommand, ValueEnum};
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
@@ -78,10 +78,10 @@ pub enum ApiCommands {
     /// Compare
     Compare {
         /// Forest address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible"))]
+        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345").expect("infallible"))]
         forest: ApiInfo,
         /// Lotus address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible"))]
+        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234").expect("infallible"))]
         lotus: ApiInfo,
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg()]
@@ -746,6 +746,24 @@ fn websocket_tests() -> Vec<RpcTest> {
     vec![test]
 }
 
+// Sanity check `ApiInfo` args
+fn validate_protocols(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<()> {
+    let a = forest.multiaddr.clone().pop().map(|p| p.tag());
+    let b = lotus.multiaddr.clone().pop().map(|p| p.tag());
+
+    let is_valid = match (a, b) {
+        (Some("http"), Some(x)) if x != "http" => false,
+        (Some("ws"), Some(x)) if x != "ws" => false,
+        (Some(x), Some("http")) if x != "http" => false,
+        (Some(x), Some("ws")) if x != "ws" => false,
+        _ => true,
+    };
+    if !is_valid {
+        bail!("communication protocols mismatch: {:?} != {:?}", a, b);
+    }
+    Ok(())
+}
+
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
 /// but other nodes may be used (such as `venus`). The `lotus` node is assumed
 /// to be correct and the `forest` node will be marked as incorrect if it
@@ -770,6 +788,8 @@ async fn compare_apis(
     snapshot_files: Vec<PathBuf>,
     config: ApiTestFlags,
 ) -> anyhow::Result<()> {
+    validate_protocols(&forest, &lotus)?;
+
     let mut tests = vec![];
 
     tests.extend(common_tests());
