@@ -1,7 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, future::Future, sync::Arc};
+use std::ops::DerefMut;
+use std::{collections::VecDeque, future::Future, mem, sync::Arc};
 
 use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
@@ -363,18 +364,21 @@ pin_project! {
         queue: Vec<Cid>,
         fail_on_dead_links: bool,
     }
+
+    impl<DB, T> PinnedDrop for UnorderedChainStream<DB, T> {
+        fn drop(this: Pin<&mut Self>) {
+           this.worker_handle.abort()
+        }
+    }
 }
 
 impl<DB, T> UnorderedChainStream<DB, T> {
     pub fn into_seen(self) -> CidHashSet {
-        match Arc::try_unwrap(self.seen) {
-            Ok(v) => v.into_inner(),
-            Err(v) => v.lock().clone(),
-        }
-    }
-
-    pub async fn join_workers(self) -> anyhow::Result<()> {
-        self.worker_handle.await?
+        let mut set = CidHashSet::new();
+        let mut guard = self.seen.lock();
+        let data = guard.deref_mut();
+        mem::swap(data, &mut set);
+        set
     }
 }
 
@@ -476,7 +480,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(cid) = extract_receiver.recv_async().await {
+                    'main: while let Ok(cid) = extract_receiver.recv_async().await {
                         let mut cid_vec = vec![cid];
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
@@ -485,14 +489,16 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                         let mut new_values = extract_cids(&data)?;
                                         cid_vec.append(&mut new_values);
                                     }
-                                    block_sender
-                                        .send(Ok(CarBlock { cid, data }))
-                                        .expect("unreachable");
+                                    // Break out of the loop if the receiving end quit.
+                                    if block_sender.send(Ok(CarBlock { cid, data })).is_err() {
+                                        break 'main;
+                                    }
                                 } else if fail_on_dead_links {
-                                    block_sender
-                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)))
-                                        .expect("unreachable");
-                                    break;
+                                    // If the receiving end has already quit - just ignore it and
+                                    // break out of the loop.
+                                    let _ = block_sender
+                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)));
+                                    break 'main;
                                 }
                             }
                         }
