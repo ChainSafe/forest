@@ -41,7 +41,7 @@ pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> 
     {
         let car = ForestCar::try_from(file.as_path())
             .with_context(|| format!("Error loading car DB at {}", file.display()))?;
-        store.read_only(car.into());
+        store.read_only(car.into())?;
         debug!("Loaded car DB at {}", file.display());
     }
 
