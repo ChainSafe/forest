@@ -13,6 +13,7 @@ mod gas_api;
 mod mpool_api;
 mod net_api;
 mod node_api;
+mod reflect;
 mod state_api;
 mod sync_api;
 mod wallet_api;

@@ -161,6 +161,7 @@ reqwest = { version = "0.11.24", default-features = false, features = [
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
 rustyline = "13"
+schemars = "0.8.16"
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
