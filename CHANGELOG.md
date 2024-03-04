@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
+  query optimizations when serving with many car files.
+
 ### Changed
 
 ### Removed
