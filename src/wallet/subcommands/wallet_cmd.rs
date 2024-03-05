@@ -391,8 +391,6 @@ impl WalletCommands {
                     .into()
                 };
 
-                dbg!(&from);
-
                 let message = Message {
                     from,
                     to: StrictAddress::from_str(&target_address)?.into(),
@@ -414,11 +412,7 @@ impl WalletCommands {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    dbg!(&message.gas_limit);
-
                     message.sequence = api.mpool_get_nonce(from).await?;
-
-                    dbg!(&message.sequence);
 
                     let key = crate::key_management::find_key(&from, &keystore)?;
                     let sig = crate::key_management::sign(
@@ -428,7 +422,6 @@ impl WalletCommands {
                     )?;
 
                     let smsg = SignedMessage::new_from_parts(message, sig)?;
-                    dbg!(&smsg);
                     api.mpool_push(smsg.clone()).await?;
                     smsg
                 } else {

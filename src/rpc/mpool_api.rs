@@ -109,7 +109,6 @@ pub async fn mpool_push<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    dbg!("Got mpool push request");
     let LotusJson((signed_message,)) = params.parse()?;
 
     let cid = data.mpool.as_ref().push(signed_message).await?;
