@@ -422,10 +422,7 @@ impl FullTipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key.get_or_init(|| {
-            TipsetKey::from(NonEmpty {
-                head: *self.blocks.head.cid(),
-                tail: self.blocks.tail.iter().map(Block::cid).copied().collect(),
-            })
+            TipsetKey::from(self.blocks.map(Block::cid))
         })
     }
     /// Returns the state root for the tipset parent.
