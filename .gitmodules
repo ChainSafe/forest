@@ -1,6 +1,0 @@
-[submodule "tests/serialization_tests/serialization-vectors"]
-	path = serialization-vectors
-	url = https://github.com/filecoin-project/serialization-vectors.git
-[submodule "ipld/tests/ipld-traversal-vectors"]
-	path = ipld/tests/ipld-traversal-vectors
-	url = https://github.com/ChainSafe/ipld-traversal-vectors.git
