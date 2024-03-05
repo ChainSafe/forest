@@ -19,7 +19,7 @@ async-trait = "0.1"
 asynchronous-codec = "0.6"
 axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
-base64 = "0.21"
+base64 = "0.22"
 bigdecimal = "0.4.0"
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
@@ -88,7 +88,7 @@ humantime = "2.1.0"
 # TODO(aatifsyed): bump this to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
 # Tracking issue: https://github.com/ChainSafe/forest/issues/3961
 hyper = { version = "0.14", features = ["full"] }
-indexmap = { version = "2.1", features = ["serde"] }
+indexmap = { version = "2.2", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
@@ -129,7 +129,7 @@ mimalloc = { version = "0.1.39", optional = true, default-features = false }
 multiaddr = "0.18"
 multimap = "0.10.0"
 nom = "7.1.3"
-nonempty = { version = "0.9.0", features = ["serialize"] }
+nonempty = { version = "0.10", features = ["serialize"] }
 nonzero_ext = "0.3.0"
 num = "0.4.0"
 num-bigint = "0.4"
@@ -225,9 +225,9 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.202"
+ra_ap_syntax = "0.0.204"
 regex-automata = "0.4"
-syn = { version = "2.0.51", default-features = false, features = [
+syn = { version = "2.0.52", default-features = false, features = [
   "full",
   "parsing",
   "visit",
