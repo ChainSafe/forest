@@ -76,20 +76,7 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 
 create_migrations!(
     "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
-    "0.13.0" -> "0.14.0" @ MigrationVoid,
-    "0.14.0" -> "0.14.1" @ MigrationVoid,
-    "0.14.1" -> "0.15.0" @ MigrationVoid,
-    "0.15.0" -> "0.15.1" @ MigrationVoid,
-    "0.15.1" -> "0.15.2" @ MigrationVoid,
     "0.15.2" -> "0.16.0" @ Migration0_15_2_0_16_0,
-    "0.16.0" -> "0.16.1" @ MigrationVoid,
-    "0.16.1" -> "0.16.2" @ MigrationVoid,
-    "0.16.2" -> "0.16.3" @ MigrationVoid,
-    "0.16.3" -> "0.16.4" @ MigrationVoid,
-    "0.16.4" -> "0.16.5" @ MigrationVoid,
-    "0.16.5" -> "0.16.6" @ MigrationVoid,
-    "0.16.6" -> "0.16.7" @ MigrationVoid,
-    "0.16.7" -> "0.16.8" @ MigrationVoid,
 );
 
 pub struct Migration {
@@ -151,7 +138,9 @@ pub(super) fn create_migration_chain(
     start: &Version,
     goal: &Version,
 ) -> anyhow::Result<Vec<Migration>> {
-    create_migration_chain_from_migrations(start, goal, &MIGRATIONS)
+    create_migration_chain_from_migrations(start, goal, &MIGRATIONS, |from, to| {
+        Arc::new(MigrationVoid::new(from.clone(), to.clone()))
+    })
 }
 
 /// Same as [`create_migration_chain`], but uses any provided migrations map.
@@ -159,13 +148,24 @@ fn create_migration_chain_from_migrations(
     start: &Version,
     goal: &Version,
     migrations_map: &MigrationsMap,
+    void_migration: impl Fn(&Version, &Version) -> Arc<dyn MigrationOperation + Send + Sync>,
 ) -> anyhow::Result<Vec<Migration>> {
+    let sorted_from_versions = migrations_map.keys().sorted().collect_vec();
     let result = pathfinding::directed::bfs::bfs(
         start,
         |from| {
             if let Some(migrations) = migrations_map.get_vec(from) {
-                migrations.iter().map(|(to, _)| to.clone()).collect()
+                migrations.iter().map(|(to, _)| to).cloned().collect()
+            } else if let Some(&next) =
+                sorted_from_versions.get(sorted_from_versions.partition_point(|&i| i <= from))
+            {
+                // Jump straight to the next smallest from version in the migration map
+                vec![next.clone()]
+            } else if goal > from {
+                // Or to the goal
+                vec![goal.clone()]
             } else {
+                // Or fail for downgrading
                 vec![]
             }
         },
@@ -177,12 +177,18 @@ fn create_migration_chain_from_migrations(
     .map(|(from, to)| {
         let migrator = migrations_map
             .get_vec(from)
-            .expect("Migration must exist")
-            .iter()
-            .find(|(version, _)| version == to)
-            .expect("Migration must exist")
-            .1
-            .clone();
+            .map(|v| {
+                v.iter()
+                    .find_map(|(version, migration)| {
+                        if version == to {
+                            Some(migration.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .expect("Migration must exist")
+            })
+            .unwrap_or_else(|| void_migration(from, to));
 
         Migration {
             from: from.clone(),
@@ -264,7 +270,7 @@ mod tests {
     fn test_migration_down_not_possible() {
         // This test ensures that it is not possible to migrate down from the latest version.
         // This is not a strict requirement and we may want to allow this in the future.
-        let current_version = &FOREST_VERSION;
+        let current_version = &*FOREST_VERSION;
 
         for (from, _) in MIGRATIONS.iter_all() {
             let migrations = create_migration_chain(current_version, from);
@@ -321,6 +327,7 @@ mod tests {
             &Version::new(0, 1, 0),
             &Version::new(0, 3, 0),
             &migrations,
+            |_, _| unimplemented!("void migration"),
         )
         .unwrap();
 
@@ -359,6 +366,7 @@ mod tests {
             &Version::new(0, 1, 0),
             &Version::new(0, 3, 1),
             &migrations,
+            |_, _| unimplemented!("void migration"),
         )
         .unwrap();
 
@@ -368,6 +376,44 @@ mod tests {
         assert_eq!(Version::new(0, 3, 0), migrations[0].to);
         assert_eq!(Version::new(0, 3, 0), migrations[1].from);
         assert_eq!(Version::new(0, 3, 1), migrations[1].to);
+    }
+
+    #[test]
+    fn test_void_migration() {
+        let migrations = MigrationsMap::from_iter(
+            [
+                (
+                    Version::new(0, 12, 1),
+                    (Version::new(0, 13, 0), Arc::new(EmptyMigration) as _),
+                ),
+                (
+                    Version::new(0, 15, 2),
+                    (Version::new(0, 16, 0), Arc::new(EmptyMigration) as _),
+                ),
+            ]
+            .iter()
+            .cloned(),
+        );
+
+        let start = Version::new(0, 12, 0);
+        let goal = Version::new(1, 0, 0);
+        let migrations =
+            create_migration_chain_from_migrations(&start, &goal, &migrations, |_, _| {
+                Arc::new(EmptyMigration)
+            })
+            .unwrap();
+
+        // The shortest path is 0.12.0 -> 0.12.1 -> 0.13.0 -> 0.15.2 -> 0.16.0 -> 1.0.0
+        assert_eq!(5, migrations.len());
+        for (a, b) in migrations.iter().zip(migrations.iter().skip(1)) {
+            assert_eq!(a.to, b.from);
+        }
+        assert_eq!(start, migrations[0].from);
+        assert_eq!(Version::new(0, 12, 1), migrations[1].from);
+        assert_eq!(Version::new(0, 13, 0), migrations[2].from);
+        assert_eq!(Version::new(0, 15, 2), migrations[3].from);
+        assert_eq!(Version::new(0, 16, 0), migrations[4].from);
+        assert_eq!(goal, migrations[4].to);
     }
 
     #[test]
@@ -399,6 +445,7 @@ mod tests {
             &Version::new(0, 1, 0),
             &Version::new(0, 4, 0),
             &migrations,
+            |_, _| unimplemented!("void migration"),
         )
         .unwrap();
 
