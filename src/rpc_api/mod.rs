@@ -58,7 +58,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Message Pool API
     access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
-    access.insert(mpool_api::MPOOL_PUSH, Access::Write);
+    access.insert(mpool_api::MPOOL_PUSH, Access::Read);
     access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
 
     // Sync API
