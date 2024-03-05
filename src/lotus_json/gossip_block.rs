@@ -17,6 +17,7 @@ pub struct GossipBlockLotusJson {
 impl HasLotusJson for GossipBlock {
     type LotusJson = GossipBlockLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         use serde_json::json;
 

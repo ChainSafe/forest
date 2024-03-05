@@ -19,6 +19,7 @@ pub struct ActorStateLotusJson {
 impl HasLotusJson for ActorState {
     type LotusJson = ActorStateLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({

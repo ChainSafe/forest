@@ -9,6 +9,7 @@ use super::*;
 impl HasLotusJson for RegisteredPoStProof {
     type LotusJson = i64;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!(0),

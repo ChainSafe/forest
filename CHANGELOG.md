@@ -29,11 +29,25 @@
 
 ### Added
 
+- [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
+  query optimizations when serving with many car files.
+
+- [#3995](https://github.com/ChainSafe/forest/pull/3995) Add
+  `--p2p-listen-address` option to `forest` to override p2p addresses that
+  forest listens on
+
 ### Changed
 
 ### Removed
 
 ### Fixed
+
+## Forest 0.16.8 "English Channel"
+
+### Added
+
+- [#3978](https://github.com/ChainSafe/forest/pull/3978) Add support for the
+  `Filecoin.ChainNotify` RPC method.
 
 ## Forest 0.16.7 "Etaoin shrdlu"
 

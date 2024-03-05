@@ -14,6 +14,7 @@ pub struct TicketLotusJson {
 impl HasLotusJson for Ticket {
     type LotusJson = TicketLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![(
             json!({"VRFProof": "aGVsbG8gd29ybGQh"}),

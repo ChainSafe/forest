@@ -193,9 +193,6 @@ cargo install cargo-nextest --locked
 # To run base tests
 cargo nextest run # use `make test-release` for longer compilation but faster execution
 
-# To pull serialization vectors submodule and run serialization tests
-make test-vectors
-
 # To run all tests and all features enabled
 make test-all
 ```

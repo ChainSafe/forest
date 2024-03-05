@@ -20,6 +20,7 @@ pub struct ReceiptLotusJson {
 impl HasLotusJson for Receipt {
     type LotusJson = ReceiptLotusJson;
 
+    #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![
             (

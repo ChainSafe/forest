@@ -211,8 +211,8 @@ impl MinerMigrator {
 
         for (i, deadline) in in_deadlines.due.iter().enumerate() {
             if deadline == &self.empty_deadline_v11 {
-                if i < out_deadlines.due.len() {
-                    out_deadlines.due[i] = self.empty_deadline_v12;
+                if let Some(due_i) = out_deadlines.due.get_mut(i) {
+                    *due_i = self.empty_deadline_v12;
                 } else {
                     out_deadlines.due.push(self.empty_deadline_v12);
                 }
@@ -267,8 +267,8 @@ impl MinerMigrator {
                 };
 
                 let out_deadline = store.put_cbor_default(&out_deadline)?;
-                if i < out_deadlines.due.len() {
-                    out_deadlines.due[i] = out_deadline;
+                if let Some(due_i) = out_deadlines.due.get_mut(i) {
+                    *due_i = out_deadline;
                 } else {
                     out_deadlines.due.push(out_deadline);
                 }

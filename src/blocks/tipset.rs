@@ -511,6 +511,7 @@ mod lotus_json {
     impl HasLotusJson for Tipset {
         type LotusJson = TipsetLotusJson;
 
+        #[cfg(test)]
         fn snapshots() -> Vec<(serde_json::Value, Self)> {
             use serde_json::json;
             vec![(
