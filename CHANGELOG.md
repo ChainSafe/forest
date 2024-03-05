@@ -32,6 +32,10 @@
 - [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
   query optimizations when serving with many car files.
 
+- [#3995](https://github.com/ChainSafe/forest/pull/3995) Add
+  `--p2p-listen-address` option to `forest` to override p2p addresses that
+  forest listens on
+
 ### Changed
 
 ### Removed
