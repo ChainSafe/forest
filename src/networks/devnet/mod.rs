@@ -70,7 +70,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             HeightInfo {
                 epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(20),
                 bundle: Some(
-                    Cid::try_from("bafy2bzacedok4fxofxdwkv42whkkukf3g4jwevui4kk5bw7b5unx4t3tjlrya")
+                    Cid::try_from("bafy2bzaceap34qfq4emg4fp3xd7bxtzt7pvkaj37kunqm2ccvttchtlljw7d4")
                         .unwrap(),
                 ),
             },

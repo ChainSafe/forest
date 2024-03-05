@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y ca-certificates build-essential clang o
 
 WORKDIR /lotus
 
-RUN git clone --depth 1 --branch asr/migration-nv22 https://github.com/filecoin-project/lotus.git .
+RUN git clone --depth 1 --branch release/v1.26.0 https://github.com/filecoin-project/lotus.git .
 
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \

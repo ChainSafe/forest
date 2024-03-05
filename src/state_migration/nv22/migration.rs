@@ -29,15 +29,13 @@ impl<BS: Blockstore> StateMigration<BS> {
         store: &Arc<BS>,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
-        _chain_config: &ChainConfig,
+        chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
-        // TODO: Use the correct epoch for the upgrade once it's fixed in Lotus
-        //let upgrade_epoch = chain_config
-        //    .height_infos
-        //    .get(&Height::Dragon)
-        //    .context("no height info for network version NV22")?
-        //    .epoch;
-        let upgrade_epoch = 3654004;
+        let upgrade_epoch = chain_config
+            .height_infos
+            .get(&Height::Dragon)
+            .context("no height info for network version NV22")?
+            .epoch;
 
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree
