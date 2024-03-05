@@ -421,9 +421,8 @@ impl FullTipset {
     }
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
-        self.key.get_or_init(|| {
-            TipsetKey::from(self.blocks.map(Block::cid))
-        })
+        self.key
+            .get_or_init(|| TipsetKey::from(self.blocks.clone().map(|b| *b.cid())))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
