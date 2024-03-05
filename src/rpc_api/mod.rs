@@ -44,6 +44,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
+    access.insert(chain_api::CHAIN_GET_TIPSET_AFTER_HEIGHT, Access::Read);
     access.insert(chain_api::CHAIN_GET_GENESIS, Access::Read);
     access.insert(chain_api::CHAIN_HEAD, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
@@ -231,6 +232,7 @@ pub mod chain_api {
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
     pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
+    pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
