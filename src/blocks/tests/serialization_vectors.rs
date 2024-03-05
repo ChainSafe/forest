@@ -21,7 +21,7 @@ fn header_cbor_vectors() {
         cid: Cid,
     }
 
-    let s = include_str!("../../../serialization-vectors/block_headers.json");
+    let s = include_str!("serialization-vectors/block_headers.json");
 
     let cases: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
 
@@ -51,7 +51,7 @@ fn signing_test() {
         signature: Signature,
     }
 
-    let s = include_str!("../../../serialization-vectors/message_signing.json");
+    let s = include_str!("serialization-vectors/message_signing.json");
 
     let cases: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
 
@@ -85,7 +85,7 @@ fn unsigned_message_cbor_vectors() {
         hex_cbor: Vec<u8>,
     }
 
-    let s = include_str!("../../../serialization-vectors/unsigned_messages.json");
+    let s = include_str!("serialization-vectors/unsigned_messages.json");
 
     let vectors: Vec<Case> = serde_json::from_str(s).expect("Test vector deserialization failed");
     for Case {
