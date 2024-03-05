@@ -266,6 +266,16 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
+pub async fn chain_get_path2<BS: Blockstore>(
+    state: RPCState<BS>,
+    LotusJson(from): LotusJson<TipsetKey>,
+    LotusJson(to): LotusJson<TipsetKey>,
+) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
+    impl_chain_get_path(&state.chain_store, &from, &to)
+        .map(LotusJson)
+        .map_err(Into::into)
+}
+
 /// Find the path between two tipsets, as a series of [`PathChange`]s.
 ///
 /// ```text
