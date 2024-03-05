@@ -387,6 +387,7 @@ fn net_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
+        RpcTest::identity(ApiInfo::net_listening_req()),
         RpcTest::basic(ApiInfo::net_info_req())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
     ]
