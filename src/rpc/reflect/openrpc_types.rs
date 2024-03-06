@@ -2,10 +2,105 @@
 //!
 //! > When quoted, the specification will appear as blockquoted text, like so.
 
+use std::collections::HashMap;
+
 use itertools::Itertools as _;
 use schemars::schema::Schema;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OpenRPC {
+    /// > REQUIRED.
+    /// > The available methods for the API.
+    /// > While it is required, the array may be empty (to handle security filtering, for example).
+    pub methods: Methods,
+    /// > An element to hold various schemas for the specification.
+    pub components: Components,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+
+pub struct Components {
+    pub schemas: HashMap<String, Schema>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
+#[serde(transparent)]
+pub struct Methods {
+    inner: Vec<Method>,
+}
+
+#[derive(Debug, Clone, Error)]
+#[error("{}", .0)]
+pub struct MethodsError(String);
+
+impl Methods {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+    pub fn just(method: Method) -> Self {
+        Self {
+            inner: vec![method],
+        }
+    }
+    pub fn new(methods: impl IntoIterator<Item = Method>) -> Result<Self, MethodsError> {
+        let inner = methods.into_iter().collect::<Vec<_>>();
+        let duplicates = inner
+            .iter()
+            .map(|it| &it.name)
+            .duplicates()
+            .collect::<Vec<_>>();
+        match duplicates.is_empty() {
+            true => Ok(Self { inner }),
+            false => Err(MethodsError(format!(
+                "the following method names are duplicated: [{}]",
+                duplicates.iter().join(", ")
+            ))),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Method> {
+        self.inner.iter()
+    }
+}
+
+impl IntoIterator for Methods {
+    type Item = Method;
+
+    type IntoIter = std::vec::IntoIter<Method>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Methods {
+    type Item = &'a Method;
+
+    type IntoIter = std::slice::Iter<'a, Method>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.iter()
+    }
+}
+
+impl<'de> Deserialize<'de> for Methods {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::new(Vec::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -130,26 +225,8 @@ impl Params {
         self.inner.is_empty()
     }
 
-    pub fn iter(&self) -> Iter<'_> {
-        Iter {
-            inner: self.inner.iter(),
-        }
-    }
-}
-
-pub struct Iter<'a> {
-    inner: std::slice::Iter<'a, ContentDescriptor>,
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a ContentDescriptor;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.inner.size_hint()
+    pub fn iter(&self) -> std::slice::Iter<'_, ContentDescriptor> {
+        self.inner.iter()
     }
 }
 
@@ -160,6 +237,16 @@ impl IntoIterator for Params {
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Params {
+    type Item = &'a ContentDescriptor;
+
+    type IntoIter = std::slice::Iter<'a, ContentDescriptor>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.iter()
     }
 }
 
