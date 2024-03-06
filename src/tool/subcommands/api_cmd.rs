@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
 use crate::chain_sync::SyncStage;
@@ -365,7 +364,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
-            TipsetKey::default(),
+            Default::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
             shared_tipset.epoch(),
@@ -413,54 +412,54 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
             shared_tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
             shared_tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            TipsetKey::from_iter(Vec::new()),
+            Default::default(),
         )),
         RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
             shared_block.miner_address,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_lookup_id_req(
             shared_block.miner_address,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         // This should return `Address::new_id(0xdeadbeef)`
         RpcTest::identity(ApiInfo::state_lookup_id_req(
             Address::new_id(0xdeadbeef),
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_network_version_req(
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
-        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
+        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().into())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
             shared_block.miner_address,
             101,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::msig_get_pending_req(
             Address::new_id(18101), // msig address id
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
     ]
 }
@@ -534,7 +533,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
-    let root_tsk = shared_tipset.key().clone();
+    let root_tsk = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
@@ -544,11 +543,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     // for API compatibility verification.
     tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
         Address::VERIFIED_REGISTRY_ACTOR,
-        shared_tipset.key().clone(),
+        shared_tipset.key().into(),
     )));
     tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
         Address::DATACAP_TOKEN_ACTOR,
-        shared_tipset.key().clone(),
+        shared_tipset.key().into(),
     )));
 
     let mut seen = CidHashSet::default();
@@ -568,7 +567,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
-                root_tsk.clone(),
+                root_tsk.into(),
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
@@ -579,7 +578,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
@@ -587,7 +586,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -609,7 +608,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: Some(msg.from()),
                             to: Some(msg.to()),
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
                     tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
@@ -627,7 +626,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
@@ -635,7 +634,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -653,7 +652,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: None,
                             to: Some(msg.to()),
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -661,7 +660,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: Some(msg.from()),
                             to: None,
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -669,7 +668,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: None,
                             to: None,
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
 
@@ -678,52 +677,49 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
-                            root_tsk.clone(),
+                            root_tsk.into(),
                         )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
                     }
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(
-                ApiInfo::state_miner_proving_deadline_req(
-                    block.miner_address,
-                    tipset.key().clone(),
-                ),
+                ApiInfo::state_miner_proving_deadline_req(block.miner_address, tipset.key().into()),
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
                 block.miner_address,
                 block.epoch,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
         }
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
-            tipset.key().clone(),
+            tipset.key().into(),
         )));
         tests.push(RpcTest::identity(
-            ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().clone()),
+            ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().into()),
         ));
 
         for block in tipset.block_headers() {
@@ -731,13 +727,13 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.message().clone(),
-                    shared_tipset.key().clone(),
+                    shared_tipset.key().into(),
                 )));
             }
             for msg in bls_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.clone(),
-                    shared_tipset.key().clone(),
+                    shared_tipset.key().into(),
                 )));
             }
         }

@@ -271,13 +271,13 @@ pub mod chain_api {
                                 "ParentMessageReceipts": { "/": "baeaaaaa" },
                                 "ParentStateRoot": { "/":"baeaaaaa" },
                                 "ParentWeight": "0",
-                                "Parents": null,
+                                "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
                                 "Timestamp": 0,
                                 "WinPoStProof": null
                             }
                         ],
                         "Cids": [
-                            { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                            { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
                         ],
                         "Height": 0
                     }

@@ -58,7 +58,7 @@ impl ShedCommands {
                 let mut epoch2cids =
                     futures::stream::iter((start_height..=end_height).map(|epoch| {
                         client
-                            .chain_get_tipset_by_height(i64::from(epoch), head.key().clone())
+                            .chain_get_tipset_by_height(i64::from(epoch), head.key().into())
                             .map_ok(|tipset| {
                                 let cids = tipset.block_headers().iter().map(|it| *it.cid());
                                 (tipset.epoch(), cids.collect::<Vec<_>>())

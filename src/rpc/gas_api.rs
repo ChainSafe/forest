@@ -7,7 +7,7 @@ use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE
 use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{Data, MessageSendSpec, RPCState};
+use crate::rpc_api::data_types::*;
 use crate::shim::address::Address;
 use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
@@ -27,7 +27,7 @@ pub async fn gas_estimate_fee_cap<DB: Blockstore>(
     params: Params<'_>,
     data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
-    let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, TipsetKey)> =
+    let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, ApiTipsetKey)> =
         params.parse()?;
 
     estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
@@ -37,7 +37,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     data: &Arc<RPCState<DB>>,
     msg: Message,
     max_queue_blks: i64,
-    _tsk: TipsetKey,
+    _: ApiTipsetKey,
 ) -> Result<TokenAmount, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
@@ -160,7 +160,7 @@ pub async fn gas_estimate_gas_limit<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let LotusJson((msg, tsk)): LotusJson<(Message, TipsetKey)> = params.parse()?;
+    let LotusJson((msg, tsk)): LotusJson<(Message, ApiTipsetKey)> = params.parse()?;
 
     estimate_gas_limit::<DB>(&data, msg, tsk).await
 }
@@ -168,7 +168,7 @@ where
 async fn estimate_gas_limit<DB>(
     data: &Arc<RPCState<DB>>,
     msg: Message,
-    _: TipsetKey,
+    _: ApiTipsetKey,
 ) -> Result<i64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -216,7 +216,7 @@ pub async fn gas_estimate_message_gas<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let LotusJson((msg, spec, tsk)): LotusJson<(Message, Option<MessageSendSpec>, TipsetKey)> =
+    let LotusJson((msg, spec, tsk)): LotusJson<(Message, Option<MessageSendSpec>, ApiTipsetKey)> =
         params.parse()?;
 
     estimate_message_gas::<DB>(&data, msg, spec, tsk)
@@ -228,7 +228,7 @@ pub async fn estimate_message_gas<DB>(
     data: &Arc<RPCState<DB>>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
-    tsk: TipsetKey,
+    tsk: ApiTipsetKey,
 ) -> Result<Message, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,

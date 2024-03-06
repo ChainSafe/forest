@@ -17,7 +17,7 @@ async-fs = "2"
 async-recursion = "1.0"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
-axum = { version = "0.7", features = ['ws'] }
+axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
 bigdecimal = "0.4.0"
@@ -68,7 +68,6 @@ filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 fs_extra = "1.2"
 futures = "0.3"
-futures-util = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm4 = { package = "fvm", default-features = false, version = "~4.1.2", features = ["arb"] }
@@ -94,7 +93,7 @@ indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { version = "0.22", features = ["server", "ws-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -189,7 +188,6 @@ ticker = "0.1"
 tikv-jemallocator = { version = "0.5", optional = true }
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-tungstenite = "0.21.0"
 tokio-util = { version = "0.7.9", features = ["compat", "io-util"] }
 toml = "0.8"
 tower = { version = "0.4", features = ["full"] }

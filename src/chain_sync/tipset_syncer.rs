@@ -1104,7 +1104,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
         "Validating tipset: EPOCH = {epoch}, N blocks = {}",
         blocks.len()
     );
-    debug!("Tipset keys: {:?}", full_tipset_key.cids);
+    debug!("Tipset keys: {full_tipset_key}");
 
     for b in blocks {
         let validation_fn = tokio::task::spawn(validate_block(state_manager.clone(), Arc::new(b)));
@@ -1531,7 +1531,7 @@ fn validate_tipset_against_cache(
     tipset: &TipsetKey,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError> {
-    for cid in tipset.cids.clone() {
+    for cid in tipset.to_cids() {
         if let Some(reason) = bad_block_cache.get(&cid) {
             for block_cid in descendant_blocks {
                 bad_block_cache.put(*block_cid, format!("chain contained {cid}"));

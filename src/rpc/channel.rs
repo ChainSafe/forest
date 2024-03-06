@@ -141,13 +141,14 @@ impl PendingSubscriptionSink {
             .map_err(|e| format!("accept error: {}", e.as_result()))?;
 
         if success {
-            let (_tx, rx) = mpsc::channel(1);
+            let (tx, rx) = mpsc::channel(1);
             self.subscribers
                 .lock()
                 .insert(id, (self.inner.clone(), rx, self.channel_id));
             Ok(SubscriptionSink {
                 inner: self.inner,
                 method: self.method,
+                unsubscribe: IsUnsubscribed(tx),
                 channel_id: self.channel_id,
             })
         } else {
@@ -161,6 +162,17 @@ impl PendingSubscriptionSink {
     }
 }
 
+/// Represents a subscription until it is unsubscribed.
+#[derive(Debug, Clone)]
+pub struct IsUnsubscribed(mpsc::Sender<()>);
+
+impl IsUnsubscribed {
+    /// Wrapper over [`tokio::sync::mpsc::Sender::closed`]
+    pub async fn unsubscribed(&self) {
+        self.0.closed().await;
+    }
+}
+
 /// Represents a single subscription that hasn't been processed yet.
 #[derive(Debug, Clone)]
 pub struct SubscriptionSink {
@@ -168,6 +180,8 @@ pub struct SubscriptionSink {
     inner: MethodSink,
     /// `MethodCallback`.
     method: &'static str,
+    /// A future that fires once the unsubscribe method has been called.
+    unsubscribe: IsUnsubscribed,
     /// Channel identifier.
     channel_id: ChannelId,
 }
@@ -212,6 +226,7 @@ impl SubscriptionSink {
         // Both are cancel-safe thus ok to use select here.
         tokio::select! {
             _ = self.inner.closed() => (),
+            _ = self.unsubscribe.unsubscribed() => (),
         }
     }
 }
@@ -225,6 +240,8 @@ fn create_notif_message(
     let result = serde_json::to_string(result)?;
     let msg =
         format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{channel_id},{result}]}}"#,);
+
+    tracing::debug!("Sending notification: {}", msg);
 
     Ok(msg)
 }
@@ -358,6 +375,8 @@ impl RpcModule {
                             }
                         }
                     }
+
+                    tracing::debug!("Send notification task ended");
                 });
             }
         })
