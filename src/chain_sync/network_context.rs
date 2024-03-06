@@ -465,7 +465,6 @@ mod tests {
     where
         T: Send + 'static,
     {
-        /// Return first finishing `Ok` future that passes validation else return `None` if all jobs failed
         pub async fn get_ok(self) -> Option<T> {
             self.get_ok_validated(|_| true).await
         }
