@@ -38,6 +38,10 @@
 
 ### Changed
 
+- [#3976](https://github.com/ChainSafe/forest/pull/3976) `forest-wallet`
+  defaults to using a local wallet instead of the builtin Forest wallet for
+  greater security.
+
 ### Removed
 
 ### Fixed
