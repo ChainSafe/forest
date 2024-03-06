@@ -4,6 +4,8 @@
 //!
 //! > When quoted, the specification will appear as blockquoted text, like so.
 
+#![allow(clippy::needless_pub_self)] // put macro at the bottom, but use it at the top
+
 use itertools::Itertools as _;
 use schemars::schema::Schema;
 use serde::{Deserialize, Serialize};
@@ -214,5 +216,4 @@ macro_rules! validated_vec {
     };
 }
 
-#[allow(clippy::needless_pub_self)] // put macro at the bottom, but use it at the top
 pub(self) use validated_vec;
