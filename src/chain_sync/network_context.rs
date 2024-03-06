@@ -168,29 +168,20 @@ where
             tipsets.len() as _,
             MESSAGES,
             |compacted_messages_vec: &Vec<CompactedMessages>| {
-                // if tipsets.len() == compacted_messages_vec.len() {
-                    for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
-                        let header_len = ts.block_headers().len();
-                        if header_len != msg.bls_msg_includes.len()
-                            || header_len != msg.secp_msg_includes.len()
-                        {
-                            tracing::warn!(
-                                "header_len: {header_len}, msg.bls_msg_includes.len(): {}, msg.secp_msg_includes.len(): {}",
-                                msg.bls_msg_includes.len(),
-                                 msg.secp_msg_includes.len()
-                            );
-                            return false;
-                        }
+                for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
+                    let header_len = ts.block_headers().len();
+                    if header_len != msg.bls_msg_includes.len()
+                        || header_len != msg.secp_msg_includes.len()
+                    {
+                        tracing::warn!(
+                            "header_len: {header_len}, msg.bls_msg_includes.len(): {}, msg.secp_msg_includes.len(): {}",
+                            msg.bls_msg_includes.len(),
+                            msg.secp_msg_includes.len()
+                        );
+                        return false;
                     }
-                    true
-                // } else {
-                //     tracing::warn!(
-                //         "tipsets.len(): {}, compacted_messages_vec.len(): {}",
-                //         tipsets.len(),
-                //         compacted_messages_vec.len()
-                //     );
-                //     false
-                // }
+                }
+                true
             },
         )
         .await

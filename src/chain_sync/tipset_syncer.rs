@@ -575,6 +575,7 @@ where
 
 #[derive(Debug, Copy, Clone)]
 enum InvalidBlockStrategy {
+    #[allow(dead_code)]
     Strict,
     Forgiving,
 }
