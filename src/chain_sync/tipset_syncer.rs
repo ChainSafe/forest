@@ -575,6 +575,7 @@ where
 
 #[derive(Debug, Copy, Clone)]
 enum InvalidBlockStrategy {
+    #[allow(dead_code)]
     Strict,
     Forgiving,
 }
@@ -771,7 +772,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         &bad_block_cache,
         parent_tipsets,
         &genesis,
-        InvalidBlockStrategy::Strict,
+        InvalidBlockStrategy::Forgiving,
     )
     .await
     {
@@ -991,22 +992,18 @@ async fn fetch_batch<DB: Blockstore>(
     }
 
     // Tipsets in `batch` are already in chronological order
-    if let Some(head) = batch.last() {
-        let epoch = head.epoch();
-        let len = batch.len();
-
-        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
-
+    if !batch.is_empty() {
         let compacted_messages = network
-            .chain_exchange_messages(None, head.key(), len as u64)
+            .chain_exchange_messages(None, &batch)
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
         // inflate our tipsets with the messages from the wire format
+        // Note: compacted_messages.len() can be not equal to batch.len()
         compacted_messages
             .into_iter()
+            .zip(batch.iter().rev())
             .rev()
-            .zip(batch.iter())
             .map(|(messages, tipset)| {
                 let bundle = TipsetBundle {
                     blocks: tipset.block_headers().iter().cloned().collect_vec(),
