@@ -51,6 +51,8 @@ use tokio::sync::RwLock;
 use tower::Service;
 use tracing::info;
 
+use self::reflect::openrpc_types::ParamStructure;
+
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
 #[derive(Clone)]
@@ -73,8 +75,10 @@ where
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
-    let mut module = RpcModule::new(state.clone());
+    let (mut module, _schema) = create_module(state.clone());
 
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+    #[allow(deprecated)]
     register_methods(
         &mut module,
         u64::from(state.state_manager.chain_config().block_delay_secs),
@@ -143,6 +147,24 @@ where
     Ok(())
 }
 
+fn create_module<DB>(
+    state: Arc<RPCState<DB>>,
+) -> (
+    RpcModule<Arc<RPCState<DB>>>,
+    reflect::openrpc_types::OpenRPC,
+)
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut module = reflect::SelfDescribingModule::new(state, ParamStructure::ByPosition);
+    {
+        use chain_api::*;
+        module.serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
+    };
+    module.finish()
+}
+
+#[deprecated = "methods should use `create_module`"]
 fn register_methods<DB>(
     module: &mut RpcModule<Arc<RPCState<DB>>>,
     block_delay: u64,
@@ -172,7 +194,6 @@ where
     module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
     module.register_async_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)?;
     module.register_async_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)?;
-    module.register_async_method(CHAIN_GET_PATH, chain_api::chain_get_path::<DB>)?;
     module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
     module.register_async_method(CHAIN_GET_GENESIS, |_, state| chain_get_genesis::<DB>(state))?;

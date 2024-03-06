@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-use itertools::Itertools as _;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -10,24 +9,10 @@ use super::{
     util::Optional as _,
 };
 
-#[allow(clippy::indexing_slicing)]
-pub fn check_args<const N: usize>(names: [&str; N], optional: [bool; N]) {
-    let duplicates = names.into_iter().duplicates().collect::<Vec<_>>();
-    if !duplicates.is_empty() {
-        panic!("duplicate param names: [{}]", duplicates.join(", "))
-    }
-    for (ix, (left, right)) in optional.into_iter().tuple_windows().enumerate() {
-        if left && !right {
-            panic!(
-                "mandatory param `{}` follows optional param `{}` at index {}",
-                names[ix + 1],
-                names[ix],
-                ix
-            )
-        }
-    }
-}
-
+/// Parser for JSON-RPC parameters.
+/// Abstracts calling convention, checks for unexpected params etc.
+///
+/// Note that this type can panic on drop.
 #[derive(Debug)]
 pub struct Parser<'a> {
     params: Option<ParserInner>,
@@ -58,7 +43,7 @@ impl Drop for Parser<'_> {
 impl<'a> Parser<'a> {
     pub fn new(
         params: Option<RequestParameters>,
-        names: &'a [&'a str],
+        names: &'a [&'a str], // in position order
         calling_convention: ParamStructure,
     ) -> Result<Self, Error> {
         Self::_new(params, names, calling_convention).map_err(Into::into)

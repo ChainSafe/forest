@@ -1,4 +1,6 @@
+#[allow(unused)]
 pub mod jsonrpc_types;
+#[allow(unused)]
 pub mod openrpc_types;
 
 mod parser;
@@ -24,8 +26,10 @@ use schemars::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::util::Optional;
+use util::Optional as _;
 
+/// A wrapped [`jsonrpsee::server::RpcModule`] which generates an [OpenRPC](https://spec.open-rpc.org)
+/// schema for the methods.
 pub struct SelfDescribingModule<Ctx> {
     inner: jsonrpsee::server::RpcModule<Ctx>,
     schema_generator: SchemaGenerator,
@@ -42,6 +46,12 @@ impl<Ctx> SelfDescribingModule<Ctx> {
             methods: vec![],
         }
     }
+    /// Even if the calling convention is [`ParamStructure::ByPosition`], OpenRPC
+    /// requires each argument to have a unique name.
+    ///
+    /// # Panics
+    /// - if param names aren't unique
+    /// - if optional parameters follow mandatory params
     pub fn serve<const ARITY: usize, F, Args, R>(
         &mut self,
         method_name: &'static str,
@@ -99,10 +109,9 @@ impl<Ctx> SelfDescribingModule<Ctx> {
 }
 
 /// Wrap a bare function with our argument parsing logic.
-/// Turns any `fn foo(ctx, arg0...)` into a function that can be passed to [`jsonrpsee::server::RpcModule::register_async_method`]
+/// Turns any `async fn foo(ctx, arg0...)` into a function that can be passed to [`jsonrpsee::server::RpcModule::register_async_method`]
 pub trait Wrap<const ARITY: usize, Ctx, Args, R> {
-    type Future: Future<Output = Result<serde_json::Value, jsonrpsee::types::ErrorObjectOwned>>
-        + Send;
+    type Future: Future<Output = Result<serde_json::Value, crate::rpc::error::JsonRpcError>> + Send;
     fn wrap(
         self,
         param_names: [&'static str; ARITY],
@@ -114,7 +123,7 @@ pub trait Wrap<const ARITY: usize, Ctx, Args, R> {
            + Fn(jsonrpsee::types::Params<'static>, Arc<Ctx>) -> Self::Future;
 }
 
-/// Return all schemas from function arguments.
+/// Return type-specific information for a function signature so that a [`ContentDescriptor`] can be created.
 pub trait GenerateSchemas {
     fn generate_schemas(gen: &mut SchemaGenerator) -> Vec<(Schema, bool)>;
 }
@@ -128,15 +137,17 @@ macro_rules! do_impls {
         impl<F, $($arg,)* Ctx, Fut, R> Wrap<$arity, Ctx, ($($arg,)*), R> for F
         where
             F: Clone + Send + Sync + 'static + Fn(Arc<Ctx>, $($arg),*) -> Fut,
+            //                                    ^^^ Receives an Arc rather than a reference lest
+            //                                        we get the dreaded "one type is more general than the other"
             Ctx: Send + Sync + 'static,
             $(
                 $arg: for<'de> Deserialize<'de> + Clone,
             )*
-            Fut: Future<Output = Result<R, jsonrpsee::types::ErrorObjectOwned>> + Send + Sync + 'static,
+            Fut: Future<Output = Result<R, crate::rpc::error::JsonRpcError>> + Send + Sync + 'static,
             R: Serialize,
         {
             type Future = Either<
-                Ready<Result<Value, jsonrpsee::types::ErrorObjectOwned>>,
+                Ready<Result<Value, crate::rpc::error::JsonRpcError>>,
                 AndThenDeserializeResponse<Fut>,
             >;
 
@@ -202,6 +213,9 @@ do_impls!(4, T0, T1, T2, T3);
 do_impls!(5, T0, T1, T2, T3, T4);
 do_impls!(6, T0, T1, T2, T3, T4, T5);
 do_impls!(7, T0, T1, T2, T3, T4, T5, T6);
+do_impls!(8, T0, T1, T2, T3, T4, T5, T6, T7);
+do_impls!(9, T0, T1, T2, T3, T4, T5, T6, T7, T8);
+do_impls!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
 
 pin_project! {
     pub struct AndThenDeserializeResponse<F> {
@@ -212,10 +226,10 @@ pin_project! {
 
 impl<R, F> Future for AndThenDeserializeResponse<F>
 where
-    F: Future<Output = Result<R, jsonrpsee::types::ErrorObjectOwned>>,
+    F: Future<Output = Result<R, crate::rpc::error::JsonRpcError>>,
     R: Serialize,
 {
-    type Output = Result<Value, jsonrpsee::types::ErrorObjectOwned>;
+    type Output = Result<Value, crate::rpc::error::JsonRpcError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(
@@ -234,11 +248,15 @@ where
     }
 }
 
-fn error2error(ours: jsonrpc_types::Error) -> jsonrpsee::types::ErrorObjectOwned {
+fn error2error(ours: jsonrpc_types::Error) -> crate::rpc::error::JsonRpcError {
     let jsonrpc_types::Error {
         code,
         message,
         data,
     } = ours;
-    jsonrpsee::types::ErrorObject::owned(code as i32, message, data)
+    crate::rpc::error::JsonRpcError::from(jsonrpsee::types::ErrorObject::owned(
+        code as i32,
+        message,
+        data,
+    ))
 }

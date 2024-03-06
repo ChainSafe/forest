@@ -206,6 +206,7 @@ pub mod chain_api {
     use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
     use crate::lotus_json::{HasLotusJson, LotusJson};
     use crate::shim::clock::ChainEpoch;
+    use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
@@ -243,7 +244,7 @@ pub mod chain_api {
     pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
     pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
 
-    #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+    #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
     #[serde(rename_all = "snake_case")]
     pub enum PathChange<T = Arc<Tipset>> {
         Revert(T),

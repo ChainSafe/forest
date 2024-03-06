@@ -36,14 +36,6 @@ pub struct Methods {
 pub struct MethodsError(String);
 
 impl Methods {
-    pub fn empty() -> Self {
-        Self::default()
-    }
-    pub fn just(method: Method) -> Self {
-        Self {
-            inner: vec![method],
-        }
-    }
     pub fn new(methods: impl IntoIterator<Item = Method>) -> Result<Self, MethodsError> {
         let inner = methods.into_iter().collect::<Vec<_>>();
         let duplicates = inner
@@ -59,48 +51,9 @@ impl Methods {
             ))),
         }
     }
-
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, Method> {
-        self.inner.iter()
-    }
 }
 
-impl IntoIterator for Methods {
-    type Item = Method;
-
-    type IntoIter = std::vec::IntoIter<Method>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a Methods {
-    type Item = &'a Method;
-
-    type IntoIter = std::slice::Iter<'a, Method>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.iter()
-    }
-}
-
-impl<'de> Deserialize<'de> for Methods {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Self::new(Vec::deserialize(deserializer)?).map_err(serde::de::Error::custom)
-    }
-}
+validated_vec!(Methods => Method);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -172,12 +125,6 @@ pub struct Params {
 pub struct ParamListError(String);
 
 impl Params {
-    pub fn empty() -> Self {
-        Self::default()
-    }
-    pub fn just(param: ContentDescriptor) -> Self {
-        Self { inner: vec![param] }
-    }
     pub fn new(
         params: impl IntoIterator<Item = ContentDescriptor>,
     ) -> Result<Self, ParamListError> {
@@ -216,45 +163,54 @@ impl Params {
         };
         Ok(Self { inner: params })
     }
-
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, ContentDescriptor> {
-        self.inner.iter()
-    }
 }
 
-impl IntoIterator for Params {
-    type Item = ContentDescriptor;
+validated_vec!(Params => ContentDescriptor);
 
-    type IntoIter = std::vec::IntoIter<ContentDescriptor>;
+macro_rules! validated_vec {
+    ($parent:ty => $child:ty) => {
+        impl $parent {
+            pub fn empty() -> Self {
+                Self::default()
+            }
+            pub fn just(one: $child) -> Self {
+                Self { inner: vec![one] }
+            }
+            pub fn len(&self) -> usize {
+                self.inner.len()
+            }
+            pub fn is_empty(&self) -> bool {
+                self.inner.is_empty()
+            }
+            pub fn iter(&self) -> std::slice::Iter<'_, $child> {
+                self.inner.iter()
+            }
+        }
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
-    }
+        impl IntoIterator for $parent {
+            type Item = $child;
+            type IntoIter = std::vec::IntoIter<$child>;
+            fn into_iter(self) -> Self::IntoIter {
+                self.inner.into_iter()
+            }
+        }
+
+        impl<'a> IntoIterator for &'a $parent {
+            type Item = &'a $child;
+            type IntoIter = std::slice::Iter<'a, $child>;
+            fn into_iter(self) -> Self::IntoIter {
+                self.inner.iter()
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $parent {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                Self::new(Vec::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+            }
+        }
+    };
 }
-
-impl<'a> IntoIterator for &'a Params {
-    type Item = &'a ContentDescriptor;
-
-    type IntoIter = std::slice::Iter<'a, ContentDescriptor>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.iter()
-    }
-}
-
-impl<'de> Deserialize<'de> for Params {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Self::new(Vec::deserialize(deserializer)?).map_err(serde::de::Error::custom)
-    }
-}
+pub(self) use validated_vec;
