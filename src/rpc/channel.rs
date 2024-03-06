@@ -60,13 +60,15 @@
 //!         │                                 └────────────────────────────────┘  │
 //! ```
 
-use jsonrpsee::core::server::helpers::{MethodResponse, MethodResponseResult, MethodSink};
-use jsonrpsee::server::{
-    IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
-};
-use jsonrpsee::types::{error::ErrorCode, ErrorObjectOwned, Id, Params, ResponsePayload};
-
 use ahash::HashMap;
+use jsonrpsee::{
+    server::{
+        IntoSubscriptionCloseResponse, MethodCallback, Methods, RegisterMethodError,
+        ResponsePayload,
+    },
+    types::{error::ErrorCode, ErrorObjectOwned, Id, Params},
+    MethodResponse, MethodSink,
+};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -119,7 +121,7 @@ impl PendingSubscriptionSink {
         let id = self.id.clone();
         let response = MethodResponse::subscription_response(
             self.id,
-            ResponsePayload::result_borrowed(&channel_id),
+            ResponsePayload::success_borrowed(&channel_id),
             self.inner.max_response_size() as usize,
         );
         let success = response.is_success();
@@ -131,12 +133,12 @@ impl PendingSubscriptionSink {
         // The same message is sent twice here because one is sent directly to the transport layer and
         // the other one is sent internally to accept the subscription.
         self.inner
-            .send(response.result.clone())
+            .send(response.to_result())
             .await
             .map_err(|e| e.to_string())?;
         self.subscribe
             .send(response)
-            .map_err(|e| format!("accept error: {}", e.result))?;
+            .map_err(|e| format!("accept error: {}", e.as_result()))?;
 
         if success {
             let (tx, rx) = mpsc::channel(1);
@@ -244,19 +246,20 @@ fn create_notif_message(
     Ok(msg)
 }
 
-fn close_payload(channel_id: ChannelId) -> String {
-    format!(
-        r#"{{"jsonrpc":"2.0","method":"xrpc.ch.close","params":[{}]}}"#,
-        channel_id
-    )
+fn close_payload(channel_id: ChannelId) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc":"2.0",
+        "method":"xrpc.ch.close",
+        "params":[channel_id]
+    })
 }
 
 fn close_channel_response(channel_id: ChannelId) -> MethodResponse {
-    MethodResponse {
-        result: close_payload(channel_id),
-        success_or_error: MethodResponseResult::Success,
-        is_subscription: false,
-    }
+    MethodResponse::response(
+        Id::Null,
+        ResponsePayload::success(close_payload(channel_id)),
+        1024,
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -303,7 +306,7 @@ impl Default for RpcModule {
                         match result {
                             Ok(channel_id) => {
                                 let resp = close_channel_response(channel_id);
-                                tracing::debug!("Sending close message: {:?}", resp.result);
+                                tracing::debug!("Sending close message: {}", resp.as_result());
                                 resp
                             }
                             Err(e) => {
@@ -360,7 +363,7 @@ impl RpcModule {
                                         }
                                     }
                                     Err(RecvError::Closed) => {
-                                        let _ = sink.send(close_payload(sink.channel_id())).await;
+                                        let _ = sink.send(close_payload(sink.channel_id()).to_string()).await;
                                         break;
                                     }
                                     Err(RecvError::Lagged(_)) => {
