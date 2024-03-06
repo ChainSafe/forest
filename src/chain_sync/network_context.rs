@@ -95,11 +95,16 @@ where
         });
     }
 
-    /// Return first finishing `Ok` future else return `None` if all jobs failed
-    pub async fn get_ok(mut self) -> Option<T> {
+    /// Return first finishing `Ok` future that passes validation else return `None` if all jobs failed
+    pub async fn get_ok_validated<F>(mut self, validate: F) -> Option<T>
+    where
+        F: Fn(&T) -> bool,
+    {
         while let Some(result) = self.tasks.join_next().await {
             if let Ok(Ok(value)) = result {
-                return Some(value);
+                if validate(&value) {
+                    return Some(value);
+                }
             }
         }
         // So far every task have failed
@@ -137,7 +142,7 @@ where
         tsk: &TipsetKey,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS)
+        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |_| true)
             .await
     }
     /// Send a `chain_exchange` request for only messages (ignore block
@@ -146,11 +151,39 @@ where
     pub async fn chain_exchange_messages(
         &self,
         peer_id: Option<PeerId>,
-        tsk: &TipsetKey,
-        count: u64,
+        tipsets: &[Arc<Tipset>],
     ) -> Result<Vec<CompactedMessages>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, MESSAGES)
-            .await
+        let head = tipsets
+            .last()
+            .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
+        let tsk = head.key();
+        debug!(
+            "ChainExchange message sync tipsets: epoch: {}, len: {}",
+            head.epoch(),
+            tipsets.len()
+        );
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            tipsets.len() as _,
+            MESSAGES,
+            |compacted_messages_vec: &Vec<CompactedMessages>| {
+                if tipsets.len() == compacted_messages_vec.len() {
+                    for (ts, msg) in tipsets.iter().zip(compacted_messages_vec.iter()) {
+                        let header_len = ts.block_headers().len();
+                        if header_len != msg.bls_msg_includes.len()
+                            || header_len != msg.secp_msg_includes.len()
+                        {
+                            return false;
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            },
+        )
+        .await
     }
 
     /// Send a `chain_exchange` request for a single full tipset (includes
@@ -162,7 +195,7 @@ where
         tsk: &TipsetKey,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES)
+            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES, |_| true)
             .await?;
 
         if fts.len() != 1 {
@@ -217,15 +250,17 @@ where
 
     /// Helper function to handle the peer retrieval if no peer supplied as well
     /// as the logging and updating of the peer info in the `PeerManager`.
-    async fn handle_chain_exchange_request<T>(
+    async fn handle_chain_exchange_request<T, F>(
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
         request_len: u64,
         options: u64,
+        validate: F,
     ) -> Result<Vec<T>, String>
     where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
+        F: Fn(&Vec<T>) -> bool,
     {
         let request = ChainExchangeRequest {
             start: NonEmpty::from_vec(tsk.cids.clone().into_iter().collect())
@@ -302,7 +337,10 @@ where
                     message
                 };
 
-                let v = batch.get_ok().await.ok_or_else(make_failure_message)?;
+                let v = batch
+                    .get_ok_validated(validate)
+                    .await
+                    .ok_or_else(make_failure_message)?;
                 debug!("Succeed: handle_chain_exchange_request");
                 v
             }

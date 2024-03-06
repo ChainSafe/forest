@@ -991,14 +991,9 @@ async fn fetch_batch<DB: Blockstore>(
     }
 
     // Tipsets in `batch` are already in chronological order
-    if let Some(head) = batch.last() {
-        let epoch = head.epoch();
-        let len = batch.len();
-
-        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
-
+    if !batch.is_empty() {
         let compacted_messages = network
-            .chain_exchange_messages(None, head.key(), len as u64)
+            .chain_exchange_messages(None, &batch)
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
