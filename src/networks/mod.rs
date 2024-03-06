@@ -64,7 +64,7 @@ impl Display for NetworkChain {
         match self {
             NetworkChain::Mainnet => write!(f, "mainnet"),
             NetworkChain::Calibnet => write!(f, "calibnet"),
-            NetworkChain::Butterflynet => write!(f, "Butterflynet"),
+            NetworkChain::Butterflynet => write!(f, "butterflynet"),
             NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
     }
