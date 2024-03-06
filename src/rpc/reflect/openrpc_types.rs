@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 //! A transcription of types from the [`OpenRPC` Specification](https://spec.open-rpc.org/).
 //!
 //! > When quoted, the specification will appear as blockquoted text, like so.

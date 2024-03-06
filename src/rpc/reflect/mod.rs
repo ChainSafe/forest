@@ -1,3 +1,5 @@
+// Copyright 2019-2024 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
 #[allow(unused)]
 pub mod jsonrpc_types;
 #[allow(unused)]
