@@ -998,10 +998,11 @@ async fn fetch_batch<DB: Blockstore>(
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
         // inflate our tipsets with the messages from the wire format
+        // Note: compacted_messages.len() can be not equal to batch.len()
         compacted_messages
             .into_iter()
+            .zip(batch.iter().rev())
             .rev()
-            .zip(batch.iter())
             .map(|(messages, tipset)| {
                 let bundle = TipsetBundle {
                     blocks: tipset.block_headers().iter().cloned().collect_vec(),
