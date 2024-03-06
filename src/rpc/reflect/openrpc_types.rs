@@ -4,8 +4,6 @@
 //!
 //! > When quoted, the specification will appear as blockquoted text, like so.
 
-use std::collections::HashMap;
-
 use itertools::Itertools as _;
 use schemars::schema::Schema;
 use serde::{Deserialize, Serialize};
@@ -24,7 +22,7 @@ pub struct OpenRPC {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 
 pub struct Components {
-    pub schemas: HashMap<String, Schema>,
+    pub schemas: ahash::HashMap<String, Schema>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
@@ -215,4 +213,6 @@ macro_rules! validated_vec {
         }
     };
 }
+
+#[allow(clippy::needless_pub_self)] // put macro at the bottom, but use it at the top
 pub(self) use validated_vec;
