@@ -109,7 +109,7 @@ mod tests {
                 .set_heaviest_tipset(Arc::new(ts.clone()))
                 .unwrap();
 
-            for i in tsk.cids.clone().into_iter() {
+            for i in tsk.to_cids() {
                 let bz2 = bz.clone();
                 db.put_keyed(&i, &bz2).unwrap();
             }

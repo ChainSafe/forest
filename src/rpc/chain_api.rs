@@ -407,7 +407,7 @@ pub async fn chain_set_head<DB: Blockstore>(
         .load_required_tipset_or_heaviest(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
-        for cid in current.key().cids.clone() {
+        for cid in current.key().to_cids() {
             data.state_manager
                 .chain_store()
                 .unmark_block_as_validated(&cid);
