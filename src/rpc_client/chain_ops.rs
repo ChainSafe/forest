@@ -57,7 +57,7 @@ impl ApiInfo {
 
     pub fn chain_get_tipset_after_height_req(
         epoch: ChainEpoch,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> RpcRequest<Tipset> {
         RpcRequest::new(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
     }
