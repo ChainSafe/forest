@@ -17,9 +17,9 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
-use std::error::Error as StdError;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::{error::Error as StdError, fmt::Display};
 
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
@@ -39,11 +39,12 @@ use crate::rpc_api::{
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
-use jsonrpc_v2::Error as JSONRPCError;
-use jsonrpsee::server::{
-    stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder,
+use jsonrpsee::{
+    core::RegisterMethodError,
+    server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
+    types::{error::ErrorCode as RpcErrorCode, ErrorObjectOwned as RpcError},
+    Methods,
 };
-use jsonrpsee::Methods;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tower::Service;
@@ -64,7 +65,7 @@ pub async fn start_rpc<DB>(
     rpc_endpoint: SocketAddr,
     forest_version: &'static str,
     shutdown_send: Sender<()>,
-) -> Result<(), JSONRPCError>
+) -> Result<(), RpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -78,15 +79,18 @@ where
         u64::from(state.state_manager.chain_config().block_delay_secs),
         forest_version,
         shutdown_send,
-    )?;
+    )
+    .map_err(to_rpc_err)?;
 
     let mut pubsub_module = FilRpcModule::default();
 
-    pubsub_module.register_channel("Filecoin.ChainNotify", {
-        let state_clone = state.clone();
-        move |params| chain_api::chain_notify(params, &state_clone)
-    })?;
-    module.merge(pubsub_module)?;
+    pubsub_module
+        .register_channel("Filecoin.ChainNotify", {
+            let state_clone = state.clone();
+            move |params| chain_api::chain_notify(params, &state_clone)
+        })
+        .map_err(to_rpc_err)?;
+    module.merge(pubsub_module).map_err(to_rpc_err)?;
 
     let (stop_handle, _handle) = stop_channel();
 
@@ -130,7 +134,8 @@ where
     info!("Ready for RPC connections");
     hyper::Server::bind(&rpc_endpoint)
         .serve(make_service)
-        .await?;
+        .await
+        .map_err(to_rpc_err)?;
 
     info!("Stopped accepting RPC connections");
 
@@ -142,7 +147,7 @@ fn register_methods<DB>(
     block_delay: u64,
     forest_version: &'static str,
     shutdown_send: Sender<()>,
-) -> Result<(), JSONRPCError>
+) -> Result<(), RegisterMethodError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -283,4 +288,8 @@ where
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
 
     Ok(())
+}
+
+fn to_rpc_err(e: impl Display) -> RpcError {
+    RpcError::owned::<String>(RpcErrorCode::InternalError.code(), e.to_string(), None)
 }
