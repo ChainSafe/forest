@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+#![allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
+
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
@@ -95,6 +97,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
+            #[allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
             token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
             load_actors: true,
         }

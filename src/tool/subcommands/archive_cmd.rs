@@ -342,6 +342,7 @@ fn build_output_path(
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
+            #[allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
             NaiveDateTime::from_timestamp_opt(
                 genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS,
                 0,

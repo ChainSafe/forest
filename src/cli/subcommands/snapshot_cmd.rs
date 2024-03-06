@@ -62,6 +62,8 @@ impl SnapshotCommands {
                     true => output_path.join(snapshot::filename(
                         TrustedVendor::Forest,
                         chain_name,
+                        #[allow(deprecated)]
+                        // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
                         NaiveDateTime::from_timestamp_opt(
                             tipset.min_ticket_block().timestamp as i64,
                             0,

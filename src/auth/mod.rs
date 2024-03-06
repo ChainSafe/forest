@@ -85,6 +85,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
+            #[allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
             Duration::hours(1),
         )
         .unwrap();
@@ -95,6 +96,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
+            #[allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
             -Duration::hours(1),
         )
         .unwrap();
@@ -105,6 +107,7 @@ mod tests {
         let token = create_token(
             perms_expected.clone(),
             key.private_key(),
+            #[allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
             -Duration::seconds(10),
         )
         .unwrap();
