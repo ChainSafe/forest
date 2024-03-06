@@ -168,6 +168,7 @@ pub enum NetRPCMethods {
     Info(OneShotSender<NetInfoResult>),
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
+    AgentVersion(OneShotSender<String>, PeerId),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -498,8 +499,8 @@ async fn handle_network_message(
                     }
                 }
                 NetRPCMethods::Peers(response_channel) => {
-                    let peer_addresses = swarm.behaviour_mut().peer_addresses();
-                    if response_channel.send(peer_addresses.clone()).is_err() {
+                    let peer_addresses = swarm.behaviour().peer_addresses();
+                    if response_channel.send(peer_addresses).is_err() {
                         warn!("Failed to get Libp2p peers");
                     }
                 }
@@ -546,6 +547,21 @@ async fn handle_network_message(
                     let _ = Swarm::disconnect_peer_id(swarm, peer_id);
                     if response_channel.send(()).is_err() {
                         warn!("Failed to disconnect from a peer");
+                    }
+                }
+                NetRPCMethods::AgentVersion(response_channel, peer_id) => {
+                    let agent_version = swarm
+                        .behaviour()
+                        .peer_info(&peer_id)
+                        .map(|info| {
+                            info.agent_version
+                                .clone()
+                                .unwrap_or_else(|| "item not found".to_string())
+                        })
+                        .unwrap_or_else(|| "item not found".to_string());
+
+                    if response_channel.send(agent_version).is_err() {
+                        warn!("Failed to get agent version");
                     }
                 }
             }

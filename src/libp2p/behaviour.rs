@@ -27,7 +27,7 @@ use crate::libp2p::{
     hello::HelloBehaviour,
 };
 
-use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent};
+use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
 /// for a Filecoin node.
@@ -168,7 +168,11 @@ impl ForestBehaviour {
     }
 
     /// Returns a map of peer ids and their multi-addresses
-    pub fn peer_addresses(&mut self) -> &HashMap<PeerId, HashSet<Multiaddr>> {
+    pub fn peer_addresses(&self) -> HashMap<PeerId, HashSet<Multiaddr>> {
         self.discovery.peer_addresses()
+    }
+
+    pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
+        self.discovery.peer_info(peer_id)
     }
 }
