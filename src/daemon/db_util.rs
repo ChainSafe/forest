@@ -172,7 +172,7 @@ mod test {
 
     #[tokio::test]
     async fn import_snapshot_from_url_not_found() {
-        import_snapshot_from_file("https://dummy.com/dummy.car")
+        import_snapshot_from_file("https://forest.chainsafe.io/dummy.car")
             .await
             .unwrap_err();
     }
