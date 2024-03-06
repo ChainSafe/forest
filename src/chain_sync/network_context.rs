@@ -157,7 +157,7 @@ where
             .last()
             .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
         let tsk = head.key();
-        tracing::warn!(
+        tracing::debug!(
             "ChainExchange message sync tipsets: epoch: {}, len: {}",
             head.epoch(),
             tipsets.len()
@@ -169,7 +169,7 @@ where
             MESSAGES,
             |compacted_messages_vec: &Vec<CompactedMessages>| {
                 // if tipsets.len() == compacted_messages_vec.len() {
-                    for (msg,ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
+                    for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
                         let header_len = ts.block_headers().len();
                         if header_len != msg.bls_msg_includes.len()
                             || header_len != msg.secp_msg_includes.len()
@@ -469,6 +469,16 @@ mod tests {
     use super::*;
 
     use std::sync::atomic::{AtomicBool, AtomicUsize};
+
+    impl<T> RaceBatch<T>
+    where
+        T: Send + 'static,
+    {
+        /// Return first finishing `Ok` future that passes validation else return `None` if all jobs failed
+        pub async fn get_ok(self) -> Option<T> {
+            self.get_ok_validated(|_| true).await
+        }
+    }
 
     #[tokio::test]
     async fn race_batch_ok() {

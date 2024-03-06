@@ -771,7 +771,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         &bad_block_cache,
         parent_tipsets,
         &genesis,
-        InvalidBlockStrategy::Strict,
+        InvalidBlockStrategy::Forgiving,
     )
     .await
     {
