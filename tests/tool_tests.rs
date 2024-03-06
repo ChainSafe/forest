@@ -170,3 +170,70 @@ fn backup_tool_roundtrip_keys() {
         keystore
     );
 }
+
+#[test]
+fn keypair_conversion_roundtrip() {
+    // start the daemon to generate a keypair
+    let (config_file, data_dir) = create_tmp_config();
+    daemon()
+        .common_args()
+        .arg("--config")
+        .arg(&config_file)
+        .arg("--encrypt-keystore")
+        .arg("false")
+        .assert()
+        .success();
+
+    let encoded_private_key = String::from_utf8(
+        tool()
+            .arg("shed")
+            .arg("private-key-from-key-pair")
+            .arg(data_dir.path().join("libp2p").join("keypair"))
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+
+    let keypair_file = tempfile::Builder::new()
+        .suffix(".keypair")
+        .tempfile()
+        .unwrap();
+    tool()
+        .arg("shed")
+        .arg("key-pair-from-private-key")
+        .arg(encoded_private_key.clone())
+        .arg("--output")
+        .arg(keypair_file.path())
+        .assert()
+        .success();
+
+    let keypair = std::fs::read(keypair_file.path()).unwrap();
+    assert_eq!(
+        std::fs::read(data_dir.path().join("libp2p").join("keypair")).unwrap(),
+        keypair
+    );
+
+    let keypair_encoded = String::from_utf8(
+        tool()
+            .arg("shed")
+            .arg("key-pair-from-private-key")
+            .arg(encoded_private_key)
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    let keypair_decoded = BASE64_STANDARD.decode(keypair_encoded).unwrap();
+    assert_eq!(keypair, keypair_decoded);
+}
