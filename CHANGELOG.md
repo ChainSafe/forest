@@ -42,6 +42,9 @@
 
 ### Fixed
 
+- [#4019](https://github.com/ChainSafe/forest/pull/4019) Fix Forest sending
+  stale notifications after channel cancelation.
+
 ## Forest 0.16.8 "English Channel"
 
 ### Added
