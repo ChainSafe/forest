@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! A transcription of types from the [`JSON-RPC 2.0` Specification](https://www.jsonrpc.org/specification).
 //!
-//! > When quoted, the specification will appear as blockquoted text, like so.
+//! > When quoted, the specification will appear as block-quoted text, like so.
 
 use std::{
     borrow::Cow,
@@ -23,8 +23,8 @@ pub struct Request {
     /// > MUST be exactly "2.0".
     pub jsonrpc: V2,
     /// > A String containing the name of the method to be invoked.
-    /// > Method names that begin with the word rpc followed by a period character
-    /// > (U+002E or ASCII 46) are reserved for rpc-internal methods and extensions
+    /// > Method names that begin with the word RPC followed by a period character
+    /// > (`U+002E` or ASCII 46) are reserved for rpc-internal methods and extensions
     /// > and MUST NOT be used for anything else.
     pub method: String,
     /// > A Structured value that holds the parameter values to be used during the
@@ -104,7 +104,7 @@ impl Serialize for V2 {
     }
 }
 
-/// > If present, parameters for the rpc call MUST be provided as a Structured value.
+/// > If present, parameters for the RPC call MUST be provided as a Structured value.
 /// > Either by-position through an Array or by-name through an Object.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(untagged)] // TODO(aatifsyed): manually implement Deserialize for a better error message

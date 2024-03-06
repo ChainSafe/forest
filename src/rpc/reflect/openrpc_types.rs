@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 //! A transcription of types from the [`OpenRPC` Specification](https://spec.open-rpc.org/).
 //!
-//! > When quoted, the specification will appear as blockquoted text, like so.
+//! > When quoted, the specification will appear as block-quoted text, like so.
 
 #![allow(clippy::needless_pub_self)] // put macro at the bottom, but use it at the top
 
@@ -61,7 +61,7 @@ validated_vec!(Methods => Method);
 #[serde(rename_all = "camelCase")]
 pub struct Method {
     /// > REQUIRED.
-    /// > The cannonical name for the method.
+    /// > The canonical name for the method.
     /// > The name MUST be unique within the methods array.
     pub name: String,
     pub params: Params,
@@ -77,9 +77,9 @@ pub struct Method {
 /// > As per the JSON-RPC 2.0 specification,
 /// > the params of a JSON-RPC request object may be an array, object, or either
 /// > (represented as by-position, by-name, and either respectively).
-/// > When a method has a paramStructure value of by-name,
+/// > When a method has a `paramStructure` value of by-name,
 /// > callers of the method MUST send a JSON-RPC request object whose params field is an object.
-/// > Further, the key names of the params object MUST be the same as the contentDescriptor.names for the given method.
+/// > Further, the key names of the params object MUST be the same as the `contentDescriptor.names` for the given method.
 /// > Defaults to "either".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -94,7 +94,7 @@ pub enum ParamStructure {
 pub struct ContentDescriptor {
     /// > REQUIRED.
     /// > Name of the content that is being described.
-    /// > If the content described is a method parameter assignable by-name, this field SHALL define the parameter’s key (ie name).
+    /// > If the content described is a method parameter assignable by-name, this field SHALL define the parameter's key (i.e. name).
     pub name: String,
     /// > REQUIRED.
     /// > Schema that describes the content.
@@ -115,7 +115,7 @@ pub struct ContentDescriptor {
 /// > A list of parameters that are applicable for this method.
 /// > The list MUST NOT include duplicated parameters and therefore require name to be unique.
 /// > The list can use the Reference Object to link to parameters that are defined by the Content Descriptor Object.
-/// > All optional params (content descriptor objects with “required”: false) MUST be positioned after all required params in the list.
+/// > All optional params (content descriptor objects with "required": false) MUST be positioned after all required params in the list.
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 #[serde(transparent)]
 pub struct Params {

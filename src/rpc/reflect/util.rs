@@ -7,7 +7,7 @@ use serde::{de::Visitor, forward_to_deserialize_any, Deserialize, Deserializer};
 /// "Introspection" by tracing a [`Deserialize`] to see if it's [`Option`]-like.
 ///
 /// This allows us to smoothly operate between rust functions that take an optional
-/// paramater, and the content descriptors in OpenRPC.
+/// parameter, and the content descriptors in OpenRPC.
 pub trait Optional<'de>: Deserialize<'de> {
     fn optional() -> bool {
         #[derive(Default)]
