@@ -283,6 +283,7 @@ where
     module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
     module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
     module.register_async_method(NET_AGENT_VERSION, net_agent_version::<DB>)?;
+    module.register_async_method(NET_AUTO_NAT_STATUS, net_auto_nat_status::<DB>)?;
     // Node API
     module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API

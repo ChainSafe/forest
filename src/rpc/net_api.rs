@@ -130,3 +130,16 @@ pub async fn net_agent_version<DB: Blockstore>(
         Err(anyhow::anyhow!("item not found").into())
     }
 }
+
+pub async fn net_auto_nat_status<DB: Blockstore>(
+    _params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<NatStatusResult, JsonRpcError> {
+    let (tx, rx) = oneshot::channel();
+    let req = NetworkMessage::JSONRPCRequest {
+        method: NetRPCMethods::AutoNATStatus(tx),
+    };
+    data.network_send.send_async(req).await?;
+    let nat_status = rx.await?;
+    Ok(nat_status.into())
+}
