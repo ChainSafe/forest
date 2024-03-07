@@ -351,6 +351,25 @@ pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     Ok((*tss).clone().into())
 }
 
+pub async fn chain_get_tipset_after_height<DB: Blockstore>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
+        params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let tss = data
+        .state_manager
+        .chain_store()
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
+    Ok((*tss).clone().into())
+}
+
 pub async fn chain_get_genesis<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {

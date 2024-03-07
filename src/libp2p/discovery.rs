@@ -131,7 +131,6 @@ impl<'a> DiscoveryConfig<'a> {
         } = self;
 
         let mut peers = HashSet::new();
-        let peer_addresses = HashMap::new();
 
         // Kademlia config
         let store = MemoryStore::new(local_peer_id);
@@ -184,7 +183,7 @@ impl<'a> DiscoveryConfig<'a> {
             pending_events: VecDeque::new(),
             n_node_connected: 0,
             peers,
-            peer_addresses,
+            peer_info: HashMap::new(),
             target_peer_count,
             custom_seed_peers: user_defined,
             pending_dial_opts: VecDeque::new(),
@@ -209,14 +208,20 @@ pub struct DiscoveryBehaviour {
     n_node_connected: u64,
     /// Keeps hash set of peers connected.
     peers: HashSet<PeerId>,
-    /// Keeps hash map of peers and their multi-addresses
-    peer_addresses: HashMap<PeerId, HashSet<Multiaddr>>,
+    /// Keeps hash map of peers and their information.
+    peer_info: HashMap<PeerId, PeerInfo>,
     /// Number of connected peers to pause discovery on.
     target_peer_count: u64,
     /// Seed peers
     custom_seed_peers: Vec<(PeerId, Multiaddr)>,
     /// Options to configure dials to known peers.
     pending_dial_opts: VecDeque<DialOpts>,
+}
+
+#[derive(Default)]
+pub struct PeerInfo {
+    pub addresses: HashSet<Multiaddr>,
+    pub agent_version: Option<String>,
 }
 
 impl DiscoveryBehaviour {
@@ -226,8 +231,15 @@ impl DiscoveryBehaviour {
     }
 
     /// Returns a map of peer ids and their multi-addresses
-    pub fn peer_addresses(&self) -> &HashMap<PeerId, HashSet<Multiaddr>> {
-        &self.peer_addresses
+    pub fn peer_addresses(&self) -> HashMap<PeerId, HashSet<Multiaddr>> {
+        self.peer_info
+            .iter()
+            .map(|(peer_id, info)| (*peer_id, info.addresses.clone()))
+            .collect()
+    }
+
+    pub fn peer_info(&self, peer_id: &PeerId) -> Option<&PeerInfo> {
+        self.peer_info.get(peer_id)
     }
 
     /// Bootstrap Kademlia network
@@ -260,9 +272,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         local_addr: &libp2p::Multiaddr,
         remote_addr: &libp2p::Multiaddr,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        self.peer_addresses
+        self.peer_info
             .entry(peer)
             .or_default()
+            .addresses
             .insert(remote_addr.clone());
         self.discovery.handle_established_inbound_connection(
             connection_id,
@@ -279,9 +292,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
         addr: &libp2p::Multiaddr,
         role_override: libp2p::core::Endpoint,
     ) -> Result<THandler<Self>, ConnectionDenied> {
-        self.peer_addresses
+        self.peer_info
             .entry(peer)
             .or_default()
+            .addresses
             .insert(addr.clone());
         self.discovery.handle_established_outbound_connection(
             connection_id,
@@ -330,7 +344,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 if e.remaining_established == 0 {
                     self.n_node_connected -= 1;
                     self.peers.remove(&e.peer_id);
-                    self.peer_addresses.remove(&e.peer_id);
+                    self.peer_info.remove(&e.peer_id);
                     self.pending_events
                         .push_back(DiscoveryEvent::PeerDisconnected(e.peer_id));
                 }
@@ -396,6 +410,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     match &ev {
                         DerivedDiscoveryBehaviourEvent::Identify(ev) => {
                             if let identify::Event::Received { peer_id, info } = ev {
+                                self.peer_info.entry(*peer_id).or_default().agent_version =
+                                    Some(info.agent_version.clone());
                                 if let Some(kademlia) = self.discovery.kademlia.as_mut() {
                                     for address in &info.listen_addrs {
                                         kademlia.add_address(peer_id, address.clone());

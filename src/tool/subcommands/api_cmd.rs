@@ -15,6 +15,7 @@ use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::networks::parse_bootstrap_peers;
 use crate::networks::ChainConfig;
 use crate::networks::NetworkChain;
 use crate::rpc::start_rpc;
@@ -366,6 +367,10 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.epoch(),
             Default::default(),
         )),
+        RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
+            shared_tipset.epoch(),
+            Default::default(),
+        )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
@@ -381,11 +386,22 @@ fn mpool_tests() -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
+    let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
+    let peer_id = bootstrap_peers
+        .last()
+        .expect("No bootstrap peers found - bootstrap file is empty or corrupted")
+        .to_string()
+        .rsplit_once('/')
+        .expect("No peer id found - address is not in the expected format")
+        .1
+        .to_string();
+
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
+        RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
         RpcTest::basic(ApiInfo::net_info_req())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
     ]
