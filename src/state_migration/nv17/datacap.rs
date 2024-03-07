@@ -74,7 +74,7 @@ impl<BS: Blockstore> PostMigrator<BS> for DataCapPostMigrator {
             verifreg_balance.into(),
         )?;
 
-        let mut token = TokenState::new(store)?;
+        let mut token = TokenState::new_with_bit_width(store, HAMT_BIT_WIDTH)?;
         token.supply = TokenAmount::from_atto(token_supply).into();
         token.balances = balances_map.flush()?;
         token.allowances = allowances_map.flush()?;
