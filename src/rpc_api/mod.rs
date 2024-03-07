@@ -139,6 +139,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_INFO, Access::Read);
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
+    access.insert(net_api::NET_AGENT_VERSION, Access::Read);
 
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
@@ -422,10 +423,11 @@ pub mod net_api {
     use crate::lotus_json::lotus_json_with_self;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
-
     pub const NET_INFO: &str = "Filecoin.NetInfo";
+    pub const NET_CONNECT: &str = "Filecoin.NetConnect";
+    pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
+    pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
 
     #[derive(Debug, Default, Serialize, Deserialize, Clone)]
     pub struct NetInfoResult {
@@ -451,9 +453,6 @@ pub mod net_api {
             }
         }
     }
-
-    pub const NET_CONNECT: &str = "Filecoin.NetConnect";
-    pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
 }
 
 /// Node API

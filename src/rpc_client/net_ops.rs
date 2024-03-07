@@ -45,4 +45,12 @@ impl ApiInfo {
     pub fn net_disconnect_req(peer: String) -> RpcRequest<()> {
         RpcRequest::new(NET_DISCONNECT, (peer,))
     }
+
+    pub async fn net_agent_version(&self, peer: String) -> Result<String, JsonRpcError> {
+        self.call(Self::net_agent_version_req(peer)).await
+    }
+
+    pub fn net_agent_version_req(peer: String) -> RpcRequest<String> {
+        RpcRequest::new(NET_AGENT_VERSION, (peer,))
+    }
 }

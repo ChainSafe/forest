@@ -36,6 +36,10 @@
   `--p2p-listen-address` option to `forest` to override p2p addresses that
   forest listens on
 
+- [#4031](https://github.com/ChainSafe/forest/pull/4031) Added RPC method
+  `Filecoin.NetAgentVersion` and `--agent` flag to the `forest-cli net peers`
+  subcommand, that will list the agent version of the connected peers.
+
 ### Changed
 
 ### Removed
