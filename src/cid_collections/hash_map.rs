@@ -16,7 +16,7 @@ use std::collections::HashMap;
 /// the space savings, which are constant per-variant, rather than constant per-item.
 ///
 /// This is dramatic for large maps!
-/// Using, e.g [`frozen_vec::SmallCid`](super::frozen_vec::SmallCid) will cost
+/// Using, e.g [`SmallCidNonEmptyVec`](super::SmallCidNonEmptyVec) will cost
 /// 25% more per-CID in the median case (32 B vs 40 B)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CidHashMap<V> {

@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
+use crate::rpc_api::data_types::*;
 use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
@@ -42,7 +42,7 @@ impl ApiInfo {
     pub async fn chain_get_tipset_by_height(
         &self,
         epoch: ChainEpoch,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> Result<Tipset, JsonRpcError> {
         self.call(Self::chain_get_tipset_by_height_req(epoch, head))
             .await
@@ -50,7 +50,7 @@ impl ApiInfo {
 
     pub fn chain_get_tipset_by_height_req(
         epoch: ChainEpoch,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> RpcRequest<Tipset> {
         RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
     }

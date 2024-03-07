@@ -423,7 +423,8 @@ macro_rules! lotus_json_with_self {
         $(
             impl $crate::lotus_json::HasLotusJson for $domain_ty {
                 type LotusJson = Self;
-                #[cfg(test)] fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
                 }
                 fn into_lotus_json(self) -> Self::LotusJson {
