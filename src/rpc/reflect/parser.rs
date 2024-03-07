@@ -223,3 +223,137 @@ impl<'a> From<ParseError<'a>> for JsonRpcError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! from_value {
+        ($tt:tt) => {
+            serde_json::from_value(serde_json::json!($tt)).unwrap()
+        };
+    }
+
+    #[test]
+    fn optional() {
+        // no params where optional
+        let mut parser = Parser::_new(None, &["p0"], ParamStructure::Either).unwrap();
+        assert_eq!(None::<i32>, parser._parse().unwrap());
+
+        // positional optional
+        let mut parser = Parser::_new(from_value!([]), &["opt"], ParamStructure::Either).unwrap();
+        assert_eq!(None::<i32>, parser._parse().unwrap());
+
+        // named optional
+        let mut parser = Parser::_new(from_value!({}), &["opt"], ParamStructure::Either).unwrap();
+        assert_eq!(None::<i32>, parser._parse().unwrap());
+
+        // postional optional with mandatory
+        let mut parser =
+            Parser::_new(from_value!([0]), &["p0", "opt"], ParamStructure::Either).unwrap();
+        assert_eq!(Some(0), parser._parse().unwrap());
+        assert_eq!(None::<i32>, parser._parse().unwrap());
+
+        // named optional with mandatory
+        let mut parser = Parser::_new(
+            from_value!({"p0": 0}),
+            &["p0", "opt"],
+            ParamStructure::Either,
+        )
+        .unwrap();
+        assert_eq!(Some(0), parser._parse().unwrap());
+        assert_eq!(None::<i32>, parser._parse().unwrap());
+    }
+
+    #[test]
+    fn missing() {
+        // missing only named
+        let mut parser = Parser::_new(from_value!({}), &["p0"], ParamStructure::Either).unwrap();
+        assert!(matches!(
+            parser._parse::<i32>().unwrap_err(),
+            ParseError::Missing { name: "p0", .. },
+        ));
+
+        // missing only positional
+        let mut parser = Parser::_new(from_value!([]), &["p0"], ParamStructure::Either).unwrap();
+        assert!(matches!(
+            parser._parse::<i32>().unwrap_err(),
+            ParseError::Missing { name: "p0", .. },
+        ));
+
+        // missing a named
+        let mut parser = Parser::_new(
+            from_value!({"p0": 0}),
+            &["p0", "p1"],
+            ParamStructure::Either,
+        )
+        .unwrap();
+        assert_eq!(0, parser._parse::<i32>().unwrap());
+        assert!(matches!(
+            parser._parse::<i32>().unwrap_err(),
+            ParseError::Missing { name: "p1", .. },
+        ));
+
+        // missing a positional
+        let mut parser =
+            Parser::_new(from_value!([0]), &["p0", "p1"], ParamStructure::Either).unwrap();
+        assert_eq!(0, parser._parse::<i32>().unwrap());
+        assert!(matches!(
+            parser._parse::<i32>().unwrap_err(),
+            ParseError::Missing { name: "p1", .. },
+        ));
+    }
+
+    #[test]
+    fn unexpected() {
+        // named but expected none
+        assert!(matches!(
+            Parser::_new(from_value!({ "surprise": () }), &[], ParamStructure::Either).unwrap_err(),
+            ParseError::UnexpectedNamed(it) if it == ["surprise"],
+        ));
+
+        // positional but expected none
+        assert!(matches!(
+            Parser::_new(from_value!(["surprise"]), &[], ParamStructure::Either).unwrap_err(),
+            ParseError::UnexpectedPositional(1),
+        ));
+
+        // named after one
+        let mut parser = Parser::_new(
+            from_value!({ "p0": 0, "surprise": () }),
+            &["p0"],
+            ParamStructure::Either,
+        )
+        .unwrap();
+        assert!(matches!(
+            parser._parse::<i32>().unwrap_err(),
+            ParseError::UnexpectedNamed(it) if it == ["surprise"]
+        ));
+
+        // positional after one
+        let mut parser = Parser::_new(
+            from_value!([1, "surprise"]),
+            &["p0"],
+            ParamStructure::Either,
+        )
+        .unwrap();
+        assert!(matches!(
+            parser._parse::<i32>().unwrap_err(),
+            ParseError::UnexpectedPositional(1),
+        ));
+    }
+
+    #[test]
+    #[should_panic = "`Parser` was initialized with 0 arguments, but `parse` was called 1 times"]
+    fn called_too_much() {
+        let mut parser = Parser::_new(None, &[], ParamStructure::Either).unwrap();
+        let _ = parser._parse::<()>();
+        unreachable!()
+    }
+
+    #[test]
+    #[should_panic = "`Parser` has unhandled parameters - did you forget to call `parse`?"]
+    fn called_too_little() {
+        Parser::_new(None, &["p0"], ParamStructure::Either).unwrap();
+    }
+}
