@@ -34,7 +34,7 @@ use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo}
 #[derive(NetworkBehaviour)]
 pub(in crate::libp2p) struct ForestBehaviour {
     gossipsub: gossipsub::Behaviour,
-    discovery: DiscoveryBehaviour,
+    pub(super) discovery: DiscoveryBehaviour,
     ping: ping::Behaviour,
     connection_limits: connection_limits::Behaviour,
     pub(super) blocked_peers: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,

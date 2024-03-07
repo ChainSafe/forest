@@ -404,6 +404,7 @@ fn net_tests() -> Vec<RpcTest> {
         RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
         RpcTest::basic(ApiInfo::net_info_req())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
+        RpcTest::basic(ApiInfo::net_auto_nat_status_req()),
     ]
 }
 
