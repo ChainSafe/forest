@@ -36,7 +36,6 @@ impl<BS: Blockstore> StateMigration<BS> {
             .get(&Height::Dragon)
             .context("no height info for network version NV22")?
             .epoch;
-        //let upgrade_epoch = 3654004;
 
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree

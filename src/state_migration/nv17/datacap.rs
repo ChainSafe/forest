@@ -14,6 +14,7 @@ use crate::state_migration::common::PostMigrator;
 use crate::utils::db::CborStoreExt;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_hamt::BytesKey;
+use frc46_token::token::state::TokenState;
 use fvm_ipld_blockstore::Blockstore;
 use num_traits::Zero;
 use once_cell::sync::Lazy;
@@ -73,8 +74,7 @@ impl<BS: Blockstore> PostMigrator<BS> for DataCapPostMigrator {
             verifreg_balance.into(),
         )?;
 
-        let mut token =
-            fil_actors_shared::frc46_token::TokenState::new_with_bit_width(&store, HAMT_BIT_WIDTH)?;
+        let mut token = TokenState::new(store)?;
         token.supply = TokenAmount::from_atto(token_supply).into();
         token.balances = balances_map.flush()?;
         token.allowances = allowances_map.flush()?;

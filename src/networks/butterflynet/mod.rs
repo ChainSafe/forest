@@ -50,7 +50,7 @@ static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
 /// The genesis file does not live on the `master` branch, currently on a draft PR.
 /// `<https://github.com/filecoin-project/lotus/pull/11458>`
 static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/040324-butterfly-assets/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/3331a7e52c97e5723fc0c613271a616bb3ccdb39/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -80,9 +80,9 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Dragon,
             HeightInfo {
-                epoch: 5760,
+                epoch: 2600,
                 bundle: Some(
-                    Cid::try_from("bafy2bzacebk6jok5fx77hg4fx65evyomz7odpums6si47oasexgyenid6dphw")
+                    Cid::try_from("bafy2bzaceaqx5xa4cwso24rjiu2ketjlztrqlac6dkyol7tlyuhzrle3zfbos")
                         .unwrap(),
                 ),
             },

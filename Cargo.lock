@@ -2764,11 +2764,11 @@ checksum = "1676f435fc1dadde4d03e43f5d62b259e1ce5f40bd4ffb21db2b42ebe59c1382"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b8d8a278388a502cbe22c7359eaa393eac4451f5accbd977eaee52a28275aaf"
+checksum = "c94732b4360fa5796fe0f0524b62d4b7f9081c0001e45e44e1969511ad237a68"
 dependencies = [
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
@@ -2780,9 +2780,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a0601edd6fe61bbcf574371c5502768d7716a55d233234b5e4c1e5693b3c055"
+checksum = "29941aeb04a17810b8d2104e0f0e4fa10001393e7a1d3523631196d7922fbc2f"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2795,12 +2795,12 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3cf2aa6bc17e28a599555d216c2e095aad55cdf0a2e0f66dbd705bf913db5f4"
+checksum = "091aa98dfbb933274389c5be9348590e168548b15b886bd2eafbff7c13ecef23"
 dependencies = [
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "frc46_token",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2815,13 +2815,13 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58b746a3dad083daf72be0f2757efa82849b3a45601b8e70362d81b5e73fa235"
+checksum = "539689549dd7c11fa9139a8adce2568fcbcab1383edf152e5cba45061df6d3d2"
 dependencies = [
  "cid",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 3.6.0",
  "fvm_shared 4.1.2",
@@ -2835,14 +2835,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84f37e7340dc021d20ef5ea36dfb52f173262d10184b1c924106c328427c5197"
+checksum = "ed980044e180910897862014dc237448f44c7f7600470a9357458b8c7d1ea0bc"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.9.0",
@@ -2856,9 +2856,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27f5867b4ba96b9c5ff93ed10cfd6b313a5e59862d32599680c6d93daf325049"
+checksum = "ab089bd0e43f98c8bdccdec814e14c74c631b73ee832f16d313bbb8ba9cecc1e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2894,15 +2894,15 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0bc8c9746c93f9b6ac90240ca74f0b060bc78751b16c36f07618913854c0270"
+checksum = "f0c76cad842778e6aa42e9defdcdea0553072ff6f0c0aa41242fd00f265b8d9d"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actor_verifreg_state",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2919,16 +2919,16 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "722f6e09d9114e4b10c5c22299200f34b0b2a82693735b64cb98b13bab9ebca4"
+checksum = "7022542811937e9b5d722586f0b17037561ef7cd3f0c35ce4c849a20da7c744d"
 dependencies = [
  "anyhow",
  "bitflags 2.4.2",
  "cid",
  "fil_actor_verifreg_state",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -2949,14 +2949,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34878068dd52157eb581aa7533cf9a9bfe6f771eeed7b2299a97220b96880701"
+checksum = "b8738df800e7cb4d350717ebc20d74fffaf26c9298108e03e5458a4690760797"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.9.0",
@@ -2972,14 +2972,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc4e0b040fea3f81cb0ae1c829ce50024045d75021b582dcb1965f85bc59926"
+checksum = "7a1996681dae26388ae9a30fb9fcefebda66e56b470b78a887b9b995cbb9a8f7"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_ipld_hamt 0.9.0",
@@ -2995,9 +2995,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdd400b1ef2e5ac539dec5b94d7861747009fdf34fcdfc8e92666d2d5adb852f"
+checksum = "8dc9c0958524a3413cf72974b715fbae5bf57407f914ef1ca129624b4fcd7a58"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -3011,9 +3011,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70369b47e9e11da6f7cc09edc7b3ec773e706113b83286af0cc2ca5377d6369c"
+checksum = "1b6cdcc5a6a21fb639853cb828fe2625aa1e792439db1161681f866ecbbc594e"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -3028,14 +3028,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32259ec6139952b11abbb0a558128cccee44c58a460e1bcb9449e62ac6e9f25f"
+checksum = "62e9394839dd721f7cdbbafd82747ec9daa4b6229e1bc1c7f014366216fc3a60"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
- "frc42_macros 3.0.0",
+ "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -3048,13 +3048,14 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "10.0.0-dev.2"
+version = "10.0.0-dev.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e8194ff60ad006523bd2b4799c90ff69c2e3e5c719124e310568ac93437bfce"
+checksum = "fa8b5e64f9b025625f7f667dc90e729d350fddae0f464c119b2d7436a79800f2"
 dependencies = [
  "anyhow",
  "cid",
  "filecoin-proofs-api",
+ "frc46_token",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -3293,6 +3294,7 @@ dependencies = [
  "fil_actors_shared",
  "filecoin-proofs-api",
  "flume 0.11.0",
+ "frc46_token",
  "fs_extra",
  "futures",
  "futures-util",
@@ -3459,19 +3461,10 @@ version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a1704e27193af21e58435974ff20f2be25cc59338afb89920abdb540ad3182b"
 dependencies = [
- "frc42_hasher 4.0.0",
- "frc42_macros 4.0.0",
+ "frc42_hasher",
+ "frc42_macros",
  "fvm_ipld_encoding",
  "fvm_shared 4.1.2",
- "thiserror",
-]
-
-[[package]]
-name = "frc42_hasher"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08a35e7214108f81cefc17b0466be01279f384faf913918a12dbc8528bb758a4"
-dependencies = [
  "thiserror",
 ]
 
@@ -3488,25 +3481,12 @@ dependencies = [
 
 [[package]]
 name = "frc42_macros"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f50cd62b077775194bde67eef8076b31f915b9c099f3a7fd1a760363d65f145"
-dependencies = [
- "blake2b_simd",
- "frc42_hasher 3.0.0",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "frc42_macros"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a9ce38a981bab5e0d3c0835baa86f83066afe9afaf0aec23cee421f6d8c628e"
 dependencies = [
  "blake2b_simd",
- "frc42_hasher 4.0.0",
+ "frc42_hasher",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
