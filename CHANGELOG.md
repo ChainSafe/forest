@@ -29,6 +29,24 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.17.0 "Smaug"
+
+Mandatory release that includes:
+
+- support for the NV22 _Dragon_ network upgrade, together with the required
+  state migration,
+- important networking improvements that increase Forest resilience to network
+  disruptions,
+- various improvements and support for new RPC methods.
+
+### Added
+
 - [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
   query optimizations when serving with many car files.
 
@@ -42,10 +60,6 @@
 
 - [#3995](https://github.com/ChainSafe/forest/pull/3955) Added support for the
   NV22 _Dragon_ network upgrade, together with the required state migration.
-
-### Changed
-
-### Removed
 
 ### Fixed
 
