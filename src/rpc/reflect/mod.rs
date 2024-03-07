@@ -165,7 +165,7 @@ macro_rules! do_impls {
             $(
                 $arg: for<'de> Deserialize<'de> + Clone,
             )*
-            Fut: Future<Output = Result<R, JsonRpcError>> + Send + Sync + 'static,
+            Fut: Future<Output = Result<R, JsonRpcError>> + Send + 'static,
             R: Serialize,
         {
             type Future = Either<

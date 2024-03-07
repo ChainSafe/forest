@@ -46,6 +46,7 @@ use libp2p::PeerId;
 use nonempty::NonEmpty;
 use num_bigint::BigInt;
 use parking_lot::RwLock as SyncRwLock;
+use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
@@ -199,7 +200,7 @@ impl ApiMessage {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiMessageLotusJson {
     cid: LotusJson<Cid>,
@@ -475,19 +476,17 @@ impl HasLotusJson for PendingBeneficiaryChange {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiReceipt {
     // Exit status of message execution
     pub exit_code: ExitCode,
     // `Return` value if the exit code is zero
     #[serde(rename = "Return")]
-    #[serde(with = "crate::lotus_json")]
-    pub return_data: RawBytes,
+    pub return_data: LotusJson<RawBytes>,
     // Non-negative value of GasUsed
     pub gas_used: u64,
-    #[serde(with = "crate::lotus_json")]
-    pub events_root: Option<Cid>,
+    pub events_root: LotusJson<Option<Cid>>,
 }
 
 lotus_json_with_self!(ApiReceipt);

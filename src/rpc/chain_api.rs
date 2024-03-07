@@ -33,13 +33,39 @@ use tokio::sync::{
     Mutex,
 };
 
-pub async fn chain_get_message<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
-) -> Result<LotusJson<Message>, JsonRpcError> {
-    let LotusJson((msg_cid,)): LotusJson<(Cid,)> = params.parse()?;
+use super::reflect::SelfDescribingModule;
 
-    let chain_message: ChainMessage = data
+#[allow(unused)]
+pub fn serve_chain_api(
+    module: &mut SelfDescribingModule<Arc<RPCState<impl Blockstore + Send + Sync + 'static>>>,
+) {
+    {
+        module
+            .serve(CHAIN_GET_MESSAGE, ["msg_cid"], chain_get_message)
+            .serve(
+                CHAIN_GET_PARENT_MESSAGES,
+                ["block_cid"],
+                chain_get_parent_messages,
+            )
+            .serve(
+                CHAIN_GET_PARENT_RECEIPTS,
+                ["block_cid"],
+                chain_get_parent_receipts,
+            )
+            .serve(
+                CHAIN_GET_MESSAGES_IN_TIPSET,
+                ["tsk"],
+                chain_get_messages_in_tipset,
+            )
+            .serve(CHAIN_EXPORT, ["params"], chain_export)
+    };
+}
+
+async fn chain_get_message(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(msg_cid): LotusJson<Cid>,
+) -> Result<LotusJson<Message>, JsonRpcError> {
+    let chain_message: ChainMessage = ctx
         .state_manager
         .blockstore()
         .get_cbor(&msg_cid)?
@@ -50,13 +76,11 @@ pub async fn chain_get_message<DB: Blockstore>(
     }))
 }
 
-pub async fn chain_get_parent_messages<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_parent_messages(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(block_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let store = data.state_manager.blockstore();
+    let store = ctx.state_manager.blockstore();
     let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
         .with_context(|| format!("can't find block header with cid {block_cid}"))?;
@@ -69,13 +93,11 @@ pub async fn chain_get_parent_messages<DB: Blockstore>(
     }
 }
 
-pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_parent_receipts(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(block_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
-    let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let store = data.state_manager.blockstore();
+    let store = ctx.state_manager.blockstore();
     let block_header: CachingBlockHeader = store
         .get_cbor(&block_cid)?
         .with_context(|| format!("can't find block header with cid {block_cid}"))?;
@@ -101,9 +123,9 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         amt.for_each(|_, receipt| {
             receipts.push(ApiReceipt {
                 exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
+                return_data: receipt.return_data.clone().into(),
                 gas_used: receipt.gas_used,
-                events_root: receipt.events_root,
+                events_root: receipt.events_root.into(),
             });
             Ok(())
         })?;
@@ -124,9 +146,9 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         amt.for_each(|_, receipt| {
             receipts.push(ApiReceipt {
                 exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
+                return_data: receipt.return_data.clone().into(),
                 gas_used: receipt.gas_used as _,
-                events_root: None,
+                events_root: None.into(),
             });
             Ok(())
         })?;
@@ -135,33 +157,28 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(receipts))
 }
 
-pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_messages_in_tipset(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(tsk): LotusJson<TipsetKey>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
-
-    let store = data.chain_store.blockstore();
+    let store = ctx.chain_store.blockstore();
     let tipset = Tipset::load_required(store, &tsk)?;
     let messages = load_api_messages_from_tipset(store, &tipset)?;
     Ok(LotusJson(messages))
 }
 
-pub async fn chain_export<DB>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
-) -> Result<Option<String>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
+async fn chain_export(
+    ctx: Data<RPCState<impl Blockstore + Send + Sync + 'static>>,
+    params: ChainExportParams,
+) -> Result<Option<String>, JsonRpcError> {
     let ChainExportParams {
         epoch,
         recent_roots,
         output_path,
-        tipset_keys: ApiTipsetKey(tsk),
+        tipset_keys: LotusJson(ApiTipsetKey(tsk)),
         skip_checksum,
         dry_run,
-    }: ChainExportParams = params.parse()?;
+    } = params;
 
     static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -170,7 +187,7 @@ where
         return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
     }
 
-    let chain_finality = data.state_manager.chain_config().policy.chain_finality;
+    let chain_finality = ctx.state_manager.chain_config().policy.chain_finality;
     if recent_roots < chain_finality {
         return Err(anyhow::anyhow!(format!(
             "recent-stateroots must be greater than {chain_finality}"
@@ -178,15 +195,15 @@ where
         .into());
     }
 
-    let head = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+    let head = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
     let start_ts =
-        data.chain_store
+        ctx.chain_store
             .chain_index
             .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
     match if dry_run {
         crate::chain::export::<Sha256>(
-            Arc::clone(&data.chain_store.db),
+            Arc::clone(&ctx.chain_store.db),
             &start_ts,
             recent_roots,
             VoidAsyncWriter,
@@ -197,7 +214,7 @@ where
     } else {
         let file = tokio::fs::File::create(&output_path).await?;
         crate::chain::export::<Sha256>(
-            Arc::clone(&data.chain_store.db),
+            Arc::clone(&ctx.chain_store.db),
             &start_ts,
             recent_roots,
             file,
