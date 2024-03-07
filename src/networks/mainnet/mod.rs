@@ -227,8 +227,8 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| 
             config: &DRAND_MAINNET,
         },
         DrandPoint {
-            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
-                .unwrap_or(HEIGHT_INFOS.get(&Height::Dragon).unwrap().epoch + 120),
+            // 2024-04-02T14:00:00Z - Epoch will be updated in final release
+            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT").unwrap_or(i64::MAX),
             config: &DRAND_QUICKNET,
         },
     ]

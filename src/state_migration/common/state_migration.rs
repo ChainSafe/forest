@@ -83,9 +83,10 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         let num_threads = std::env::var("FOREST_STATE_MIGRATION_THREADS")
             .ok()
             .and_then(|s| s.parse().ok())
-            // At least 3 are required to not deadlock the migration. Don't use all CPU,
-            // otherwise the migration will starve the rest of the system.
-            .unwrap_or_else(|| 3.max(num_cpus::get() / 2));
+            // Don't use all CPU, otherwise the migration will starve the rest of the system.
+            .unwrap_or_else(|| num_cpus::get() / 2)
+            // At least 3 are required to not deadlock the migration.
+            .max(3);
 
         let pool = rayon::ThreadPoolBuilder::new()
             .thread_name(|id| format!("state migration thread: {id}"))
