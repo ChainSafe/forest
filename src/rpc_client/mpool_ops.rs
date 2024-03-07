@@ -16,13 +16,16 @@ impl ApiInfo {
         RpcRequest::new(MPOOL_GET_NONCE, (addr,))
     }
 
-    pub async fn mpool_push_message(
-        &self,
-        message: Message,
-        specs: Option<MessageSendSpec>,
-    ) -> Result<SignedMessage, JsonRpcError> {
-        self.call(Self::mpool_push_message_req(message, specs))
-            .await
+    pub async fn mpool_get_nonce(&self, addr: Address) -> Result<u64, JsonRpcError> {
+        self.call(Self::mpool_get_nonce_req(addr)).await
+    }
+
+    pub fn mpool_push_req(message: SignedMessage) -> RpcRequest<Cid> {
+        RpcRequest::new(MPOOL_PUSH, (message,))
+    }
+
+    pub async fn mpool_push(&self, message: SignedMessage) -> Result<Cid, JsonRpcError> {
+        self.call(Self::mpool_push_req(message)).await
     }
 
     pub fn mpool_push_message_req(
@@ -32,11 +35,20 @@ impl ApiInfo {
         RpcRequest::new(MPOOL_PUSH_MESSAGE, (message, specs))
     }
 
-    pub async fn mpool_pending(&self, cids: Vec<Cid>) -> Result<Vec<SignedMessage>, JsonRpcError> {
-        self.call(Self::mpool_pending_req(cids)).await
+    pub async fn mpool_push_message(
+        &self,
+        message: Message,
+        specs: Option<MessageSendSpec>,
+    ) -> Result<SignedMessage, JsonRpcError> {
+        self.call(Self::mpool_push_message_req(message, specs))
+            .await
     }
 
     pub fn mpool_pending_req(cids: Vec<Cid>) -> RpcRequest<Vec<SignedMessage>> {
         RpcRequest::new(MPOOL_PENDING, (cids,))
+    }
+
+    pub async fn mpool_pending(&self, cids: Vec<Cid>) -> Result<Vec<SignedMessage>, JsonRpcError> {
+        self.call(Self::mpool_pending_req(cids)).await
     }
 }

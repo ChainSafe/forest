@@ -15,6 +15,10 @@ pub struct Cli {
     #[clap(flatten)]
     pub opts: CliRpcOpts,
 
+    /// Use remote wallet associated with the Filecoin node.
+    #[arg(long)]
+    pub remote_wallet: bool,
+
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,
 }
