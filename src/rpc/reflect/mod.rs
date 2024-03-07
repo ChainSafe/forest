@@ -1,8 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#[allow(unused)]
 pub mod jsonrpc_types;
-#[allow(unused)]
 pub mod openrpc_types;
 
 mod parser;
@@ -28,6 +26,7 @@ use schemars::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use super::error::JsonRpcError;
 use util::Optional as _;
 
 /// A wrapped [`jsonrpsee::server::RpcModule`] which generates an [OpenRPC](https://spec.open-rpc.org)
@@ -113,7 +112,7 @@ impl<Ctx> SelfDescribingModule<Ctx> {
 /// Wrap a bare function with our argument parsing logic.
 /// Turns any `async fn foo(ctx, arg0...)` into a function that can be passed to [`jsonrpsee::server::RpcModule::register_async_method`]
 pub trait Wrap<const ARITY: usize, Ctx, Args, R> {
-    type Future: Future<Output = Result<serde_json::Value, crate::rpc::error::JsonRpcError>> + Send;
+    type Future: Future<Output = Result<serde_json::Value, JsonRpcError>> + Send;
     fn wrap(
         self,
         param_names: [&'static str; ARITY],
@@ -145,11 +144,11 @@ macro_rules! do_impls {
             $(
                 $arg: for<'de> Deserialize<'de> + Clone,
             )*
-            Fut: Future<Output = Result<R, crate::rpc::error::JsonRpcError>> + Send + Sync + 'static,
+            Fut: Future<Output = Result<R, JsonRpcError>> + Send + Sync + 'static,
             R: Serialize,
         {
             type Future = Either<
-                Ready<Result<Value, crate::rpc::error::JsonRpcError>>,
+                Ready<Result<Value, JsonRpcError>>,
                 AndThenDeserializeResponse<Fut>,
             >;
 
@@ -166,15 +165,15 @@ macro_rules! do_impls {
                     let params = match params.as_str().map(serde_json::from_str).transpose() {
                         Ok(it) => it,
                         Err(e) => {
-                            return Either::Left(ready(Err(error2error(
-                                jsonrpc_types::Error::invalid_params(e, None),
-                            ))))
+                            return Either::Left(ready(Err(
+                                JsonRpcError::invalid_params(e, None),
+                            )));
                         }
                     };
                     #[allow(unused_variables, unused_mut)]
                     let mut parser = match Parser::new(params, &param_names, calling_convention) {
                         Ok(it) => it,
-                        Err(e) => return Either::Left(ready(Err(error2error(e)))),
+                        Err(e) => return Either::Left(ready(Err(e))),
                     };
 
                     Either::Right(AndThenDeserializeResponse {
@@ -183,7 +182,7 @@ macro_rules! do_impls {
                             $(
                                 match parser.parse::<$arg>() {
                                     Ok(it) => it,
-                                    Err(e) => return Either::Left(ready(Err(error2error(e)))),
+                                    Err(e) => return Either::Left(ready(Err(e))),
                                 },
                             )*
                         ),
@@ -228,37 +227,22 @@ pin_project! {
 
 impl<R, F> Future for AndThenDeserializeResponse<F>
 where
-    F: Future<Output = Result<R, crate::rpc::error::JsonRpcError>>,
+    F: Future<Output = Result<R, JsonRpcError>>,
     R: Serialize,
 {
-    type Output = Result<Value, crate::rpc::error::JsonRpcError>;
+    type Output = Result<Value, JsonRpcError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(
-            serde_json::to_value(ready!(self.project().inner.poll(cx))?)
-                .map_err(|e| {
-                    jsonrpc_types::Error::internal_error(
-                        "error deserializing return value for handler",
-                        json!({
-                            "type": std::any::type_name::<R>(),
-                            "error": e.to_string()
-                        }),
-                    )
-                })
-                .map_err(error2error),
+            serde_json::to_value(ready!(self.project().inner.poll(cx))?).map_err(|e| {
+                JsonRpcError::internal_error(
+                    "error deserializing return value for handler",
+                    json!({
+                        "type": std::any::type_name::<R>(),
+                        "error": e.to_string()
+                    }),
+                )
+            }),
         )
     }
-}
-
-fn error2error(ours: jsonrpc_types::Error) -> crate::rpc::error::JsonRpcError {
-    let jsonrpc_types::Error {
-        code,
-        message,
-        data,
-    } = ours;
-    crate::rpc::error::JsonRpcError::from(jsonrpsee::types::ErrorObject::owned(
-        code as i32,
-        message,
-        data,
-    ))
 }
