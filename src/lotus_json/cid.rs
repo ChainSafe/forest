@@ -3,7 +3,7 @@
 
 use super::*;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct CidLotusJsonGeneric<const S: usize> {
     #[serde(rename = "/")]
     slash: Stringify<::cid::CidGeneric<S>>,
