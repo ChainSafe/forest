@@ -205,9 +205,10 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Dragon,
             HeightInfo {
-                epoch: get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(i64::MAX),
+                // 2024-04-02T14:00:00Z - Epoch will be updated in final release
+                epoch: i64::MAX,
                 bundle: Some(
-                    Cid::try_from("bafy2bzacea6f5icdp6t6fs5sexjxmo3q5d2qu4g4ghq6s5eaob6svnmhvltmw")
+                    Cid::try_from("bafy2bzacecoplaet2m4kzueqgutjxpl76bhmuiq5hmo3ueighbnxas3rj4dvy")
                         .unwrap(),
                 ),
             },
@@ -226,8 +227,8 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| 
             config: &DRAND_MAINNET,
         },
         DrandPoint {
-            // height is TBD
-            height: i64::MAX,
+            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
+                .unwrap_or(HEIGHT_INFOS.get(&Height::Dragon).unwrap().epoch + 120),
             config: &DRAND_QUICKNET,
         },
     ]

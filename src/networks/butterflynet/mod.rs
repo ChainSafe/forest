@@ -35,7 +35,7 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzaceca7iggnglnsntfmtqvpsmolzvbuyzhpoq55wzubq65jasnkqxuh6").unwrap()
+    Cid::from_str("bafy2bzacedz4owzn3irngak4cdv3xndfxyy4qi5hcv7p724anbnt27l7dctoq").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).

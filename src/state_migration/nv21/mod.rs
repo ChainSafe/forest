@@ -1,15 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! This module contains the migration logic for the `NV22` upgrade.
+//! This module contains the migration logic for the `NV21` upgrade.
 //! The corresponding Go implementation can be found here:
-//! TODO !!!
 //! <https://github.com/filecoin-project/go-state-types/blob/master/builtin/v12/migration/top.go>
 
 mod migration;
 mod miner;
 
-/// Run migration for `NV22`. This should be the only exported method in this
+/// Run migration for `NV21`. This should be the only exported method in this
 /// module.
 pub use migration::run_migration;
 

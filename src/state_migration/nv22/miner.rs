@@ -7,8 +7,8 @@
 //! metadata from the Miner actor.
 //!
 //! As per [FIP-0076](https://github.com/filecoin-project/FIPs/blob/master/FIPS/fip-0076.md#backwards-compatibility)
-//! > This proposal requires a state migration to the market actor to add the new ProviderSectors mapping,
-//! > and to add a sector number to and remove allocation ID from each DealState. Computing this mapping
+//! > This proposal requires a state migration to the market actor to add the new `ProviderSectors` mapping,
+//! > and to add a sector number to and remove allocation ID from each `DealState`. Computing this mapping
 //! > requires reading all sector metadata from the miner actor.
 
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
