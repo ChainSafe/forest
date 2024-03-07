@@ -40,6 +40,9 @@
   `Filecoin.NetAgentVersion` and `--agent` flag to the `forest-cli net peers`
   subcommand, that will list the agent version of the connected peers.
 
+- [#3995](https://github.com/ChainSafe/forest/pull/3955) Added support for the
+  NV22 _Dragon_ network upgrade, together with the required state migration.
+
 ### Changed
 
 ### Removed
