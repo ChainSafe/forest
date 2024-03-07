@@ -124,7 +124,9 @@ pub async fn net_agent_version<DB: Blockstore>(
     };
 
     data.network_send.send_async(req).await?;
-    let agent_version = rx.await?;
-
-    Ok(agent_version)
+    if let Some(agent_version) = rx.await? {
+        Ok(agent_version)
+    } else {
+        Err(anyhow::anyhow!("item not found").into())
+    }
 }

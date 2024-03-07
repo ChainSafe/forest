@@ -168,7 +168,7 @@ pub enum NetRPCMethods {
     Info(OneShotSender<NetInfoResult>),
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
-    AgentVersion(OneShotSender<String>, PeerId),
+    AgentVersion(OneShotSender<Option<String>>, PeerId),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -553,12 +553,7 @@ async fn handle_network_message(
                     let agent_version = swarm
                         .behaviour()
                         .peer_info(&peer_id)
-                        .map(|info| {
-                            info.agent_version
-                                .clone()
-                                .unwrap_or_else(|| "item not found".to_string())
-                        })
-                        .unwrap_or_else(|| "item not found".to_string());
+                        .and_then(|info| info.agent_version.clone());
 
                     if response_channel.send(agent_version).is_err() {
                         warn!("Failed to get agent version");
