@@ -259,6 +259,11 @@ impl DiscoveryBehaviour {
             Err("Kademlia is not activated".to_string())
         }
     }
+
+    /// Gets the NAT status.
+    pub fn nat_status(&self) -> autonat::NatStatus {
+        self.discovery.autonat.nat_status()
+    }
 }
 
 impl NetworkBehaviour for DiscoveryBehaviour {

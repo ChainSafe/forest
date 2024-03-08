@@ -140,6 +140,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
     access.insert(net_api::NET_AGENT_VERSION, Access::Read);
+    access.insert(net_api::NET_AUTO_NAT_STATUS, Access::Read);
 
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
@@ -428,6 +429,7 @@ pub mod net_api {
     pub const NET_CONNECT: &str = "Filecoin.NetConnect";
     pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
     pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
+    pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
 
     #[derive(Debug, Default, Serialize, Deserialize, Clone)]
     pub struct NetInfoResult {
@@ -450,6 +452,32 @@ pub mod net_api {
                 num_pending_incoming: counters.num_pending_incoming(),
                 num_pending_outgoing: counters.num_pending_outgoing(),
                 num_established: counters.num_established(),
+            }
+        }
+    }
+
+    #[derive(Debug, Default, Serialize, Deserialize, Clone)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct NatStatusResult {
+        pub reachability: i32,
+        pub public_addrs: Option<Vec<String>>,
+    }
+    lotus_json_with_self!(NatStatusResult);
+
+    impl From<libp2p::autonat::NatStatus> for NatStatusResult {
+        fn from(nat: libp2p::autonat::NatStatus) -> Self {
+            use libp2p::autonat::NatStatus;
+
+            // See <https://github.com/libp2p/go-libp2p/blob/91e1025f04519a5560361b09dfccd4b5239e36e6/core/network/network.go#L77>
+            let (reachability, public_addrs) = match &nat {
+                NatStatus::Unknown => (0, None),
+                NatStatus::Public(addr) => (1, Some(vec![addr.to_string()])),
+                NatStatus::Private => (2, None),
+            };
+
+            NatStatusResult {
+                reachability,
+                public_addrs,
             }
         }
     }

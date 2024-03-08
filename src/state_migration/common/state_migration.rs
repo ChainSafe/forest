@@ -3,12 +3,14 @@
 
 use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
 
 use crate::cid_collections::CidHashMap;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::state_migration::common::MigrationCache;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use parking_lot::Mutex;
 
 use super::PostMigrationCheckArc;
 use super::{verifier::MigrationVerifier, Migrator, PostMigratorArc};
@@ -78,18 +80,30 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         }
 
         let cache = MigrationCache::new(NonZeroUsize::new(10_000).expect("infallible"));
+        let num_threads = std::env::var("FOREST_STATE_MIGRATION_THREADS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            // Don't use all CPU, otherwise the migration will starve the rest of the system.
+            .unwrap_or_else(|| num_cpus::get() / 2)
+            // At least 3 are required to not deadlock the migration.
+            .max(3);
+
         let pool = rayon::ThreadPoolBuilder::new()
             .thread_name(|id| format!("state migration thread: {id}"))
-            .num_threads(3) // minimum needed, more doesn't increase performance in any way
+            .num_threads(num_threads)
             .build()?;
 
-        let (state_tx, state_rx) = crossbeam_channel::bounded(1);
-        let (job_tx, job_rx) = crossbeam_channel::bounded(1);
+        let (state_tx, state_rx) = flume::bounded(30);
+        let (job_tx, job_rx) = flume::bounded(30);
 
         let job_counter = AtomicU64::new(0);
+        let cache_clone = cache.clone();
+
+        let actors_in = Arc::new(Mutex::new(actors_in));
+        let actors_in_clone = actors_in.clone();
         pool.scope(|s| {
             s.spawn(move |_| {
-                actors_in
+                actors_in.lock()
                     .for_each(|addr, state| {
                         state_tx
                             .send((addr, state.clone()))
@@ -103,7 +117,12 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                 while let Ok((address, state)) = state_rx.recv() {
                     let job_tx = job_tx.clone();
                     let migrator = self.migrations.get(&state.code).cloned().unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
-                    let cache_clone = cache.clone();
+
+                    // Deferred migrations should be done at a later time.
+                    if migrator.is_deferred() {
+                        continue;
+                    }
+                    let cache_clone = cache_clone.clone();
                     scope.spawn(move |_| {
                         let job = MigrationJob {
                             address,
@@ -145,6 +164,47 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                 }
             }
         });
+
+        // This is okay to execute even if there are no deferred migrations, as the iteration is
+        // very cheap; ~200ms on mainnet. The alternative is to collect the deferred migrations
+        // into a separate collection, which would increase the memory footprint of the migration.
+        tracing::info!("Processing deferred migrations");
+        let mut job_counter = 0;
+        actors_in_clone.lock().for_each(|address, state| {
+            job_counter += 1;
+            let migrator = self
+                .migrations
+                .get(&state.code)
+                .cloned()
+                .unwrap_or_else(|| panic!("migration failed with state code: {}", state.code));
+
+            if !migrator.is_deferred() {
+                return Ok(());
+            }
+
+            let job = MigrationJob {
+                address,
+                actor_state: state.clone(),
+                actor_migration: migrator,
+            };
+            let job_output = job.run(store, prior_epoch, cache.clone())?;
+            if let Some(MigrationJobOutput {
+                address,
+                actor_state,
+            }) = job_output
+            {
+                actors_out
+                    .set_actor(&address, actor_state)
+                    .unwrap_or_else(|e| {
+                        panic!(
+                            "Failed setting new actor state at given address: {address}, Reason: {e}"
+                        )
+                    });
+            }
+
+            Ok(())
+        })?;
+        tracing::info!("Processed {job_counter} deferred migrations");
 
         // execute post migration actions, e.g., create new actors
         for post_migrator in self.post_migrators.iter() {
