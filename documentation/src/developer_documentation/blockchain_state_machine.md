@@ -14,6 +14,12 @@ State of a Filecoin node:
     Forks:
         Heaviest tipset
         Ancestor tipset
+    Known block headers
+    Bad blocks
+
+Derivatives:
+    Orphans
+    Roots
 
 ```mermaid
     gitGraph
@@ -24,3 +30,10 @@ State of a Filecoin node:
         commit id: "Highlight" type: HIGHLIGHT
         commit
 ```
+
+Situations to consider:
+    Catching up when we're more than chain-finality behind.
+    Forks due to consensus disagreements.
+    Forks due to mining attacks.
+
+Memory bounds.
