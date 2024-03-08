@@ -174,6 +174,10 @@ where
     module.register_async_method(CHAIN_GET_PATH, chain_api::chain_get_path::<DB>)?;
     module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
+    module.register_async_method(
+        CHAIN_GET_TIPSET_AFTER_HEIGHT,
+        chain_get_tipset_after_height::<DB>,
+    )?;
     module.register_async_method(CHAIN_GET_GENESIS, |_, state| chain_get_genesis::<DB>(state))?;
     module.register_async_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)?;
     module.register_async_method(CHAIN_HEAD, |_, state| chain_head::<DB>(state))?;
@@ -279,6 +283,8 @@ where
     module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state))?;
     module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
     module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
+    module.register_async_method(NET_AGENT_VERSION, net_agent_version::<DB>)?;
+    module.register_async_method(NET_AUTO_NAT_STATUS, net_auto_nat_status::<DB>)?;
     // Node API
     module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API

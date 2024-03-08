@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::blocks::TipsetKey;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc_api::chain_api::ChainExportParams;
@@ -56,7 +55,7 @@ impl SnapshotCommands {
                 let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
                 let tipset = api
-                    .chain_get_tipset_by_height(epoch, TipsetKey::default())
+                    .chain_get_tipset_by_height(epoch, Default::default())
                     .await?;
 
                 let output_path = match output_path.is_dir() {

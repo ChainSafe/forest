@@ -16,6 +16,7 @@ use crate::{
         sector::PoStProof,
     },
 };
+use chain4u::header::GENESIS_BLOCK_PARENTS;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
@@ -284,7 +285,7 @@ impl Chain4UInner {
                 .as_ref()
                 .map(Tipset::key)
                 .cloned()
-                .unwrap_or_default()
+                .unwrap_or_else(|| GENESIS_BLOCK_PARENTS.clone())
         });
         header.state_root.close_with(Cid::default);
 

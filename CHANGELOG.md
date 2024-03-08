@@ -29,6 +29,24 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.17.0 "Smaug"
+
+Mandatory release that includes:
+
+- support for the NV22 _Dragon_ network upgrade, together with the required
+  state migration,
+- important networking improvements that increase Forest resilience to network
+  disruptions,
+- various improvements and support for new RPC methods.
+
+### Added
+
 - [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
   query optimizations when serving with many car files.
 
@@ -36,11 +54,17 @@
   `--p2p-listen-address` option to `forest` to override p2p addresses that
   forest listens on
 
-### Changed
+- [#4031](https://github.com/ChainSafe/forest/pull/4031) Added RPC method
+  `Filecoin.NetAgentVersion` and `--agent` flag to the `forest-cli net peers`
+  subcommand, that will list the agent version of the connected peers.
 
-### Removed
+- [#3995](https://github.com/ChainSafe/forest/pull/3955) Added support for the
+  NV22 _Dragon_ network upgrade, together with the required state migration.
 
 ### Fixed
+
+- [#4019](https://github.com/ChainSafe/forest/pull/4019) Fix Forest sending
+  stale notifications after channel cancelation.
 
 ## Forest 0.16.8 "English Channel"
 

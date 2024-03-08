@@ -51,7 +51,7 @@ impl HasLotusJson for CachingBlockHeader {
             json!({
                 "BeaconEntries": null,
                 "Miner": "f00",
-                "Parents": null,
+                "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
                 "ParentWeight": "0",
                 "Height": 0,
                 "ParentStateRoot": {

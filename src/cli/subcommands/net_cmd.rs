@@ -4,7 +4,7 @@
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::rpc_api::data_types::AddrInfo;
 use crate::rpc_client::ApiInfo;
-use ahash::HashSet;
+use ahash::{HashMap, HashSet};
 use cid::multibase;
 use clap::Subcommand;
 use itertools::Itertools;
@@ -18,7 +18,11 @@ pub enum NetCommands {
     /// Lists `libp2p` swarm network info
     Info,
     /// Lists `libp2p` swarm peers
-    Peers,
+    Peers {
+        /// Print agent name
+        #[arg(short, long)]
+        agent: bool,
+    },
     /// Connects to a peer by its peer ID and multi-addresses
     Connect {
         /// Multi-address (with `/p2p/` protocol)
@@ -55,8 +59,28 @@ impl NetCommands {
                 println!("num established: {}", info.num_established);
                 Ok(())
             }
-            Self::Peers => {
+            Self::Peers { agent } => {
                 let addrs = api.net_peers().await?;
+                let peer_to_agents: HashMap<String, String> = if agent {
+                    let agents = futures::future::join_all(
+                        addrs
+                            .iter()
+                            .map(|info| api.net_agent_version(info.id.to_owned())),
+                    )
+                    .await
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                    HashMap::from_iter(
+                        addrs
+                            .iter()
+                            .map(|info| info.id.to_owned())
+                            .zip(agents.into_iter()),
+                    )
+                } else {
+                    HashMap::default()
+                };
+
                 let output: Vec<String> = addrs
                     .into_iter()
                     .filter_map(|info| {
@@ -74,7 +98,23 @@ impl NetCommands {
                         if addresses.is_empty() {
                             return None;
                         }
-                        Some(format!("{}, [{}]", info.id, addresses.join(", ")))
+
+                        let result = format!("{}, [{}]", info.id, addresses.join(", "));
+
+                        if agent {
+                            Some(
+                                [
+                                    result,
+                                    peer_to_agents
+                                        .get(&info.id)
+                                        .cloned()
+                                        .unwrap_or_else(|| "<agent unknown>".to_owned()),
+                                ]
+                                .join(", "),
+                            )
+                        } else {
+                            Some(result)
+                        }
                     })
                     .collect();
                 println!("{}", output.join("\n"));

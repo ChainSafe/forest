@@ -20,17 +20,17 @@ use flume::Sender;
 use futures::stream::StreamExt;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p::connection_limits::Exceeded;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
-use libp2p::swarm::DialError;
 use libp2p::{
+    autonat::NatStatus,
+    connection_limits::Exceeded,
     core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping, request_response,
-    swarm::{self, SwarmEvent},
+    swarm::{self, DialError, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
 use tokio_stream::wrappers::IntervalStream;
@@ -168,6 +168,8 @@ pub enum NetRPCMethods {
     Info(OneShotSender<NetInfoResult>),
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
+    AgentVersion(OneShotSender<Option<String>>, PeerId),
+    AutoNATStatus(OneShotSender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -498,8 +500,8 @@ async fn handle_network_message(
                     }
                 }
                 NetRPCMethods::Peers(response_channel) => {
-                    let peer_addresses = swarm.behaviour_mut().peer_addresses();
-                    if response_channel.send(peer_addresses.clone()).is_err() {
+                    let peer_addresses = swarm.behaviour().peer_addresses();
+                    if response_channel.send(peer_addresses).is_err() {
                         warn!("Failed to get Libp2p peers");
                     }
                 }
@@ -546,6 +548,22 @@ async fn handle_network_message(
                     let _ = Swarm::disconnect_peer_id(swarm, peer_id);
                     if response_channel.send(()).is_err() {
                         warn!("Failed to disconnect from a peer");
+                    }
+                }
+                NetRPCMethods::AgentVersion(response_channel, peer_id) => {
+                    let agent_version = swarm
+                        .behaviour()
+                        .peer_info(&peer_id)
+                        .and_then(|info| info.agent_version.clone());
+
+                    if response_channel.send(agent_version).is_err() {
+                        warn!("Failed to get agent version");
+                    }
+                }
+                NetRPCMethods::AutoNATStatus(response_channel) => {
+                    let nat_status = swarm.behaviour().discovery.nat_status();
+                    if response_channel.send(nat_status).is_err() {
+                        warn!("Failed to get nat status");
                     }
                 }
             }

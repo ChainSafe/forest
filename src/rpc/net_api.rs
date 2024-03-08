@@ -114,3 +114,37 @@ pub async fn net_disconnect<DB: Blockstore>(
 
     Ok(())
 }
+
+pub async fn net_agent_version<DB: Blockstore>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<String, JsonRpcError> {
+    let (id,): (String,) = params.parse()?;
+
+    let peer_id = PeerId::from_str(&id)?;
+
+    let (tx, rx) = oneshot::channel();
+    let req = NetworkMessage::JSONRPCRequest {
+        method: NetRPCMethods::AgentVersion(tx, peer_id),
+    };
+
+    data.network_send.send_async(req).await?;
+    if let Some(agent_version) = rx.await? {
+        Ok(agent_version)
+    } else {
+        Err(anyhow::anyhow!("item not found").into())
+    }
+}
+
+pub async fn net_auto_nat_status<DB: Blockstore>(
+    _params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<NatStatusResult, JsonRpcError> {
+    let (tx, rx) = oneshot::channel();
+    let req = NetworkMessage::JSONRPCRequest {
+        method: NetRPCMethods::AutoNATStatus(tx),
+    };
+    data.network_send.send_async(req).await?;
+    let nat_status = rx.await?;
+    Ok(nat_status.into())
+}

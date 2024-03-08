@@ -21,6 +21,7 @@ mod nv19;
 mod nv21;
 mod nv21fix;
 mod nv21fix2;
+mod nv22;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -42,6 +43,7 @@ where
                 (Height::Hygge, nv18::run_migration::<DB>),
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
         NetworkChain::Calibnet => {
@@ -52,10 +54,11 @@ where
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::WatermelonFix, nv21fix::run_migration::<DB>),
                 (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
-            vec![(Height::Watermelon, nv21::run_migration::<DB>)]
+            vec![(Height::Dragon, nv22::run_migration::<DB>)]
         }
         NetworkChain::Devnet(_) => {
             vec![
@@ -63,6 +66,7 @@ where
                 (Height::Hygge, nv18::run_migration::<DB>),
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
+                (Height::Dragon, nv22::run_migration::<DB>),
             ]
         }
     };
