@@ -85,12 +85,12 @@ lotus_json_with_self!(RPCSyncState);
 // Chain API
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
-    pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::lotus_json")]
-    pub cids: Vec<Cid>,
+    #[serde(rename = "BlsMessages")]
+    pub bls_msg: LotusJson<Vec<Message>>,
+    #[serde(rename = "SecpkMessages")]
+    pub secp_msg: LotusJson<Vec<SignedMessage>>,
+    #[serde(rename = "Cids")]
+    pub cids: LotusJson<Vec<Cid>>,
 }
 
 lotus_json_with_self!(BlockMessages);

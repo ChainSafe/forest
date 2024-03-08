@@ -58,6 +58,13 @@ pub fn serve_chain_api(
                 chain_get_messages_in_tipset,
             )
             .serve(CHAIN_EXPORT, ["params"], chain_export)
+            .serve(CHAIN_READ_OBJ, ["obj_cid"], chain_read_obj)
+            .serve(CHAIN_HAS_OBJ, ["cid"], chain_has_obj)
+            .serve(
+                CHAIN_GET_BLOCK_MESSAGES,
+                ["blk_cid"],
+                chain_get_block_messages,
+            )
     };
 }
 
@@ -228,13 +235,11 @@ async fn chain_export(
     }
 }
 
-pub async fn chain_read_obj<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_read_obj(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(obj_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
-    let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let bytes = data
+    let bytes = ctx
         .state_manager
         .blockstore()
         .get(&obj_cid)?
@@ -242,31 +247,27 @@ pub async fn chain_read_obj<DB: Blockstore>(
     Ok(LotusJson(bytes))
 }
 
-pub async fn chain_has_obj<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_has_obj(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(obj_cid): LotusJson<Cid>,
 ) -> Result<bool, JsonRpcError> {
-    let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
+    Ok(ctx.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
-pub async fn chain_get_block_messages<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_block_messages(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(blk_cid): LotusJson<Cid>,
 ) -> Result<BlockMessages, JsonRpcError> {
-    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let blk: CachingBlockHeader = data
+    let blk: CachingBlockHeader = ctx
         .state_manager
         .blockstore()
         .get_cbor(&blk_cid)?
         .context("can't find block with that cid")?;
     let blk_msgs = &blk.messages;
     let (unsigned_cids, signed_cids) =
-        crate::chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
+        crate::chain::read_msg_cids(ctx.state_manager.blockstore(), blk_msgs)?;
     let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
-        data.state_manager.blockstore(),
+        ctx.state_manager.blockstore(),
         &unsigned_cids,
         &signed_cids,
     )?;
