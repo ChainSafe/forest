@@ -93,8 +93,8 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             .num_threads(num_threads)
             .build()?;
 
-        let (state_tx, state_rx) = crossbeam_channel::bounded(30);
-        let (job_tx, job_rx) = crossbeam_channel::bounded(30);
+        let (state_tx, state_rx) = flume::bounded(30);
+        let (job_tx, job_rx) = flume::bounded(30);
 
         let job_counter = AtomicU64::new(0);
         let cache_clone = cache.clone();
