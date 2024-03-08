@@ -3242,7 +3242,6 @@ dependencies = [
  "console-subscriber",
  "convert_case 0.6.0",
  "criterion",
- "crossbeam-channel",
  "crypto_secretbox",
  "cs_serde_bytes",
  "daemonize-me",
