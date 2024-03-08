@@ -384,11 +384,11 @@ where
     /// Returns the pair of (parent state root, message receipt root). This will
     /// either be cached or will be calculated and fill the cache. Tipset
     /// state for a given tipset is guaranteed not to be computed twice.
-    #[instrument(skip(self))]
     pub async fn tipset_state(self: &Arc<Self>, tipset: &Arc<Tipset>) -> anyhow::Result<CidPair> {
         let key = tipset.key();
         self.cache
             .get_or_else(key, || async move {
+                info!("Executing messages in tipset: EPOCH = {}", tipset.epoch());
                 let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;

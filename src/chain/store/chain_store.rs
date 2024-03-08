@@ -218,7 +218,7 @@ where
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
-            info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
+            // info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())

@@ -141,7 +141,7 @@ impl<DB: Blockstore> ChainIndex<DB> {
             }
         }
         Err(Error::Other(format!(
-            "Tipset with epoch={to} does not exist"
+            "Tipset with epoch={to} does not exist",
         )))
     }
 
@@ -152,6 +152,9 @@ impl<DB: Blockstore> ChainIndex<DB> {
         itertools::unfold(Some(from), move |tipset| {
             tipset.take().map(|child| {
                 *tipset = self.load_required_tipset(child.parents()).ok();
+                if tipset.is_none() {
+                    tracing::warn!("Reached end of chain at epoch={}", child.epoch());
+                }
                 child
             })
         })
