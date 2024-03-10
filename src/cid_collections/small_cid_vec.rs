@@ -32,6 +32,11 @@ impl SmallCidNonEmptyVec {
     pub fn into_cids(self) -> NonEmpty<Cid> {
         self.0.map(From::from)
     }
+
+    /// Returns an iterator of `CID`s.
+    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
+        self.0.iter().map(|cid| Cid::from(cid.clone()))
+    }
 }
 
 /// A [`MaybeCompactedCid`], with indirection to save space on the most common CID variant, at the cost

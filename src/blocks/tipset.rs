@@ -57,6 +57,11 @@ impl TipsetKey {
     pub fn to_cids(&self) -> NonEmpty<Cid> {
         self.0.clone().into_cids()
     }
+
+    /// Returns an iterator of `CID`s.
+    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
+        self.0.iter()
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
