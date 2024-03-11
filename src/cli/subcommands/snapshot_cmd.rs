@@ -8,7 +8,7 @@ use crate::rpc_api::chain_api::ChainExportParams;
 use crate::rpc_api::data_types::ApiTipsetKey;
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
 use std::path::{Path, PathBuf};
@@ -62,12 +62,10 @@ impl SnapshotCommands {
                     true => output_path.join(snapshot::filename(
                         TrustedVendor::Forest,
                         chain_name,
-                        NaiveDateTime::from_timestamp_opt(
-                            tipset.min_ticket_block().timestamp as i64,
-                            0,
-                        )
-                        .unwrap_or_default()
-                        .into(),
+                        DateTime::from_timestamp(tipset.min_ticket_block().timestamp as i64, 0)
+                            .unwrap_or_default()
+                            .naive_utc()
+                            .date(),
                         epoch,
                         true,
                     )),

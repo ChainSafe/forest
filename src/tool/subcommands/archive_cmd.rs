@@ -44,7 +44,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use anyhow::{bail, Context as _};
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -342,12 +342,10 @@ fn build_output_path(
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            NaiveDateTime::from_timestamp_opt(
-                genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS,
-                0,
-            )
-            .unwrap_or_default()
-            .into(),
+            DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+                .unwrap_or_default()
+                .naive_utc()
+                .date(),
             epoch,
             true,
         )),
