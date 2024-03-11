@@ -6,6 +6,8 @@
 
 #![allow(clippy::needless_pub_self)] // put macro at the bottom, but use it at the top
 
+use std::collections::BTreeMap;
+
 use itertools::Itertools as _;
 use schemars::schema::Schema;
 use serde::{Deserialize, Serialize};
@@ -24,7 +26,7 @@ pub struct OpenRPC {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 
 pub struct Components {
-    pub schemas: ahash::HashMap<String, Schema>,
+    pub schemas: BTreeMap<String, Schema>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]

@@ -320,3 +320,75 @@ where
 fn to_rpc_err(e: impl Display) -> RpcError {
     RpcError::owned::<String>(RpcErrorCode::InternalError.code(), e.to_string(), None)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tokio::task::JoinSet;
+
+    use crate::{
+        blocks::Chain4U,
+        chain::ChainStore,
+        chain_sync::SyncConfig,
+        db::car::PlainCar,
+        genesis::get_network_name_from_genesis,
+        message_pool::{MessagePool, MpoolRpcProvider},
+        networks::ChainConfig,
+        state_manager::StateManager,
+        KeyStoreConfig,
+    };
+
+    use super::*;
+
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4047
+    //               `tokio` shouldn't be necessary
+    #[tokio::test]
+    async fn openrpc() {
+        let (_, spec) = create_module(Arc::new(RPCState::calibnet()));
+        insta::assert_yaml_snapshot!(spec);
+    }
+
+    impl RPCState<Chain4U<PlainCar<&'static [u8]>>> {
+        pub fn calibnet() -> Self {
+            let chain_store = Arc::new(ChainStore::calibnet());
+            let genesis = chain_store.genesis_block_header();
+            let state_manager = Arc::new(
+                StateManager::new(
+                    chain_store.clone(),
+                    Arc::new(ChainConfig::calibnet()),
+                    Arc::new(SyncConfig::default()),
+                )
+                .unwrap(),
+            );
+            let beacon = Arc::new(
+                state_manager
+                    .chain_config()
+                    .get_beacon_schedule(genesis.timestamp),
+            );
+            let (network_send, _) = flume::bounded(0);
+            let network_name = get_network_name_from_genesis(genesis, &state_manager).unwrap();
+            let message_pool = MessagePool::new(
+                MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
+                network_name.clone(),
+                network_send.clone(),
+                Default::default(),
+                state_manager.chain_config().clone(),
+                &mut JoinSet::default(),
+            )
+            .unwrap();
+            RPCState {
+                state_manager,
+                keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
+                mpool: Arc::new(message_pool),
+                bad_blocks: Default::default(),
+                sync_state: Default::default(),
+                network_send,
+                network_name,
+                start_time: Default::default(),
+                chain_store,
+                beacon,
+            }
+        }
+    }
+}

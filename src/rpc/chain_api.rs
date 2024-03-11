@@ -657,7 +657,7 @@ mod tests {
             )
             .unwrap()
         }
-        fn calibnet() -> Self {
+        pub fn calibnet() -> Self {
             Self::_load(
                 networks::calibnet::DEFAULT_GENESIS,
                 *networks::calibnet::GENESIS_CID,
