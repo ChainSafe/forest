@@ -155,14 +155,12 @@ impl Params {
                 .collect::<Vec<_>>();
 
             if !late_mandatory_params.is_empty() {
-                return Err(ParamListError(
-                    String::from("Mandatory parameters may not follow optional parameters,")
-                        + &format!(
-                            "but the optional parameter {} is followed by [{}]",
-                            first_opt_param.name,
-                            late_mandatory_params.join(", ")
-                        ),
-                ));
+                return Err(ParamListError(format!(
+                    "Mandatory parameters may not follow optional parameters, \
+                            but the optional parameter {} is followed by [{}]",
+                    first_opt_param.name,
+                    late_mandatory_params.join(", ")
+                )));
             }
         };
         Ok(Self { inner: params })
