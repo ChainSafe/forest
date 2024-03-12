@@ -20,7 +20,7 @@ asynchronous-codec = "0.6"
 axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
-bigdecimal = "0.4.0"
+bigdecimal = "=0.4.2"
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
@@ -38,7 +38,7 @@ cfg-if = "1"
 cfg-vis = "0.3.0"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
 colored = "2.0"
 console-subscriber = { version = "0.2", features = ["parking_lot"] }
 convert_case = "0.6.0"
@@ -152,14 +152,14 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
 regex = "1.10"
-reqwest = { version = "0.11.24", default-features = false, features = [
+reqwest = { version = "0.11.25", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
-rustyline = "13"
+rustyline = "14"
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -225,7 +225,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.204"
+ra_ap_syntax = "0.0.205"
 regex-automata = "0.4"
 syn = { version = "2.0.52", default-features = false, features = [
   "full",
