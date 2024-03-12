@@ -82,6 +82,26 @@ impl fmt::Display for TipsetKey {
     }
 }
 
+impl<'a> IntoIterator for &'a TipsetKey {
+    type Item = <&'a SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <&'a SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+impl IntoIterator for TipsetKey {
+    type Item = <SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 /// An immutable set of blocks at the same height with the same parent set.
 /// Blocks in a tipset are canonically ordered by ticket size.
 ///
