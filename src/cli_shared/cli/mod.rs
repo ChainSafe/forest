@@ -119,7 +119,7 @@ pub struct CliOpts {
     #[arg(long, default_value = "auto")]
     pub color: LoggingColor,
     /// Turn on tokio-console support for debugging.
-    /// Memory leak, see https://github.com/tokio-rs/console/pull/501.
+    /// Memory leak, see <https://github.com/tokio-rs/console/pull/501>.
     #[arg(long)]
     pub tokio_console: bool,
     /// Send telemetry to `grafana loki`
