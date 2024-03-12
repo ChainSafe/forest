@@ -279,6 +279,7 @@ where
     // Net API
     module.register_async_method(NET_ADDRS_LISTEN, |_, state| net_addrs_listen::<DB>(state))?;
     module.register_async_method(NET_PEERS, |_, state| net_peers::<DB>(state))?;
+    module.register_async_method(NET_LISTENING, |_, _| net_listening())?;
     module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state))?;
     module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
     module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;

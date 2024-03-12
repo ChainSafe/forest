@@ -55,6 +55,11 @@ pub async fn net_peers<DB: Blockstore>(
     Ok(connections)
 }
 
+// NET_LISTENING always returns true.
+pub async fn net_listening() -> Result<bool, JsonRpcError> {
+    Ok(true)
+}
+
 pub async fn net_info<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<NetInfoResult, JsonRpcError> {

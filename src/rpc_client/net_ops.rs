@@ -22,6 +22,10 @@ impl ApiInfo {
         RpcRequest::new(NET_PEERS, ())
     }
 
+    pub fn net_listening_req() -> RpcRequest<bool> {
+        RpcRequest::new_v1(NET_LISTENING, ())
+    }
+
     pub async fn net_info(&self) -> Result<NetInfoResult, JsonRpcError> {
         self.call(Self::net_info_req()).await
     }
