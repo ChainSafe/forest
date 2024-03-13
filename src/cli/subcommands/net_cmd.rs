@@ -33,6 +33,8 @@ pub enum NetCommands {
         /// Peer ID to disconnect from
         id: String,
     },
+    /// Print information about reachability from the internet
+    Reachability,
 }
 
 impl NetCommands {
@@ -154,6 +156,18 @@ impl NetCommands {
             Self::Disconnect { id } => {
                 api.net_disconnect(id.to_owned()).await?;
                 println!("disconnect {id}: success");
+                Ok(())
+            }
+            Self::Reachability => {
+                let nat_status = api.net_auto_nat_status().await?;
+                println!("AutoNAT status:  {}", nat_status.reachability_as_str());
+                if let Some(public_addrs) = nat_status.public_addrs {
+                    if !public_addrs.is_empty() {
+                        // Format is compatible with Go code:
+                        // `fmt.Println("Public address:", []string{"foo", "bar"})`
+                        println!("Public address: [{}]", public_addrs.join(" "));
+                    }
+                }
                 Ok(())
             }
         }
