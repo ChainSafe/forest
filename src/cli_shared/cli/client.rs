@@ -1,8 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-#![allow(deprecated)] // TODO(forest): https://github.com/ChainSafe/forest/issues/4034
-
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,

@@ -218,7 +218,6 @@ fvm3 = { package = "fvm", default-features = false, version = "~3.8", features =
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 http-range-header = "0.4.0"
 insta = { version = "1.36.1", features = ["yaml"] }
-libp2p = { version = "0.53", features = ['tcp', 'noise', 'yamux', 'request-response', 'tokio'] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6.4"
