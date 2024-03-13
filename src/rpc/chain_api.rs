@@ -12,9 +12,8 @@ use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages, Data, RPCState},
+    data_types::{ApiTipsetKey, BlockMessages, RPCState},
 };
-use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
 use cid::Cid;
@@ -33,36 +32,125 @@ use tokio::sync::{
 
 use super::reflect::SelfDescribingModule;
 
-pub fn serve(
-    module: &mut SelfDescribingModule<Arc<RPCState<impl Blockstore + Send + Sync + 'static>>>,
+type Ctx<T> = Arc<Arc<RPCState<T>>>;
+
+pub fn serve<BS: Blockstore + Send + Sync + 'static>(
+    module: &mut SelfDescribingModule<Arc<RPCState<BS>>>,
 ) {
     {
         module
-            .serve(CHAIN_GET_MESSAGE, ["msg_cid"], chain_get_message)
+            .serve(
+                CHAIN_GET_MESSAGE,
+                ["msg_cid"],
+                |ctx: Ctx<BS>, LotusJson(msg_cid)| async move {
+                    let chain_message: ChainMessage = ctx
+                        .state_manager
+                        .blockstore()
+                        .get_cbor(&msg_cid)?
+                        .with_context(|| format!("can't find message with cid {msg_cid}"))?;
+                    Ok(LotusJson(match chain_message {
+                        ChainMessage::Signed(m) => m.into_message(),
+                        ChainMessage::Unsigned(m) => m,
+                    }))
+                },
+            )
             .serve(
                 CHAIN_GET_PARENT_MESSAGES,
                 ["block_cid"],
-                chain_get_parent_messages,
+                |ctx: Ctx<BS>, LotusJson(block_cid)| async move {
+                    let store = ctx.state_manager.blockstore();
+                    let block_header: CachingBlockHeader = store
+                        .get_cbor(&block_cid)?
+                        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
+                    if block_header.epoch == 0 {
+                        Ok(LotusJson(vec![]))
+                    } else {
+                        let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
+                        let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
+                        Ok(LotusJson(messages))
+                    }
+                },
+            )
+            .serve(
+                CHAIN_GET_MESSAGES_IN_TIPSET,
+                ["tsk"],
+                |ctx: Ctx<BS>, LotusJson(tsk)| async move {
+                    let store = ctx.chain_store.blockstore();
+                    let tipset = Tipset::load_required(store, &tsk)?;
+                    let messages = load_api_messages_from_tipset(store, &tipset)?;
+                    Ok(LotusJson(messages))
+                },
+            )
+            .serve(
+                CHAIN_READ_OBJ,
+                ["obj_cid"],
+                |ctx: Ctx<BS>, LotusJson(obj_cid)| async move {
+                    let bytes = ctx
+                        .state_manager
+                        .blockstore()
+                        .get(&obj_cid)?
+                        .context("can't find object with that cid")?;
+                    Ok(LotusJson(bytes))
+                },
+            )
+            .serve(
+                CHAIN_HAS_OBJ,
+                ["cid"],
+                |ctx: Ctx<BS>, LotusJson(cid)| async move {
+                    Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
+                },
+            )
+            .serve(
+                CHAIN_GET_PATH,
+                ["from", "to"],
+                |ctx: Ctx<BS>, LotusJson(from), LotusJson(to)| async move {
+                    impl_chain_get_path(&ctx.chain_store, &from, &to)
+                        .map(LotusJson)
+                        .map_err(Into::into)
+                },
+            )
+            .serve(CHAIN_GET_GENESIS, [], |ctx: Ctx<BS>| async move {
+                let genesis = ctx.state_manager.chain_store().genesis_block_header();
+                Ok(Some(LotusJson(Tipset::from(genesis))))
+            })
+            .serve(CHAIN_HEAD, [], |ctx: Ctx<BS>| async move {
+                let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
+                Ok(LotusJson(Tipset::clone(&heaviest)))
+            })
+            .serve(
+                CHAIN_GET_BLOCK,
+                ["cid"],
+                |ctx: Ctx<BS>, LotusJson(blk_cid)| async move {
+                    let blk = ctx
+                        .state_manager
+                        .blockstore()
+                        .get_cbor::<CachingBlockHeader>(&blk_cid)?
+                        .context("can't find BlockHeader with that cid")?;
+                    Ok(LotusJson(blk))
+                },
+            )
+            .serve(
+                CHAIN_GET_TIPSET,
+                ["tsk"],
+                |ctx: Ctx<BS>, LotusJson(ApiTipsetKey(tsk))| async move {
+                    let ts = ctx
+                        .state_manager
+                        .chain_store()
+                        .load_required_tipset_or_heaviest(&tsk)?;
+                    Ok(LotusJson(Tipset::clone(&ts)))
+                },
             )
             .serve(
                 CHAIN_GET_PARENT_RECEIPTS,
                 ["block_cid"],
                 chain_get_parent_receipts,
             )
-            .serve(
-                CHAIN_GET_MESSAGES_IN_TIPSET,
-                ["tsk"],
-                chain_get_messages_in_tipset,
-            )
             .serve(CHAIN_EXPORT, ["params"], chain_export)
-            .serve(CHAIN_READ_OBJ, ["obj_cid"], chain_read_obj)
-            .serve(CHAIN_HAS_OBJ, ["cid"], chain_has_obj)
             .serve(
                 CHAIN_GET_BLOCK_MESSAGES,
                 ["blk_cid"],
                 chain_get_block_messages,
             )
-            .serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
             .serve(
                 CHAIN_GET_TIPSET_BY_HEIGHT,
                 ["height", "tsk"],
@@ -73,10 +161,6 @@ pub fn serve(
                 ["height", "tsk"],
                 chain_get_tipset_after_height,
             )
-            .serve(CHAIN_GET_GENESIS, [], chain_get_genesis)
-            .serve(CHAIN_HEAD, [], chain_head)
-            .serve(CHAIN_GET_BLOCK, ["cid"], chain_get_block)
-            .serve(CHAIN_GET_TIPSET, ["tsk"], chain_get_tipset)
             .serve(CHAIN_SET_HEAD, ["tsk"], chain_set_head)
             .serve(
                 CHAIN_GET_MIN_BASE_FEE,
@@ -86,40 +170,8 @@ pub fn serve(
     };
 }
 
-async fn chain_get_message(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(msg_cid): LotusJson<Cid>,
-) -> Result<LotusJson<Message>, JsonRpcError> {
-    let chain_message: ChainMessage = ctx
-        .state_manager
-        .blockstore()
-        .get_cbor(&msg_cid)?
-        .with_context(|| format!("can't find message with cid {msg_cid}"))?;
-    Ok(LotusJson(match chain_message {
-        ChainMessage::Signed(m) => m.into_message(),
-        ChainMessage::Unsigned(m) => m,
-    }))
-}
-
-async fn chain_get_parent_messages(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(block_cid): LotusJson<Cid>,
-) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let store = ctx.state_manager.blockstore();
-    let block_header: CachingBlockHeader = store
-        .get_cbor(&block_cid)?
-        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
-    if block_header.epoch == 0 {
-        Ok(LotusJson(vec![]))
-    } else {
-        let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-        let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
-        Ok(LotusJson(messages))
-    }
-}
-
 async fn chain_get_parent_receipts(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(block_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let store = ctx.state_manager.blockstore();
@@ -182,18 +234,8 @@ async fn chain_get_parent_receipts(
     Ok(LotusJson(receipts))
 }
 
-async fn chain_get_messages_in_tipset(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(tsk): LotusJson<TipsetKey>,
-) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let store = ctx.chain_store.blockstore();
-    let tipset = Tipset::load_required(store, &tsk)?;
-    let messages = load_api_messages_from_tipset(store, &tipset)?;
-    Ok(LotusJson(messages))
-}
-
 async fn chain_export(
-    ctx: Data<RPCState<impl Blockstore + Send + Sync + 'static>>,
+    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
     params: ChainExportParams,
 ) -> Result<Option<String>, JsonRpcError> {
     let ChainExportParams {
@@ -253,27 +295,8 @@ async fn chain_export(
     }
 }
 
-async fn chain_read_obj(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(obj_cid): LotusJson<Cid>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
-    let bytes = ctx
-        .state_manager
-        .blockstore()
-        .get(&obj_cid)?
-        .context("can't find object with that cid")?;
-    Ok(LotusJson(bytes))
-}
-
-async fn chain_has_obj(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(obj_cid): LotusJson<Cid>,
-) -> Result<bool, JsonRpcError> {
-    Ok(ctx.state_manager.blockstore().get(&obj_cid)?.is_some())
-}
-
 async fn chain_get_block_messages(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(blk_cid): LotusJson<Cid>,
 ) -> Result<BlockMessages, JsonRpcError> {
     let blk: CachingBlockHeader = ctx
@@ -319,16 +342,6 @@ async fn chain_get_block_messages(
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-async fn chain_get_path(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(from): LotusJson<TipsetKey>,
-    LotusJson(to): LotusJson<TipsetKey>,
-) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
-    impl_chain_get_path(&ctx.chain_store, &from, &to)
-        .map(LotusJson)
-        .map_err(Into::into)
-}
-
 fn impl_chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
@@ -369,7 +382,7 @@ fn impl_chain_get_path(
 }
 
 async fn chain_get_tipset_by_height(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     height: i64,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
@@ -386,7 +399,7 @@ async fn chain_get_tipset_by_height(
 }
 
 async fn chain_get_tipset_after_height(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     height: i64,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
@@ -402,47 +415,10 @@ async fn chain_get_tipset_after_height(
     Ok((*tss).clone().into())
 }
 
-async fn chain_get_genesis(
-    ctx: Data<RPCState<impl Blockstore>>,
-) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
-    let genesis = ctx.state_manager.chain_store().genesis_block_header();
-    Ok(Some(Tipset::from(genesis).into()))
-}
-
-async fn chain_head(
-    ctx: Data<RPCState<impl Blockstore>>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
-    Ok((*heaviest).clone().into())
-}
-
-async fn chain_get_block(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(blk_cid): LotusJson<Cid>,
-) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
-    let blk: CachingBlockHeader = ctx
-        .state_manager
-        .blockstore()
-        .get_cbor(&blk_cid)?
-        .context("can't find BlockHeader with that cid")?;
-    Ok(blk.into())
-}
-
-async fn chain_get_tipset(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let ts = ctx
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    Ok((*ts).clone().into())
-}
-
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 async fn chain_set_head(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<(), JsonRpcError> {
     let new_head = ctx
@@ -470,7 +446,7 @@ async fn chain_set_head(
 }
 
 async fn chain_get_min_base_fee(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     basefee_lookback: u32,
 ) -> Result<String, JsonRpcError> {
     let mut current = ctx.state_manager.chain_store().heaviest_tipset();
@@ -490,7 +466,7 @@ async fn chain_get_min_base_fee(
     Ok(min_base_fee.atto().to_string())
 }
 
-pub fn chain_notify(ctx: Data<RPCState<impl Blockstore>>) -> Subscriber<ApiHeadChange> {
+pub fn chain_notify(ctx: Ctx<impl Blockstore>) -> Subscriber<ApiHeadChange> {
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset

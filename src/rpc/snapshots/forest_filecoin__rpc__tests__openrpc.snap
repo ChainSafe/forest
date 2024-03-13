@@ -622,7 +622,7 @@ components:
       $ref: "#/components/schemas/ElectionProofLotusJson"
       nullable: true
     Nullable_SignatureLotusJson:
-      $ref: "#/components/schemas/SignatureLotusJson2"
+      $ref: "#/components/schemas/SignatureLotusJson"
       nullable: true
     Nullable_TicketLotusJson:
       $ref: "#/components/schemas/TicketLotusJson"
@@ -698,7 +698,7 @@ components:
         Message:
           $ref: "#/components/schemas/MessageLotusJson"
         Signature:
-          $ref: "#/components/schemas/SignatureLotusJson"
+          $ref: "#/components/schemas/SignatureLotusJson2"
     String:
       type: string
     TicketLotusJson:
