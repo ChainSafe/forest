@@ -1,5 +1,21 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
+//! Forest wishes to provide [OpenRPC](http://open-rpc.org) definitions for
+//! Filecoin APIs.
+//! To do this, it needs:
+//! - [JSON Schema](https://json-schema.org/) definitions for all the argument
+//!   and return types.
+//! - The number of arguments ([arity](https://en.wikipedia.org/wiki/Arity)) and
+//!   names of those arguments for each RPC method.
+//!
+//! We have all this information in our handler functions, we just need to use it.
+//! - [`schemars::JsonSchema`] provides schema definitions, with our [`GenerateSchemas`]
+//!   trait acting as a shim.
+//! - [`Wrap`] defining arity and actually dispatching the function calls.
+//!
+//! [`SelfDescribingModule`] actually does the work to create the OpenRPC document.
+
 pub mod jsonrpc_types;
 pub mod openrpc_types;
 
@@ -110,7 +126,9 @@ impl<Ctx> SelfDescribingModule<Ctx> {
 }
 
 /// Wrap a bare function with our argument parsing logic.
-/// Turns any `async fn foo(ctx, arg0...)` into a function that can be passed to [`jsonrpsee::server::RpcModule::register_async_method`]
+/// Turns any `async fn foo(ctx, arg0...)` into a function that can be passed to [`jsonrpsee::server::RpcModule::register_async_method`].
+///
+/// This trait is NOT designed to implemented on anything except bare handler functions, as below.
 pub trait Wrap<const ARITY: usize, Ctx, Args, R> {
     type Future: Future<Output = Result<serde_json::Value, JsonRpcError>> + Send;
     fn wrap(
@@ -129,6 +147,9 @@ pub trait GenerateSchemas {
     fn generate_schemas(gen: &mut SchemaGenerator) -> Vec<(Schema, bool)>;
 }
 
+/// Implement [`Wrap`] and [`GenerateSchemas`] for various function arities.
+///
+/// See documentation on [`Wrap`] for more.
 macro_rules! do_impls {
     ($arity:literal $(, $arg:ident)* $(,)?) => {
         const _: () = {
@@ -148,8 +169,8 @@ macro_rules! do_impls {
             R: Serialize,
         {
             type Future = Either<
-                Ready<Result<Value, JsonRpcError>>,
-                AndThenDeserializeResponse<Fut>,
+                Ready<Result<Value, JsonRpcError>>, // early exit when parsing
+                AndThenDeserializeResponse<Fut>,    // deferred handler, then deserializer
             >;
 
             fn wrap(
@@ -170,7 +191,7 @@ macro_rules! do_impls {
                             )));
                         }
                     };
-                    #[allow(unused_variables, unused_mut)]
+                    #[allow(unused_variables, unused_mut)] // for the zero-argument case
                     let mut parser = match Parser::new(params, &param_names, calling_convention) {
                         Ok(it) => it,
                         Err(e) => return Either::Left(ready(Err(e))),
@@ -179,7 +200,7 @@ macro_rules! do_impls {
                     Either::Right(AndThenDeserializeResponse {
                         inner: self(
                             ctx,
-                            $(
+                            $(  // parse out each argument
                                 match parser.parse::<$arg>() {
                                     Ok(it) => it,
                                     Err(e) => return Either::Left(ready(Err(e))),

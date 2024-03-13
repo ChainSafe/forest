@@ -9,9 +9,8 @@ use super::{jsonrpc_types::RequestParameters, openrpc_types::ParamStructure, uti
 use crate::rpc::error::JsonRpcError;
 
 /// Parser for JSON-RPC parameters.
-/// Abstracts calling convention, checks for unexpected params etc.
-///
-/// Note that this type can panic on drop.
+/// Abstracts calling convention, checks for unexpected params etc, so that
+/// rust [`Fn`]s may be called.
 #[derive(Debug)]
 pub struct Parser<'a> {
     params: Option<ParserInner>,
@@ -40,6 +39,10 @@ impl Drop for Parser<'_> {
 }
 
 impl<'a> Parser<'a> {
+    /// The user promises to call [`Parser::parse`] `names.len()` times.
+    ///
+    /// # Panics
+    /// - if the contract above is not upheld.
     pub fn new(
         params: Option<RequestParameters>,
         names: &'a [&'a str], // in position order
@@ -56,14 +59,17 @@ impl<'a> Parser<'a> {
             // ignore the calling convention if there are no arguments to parse
             (None, _) => None,
             (Some(params), _) if names.is_empty() && params.is_empty() => None,
-            // mutually exclusive
+            // contradicts calling convention
             (Some(RequestParameters::ByPosition(_)), ParamStructure::ByName) => {
                 return Err(ParseError::MustBeNamed)
             }
             (Some(RequestParameters::ByName(_)), ParamStructure::ByPosition) => {
                 return Err(ParseError::MustBePositional)
             }
-            // `parse` won't be called, so do additional checks here
+            // In each call to `parse`, we check for unexpected args.
+            // But if the caller never calls `parse`, we wouldn't catch unexpected args.
+            // this is the case when the caller expects no arguments (when `names.is_empty()`).
+            // so do the checking here
             (Some(RequestParameters::ByPosition(it)), _) if names.is_empty() && !it.is_empty() => {
                 return Err(ParseError::UnexpectedPositional(it.len()))
             }
@@ -72,6 +78,7 @@ impl<'a> Parser<'a> {
                     it.into_iter().map(|(it, _)| it).collect(),
                 ))
             }
+            // calling convention matches, continue
             (Some(RequestParameters::ByPosition(it)), _) => {
                 Some(ParserInner::ByPosition(VecDeque::from(it)))
             }
