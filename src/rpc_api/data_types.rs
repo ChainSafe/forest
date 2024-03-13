@@ -83,7 +83,7 @@ pub struct RPCSyncState {
 lotus_json_with_self!(RPCSyncState);
 
 // Chain API
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct BlockMessages {
     #[serde(rename = "BlsMessages")]
     pub bls_msg: LotusJson<Vec<Message>>,

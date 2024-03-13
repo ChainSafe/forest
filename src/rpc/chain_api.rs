@@ -14,7 +14,6 @@ use crate::rpc_api::{
     chain_api::*,
     data_types::{ApiTipsetKey, BlockMessages, Data, RPCState},
 };
-use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
@@ -24,7 +23,6 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
-use jsonrpsee::types::Params;
 use once_cell::sync::Lazy;
 use sha2::Sha256;
 use std::sync::Arc;
@@ -35,8 +33,7 @@ use tokio::sync::{
 
 use super::reflect::SelfDescribingModule;
 
-#[allow(unused)]
-pub fn serve_chain_api(
+pub fn serve(
     module: &mut SelfDescribingModule<Arc<RPCState<impl Blockstore + Send + Sync + 'static>>>,
 ) {
     {
@@ -64,6 +61,27 @@ pub fn serve_chain_api(
                 CHAIN_GET_BLOCK_MESSAGES,
                 ["blk_cid"],
                 chain_get_block_messages,
+            )
+            .serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
+            .serve(
+                CHAIN_GET_TIPSET_BY_HEIGHT,
+                ["height", "tsk"],
+                chain_get_tipset_by_height,
+            )
+            .serve(
+                CHAIN_GET_TIPSET_AFTER_HEIGHT,
+                ["height", "tsk"],
+                chain_get_tipset_after_height,
+            )
+            .serve(CHAIN_GET_GENESIS, [], chain_get_genesis)
+            .serve(CHAIN_HEAD, [], chain_head)
+            .serve(CHAIN_GET_BLOCK, ["cid"], chain_get_block)
+            .serve(CHAIN_GET_TIPSET, ["tsk"], chain_get_tipset)
+            .serve(CHAIN_SET_HEAD, ["tsk"], chain_set_head)
+            .serve(
+                CHAIN_GET_MIN_BASE_FEE,
+                ["basefee_lookback"],
+                chain_get_min_base_fee,
             )
     };
 }
@@ -277,9 +295,9 @@ async fn chain_get_block_messages(
         .collect::<Vec<_>>();
 
     let ret = BlockMessages {
-        bls_msg,
-        secp_msg,
-        cids,
+        bls_msg: bls_msg.into(),
+        secp_msg: secp_msg.into(),
+        cids: cids.into(),
     };
     Ok(ret)
 }
@@ -301,7 +319,7 @@ async fn chain_get_block_messages(
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-pub async fn chain_get_path(
+async fn chain_get_path(
     ctx: Data<RPCState<impl Blockstore>>,
     LotusJson(from): LotusJson<TipsetKey>,
     LotusJson(to): LotusJson<TipsetKey>,
@@ -350,18 +368,16 @@ fn impl_chain_get_path(
         .collect())
 }
 
-pub async fn chain_get_tipset_by_height<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_tipset_by_height(
+    ctx: Data<RPCState<impl Blockstore>>,
+    height: i64,
+    LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data
+    let ts = ctx
         .state_manager
         .chain_store()
         .load_required_tipset_or_heaviest(&tsk)?;
-    let tss = data
+    let tss = ctx
         .state_manager
         .chain_store()
         .chain_index
@@ -369,18 +385,16 @@ pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     Ok((*tss).clone().into())
 }
 
-pub async fn chain_get_tipset_after_height<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_tipset_after_height(
+    ctx: Data<RPCState<impl Blockstore>>,
+    height: i64,
+    LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data
+    let ts = ctx
         .state_manager
         .chain_store()
         .load_required_tipset_or_heaviest(&tsk)?;
-    let tss = data
+    let tss = ctx
         .state_manager
         .chain_store()
         .chain_index
@@ -388,27 +402,25 @@ pub async fn chain_get_tipset_after_height<DB: Blockstore>(
     Ok((*tss).clone().into())
 }
 
-pub async fn chain_get_genesis<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+async fn chain_get_genesis(
+    ctx: Data<RPCState<impl Blockstore>>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
-    let genesis = data.state_manager.chain_store().genesis_block_header();
+    let genesis = ctx.state_manager.chain_store().genesis_block_header();
     Ok(Some(Tipset::from(genesis).into()))
 }
 
-pub async fn chain_head<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+async fn chain_head(
+    ctx: Data<RPCState<impl Blockstore>>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let heaviest = data.state_manager.chain_store().heaviest_tipset();
+    let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
     Ok((*heaviest).clone().into())
 }
 
-pub async fn chain_get_block<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_block(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(blk_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
-    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let blk: CachingBlockHeader = data
+    let blk: CachingBlockHeader = ctx
         .state_manager
         .blockstore()
         .get_cbor(&blk_cid)?
@@ -416,13 +428,11 @@ pub async fn chain_get_block<DB: Blockstore>(
     Ok(blk.into())
 }
 
-pub async fn chain_get_tipset<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_tipset(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(ApiTipsetKey(tsk)): LotusJson<(ApiTipsetKey)>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
-
-    let ts = data
+    let ts = ctx
         .state_manager
         .chain_store()
         .load_required_tipset_or_heaviest(&tsk)?;
@@ -431,48 +441,44 @@ pub async fn chain_get_tipset<DB: Blockstore>(
 
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
-pub async fn chain_set_head<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_set_head(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<(), JsonRpcError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
-
-    let new_head = data
+    let new_head = ctx
         .state_manager
         .chain_store()
         .load_required_tipset_or_heaviest(&tsk)?;
-    let mut current = data.state_manager.chain_store().heaviest_tipset();
+    let mut current = ctx.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
         for cid in current.key().to_cids() {
-            data.state_manager
+            ctx.state_manager
                 .chain_store()
                 .unmark_block_as_validated(&cid);
         }
         let parents = &current.block_headers().first().parents;
-        current = data
+        current = ctx
             .state_manager
             .chain_store()
             .chain_index
             .load_required_tipset(parents)?;
     }
-    data.state_manager
+    ctx.state_manager
         .chain_store()
         .set_heaviest_tipset(new_head)
         .map_err(Into::into)
 }
 
-pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+async fn chain_get_min_base_fee(
+    ctx: Data<RPCState<impl Blockstore>>,
+    basefee_lookback: u32,
 ) -> Result<String, JsonRpcError> {
-    let (basefee_lookback,): (u32,) = params.parse()?;
-
-    let mut current = data.state_manager.chain_store().heaviest_tipset();
+    let mut current = ctx.state_manager.chain_store().heaviest_tipset();
     let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
 
     for _ in 0..basefee_lookback {
         let parents = &current.block_headers().first().parents;
-        current = data
+        current = ctx
             .state_manager
             .chain_store()
             .chain_index
@@ -484,20 +490,17 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     Ok(min_base_fee.atto().to_string())
 }
 
-pub(crate) fn chain_notify<DB: Blockstore>(
-    _params: Params<'_>,
-    data: &RPCState<DB>,
-) -> Subscriber<ApiHeadChange> {
+pub fn chain_notify(ctx: Data<RPCState<impl Blockstore>>) -> Subscriber<ApiHeadChange> {
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset
-    let current = data.chain_store.heaviest_tipset();
+    let current = ctx.chain_store.heaviest_tipset();
     let (change, headers) = ("current".into(), current.block_headers().clone().into());
     sender
         .send(ApiHeadChange { change, headers })
         .expect("receiver is not dropped");
 
-    let mut subscriber = data.chain_store.publisher().subscribe();
+    let mut subscriber = ctx.chain_store.publisher().subscribe();
 
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {

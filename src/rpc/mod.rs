@@ -32,9 +32,8 @@ use crate::rpc::{
     state_api::*,
 };
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
-    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
-    wallet_api::*,
+    auth_api::*, beacon_api::*, common_api::*, data_types::RPCState, eth_api::*, gas_api::*,
+    mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 
 use fvm_ipld_blockstore::Blockstore;
@@ -91,8 +90,7 @@ where
 
     pubsub_module
         .register_channel("Filecoin.ChainNotify", {
-            let state_clone = state.clone();
-            move |params| chain_api::chain_notify(params, &state_clone)
+            move |_params| chain_api::chain_notify(Arc::new(state.clone()))
         })
         .map_err(to_rpc_err)?;
     module.merge(pubsub_module).map_err(to_rpc_err)?;
@@ -157,10 +155,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut module = reflect::SelfDescribingModule::new(state, ParamStructure::ByPosition);
-    {
-        use chain_api::*;
-        module.serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
-    };
+    chain_api::serve(&mut module);
     module.finish()
 }
 
