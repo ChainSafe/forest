@@ -40,6 +40,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4.5", features = ["derive"] }
 colored = "2.0"
+# memory leak, see https://github.com/tokio-rs/console/pull/501
 console-subscriber = { version = "0.2", features = ["parking_lot"] }
 convert_case = "0.6.0"
 crypto_secretbox = "0.1.1"

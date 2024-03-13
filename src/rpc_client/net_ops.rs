@@ -58,7 +58,11 @@ impl ApiInfo {
         RpcRequest::new(NET_AGENT_VERSION, (peer,))
     }
 
+    pub async fn net_auto_nat_status(&self) -> Result<NatStatusResult, JsonRpcError> {
+        self.call(Self::net_auto_nat_status_req()).await
+    }
+
     pub fn net_auto_nat_status_req() -> RpcRequest<NatStatusResult> {
-        RpcRequest::new(NET_AUTO_NAT_STATUS, ())
+        RpcRequest::new_v1(NET_AUTO_NAT_STATUS, ())
     }
 }
