@@ -3,111 +3,6 @@ source: src/rpc/mod.rs
 expression: spec
 ---
 methods:
-  - name: Filecoin.ChainGetMessage
-    params:
-      - name: msg_cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetMessage-result
-      schema:
-        type: object
-        required:
-          - From
-          - GasFeeCap
-          - GasLimit
-          - GasPremium
-          - Method
-          - Nonce
-          - To
-          - Value
-          - Version
-        properties:
-          CID:
-            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-          From:
-            $ref: "#/components/schemas/String"
-          GasFeeCap:
-            $ref: "#/components/schemas/String"
-          GasLimit:
-            $ref: "#/components/schemas/uint64"
-          GasPremium:
-            $ref: "#/components/schemas/String"
-          Method:
-            $ref: "#/components/schemas/uint64"
-          Nonce:
-            $ref: "#/components/schemas/uint64"
-          Params:
-            $ref: "#/components/schemas/Nullable_VecU8LotusJson"
-          To:
-            $ref: "#/components/schemas/String"
-          Value:
-            $ref: "#/components/schemas/String"
-          Version:
-            $ref: "#/components/schemas/uint64"
-      required: true
-  - name: Filecoin.ChainGetParentMessages
-    params:
-      - name: block_cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetParentMessages-result
-      schema:
-        type: array
-        items:
-          $ref: "#/components/schemas/ApiMessageLotusJson"
-        nullable: true
-      required: true
-  - name: Filecoin.ChainGetParentReceipts
-    params:
-      - name: block_cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetParentReceipts-result
-      schema:
-        type: array
-        items:
-          $ref: "#/components/schemas/ApiReceipt"
-        nullable: true
-      required: true
-  - name: Filecoin.ChainGetMessagesInTipset
-    params:
-      - name: tsk
-        schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetMessagesInTipset-result
-      schema:
-        type: array
-        items:
-          $ref: "#/components/schemas/ApiMessageLotusJson"
-        nullable: true
-      required: true
   - name: Filecoin.ChainExport
     params:
       - name: params
@@ -143,178 +38,6 @@ methods:
         type: string
         nullable: true
       required: false
-  - name: Filecoin.ChainReadObj
-    params:
-      - name: obj_cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainReadObj-result
-      schema:
-        $ref: "#/components/schemas/encoded binary"
-        nullable: true
-      required: true
-  - name: Filecoin.ChainHasObj
-    params:
-      - name: cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainHasObj-result
-      schema:
-        type: boolean
-      required: true
-  - name: Filecoin.ChainGetBlockMessages
-    params:
-      - name: blk_cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetBlockMessages-result
-      schema:
-        type: object
-        required:
-          - BlsMessages
-          - Cids
-          - SecpkMessages
-        properties:
-          BlsMessages:
-            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::message::MessageLotusJson>"
-          Cids:
-            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
-          SecpkMessages:
-            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson>"
-      required: true
-  - name: Filecoin.ChainGetPath
-    params:
-      - name: from
-        schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
-        required: true
-      - name: to
-        schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetPath-result
-      schema:
-        type: array
-        items:
-          $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
-        nullable: true
-      required: true
-  - name: Filecoin.ChainGetTipSetByHeight
-    params:
-      - name: height
-        schema:
-          type: integer
-          format: int64
-        required: true
-      - name: tsk
-        schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetTipSetByHeight-result
-      schema:
-        type: object
-        required:
-          - Blocks
-          - Cids
-          - Height
-        properties:
-          Blocks:
-            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
-          Cids:
-            $ref: "#/components/schemas/TipsetKeyLotusJson"
-          Height:
-            $ref: "#/components/schemas/int64"
-      required: true
-  - name: Filecoin.ChainGetTipSetAfterHeight
-    params:
-      - name: height
-        schema:
-          type: integer
-          format: int64
-        required: true
-      - name: tsk
-        schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetTipSetAfterHeight-result
-      schema:
-        type: object
-        required:
-          - Blocks
-          - Cids
-          - Height
-        properties:
-          Blocks:
-            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
-          Cids:
-            $ref: "#/components/schemas/TipsetKeyLotusJson"
-          Height:
-            $ref: "#/components/schemas/int64"
-      required: true
-  - name: Filecoin.ChainGetGenesis
-    params: []
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetGenesis-result
-      schema:
-        $ref: "#/components/schemas/TipsetLotusJson"
-        nullable: true
-      required: false
-  - name: Filecoin.ChainHead
-    params: []
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainHead-result
-      schema:
-        type: object
-        required:
-          - Blocks
-          - Cids
-          - Height
-        properties:
-          Blocks:
-            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
-          Cids:
-            $ref: "#/components/schemas/TipsetKeyLotusJson"
-          Height:
-            $ref: "#/components/schemas/int64"
-      required: true
   - name: Filecoin.ChainGetBlock
     params:
       - name: cid
@@ -378,6 +101,181 @@ methods:
           WinPoStProof:
             $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson>"
       required: true
+  - name: Filecoin.ChainGetBlockMessages
+    params:
+      - name: blk_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetBlockMessages-result
+      schema:
+        type: object
+        required:
+          - BlsMessages
+          - Cids
+          - SecpkMessages
+        properties:
+          BlsMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::message::MessageLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+          SecpkMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson>"
+      required: true
+  - name: Filecoin.ChainGetGenesis
+    params: []
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetGenesis-result
+      schema:
+        $ref: "#/components/schemas/TipsetLotusJson"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainGetMessage
+    params:
+      - name: msg_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetMessage-result
+      schema:
+        type: object
+        required:
+          - From
+          - GasFeeCap
+          - GasLimit
+          - GasPremium
+          - Method
+          - Nonce
+          - To
+          - Value
+          - Version
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          From:
+            $ref: "#/components/schemas/String"
+          GasFeeCap:
+            $ref: "#/components/schemas/String"
+          GasLimit:
+            $ref: "#/components/schemas/uint64"
+          GasPremium:
+            $ref: "#/components/schemas/String"
+          Method:
+            $ref: "#/components/schemas/uint64"
+          Nonce:
+            $ref: "#/components/schemas/uint64"
+          Params:
+            $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+          To:
+            $ref: "#/components/schemas/String"
+          Value:
+            $ref: "#/components/schemas/String"
+          Version:
+            $ref: "#/components/schemas/uint64"
+      required: true
+  - name: Filecoin.ChainGetMessagesInTipset
+    params:
+      - name: tsk
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetMessagesInTipset-result
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetMinBaseFee
+    params:
+      - name: basefee_lookback
+        schema:
+          type: integer
+          format: uint32
+          minimum: 0
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetMinBaseFee-result
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.ChainGetParentMessages
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetParentMessages-result
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetParentReceipts
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetParentReceipts-result
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiReceipt"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetPath
+    params:
+      - name: from
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+        required: true
+      - name: to
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetPath-result
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
+        nullable: true
+      required: true
   - name: Filecoin.ChainGetTipSet
     params:
       - name: tsk
@@ -404,6 +302,122 @@ methods:
           Height:
             $ref: "#/components/schemas/int64"
       required: true
+  - name: Filecoin.ChainGetTipSetAfterHeight
+    params:
+      - name: height
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetTipSetAfterHeight-result
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetTipSetByHeight
+    params:
+      - name: height
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetTipSetByHeight-result
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainHasObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainHasObj-result
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.ChainHead
+    params: []
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainHead-result
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainReadObj
+    params:
+      - name: obj_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainReadObj-result
+      schema:
+        $ref: "#/components/schemas/encoded binary"
+        nullable: true
+      required: true
   - name: Filecoin.ChainSetHead
     params:
       - name: tsk
@@ -418,20 +432,6 @@ methods:
       name: Filecoin.ChainSetHead-result
       schema:
         type: "null"
-      required: true
-  - name: Filecoin.ChainGetMinBaseFee
-    params:
-      - name: basefee_lookback
-        schema:
-          type: integer
-          format: uint32
-          minimum: 0
-        required: true
-    paramStructure: by-position
-    result:
-      name: Filecoin.ChainGetMinBaseFee-result
-      schema:
-        type: string
       required: true
 components:
   schemas:

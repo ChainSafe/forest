@@ -110,9 +110,10 @@ impl<Ctx> SelfDescribingModule<Ctx> {
         let Self {
             inner,
             mut schema_generator,
-            methods,
+            mut methods,
             calling_convention: _,
         } = self;
+        methods.sort_by_key(|it| it.name.clone());
         (
             inner,
             openrpc_types::OpenRPC {
