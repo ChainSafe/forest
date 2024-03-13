@@ -34,6 +34,10 @@
   `forest-tool shed key-pair-from-private-key` commands. These facilate moving
   between Forest and Lotus without losing the peer-to-peer identity.
 
+- [#4052](https://github.com/ChainSafe/forest/pull/4052) Add
+  `forest-cli net reachability` command that prints information about
+  reachability from the internet.
+
 ### Changed
 
 ### Removed
