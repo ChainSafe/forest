@@ -430,7 +430,7 @@ async fn chain_get_block(
 
 async fn chain_get_tipset(
     ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(ApiTipsetKey(tsk)): LotusJson<(ApiTipsetKey)>,
+    LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = ctx
         .state_manager
