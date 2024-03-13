@@ -373,7 +373,7 @@ impl AttachCommand {
         eval("Prelude.greet()", &mut context);
 
         let config = RustyLineConfig::builder()
-            .keyseq_timeout(1)
+            .keyseq_timeout(Some(1))
             .edit_mode(EditMode::Emacs)
             .build();
 

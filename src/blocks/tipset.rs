@@ -57,6 +57,11 @@ impl TipsetKey {
     pub fn to_cids(&self) -> NonEmpty<Cid> {
         self.0.clone().into_cids()
     }
+
+    /// Returns an iterator of `CID`s.
+    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
+        self.0.iter()
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
@@ -74,6 +79,26 @@ impl fmt::Display for TipsetKey {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "[{}]", s)
+    }
+}
+
+impl<'a> IntoIterator for &'a TipsetKey {
+    type Item = <&'a SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <&'a SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+impl IntoIterator for TipsetKey {
+    type Item = <SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

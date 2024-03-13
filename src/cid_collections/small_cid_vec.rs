@@ -32,6 +32,32 @@ impl SmallCidNonEmptyVec {
     pub fn into_cids(self) -> NonEmpty<Cid> {
         self.0.map(From::from)
     }
+
+    /// Returns an iterator of `CID`s.
+    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
+        self.0.iter().map(|cid| Cid::from(cid.clone()))
+    }
+}
+
+impl<'a> IntoIterator for &'a SmallCidNonEmptyVec {
+    type Item = Cid;
+
+    type IntoIter = std::iter::Map<nonempty::Iter<'a, SmallCid>, fn(&SmallCid) -> Cid>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter().map(|cid| Cid::from(cid.clone()))
+    }
+}
+
+impl IntoIterator for SmallCidNonEmptyVec {
+    type Item = Cid;
+
+    type IntoIter =
+        std::iter::Map<<NonEmpty<SmallCid> as IntoIterator>::IntoIter, fn(SmallCid) -> Cid>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter().map(Cid::from)
+    }
 }
 
 /// A [`MaybeCompactedCid`], with indirection to save space on the most common CID variant, at the cost
@@ -41,7 +67,7 @@ impl SmallCidNonEmptyVec {
 /// of [`MaybeCompactedCid`], so that the discriminant is not repeated.
 #[cfg_vis::cfg_vis(doc, pub)]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-enum SmallCid {
+pub enum SmallCid {
     Inline(CidV1DagCborBlake2b256),
     Indirect(Box<Uncompactable>),
 }

@@ -316,7 +316,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents.to_cids() {
+                            for p in &block.parents {
                                 this.dfs.push_back(Emit(p));
                             }
                         }
@@ -553,7 +553,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents.to_cids() {
+                            for p in &block.parents {
                                 this.queue.push(p);
                             }
                         }

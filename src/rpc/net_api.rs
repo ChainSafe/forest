@@ -55,6 +55,11 @@ pub async fn net_peers<DB: Blockstore>(
     Ok(connections)
 }
 
+// NET_LISTENING always returns true.
+pub async fn net_listening() -> Result<bool, JsonRpcError> {
+    Ok(true)
+}
+
 pub async fn net_info<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<NetInfoResult, JsonRpcError> {
@@ -129,4 +134,17 @@ pub async fn net_agent_version<DB: Blockstore>(
     } else {
         Err(anyhow::anyhow!("item not found").into())
     }
+}
+
+pub async fn net_auto_nat_status<DB: Blockstore>(
+    _params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<NatStatusResult, JsonRpcError> {
+    let (tx, rx) = oneshot::channel();
+    let req = NetworkMessage::JSONRPCRequest {
+        method: NetRPCMethods::AutoNATStatus(tx),
+    };
+    data.network_send.send_async(req).await?;
+    let nat_status = rx.await?;
+    Ok(nat_status.into())
 }

@@ -29,6 +29,29 @@
 
 ### Added
 
+- [#4029](https://github.com/ChainSafe/forest/pull/4029) Add
+  `forest-tool shed private-key-from-key-pair` and
+  `forest-tool shed key-pair-from-private-key` commands. These facilate moving
+  between Forest and Lotus without losing the peer-to-peer identity.
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.17.0 "Smaug"
+
+Mandatory release that includes:
+
+- support for the NV22 _Dragon_ network upgrade, together with the required
+  state migration,
+- important networking improvements that increase Forest resilience to network
+  disruptions,
+- various improvements and support for new RPC methods.
+
+### Added
+
 - [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
   query optimizations when serving with many car files.
 
@@ -40,9 +63,8 @@
   `Filecoin.NetAgentVersion` and `--agent` flag to the `forest-cli net peers`
   subcommand, that will list the agent version of the connected peers.
 
-### Changed
-
-### Removed
+- [#3955](https://github.com/ChainSafe/forest/pull/3955) Added support for the
+  NV22 _Dragon_ network upgrade, together with the required state migration.
 
 ### Fixed
 

@@ -20,17 +20,17 @@ use flume::Sender;
 use futures::stream::StreamExt;
 use futures::{channel::oneshot::Sender as OneShotSender, select};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p::connection_limits::Exceeded;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
-use libp2p::swarm::DialError;
 use libp2p::{
+    autonat::NatStatus,
+    connection_limits::Exceeded,
     core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
     gossipsub,
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping, request_response,
-    swarm::{self, SwarmEvent},
+    swarm::{self, DialError, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
 use tokio_stream::wrappers::IntervalStream;
@@ -169,6 +169,7 @@ pub enum NetRPCMethods {
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
     AgentVersion(OneShotSender<Option<String>>, PeerId),
+    AutoNATStatus(OneShotSender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -557,6 +558,12 @@ async fn handle_network_message(
 
                     if response_channel.send(agent_version).is_err() {
                         warn!("Failed to get agent version");
+                    }
+                }
+                NetRPCMethods::AutoNATStatus(response_channel) => {
+                    let nat_status = swarm.behaviour().discovery.nat_status();
+                    if response_channel.send(nat_status).is_err() {
+                        warn!("Failed to get nat status");
                     }
                 }
             }

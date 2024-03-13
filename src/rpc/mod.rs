@@ -301,10 +301,12 @@ where
     // Net API
     module.register_async_method(NET_ADDRS_LISTEN, |_, state| net_addrs_listen::<DB>(state))?;
     module.register_async_method(NET_PEERS, |_, state| net_peers::<DB>(state))?;
+    module.register_async_method(NET_LISTENING, |_, _| net_listening())?;
     module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state))?;
     module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
     module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
     module.register_async_method(NET_AGENT_VERSION, net_agent_version::<DB>)?;
+    module.register_async_method(NET_AUTO_NAT_STATUS, net_auto_nat_status::<DB>)?;
     // Node API
     module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API
