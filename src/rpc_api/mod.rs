@@ -468,6 +468,18 @@ pub mod net_api {
     }
     lotus_json_with_self!(NatStatusResult);
 
+    impl NatStatusResult {
+        // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>
+        pub fn reachability_as_str(&self) -> &'static str {
+            match self.reachability {
+                0 => "Unknown",
+                1 => "Public",
+                2 => "Private",
+                _ => "(unrecognized)",
+            }
+        }
+    }
+
     impl From<libp2p::autonat::NatStatus> for NatStatusResult {
         fn from(nat: libp2p::autonat::NatStatus) -> Self {
             use libp2p::autonat::NatStatus;
