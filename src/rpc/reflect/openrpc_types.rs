@@ -170,7 +170,7 @@ impl Params {
 validated_vec!(Params => ContentDescriptor);
 
 /// `parent` acts as a `Vec<$child>`, with some internal invariant guarded by
-/// $parent::new().
+/// `$parent::new()`.
 ///
 /// So you only need to implement `new`, and get `len`, `iter`, `deserialize` for free.
 macro_rules! validated_vec {
