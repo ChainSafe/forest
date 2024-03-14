@@ -38,6 +38,9 @@
   `forest-cli net reachability` command that prints information about
   reachability from the internet.
 
+- [#4058](https://github.com/ChainSafe/forest/issues/4058) Add support for
+  multiple snapshot files in the `forest-tool api serve` command.
+
 ### Changed
 
 ### Removed
