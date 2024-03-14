@@ -27,10 +27,10 @@ bls-signatures = { version = "0.15", default-features = false, features = [
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
 blstrs = { version = "0.7", features = ["portable"] }
-boa_engine = "0.17.0"
-boa_interner = "0.17.0"
-boa_parser = "0.17.0"
-boa_runtime = "0.17.0"
+boa_engine = "0.18"
+boa_interner = "0.18"
+boa_parser = "0.18"
+boa_runtime = "0.18"
 byteorder = "1.5.0"
 bytes = "1.2"
 cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }

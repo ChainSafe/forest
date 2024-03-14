@@ -16,7 +16,7 @@ use boa_engine::{
     object::{builtins::JsArray, FunctionObjectBuilder},
     prelude::JsObject,
     property::Attribute,
-    Context, JsError, JsResult, JsValue, NativeFunction, Source,
+    Context, JsError, JsResult, JsString, JsValue, NativeFunction, Source,
 };
 use boa_interner::Interner;
 use boa_parser::Parser;
@@ -45,10 +45,19 @@ const PRELUDE_PATH: &str = include_str!("./js/prelude.js");
 fn set_module(context: &mut Context) {
     let module = JsObject::default();
     module
-        .set("exports", JsObject::default(), false, context)
+        .set(
+            JsString::from("exports"),
+            JsObject::default(),
+            false,
+            context,
+        )
         .unwrap();
     context
-        .register_global_property("module", JsValue::from(module), Attribute::default())
+        .register_global_property(
+            JsString::from("module"),
+            JsValue::from(module),
+            Attribute::default(),
+        )
         .expect("`register_global_property` should not fail");
 }
 
@@ -96,7 +105,9 @@ fn require(
     let param = if let Some(p) = params.first() {
         p
     } else {
-        return Err(JsError::from_opaque("expecting string argument".into()));
+        return Err(JsError::from_opaque(
+            JsString::from("expecting string argument").into(),
+        ));
     };
 
     // Resolve module path
@@ -115,7 +126,9 @@ fn require(
     } else if path == PathBuf::from("prelude.js") {
         Ok(PRELUDE_PATH.into())
     } else {
-        return Err(JsError::from_opaque("expecting valid module path".into()));
+        return Err(JsError::from_opaque(
+            JsString::from("expecting valid module path").into(),
+        ));
     };
     match result {
         Ok(buffer) => {
@@ -142,11 +155,13 @@ fn require(
 
             // Access module.exports and return as ResultValue
             let global_obj = context.global_object().to_owned();
-            let module = global_obj.get("module", context).expect("get must succeed");
+            let module = global_obj
+                .get(JsString::from("module"), context)
+                .expect("get must succeed");
             let exports = module
                 .as_object()
                 .expect("as_object must succeed")
-                .get("exports", context);
+                .get(JsString::from("exports"), context);
 
             exports
         }
@@ -163,8 +178,8 @@ where
 {
     match result {
         Ok(v) => {
-            let value: JsonValue =
-                serde_json::to_value(v).map_err(|e| JsError::from_opaque(e.to_string().into()))?;
+            let value: JsonValue = serde_json::to_value(v)
+                .map_err(|e| JsError::from_opaque(JsString::from(e.to_string()).into()))?;
             JsValue::from_json(&value, context)
         }
         Err(err) => {
@@ -185,7 +200,7 @@ fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
     let js_func_name = name.to_case(Case::Camel);
     // Safety: This is unsafe since GC'ed variables caught in the closure will
     // not get traced. We're safe because we do not use any GC'ed variables.
-    let js_func = FunctionObjectBuilder::new(context, unsafe {
+    let js_func = FunctionObjectBuilder::new(context.realm(), unsafe {
         NativeFunction::from_closure({
             let api = api.clone();
             move |_this, params, context| {
@@ -213,7 +228,7 @@ fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
 
     let attr = Attribute::WRITABLE | Attribute::NON_ENUMERABLE | Attribute::CONFIGURABLE;
     context
-        .register_global_property(js_func_name, js_func, attr)
+        .register_global_property(JsString::from(js_func_name), js_func, attr)
         .expect("`register_global_property` should not fail");
 }
 
@@ -275,10 +290,14 @@ impl AttachCommand {
     fn setup_context(&self, context: &mut Context, api: ApiInfo) {
         let console = Console::init(context);
         context
-            .register_global_property(Console::NAME, console, Attribute::all())
+            .register_global_property(JsString::from(Console::NAME), console, Attribute::all())
             .expect("the console object shouldn't exist yet");
         context
-            .register_global_property("_BOA_VERSION", "0.17.0", Attribute::default())
+            .register_global_property(
+                JsString::from("_BOA_VERSION"),
+                JsString::from("0.18.0"),
+                Attribute::default(),
+            )
             .expect("`register_global_property` should not fail");
 
         // Safety: This is unsafe since GC'ed variables caught in the closure will
@@ -292,7 +311,7 @@ impl AttachCommand {
         };
 
         context
-            .register_global_builtin_callable("require", 1, require_func)
+            .register_global_builtin_callable(JsString::from("require"), 1, require_func)
             .expect("Registering the global`require` should succeed");
 
         // Add custom object that mimics `module.exports`
