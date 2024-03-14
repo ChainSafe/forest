@@ -117,6 +117,7 @@ libp2p = { version = "0.53", default-features = false, features = [
   'tokio',
   'macros',
   'serde',
+  'upnp',
   'rsa',
   'ecdsa',
   'ed25519',
