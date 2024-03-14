@@ -17,14 +17,20 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
 use flume::Sender;
-use futures::stream::StreamExt;
-use futures::{channel::oneshot::Sender as OneShotSender, select};
+use futures::{
+    channel::oneshot::Sender as OneShotSender, future::Either, select, stream::StreamExt,
+};
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     autonat::NatStatus,
     connection_limits::Exceeded,
-    core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    core::{
+        self,
+        muxing::StreamMuxerBox,
+        transport::{Boxed, OrTransport},
+        Multiaddr,
+    },
     gossipsub,
     identity::Keypair,
     metrics::{Metrics, Recorder},
@@ -200,8 +206,7 @@ where
     ) -> anyhow::Result<Self> {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport =
-            build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
+        let transport = build_transport(&net_keypair).expect("Failed to build libp2p transport");
 
         let mut swarm = Swarm::new(
             transport,
@@ -913,17 +918,23 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 ///
 /// As a reference `lotus` uses the default `go-libp2p` transport builder which
 /// has all above protocols enabled.
-pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
-    let build_dns_tcp = || libp2p::dns::tokio::Transport::system(build_tcp());
-    let transport = build_dns_tcp()?;
+pub fn build_transport(local_key: &Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
+    let auth_config = noise::Config::new(local_key).context("Noise key generation failed")?;
+    let build_tcp = || {
+        libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true))
+            .upgrade(core::upgrade::Version::V1)
+            .authenticate(auth_config)
+            .multiplex(yamux::Config::default())
+    };
+    let build_quic = || libp2p::quic::tokio::Transport::new(libp2p::quic::Config::new(local_key));
+    let build_dns_tcp_quic = || {
+        libp2p::dns::tokio::Transport::system(OrTransport::new(build_tcp(), build_quic()).map(
+            |either_output, _| match either_output {
+                Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+                Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            },
+        ))
+    };
 
-    let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;
-
-    Ok(transport
-        .upgrade(core::upgrade::Version::V1)
-        .authenticate(auth_config)
-        .multiplex(yamux::Config::default())
-        .timeout(Duration::from_secs(20))
-        .boxed())
+    Ok(build_dns_tcp_quic()?.boxed())
 }
