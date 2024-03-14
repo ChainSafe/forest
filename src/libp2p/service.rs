@@ -925,16 +925,15 @@ pub fn build_transport(local_key: &Keypair) -> anyhow::Result<Boxed<(PeerId, Str
             .upgrade(core::upgrade::Version::V1)
             .authenticate(auth_config)
             .multiplex(yamux::Config::default())
+            .timeout(Duration::from_secs(20))
     };
     let build_quic = || libp2p::quic::tokio::Transport::new(libp2p::quic::Config::new(local_key));
-    let build_dns_tcp_quic = || {
-        libp2p::dns::tokio::Transport::system(OrTransport::new(build_tcp(), build_quic()).map(
-            |either_output, _| match either_output {
-                Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-                Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-            },
-        ))
+    let build_tcp_quic = || {
+        OrTransport::new(build_tcp(), build_quic()).map(|either_output, _| match either_output {
+            Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+        })
     };
-
+    let build_dns_tcp_quic = || libp2p::dns::tokio::Transport::system(build_tcp_quic());
     Ok(build_dns_tcp_quic()?.boxed())
 }

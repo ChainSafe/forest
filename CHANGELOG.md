@@ -38,6 +38,9 @@
   `forest-cli net reachability` command that prints information about
   reachability from the internet.
 
+- [#4056](https://github.com/ChainSafe/forest/pull/4056) Enable libp2p `quic`
+  protocol
+
 ### Changed
 
 ### Removed
