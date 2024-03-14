@@ -861,7 +861,7 @@ async fn start_offline_server(
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
-        db,
+        db.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -870,16 +870,7 @@ async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let ts = snapshot_files
-        .iter()
-        .map(|path| -> anyhow::Result<Tipset> {
-            let car = crate::db::car::ForestCar::try_from(path.as_path())?;
-            car.heaviest_tipset()
-        })
-        .collect::<anyhow::Result<Vec<Tipset>>>()?
-        .into_iter()
-        .max_by_key(|ts| ts.epoch())
-        .ok_or_else(|| anyhow::anyhow!("No tipsets found in snapshot"))?;
+    let ts = db.heaviest_tipset()?;
 
     state_manager
         .chain_store()
