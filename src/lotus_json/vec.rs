@@ -65,3 +65,16 @@ where
             .map(Self)
     }
 }
+
+impl<T> JsonSchema for VecLotusJson<T>
+where
+    T: JsonSchema,
+{
+    fn schema_name() -> String {
+        std::any::type_name::<T>().to_string()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        Option::<Vec<T>>::json_schema(gen)
+    }
+}

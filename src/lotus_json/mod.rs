@@ -126,6 +126,7 @@ use derive_more::From;
 use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
 use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
 use serde_json::json;
@@ -394,6 +395,20 @@ where
 #[serde(bound = "T: HasLotusJson + Clone")]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 
+impl<T> JsonSchema for LotusJson<T>
+where
+    T: HasLotusJson,
+    T::LotusJson: JsonSchema,
+{
+    fn schema_name() -> String {
+        T::LotusJson::schema_name()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        T::LotusJson::json_schema(gen)
+    }
+}
+
 impl<T> LotusJson<T> {
     pub fn into_inner(self) -> T {
         self.0
@@ -415,6 +430,16 @@ pub struct Stringify<T>(#[serde(with = "stringify")] pub T);
 impl<T> Stringify<T> {
     pub fn into_inner(self) -> T {
         self.0
+    }
+}
+
+impl<T> JsonSchema for Stringify<T> {
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        String::json_schema(gen)
     }
 }
 

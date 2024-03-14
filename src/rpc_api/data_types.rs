@@ -50,6 +50,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
+//                  avoid double indirection
 pub type Data<T> = Arc<Arc<T>>;
 
 /// This is where you store persistent data, or at least access to stateful

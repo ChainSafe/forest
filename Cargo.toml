@@ -20,7 +20,7 @@ asynchronous-codec = "0.6"
 axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
-bigdecimal = "=0.4.2"
+bigdecimal = "=0.4.2" # TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4035
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
@@ -86,8 +86,8 @@ http0 = { package = "http", version = "0.2" }
 human-repr = "1.0"
 human_bytes = "0.4"
 humantime = "2.1.0"
-# TODO(aatifsyed): bump this to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
-# Tracking issue: https://github.com/ChainSafe/forest/issues/3961
+# TODO(forest): https://github.com/ChainSafe/forest/issues/3961
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
 hyper = { version = "0.14", features = ["full"] }
 indexmap = { version = "2.2", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
@@ -161,6 +161,7 @@ reqwest = { version = "0.11.25", default-features = false, features = [
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
 rustyline = "14"
+schemars = "0.8.16"
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -217,6 +218,7 @@ derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 http-range-header = "0.4.0"
+insta = { version = "1.36.1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6.4"

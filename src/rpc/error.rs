@@ -1,170 +1,81 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::chain::store::Error as ChainError;
-use crate::key_management::Error as KeyManagementError;
-use crate::libp2p::ParseError;
-use crate::message_pool::Error as MessagePoolError;
-use crate::state_manager::Error as StateManagerError;
+use std::fmt::Display;
 
-use jsonrpsee::types::error::{ErrorObjectOwned, INTERNAL_ERROR_CODE};
+use jsonrpsee::types::error::{
+    ErrorObjectOwned, INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, PARSE_ERROR_CODE,
+};
 
+#[derive(derive_more::From, derive_more::Into, Debug)]
 pub struct JsonRpcError {
-    error: ErrorObjectOwned,
+    inner: ErrorObjectOwned,
 }
 
-impl From<anyhow::Error> for JsonRpcError {
-    fn from(e: anyhow::Error) -> Self {
+impl JsonRpcError {
+    fn new(code: i32, message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
         Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
+            inner: ErrorObjectOwned::owned(code, message.to_string(), data.into()),
         }
     }
-}
-
-impl From<ErrorObjectOwned> for JsonRpcError {
-    fn from(e: ErrorObjectOwned) -> Self {
-        Self { error: e }
+    pub fn parse_error(message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
+        Self::new(PARSE_ERROR_CODE, message, data)
+    }
+    pub fn internal_error(
+        message: impl Display,
+        data: impl Into<Option<serde_json::Value>>,
+    ) -> Self {
+        Self::new(INTERNAL_ERROR_CODE, message, data)
+    }
+    pub fn invalid_params(
+        message: impl Display,
+        data: impl Into<Option<serde_json::Value>>,
+    ) -> Self {
+        Self::new(INVALID_PARAMS_CODE, message, data)
     }
 }
 
-impl From<ChainError> for JsonRpcError {
-    fn from(e: ChainError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
+macro_rules! from2internal {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl From<$ty> for JsonRpcError {
+                fn from(it: $ty) -> Self {
+                    Self::internal_error(it, None)
+                }
+            }
+        )*
+    };
 }
 
-impl From<MessagePoolError> for JsonRpcError {
-    fn from(e: MessagePoolError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<KeyManagementError> for JsonRpcError {
-    fn from(e: KeyManagementError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<StateManagerError> for JsonRpcError {
-    fn from(e: StateManagerError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<fvm_ipld_encoding::Error> for JsonRpcError {
-    fn from(e: fvm_ipld_encoding::Error) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<fvm_shared4::address::Error> for JsonRpcError {
-    fn from(e: fvm_shared4::address::Error) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<fil_actors_shared::fvm_ipld_amt::Error> for JsonRpcError {
-    fn from(e: fil_actors_shared::fvm_ipld_amt::Error) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<std::io::Error> for JsonRpcError {
-    fn from(e: std::io::Error) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
+// TODO(forest): https://github.com/ChainSafe/forest/issues/3965
+//               Just mapping everything to an internal error is not appropriate
+from2internal! {
+    anyhow::Error,
+    base64::DecodeError,
+    cid::multibase::Error,
+    crate::chain::store::Error,
+    crate::key_management::Error,
+    crate::libp2p::ParseError,
+    crate::message_pool::Error,
+    crate::state_manager::Error,
+    fil_actors_shared::fvm_ipld_amt::Error,
+    futures::channel::oneshot::Canceled,
+    fvm_ipld_encoding::Error,
+    fvm_shared4::address::Error,
+    jsonwebtoken::errors::Error,
+    std::io::Error,
+    std::time::SystemTimeError,
+    tokio::task::JoinError,
 }
 
 impl<T> From<flume::SendError<T>> for JsonRpcError {
     fn from(e: flume::SendError<T>) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
+        Self::internal_error(e, None)
     }
 }
 
 impl<T> From<tokio::sync::mpsc::error::SendError<T>> for JsonRpcError {
     fn from(e: tokio::sync::mpsc::error::SendError<T>) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<cid::multibase::Error> for JsonRpcError {
-    fn from(e: cid::multibase::Error) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<futures::channel::oneshot::Canceled> for JsonRpcError {
-    fn from(e: futures::channel::oneshot::Canceled) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<jsonwebtoken::errors::Error> for JsonRpcError {
-    fn from(e: jsonwebtoken::errors::Error) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<base64::DecodeError> for JsonRpcError {
-    fn from(e: base64::DecodeError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<tokio::task::JoinError> for JsonRpcError {
-    fn from(e: tokio::task::JoinError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<ParseError> for JsonRpcError {
-    fn from(e: ParseError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<std::time::SystemTimeError> for JsonRpcError {
-    fn from(e: std::time::SystemTimeError) -> Self {
-        Self {
-            error: ErrorObjectOwned::owned::<()>(INTERNAL_ERROR_CODE, e.to_string(), None),
-        }
-    }
-}
-
-impl From<JsonRpcError> for ErrorObjectOwned {
-    fn from(val: JsonRpcError) -> Self {
-        val.error
+        Self::internal_error(e, None)
     }
 }

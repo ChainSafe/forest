@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateLotusJson {
     code: LotusJson<Cid>,

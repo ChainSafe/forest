@@ -7,7 +7,7 @@ use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLotusJson {
     version: LotusJson<u64>,

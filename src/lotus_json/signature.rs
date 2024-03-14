@@ -4,7 +4,7 @@
 use super::*;
 use crate::shim::crypto::{Signature, SignatureType};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SignatureLotusJson {
     r#type: LotusJson<SignatureType>,
