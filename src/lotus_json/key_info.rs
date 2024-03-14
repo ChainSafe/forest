@@ -4,7 +4,7 @@ use super::*;
 
 use crate::{key_management::KeyInfo, shim::crypto::SignatureType};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct KeyInfoLotusJson {
     r#type: LotusJson<SignatureType>,

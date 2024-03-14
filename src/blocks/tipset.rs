@@ -494,12 +494,32 @@ mod lotus_json {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use nonempty::NonEmpty;
+    use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::TipsetKey;
 
     pub struct TipsetLotusJson(Tipset);
 
+    impl JsonSchema for TipsetLotusJson {
+        fn schema_name() -> String {
+            String::from("TipsetLotusJson")
+        }
+        fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+            // can't impl JsonSchema for NonEmpty...
+            #[derive(JsonSchema)]
+            #[serde(rename_all = "PascalCase")]
+            #[allow(unused)]
+            struct Helper {
+                cids: LotusJson<TipsetKey>,
+                blocks: LotusJson<Vec<CachingBlockHeader>>,
+                height: LotusJson<i64>,
+            }
+            Helper::json_schema(gen)
+        }
+    }
+
+    // NOTE: keep this in sync with JsonSchema implementation above
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {

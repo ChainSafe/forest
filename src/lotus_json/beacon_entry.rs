@@ -5,7 +5,7 @@ use crate::beacon::BeaconEntry;
 
 use super::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BeaconEntryLotusJson {
     round: LotusJson<u64>,
