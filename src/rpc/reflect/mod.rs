@@ -24,10 +24,13 @@ pub mod openrpc_types;
 mod parser;
 mod util;
 
+use crate::rpc_api::data_types::RPCState;
+
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::JsonRpcError as Error;
 
 use futures::future::Either;
+use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{MethodsError, RpcModule};
 use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};
 use parser::Parser;
@@ -43,9 +46,24 @@ use serde::{
 };
 use std::{future::Future, sync::Arc};
 
+/// Type to be used by [`RpcMethod::handle`].
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
+//                  avoid double indirection
+pub type Ctx<T> = Arc<Arc<RPCState<T>>>;
+/// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
+type ModuleState<T> = Arc<RPCState<T>>;
+
 /// A definition of an RPC method handler which can be registered with a
 /// [`SelfDescribingRpcModule`].
-pub trait RpcMethod<const ARITY: usize, Ctx> {
+///
+/// Note, an earlier draft of this trait had an additional type parameter for `Ctx`
+/// for generality.
+/// However, fixing it as [`Ctx<...>`] saves on complexity/confusion for implementors,
+/// at the expense of handler flexibility, which could come back to bite us.
+/// - All handlers accept [`RPCState`].
+/// - All `Ctx`s must be [`Send`] + [`Sync`] + `'static` due to bounds on [`RpcModule`].
+/// - Handlers don't specialize on top of the given bounds, but they MAY relax them.
+pub trait RpcMethod<const ARITY: usize> {
     /// Method name.
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
@@ -56,14 +74,14 @@ pub trait RpcMethod<const ARITY: usize, Ctx> {
     type Ok;
     /// Logic for this method.
     fn handle(
-        ctx: Arc<Ctx>,
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
 /// `ARITY` in user code.
-pub trait RpcMethodExt<const ARITY: usize, Ctx>: RpcMethod<ARITY, Ctx> {
+pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     /// Convert from typed handler parameters to untyped JSON-RPC parameters.
     ///
     /// Exposes errors from [`Params::unparse`]
@@ -113,11 +131,10 @@ pub trait RpcMethodExt<const ARITY: usize, Ctx>: RpcMethod<ARITY, Ctx> {
     }
     /// Register this method with an [`RpcModule`].
     fn register_raw(
-        module: &mut RpcModule<Ctx>,
+        module: &mut RpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
         calling_convention: ParamStructure,
     ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
     where
-        Ctx: Send + Sync + 'static,
         Self::Ok: Serialize + Clone + 'static,
     {
         module.register_async_method(Self::NAME, move |params, ctx| async move {
@@ -132,9 +149,9 @@ pub trait RpcMethodExt<const ARITY: usize, Ctx>: RpcMethod<ARITY, Ctx> {
         })
     }
     /// Register this method and generate a schema entry for it in a [`SelfDescribingRpcModule`].
-    fn register<'de>(module: &mut SelfDescribingRpcModule<Ctx>)
-    where
-        Ctx: Send + Sync + 'static,
+    fn register<'de>(
+        module: &mut SelfDescribingRpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
+    ) where
         Self::Ok: Serialize + Clone + 'static,
         Self::Ok: JsonSchema + Deserialize<'de>,
     {
@@ -145,7 +162,7 @@ pub trait RpcMethodExt<const ARITY: usize, Ctx>: RpcMethod<ARITY, Ctx> {
     }
     /// Call this method on an [`RpcModule`].
     fn call(
-        module: &RpcModule<Ctx>,
+        module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
         calling_convention: ConcreteCallingConvention,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
@@ -179,7 +196,7 @@ pub trait RpcMethodExt<const ARITY: usize, Ctx>: RpcMethod<ARITY, Ctx> {
         }
     }
 }
-impl<const ARITY: usize, Ctx, T> RpcMethodExt<ARITY, Ctx> for T where T: RpcMethod<ARITY, Ctx> {}
+impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> {}
 
 /// A tuple of `ARITY` arguments.
 ///
