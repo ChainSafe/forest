@@ -99,6 +99,13 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_PROVING_DEADLINE, (miner, tsk))
     }
 
+    pub fn state_miner_available_balance_req(
+        miner: Address,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<TokenAmount> {
+        RpcRequest::new_v1(STATE_MINER_AVAILABLE_BALANCE, (miner, tsk))
+    }
+
     pub fn state_get_randomness_from_tickets_req(
         tsk: ApiTipsetKey,
         personalization: DomainSeparationTag,

@@ -96,6 +96,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
     access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
+    access.insert(state_api::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_SEARCH_MSG, Access::Read);
@@ -378,6 +379,7 @@ pub mod state_api {
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
     pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
+    pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
