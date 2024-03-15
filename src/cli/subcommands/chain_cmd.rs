@@ -59,7 +59,9 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => print_pretty_json(api.chain_get_block(cid).await?),
+            Self::Block { cid } => {
+                print_pretty_json(api.chain_get_block(cid).await?.into_lotus_json())
+            }
             Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => {

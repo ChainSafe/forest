@@ -40,7 +40,12 @@ done
 for port in "${PORTS[@]}"; do
   # Assert an old block is present, given that the old snapshot is used.
   # https://calibration.filfox.info/en/block/bafy2bzacecpjvcld56dazyukvj35uzwvlh3tb4ga2lvbgbiua3mgbqaz45hbm
-  FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/$port/http" forest-cli chain block -c bafy2bzacecpjvcld56dazyukvj35uzwvlh3tb4ga2lvbgbiua3mgbqaz45hbm
+  temp_dir=$(mktemp -d)
+  FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/$port/http" forest-cli chain block -c bafy2bzacecpjvcld56dazyukvj35uzwvlh3tb4ga2lvbgbiua3mgbqaz45hbm | jq . > "$temp_dir/block.json"
+
+  # assert block is as expected
+  parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+  diff "$parent_path/test_data/calibnet_block_3000.json" "$temp_dir/block.json"
 done
 
 # Compare the http endpoints
