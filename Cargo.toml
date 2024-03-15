@@ -111,6 +111,7 @@ libp2p = { version = "0.53", default-features = false, features = [
   'noise',
   'yamux',
   'tcp',
+  'quic',
   'dns',
   'request-response',
   'metrics',

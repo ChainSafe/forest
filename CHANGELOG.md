@@ -41,6 +41,9 @@
 - [#4058](https://github.com/ChainSafe/forest/issues/4058) Add support for
   multiple snapshot files in the `forest-tool api serve` command.
 
+- [#4056](https://github.com/ChainSafe/forest/pull/4056) Enable libp2p `quic`
+  protocol
+
 ### Changed
 
 ### Removed
