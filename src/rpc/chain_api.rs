@@ -12,7 +12,7 @@ use crate::rpc::error::JsonRpcError;
 use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages, Data, RPCState},
+    data_types::{ApiTipsetKey, BlockMessages, RPCState},
 };
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
@@ -32,6 +32,8 @@ use tokio::sync::{
 };
 
 use super::reflect::SelfDescribingModule;
+
+type Ctx<DB> = Arc<Arc<RPCState<DB>>>;
 
 pub fn serve(
     module: &mut SelfDescribingModule<Arc<RPCState<impl Blockstore + Send + Sync + 'static>>>,
@@ -87,7 +89,7 @@ pub fn serve(
 }
 
 async fn chain_get_message(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(msg_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Message>, JsonRpcError> {
     let chain_message: ChainMessage = ctx
@@ -102,7 +104,7 @@ async fn chain_get_message(
 }
 
 async fn chain_get_parent_messages(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(block_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = ctx.state_manager.blockstore();
@@ -119,7 +121,7 @@ async fn chain_get_parent_messages(
 }
 
 async fn chain_get_parent_receipts(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(block_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let store = ctx.state_manager.blockstore();
@@ -183,7 +185,7 @@ async fn chain_get_parent_receipts(
 }
 
 async fn chain_get_messages_in_tipset(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(tsk): LotusJson<TipsetKey>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let store = ctx.chain_store.blockstore();
@@ -193,7 +195,7 @@ async fn chain_get_messages_in_tipset(
 }
 
 async fn chain_export(
-    ctx: Data<RPCState<impl Blockstore + Send + Sync + 'static>>,
+    ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
     params: ChainExportParams,
 ) -> Result<Option<String>, JsonRpcError> {
     let ChainExportParams {
@@ -254,7 +256,7 @@ async fn chain_export(
 }
 
 async fn chain_read_obj(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(obj_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let bytes = ctx
@@ -266,14 +268,14 @@ async fn chain_read_obj(
 }
 
 async fn chain_has_obj(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(obj_cid): LotusJson<Cid>,
 ) -> Result<bool, JsonRpcError> {
     Ok(ctx.state_manager.blockstore().get(&obj_cid)?.is_some())
 }
 
 async fn chain_get_block_messages(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(blk_cid): LotusJson<Cid>,
 ) -> Result<BlockMessages, JsonRpcError> {
     let blk: CachingBlockHeader = ctx
@@ -320,7 +322,7 @@ async fn chain_get_block_messages(
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
 async fn chain_get_path(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(from): LotusJson<TipsetKey>,
     LotusJson(to): LotusJson<TipsetKey>,
 ) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
@@ -369,7 +371,7 @@ fn impl_chain_get_path(
 }
 
 async fn chain_get_tipset_by_height(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     height: i64,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
@@ -386,7 +388,7 @@ async fn chain_get_tipset_by_height(
 }
 
 async fn chain_get_tipset_after_height(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     height: i64,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
@@ -403,21 +405,19 @@ async fn chain_get_tipset_after_height(
 }
 
 async fn chain_get_genesis(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
     let genesis = ctx.state_manager.chain_store().genesis_block_header();
     Ok(Some(Tipset::from(genesis).into()))
 }
 
-async fn chain_head(
-    ctx: Data<RPCState<impl Blockstore>>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
+async fn chain_head(ctx: Ctx<impl Blockstore>) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
     Ok((*heaviest).clone().into())
 }
 
 async fn chain_get_block(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(blk_cid): LotusJson<Cid>,
 ) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
     let blk: CachingBlockHeader = ctx
@@ -429,7 +429,7 @@ async fn chain_get_block(
 }
 
 async fn chain_get_tipset(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let ts = ctx
@@ -442,7 +442,7 @@ async fn chain_get_tipset(
 // This is basically a port of the reference implementation at
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 async fn chain_set_head(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     LotusJson(ApiTipsetKey(tsk)): LotusJson<ApiTipsetKey>,
 ) -> Result<(), JsonRpcError> {
     let new_head = ctx
@@ -470,7 +470,7 @@ async fn chain_set_head(
 }
 
 async fn chain_get_min_base_fee(
-    ctx: Data<RPCState<impl Blockstore>>,
+    ctx: Ctx<impl Blockstore>,
     basefee_lookback: u32,
 ) -> Result<String, JsonRpcError> {
     let mut current = ctx.state_manager.chain_store().heaviest_tipset();
@@ -490,7 +490,7 @@ async fn chain_get_min_base_fee(
     Ok(min_base_fee.atto().to_string())
 }
 
-pub fn chain_notify(ctx: Data<RPCState<impl Blockstore>>) -> Subscriber<ApiHeadChange> {
+pub fn chain_notify(ctx: Ctx<impl Blockstore>) -> Subscriber<ApiHeadChange> {
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset
