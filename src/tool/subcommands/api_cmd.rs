@@ -708,6 +708,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             tests.push(RpcTest::identity(
                 ApiInfo::state_miner_proving_deadline_req(block.miner_address, tipset.key().into()),
             ));
+            tests.push(RpcTest::identity(
+                ApiInfo::state_miner_available_balance_req(
+                    block.miner_address,
+                    tipset.key().into(),
+                ),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 block.miner_address,
                 tipset.key().into(),

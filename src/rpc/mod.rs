@@ -254,6 +254,10 @@ where
     module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
     module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
+    module.register_async_method(
+        STATE_MINER_AVAILABLE_BALANCE,
+        state_miner_available_balance::<DB>,
+    )?;
     module.register_async_method(STATE_MINER_POWER, state_miner_power::<DB>)?;
     module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
     module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
