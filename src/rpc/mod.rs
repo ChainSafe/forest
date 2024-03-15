@@ -51,7 +51,9 @@ use tokio::sync::RwLock;
 use tower::Service;
 use tracing::info;
 
+use self::chain_api::ChainGetPath;
 use self::reflect::openrpc_types::ParamStructure;
+use self::reflect::RpcMethodExt as _;
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
@@ -156,11 +158,8 @@ fn create_module<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut module = reflect::SelfDescribingModule::new(state, ParamStructure::ByPosition);
-    {
-        use chain_api::*;
-        module.serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
-    };
+    let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
+    ChainGetPath::register(&mut module);
     module.finish()
 }
 
