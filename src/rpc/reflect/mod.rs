@@ -61,7 +61,7 @@ type ModuleState<T> = Arc<RPCState<T>>;
 /// However, fixing it as [`Ctx<...>`] saves on complexity/confusion for implementors,
 /// at the expense of handler flexibility, which could come back to bite us.
 /// - All handlers accept [`RPCState`].
-/// - All `Ctx`s must be [`Send`] + [`Sync`] + `'static` due to bounds on [`RpcModule`].
+/// - All `Ctx`s must be `Send + Sync + 'static` due to bounds on [`RpcModule`].
 /// - Handlers don't specialize on top of the given bounds, but they MAY relax them.
 pub trait RpcMethod<const ARITY: usize> {
     /// Method name.
@@ -82,7 +82,7 @@ pub trait RpcMethod<const ARITY: usize> {
 /// Utility methods, defined as an extension trait to avoid having to specify
 /// `ARITY` in user code.
 pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
-    /// Convert from typed handler parameters to untyped JSON-RPC parameters.
+    /// Convert from typed handler parameters to un-typed JSON-RPC parameters.
     ///
     /// Exposes errors from [`Params::unparse`]
     fn build_params(
@@ -214,9 +214,9 @@ pub trait Params<const ARITY: usize> {
     ) -> Result<Self, Error>
     where
         Self: Sized;
-    /// Convert from an argument tuple to untyped JSON.
+    /// Convert from an argument tuple to un-typed JSON.
     ///
-    /// Exposes deserialization errors, or misimplementation of this trait.
+    /// Exposes de-serialization errors, or mis-implementation of this trait.
     fn unparse(&self) -> Result<[serde_json::Value; ARITY], serde_json::Error>
     where
         Self: Serialize,
@@ -235,6 +235,8 @@ pub trait Params<const ARITY: usize> {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
+#[allow(unused)]
 fn unexpected(v: &serde_json::Value) -> Unexpected<'_> {
     match v {
         serde_json::Value::Null => Unexpected::Unit,
@@ -323,6 +325,8 @@ impl<Ctx> SelfDescribingRpcModule<Ctx> {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
+#[allow(unused)]
 /// [`openrpc_types::ParamStructure`] describes accepted param format.
 /// This is an actual param format, used to decide how to construct arguments.
 pub enum ConcreteCallingConvention {
