@@ -85,6 +85,17 @@ jobs:
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
           platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           target: fat-image
+
+      # Redo the previous step, but load the image locally. This is a cheap operation, as all the layers are cached.
+      - name: Load fat image to local Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: ${{ steps.metafat.outputs.tags }}
+          labels: ${{ steps.metafat.outputs.labels }}
+          # Compile Docker image only for AMD64 for a regular PR to save some CI time.
+          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          target: fat-image
           load: true
 
       # Listing Docker images makes only sense if the `load` option is set to `true` in the `build-push-action`.
