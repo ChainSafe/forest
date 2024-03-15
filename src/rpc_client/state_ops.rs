@@ -103,7 +103,7 @@ impl ApiInfo {
         miner: Address,
         tsk: ApiTipsetKey,
     ) -> RpcRequest<TokenAmount> {
-        RpcRequest::new_v1(STATE_MINER_AVAILABLE_BALANCE, (miner, tsk))
+        RpcRequest::new(STATE_MINER_AVAILABLE_BALANCE, (miner, tsk))
     }
 
     pub fn state_get_randomness_from_tickets_req(
