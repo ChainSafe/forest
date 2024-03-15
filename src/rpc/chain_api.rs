@@ -38,54 +38,52 @@ type Ctx<DB> = Arc<Arc<RPCState<DB>>>;
 pub fn serve(
     module: &mut SelfDescribingModule<Arc<RPCState<impl Blockstore + Send + Sync + 'static>>>,
 ) {
-    {
-        module
-            .serve(CHAIN_GET_MESSAGE, ["msg_cid"], chain_get_message)
-            .serve(
-                CHAIN_GET_PARENT_MESSAGES,
-                ["block_cid"],
-                chain_get_parent_messages,
-            )
-            .serve(
-                CHAIN_GET_PARENT_RECEIPTS,
-                ["block_cid"],
-                chain_get_parent_receipts,
-            )
-            .serve(
-                CHAIN_GET_MESSAGES_IN_TIPSET,
-                ["tsk"],
-                chain_get_messages_in_tipset,
-            )
-            .serve(CHAIN_EXPORT, ["params"], chain_export)
-            .serve(CHAIN_READ_OBJ, ["obj_cid"], chain_read_obj)
-            .serve(CHAIN_HAS_OBJ, ["cid"], chain_has_obj)
-            .serve(
-                CHAIN_GET_BLOCK_MESSAGES,
-                ["blk_cid"],
-                chain_get_block_messages,
-            )
-            .serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
-            .serve(
-                CHAIN_GET_TIPSET_BY_HEIGHT,
-                ["height", "tsk"],
-                chain_get_tipset_by_height,
-            )
-            .serve(
-                CHAIN_GET_TIPSET_AFTER_HEIGHT,
-                ["height", "tsk"],
-                chain_get_tipset_after_height,
-            )
-            .serve(CHAIN_GET_GENESIS, [], chain_get_genesis)
-            .serve(CHAIN_HEAD, [], chain_head)
-            .serve(CHAIN_GET_BLOCK, ["cid"], chain_get_block)
-            .serve(CHAIN_GET_TIPSET, ["tsk"], chain_get_tipset)
-            .serve(CHAIN_SET_HEAD, ["tsk"], chain_set_head)
-            .serve(
-                CHAIN_GET_MIN_BASE_FEE,
-                ["basefee_lookback"],
-                chain_get_min_base_fee,
-            )
-    };
+    module
+        .serve(CHAIN_GET_MESSAGE, ["msg_cid"], chain_get_message)
+        .serve(
+            CHAIN_GET_PARENT_MESSAGES,
+            ["block_cid"],
+            chain_get_parent_messages,
+        )
+        .serve(
+            CHAIN_GET_PARENT_RECEIPTS,
+            ["block_cid"],
+            chain_get_parent_receipts,
+        )
+        .serve(
+            CHAIN_GET_MESSAGES_IN_TIPSET,
+            ["tsk"],
+            chain_get_messages_in_tipset,
+        )
+        .serve(CHAIN_EXPORT, ["params"], chain_export)
+        .serve(CHAIN_READ_OBJ, ["obj_cid"], chain_read_obj)
+        .serve(CHAIN_HAS_OBJ, ["cid"], chain_has_obj)
+        .serve(
+            CHAIN_GET_BLOCK_MESSAGES,
+            ["blk_cid"],
+            chain_get_block_messages,
+        )
+        .serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
+        .serve(
+            CHAIN_GET_TIPSET_BY_HEIGHT,
+            ["height", "tsk"],
+            chain_get_tipset_by_height,
+        )
+        .serve(
+            CHAIN_GET_TIPSET_AFTER_HEIGHT,
+            ["height", "tsk"],
+            chain_get_tipset_after_height,
+        )
+        .serve(CHAIN_GET_GENESIS, [], chain_get_genesis)
+        .serve(CHAIN_HEAD, [], chain_head)
+        .serve(CHAIN_GET_BLOCK, ["cid"], chain_get_block)
+        .serve(CHAIN_GET_TIPSET, ["tsk"], chain_get_tipset)
+        .serve(CHAIN_SET_HEAD, ["tsk"], chain_set_head)
+        .serve(
+            CHAIN_GET_MIN_BASE_FEE,
+            ["basefee_lookback"],
+            chain_get_min_base_fee,
+        );
 }
 
 async fn chain_get_message(
