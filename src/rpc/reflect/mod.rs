@@ -202,7 +202,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 ///
 /// This should NOT be manually implemented.
 pub trait Params<const ARITY: usize> {
-    /// A [`Schema`] and [`Optional::optional`](`crate::util::Optional::optional`)
+    /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
     /// pair for argument, in-order.
     fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
     /// Convert from raw request parameters, to the argument tuple required by
