@@ -50,6 +50,9 @@
 
 ### Fixed
 
+- [#4068](https://github.com/ChainSafe/forest/pull/4068) Fix schema bug in the
+  `ChainNotify` RPC method.
+
 ## Forest 0.17.0 "Smaug"
 
 Mandatory release that includes:
