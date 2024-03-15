@@ -15,15 +15,19 @@ stop_services() {
     # Remove downloaded snapshot file
     rm -rf "$snapshot"
 }
+trap stop_services EXIT
 
-# Fetch latest calibnet snapshot
+old_snapshot=forest_diff_calibnet_2022-11-02_height_0+3000.forest.car.zst
+curl --location --remote-name "https://forest-archive.chainsafe.dev/calibnet/diff/$old_snapshot"
+
+# Fetch latest calibnet snapshot 
 snapshot="$("$FOREST_TOOL_PATH" snapshot fetch --chain calibnet)"
 
 # Start Offline RPC servers on ports
 for i in "${!PORTS[@]}"; do
   port=${PORTS[$i]}
   data_dir="offline-rpc-db-$((i + 1))"
-  "$FOREST_TOOL_PATH" api serve "$snapshot" --chain calibnet --port "$port" --data-dir "$data_dir" &
+  "$FOREST_TOOL_PATH" api serve "$snapshot" "$old_snapshot" --chain calibnet --port "$port" --data-dir "$data_dir" &
 done
 
 # Check if services on ports have started
@@ -33,25 +37,14 @@ for port in "${PORTS[@]}"; do
     done
 done
 
+for port in "${PORTS[@]}"; do
+  # Assert an old block is present, given that the old snapshot is used.
+  # https://calibration.filfox.info/en/block/bafy2bzacecpjvcld56dazyukvj35uzwvlh3tb4ga2lvbgbiua3mgbqaz45hbm
+  FULLNODE_API_INFO="/ip4/127.0.0.1/tcp/$port/http" forest-cli chain block -c bafy2bzacecpjvcld56dazyukvj35uzwvlh3tb4ga2lvbgbiua3mgbqaz45hbm
+done
+
 # Compare the http endpoints
 $FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http --n-tipsets 5
-exit_code=$?
-
-# Check the result
-if [ $exit_code -ne 0 ]; then
-    stop_services
-    exit 1
-fi
 
 # Compare the ws endpoints
 $FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/ws --lotus /ip4/127.0.0.1/tcp/8081/ws --n-tipsets 5 --ws
-exit_code=$?
-
-# Check the result
-if [ $exit_code -ne 0 ]; then
-    stop_services
-    exit 1
-fi
-
-# Stop services on ports
-stop_services

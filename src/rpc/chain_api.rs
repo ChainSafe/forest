@@ -283,13 +283,12 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-pub async fn chain_get_path<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+pub async fn chain_get_path(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(from): LotusJson<TipsetKey>,
+    LotusJson(to): LotusJson<TipsetKey>,
 ) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
-    let LotusJson((from, to)) = params.parse()?;
-
-    impl_chain_get_path(&data.chain_store, &from, &to)
+    impl_chain_get_path(&ctx.chain_store, &from, &to)
         .map(LotusJson)
         .map_err(Into::into)
 }
@@ -658,7 +657,7 @@ mod tests {
             )
             .unwrap()
         }
-        fn calibnet() -> Self {
+        pub fn calibnet() -> Self {
             Self::_load(
                 networks::calibnet::DEFAULT_GENESIS,
                 *networks::calibnet::GENESIS_CID,

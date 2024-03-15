@@ -13,6 +13,7 @@ mod gas_api;
 mod mpool_api;
 mod net_api;
 mod node_api;
+mod reflect;
 mod state_api;
 mod sync_api;
 mod wallet_api;
@@ -50,6 +51,8 @@ use tokio::sync::RwLock;
 use tower::Service;
 use tracing::info;
 
+use self::reflect::openrpc_types::ParamStructure;
+
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
 #[derive(Clone)]
@@ -72,8 +75,10 @@ where
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
-    let mut module = RpcModule::new(state.clone());
+    let (mut module, _schema) = create_module(state.clone());
 
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
+    #[allow(deprecated)]
     register_methods(
         &mut module,
         u64::from(state.state_manager.chain_config().block_delay_secs),
@@ -142,6 +147,24 @@ where
     Ok(())
 }
 
+fn create_module<DB>(
+    state: Arc<RPCState<DB>>,
+) -> (
+    RpcModule<Arc<RPCState<DB>>>,
+    reflect::openrpc_types::OpenRPC,
+)
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let mut module = reflect::SelfDescribingModule::new(state, ParamStructure::ByPosition);
+    {
+        use chain_api::*;
+        module.serve(CHAIN_GET_PATH, ["from", "to"], chain_get_path)
+    };
+    module.finish()
+}
+
+#[deprecated = "methods should use `create_module`"]
 fn register_methods<DB>(
     module: &mut RpcModule<Arc<RPCState<DB>>>,
     block_delay: u64,
@@ -171,7 +194,6 @@ where
     module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
     module.register_async_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)?;
     module.register_async_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)?;
-    module.register_async_method(CHAIN_GET_PATH, chain_api::chain_get_path::<DB>)?;
     module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
     module.register_async_method(
@@ -299,4 +321,76 @@ where
 
 fn to_rpc_err(e: impl Display) -> RpcError {
     RpcError::owned::<String>(RpcErrorCode::InternalError.code(), e.to_string(), None)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tokio::task::JoinSet;
+
+    use crate::{
+        blocks::Chain4U,
+        chain::ChainStore,
+        chain_sync::SyncConfig,
+        db::car::PlainCar,
+        genesis::get_network_name_from_genesis,
+        message_pool::{MessagePool, MpoolRpcProvider},
+        networks::ChainConfig,
+        state_manager::StateManager,
+        KeyStoreConfig,
+    };
+
+    use super::*;
+
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4047
+    //               `tokio` shouldn't be necessary
+    #[tokio::test]
+    async fn openrpc() {
+        let (_, spec) = create_module(Arc::new(RPCState::calibnet()));
+        insta::assert_yaml_snapshot!(spec);
+    }
+
+    impl RPCState<Chain4U<PlainCar<&'static [u8]>>> {
+        pub fn calibnet() -> Self {
+            let chain_store = Arc::new(ChainStore::calibnet());
+            let genesis = chain_store.genesis_block_header();
+            let state_manager = Arc::new(
+                StateManager::new(
+                    chain_store.clone(),
+                    Arc::new(ChainConfig::calibnet()),
+                    Arc::new(SyncConfig::default()),
+                )
+                .unwrap(),
+            );
+            let beacon = Arc::new(
+                state_manager
+                    .chain_config()
+                    .get_beacon_schedule(genesis.timestamp),
+            );
+            let (network_send, _) = flume::bounded(0);
+            let network_name = get_network_name_from_genesis(genesis, &state_manager).unwrap();
+            let message_pool = MessagePool::new(
+                MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
+                network_name.clone(),
+                network_send.clone(),
+                Default::default(),
+                state_manager.chain_config().clone(),
+                &mut JoinSet::default(),
+            )
+            .unwrap();
+            RPCState {
+                state_manager,
+                keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
+                mpool: Arc::new(message_pool),
+                bad_blocks: Default::default(),
+                sync_state: Default::default(),
+                network_send,
+                network_name,
+                start_time: Default::default(),
+                chain_store,
+                beacon,
+            }
+        }
+    }
 }
