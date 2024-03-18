@@ -783,7 +783,11 @@ fn validate_protocols(
         _ => true,
     };
     if !is_valid {
-        bail!("communication protocols mismatch: {:?} != {:?}", a, b);
+        bail!(
+            "communication protocols mismatch: {:?} (Forest) is different from {:?} (Lotus)",
+            a,
+            b
+        );
     }
     Ok(())
 }
