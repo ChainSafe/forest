@@ -20,7 +20,7 @@ asynchronous-codec = "0.6"
 axum = "0.7"
 backoff = { version = "0.4", features = ['tokio'] }
 base64 = "0.22"
-bigdecimal = "=0.4.2" # TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4035
+bigdecimal = "=0.4.3" # TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4035
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
   "multicore",
@@ -197,7 +197,7 @@ toml = "0.8"
 tower = { version = "0.4", features = ["full"] }
 tracing = "0.1"
 tracing-appender = "0.2"
-tracing-chrome = "0.7.1"
+tracing-chrome = "0.7.2"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
@@ -229,16 +229,16 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.205"
+ra_ap_syntax = "0.0.206"
 regex-automata = "0.4"
-syn = { version = "2.0.52", default-features = false, features = [
+syn = { version = "2.0.53", default-features = false, features = [
   "full",
   "parsing",
   "visit",
   "printing",
   "extra-traits",
 ] }
-tokio-test = "0.4.2"
+tokio-test = "0.4.4"
 
 # This needs to be set as default. Otherwise, a regular build or test will produce
 # gargantuan artifacts (around 70G for all tests). For a debugging session, you can
