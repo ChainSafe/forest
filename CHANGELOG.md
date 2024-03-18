@@ -44,6 +44,9 @@
 - [#4056](https://github.com/ChainSafe/forest/pull/4056) Enable libp2p `quic`
   protocol
 
+- [#4071](https://github.com/ChainSafe/forest/pull/4071) Add
+  `forest-tool net ping` command that pings a peer via its multiaddress.
+
 ### Changed
 
 ### Removed

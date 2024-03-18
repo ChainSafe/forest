@@ -8,9 +8,9 @@ use std::time::Duration;
 
 #[derive(Debug, Subcommand)]
 pub enum NetCommands {
-    /// Ping a peer via its multiaddress
+    /// Ping a peer via its `multiaddress`
     Ping {
-        /// Peer multiaddress
+        /// Peer `multiaddress`
         peer: Multiaddr,
         /// The number of times it should ping
         #[arg(short, long, default_value_t = 5)]
