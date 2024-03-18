@@ -3,6 +3,7 @@
 use fvm_shared2::error::ExitCode as ExitCodeV2;
 use fvm_shared3::error::ExitCode as ExitCodeV3;
 use fvm_shared4::error::ExitCode as ExitCodeV4;
+use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{Deserialize, Serialize};
 
 /// `Newtype` wrapper for the FVM `ExitCode`.
@@ -23,6 +24,16 @@ use serde::{Deserialize, Serialize};
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ExitCode(ExitCodeV3);
+
+impl JsonSchema for ExitCode {
+    fn schema_name() -> String {
+        String::from(std::any::type_name::<Self>())
+    }
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        u32::json_schema(gen)
+    }
+}
+
 impl ExitCode {
     /// The lowest exit code that an actor may abort with.
     pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV3::FIRST_USER_EXIT_CODE;

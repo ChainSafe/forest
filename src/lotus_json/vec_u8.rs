@@ -6,10 +6,10 @@ use super::*;
 // This code looks odd so we can
 // - use #[serde(with = "...")]
 // - de/ser empty vecs as null
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub struct VecU8LotusJson(Option<Inner>);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq)]
 struct Inner(#[serde(with = "base64_standard")] Vec<u8>);
 
 impl JsonSchema for Inner {
