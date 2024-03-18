@@ -8,6 +8,7 @@ mod benchmark_cmd;
 mod car_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
+mod net_cmd;
 mod shed_cmd;
 mod snapshot_cmd;
 mod state_migration_cmd;
@@ -64,6 +65,10 @@ pub enum Subcommand {
     /// API tooling
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
+
+    /// Network utilities
+    #[command(subcommand)]
+    Net(net_cmd::NetCommands),
 
     /// Miscellaneous, semver-exempt commands for developer use.
     #[command(subcommand)]

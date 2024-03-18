@@ -10,6 +10,7 @@ pub mod hello;
 pub mod keypair;
 mod metrics;
 mod peer_manager;
+pub mod ping;
 pub mod rpc;
 mod service;
 

@@ -8,7 +8,10 @@ use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::{
+    error::JsonRpcError,
+    reflect::{Ctx, RpcMethod},
+};
 use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
@@ -266,6 +269,24 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
+pub enum ChainGetPath {}
+
+impl RpcMethod<2> for ChainGetPath {
+    const NAME: &'static str = "Filecoin.ChainGetPath";
+    const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
+    type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
+    type Ok = LotusJson<Vec<PathChange>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(from), LotusJson(to)): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        impl_chain_get_path(&ctx.chain_store, &from, &to)
+            .map(LotusJson)
+            .map_err(Into::into)
+    }
+}
+
 /// Find the path between two tipsets, as a series of [`PathChange`]s.
 ///
 /// ```text
@@ -283,16 +304,6 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-pub async fn chain_get_path(
-    ctx: Data<RPCState<impl Blockstore>>,
-    LotusJson(from): LotusJson<TipsetKey>,
-    LotusJson(to): LotusJson<TipsetKey>,
-) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
-    impl_chain_get_path(&ctx.chain_store, &from, &to)
-        .map(LotusJson)
-        .map_err(Into::into)
-}
-
 fn impl_chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,

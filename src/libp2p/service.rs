@@ -14,30 +14,22 @@ use crate::message::SignedMessage;
 use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashSet};
-use anyhow::Context as _;
 use cid::Cid;
 use flume::Sender;
-use futures::{
-    channel::oneshot::Sender as OneShotSender, future::Either, select, stream::StreamExt,
-};
+use futures::{channel::oneshot, select, stream::StreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
     autonat::NatStatus,
     connection_limits::Exceeded,
-    core::{
-        self,
-        muxing::StreamMuxerBox,
-        transport::{Boxed, OrTransport},
-        Multiaddr,
-    },
+    core::Multiaddr,
     gossipsub,
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping, request_response,
-    swarm::{self, DialError, SwarmEvent},
-    yamux, PeerId, Swarm, Transport,
+    swarm::{DialError, SwarmEvent},
+    tcp, yamux, PeerId, Swarm, SwarmBuilder,
 };
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, info, trace, warn};
@@ -169,13 +161,13 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    AddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
-    Peers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
-    Info(OneShotSender<NetInfoResult>),
-    Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
-    Disconnect(OneShotSender<()>, PeerId),
-    AgentVersion(OneShotSender<Option<String>>, PeerId),
-    AutoNATStatus(OneShotSender<NatStatus>),
+    AddrsListen(oneshot::Sender<(PeerId, HashSet<Multiaddr>)>),
+    Peers(oneshot::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Info(oneshot::Sender<NetInfoResult>),
+    Connect(oneshot::Sender<bool>, PeerId, HashSet<Multiaddr>),
+    Disconnect(oneshot::Sender<()>, PeerId),
+    AgentVersion(oneshot::Sender<Option<String>>, PeerId),
+    AutoNATStatus(oneshot::Sender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -204,19 +196,27 @@ where
         network_name: &str,
         genesis_cid: Cid,
     ) -> anyhow::Result<Self> {
-        let peer_id = PeerId::from(net_keypair.public());
-
-        let transport = build_transport(&net_keypair).expect("Failed to build libp2p transport");
-
-        let mut swarm = Swarm::new(
-            transport,
-            ForestBehaviour::new(&net_keypair, &config, network_name)?,
-            peer_id,
-            swarm::Config::with_tokio_executor()
-                .with_notify_handler_buffer_size(std::num::NonZeroUsize::new(20).expect("Not zero"))
-                .with_per_connection_event_buffer_size(64)
-                .with_idle_connection_timeout(Duration::from_secs(60 * 10)),
-        );
+        let behaviour = ForestBehaviour::new(&net_keypair, &config, network_name)?;
+        let mut swarm = SwarmBuilder::with_existing_identity(net_keypair)
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default().nodelay(true),
+                noise::Config::new,
+                yamux::Config::default,
+            )?
+            .with_quic()
+            .with_dns()?
+            .with_bandwidth_metrics(&mut crate::metrics::default_registry())
+            .with_behaviour(|_| behaviour)?
+            .with_swarm_config(|config| {
+                config
+                    .with_notify_handler_buffer_size(
+                        std::num::NonZeroUsize::new(20).expect("Not zero"),
+                    )
+                    .with_per_connection_event_buffer_size(64)
+                    .with_idle_connection_timeout(Duration::from_secs(60 * 10))
+            })
+            .build();
 
         // Subscribe to gossipsub topics with the network name suffix
         for topic in PUBSUB_TOPICS.iter() {
@@ -910,30 +910,4 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
     if sender.send_async(event).await.is_err() {
         error!("Failed to emit event: Network channel receiver has been dropped");
     }
-}
-
-/// Builds the transport stack that libp2p will communicate over. When support
-/// of other protocols like `udp`, `quic`, `http` are added, remember to update
-/// code comment in [`Libp2pConfig`].
-///
-/// As a reference `lotus` uses the default `go-libp2p` transport builder which
-/// has all above protocols enabled.
-pub fn build_transport(local_key: &Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    let auth_config = noise::Config::new(local_key).context("Noise key generation failed")?;
-    let build_tcp = || {
-        libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true))
-            .upgrade(core::upgrade::Version::V1)
-            .authenticate(auth_config)
-            .multiplex(yamux::Config::default())
-            .timeout(Duration::from_secs(20))
-    };
-    let build_quic = || libp2p::quic::tokio::Transport::new(libp2p::quic::Config::new(local_key));
-    let build_tcp_quic = || {
-        OrTransport::new(build_tcp(), build_quic()).map(|either_output, _| match either_output {
-            Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-            Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
-        })
-    };
-    let build_dns_tcp_quic = || libp2p::dns::tokio::Transport::system(build_tcp_quic());
-    Ok(build_dns_tcp_quic()?.boxed())
 }
