@@ -91,7 +91,10 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
-    pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+    pub async fn call<T: HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
         let params = serde_json::value::to_raw_value(&req.params)
             .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
         let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
@@ -140,7 +143,7 @@ impl ApiInfo {
             JsonRpcResponse::Error { error, .. } => Err(error),
         };
 
-        //tracing::debug!("Response: {:?}", resp);
+        tracing::debug!("Response: {:?}", resp);
         resp
     }
 
