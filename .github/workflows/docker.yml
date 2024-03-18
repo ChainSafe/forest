@@ -94,7 +94,7 @@ jobs:
           tags: ${{ steps.metafat.outputs.tags }}
           labels: ${{ steps.metafat.outputs.labels }}
           # Compile Docker image only for AMD64 for a regular PR to save some CI time.
-          platforms: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: 'linux/amd64'
           target: fat-image
           load: true
 
