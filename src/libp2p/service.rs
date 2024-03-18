@@ -16,7 +16,7 @@ use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashSet};
 use cid::Cid;
 use flume::Sender;
-use futures::{channel::oneshot::Sender as OneShotSender, select, stream::StreamExt};
+use futures::{channel::oneshot, select, stream::StreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
 use libp2p::{
@@ -161,13 +161,13 @@ pub enum NetworkMessage {
 /// Network RPC API methods used to gather data from libp2p node.
 #[derive(Debug)]
 pub enum NetRPCMethods {
-    AddrsListen(OneShotSender<(PeerId, HashSet<Multiaddr>)>),
-    Peers(OneShotSender<HashMap<PeerId, HashSet<Multiaddr>>>),
-    Info(OneShotSender<NetInfoResult>),
-    Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
-    Disconnect(OneShotSender<()>, PeerId),
-    AgentVersion(OneShotSender<Option<String>>, PeerId),
-    AutoNATStatus(OneShotSender<NatStatus>),
+    AddrsListen(oneshot::Sender<(PeerId, HashSet<Multiaddr>)>),
+    Peers(oneshot::Sender<HashMap<PeerId, HashSet<Multiaddr>>>),
+    Info(oneshot::Sender<NetInfoResult>),
+    Connect(oneshot::Sender<bool>, PeerId, HashSet<Multiaddr>),
+    Disconnect(oneshot::Sender<()>, PeerId),
+    AgentVersion(oneshot::Sender<Option<String>>, PeerId),
+    AutoNATStatus(oneshot::Sender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
