@@ -131,6 +131,8 @@ fn default_tool_filter() -> EnvFilter {
         "forest::progress=info",
         "libp2p_bitswap=off",
         "tracing_loki=off",
+        "hickory_resolver::hosts=off",
+        "libp2p_swarm=off",
     ];
     EnvFilter::try_new(default_directives.join(",")).unwrap()
 }
