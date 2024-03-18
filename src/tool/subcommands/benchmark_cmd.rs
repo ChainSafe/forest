@@ -19,7 +19,6 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use nonempty::NonEmpty;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -185,7 +184,6 @@ async fn benchmark_unordered_graph_traversal(input: Vec<PathBuf>) -> anyhow::Res
     while let Some(block) = s.try_next().await? {
         sink.write_all(&block.data).await?
     }
-    s.join_workers().await?;
 
     Ok(())
 }
@@ -248,13 +246,7 @@ async fn benchmark_exporting(
         compression_level,
         par_buffer(1024, blocks.map_err(anyhow::Error::from)),
     );
-    crate::db::car::forest::Encoder::write(
-        &mut dest,
-        NonEmpty::from_vec(ts.key().cids.clone().into_iter().collect())
-            .context("car roots cannot be empty")?,
-        frames,
-    )
-    .await?;
+    crate::db::car::forest::Encoder::write(&mut dest, ts.key().to_cids(), frames).await?;
     dest.flush().await?;
     Ok(())
 }

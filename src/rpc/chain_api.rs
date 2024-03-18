@@ -283,13 +283,12 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-pub async fn chain_get_path<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
+pub async fn chain_get_path(
+    ctx: Data<RPCState<impl Blockstore>>,
+    LotusJson(from): LotusJson<TipsetKey>,
+    LotusJson(to): LotusJson<TipsetKey>,
 ) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
-    let LotusJson((from, to)) = params.parse()?;
-
-    impl_chain_get_path(&data.chain_store, &from, &to)
+    impl_chain_get_path(&ctx.chain_store, &from, &to)
         .map(LotusJson)
         .map_err(Into::into)
 }
@@ -352,6 +351,25 @@ pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     Ok((*tss).clone().into())
 }
 
+pub async fn chain_get_tipset_after_height<DB: Blockstore>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
+        params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let tss = data
+        .state_manager
+        .chain_store()
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
+    Ok((*tss).clone().into())
+}
+
 pub async fn chain_get_genesis<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
@@ -407,7 +425,7 @@ pub async fn chain_set_head<DB: Blockstore>(
         .load_required_tipset_or_heaviest(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
-        for cid in current.key().cids.clone() {
+        for cid in current.key().to_cids() {
             data.state_manager
                 .chain_store()
                 .unmark_block_as_validated(&cid);
@@ -451,14 +469,14 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
     data: &RPCState<DB>,
-) -> Subscriber<ApiHeadChange> {
+) -> Subscriber<Vec<ApiHeadChange>> {
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store.heaviest_tipset();
     let (change, headers) = ("current".into(), current.block_headers().clone().into());
     sender
-        .send(ApiHeadChange { change, headers })
+        .send(vec![ApiHeadChange { change, headers }])
         .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store.publisher().subscribe();
@@ -469,7 +487,10 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
             };
 
-            if sender.send(ApiHeadChange { change, headers }).is_err() {
+            if sender
+                .send(vec![ApiHeadChange { change, headers }])
+                .is_err()
+            {
                 break;
             }
         }
@@ -639,7 +660,7 @@ mod tests {
             )
             .unwrap()
         }
-        fn calibnet() -> Self {
+        pub fn calibnet() -> Self {
             Self::_load(
                 networks::calibnet::DEFAULT_GENESIS,
                 *networks::calibnet::GENESIS_CID,

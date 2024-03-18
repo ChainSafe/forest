@@ -575,6 +575,7 @@ where
 
 #[derive(Debug, Copy, Clone)]
 enum InvalidBlockStrategy {
+    #[allow(dead_code)]
     Strict,
     Forgiving,
 }
@@ -771,7 +772,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         &bad_block_cache,
         parent_tipsets,
         &genesis,
-        InvalidBlockStrategy::Strict,
+        InvalidBlockStrategy::Forgiving,
     )
     .await
     {
@@ -980,6 +981,43 @@ async fn fetch_batch<DB: Blockstore>(
     network: &SyncNetworkContext<DB>,
     db: &DB,
 ) -> Result<Vec<FullTipset>, TipsetRangeSyncerError> {
+    const MAX_RETRY_ON_ERROR: usize = 3;
+    let mut n_retry_left = MAX_RETRY_ON_ERROR;
+    let mut error = None;
+
+    let mut result = vec![];
+    let mut n_missing = batch.len();
+
+    while n_missing > 0 {
+        #[allow(clippy::indexing_slicing)]
+        match fetch_batch_inner(&batch[..n_missing], network, db).await {
+            Ok(mut fetched) => {
+                fetched.extend(result);
+                result = fetched;
+                n_missing = batch.len().saturating_sub(result.len());
+            }
+            Err(e) => {
+                error = Some(e);
+                if n_retry_left > 0 {
+                    n_retry_left -= 1;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    match (result.len(), error) {
+        (0, Some(e)) => Err(e),
+        _ => Ok(result),
+    }
+}
+
+async fn fetch_batch_inner<DB: Blockstore>(
+    batch: &[Arc<Tipset>],
+    network: &SyncNetworkContext<DB>,
+    db: &DB,
+) -> Result<Vec<FullTipset>, TipsetRangeSyncerError> {
     if let Some(cached) = batch
         .iter()
         .map(|tipset| tipset.fill_from_blockstore(db))
@@ -991,22 +1029,18 @@ async fn fetch_batch<DB: Blockstore>(
     }
 
     // Tipsets in `batch` are already in chronological order
-    if let Some(head) = batch.last() {
-        let epoch = head.epoch();
-        let len = batch.len();
-
-        debug!("ChainExchange message sync tipsets: epoch: {epoch}, len: {len}");
-
+    if !batch.is_empty() {
         let compacted_messages = network
-            .chain_exchange_messages(None, head.key(), len as u64)
+            .chain_exchange_messages(None, batch)
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
         // inflate our tipsets with the messages from the wire format
+        // Note: compacted_messages.len() can be not equal to batch.len()
         compacted_messages
             .into_iter()
+            .zip(batch.iter().rev())
             .rev()
-            .zip(batch.iter())
             .map(|(messages, tipset)| {
                 let bundle = TipsetBundle {
                     blocks: tipset.block_headers().iter().cloned().collect_vec(),
@@ -1107,7 +1141,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
         "Validating tipset: EPOCH = {epoch}, N blocks = {}",
         blocks.len()
     );
-    debug!("Tipset keys: {:?}", full_tipset_key.cids);
+    debug!("Tipset keys: {full_tipset_key}");
 
     for b in blocks {
         let validation_fn = tokio::task::spawn(validate_block(state_manager.clone(), Arc::new(b)));
@@ -1534,7 +1568,7 @@ fn validate_tipset_against_cache(
     tipset: &TipsetKey,
     descendant_blocks: &[Cid],
 ) -> Result<(), TipsetRangeSyncerError> {
-    for cid in tipset.cids.clone() {
+    for cid in tipset.to_cids() {
         if let Some(reason) = bad_block_cache.get(&cid) {
             for block_cid in descendant_blocks {
                 bad_block_cache.put(*block_cid, format!("chain contained {cid}"));

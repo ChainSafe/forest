@@ -1,0 +1,71 @@
+# Docker compose file to run Forest and Lotus API tests.
+version: "3.8"
+
+services:
+  # Initialisation service. Downloads the shared assets to facilitate the setup of the other services.
+  init:
+    image: ${FOREST_IMAGE}
+    user: root
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:/proofs
+    env_file:
+      - .env
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        # if there are some files in the data directory, then we don't need to fetch the snapshot
+        if [ "$$(ls -A /data/snapshot/)" ]; then
+          echo "Snapshot already fetched"
+        else
+          mkdir -p /data/snapshot
+          forest-tool snapshot fetch  --chain ${CHAIN} --directory /data/snapshot/
+        fi
+        # copy proofs to the shared volume, if they are not already there
+        if [ "$$(ls -A /proofs/)" ]; then
+          cp -r ${FIL_PROOFS_PARAMETER_CACHE}/* /proofs/
+        fi
+  forest:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    image: ${FOREST_IMAGE}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - api-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest --import-snapshot /data/snapshot/* --encrypt-keystore false --chain ${CHAIN} --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+  lotus:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    image: ${LOTUS_IMAGE}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - api-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
+      - LOTUS_FEVM_ENABLEETHRPC=1
+    entrypoint: ["/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        lotus daemon --import-snapshot /data/snapshot/* --remove-existing-chain
+
+volumes:
+  filecoin-proofs:
+  node-data:
+
+networks:
+  api-tests:

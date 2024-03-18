@@ -8,6 +8,7 @@ use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
+use nonempty::NonEmpty;
 
 use super::{print_pretty_json, print_rpc_res_cids};
 
@@ -58,7 +59,9 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => print_pretty_json(api.chain_get_block(cid).await?),
+            Self::Block { cid } => {
+                print_pretty_json(api.chain_get_block(cid).await?.into_lotus_json())
+            }
             Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => {
@@ -92,8 +95,10 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                api.chain_set_head(TipsetKey::from_iter(cids.clone()))
-                    .await?;
+                api.chain_set_head(TipsetKey::from(
+                    NonEmpty::from_vec(cids).expect("cids cannot be empty"),
+                ))
+                .await?;
                 Ok(())
             }
         }
@@ -113,7 +118,7 @@ async fn tipset_by_epoch_or_offset(
         false => epoch_or_offset,
     };
 
-    api.chain_get_tipset_by_height(target_epoch, current_head.key().clone())
+    api.chain_get_tipset_by_height(target_epoch, current_head.key().into())
         .await
 }
 

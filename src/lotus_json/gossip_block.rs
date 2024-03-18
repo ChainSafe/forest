@@ -6,7 +6,7 @@ use super::*;
 use crate::blocks::{CachingBlockHeader, GossipBlock};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GossipBlockLotusJson {
     header: LotusJson<CachingBlockHeader>,
@@ -26,7 +26,7 @@ impl HasLotusJson for GossipBlock {
                 "Header": {
                     "BeaconEntries": null,
                     "Miner": "f00",
-                    "Parents": null,
+                    "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
                     "ParentWeight": "0",
                     "Height": 0,
                     "ParentStateRoot": {

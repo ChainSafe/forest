@@ -23,14 +23,13 @@ use std::time::Duration;
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 use crate::utils::net::global_http_client;
-use base64::prelude::{Engine, BASE64_STANDARD};
-use jsonrpc_v2::{Id, RequestObject, V2};
+use jsonrpsee::{
+    core::{client::ClientT, traits::ToRpcParams},
+    types::{params::TwoPointZero, Id, Request},
+    ws_client::WsClientBuilder,
+};
 use serde::Deserialize;
 use tracing::debug;
-
-use futures_util::{SinkExt, StreamExt};
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -92,15 +91,10 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
-    pub async fn call<T: HasLotusJson + std::fmt::Debug>(
-        &self,
-        req: RpcRequest<T>,
-    ) -> Result<T, JsonRpcError> {
-        let rpc_req = RequestObject::request()
-            .with_method(req.method_name)
-            .with_params(req.params)
-            .with_id(0)
-            .finish();
+    pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+        let params = serde_json::value::to_raw_value(&req.params)
+            .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
+        let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
         let api_url =
             multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, ComProtocol::Http).to_string();
@@ -137,76 +131,31 @@ impl ApiInfo {
                 message: Cow::Owned(response.text().await?),
             });
         }
-        let rpc_res: JsonRpcResponse<T::LotusJson> = response.json().await?;
+        let json = response.bytes().await?;
+        let rpc_res: JsonRpcResponse<T::LotusJson> =
+            serde_json::from_slice(&json).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
         let resp = match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
             JsonRpcResponse::Error { error, .. } => Err(error),
         };
 
-        tracing::debug!("Response: {:?}", resp);
+        //tracing::debug!("Response: {:?}", resp);
         resp
     }
 
-    pub async fn ws_call<T: HasLotusJson + std::fmt::Debug>(
+    pub async fn ws_call<T: HasLotusJson + Send>(
         &self,
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
-        let rpc_req = RequestObject::request()
-            .with_method(req.method_name)
-            .with_params(req.params)
-            .with_id(0)
-            .finish();
-
-        let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
-
         let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, ComProtocol::Ws);
-
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
-
-        // A 16 byte key (base64 encoded) is expected for `Sec-WebSocket-Key` during a websocket handshake
-        // See 5. in https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
-        let key = BASE64_STANDARD.encode(b"TheGreatOldOnes.");
-
-        let request = tungstenite::http::Request::builder()
-            .method("GET")
-            .uri(api_url.to_string())
-            .header("Host", api_url.host)
-            .header("Upgrade", "websocket")
-            .header("Connection", "upgrade")
-            .header("Sec-Websocket-Key", key)
-            .header("Sec-Websocket-Version", "13")
-            .body(())
-            .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
-
-        let (ws_stream, _) = connect_async(request).await?;
-
-        let (mut write, mut read) = ws_stream.split();
-
-        write.send(WsMessage::Binary(payload)).await?;
-
-        let resp = match tokio::time::timeout(req.timeout, read.next()).await {
-            Ok(v) => {
-                if let Some(message) = v {
-                    let data = message?.into_data();
-                    let rpc_res: JsonRpcResponse<T::LotusJson> =
-                        serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
-
-                    match rpc_res {
-                        JsonRpcResponse::Result { result, .. } => {
-                            Ok(HasLotusJson::from_lotus_json(result))
-                        }
-                        JsonRpcResponse::Error { error, .. } => Err(error),
-                    }
-                } else {
-                    Err(JsonRpcError::INVALID_REQUEST)
-                }
-            }
-            Err(_) => Err(JsonRpcError::TIMED_OUT),
-        };
-
-        tracing::debug!("Response: {:?}", resp);
-        resp
+        let ws_client = WsClientBuilder::default()
+            .request_timeout(req.timeout)
+            .build(api_url.to_string())
+            .await?;
+        let response_lotus_json: T::LotusJson = ws_client.request(req.method_name, req).await?;
+        Ok(HasLotusJson::from_lotus_json(response_lotus_json))
     }
 }
 
@@ -263,19 +212,6 @@ impl std::error::Error for JsonRpcError {
     }
 }
 
-impl From<tungstenite::Error> for JsonRpcError {
-    fn from(tungstenite_error: tungstenite::Error) -> Self {
-        let status = match &tungstenite_error {
-            tungstenite::Error::Http(resp) => Some(resp.status()),
-            _ => None,
-        };
-        JsonRpcError {
-            code: status.map(|s| s.as_u16()).unwrap_or_default() as i64,
-            message: Cow::Owned(tungstenite_error.to_string()),
-        }
-    }
-}
-
 impl From<reqwest::Error> for JsonRpcError {
     fn from(reqwest_error: reqwest::Error) -> Self {
         JsonRpcError {
@@ -288,18 +224,34 @@ impl From<reqwest::Error> for JsonRpcError {
     }
 }
 
+impl From<jsonrpsee::core::client::Error> for JsonRpcError {
+    fn from(error: jsonrpsee::core::client::Error) -> Self {
+        use jsonrpsee::core::client::Error::*;
+
+        match error {
+            RequestTimeout => JsonRpcError::TIMED_OUT,
+            e => JsonRpcError {
+                code: 500,
+                message: Cow::Owned(e.to_string()),
+            },
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(untagged)]
-pub enum JsonRpcResponse<R> {
+pub enum JsonRpcResponse<'a, R> {
     Result {
-        jsonrpc: V2,
+        jsonrpc: TwoPointZero,
         result: R,
-        id: Id,
+        #[serde(borrow)]
+        id: Id<'a>,
     },
     Error {
-        jsonrpc: V2,
+        jsonrpc: TwoPointZero,
         error: JsonRpcError,
-        id: Id,
+        #[serde(borrow)]
+        id: Id<'a>,
     },
 }
 
@@ -445,5 +397,11 @@ impl<T> RpcRequest<T> {
             rpc_endpoint: self.rpc_endpoint,
             timeout: self.timeout,
         }
+    }
+}
+
+impl<T> ToRpcParams for RpcRequest<T> {
+    fn to_rpc_params(self) -> Result<Option<Box<serde_json::value::RawValue>>, serde_json::Error> {
+        Ok(Some(serde_json::value::to_raw_value(&self.params)?))
     }
 }

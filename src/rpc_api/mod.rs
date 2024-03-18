@@ -44,6 +44,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
+    access.insert(chain_api::CHAIN_GET_TIPSET_AFTER_HEIGHT, Access::Read);
     access.insert(chain_api::CHAIN_GET_GENESIS, Access::Read);
     access.insert(chain_api::CHAIN_HEAD, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
@@ -95,6 +96,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state_api::STATE_MINER_POWER, Access::Read);
     access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
     access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
+    access.insert(state_api::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
     access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
     access.insert(state_api::STATE_WAIT_MSG, Access::Read);
     access.insert(state_api::STATE_SEARCH_MSG, Access::Read);
@@ -135,9 +137,12 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Net API
     access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
     access.insert(net_api::NET_PEERS, Access::Read);
+    access.insert(net_api::NET_LISTENING, Access::Read);
     access.insert(net_api::NET_INFO, Access::Read);
     access.insert(net_api::NET_CONNECT, Access::Write);
     access.insert(net_api::NET_DISCONNECT, Access::Write);
+    access.insert(net_api::NET_AGENT_VERSION, Access::Read);
+    access.insert(net_api::NET_AUTO_NAT_STATUS, Access::Read);
 
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
@@ -206,6 +211,7 @@ pub mod chain_api {
     use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
     use crate::lotus_json::{HasLotusJson, LotusJson};
     use crate::shim::clock::ChainEpoch;
+    use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
     pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
@@ -231,6 +237,7 @@ pub mod chain_api {
     pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
     pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
     pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
+    pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
     pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
     pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
     pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
@@ -243,7 +250,7 @@ pub mod chain_api {
     pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
     pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
 
-    #[derive(PartialEq, Debug, Serialize, Deserialize, Clone)]
+    #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
     #[serde(rename_all = "snake_case")]
     pub enum PathChange<T = Arc<Tipset>> {
         Revert(T),
@@ -269,13 +276,13 @@ pub mod chain_api {
                                 "ParentMessageReceipts": { "/": "baeaaaaa" },
                                 "ParentStateRoot": { "/":"baeaaaaa" },
                                 "ParentWeight": "0",
-                                "Parents": null,
+                                "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
                                 "Timestamp": 0,
                                 "WinPoStProof": null
                             }
                         ],
                         "Cids": [
-                            { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                            { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
                         ],
                         "Height": 0
                     }
@@ -372,6 +379,7 @@ pub mod state_api {
     pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
     pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
     pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
+    pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
     pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
     pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
     pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
@@ -420,10 +428,14 @@ pub mod net_api {
     use crate::lotus_json::lotus_json_with_self;
 
     pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-
     pub const NET_PEERS: &str = "Filecoin.NetPeers";
+    pub const NET_LISTENING: &str = "Filecoin.NetListening";
 
     pub const NET_INFO: &str = "Filecoin.NetInfo";
+    pub const NET_CONNECT: &str = "Filecoin.NetConnect";
+    pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
+    pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
+    pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
 
     #[derive(Debug, Default, Serialize, Deserialize, Clone)]
     pub struct NetInfoResult {
@@ -450,8 +462,43 @@ pub mod net_api {
         }
     }
 
-    pub const NET_CONNECT: &str = "Filecoin.NetConnect";
-    pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
+    #[derive(Debug, Default, Serialize, Deserialize, Clone)]
+    #[serde(rename_all = "PascalCase")]
+    pub struct NatStatusResult {
+        pub reachability: i32,
+        pub public_addrs: Option<Vec<String>>,
+    }
+    lotus_json_with_self!(NatStatusResult);
+
+    impl NatStatusResult {
+        // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>
+        pub fn reachability_as_str(&self) -> &'static str {
+            match self.reachability {
+                0 => "Unknown",
+                1 => "Public",
+                2 => "Private",
+                _ => "(unrecognized)",
+            }
+        }
+    }
+
+    impl From<libp2p::autonat::NatStatus> for NatStatusResult {
+        fn from(nat: libp2p::autonat::NatStatus) -> Self {
+            use libp2p::autonat::NatStatus;
+
+            // See <https://github.com/libp2p/go-libp2p/blob/91e1025f04519a5560361b09dfccd4b5239e36e6/core/network/network.go#L77>
+            let (reachability, public_addrs) = match &nat {
+                NatStatus::Unknown => (0, None),
+                NatStatus::Public(addr) => (1, Some(vec![addr.to_string()])),
+                NatStatus::Private => (2, None),
+            };
+
+            NatStatusResult {
+                reachability,
+                public_addrs,
+            }
+        }
+    }
 }
 
 /// Node API

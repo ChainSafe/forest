@@ -50,6 +50,8 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
+//                  avoid double indirection
 pub type Data<T> = Arc<Arc<T>>;
 
 /// This is where you store persistent data, or at least access to stateful
@@ -224,8 +226,20 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiTipsetKey(pub Option<TipsetKey>);
+
+impl From<TipsetKey> for ApiTipsetKey {
+    fn from(value: TipsetKey) -> Self {
+        Self(Some(value))
+    }
+}
+
+impl From<&TipsetKey> for ApiTipsetKey {
+    fn from(value: &TipsetKey) -> Self {
+        value.clone().into()
+    }
+}
 
 impl HasLotusJson for ApiTipsetKey {
     type LotusJson = LotusJson<Vec<Cid>>;
@@ -238,17 +252,13 @@ impl HasLotusJson for ApiTipsetKey {
     fn into_lotus_json(self) -> Self::LotusJson {
         LotusJson(
             self.0
-                .map(|ts| ts.cids.into_iter().collect::<Vec<Cid>>())
+                .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
                 .unwrap_or_default(),
         )
     }
 
     fn from_lotus_json(LotusJson(lotus_json): Self::LotusJson) -> Self {
-        Self(if lotus_json.is_empty() {
-            None
-        } else {
-            Some(TipsetKey::from_iter(lotus_json))
-        })
+        Self(NonEmpty::from_vec(lotus_json).map(From::from))
     }
 }
 
@@ -1007,7 +1017,7 @@ mod tests {
         let api_ts = api_ts_lotus_json.into_inner();
         let cids_from_api_ts = api_ts
             .0
-            .map(|ts| ts.cids.into_iter().collect::<Vec<Cid>>())
+            .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
             .unwrap_or_default();
         assert_eq!(cids_from_api_ts, cids);
     }

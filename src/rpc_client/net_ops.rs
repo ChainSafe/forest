@@ -22,6 +22,10 @@ impl ApiInfo {
         RpcRequest::new(NET_PEERS, ())
     }
 
+    pub fn net_listening_req() -> RpcRequest<bool> {
+        RpcRequest::new_v1(NET_LISTENING, ())
+    }
+
     pub async fn net_info(&self) -> Result<NetInfoResult, JsonRpcError> {
         self.call(Self::net_info_req()).await
     }
@@ -44,5 +48,21 @@ impl ApiInfo {
 
     pub fn net_disconnect_req(peer: String) -> RpcRequest<()> {
         RpcRequest::new(NET_DISCONNECT, (peer,))
+    }
+
+    pub async fn net_agent_version(&self, peer: String) -> Result<String, JsonRpcError> {
+        self.call(Self::net_agent_version_req(peer)).await
+    }
+
+    pub fn net_agent_version_req(peer: String) -> RpcRequest<String> {
+        RpcRequest::new(NET_AGENT_VERSION, (peer,))
+    }
+
+    pub async fn net_auto_nat_status(&self) -> Result<NatStatusResult, JsonRpcError> {
+        self.call(Self::net_auto_nat_status_req()).await
+    }
+
+    pub fn net_auto_nat_status_req() -> RpcRequest<NatStatusResult> {
+        RpcRequest::new_v1(NET_AUTO_NAT_STATUS, ())
     }
 }

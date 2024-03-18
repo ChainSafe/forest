@@ -69,7 +69,7 @@ pub struct Client {
     #[cfg_attr(test, arbitrary(gen(
         // Note: this a workaround for `chrono` not supporting `i64::MIN` as a valid duration.
         // [[https://github.com/chronotope/chrono/blob/dc196062650c05528cbe259e340210f0340a05d1/src/time_delta.rs#L223-L232]]
-        |g| Duration::milliseconds(i64::arbitrary(g).max(-i64::MAX))
+        |g| Duration::try_milliseconds(i64::arbitrary(g).max(-i64::MAX)).expect("Infallible")
     )))]
     pub token_exp: Duration,
     /// Load actors from the bundle file (possibly generating it if it doesn't exist)
@@ -95,7 +95,7 @@ impl Default for Client {
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
             rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
-            token_exp: Duration::seconds(5184000), // 60 Days = 5184000 Seconds
+            token_exp: Duration::try_seconds(5184000).expect("Infallible"), // 60 Days = 5184000 Seconds
             load_actors: true,
         }
     }

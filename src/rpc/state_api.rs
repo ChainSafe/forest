@@ -217,11 +217,12 @@ pub async fn state_market_deals<DB: Blockstore>(
             sector_start_epoch: -1,
             last_updated_epoch: -1,
             slash_epoch: -1,
+            verified_claim: 0,
         });
         out.insert(
             deal_id.to_string(),
             MarketDeal {
-                proposal: d,
+                proposal: d?,
                 state: s,
             },
         );
@@ -413,6 +414,54 @@ pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
         .miner_recoveries(&miner, &ts)
         .map_err(|e| e.into())
         .map(|r| r.into())
+}
+
+pub async fn state_miner_available_balance<DB: Blockstore + Send + Sync + 'static>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<TokenAmount>, JsonRpcError> {
+    let LotusJson((miner_address, ApiTipsetKey(tsk))): LotusJson<(Address, ApiTipsetKey)> =
+        params.parse()?;
+
+    let store = data.chain_store.blockstore();
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let actor = data
+        .state_manager
+        .get_actor(&miner_address, *ts.parent_state())?
+        .ok_or_else(|| anyhow::anyhow!("Miner actor not found"))?;
+    let state = miner::State::load(store, actor.code, actor.state)?;
+    let actor_balance: TokenAmount = actor.balance.clone().into();
+    let (vested, available): (TokenAmount, TokenAmount) = match &state {
+        miner::State::V13(s) => (
+            s.check_vested_funds(store, ts.epoch())?.into(),
+            s.get_available_balance(&actor_balance.into())?.into(),
+        ),
+        miner::State::V12(s) => (
+            s.check_vested_funds(store, ts.epoch())?.into(),
+            s.get_available_balance(&actor_balance.into())?.into(),
+        ),
+        miner::State::V11(s) => (
+            s.check_vested_funds(store, ts.epoch())?.into(),
+            s.get_available_balance(&actor_balance.into())?.into(),
+        ),
+        miner::State::V10(s) => (
+            s.check_vested_funds(store, ts.epoch())?.into(),
+            s.get_available_balance(&actor_balance.into())?.into(),
+        ),
+        miner::State::V9(s) => (
+            s.check_vested_funds(store, ts.epoch())?.into(),
+            s.get_available_balance(&actor_balance.into())?.into(),
+        ),
+        miner::State::V8(s) => (
+            s.check_vested_funds(store, ts.epoch())?.into(),
+            s.get_available_balance(&actor_balance.into())?.into(),
+        ),
+    };
+
+    Ok(LotusJson(vested + available))
 }
 
 /// returns the message receipt for the given message

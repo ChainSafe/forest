@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::blocks::TipsetKey;
 use crate::chain::ChainStore;
 use crate::chain_sync::SyncConfig;
 use crate::chain_sync::SyncStage;
@@ -16,6 +15,7 @@ use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::networks::parse_bootstrap_peers;
 use crate::networks::ChainConfig;
 use crate::networks::NetworkChain;
 use crate::rpc::start_rpc;
@@ -26,7 +26,6 @@ use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
 use crate::state_manager::StateManager;
-use crate::utils::db::car_util::load_car;
 use crate::utils::version::FOREST_VERSION_STRING;
 use crate::Client;
 use ahash::HashMap;
@@ -43,8 +42,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
-use tokio::fs::File;
-use tokio::io::BufReader;
 use tokio::sync::Semaphore;
 use tokio::{
     signal::{
@@ -61,7 +58,7 @@ pub enum ApiCommands {
     // Serve
     Serve {
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
-        snapshot_file: Option<PathBuf>,
+        snapshot_files: Vec<PathBuf>,
         /// Filecoin network chain
         #[arg(long, default_value = "mainnet")]
         chain: NetworkChain,
@@ -122,14 +119,14 @@ impl ApiCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Serve {
-                snapshot_file,
+                snapshot_files,
                 chain,
                 port,
                 data_dir,
                 auto_download_snapshot,
             } => {
                 start_offline_server(
-                    snapshot_file,
+                    snapshot_files,
                     chain,
                     port,
                     data_dir.clone(),
@@ -365,7 +362,11 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
-            TipsetKey::default(),
+            Default::default(),
+        )),
+        RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
+            shared_tipset.epoch(),
+            Default::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
@@ -382,13 +383,26 @@ fn mpool_tests() -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
+    let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
+    let peer_id = bootstrap_peers
+        .last()
+        .expect("No bootstrap peers found - bootstrap file is empty or corrupted")
+        .to_string()
+        .rsplit_once('/')
+        .expect("No peer id found - address is not in the expected format")
+        .1
+        .to_string();
+
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
+        RpcTest::identity(ApiInfo::net_listening_req()),
+        RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
         RpcTest::basic(ApiInfo::net_info_req())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
+        RpcTest::basic(ApiInfo::net_auto_nat_status_req()),
     ]
 }
 
@@ -409,54 +423,54 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.key().clone(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
             shared_tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
             shared_tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            TipsetKey::from_iter(Vec::new()),
+            Default::default(),
         )),
         RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
             shared_block.miner_address,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_lookup_id_req(
             shared_block.miner_address,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         // This should return `Address::new_id(0xdeadbeef)`
         RpcTest::identity(ApiInfo::state_lookup_id_req(
             Address::new_id(0xdeadbeef),
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_network_version_req(
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
-        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().clone())),
+        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().into())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
             shared_block.miner_address,
             101,
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::msig_get_pending_req(
             Address::new_id(18101), // msig address id
-            shared_tipset.key().clone(),
+            shared_tipset.key().into(),
         )),
     ]
 }
@@ -530,7 +544,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
-    let root_tsk = shared_tipset.key().clone();
+    let root_tsk = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
@@ -540,11 +554,11 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
     // for API compatibility verification.
     tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
         Address::VERIFIED_REGISTRY_ACTOR,
-        shared_tipset.key().clone(),
+        shared_tipset.key().into(),
     )));
     tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
         Address::DATACAP_TOKEN_ACTOR,
-        shared_tipset.key().clone(),
+        shared_tipset.key().into(),
     )));
 
     let mut seen = CidHashSet::default();
@@ -564,7 +578,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
-                root_tsk.clone(),
+                root_tsk.into(),
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
@@ -575,7 +589,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
@@ -583,7 +597,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -605,7 +619,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: Some(msg.from()),
                             to: Some(msg.to()),
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
                     tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
@@ -623,7 +637,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                         msg.from(),
@@ -631,7 +645,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                         msg.from(),
-                        root_tsk.clone(),
+                        root_tsk.into(),
                     )));
                     tests.push(
                         validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -649,7 +663,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: None,
                             to: Some(msg.to()),
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -657,7 +671,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: Some(msg.from()),
                             to: None,
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
                     tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -665,7 +679,7 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             from: None,
                             to: None,
                         },
-                        root_tsk.clone(),
+                        root_tsk.into(),
                         shared_tipset.epoch(),
                     )));
 
@@ -674,52 +688,55 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
-                            root_tsk.clone(),
+                            root_tsk.into(),
                         )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
                     }
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(
-                ApiInfo::state_miner_proving_deadline_req(
+                ApiInfo::state_miner_proving_deadline_req(block.miner_address, tipset.key().into()),
+            ));
+            tests.push(RpcTest::identity(
+                ApiInfo::state_miner_available_balance_req(
                     block.miner_address,
-                    tipset.key().clone(),
+                    tipset.key().into(),
                 ),
             ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
                 block.miner_address,
                 block.epoch,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
                 block.miner_address,
-                tipset.key().clone(),
+                tipset.key().into(),
             )));
         }
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
-            tipset.key().clone(),
+            tipset.key().into(),
         )));
         tests.push(RpcTest::identity(
-            ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().clone()),
+            ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().into()),
         ));
 
         for block in tipset.block_headers() {
@@ -727,13 +744,13 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             for msg in secp_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.message().clone(),
-                    shared_tipset.key().clone(),
+                    shared_tipset.key().into(),
                 )));
             }
             for msg in bls_messages {
                 tests.push(RpcTest::identity(ApiInfo::state_call_req(
                     msg.clone(),
-                    shared_tipset.key().clone(),
+                    shared_tipset.key().into(),
                 )));
             }
         }
@@ -824,7 +841,7 @@ async fn compare_apis(
 }
 
 async fn start_offline_server(
-    snapshot_path_opt: Option<PathBuf>,
+    snapshot_files: Vec<PathBuf>,
     chain: NetworkChain,
     rpc_port: u16,
     rpc_data_dir: PathBuf,
@@ -833,11 +850,10 @@ async fn start_offline_server(
     info!("Configuring Offline RPC Server");
     let client = Client::default();
     let db_path = client.data_dir.as_path().join(rpc_data_dir);
-    let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
+    let db_writer = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
+    let db = Arc::new(ManyCar::new(db_writer.clone()));
 
-    let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
-        (File::open(&path).await?, path)
-    } else {
+    let snapshot_files = if snapshot_files.is_empty() {
         let (snapshot_url, num_bytes, path) =
             crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
                 .await
@@ -865,17 +881,12 @@ async fn start_offline_server(
         );
         let downloaded_snapshot_path = std::env::current_dir()?.join(path);
         download_to(&snapshot_url, &downloaded_snapshot_path).await?;
-        info!("Snapshot downloaded !!!");
-        (
-            File::open(&downloaded_snapshot_path).await?,
-            downloaded_snapshot_path,
-        )
+        info!("Snapshot downloaded");
+        vec![downloaded_snapshot_path]
+    } else {
+        snapshot_files
     };
-
-    info!("Loading snapshot file at {}", snapshot_path.display());
-    let car_reader = BufReader::new(snapshot_file);
-    load_car(&db, car_reader).await?;
-    info!("Snapshot loaded!!!");
+    db.read_only_files(snapshot_files.iter().cloned())?;
 
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let sync_config = Arc::new(SyncConfig::default());
@@ -883,7 +894,7 @@ async fn start_offline_server(
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
-        db,
+        db.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -892,7 +903,8 @@ async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let ts = crate::db::car::ForestCar::try_from(snapshot_path.as_path())?.heaviest_tipset()?;
+    let ts = db.heaviest_tipset()?;
+
     state_manager
         .chain_store()
         .set_heaviest_tipset(Arc::new(ts))?;
