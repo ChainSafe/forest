@@ -225,7 +225,7 @@ methods:
           $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
         nullable: true
       required: true
-  - name: Filecoin.ChainGetTipsetByHeight
+  - name: Filecoin.ChainGetTipSetByHeight
     params:
       - name: height
         schema:
@@ -241,7 +241,7 @@ methods:
         required: true
     paramStructure: by-position
     result:
-      name: "Filecoin.ChainGetTipsetByHeight::Result"
+      name: "Filecoin.ChainGetTipSetByHeight::Result"
       schema:
         type: object
         required:
@@ -256,7 +256,7 @@ methods:
           Height:
             $ref: "#/components/schemas/int64"
       required: true
-  - name: Filecoin.ChainGetTipsetAfterHeight
+  - name: Filecoin.ChainGetTipSetAfterHeight
     params:
       - name: height
         schema:
@@ -272,7 +272,7 @@ methods:
         required: true
     paramStructure: by-position
     result:
-      name: "Filecoin.ChainGetTipsetAfterHeight::Result"
+      name: "Filecoin.ChainGetTipSetAfterHeight::Result"
       schema:
         type: object
         required:
@@ -378,7 +378,7 @@ methods:
           WinPoStProof:
             $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson>"
       required: true
-  - name: Filecoin.ChainGetTipset
+  - name: Filecoin.ChainGetTipSet
     params:
       - name: tsk
         schema:
@@ -389,7 +389,7 @@ methods:
         required: true
     paramStructure: by-position
     result:
-      name: "Filecoin.ChainGetTipset::Result"
+      name: "Filecoin.ChainGetTipSet::Result"
       schema:
         type: object
         required:
