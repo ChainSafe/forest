@@ -51,6 +51,9 @@
 
 ### Removed
 
+- [#4018](https://github.com/ChainSafe/forest/pull/4018) Remove --ws flag from
+  `forest-tool api compare`.
+
 ### Fixed
 
 - [#4068](https://github.com/ChainSafe/forest/pull/4068) Fix schema bug in the
