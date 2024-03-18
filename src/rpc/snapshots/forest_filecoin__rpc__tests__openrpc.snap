@@ -15,7 +15,7 @@ methods:
         required: true
     paramStructure: by-position
     result:
-      name: Filecoin.ChainGetPath-result
+      name: "Filecoin.ChainGetPath::Result"
       schema:
         type: array
         items:
