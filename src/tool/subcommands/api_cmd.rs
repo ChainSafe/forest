@@ -99,9 +99,6 @@ pub enum ApiCommands {
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
-        /// API calls are handled over WebSocket connections.
-        #[arg(long = "ws")]
-        use_websocket: bool,
     },
 }
 
@@ -113,7 +110,6 @@ struct ApiTestFlags {
     n_tipsets: usize,
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
-    use_websocket: bool,
 }
 
 impl ApiCommands {
@@ -144,7 +140,6 @@ impl ApiCommands {
                 n_tipsets,
                 run_ignored,
                 max_concurrent_requests,
-                use_websocket,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -152,7 +147,6 @@ impl ApiCommands {
                     n_tipsets,
                     run_ignored,
                     max_concurrent_requests,
-                    use_websocket,
                 };
 
                 compare_apis(forest, lotus, snapshot_files, config).await?
