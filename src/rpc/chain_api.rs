@@ -469,14 +469,14 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
     data: &RPCState<DB>,
-) -> Subscriber<ApiHeadChange> {
+) -> Subscriber<Vec<ApiHeadChange>> {
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store.heaviest_tipset();
     let (change, headers) = ("current".into(), current.block_headers().clone().into());
     sender
-        .send(ApiHeadChange { change, headers })
+        .send(vec![ApiHeadChange { change, headers }])
         .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store.publisher().subscribe();
@@ -487,7 +487,10 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
             };
 
-            if sender.send(ApiHeadChange { change, headers }).is_err() {
+            if sender
+                .send(vec![ApiHeadChange { change, headers }])
+                .is_err()
+            {
                 break;
             }
         }
