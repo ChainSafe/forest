@@ -3,15 +3,218 @@ source: src/rpc/mod.rs
 expression: spec
 ---
 methods:
+  - name: Filecoin.ChainGetMessage
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMessage::Result"
+      schema:
+        type: object
+        required:
+          - From
+          - GasFeeCap
+          - GasLimit
+          - GasPremium
+          - Method
+          - Nonce
+          - To
+          - Value
+          - Version
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          From:
+            $ref: "#/components/schemas/String"
+          GasFeeCap:
+            $ref: "#/components/schemas/String"
+          GasLimit:
+            $ref: "#/components/schemas/uint64"
+          GasPremium:
+            $ref: "#/components/schemas/String"
+          Method:
+            $ref: "#/components/schemas/uint64"
+          Nonce:
+            $ref: "#/components/schemas/uint64"
+          Params:
+            $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+          To:
+            $ref: "#/components/schemas/String"
+          Value:
+            $ref: "#/components/schemas/String"
+          Version:
+            $ref: "#/components/schemas/uint64"
+      required: true
+  - name: Filecoin.ChainGetParentMessages
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentMessages::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetParentReceipts
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentReceipts::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiReceipt"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetMessagesInTipset
+    params:
+      - name: tsk
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMessagesInTipset::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainExport
+    params:
+      - name: export-params
+        schema:
+          type: object
+          required:
+            - dry_run
+            - epoch
+            - output_path
+            - recent_roots
+            - skip_checksum
+            - tipset_keys
+          properties:
+            dry_run:
+              type: boolean
+            epoch:
+              type: integer
+              format: int64
+            output_path:
+              type: string
+            recent_roots:
+              type: integer
+              format: int64
+            skip_checksum:
+              type: boolean
+            tipset_keys:
+              $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainExport::Result"
+      schema:
+        type: string
+        nullable: true
+      required: false
+  - name: Filecoin.ChainReadObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainReadObj::Result"
+      schema:
+        $ref: "#/components/schemas/encoded binary"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainHasObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainHasObj::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.ChainGetBlockMessages
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetBlockMessages::Result"
+      schema:
+        type: object
+        required:
+          - BlsMessages
+          - Cids
+          - SecpkMessages
+        properties:
+          BlsMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::message::MessageLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
+          SecpkMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson>"
+      required: true
   - name: Filecoin.ChainGetPath
     params:
       - name: from
         schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
         required: true
       - name: to
         schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
         required: true
     paramStructure: by-position
     result:
@@ -22,8 +225,302 @@ methods:
           $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
         nullable: true
       required: true
+  - name: Filecoin.ChainGetTipsetByHeight
+    params:
+      - name: height
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetTipsetByHeight::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetTipsetAfterHeight
+    params:
+      - name: height
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetTipsetAfterHeight::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetGenesis
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetGenesis::Result"
+      schema:
+        $ref: "#/components/schemas/TipsetLotusJson"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainHead
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainHead::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetBlock
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetBlock::Result"
+      schema:
+        type: object
+        required:
+          - BeaconEntries
+          - ForkSignaling
+          - Height
+          - Messages
+          - Miner
+          - ParentBaseFee
+          - ParentMessageReceipts
+          - ParentStateRoot
+          - ParentWeight
+          - Parents
+          - Timestamp
+          - WinPoStProof
+        properties:
+          BLSAggregate:
+            $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+          BeaconEntries:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson>"
+          BlockSig:
+            $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+          ElectionProof:
+            $ref: "#/components/schemas/Nullable_ElectionProofLotusJson"
+          ForkSignaling:
+            $ref: "#/components/schemas/uint64"
+          Height:
+            $ref: "#/components/schemas/int64"
+          Messages:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          Miner:
+            $ref: "#/components/schemas/String"
+          ParentBaseFee:
+            $ref: "#/components/schemas/String"
+          ParentMessageReceipts:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          ParentStateRoot:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          ParentWeight:
+            $ref: "#/components/schemas/String"
+          Parents:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Ticket:
+            $ref: "#/components/schemas/Nullable_TicketLotusJson"
+          Timestamp:
+            $ref: "#/components/schemas/uint64"
+          WinPoStProof:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson>"
+      required: true
+  - name: Filecoin.ChainGetTipset
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetTipset::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
+          Cids:
+            $ref: "#/components/schemas/TipsetKeyLotusJson"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainSetHead
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainSetHead::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.ChainGetMinBaseFee
+    params:
+      - name: lookback
+        schema:
+          type: integer
+          format: uint32
+          minimum: 0
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMinBaseFee::Result"
+      schema:
+        type: string
+      required: true
 components:
   schemas:
+    ApiMessageLotusJson:
+      type: object
+      required:
+        - Cid
+        - Message
+      properties:
+        Cid:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Message:
+          $ref: "#/components/schemas/MessageLotusJson"
+    ApiReceipt:
+      type: object
+      required:
+        - EventsRoot
+        - ExitCode
+        - GasUsed
+        - Return
+      properties:
+        EventsRoot:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        ExitCode:
+          $ref: "#/components/schemas/forest_filecoin::shim::error::ExitCode"
+        GasUsed:
+          type: integer
+          format: uint64
+          minimum: 0
+        Return:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+    BeaconEntryLotusJson:
+      type: object
+      required:
+        - Data
+        - Round
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+        Round:
+          $ref: "#/components/schemas/uint64"
+    BlockHeaderLotusJson:
+      type: object
+      required:
+        - BeaconEntries
+        - ForkSignaling
+        - Height
+        - Messages
+        - Miner
+        - ParentBaseFee
+        - ParentMessageReceipts
+        - ParentStateRoot
+        - ParentWeight
+        - Parents
+        - Timestamp
+        - WinPoStProof
+      properties:
+        BLSAggregate:
+          $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+        BeaconEntries:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson>"
+        BlockSig:
+          $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+        ElectionProof:
+          $ref: "#/components/schemas/Nullable_ElectionProofLotusJson"
+        ForkSignaling:
+          $ref: "#/components/schemas/uint64"
+        Height:
+          $ref: "#/components/schemas/int64"
+        Messages:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Miner:
+          $ref: "#/components/schemas/String"
+        ParentBaseFee:
+          $ref: "#/components/schemas/String"
+        ParentMessageReceipts:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        ParentStateRoot:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        ParentWeight:
+          $ref: "#/components/schemas/String"
+        Parents:
+          $ref: "#/components/schemas/TipsetKeyLotusJson"
+        Ticket:
+          $ref: "#/components/schemas/Nullable_TicketLotusJson"
+        Timestamp:
+          $ref: "#/components/schemas/uint64"
+        WinPoStProof:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson>"
     CidLotusJsonGeneric_for_64:
       type: object
       required:
@@ -31,6 +528,108 @@ components:
       properties:
         /:
           $ref: "#/components/schemas/String"
+    CidLotusJsonGeneric_for_642:
+      type: object
+      required:
+        - /
+      properties:
+        /:
+          $ref: "#/components/schemas/String"
+    ElectionProofLotusJson:
+      type: object
+      required:
+        - VRFProof
+        - WinCount
+      properties:
+        VRFProof:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+        WinCount:
+          $ref: "#/components/schemas/int64"
+    MessageLotusJson:
+      type: object
+      required:
+        - From
+        - GasFeeCap
+        - GasLimit
+        - GasPremium
+        - Method
+        - Nonce
+        - To
+        - Value
+        - Version
+      properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        From:
+          $ref: "#/components/schemas/String"
+        GasFeeCap:
+          $ref: "#/components/schemas/String"
+        GasLimit:
+          $ref: "#/components/schemas/uint64"
+        GasPremium:
+          $ref: "#/components/schemas/String"
+        Method:
+          $ref: "#/components/schemas/uint64"
+        Nonce:
+          $ref: "#/components/schemas/uint64"
+        Params:
+          $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+        To:
+          $ref: "#/components/schemas/String"
+        Value:
+          $ref: "#/components/schemas/String"
+        Version:
+          $ref: "#/components/schemas/uint64"
+    MessageLotusJson2:
+      type: object
+      required:
+        - From
+        - GasFeeCap
+        - GasLimit
+        - GasPremium
+        - Method
+        - Nonce
+        - To
+        - Value
+        - Version
+      properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        From:
+          $ref: "#/components/schemas/String"
+        GasFeeCap:
+          $ref: "#/components/schemas/String"
+        GasLimit:
+          $ref: "#/components/schemas/uint64"
+        GasPremium:
+          $ref: "#/components/schemas/String"
+        Method:
+          $ref: "#/components/schemas/uint64"
+        Nonce:
+          $ref: "#/components/schemas/uint64"
+        Params:
+          $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+        To:
+          $ref: "#/components/schemas/String"
+        Value:
+          $ref: "#/components/schemas/String"
+        Version:
+          $ref: "#/components/schemas/uint64"
+    Nullable_CidLotusJsonGeneric_for_64:
+      $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      nullable: true
+    Nullable_ElectionProofLotusJson:
+      $ref: "#/components/schemas/ElectionProofLotusJson"
+      nullable: true
+    Nullable_SignatureLotusJson:
+      $ref: "#/components/schemas/SignatureLotusJson2"
+      nullable: true
+    Nullable_TicketLotusJson:
+      $ref: "#/components/schemas/TicketLotusJson"
+      nullable: true
+    Nullable_VecU8LotusJson:
+      $ref: "#/components/schemas/VecU8LotusJson"
+      nullable: true
     PathChange_for_TipsetLotusJson:
       oneOf:
         - type: object
@@ -47,10 +646,70 @@ components:
             apply:
               $ref: "#/components/schemas/TipsetLotusJson"
           additionalProperties: false
+    PoStProofLotusJson:
+      type: object
+      required:
+        - PoStProof
+        - ProofBytes
+      properties:
+        PoStProof:
+          $ref: "#/components/schemas/int64"
+        ProofBytes:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+    SignatureLotusJson:
+      type: object
+      required:
+        - Data
+        - Type
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+        Type:
+          $ref: "#/components/schemas/SignatureTypeLotusJson"
+    SignatureLotusJson2:
+      type: object
+      required:
+        - Data
+        - Type
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+        Type:
+          $ref: "#/components/schemas/SignatureTypeLotusJson"
+    SignatureType:
+      description: Signature variants for Filecoin signatures.
+      type: string
+      enum:
+        - Secp256k1
+        - Bls
+        - Delegated
+    SignatureTypeLotusJson:
+      anyOf:
+        - $ref: "#/components/schemas/SignatureType"
+        - $ref: "#/components/schemas/String"
+    SignedMessageLotusJson:
+      type: object
+      required:
+        - Message
+        - Signature
+      properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        Message:
+          $ref: "#/components/schemas/MessageLotusJson"
+        Signature:
+          $ref: "#/components/schemas/SignatureLotusJson"
     String:
       type: string
+    TicketLotusJson:
+      type: object
+      required:
+        - VRFProof
+      properties:
+        VRFProof:
+          $ref: "#/components/schemas/VecU8LotusJson2"
     TipsetKeyLotusJson:
-      $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+      $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>"
     TipsetLotusJson:
       type: object
       required:
@@ -59,21 +718,57 @@ components:
         - Height
       properties:
         Blocks:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>"
         Cids:
           $ref: "#/components/schemas/TipsetKeyLotusJson"
         Height:
           $ref: "#/components/schemas/int64"
-    "forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson":
+    VecU8LotusJson:
+      $ref: "#/components/schemas/encoded binary"
+      nullable: true
+    VecU8LotusJson2:
+      $ref: "#/components/schemas/encoded binary"
+      nullable: true
+    encoded binary:
+      type: string
+    "forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson>":
       type: array
       items:
-        $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+        $ref: "#/components/schemas/BeaconEntryLotusJson"
       nullable: true
-    "forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>":
+    "forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson>":
+      type: array
+      items:
+        $ref: "#/components/schemas/BlockHeaderLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>>":
       type: array
       items:
         $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
       nullable: true
+    "forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::message::MessageLotusJson>":
+      type: array
+      items:
+        $ref: "#/components/schemas/MessageLotusJson2"
+      nullable: true
+    "forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson>":
+      type: array
+      items:
+        $ref: "#/components/schemas/PoStProofLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::vec::VecLotusJson<forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson>":
+      type: array
+      items:
+        $ref: "#/components/schemas/SignedMessageLotusJson"
+      nullable: true
+    "forest_filecoin::shim::error::ExitCode":
+      type: integer
+      format: uint32
+      minimum: 0
     int64:
       type: integer
       format: int64
+    uint64:
+      type: integer
+      format: uint64
+      minimum: 0
