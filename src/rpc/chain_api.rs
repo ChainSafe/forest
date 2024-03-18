@@ -114,7 +114,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     type Ok = LotusJson<Vec<ApiReceipt>>;
 
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
     ) -> Result<Self::Ok, JsonRpcError> {
         let store = ctx.state_manager.blockstore();
@@ -187,7 +187,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     type Params = (LotusJson<TipsetKey>,);
     type Ok = LotusJson<Vec<ApiMessage>>;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore>,
         (LotusJson(tsk),): Self::Params,
     ) -> Result<Self::Ok, JsonRpcError> {
         let store = ctx.chain_store.blockstore();
@@ -292,7 +292,7 @@ impl RpcMethod<1> for ChainHasObj {
     type Params = (LotusJson<Cid>,);
     type Ok = bool;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
     ) -> Result<Self::Ok, JsonRpcError> {
         Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
@@ -416,7 +416,7 @@ impl RpcMethod<2> for ChainGetTipsetByHeight {
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
     type Ok = LotusJson<Tipset>;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore>,
         (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
     ) -> Result<Self::Ok, JsonRpcError> {
         let ts = ctx
@@ -439,7 +439,7 @@ impl RpcMethod<2> for ChainGetTipsetAfterHeight {
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
     type Ok = LotusJson<Tipset>;
     async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        ctx: Ctx<impl Blockstore>,
         (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
     ) -> Result<Self::Ok, JsonRpcError> {
         let ts = ctx
