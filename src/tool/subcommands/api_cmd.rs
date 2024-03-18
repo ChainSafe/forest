@@ -15,6 +15,7 @@ use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
+use crate::networks::parse_bootstrap_peers;
 use crate::networks::ChainConfig;
 use crate::networks::NetworkChain;
 use crate::rpc::start_rpc;
@@ -25,7 +26,6 @@ use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
 use crate::state_manager::StateManager;
-use crate::utils::db::car_util::load_car;
 use crate::utils::version::FOREST_VERSION_STRING;
 use crate::Client;
 use ahash::HashMap;
@@ -42,8 +42,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tabled::{builder::Builder, settings::Style};
-use tokio::fs::File;
-use tokio::io::BufReader;
 use tokio::sync::Semaphore;
 use tokio::{
     signal::{
@@ -60,7 +58,7 @@ pub enum ApiCommands {
     // Serve
     Serve {
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
-        snapshot_file: Option<PathBuf>,
+        snapshot_files: Vec<PathBuf>,
         /// Filecoin network chain
         #[arg(long, default_value = "mainnet")]
         chain: NetworkChain,
@@ -121,14 +119,14 @@ impl ApiCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Serve {
-                snapshot_file,
+                snapshot_files,
                 chain,
                 port,
                 data_dir,
                 auto_download_snapshot,
             } => {
                 start_offline_server(
-                    snapshot_file,
+                    snapshot_files,
                     chain,
                     port,
                     data_dir.clone(),
@@ -366,6 +364,10 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.epoch(),
             Default::default(),
         )),
+        RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
+            shared_tipset.epoch(),
+            Default::default(),
+        )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
         RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
@@ -381,13 +383,26 @@ fn mpool_tests() -> Vec<RpcTest> {
 }
 
 fn net_tests() -> Vec<RpcTest> {
+    let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
+    let peer_id = bootstrap_peers
+        .last()
+        .expect("No bootstrap peers found - bootstrap file is empty or corrupted")
+        .to_string()
+        .rsplit_once('/')
+        .expect("No peer id found - address is not in the expected format")
+        .1
+        .to_string();
+
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
         RpcTest::basic(ApiInfo::net_addrs_listen_req()),
         RpcTest::basic(ApiInfo::net_peers_req()),
+        RpcTest::identity(ApiInfo::net_listening_req()),
+        RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
         RpcTest::basic(ApiInfo::net_info_req())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
+        RpcTest::basic(ApiInfo::net_auto_nat_status_req()),
     ]
 }
 
@@ -693,6 +708,12 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
             tests.push(RpcTest::identity(
                 ApiInfo::state_miner_proving_deadline_req(block.miner_address, tipset.key().into()),
             ));
+            tests.push(RpcTest::identity(
+                ApiInfo::state_miner_available_balance_req(
+                    block.miner_address,
+                    tipset.key().into(),
+                ),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
                 block.miner_address,
                 tipset.key().into(),
@@ -793,7 +814,7 @@ async fn compare_apis(
 }
 
 async fn start_offline_server(
-    snapshot_path_opt: Option<PathBuf>,
+    snapshot_files: Vec<PathBuf>,
     chain: NetworkChain,
     rpc_port: u16,
     rpc_data_dir: PathBuf,
@@ -802,11 +823,10 @@ async fn start_offline_server(
     info!("Configuring Offline RPC Server");
     let client = Client::default();
     let db_path = client.data_dir.as_path().join(rpc_data_dir);
-    let db = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
+    let db_writer = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
+    let db = Arc::new(ManyCar::new(db_writer.clone()));
 
-    let (snapshot_file, snapshot_path) = if let Some(path) = snapshot_path_opt {
-        (File::open(&path).await?, path)
-    } else {
+    let snapshot_files = if snapshot_files.is_empty() {
         let (snapshot_url, num_bytes, path) =
             crate::cli_shared::snapshot::peek(TrustedVendor::default(), &chain)
                 .await
@@ -834,17 +854,12 @@ async fn start_offline_server(
         );
         let downloaded_snapshot_path = std::env::current_dir()?.join(path);
         download_to(&snapshot_url, &downloaded_snapshot_path).await?;
-        info!("Snapshot downloaded !!!");
-        (
-            File::open(&downloaded_snapshot_path).await?,
-            downloaded_snapshot_path,
-        )
+        info!("Snapshot downloaded");
+        vec![downloaded_snapshot_path]
+    } else {
+        snapshot_files
     };
-
-    info!("Loading snapshot file at {}", snapshot_path.display());
-    let car_reader = BufReader::new(snapshot_file);
-    load_car(&db, car_reader).await?;
-    info!("Snapshot loaded!!!");
+    db.read_only_files(snapshot_files.iter().cloned())?;
 
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     let sync_config = Arc::new(SyncConfig::default());
@@ -852,7 +867,7 @@ async fn start_offline_server(
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
-        db,
+        db.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -861,7 +876,8 @@ async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let ts = crate::db::car::ForestCar::try_from(snapshot_path.as_path())?.heaviest_tipset()?;
+    let ts = db.heaviest_tipset()?;
+
     state_manager
         .chain_store()
         .set_heaviest_tipset(Arc::new(ts))?;

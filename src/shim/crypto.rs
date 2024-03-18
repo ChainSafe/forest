@@ -13,6 +13,7 @@ use fvm_ipld_encoding::{
 };
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
+use schemars::JsonSchema;
 
 /// A cryptographic signature, represented in bytes, of any key protocol.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -172,6 +173,7 @@ pub fn cid_to_replica_commitment_v1(c: &Cid) -> Result<Commitment, &'static str>
     Hash,
     strum::Display,
     strum::EnumString,
+    JsonSchema,
 )]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u8)]

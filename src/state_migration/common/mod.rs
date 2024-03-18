@@ -85,6 +85,12 @@ pub(in crate::state_migration) trait ActorMigration<BS: Blockstore> {
         store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>>;
+
+    /// Some migration jobs might need to be deferred to be executed after the regular state migration.
+    /// These may require some metadata collected during other migrations.
+    fn is_deferred(&self) -> bool {
+        false
+    }
 }
 
 /// Trait that defines the interface for actor migration job to be executed after the state migration.

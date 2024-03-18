@@ -17,20 +17,26 @@ use ahash::{HashMap, HashSet};
 use anyhow::Context as _;
 use cid::Cid;
 use flume::Sender;
-use futures::stream::StreamExt;
-use futures::{channel::oneshot::Sender as OneShotSender, select};
+use futures::{
+    channel::oneshot::Sender as OneShotSender, future::Either, select, stream::StreamExt,
+};
 use fvm_ipld_blockstore::Blockstore;
-use libp2p::connection_limits::Exceeded;
 pub use libp2p::gossipsub::{IdentTopic, Topic};
-use libp2p::swarm::DialError;
 use libp2p::{
-    core::{self, muxing::StreamMuxerBox, transport::Boxed, Multiaddr},
+    autonat::NatStatus,
+    connection_limits::Exceeded,
+    core::{
+        self,
+        muxing::StreamMuxerBox,
+        transport::{Boxed, OrTransport},
+        Multiaddr,
+    },
     gossipsub,
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
     noise, ping, request_response,
-    swarm::{self, SwarmEvent},
+    swarm::{self, DialError, SwarmEvent},
     yamux, PeerId, Swarm, Transport,
 };
 use tokio_stream::wrappers::IntervalStream;
@@ -168,6 +174,8 @@ pub enum NetRPCMethods {
     Info(OneShotSender<NetInfoResult>),
     Connect(OneShotSender<bool>, PeerId, HashSet<Multiaddr>),
     Disconnect(OneShotSender<()>, PeerId),
+    AgentVersion(OneShotSender<Option<String>>, PeerId),
+    AutoNATStatus(OneShotSender<NatStatus>),
 }
 
 /// The `Libp2pService` listens to events from the libp2p swarm.
@@ -198,8 +206,7 @@ where
     ) -> anyhow::Result<Self> {
         let peer_id = PeerId::from(net_keypair.public());
 
-        let transport =
-            build_transport(net_keypair.clone()).expect("Failed to build libp2p transport");
+        let transport = build_transport(&net_keypair).expect("Failed to build libp2p transport");
 
         let mut swarm = Swarm::new(
             transport,
@@ -498,8 +505,8 @@ async fn handle_network_message(
                     }
                 }
                 NetRPCMethods::Peers(response_channel) => {
-                    let peer_addresses = swarm.behaviour_mut().peer_addresses();
-                    if response_channel.send(peer_addresses.clone()).is_err() {
+                    let peer_addresses = swarm.behaviour().peer_addresses();
+                    if response_channel.send(peer_addresses).is_err() {
                         warn!("Failed to get Libp2p peers");
                     }
                 }
@@ -546,6 +553,22 @@ async fn handle_network_message(
                     let _ = Swarm::disconnect_peer_id(swarm, peer_id);
                     if response_channel.send(()).is_err() {
                         warn!("Failed to disconnect from a peer");
+                    }
+                }
+                NetRPCMethods::AgentVersion(response_channel, peer_id) => {
+                    let agent_version = swarm
+                        .behaviour()
+                        .peer_info(&peer_id)
+                        .and_then(|info| info.agent_version.clone());
+
+                    if response_channel.send(agent_version).is_err() {
+                        warn!("Failed to get agent version");
+                    }
+                }
+                NetRPCMethods::AutoNATStatus(response_channel) => {
+                    let nat_status = swarm.behaviour().discovery.nat_status();
+                    if response_channel.send(nat_status).is_err() {
+                        warn!("Failed to get nat status");
                     }
                 }
             }
@@ -895,17 +918,22 @@ async fn emit_event(sender: &Sender<NetworkEvent>, event: NetworkEvent) {
 ///
 /// As a reference `lotus` uses the default `go-libp2p` transport builder which
 /// has all above protocols enabled.
-pub fn build_transport(local_key: Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    let build_tcp = || libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true));
-    let build_dns_tcp = || libp2p::dns::tokio::Transport::system(build_tcp());
-    let transport = build_dns_tcp()?;
-
-    let auth_config = noise::Config::new(&local_key).context("Noise key generation failed")?;
-
-    Ok(transport
-        .upgrade(core::upgrade::Version::V1)
-        .authenticate(auth_config)
-        .multiplex(yamux::Config::default())
-        .timeout(Duration::from_secs(20))
-        .boxed())
+pub fn build_transport(local_key: &Keypair) -> anyhow::Result<Boxed<(PeerId, StreamMuxerBox)>> {
+    let auth_config = noise::Config::new(local_key).context("Noise key generation failed")?;
+    let build_tcp = || {
+        libp2p::tcp::tokio::Transport::new(libp2p::tcp::Config::new().nodelay(true))
+            .upgrade(core::upgrade::Version::V1)
+            .authenticate(auth_config)
+            .multiplex(yamux::Config::default())
+            .timeout(Duration::from_secs(20))
+    };
+    let build_quic = || libp2p::quic::tokio::Transport::new(libp2p::quic::Config::new(local_key));
+    let build_tcp_quic = || {
+        OrTransport::new(build_tcp(), build_quic()).map(|either_output, _| match either_output {
+            Either::Left((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+            Either::Right((peer_id, muxer)) => (peer_id, StreamMuxerBox::new(muxer)),
+        })
+    };
+    let build_dns_tcp_quic = || libp2p::dns::tokio::Transport::system(build_tcp_quic());
+    Ok(build_dns_tcp_quic()?.boxed())
 }

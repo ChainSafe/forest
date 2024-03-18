@@ -57,6 +57,11 @@ impl TipsetKey {
     pub fn to_cids(&self) -> NonEmpty<Cid> {
         self.0.clone().into_cids()
     }
+
+    /// Returns an iterator of `CID`s.
+    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
+        self.0.iter()
+    }
 }
 
 impl From<NonEmpty<Cid>> for TipsetKey {
@@ -74,6 +79,26 @@ impl fmt::Display for TipsetKey {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "[{}]", s)
+    }
+}
+
+impl<'a> IntoIterator for &'a TipsetKey {
+    type Item = <&'a SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <&'a SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+impl IntoIterator for TipsetKey {
+    type Item = <SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -469,12 +494,32 @@ mod lotus_json {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use nonempty::NonEmpty;
+    use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::TipsetKey;
 
     pub struct TipsetLotusJson(Tipset);
 
+    impl JsonSchema for TipsetLotusJson {
+        fn schema_name() -> String {
+            String::from("TipsetLotusJson")
+        }
+        fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+            // can't impl JsonSchema for NonEmpty...
+            #[derive(JsonSchema)]
+            #[serde(rename_all = "PascalCase")]
+            #[allow(unused)]
+            struct Helper {
+                cids: LotusJson<TipsetKey>,
+                blocks: LotusJson<Vec<CachingBlockHeader>>,
+                height: LotusJson<i64>,
+            }
+            Helper::json_schema(gen)
+        }
+    }
+
+    // NOTE: keep this in sync with JsonSchema implementation above
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {

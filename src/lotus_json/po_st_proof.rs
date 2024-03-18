@@ -6,7 +6,7 @@ use fvm_shared3::sector::PoStProof as PoStProofV3;
 
 use super::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PoStProofLotusJson {
     po_st_proof: LotusJson<RegisteredPoStProof>,

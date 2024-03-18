@@ -11,11 +11,12 @@ use crate::{
 };
 use ::cid::Cid;
 use num::BigInt;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::blocks::{CachingBlockHeader, RawBlockHeader};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BlockHeaderLotusJson {
     miner: LotusJson<Address>,

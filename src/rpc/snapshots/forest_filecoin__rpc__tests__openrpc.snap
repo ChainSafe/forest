@@ -1,0 +1,79 @@
+---
+source: src/rpc/mod.rs
+expression: spec
+---
+methods:
+  - name: Filecoin.ChainGetPath
+    params:
+      - name: from
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+      - name: to
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: Filecoin.ChainGetPath-result
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
+        nullable: true
+      required: true
+components:
+  schemas:
+    CidLotusJsonGeneric_for_64:
+      type: object
+      required:
+        - /
+      properties:
+        /:
+          $ref: "#/components/schemas/String"
+    PathChange_for_TipsetLotusJson:
+      oneOf:
+        - type: object
+          required:
+            - revert
+          properties:
+            revert:
+              $ref: "#/components/schemas/TipsetLotusJson"
+          additionalProperties: false
+        - type: object
+          required:
+            - apply
+          properties:
+            apply:
+              $ref: "#/components/schemas/TipsetLotusJson"
+          additionalProperties: false
+    String:
+      type: string
+    TipsetKeyLotusJson:
+      $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+    TipsetLotusJson:
+      type: object
+      required:
+        - Blocks
+        - Cids
+        - Height
+      properties:
+        Blocks:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+        Cids:
+          $ref: "#/components/schemas/TipsetKeyLotusJson"
+        Height:
+          $ref: "#/components/schemas/int64"
+    "forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>":
+      type: array
+      items:
+        $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      nullable: true
+    int64:
+      type: integer
+      format: int64

@@ -55,6 +55,13 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
     }
 
+    pub fn chain_get_tipset_after_height_req(
+        epoch: ChainEpoch,
+        head: ApiTipsetKey,
+    ) -> RpcRequest<Tipset> {
+        RpcRequest::new(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
+    }
+
     #[allow(unused)] // consistency
     pub async fn chain_get_tipset(&self, tsk: TipsetKey) -> Result<Tipset, JsonRpcError> {
         self.call(Self::chain_get_tipset_req(tsk)).await

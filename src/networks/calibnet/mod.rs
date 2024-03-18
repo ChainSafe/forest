@@ -7,7 +7,10 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
+use super::{
+    drand::{DRAND_MAINNET, DRAND_QUICKNET},
+    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -191,14 +194,31 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 ),
             },
         ),
+        (
+            Height::Dragon,
+            HeightInfo {
+                epoch: 1_427_974,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi")
+                        .unwrap(),
+                ),
+            },
+        ),
     ])
 });
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
-    [DrandPoint {
-        height: 0,
-        config: &DRAND_MAINNET,
-    }]
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
+    [
+        DrandPoint {
+            height: 0,
+            config: &DRAND_MAINNET,
+        },
+        DrandPoint {
+            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
+                .unwrap_or(HEIGHT_INFOS.get(&Height::Dragon).unwrap().epoch + 120),
+            config: &DRAND_QUICKNET,
+        },
+    ]
 });
 
 #[cfg(test)]

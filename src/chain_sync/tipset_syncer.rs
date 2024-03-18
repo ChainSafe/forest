@@ -981,6 +981,43 @@ async fn fetch_batch<DB: Blockstore>(
     network: &SyncNetworkContext<DB>,
     db: &DB,
 ) -> Result<Vec<FullTipset>, TipsetRangeSyncerError> {
+    const MAX_RETRY_ON_ERROR: usize = 3;
+    let mut n_retry_left = MAX_RETRY_ON_ERROR;
+    let mut error = None;
+
+    let mut result = vec![];
+    let mut n_missing = batch.len();
+
+    while n_missing > 0 {
+        #[allow(clippy::indexing_slicing)]
+        match fetch_batch_inner(&batch[..n_missing], network, db).await {
+            Ok(mut fetched) => {
+                fetched.extend(result);
+                result = fetched;
+                n_missing = batch.len().saturating_sub(result.len());
+            }
+            Err(e) => {
+                error = Some(e);
+                if n_retry_left > 0 {
+                    n_retry_left -= 1;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    match (result.len(), error) {
+        (0, Some(e)) => Err(e),
+        _ => Ok(result),
+    }
+}
+
+async fn fetch_batch_inner<DB: Blockstore>(
+    batch: &[Arc<Tipset>],
+    network: &SyncNetworkContext<DB>,
+    db: &DB,
+) -> Result<Vec<FullTipset>, TipsetRangeSyncerError> {
     if let Some(cached) = batch
         .iter()
         .map(|tipset| tipset.fill_from_blockstore(db))
@@ -994,7 +1031,7 @@ async fn fetch_batch<DB: Blockstore>(
     // Tipsets in `batch` are already in chronological order
     if !batch.is_empty() {
         let compacted_messages = network
-            .chain_exchange_messages(None, &batch)
+            .chain_exchange_messages(None, batch)
             .await
             .map_err(TipsetRangeSyncerError::NetworkMessageQueryFailed)?;
 
