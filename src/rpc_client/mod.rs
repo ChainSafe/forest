@@ -280,9 +280,22 @@ impl fmt::Display for Url {
     }
 }
 
-enum CommunicationProtocol {
+#[derive(PartialEq, Eq, Debug)]
+pub enum CommunicationProtocol {
     Http,
     Ws,
+}
+
+impl TryFrom<&str> for CommunicationProtocol {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match s {
+            "http" => Ok(Self::Http),
+            "ws" => Ok(Self::Ws),
+            _ => anyhow::bail!("unsupported protocol"),
+        }
+    }
 }
 
 /// Parses a multi-address into a URL
