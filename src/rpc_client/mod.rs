@@ -151,7 +151,7 @@ impl ApiInfo {
         resp
     }
 
-    pub async fn ws_call<T: HasLotusJson + Send>(
+    pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(
         &self,
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
@@ -163,7 +163,11 @@ impl ApiInfo {
             .build(api_url.to_string())
             .await?;
         let response_lotus_json: T::LotusJson = ws_client.request(req.method_name, req).await?;
-        Ok(HasLotusJson::from_lotus_json(response_lotus_json))
+
+        let resp = Ok(HasLotusJson::from_lotus_json(response_lotus_json));
+
+        tracing::debug!("Response: {:?}", resp);
+        resp
     }
 }
 
