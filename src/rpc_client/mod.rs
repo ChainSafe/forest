@@ -99,8 +99,12 @@ impl ApiInfo {
             .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
         let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
-        let api_url =
-            multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, ComProtocol::Http).to_string();
+        let api_url = multiaddress_to_url(
+            &self.multiaddr,
+            req.rpc_endpoint,
+            CommunicationProtocol::Http,
+        )
+        .to_string();
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -151,7 +155,8 @@ impl ApiInfo {
         &self,
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, ComProtocol::Ws);
+        let api_url =
+            multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, CommunicationProtocol::Ws);
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
         let ws_client = WsClientBuilder::default()
             .request_timeout(req.timeout)
@@ -275,20 +280,23 @@ impl fmt::Display for Url {
     }
 }
 
-// The communication protocol
-enum ComProtocol {
+enum CommunicationProtocol {
     Http,
     Ws,
 }
 
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str, com_protocol: ComProtocol) -> Url {
+fn multiaddress_to_url(
+    multiaddr: &Multiaddr,
+    endpoint: &str,
+    protocol: CommunicationProtocol,
+) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: match com_protocol {
-                ComProtocol::Http => HTTP_PROTOCOL,
-                ComProtocol::Ws => WS_PROTOCOL,
+            protocol: match protocol {
+                CommunicationProtocol::Http => HTTP_PROTOCOL,
+                CommunicationProtocol::Ws => WS_PROTOCOL,
             }
             .to_owned(),
             port: DEFAULT_PORT,
