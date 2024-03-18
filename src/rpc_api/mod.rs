@@ -223,7 +223,6 @@ pub mod chain_api {
         pub epoch: ChainEpoch,
         pub recent_roots: i64,
         pub output_path: PathBuf,
-        // this has to be LotusJson<T> so #[derive(JsonSchema)] works properly
         pub tipset_keys: LotusJson<ApiTipsetKey>,
         pub skip_checksum: bool,
         pub dry_run: bool,

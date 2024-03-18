@@ -53,6 +53,7 @@ use tokio::sync::RwLock;
 
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
 //                  avoid double indirection
+//                  Remove this and use `Ctx` instead.
 pub type Data<T> = Arc<Arc<T>>;
 
 /// This is where you store persistent data, or at least access to stateful

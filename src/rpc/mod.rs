@@ -32,9 +32,8 @@ use crate::rpc::{
     state_api::*,
 };
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
-    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
-    wallet_api::*,
+    auth_api::*, beacon_api::*, common_api::*, data_types::RPCState, eth_api::*, gas_api::*,
+    mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 
 use fvm_ipld_blockstore::Blockstore;
@@ -51,9 +50,7 @@ use tokio::sync::RwLock;
 use tower::Service;
 use tracing::info;
 
-use self::chain_api::ChainGetPath;
 use self::reflect::openrpc_types::ParamStructure;
-use self::reflect::RpcMethodExt as _;
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
@@ -159,7 +156,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
-    ChainGetPath::register(&mut module);
+    chain_api::register(&mut module);
     module.finish()
 }
 
@@ -174,7 +171,6 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     use auth_api::*;
-    use chain_api::*;
     use eth_api::*;
     use gas_api::*;
     use mpool_api::*;
@@ -188,29 +184,6 @@ where
     module.register_async_method(AUTH_VERIFY, auth_verify::<DB>)?;
     // Beacon API
     module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
-    // Chain API
-    module.register_async_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)?;
-    module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
-    module.register_async_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)?;
-    module.register_async_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)?;
-    module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)?;
-    module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
-    module.register_async_method(
-        CHAIN_GET_TIPSET_AFTER_HEIGHT,
-        chain_get_tipset_after_height::<DB>,
-    )?;
-    module.register_async_method(CHAIN_GET_GENESIS, |_, state| chain_get_genesis::<DB>(state))?;
-    module.register_async_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)?;
-    module.register_async_method(CHAIN_HEAD, |_, state| chain_head::<DB>(state))?;
-    module.register_async_method(CHAIN_GET_BLOCK, chain_get_block::<DB>)?;
-    module.register_async_method(CHAIN_SET_HEAD, chain_set_head::<DB>)?;
-    module.register_async_method(CHAIN_GET_MIN_BASE_FEE, chain_get_min_base_fee::<DB>)?;
-    module.register_async_method(
-        CHAIN_GET_MESSAGES_IN_TIPSET,
-        chain_get_messages_in_tipset::<DB>,
-    )?;
-    module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
-    module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
     // Message Pool API
     module.register_async_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)?;
     module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;

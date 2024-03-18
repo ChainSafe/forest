@@ -17,6 +17,25 @@
 //! - [`RpcMethod`] defining arity and actually dispatching the function calls.
 //!
 //! [`SelfDescribingRpcModule`] actually does the work to create the OpenRPC document.
+//!
+//! # Implementation guidelines.
+//! - [`RpcMethod`] MUST only be implemented on _uninhabited types_, i.e empty
+//!   `enum`s.
+//! - [`RpcMethod::Params`] MUST always be a tuple.
+//!   - Do not accept `LotusJson<(T0, T1)>`.
+//!     This is misuse of the `LotusJson` API.
+//! - Params SHOULD be refactored away from using `#[serde(with = "crate::lotus_json")]`
+//!   to allow for [`JsonSchema`] to be `#[derive(..)]`-d appropriately.
+//! - You SHOULD implement the [`RpcMethod::handle`] as an `async fn`, returning
+//!   `Result<Self::Ok, JsonRpcError>`.
+//! - You SHOULD relax the bounds on [`Ctx`] as appropriate.
+//!   E.g from `Ctx<impl Blockstore + Send>` to `Ctx<impl Blockstore>`.
+//! - You SHOULD destructure params in [`RpcMethod::handle`].
+//! - Method-specific structs SHOULD live in the same file as the [`RpcMethod`]
+//!   implementation.
+//!
+//! # Limitations
+//! - We don't provide any discrimination of error types.
 
 pub mod jsonrpc_types;
 pub mod openrpc_types;
@@ -51,7 +70,7 @@ use std::{future::Future, sync::Arc};
 //                  avoid double indirection
 pub type Ctx<T> = Arc<Arc<RPCState<T>>>;
 /// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
-type ModuleState<T> = Arc<RPCState<T>>;
+pub type ModuleState<T> = Arc<RPCState<T>>;
 
 /// A definition of an RPC method handler which can be registered with a
 /// [`SelfDescribingRpcModule`].
