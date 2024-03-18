@@ -76,10 +76,10 @@ pub enum ApiCommands {
     /// Compare
     Compare {
         /// Forest address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345").expect("infallible"))]
+        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible"))]
         forest: ApiInfo,
         /// Lotus address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234").expect("infallible"))]
+        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible"))]
         lotus: ApiInfo,
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg()]
