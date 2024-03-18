@@ -38,6 +38,7 @@ use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use serde::de::DeserializeOwned;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -87,6 +88,12 @@ pub enum ApiCommands {
         /// Filter which tests to run according to method name. Case sensitive.
         #[arg(long, default_value = "")]
         filter: String,
+        /// Filter file which tests to run according to method name. Case sensitive.
+        /// The file should contain one entry per line. Lines starting with `!`
+        /// are considered as rejected methods, while the others are allowed.
+        /// Empty lines and lines starting with `#` are ignored.
+        #[arg(long)]
+        filter_file: Option<PathBuf>,
         /// Cancel test run on the first failure
         #[arg(long)]
         fail_fast: bool,
@@ -106,6 +113,7 @@ pub enum ApiCommands {
 /// <https://docs.forest.chainsafe.io/rustdoc/forest_filecoin/tool/subcommands/api_cmd/enum.ApiCommands.html>
 struct ApiTestFlags {
     filter: String,
+    filter_file: Option<PathBuf>,
     fail_fast: bool,
     n_tipsets: usize,
     run_ignored: RunIgnored,
@@ -136,6 +144,7 @@ impl ApiCommands {
                 lotus,
                 snapshot_files,
                 filter,
+                filter_file,
                 fail_fast,
                 n_tipsets,
                 run_ignored,
@@ -143,6 +152,7 @@ impl ApiCommands {
             } => {
                 let config = ApiTestFlags {
                     filter,
+                    filter_file,
                     fail_fast,
                     n_tipsets,
                     run_ignored,
@@ -970,10 +980,14 @@ async fn run_tests(
 ) -> anyhow::Result<()> {
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
-    for test in tests.into_iter() {
-        let forest = forest.clone();
-        let lotus = lotus.clone();
 
+    let filter_list = if let Some(filter_file) = &config.filter_file {
+        FilterList::new_from_file(filter_file)?
+    } else {
+        FilterList::default().allow(config.filter.clone())
+    };
+
+    for test in tests.into_iter() {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
@@ -982,12 +996,15 @@ async fn run_tests(
         if matches!(config.run_ignored, RunIgnored::IgnoredOnly) && test.ignore.is_none() {
             continue;
         }
-        if !test.request.method_name.contains(&config.filter) {
+
+        if !filter_list.authorize(test.request.method_name) {
             continue;
         }
 
         // Acquire a permit from the semaphore before spawning a test
         let permit = semaphore.clone().acquire_owned().await?;
+        let forest = forest.clone();
+        let lotus = lotus.clone();
         let future = tokio::spawn(async move {
             let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
             drop(permit); // Release the permit after test execution
@@ -1079,9 +1096,125 @@ fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
     })
 }
 
+/// A filter list that allows or rejects RPC methods based on their name.
+#[derive(Default)]
+struct FilterList {
+    allow: Vec<String>,
+    reject: Vec<String>,
+}
+
+impl FilterList {
+    fn new_from_file(file: &Path) -> anyhow::Result<Self> {
+        let (allow, reject) = Self::create_allow_reject_list(file)?;
+        Ok(Self { allow, reject })
+    }
+
+    /// Authorize (or not) an RPC method based on its name.
+    /// If the allow list is empty, all methods are authorized, unless they are rejected.
+    fn authorize(&self, entry: &str) -> bool {
+        (self.allow.is_empty() || self.allow.iter().any(|a| entry.contains(a)))
+            && !self.reject.iter().any(|r| entry.contains(r))
+    }
+
+    fn allow(mut self, entry: String) -> Self {
+        self.allow.push(entry);
+        self
+    }
+
+    #[allow(dead_code)]
+    fn reject(mut self, entry: String) -> Self {
+        self.reject.push(entry);
+        self
+    }
+
+    /// Create a list of allowed and rejected RPC methods from a file.
+    fn create_allow_reject_list(file: &Path) -> anyhow::Result<(Vec<String>, Vec<String>)> {
+        let filter_file = std::fs::read_to_string(file)?;
+        let (reject, allow): (Vec<_>, Vec<_>) = filter_file
+            .lines()
+            .map(|line| line.trim().to_owned())
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .partition(|line| line.starts_with('!'));
+
+        let reject = reject
+            .into_iter()
+            .map(|entry| entry.trim_start_matches('!').to_owned())
+            .collect::<Vec<_>>();
+
+        Ok((allow, reject))
+    }
+}
+
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_filter_list_creation() {
+        // Create a temporary file and write some test data to it
+        let mut filter_file = tempfile::Builder::new().tempfile().unwrap();
+        let list = FilterList::new_from_file(filter_file.path()).unwrap();
+        assert!(list.allow.is_empty());
+        assert!(list.reject.is_empty());
+
+        write!(
+            filter_file,
+            r#"# This is a comment
+            !cthulhu
+            azathoth
+            !nyarlathotep
+            "#
+        )
+        .unwrap();
+
+        let list = FilterList::new_from_file(filter_file.path()).unwrap();
+        assert_eq!(list.allow, vec!["azathoth".to_string()]);
+        assert_eq!(
+            list.reject,
+            vec!["cthulhu".to_string(), "nyarlathotep".to_string()]
+        );
+
+        let list = list
+            .allow("shub-niggurath".to_string())
+            .reject("yog-sothoth".to_string());
+        assert_eq!(
+            list.allow,
+            vec!["azathoth".to_string(), "shub-niggurath".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_filter_list_authorize() {
+        let list = FilterList::default();
+        // if allow is empty, all entries are authorized
+        assert!(list.authorize("Filecoin.ChainGetBlock"));
+        assert!(list.authorize("Filecoin.StateNetworkName"));
+
+        // all entries are authorized, except the rejected ones
+        let list = list.reject("Network".to_string());
+        assert!(list.authorize("Filecoin.ChainGetBlock"));
+
+        // case-sensitive
+        assert!(list.authorize("Filecoin.StatenetworkName"));
+        assert!(!list.authorize("Filecoin.StateNetworkName"));
+
+        // if allow is not empty, only the allowed entries are authorized
+        let list = FilterList::default().allow("Chain".to_string());
+        assert!(list.authorize("Filecoin.ChainGetBlock"));
+        assert!(!list.authorize("Filecoin.StateNetworkName"));
+
+        // unless they are rejected
+        let list = list.reject("GetBlock".to_string());
+        assert!(!list.authorize("Filecoin.ChainGetBlock"));
+        assert!(list.authorize("Filecoin.ChainGetMessage"));
+
+        // reject takes precedence over allow
+        let list = FilterList::default()
+            .allow("Chain".to_string())
+            .reject("Chain".to_string());
+        assert!(!list.authorize("Filecoin.ChainGetBlock"));
+    }
 
     #[test]
     fn test_derive_protocol() {

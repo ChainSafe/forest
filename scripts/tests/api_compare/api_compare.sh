@@ -34,9 +34,21 @@ fi
 
 # We need the network name to attach the comparison tool to the same network as the nodes.
 COMPOSE_NETWORK=$(docker compose config --format json | jq '.networks."api-tests".name' | tr -d '"')
+COMPOSE_VOLUME=$(docker compose config --format json | jq '.volumes."node-data".name' | tr -d '"')
 FOREST_ADDRESS="/dns/forest/tcp/$FOREST_RPC_PORT/http"
 LOTUS_ADDRESS="/dns/lotus/tcp/$LOTUS_RPC_PORT/http"
-if ! docker run --rm --network="$COMPOSE_NETWORK" --entrypoint forest-tool "$FOREST_IMAGE" api compare --forest "$FOREST_ADDRESS" --lotus "$LOTUS_ADDRESS"; then
+# get file name in /data/snapshot/ directory
+SNAPSHOT_NAME=$(docker run --rm -v "$COMPOSE_VOLUME":/data --entrypoint ls "$FOREST_IMAGE" /data/snapshot | grep forest.car.zst)
+if ! docker run --rm --network="$COMPOSE_NETWORK" \
+   -v "$(pwd)":/data/tester/ \
+   -v "$COMPOSE_VOLUME":/data \
+   --entrypoint forest-tool "$FOREST_IMAGE" \
+   api compare \
+   /data/snapshot/"$SNAPSHOT_NAME" \
+   --forest "$FOREST_ADDRESS" \
+   --lotus "$LOTUS_ADDRESS" \
+   --n-tipsets 5 \
+   --filter-file /data/tester/filter-list; then
     echo "Comparison tool failed to execute. Exiting..." >&2
     exit 1
 fi

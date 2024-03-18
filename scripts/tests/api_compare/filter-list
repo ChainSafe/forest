@@ -1,0 +1,12 @@
+# This list contains potentially broken methods (or tests) that are ignored.
+# They should be considered bugged, and not used until the root cause is resolved.
+!Filecoin.ChainGetPath
+!Filecoin.ChainGetTipSetAfterHeight
+!Filecoin.MinerGetBaseInfo            
+!Filecoin.StateAccountKey
+!Filecoin.StateCall
+!Filecoin.StateListMessages
+!Filecoin.StateSearchMsg
+!Filecoin.StateSearchMsgLimited
+!Filecoin.StateVMCirculatingSupplyInternal
+!Filecoin.StateWaitMsg
