@@ -31,6 +31,7 @@ where
                 Subcommand::DB(cmd) => cmd.run().await,
                 Subcommand::Car(cmd) => cmd.run().await,
                 Subcommand::Api(cmd) => cmd.run().await,
+                Subcommand::Net(cmd) => cmd.run().await,
                 Subcommand::Shed(cmd) => cmd.run().await,
             }
         })
