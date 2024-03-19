@@ -284,22 +284,12 @@ impl fmt::Display for Url {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, strum::EnumString, strum::Display)]
 pub enum CommunicationProtocol {
+    #[strum(serialize = "http")]
     Http,
+    #[strum(serialize = "ws")]
     Ws,
-}
-
-impl TryFrom<&str> for CommunicationProtocol {
-    type Error = anyhow::Error;
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match s {
-            "http" => Ok(Self::Http),
-            "ws" => Ok(Self::Ws),
-            _ => anyhow::bail!("unsupported protocol"),
-        }
-    }
 }
 
 /// Parses a multi-address into a URL
@@ -311,11 +301,7 @@ fn multiaddress_to_url(
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: match protocol {
-                CommunicationProtocol::Http => HTTP_PROTOCOL,
-                CommunicationProtocol::Ws => WS_PROTOCOL,
-            }
-            .to_owned(),
+            protocol: protocol.to_string(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
             endpoint: endpoint.into(),
