@@ -7,13 +7,9 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{
-    ApiActorState, ApiDeadline, ApiInvocResult, ApiTipsetKey, CirculatingSupply, Data, MarketDeal,
-    MessageFilter, MessageLookup, MinerSectors, MiningBaseInfo, RPCState, SectorOnChainInfo,
-    Transaction,
-};
+use crate::rpc_api::data_types::*;
 use crate::shim::{
-    address::Address, clock::ChainEpoch, econ::TokenAmount, executor::Receipt,
+    address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
@@ -24,6 +20,7 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
+use fil_actor_interface::market::DealState;
 use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
@@ -1009,7 +1006,7 @@ pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
     let actor = data
         .state_manager
         .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
-        .context("Power actor not found".to_string())?;
+        .context("Power actor not found")?;
 
     let state = power::State::load(store, actor.code, actor.state)?;
     let miners = state
@@ -1019,4 +1016,30 @@ pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
         .collect();
 
     Ok(LotusJson(miners))
+}
+
+pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<ApiMarketDeal, JsonRpcError> {
+    let LotusJson((deal_id, ApiTipsetKey(tsk))): LotusJson<(DealID, ApiTipsetKey)> =
+        params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let store = data.state_manager.blockstore();
+    let actor = data
+        .state_manager
+        .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
+        .context("Market actor not found")?;
+    let market_state = market::State::load(store, actor.code, actor.state)?;
+    let proposals = market_state.proposals(store)?;
+    let proposal =  proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
+
+    let states = market_state.states(store)?;
+    let state = states.get(deal_id)?.unwrap_or_else(DealState::empty);
+
+    Ok(MarketDeal { proposal, state }.into())
 }

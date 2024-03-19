@@ -8,7 +8,7 @@ use crate::{
     blocks::TipsetKey,
     rpc_api::{data_types::*, state_api::*},
     shim::{
-        address::Address, clock::ChainEpoch, econ::TokenAmount, message::Message,
+        address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::Message,
         message::MethodNum, state_tree::ActorState, version::NetworkVersion,
     },
 };
@@ -220,6 +220,13 @@ impl ApiInfo {
         max_height: i64,
     ) -> RpcRequest<Vec<Cid>> {
         RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))
+    }
+
+    pub fn state_market_storage_deal_req(
+        deal_id: DealID,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<ApiMarketDeal> {
+        RpcRequest::new(STATE_MARKET_STORAGE_DEAL, (deal_id, tsk))
     }
 
     pub fn msig_get_available_balance_req(
