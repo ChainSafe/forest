@@ -7,7 +7,6 @@ mod beacon_api;
 mod chain_api;
 mod channel;
 mod common_api;
-mod error;
 mod eth_api;
 mod gas_api;
 mod mpool_api;
@@ -17,6 +16,9 @@ mod reflect;
 mod state_api;
 mod sync_api;
 mod wallet_api;
+
+mod error;
+pub use error::JsonRpcError;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
