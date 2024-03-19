@@ -4,7 +4,7 @@
 mod auth_api;
 mod auth_layer;
 mod beacon_api;
-mod chain_api;
+pub mod chain;
 mod channel;
 mod common_api;
 mod error;
@@ -94,7 +94,7 @@ where
     pubsub_module
         .register_channel("Filecoin.ChainNotify", {
             let state_clone = state.clone();
-            move |params| chain_api::chain_notify(params, &state_clone)
+            move |params| chain::chain_notify(params, &state_clone)
         })
         .map_err(to_rpc_err)?;
     module.merge(pubsub_module).map_err(to_rpc_err)?;
@@ -159,7 +159,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
-    chain_api::register(&mut module);
+    chain::register(&mut module);
     module.finish()
 }
 

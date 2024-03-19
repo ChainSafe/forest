@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
@@ -41,27 +40,27 @@ use super::reflect::SelfDescribingRpcModule;
 pub fn register(
     module: &mut SelfDescribingRpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
 ) {
-    ChainGetMessage::register(module);
-    ChainGetParentMessages::register(module);
-    ChainGetParentReceipts::register(module);
-    ChainGetMessagesInTipset::register(module);
-    ChainExport::register(module);
-    ChainReadObj::register(module);
-    ChainHasObj::register(module);
-    ChainGetBlockMessages::register(module);
-    ChainGetPath::register(module);
-    ChainGetTipsetByHeight::register(module);
-    ChainGetTipsetAfterHeight::register(module);
-    ChainGetGenesis::register(module);
-    ChainHead::register(module);
-    ChainGetBlock::register(module);
-    ChainGetTipset::register(module);
-    ChainSetHead::register(module);
-    ChainGetMinBaseFee::register(module);
+    GetMessage::register(module);
+    GetParentMessages::register(module);
+    GetParentReceipts::register(module);
+    GetMessagesInTipset::register(module);
+    Export::register(module);
+    ReadObj::register(module);
+    HasObj::register(module);
+    GetBlockMessages::register(module);
+    GetPath::register(module);
+    GetTipsetByHeight::register(module);
+    GetTipsetAfterHeight::register(module);
+    GetGenesis::register(module);
+    Head::register(module);
+    GetBlock::register(module);
+    GetTipset::register(module);
+    SetHead::register(module);
+    GetMinBaseFee::register(module);
 }
 
-enum ChainGetMessage {}
-impl RpcMethod<1> for ChainGetMessage {
+pub enum GetMessage {}
+impl RpcMethod<1> for GetMessage {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_MESSAGE;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -82,8 +81,8 @@ impl RpcMethod<1> for ChainGetMessage {
     }
 }
 
-enum ChainGetParentMessages {}
-impl RpcMethod<1> for ChainGetParentMessages {
+pub enum GetParentMessages {}
+impl RpcMethod<1> for GetParentMessages {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_PARENT_MESSAGES;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -106,8 +105,8 @@ impl RpcMethod<1> for ChainGetParentMessages {
     }
 }
 
-enum ChainGetParentReceipts {}
-impl RpcMethod<1> for ChainGetParentReceipts {
+pub enum GetParentReceipts {}
+impl RpcMethod<1> for GetParentReceipts {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_PARENT_RECEIPTS;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -180,8 +179,8 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     }
 }
 
-enum ChainGetMessagesInTipset {}
-impl RpcMethod<1> for ChainGetMessagesInTipset {
+pub enum GetMessagesInTipset {}
+impl RpcMethod<1> for GetMessagesInTipset {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_MESSAGES_IN_TIPSET;
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     type Params = (LotusJson<TipsetKey>,);
@@ -197,8 +196,8 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     }
 }
 
-enum ChainExport {}
-impl RpcMethod<1> for ChainExport {
+pub enum Export {}
+impl RpcMethod<1> for Export {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_EXPORT;
     const PARAM_NAMES: [&'static str; 1] = ["export-params"];
     type Params = (ChainExportParams,);
@@ -266,8 +265,8 @@ impl RpcMethod<1> for ChainExport {
     }
 }
 
-enum ChainReadObj {}
-impl RpcMethod<1> for ChainReadObj {
+pub enum ReadObj {}
+impl RpcMethod<1> for ReadObj {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_READ_OBJ;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -285,8 +284,8 @@ impl RpcMethod<1> for ChainReadObj {
     }
 }
 
-enum ChainHasObj {}
-impl RpcMethod<1> for ChainHasObj {
+pub enum HasObj {}
+impl RpcMethod<1> for HasObj {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_HAS_OBJ;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -299,8 +298,8 @@ impl RpcMethod<1> for ChainHasObj {
     }
 }
 
-enum ChainGetBlockMessages {}
-impl RpcMethod<1> for ChainGetBlockMessages {
+pub enum GetBlockMessages {}
+impl RpcMethod<1> for GetBlockMessages {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_BLOCK_MESSAGES;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -337,8 +336,8 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     }
 }
 
-pub enum ChainGetPath {}
-impl RpcMethod<2> for ChainGetPath {
+pub enum GetPath {}
+impl RpcMethod<2> for GetPath {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_PATH;
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
@@ -409,8 +408,8 @@ fn impl_chain_get_path(
         .collect())
 }
 
-enum ChainGetTipsetByHeight {}
-impl RpcMethod<2> for ChainGetTipsetByHeight {
+pub enum GetTipsetByHeight {}
+impl RpcMethod<2> for GetTipsetByHeight {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_TIPSET_BY_HEIGHT;
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
@@ -432,8 +431,8 @@ impl RpcMethod<2> for ChainGetTipsetByHeight {
     }
 }
 
-enum ChainGetTipsetAfterHeight {}
-impl RpcMethod<2> for ChainGetTipsetAfterHeight {
+pub enum GetTipsetAfterHeight {}
+impl RpcMethod<2> for GetTipsetAfterHeight {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_TIPSET_AFTER_HEIGHT;
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
@@ -455,8 +454,8 @@ impl RpcMethod<2> for ChainGetTipsetAfterHeight {
     }
 }
 
-enum ChainGetGenesis {}
-impl RpcMethod<0> for ChainGetGenesis {
+pub enum GetGenesis {}
+impl RpcMethod<0> for GetGenesis {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_GENESIS;
     const PARAM_NAMES: [&'static str; 0] = [];
     type Params = ();
@@ -467,8 +466,8 @@ impl RpcMethod<0> for ChainGetGenesis {
     }
 }
 
-enum ChainHead {}
-impl RpcMethod<0> for ChainHead {
+pub enum Head {}
+impl RpcMethod<0> for Head {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_HEAD;
     const PARAM_NAMES: [&'static str; 0] = [];
     type Params = ();
@@ -479,8 +478,8 @@ impl RpcMethod<0> for ChainHead {
     }
 }
 
-enum ChainGetBlock {}
-impl RpcMethod<1> for ChainGetBlock {
+pub enum GetBlock {}
+impl RpcMethod<1> for GetBlock {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_BLOCK;
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     type Params = (LotusJson<Cid>,);
@@ -498,8 +497,8 @@ impl RpcMethod<1> for ChainGetBlock {
     }
 }
 
-enum ChainGetTipset {}
-impl RpcMethod<1> for ChainGetTipset {
+pub enum GetTipset {}
+impl RpcMethod<1> for GetTipset {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_TIPSET;
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     type Params = (LotusJson<ApiTipsetKey>,);
@@ -516,8 +515,8 @@ impl RpcMethod<1> for ChainGetTipset {
     }
 }
 
-enum ChainSetHead {}
-impl RpcMethod<1> for ChainSetHead {
+pub enum SetHead {}
+impl RpcMethod<1> for SetHead {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_SET_HEAD;
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     type Params = (LotusJson<ApiTipsetKey>,);
@@ -551,8 +550,8 @@ impl RpcMethod<1> for ChainSetHead {
     }
 }
 
-enum ChainGetMinBaseFee {}
-impl RpcMethod<1> for ChainGetMinBaseFee {
+pub enum GetMinBaseFee {}
+impl RpcMethod<1> for GetMinBaseFee {
     const NAME: &'static str = crate::rpc_api::chain_api::CHAIN_GET_MIN_BASE_FEE;
     const PARAM_NAMES: [&'static str; 1] = ["lookback"];
     type Params = (u32,);
