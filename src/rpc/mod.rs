@@ -13,13 +13,14 @@ mod gas_api;
 mod mpool_api;
 mod net_api;
 mod node_api;
-mod reflect;
 mod state_api;
 mod sync_api;
 mod wallet_api;
 
 mod client;
+mod reflect;
 pub use client::Client;
+pub use reflect::{RpcMethod, RpcMethodExt};
 
 use std::net::SocketAddr;
 use std::sync::Arc;

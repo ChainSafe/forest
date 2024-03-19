@@ -184,14 +184,14 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn call_module(
         module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
-        calling_convention: ConcreteCallingConvention,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
     where
         Self::Params: Serialize,
         Self::Ok: DeserializeOwned + Clone,
     {
         // don't require Params: Send
-        let build = Self::build_params(params, calling_convention).and_then(params2params);
+        let build = Self::build_params(params, ConcreteCallingConvention::ByPosition)
+            .and_then(params2params);
         async move {
             match build? {
                 Either::Left(it) => module.call(Self::NAME, it).await,
@@ -200,16 +200,17 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
     /// Call this method on an [`jsonrpsee::core::client::ClientT`].
-    async fn call_client(
+    async fn call(
         client: &impl jsonrpsee::core::client::ClientT,
         params: Self::Params,
-        calling_convention: ConcreteCallingConvention,
     ) -> Result<Self::Ok, jsonrpsee::core::ClientError>
     where
         Self::Params: Serialize,
         Self::Ok: DeserializeOwned,
     {
-        match Self::build_params(params, calling_convention).and_then(params2params)? {
+        match Self::build_params(params, ConcreteCallingConvention::ByPosition)
+            .and_then(params2params)?
+        {
             Either::Left(it) => client.request::<Self::Ok, _>(Self::NAME, it),
             Either::Right(it) => client.request::<Self::Ok, _>(Self::NAME, it),
         }

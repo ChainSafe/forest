@@ -3,6 +3,7 @@
 
 pub mod auth_ops;
 pub mod beacon_ops;
+#[deprecated]
 pub mod chain_ops;
 pub mod common_ops;
 pub mod eth_ops;

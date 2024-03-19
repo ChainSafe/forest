@@ -4,6 +4,8 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::ChainMessage;
+use crate::rpc::{self, chain, RpcMethodExt as _};
+use crate::rpc_api::data_types::ApiTipsetKey;
 use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
@@ -58,14 +60,19 @@ pub enum ChainCommands {
 
 impl ChainCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client =
+            &rpc::Client::from_multiaddr_with_path(&api.multiaddr, "/rpc/v0", api.token.as_deref())
+                .await?;
         match self {
             Self::Block { cid } => {
-                print_pretty_json(api.chain_get_block(cid).await?.into_lotus_json())
+                print_pretty_json(chain::GetBlock::call(client, (cid.into(),)).await?)
             }
-            Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
-            Self::Head => print_rpc_res_cids(api.chain_head().await?),
+            Self::Genesis => print_pretty_json(chain::GetGenesis::call(client, ()).await?),
+            Self::Head => print_rpc_res_cids(chain::Head::call(client, ()).await?.into_inner()),
             Self::Message { cid } => {
-                let bytes = api.chain_read_obj(cid).await?;
+                let bytes = chain::ReadObj::call(client, (cid.into(),))
+                    .await?
+                    .into_inner();
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
                     ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
                     ChainMessage::Signed(m) => {
@@ -75,7 +82,10 @@ impl ChainCommands {
                 }
             }
             Self::ReadObj { cid } => {
-                println!("{}", hex::encode(api.chain_read_obj(cid).await?));
+                let bytes = chain::ReadObj::call(client, (cid.into(),))
+                    .await?
+                    .into_inner();
+                println!("{}", hex::encode(bytes));
                 Ok(())
             }
             Self::SetHead {
@@ -85,8 +95,12 @@ impl ChainCommands {
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
-                let tipset = tipset_by_epoch_or_offset(&api, epoch).await?;
-                api.chain_set_head(tipset.key().clone()).await?;
+                let tipset = tipset_by_epoch_or_offset(client, epoch).await?;
+                chain::SetHead::call(
+                    client,
+                    (LotusJson(ApiTipsetKey(Some(tipset.key().clone()))),),
+                )
+                .await?;
                 Ok(())
             }
             Self::SetHead {
@@ -95,9 +109,12 @@ impl ChainCommands {
                 force: no_confirm,
             } => {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
-                api.chain_set_head(TipsetKey::from(
-                    NonEmpty::from_vec(cids).expect("cids cannot be empty"),
-                ))
+                chain::SetHead::call(
+                    client,
+                    (LotusJson(ApiTipsetKey(Some(TipsetKey::from(
+                        NonEmpty::from_vec(cids).expect("empty cid list is gated by clap"),
+                    )))),),
+                )
                 .await?;
                 Ok(())
             }
@@ -108,18 +125,25 @@ impl ChainCommands {
 /// If `epoch_or_offset` is negative, get the tipset that many blocks before the
 /// current head. Else treat `epoch_or_offset` as an epoch, and get that tipset.
 async fn tipset_by_epoch_or_offset(
-    api: &ApiInfo,
+    client: &rpc::Client,
     epoch_or_offset: i64,
 ) -> Result<Tipset, JsonRpcError> {
-    let current_head = api.chain_head().await?;
+    let current_head = chain::Head::call(client, ()).await?.into_inner();
 
     let target_epoch = match epoch_or_offset.is_negative() {
         true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
 
-    api.chain_get_tipset_by_height(target_epoch, current_head.key().into())
-        .await
+    Ok(chain::GetTipsetByHeight::call(
+        client,
+        (
+            target_epoch,
+            LotusJson(ApiTipsetKey(Some(current_head.key().clone()))),
+        ),
+    )
+    .await?
+    .into_inner())
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =
