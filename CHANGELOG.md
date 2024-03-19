@@ -56,6 +56,9 @@
 - [#4068](https://github.com/ChainSafe/forest/pull/4068) Fix schema bug in the
   `ChainNotify` RPC method.
 
+- [#4080](https://github.com/ChainSafe/forest/pull/4080) Fix broken
+  `StateVMCirculatingSupplyInternal` RPC method on calibnet.
+
 ## Forest 0.17.0 "Smaug"
 
 Mandatory release that includes:
