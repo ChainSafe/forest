@@ -254,7 +254,7 @@ pub struct MessageLookup {
 lotus_json_with_self!(MessageLookup);
 
 // Net API
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]

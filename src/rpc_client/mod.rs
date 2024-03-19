@@ -35,7 +35,6 @@ pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
-pub const DEFAULT_PROTOCOL: &str = "http";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug)]
@@ -90,12 +89,20 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
-    pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+    pub async fn call<T: HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
         let params = serde_json::value::to_raw_value(&req.params)
             .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
         let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint).to_string();
+        let api_url = multiaddress_to_url(
+            &self.multiaddr,
+            req.rpc_endpoint,
+            CommunicationProtocol::Http,
+        )
+        .to_string();
 
         debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
 
@@ -133,24 +140,32 @@ impl ApiInfo {
         let rpc_res: JsonRpcResponse<T::LotusJson> =
             serde_json::from_slice(&json).map_err(|_| JsonRpcError::PARSE_ERROR)?;
 
-        match rpc_res {
+        let resp = match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
             JsonRpcResponse::Error { error, .. } => Err(error),
-        }
+        };
+
+        tracing::debug!("Response: {:?}", resp);
+        resp
     }
 
-    pub async fn ws_call<T: HasLotusJson + Send>(
+    pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(
         &self,
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
+        let api_url =
+            multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, CommunicationProtocol::Ws);
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
         let ws_client = WsClientBuilder::default()
             .request_timeout(req.timeout)
             .build(api_url.to_string())
             .await?;
         let response_lotus_json: T::LotusJson = ws_client.request(req.method_name, req).await?;
-        Ok(HasLotusJson::from_lotus_json(response_lotus_json))
+
+        let resp = Ok(HasLotusJson::from_lotus_json(response_lotus_json));
+
+        tracing::debug!("Response: {:?}", resp);
+        resp
     }
 }
 
@@ -267,12 +282,24 @@ impl fmt::Display for Url {
     }
 }
 
+#[derive(PartialEq, Eq, Debug, strum::EnumString, strum::Display)]
+pub enum CommunicationProtocol {
+    #[strum(serialize = "http")]
+    Http,
+    #[strum(serialize = "ws")]
+    Ws,
+}
+
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> Url {
+fn multiaddress_to_url(
+    multiaddr: &Multiaddr,
+    endpoint: &str,
+    protocol: CommunicationProtocol,
+) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: DEFAULT_PROTOCOL.to_owned(),
+            protocol: protocol.to_string(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
             endpoint: endpoint.into(),
