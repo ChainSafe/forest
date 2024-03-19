@@ -20,7 +20,7 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
-use fil_actor_interface::market::{DealProposal, DealProposals, DealState};
+use fil_actor_interface::market::DealState;
 use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
@@ -1036,25 +1036,10 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
         .context("Market actor not found")?;
     let market_state = market::State::load(store, actor.code, actor.state)?;
     let proposals = market_state.proposals(store)?;
-    let proposal: DealProposal = match proposals {
-        DealProposals::V9(deal_array) => deal_array.get(deal_id)?.map(TryFrom::try_from),
-        DealProposals::V10(deal_array) => deal_array.get(deal_id)?.map(TryFrom::try_from),
-        DealProposals::V11(deal_array) => deal_array.get(deal_id)?.map(TryFrom::try_from),
-        DealProposals::V12(deal_array) => deal_array.get(deal_id)?.map(TryFrom::try_from),
-        DealProposals::V13(deal_array) => deal_array.get(deal_id)?.map(TryFrom::try_from),
-    }
-    .ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))??;
+    let proposal =  proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
 
     let states = market_state.states(store)?;
-
-    const EMPTY_DEAL_STATE: DealState = DealState {
-        sector_start_epoch: -1,
-        last_updated_epoch: -1,
-        slash_epoch: -1,
-        verified_claim: 0,
-    };
-
-    let state = states.get(deal_id)?.unwrap_or(EMPTY_DEAL_STATE);
+    let state = states.get(deal_id)?.unwrap_or_else(DealState::empty);
 
     Ok(MarketDeal { proposal, state }.into())
 }
