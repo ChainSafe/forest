@@ -995,7 +995,7 @@ where
         },
     };
     crate::utils::io::terminal_cleanup();
-    result.map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
+    result
 }
 
 async fn run_tests(

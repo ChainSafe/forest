@@ -20,7 +20,6 @@ mod wallet_api;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::{error::Error as StdError, fmt::Display};
 
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
@@ -43,7 +42,6 @@ use hyper::service::{make_service_fn, service_fn};
 use jsonrpsee::{
     core::RegisterMethodError,
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
-    types::{error::ErrorCode as RpcErrorCode, ErrorObjectOwned as RpcError},
     Methods,
 };
 use tokio::sync::mpsc::Sender;
@@ -70,7 +68,7 @@ pub async fn start_rpc<DB>(
     rpc_endpoint: SocketAddr,
     forest_version: &'static str,
     shutdown_send: Sender<()>,
-) -> Result<(), RpcError>
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -86,18 +84,15 @@ where
         u64::from(state.state_manager.chain_config().block_delay_secs),
         forest_version,
         shutdown_send,
-    )
-    .map_err(to_rpc_err)?;
+    )?;
 
     let mut pubsub_module = FilRpcModule::default();
 
-    pubsub_module
-        .register_channel("Filecoin.ChainNotify", {
-            let state_clone = state.clone();
-            move |params| chain_api::chain_notify(params, &state_clone)
-        })
-        .map_err(to_rpc_err)?;
-    module.merge(pubsub_module).map_err(to_rpc_err)?;
+    pubsub_module.register_channel("Filecoin.ChainNotify", {
+        let state_clone = state.clone();
+        move |params| chain_api::chain_notify(params, &state_clone)
+    })?;
+    module.merge(pubsub_module)?;
 
     let (stop_handle, _handle) = stop_channel();
 
@@ -115,7 +110,7 @@ where
         let per_conn = per_conn.clone();
 
         async move {
-            Ok::<_, Box<dyn StdError + Send + Sync>>(service_fn(move |req| {
+            anyhow::Ok(service_fn(move |req| {
                 let PerConnection {
                     methods,
                     stop_handle,
@@ -141,8 +136,7 @@ where
     info!("Ready for RPC connections");
     hyper::Server::bind(&rpc_endpoint)
         .serve(make_service)
-        .await
-        .map_err(to_rpc_err)?;
+        .await?;
 
     info!("Stopped accepting RPC connections");
 
@@ -322,10 +316,6 @@ where
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
 
     Ok(())
-}
-
-fn to_rpc_err(e: impl Display) -> RpcError {
-    RpcError::owned::<String>(RpcErrorCode::InternalError.code(), e.to_string(), None)
 }
 
 #[cfg(test)]
