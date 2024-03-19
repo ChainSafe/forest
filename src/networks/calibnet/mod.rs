@@ -51,6 +51,13 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             },
         ),
         (
+            Height::Liftoff,
+            HeightInfo {
+                epoch: -5,
+                bundle: None,
+            },
+        ),
+        (
             Height::Kumquat,
             HeightInfo {
                 epoch: 90,
