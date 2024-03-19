@@ -25,12 +25,14 @@ use crate::rpc_api::{data_types::RPCState, eth_api::*};
 use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{Address, Protocol};
 use crate::shim::crypto::Signature;
+use crate::shim::state_tree::StateTree;
 use crate::state_manager::StateManager;
 use crate::utils::version::FOREST_VERSION_STRING;
 use crate::Client;
 use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
+use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -551,7 +553,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
-fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
+fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     let shared_tipset = store.heaviest_tipset()?;
     let root_tsk = shared_tipset.key();
@@ -764,6 +766,30 @@ fn snapshot_tests(store: &ManyCar, n_tipsets: usize) -> anyhow::Result<Vec<RpcTe
                 )));
             }
         }
+
+        // Get deals
+        let deals = {
+            let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+            let actor = state
+                .get_actor(&Address::MARKET_ACTOR)?
+                .context("Market actor not found")?;
+            let market_state = market::State::load(&store, actor.code, actor.state)?;
+            let proposals = market_state.proposals(&store)?;
+            let mut deals = vec![];
+            proposals.for_each(|deal_id, _| {
+                deals.push(deal_id);
+                Ok(())
+            })?;
+            deals
+        };
+
+        // Take 5 deals from each tipset
+        for deal in deals.into_iter().take(5) {
+            tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+                deal,
+                tipset.key().into(),
+            )));
+        }
     }
     Ok(tests)
 }
@@ -810,8 +836,8 @@ async fn compare_apis(
     tests.extend(eth_tests());
 
     if !snapshot_files.is_empty() {
-        let store = ManyCar::try_from(snapshot_files)?;
-        tests.extend(snapshot_tests(&store, config.n_tipsets)?);
+        let store = Arc::new(ManyCar::try_from(snapshot_files)?);
+        tests.extend(snapshot_tests(store, config.n_tipsets)?);
     }
 
     if config.use_websocket {
