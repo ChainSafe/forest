@@ -2727,9 +2727,9 @@ checksum = "1676f435fc1dadde4d03e43f5d62b259e1ce5f40bd4ffb21db2b42ebe59c1382"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c94732b4360fa5796fe0f0524b62d4b7f9081c0001e45e44e1969511ad237a68"
+checksum = "67883dea647b9f019d7e2fb026189a4e4b773fdd3532b0e5ceaaca820e2db51b"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2743,9 +2743,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29941aeb04a17810b8d2104e0f0e4fa10001393e7a1d3523631196d7922fbc2f"
+checksum = "3b780f5e7b95fc7b2db4b0e0206c65c539eb97816d452913126356bf82d0beca"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2758,9 +2758,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "091aa98dfbb933274389c5be9348590e168548b15b886bd2eafbff7c13ecef23"
+checksum = "3a057ba9ec0a412c6848965971705b88182c9d40395c3c7354ae965e7eac136f"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2778,9 +2778,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "539689549dd7c11fa9139a8adce2568fcbcab1383edf152e5cba45061df6d3d2"
+checksum = "90f4bb3f4eec705d3cf572287ec3dece15f075a5d71547835756a432715fec50"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2798,9 +2798,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed980044e180910897862014dc237448f44c7f7600470a9357458b8c7d1ea0bc"
+checksum = "60c2ebcac63b2dc64b5d2712478607e49af1e0d023c3895181d6716770802a72"
 dependencies = [
  "anyhow",
  "cid",
@@ -2819,9 +2819,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab089bd0e43f98c8bdccdec814e14c74c631b73ee832f16d313bbb8ba9cecc1e"
+checksum = "1d3a84774e9fd1556006fe089830b8567653d9510e1f15c3940390c2bc380d7c"
 dependencies = [
  "anyhow",
  "cid",
@@ -2857,9 +2857,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0c76cad842778e6aa42e9defdcdea0553072ff6f0c0aa41242fd00f265b8d9d"
+checksum = "b605d354a19ea3fd50fae38978f51ca480249a352ebb437c141f329dace53030"
 dependencies = [
  "anyhow",
  "cid",
@@ -2882,9 +2882,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7022542811937e9b5d722586f0b17037561ef7cd3f0c35ce4c849a20da7c744d"
+checksum = "b122406387087c7b039314e3b9a58b5572e83706d8a30bda34e48bb288bd7584"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
@@ -2900,7 +2900,7 @@ dependencies = [
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",
  "fvm_shared 4.1.2",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "lazy_static",
  "multihash 0.18.1",
  "num-bigint",
@@ -2912,9 +2912,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8738df800e7cb4d350717ebc20d74fffaf26c9298108e03e5458a4690760797"
+checksum = "a89c9fb31047555d59a14afa50afab4e51d20cd8563215edd9f1a7af3df7e742"
 dependencies = [
  "anyhow",
  "cid",
@@ -2935,9 +2935,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a1996681dae26388ae9a30fb9fcefebda66e56b470b78a887b9b995cbb9a8f7"
+checksum = "13fbfa3d2d269e86ae0f6b60f49595e4d6e0a5636ed35b72858ebbb9c7111598"
 dependencies = [
  "anyhow",
  "cid",
@@ -2958,9 +2958,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dc9c0958524a3413cf72974b715fbae5bf57407f914ef1ca129624b4fcd7a58"
+checksum = "111335c876bc5a82f92448afa182d37abd2a250bc64743a97f04bb3019b7de8a"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2974,9 +2974,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b6cdcc5a6a21fb639853cb828fe2625aa1e792439db1161681f866ecbbc594e"
+checksum = "b0e71183137503e5167e7492c668860f7df040211f3aef60ab3a2ea2fccad1cf"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2991,9 +2991,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62e9394839dd721f7cdbbafd82747ec9daa4b6229e1bc1c7f014366216fc3a60"
+checksum = "28cc536630e4f981dc291fd4fc455abb2475c54d2b018019db3385e7d1a38cfb"
 dependencies = [
  "anyhow",
  "cid",
@@ -3011,9 +3011,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "10.0.0-dev.4"
+version = "10.0.0-dev.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa8b5e64f9b025625f7f667dc90e729d350fddae0f464c119b2d7436a79800f2"
+checksum = "78c2d2bf3e828be88945b795dcbd0fbefd3ad77b1c0f30ab8e4faf00e6aa6c7f"
 dependencies = [
  "anyhow",
  "cid",
@@ -3028,7 +3028,7 @@ dependencies = [
  "fvm_shared 3.6.0",
  "fvm_shared 4.1.2",
  "integer-encoding",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "multihash 0.18.1",
  "num",
  "num-bigint",

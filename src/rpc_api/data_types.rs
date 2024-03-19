@@ -31,6 +31,7 @@ use crate::state_manager::StateManager;
 use ahash::HashSet;
 use chrono::Utc;
 use cid::Cid;
+use fil_actor_interface::market::AllocationID;
 use fil_actor_interface::miner::MinerInfo;
 use fil_actor_interface::{
     market::{DealProposal, DealState},
@@ -102,6 +103,110 @@ pub struct MessageSendSpec {
 }
 
 lotus_json_with_self!(MessageSendSpec);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDealState {
+    pub sector_start_epoch: ChainEpoch,
+    pub last_updated_epoch: ChainEpoch,
+    pub slash_epoch: ChainEpoch,
+    #[serde(skip)]
+    pub verified_claim: AllocationID,
+}
+
+lotus_json_with_self!(ApiDealState);
+
+impl From<DealState> for ApiDealState {
+    fn from(s: DealState) -> Self {
+        let DealState {
+            sector_start_epoch,
+            last_updated_epoch,
+            slash_epoch,
+            verified_claim,
+        } = s;
+        Self {
+            sector_start_epoch,
+            last_updated_epoch,
+            slash_epoch,
+            verified_claim,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDealProposal {
+    #[serde(rename = "PieceCID", with = "crate::lotus_json")]
+    pub piece_cid: Cid,
+    pub piece_size: u64,
+    pub verified_deal: bool,
+    #[serde(with = "crate::lotus_json")]
+    pub client: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub provider: Address,
+    pub label: String,
+    pub start_epoch: ChainEpoch,
+    pub end_epoch: ChainEpoch,
+    #[serde(with = "crate::lotus_json")]
+    pub storage_price_per_epoch: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub provider_collateral: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub client_collateral: TokenAmount,
+}
+
+lotus_json_with_self!(ApiDealProposal);
+
+impl From<DealProposal> for ApiDealProposal {
+    fn from(p: DealProposal) -> Self {
+        let DealProposal {
+            piece_cid,
+            piece_size,
+            verified_deal,
+            client,
+            provider,
+            label,
+            start_epoch,
+            end_epoch,
+            storage_price_per_epoch,
+            provider_collateral,
+            client_collateral,
+        } = p;
+        Self {
+            piece_cid,
+            piece_size: piece_size.0,
+            verified_deal,
+            client: client.into(),
+            provider: provider.into(),
+            label,
+            start_epoch,
+            end_epoch,
+            storage_price_per_epoch: storage_price_per_epoch.into(),
+            provider_collateral: provider_collateral.into(),
+            client_collateral: client_collateral.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMarketDeal {
+    #[serde(with = "crate::lotus_json")]
+    pub proposal: ApiDealProposal,
+    #[serde(with = "crate::lotus_json")]
+    pub state: ApiDealState,
+}
+
+lotus_json_with_self!(ApiMarketDeal);
+
+impl From<MarketDeal> for ApiMarketDeal {
+    fn from(d: MarketDeal) -> Self {
+        Self {
+            proposal: d.proposal.into(),
+            state: d.state.into(),
+        }
+    }
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]

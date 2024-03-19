@@ -289,6 +289,7 @@ where
         STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
         state_vm_circulating_supply_internal::<DB>,
     )?;
+    module.register_async_method(STATE_MARKET_STORAGE_DEAL, state_market_storage_deal::<DB>)?;
     module.register_async_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)?;
     module.register_async_method(MSIG_GET_PENDING, msig_get_pending::<DB>)?;
     // Gas API
