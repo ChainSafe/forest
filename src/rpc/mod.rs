@@ -18,6 +18,9 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
+mod client;
+pub use client::Client;
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::{error::Error as StdError, fmt::Display};

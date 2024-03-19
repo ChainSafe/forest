@@ -180,39 +180,40 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             .push(Self::openrpc(&mut module.schema_generator, module.calling_convention).unwrap());
     }
     /// Call this method on an [`RpcModule`].
-    fn call(
+    // signal that this future is Send
+    fn call_module(
         module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
         calling_convention: ConcreteCallingConvention,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
     where
         Self::Params: Serialize,
-        Self::Ok: DeserializeOwned + Clone + Send,
+        Self::Ok: DeserializeOwned + Clone,
     {
-        macro_rules! tri {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(it) => it,
-                    Err(e) => return Either::Left(futures::future::ready(Err(e.into()))),
-                }
-            };
-        }
-        match tri!(Self::build_params(params, calling_convention)) {
-            RequestParameters::ByPosition(args) => {
-                let mut builder = jsonrpsee::core::params::ArrayParams::new();
-                for arg in args {
-                    tri!(builder.insert(arg))
-                }
-                Either::Right(Either::Left(module.call(Self::NAME, builder)))
-            }
-            RequestParameters::ByName(args) => {
-                let mut builder = jsonrpsee::core::params::ObjectParams::new();
-                for (name, value) in args {
-                    tri!(builder.insert(&name, value));
-                }
-                Either::Right(Either::Right(module.call(Self::NAME, builder)))
+        // don't require Params: Send
+        let build = Self::build_params(params, calling_convention).and_then(params2params);
+        async move {
+            match build? {
+                Either::Left(it) => module.call(Self::NAME, it).await,
+                Either::Right(it) => module.call(Self::NAME, it).await,
             }
         }
+    }
+    /// Call this method on an [`jsonrpsee::core::client::ClientT`].
+    async fn call_client(
+        client: &impl jsonrpsee::core::client::ClientT,
+        params: Self::Params,
+        calling_convention: ConcreteCallingConvention,
+    ) -> Result<Self::Ok, jsonrpsee::core::ClientError>
+    where
+        Self::Params: Serialize,
+        Self::Ok: DeserializeOwned,
+    {
+        match Self::build_params(params, calling_convention).and_then(params2params)? {
+            Either::Left(it) => client.request::<Self::Ok, _>(Self::NAME, it),
+            Either::Right(it) => client.request::<Self::Ok, _>(Self::NAME, it),
+        }
+        .await
     }
 }
 impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> {}
@@ -254,8 +255,6 @@ pub trait Params<const ARITY: usize> {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
-#[allow(unused)]
 fn unexpected(v: &serde_json::Value) -> Unexpected<'_> {
     match v {
         serde_json::Value::Null => Unexpected::Unit,
@@ -351,4 +350,28 @@ impl<Ctx> SelfDescribingRpcModule<Ctx> {
 pub enum ConcreteCallingConvention {
     ByPosition,
     ByName,
+}
+
+fn params2params(
+    ours: RequestParameters,
+) -> Result<
+    Either<jsonrpsee::core::params::ArrayParams, jsonrpsee::core::params::ObjectParams>,
+    serde_json::Error,
+> {
+    match ours {
+        RequestParameters::ByPosition(args) => {
+            let mut builder = jsonrpsee::core::params::ArrayParams::new();
+            for arg in args {
+                builder.insert(arg)?
+            }
+            Ok(Either::Left(builder))
+        }
+        RequestParameters::ByName(args) => {
+            let mut builder = jsonrpsee::core::params::ObjectParams::new();
+            for (name, value) in args {
+                builder.insert(&name, value)?;
+            }
+            Ok(Either::Right(builder))
+        }
+    }
 }
