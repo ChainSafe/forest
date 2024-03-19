@@ -37,7 +37,6 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
-use rand::{rngs::OsRng, seq::SliceRandom};
 use serde::de::DeserializeOwned;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::Path;
@@ -768,7 +767,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             }
         }
 
-        // Get deals (shuffled)
+        // Get deals
         let deals = {
             let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
             let actor = state
@@ -781,7 +780,6 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 deals.push(deal_id);
                 Ok(())
             })?;
-            deals.shuffle(&mut OsRng);
             deals
         };
 
