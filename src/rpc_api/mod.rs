@@ -144,6 +144,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net_api::NET_DISCONNECT, Access::Write);
     access.insert(net_api::NET_AGENT_VERSION, Access::Read);
     access.insert(net_api::NET_AUTO_NAT_STATUS, Access::Read);
+    access.insert(net_api::NET_VERSION, Access::Read);
 
     // Node API
     access.insert(node_api::NODE_STATUS, Access::Read);
@@ -438,6 +439,7 @@ pub mod net_api {
     pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
     pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
     pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
+    pub const NET_VERSION: &str = "Filecoin.NetVersion";
 
     #[derive(Debug, Default, Serialize, Deserialize, Clone)]
     pub struct NetInfoResult {
