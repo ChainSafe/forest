@@ -943,8 +943,6 @@ pub struct MessageTrace {
     pub params_codec: u64,
     pub gas_limit: Option<u64>,
     pub read_only: Option<bool>,
-    #[serde(with = "crate::lotus_json")]
-    pub code_cid: Cid,
 }
 
 lotus_json_with_self!(MessageTrace);
