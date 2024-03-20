@@ -67,22 +67,72 @@ gitGraph
 
 ### Two active chains, starting from snapshot before the fork
 
+```mermaid
+%%{init: { 'gitGraph': {'mainBranchName': 'BlockChain'}} }%%
+gitGraph
+        commit id: "Genesis"
+        commit id: "Snapshot head"
+        commit id: "Fork root"
+        branch "Fork"
+        checkout "Fork"
+        commit id: "Alternative Head"
+        checkout "BlockChain"
+        commit id: "Primary Head"
+
+```
+
 ### Two active chains, starting from snapshot after the fork
 
+```
+%%{init: { 'gitGraph': {'mainBranchName': 'BlockChain'}} }%%
+gitGraph
+        commit id: "Genesis"
+        commit id: "Fork root"
+        branch "Fork"
+        checkout "BlockChain"
+        commit id: "Snapshot head"
+        checkout "Fork"
+        commit id: "Alternative Head"
+        checkout "BlockChain"
+        commit id: "Primary Head"
+```
+
 ### Two active chains, synced, new chain becomes heaviest
+
+```
+%%{init: { 'gitGraph': {'mainBranchName': 'BlockChain'}} }%%
+gitGraph
+        commit id: "Genesis"
+        commit id: "Fork root"
+        branch "Fork"
+        checkout "BlockChain"
+        checkout "Fork"
+        commit id: "New Heaviest Branch"
+        checkout "BlockChain"
+        commit id: "Old Branch"
+```
 
 ## New state-machine
 
 ### State
 
 State of a Filecoin node:
-    Current time in epochs.
     Heaviest tipset
     Forks:
         Heaviest tipset
         Ancestor tipset
     Known block headers
     Bad blocks
+
+### Properties
+
+ * Orphans
+ * Roots
+
+### Methods
+
+ * `fn mark_bad_block(&mut self, block_id: Cid)`
+ * `fn add_block_header(&mut self, block_header: BlockHeader)`
 
 Derivatives:
     Orphans
