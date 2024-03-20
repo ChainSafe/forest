@@ -263,6 +263,11 @@ where
     module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
     module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
     module.register_async_method(
+        STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
+        state_deal_provider_collateral_bounds::<DB>,
+    )?;
+
+    module.register_async_method(
         STATE_MINER_PROVING_DEADLINE,
         state_miner_proving_deadline::<DB>,
     )?;

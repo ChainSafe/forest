@@ -25,7 +25,7 @@ use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
-    multisig, power,
+    multisig, power, reward,
 };
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
@@ -1072,10 +1072,61 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
         .context("Market actor not found")?;
     let market_state = market::State::load(store, actor.code, actor.state)?;
     let proposals = market_state.proposals(store)?;
-    let proposal =  proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
+    let proposal = proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
 
     let states = market_state.states(store)?;
     let state = states.get(deal_id)?.unwrap_or_else(DealState::empty);
 
     Ok(MarketDeal { proposal, state }.into())
+}
+pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync + 'static>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<DealCollateralBounds>, JsonRpcError> {
+    let LotusJson((size, verified, ApiTipsetKey(tsk))) = params.parse()?;
+
+    // This is more eloquent than giving the whole match pattern a type.
+    let _: bool = verified;
+
+    let state_manager = &data.state_manager;
+    let ts = state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+
+    let power_actor = state_manager
+        .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
+        .context("Power actor address could not be resolved")?;
+
+    let reward_actor = state_manager
+        .get_actor(&Address::REWARD_ACTOR, *ts.parent_state())?
+        .context("Power actor address could not be resolved")?;
+
+    let store = state_manager.blockstore();
+
+    let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
+    let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
+
+    let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
+
+    let supply = genesis_info.get_circulating_supply(
+        ts.epoch(),
+        &data.state_manager.blockstore_owned(),
+        ts.parent_state(),
+    )?;
+
+    let power_claim = power_state.total_power();
+
+    let baseline_power = reward_state.this_epoch_baseline_power();
+
+    let (min, max) = reward::State::deal_provider_collateral_bounds(
+        size,
+        power_claim.raw_byte_power,
+        baseline_power,
+        supply.into(),
+    );
+
+    Ok(LotusJson(DealCollateralBounds {
+        max: max.into(),
+        min: min.into(),
+    }))
 }
