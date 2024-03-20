@@ -128,6 +128,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     );
     access.insert(state_api::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
     access.insert(state_api::MSIG_GET_PENDING, Access::Read);
+    access.insert(
+        state_api::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
+        Access::Read,
+    );
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
