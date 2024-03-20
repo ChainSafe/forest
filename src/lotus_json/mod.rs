@@ -126,6 +126,7 @@ use derive_more::From;
 use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
 use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use fvm_shared2::piece::PaddedPieceSize;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
@@ -475,6 +476,7 @@ lotus_json_with_self!(
     std::path::PathBuf,
     bool,
     DeadlineInfo,
+    PaddedPieceSize,
 );
 
 #[derive(Default, Debug, Serialize, Deserialize)]
