@@ -342,7 +342,7 @@ where
     }
 
     fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
-        if let Err(why) = mem_pool.add(message) {
+        if let Err(why) = mem_pool.add(message, true) {
             debug!(
                 "GossipSub message could not be added to the mem pool: {}",
                 why

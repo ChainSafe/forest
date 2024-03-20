@@ -60,6 +60,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
     access.insert(mpool_api::MPOOL_PUSH, Access::Write);
+    access.insert(mpool_api::MPOOL_PUSH_UNTRUSTED, Access::Write);
     access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
 
     // Sync API
@@ -338,6 +339,7 @@ pub mod mpool_api {
     pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
     pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
     pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
+    pub const MPOOL_PUSH_UNTRUSTED: &str = "Filecoin.MpoolPushUntrusted";
     pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
 }
 
