@@ -65,4 +65,8 @@ impl ApiInfo {
     pub fn net_auto_nat_status_req() -> RpcRequest<NatStatusResult> {
         RpcRequest::new(NET_AUTO_NAT_STATUS, ())
     }
+
+    pub fn net_version_req() -> RpcRequest<String> {
+        RpcRequest::new_v1(NET_VERSION, ())
+    }
 }
