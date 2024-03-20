@@ -148,3 +148,13 @@ pub async fn net_auto_nat_status<DB: Blockstore>(
     let nat_status = rx.await?;
     Ok(nat_status.into())
 }
+
+pub async fn net_version<DB: Blockstore>(
+    _params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<String, JsonRpcError> {
+    Ok(format!(
+        "{}",
+        data.state_manager.chain_config().eth_chain_id
+    ))
+}
