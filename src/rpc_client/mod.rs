@@ -29,7 +29,7 @@ use jsonrpsee::{
     ws_client::WsClientBuilder,
 };
 use serde::Deserialize;
-use tracing::debug;
+use tracing::{debug, error};
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -104,7 +104,12 @@ impl ApiInfo {
         )
         .to_string();
 
-        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
+        let request_log = format!(
+            "JSON-RPC request URL: {}, payload: {}",
+            api_url,
+            serde_json::to_string(&rpc_req).unwrap_or_default()
+        );
+        debug!(request_log);
 
         let request = global_http_client()
             .post(api_url)
@@ -131,10 +136,12 @@ impl ApiInfo {
             });
         }
         if !response.status().is_success() {
-            return Err(JsonRpcError {
+            let err = JsonRpcError {
                 code: response.status().as_u16() as i64,
                 message: Cow::Owned(response.text().await?),
-            });
+            };
+            error!("Failure: {}\n{request_log}", err.message);
+            return Err(err);
         }
         let json = response.bytes().await?;
         let rpc_res: JsonRpcResponse<T::LotusJson> =
@@ -142,7 +149,10 @@ impl ApiInfo {
 
         let resp = match rpc_res {
             JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-            JsonRpcResponse::Error { error, .. } => Err(error),
+            JsonRpcResponse::Error { error, .. } => {
+                error!("Failure: {}\n{request_log}", error.message);
+                Err(error)
+            }
         };
 
         tracing::debug!("Response: {:?}", resp);

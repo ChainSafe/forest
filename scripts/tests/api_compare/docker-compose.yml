@@ -42,7 +42,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        forest --import-snapshot /data/snapshot/* --encrypt-keystore false --chain ${CHAIN} --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        forest --import-snapshot /data/snapshot/* --height=-20 --no-gc --encrypt-keystore false --chain ${CHAIN} --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
   lotus:
     depends_on:
       init:

@@ -6,7 +6,3 @@
 !Filecoin.StateAccountKey
 !Filecoin.StateCall
 !Filecoin.StateListMessages
-!Filecoin.StateSearchMsg
-!Filecoin.StateSearchMsgLimited
-!Filecoin.StateVMCirculatingSupplyInternal
-!Filecoin.StateWaitMsg

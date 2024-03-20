@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 use thiserror::Error;
 use tokio::task::JoinError;
@@ -17,14 +17,25 @@ pub enum Error {
     Other(String),
 }
 
+impl Error {
+    pub fn state(e: impl Display) -> Self {
+        Self::State(e.to_string())
+    }
+
+    pub fn other(e: impl Display) -> Self {
+        Self::Other(e.to_string())
+    }
+}
+
 impl From<String> for Error {
     fn from(e: String) -> Self {
         Error::Other(e)
     }
 }
+
 impl From<anyhow::Error> for Error {
     fn from(e: anyhow::Error) -> Self {
-        Error::Other(e.to_string())
+        Error::other(e)
     }
 }
 
