@@ -8,12 +8,14 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
 
-use crate::{db::SettingsStore, utils::net::http_get};
+use crate::{db::SettingsStore, shim::version::NetworkVersion, utils::net::http_get};
 
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
     get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
+
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V21;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
