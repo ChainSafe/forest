@@ -47,8 +47,7 @@ if ! docker run --rm --network="$COMPOSE_NETWORK" \
    /data/snapshot/"$SNAPSHOT_NAME" \
    --forest "$FOREST_ADDRESS" \
    --lotus "$LOTUS_ADDRESS" \
-   --n-tipsets 5 \
-   --filter-file /data/tester/filter-list; then
+   --n-tipsets 5; then
     echo "Comparison tool failed to execute. Exiting..." >&2
     exit 1
 fi
