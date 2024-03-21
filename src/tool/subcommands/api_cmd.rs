@@ -75,6 +75,10 @@ pub enum ApiCommands {
         // Allow downloading snapshot automatically
         #[arg(long)]
         auto_download_snapshot: bool,
+        /// Validate snapshot at given EPOCH, use a negative value -N to validate
+        /// the last N EPOCH(s) starting at HEAD.
+        #[arg(long, default_value_t = -20)]
+        height: i64,
     },
     /// Compare
     Compare {
@@ -131,13 +135,15 @@ impl ApiCommands {
                 port,
                 data_dir,
                 auto_download_snapshot,
+                height,
             } => {
                 start_offline_server(
                     snapshot_files,
                     chain,
                     port,
-                    data_dir.clone(),
+                    data_dir,
                     auto_download_snapshot,
+                    height,
                 )
                 .await?;
             }
@@ -859,6 +865,7 @@ async fn start_offline_server(
     rpc_port: u16,
     rpc_data_dir: PathBuf,
     auto_download_snapshot: bool,
+    height: i64,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
     let client = Client::default();
@@ -916,11 +923,11 @@ async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let ts = db.heaviest_tipset()?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
 
     state_manager
         .chain_store()
-        .set_heaviest_tipset(Arc::new(ts))?;
+        .set_heaviest_tipset(head_ts.clone())?;
 
     let beacon = Arc::new(
         state_manager
@@ -937,6 +944,20 @@ async fn start_offline_server(
         state_manager.chain_config().clone(),
         &mut JoinSet::new(),
     )?;
+
+    let n_ts_to_validate = if height > 0 {
+        (head_ts.epoch() - height).max(0)
+    } else {
+        -height
+    } as usize;
+    if n_ts_to_validate > 0 {
+        if let Err(e) =
+            state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))
+        {
+            warn!("{e}");
+        }
+    }
+
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
