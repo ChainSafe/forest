@@ -128,14 +128,14 @@ pub async fn state_account_key<DB: Blockstore>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let LotusJson((address, tipset_keys)): LotusJson<(Address, TipsetKey)> = params.parse()?;
+    let LotusJson((address, tipset_keys)): LotusJson<(Address, ApiTipsetKey)> = params.parse()?;
 
+    let ts = data
+        .chain_store
+        .load_required_tipset_or_heaviest(&tipset_keys.0)?;
     Ok(LotusJson(
         data.state_manager
-            .resolve_to_deterministic_address(
-                address,
-                data.chain_store.chain_index.load_tipset(&tipset_keys)?,
-            )
+            .resolve_to_deterministic_address(address, Some(ts))
             .await?,
     ))
 }
