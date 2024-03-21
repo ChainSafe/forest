@@ -1137,10 +1137,10 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     let mut validations = FuturesUnordered::new();
     let blocks = full_tipset.into_blocks();
 
-    info!(
-        "Validating tipset: EPOCH = {epoch}, N blocks = {}",
-        blocks.len()
-    );
+    // info!(
+    //     "Validating tipset: EPOCH = {epoch}, N blocks = {}",
+    //     blocks.len()
+    // );
     debug!("Tipset keys: {full_tipset_key}");
 
     for b in blocks {
@@ -1202,12 +1202,6 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());
-    trace!(
-        "Validating block: epoch = {}, weight = {}, key = {}",
-        block.header().epoch,
-        block.header().weight,
-        block.header().cid(),
-    );
     let chain_store = state_manager.chain_store().clone();
     let block_cid = block.cid();
 
@@ -1216,6 +1210,12 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     if is_validated {
         return Ok(block);
     }
+
+    info!(
+        "Validating block: epoch = {}, key = {}",
+        block.header().epoch,
+        block.header().cid(),
+    );
 
     let _timer = metrics::BLOCK_VALIDATION_TIME.start_timer();
 
