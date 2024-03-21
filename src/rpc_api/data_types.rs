@@ -25,7 +25,7 @@ use crate::shim::{
     fvm_shared_latest::MethodNum,
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
-    state_tree::ActorState,
+    state_tree::{ActorID, ActorState},
 };
 use crate::state_manager::StateManager;
 use ahash::HashSet;
@@ -921,6 +921,8 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     pub msg_rct: ReturnTrace,
     #[serde(with = "crate::lotus_json")]
+    pub invoked_actor: Option<ActorTrace>,
+    #[serde(with = "crate::lotus_json")]
     pub gas_charges: Vec<GasTrace>,
     #[serde(with = "crate::lotus_json")]
     pub subcalls: Vec<ExecutionTrace>,
@@ -943,11 +945,19 @@ pub struct MessageTrace {
     pub params_codec: u64,
     pub gas_limit: Option<u64>,
     pub read_only: Option<bool>,
-    #[serde(with = "crate::lotus_json")]
-    pub code_cid: Cid,
 }
 
 lotus_json_with_self!(MessageTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ActorTrace {
+    pub id: ActorID,
+    #[serde(with = "crate::lotus_json")]
+    pub state: ActorState,
+}
+
+lotus_json_with_self!(ActorTrace);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
