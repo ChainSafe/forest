@@ -231,7 +231,7 @@ decommissioned.
   `Filecoin.StateAccountKey` lotus-compatible RPC API.
 - [#3744](https://github.com/ChainSafe/forest/pull/3744) Implement the
   `Filecoin.StateLookupID` lotus-compatible RPC API.
-- [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io the c
+- [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
   bootstrap node peer
 - [#3737](https://github.com/ChainSafe/forest/pull/3737) Added `--n-tipsets`
   option to `forest-tool api compare`
@@ -660,7 +660,7 @@ Notable updates:
 ### Fixed
 
 - [#2796](https://github.com/ChainSafe/forest/pull/2796): Fix issue when running
-  Forest on the c using a configuration file only.
+  Forest on calibnet using a configuration file only.
 - [#2807](https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
   actor CIDs.
 - [#2804](https://github.com/ChainSafe/forest/pull/2804): Add work around for
