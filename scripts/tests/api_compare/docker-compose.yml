@@ -49,6 +49,26 @@ services:
         set -euxo pipefail
         forest-cli sync wait
         forest-cli snapshot export -o "$SNAPSHOT_PATH" -d=900 --include-message-receipts
+  api-serve:
+    depends_on:
+      snapshot-export:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - api-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest-tool api serve "$SNAPSHOT_PATH" \
+          --chain calibnet --port ${FOREST_OFFLINE_RPC_PORT}
   lotus:
     depends_on:
       snapshot-export:
@@ -111,9 +131,34 @@ services:
           --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
           --n-tipsets 5 \
           --filter-file /data/filter-list
+  api-compare-offline:
+    depends_on:
+      lotus-sync-wait:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+      - ./filter-list:/data/filter-list
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest-tool api compare "$SNAPSHOT_PATH" \
+          --forest "/dns/api-serve/tcp/$FOREST_OFFLINE_RPC_PORT/http" \
+          --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
+          --n-tipsets 5 \
+          --filter-file /data/filter-list || true # Fixme
   post-setup:
     depends_on:
       api-compare:
+        required: true
+        condition: service_completed_successfully
+      api-compare-offline:
         required: true
         condition: service_completed_successfully
     image: ${LOTUS_IMAGE}

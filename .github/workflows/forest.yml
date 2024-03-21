@@ -388,6 +388,9 @@ jobs:
       - name: Run api compare tests
         run: ./scripts/tests/api_compare/setup.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
       - name: Prepare cache folder for uploading
         if: steps.cache.outputs.cache-hit != 'true'
         run: |

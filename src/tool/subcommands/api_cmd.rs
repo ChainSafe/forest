@@ -985,7 +985,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
-    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
+    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
     let forest_version = FOREST_VERSION_STRING.as_str();
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
