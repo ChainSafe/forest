@@ -220,13 +220,12 @@ pub mod chain_api {
 
     pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
 
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     pub struct ChainExportParams {
         pub epoch: ChainEpoch,
         pub recent_roots: i64,
         pub output_path: PathBuf,
-        #[serde(with = "crate::lotus_json")]
-        pub tipset_keys: ApiTipsetKey,
+        pub tipset_keys: LotusJson<ApiTipsetKey>,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }

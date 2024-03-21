@@ -4530,7 +4530,9 @@ dependencies = [
  "futures-util",
  "http 0.2.12",
  "hyper 0.14.28",
+ "log",
  "rustls 0.21.10",
+ "rustls-native-certs 0.6.3",
  "tokio",
  "tokio-rustls 0.24.1",
 ]
@@ -5032,6 +5034,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87f3ae45a64cfc0882934f963be9431b2a165d667f53140358181f262aca0702"
 dependencies = [
  "jsonrpsee-core",
+ "jsonrpsee-http-client",
  "jsonrpsee-server",
  "jsonrpsee-types",
  "jsonrpsee-ws-client",
@@ -5048,7 +5051,7 @@ dependencies = [
  "http 0.2.12",
  "jsonrpsee-core",
  "pin-project",
- "rustls-native-certs",
+ "rustls-native-certs 0.7.0",
  "rustls-pki-types",
  "soketto",
  "thiserror",
@@ -5083,6 +5086,26 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-http-client"
+version = "0.22.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e7a95e346f55df84fb167b7e06470e196e7d5b9488a21d69c5d9732043ba7ba"
+dependencies = [
+ "async-trait",
+ "hyper 0.14.28",
+ "hyper-rustls",
+ "jsonrpsee-core",
+ "jsonrpsee-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tower",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -8004,6 +8027,18 @@ dependencies = [
  "rustls-webpki 0.102.2",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile 1.0.4",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]

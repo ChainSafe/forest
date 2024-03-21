@@ -47,12 +47,14 @@ use libp2p::PeerId;
 use nonempty::NonEmpty;
 use num_bigint::BigInt;
 use parking_lot::RwLock as SyncRwLock;
+use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
 //                  avoid double indirection
+//                  Remove this and use `Ctx` instead.
 pub type Data<T> = Arc<Arc<T>>;
 
 /// This is where you store persistent data, or at least access to stateful
@@ -83,14 +85,14 @@ pub struct RPCSyncState {
 lotus_json_with_self!(RPCSyncState);
 
 // Chain API
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
-    pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::lotus_json")]
-    pub cids: Vec<Cid>,
+    #[serde(rename = "BlsMessages")]
+    pub bls_msg: LotusJson<Vec<Message>>,
+    #[serde(rename = "SecpkMessages")]
+    pub secp_msg: LotusJson<Vec<SignedMessage>>,
+    #[serde(rename = "Cids")]
+    pub cids: LotusJson<Vec<Cid>>,
 }
 
 lotus_json_with_self!(BlockMessages);
@@ -304,7 +306,7 @@ impl ApiMessage {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiMessageLotusJson {
     cid: LotusJson<Cid>,
@@ -580,19 +582,17 @@ impl HasLotusJson for PendingBeneficiaryChange {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiReceipt {
     // Exit status of message execution
     pub exit_code: ExitCode,
     // `Return` value if the exit code is zero
     #[serde(rename = "Return")]
-    #[serde(with = "crate::lotus_json")]
-    pub return_data: RawBytes,
+    pub return_data: LotusJson<RawBytes>,
     // Non-negative value of GasUsed
     pub gas_used: u64,
-    #[serde(with = "crate::lotus_json")]
-    pub events_root: Option<Cid>,
+    pub events_root: LotusJson<Option<Cid>>,
 }
 
 lotus_json_with_self!(ApiReceipt);

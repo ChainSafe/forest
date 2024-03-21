@@ -71,7 +71,7 @@ where
     T: JsonSchema,
 {
     fn schema_name() -> String {
-        std::any::type_name::<T>().to_string()
+        std::any::type_name::<Self>().to_string()
     }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
