@@ -57,6 +57,7 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
       - LOTUS_FEVM_ENABLEETHRPC=1
+      - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
     entrypoint: ["/bin/bash", "-c" ]
     command:
       - |
