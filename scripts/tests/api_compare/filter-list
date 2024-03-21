@@ -2,6 +2,7 @@
 # They should be considered bugged, and not used until the root cause is resolved.
 !Filecoin.ChainGetPath
 !Filecoin.ChainGetTipSetAfterHeight
+!Filecoin.ChainGetParentReceipts
 !Filecoin.MinerGetBaseInfo
 !Filecoin.StateAccountKey
 !Filecoin.StateListMessages
