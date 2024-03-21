@@ -227,6 +227,7 @@ pub mod chain_api {
         pub output_path: PathBuf,
         #[serde(with = "crate::lotus_json")]
         pub tipset_keys: ApiTipsetKey,
+        pub include_message_receipts: bool,
         pub skip_checksum: bool,
         pub dry_run: bool,
     }

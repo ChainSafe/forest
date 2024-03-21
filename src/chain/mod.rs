@@ -22,6 +22,7 @@ pub async fn export<D: Digest>(
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     seen: CidHashSet,
+    include_message_receipts: bool,
     skip_checksum: bool,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
     let db = Arc::new(db);
@@ -42,6 +43,7 @@ pub async fn export<D: Digest>(
             Arc::clone(&db),
             tipset.clone().chain(Arc::clone(&db)),
             stateroot_lookup_limit,
+            include_message_receipts,
         )
         .with_seen(seen),
     );

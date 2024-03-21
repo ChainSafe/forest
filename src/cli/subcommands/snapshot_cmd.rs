@@ -22,6 +22,9 @@ pub enum SnapshotCommands {
         /// `./forest_snapshot_{chain}_{year}-{month}-{day}_height_{epoch}.car.zst`.
         #[arg(short, long, default_value = ".", verbatim_doc_comment)]
         output_path: PathBuf,
+        /// Include message receipts
+        #[arg(short, long)]
+        include_message_receipts: bool,
         /// Skip creating the checksum file.
         #[arg(long)]
         skip_checksum: bool,
@@ -46,6 +49,7 @@ impl SnapshotCommands {
                 dry_run,
                 tipset,
                 depth,
+                include_message_receipts,
             } => {
                 let chain_head = api.chain_head().await?;
 
@@ -80,6 +84,7 @@ impl SnapshotCommands {
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
                     tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    include_message_receipts,
                     skip_checksum,
                     dry_run,
                 };
