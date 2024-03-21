@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::TipsetKey;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
@@ -135,7 +134,7 @@ where
         .load_required_tipset_or_heaviest(&tipset_keys.0)?;
     Ok(LotusJson(
         data.state_manager
-            .resolve_to_deterministic_address(address, Some(ts))
+            .resolve_to_deterministic_address(address, ts)
             .await?,
     ))
 }
