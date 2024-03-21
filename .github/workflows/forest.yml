@@ -363,19 +363,37 @@ jobs:
       - build-ubuntu
     name: Calibnet RPC checks
     runs-on: ubuntu-latest
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/cache@v4
+        id: cache
         with:
           path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
           key: proof-params-keys
+      - name: Load cache into volume
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: |
+          docker volume create api_compare_filecoin-proofs
+          docker run --rm \
+            -v api_compare_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            ubuntu:focal \
+            bash -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
-        run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: RPC check
-        run: ./scripts/tests/calibnet_rpc_checks.sh
+      - name: Run api compare tests
+        run: ./scripts/tests/api_compare/setup.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Prepare cache folder for uploading
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm \
+            -v api_compare_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            ubuntu:focal \
+            bash -c "cp /proofs/* /cache"
+          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
