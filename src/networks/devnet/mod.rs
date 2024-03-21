@@ -19,6 +19,48 @@ pub const ETH_CHAIN_ID: u64 = 31415926;
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
         (
+            Height::Breeze,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_BREEZE_HEIGHT").unwrap_or(-50),
+                bundle: None,
+            },
+        ),
+        (
+            Height::Smoke,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_SMOKE_HEIGHT").unwrap_or(-2),
+                bundle: None,
+            },
+        ),
+        (
+            Height::Ignition,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_IGNITION_HEIGHT").unwrap_or(-3),
+                bundle: None,
+            },
+        ),
+        (
+            Height::ActorsV2,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_ACTORSV2_HEIGHT").unwrap_or(-3),
+                bundle: None,
+            },
+        ),
+        (
+            Height::Liftoff,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_LIFTOFF_HEIGHT").unwrap_or(-6),
+                bundle: None,
+            },
+        ),
+        (
+            Height::Calico,
+            HeightInfo {
+                epoch: get_upgrade_height_from_env("FOREST_CALICO_HEIGHT").unwrap_or(-9),
+                bundle: None,
+            },
+        ),
+        (
             Height::Shark,
             HeightInfo {
                 epoch: get_upgrade_height_from_env("FOREST_SHARK_HEIGHT").unwrap_or(-20),

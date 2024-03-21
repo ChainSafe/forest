@@ -411,6 +411,35 @@ fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
 mod tests {
     use super::*;
 
+    fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
+        assert!(height_infos.get(&Height::Breeze).is_some());
+        assert!(height_infos.get(&Height::Smoke).is_some());
+        assert!(height_infos.get(&Height::Ignition).is_some());
+        assert!(height_infos.get(&Height::ActorsV2).is_some());
+        assert!(height_infos.get(&Height::Liftoff).is_some());
+        assert!(height_infos.get(&Height::Calico).is_some());
+    }
+
+    #[test]
+    fn test_mainnet_heights() {
+        heights_are_present(&mainnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_calibnet_heights() {
+        heights_are_present(&calibnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_devnet_heights() {
+        heights_are_present(&devnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_butterflynet_heights() {
+        heights_are_present(&butterflynet::HEIGHT_INFOS);
+    }
+
     #[test]
     fn test_get_upgrade_height_no_env_var() {
         let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_1");

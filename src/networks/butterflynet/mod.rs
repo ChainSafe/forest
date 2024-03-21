@@ -68,6 +68,48 @@ pub const ETH_CHAIN_ID: u64 = 3141592;
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
         (
+            Height::Breeze,
+            HeightInfo {
+                epoch: -50,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Smoke,
+            HeightInfo {
+                epoch: -2,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Ignition,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
+            Height::ActorsV2,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Liftoff,
+            HeightInfo {
+                epoch: -6,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Calico,
+            HeightInfo {
+                epoch: -9,
+                bundle: None,
+            },
+        ),
+        (
             Height::Watermelon,
             HeightInfo {
                 epoch: -1,
