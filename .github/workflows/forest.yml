@@ -358,19 +358,17 @@ jobs:
           /cache"
 
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  offline-rpc-check:
+  calibnet-rpc-checks:
     needs:
       - build-ubuntu
-    name: Offline RPC check
+    name: Calibnet RPC checks
     runs-on: ubuntu-latest
     steps:
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/cache@v4
         with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
+          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
+          key: proof-params-keys
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
@@ -379,5 +377,5 @@ jobs:
         run: |
           chmod +x ~/.cargo/bin/forest*
       - name: RPC check
-        run: ./scripts/tests/calibnet_offline_rpc_check.sh
+        run: ./scripts/tests/calibnet_rpc_checks.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'

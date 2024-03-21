@@ -62,7 +62,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        lotus daemon --import-chain /data/snapshot/* --remove-existing-chain
+        lotus daemon --import-snapshot /data/snapshot/* --remove-existing-chain
 
 volumes:
   filecoin-proofs:
