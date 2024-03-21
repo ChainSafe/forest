@@ -32,9 +32,10 @@ use crate::message_pool::{
     provider::Provider,
 };
 
-const REPLACE_BY_FEE_RATIO: f32 = 1.25;
-const RBF_NUM: u64 = ((REPLACE_BY_FEE_RATIO - 1f32) * 256f32) as u64;
-const RBF_DENOM: u64 = 256;
+const REPLACE_BY_FEE_RATIO_MINIMUM: f32 = 1.1;
+const REPLACE_BY_FEE_RATIO_DEFAULT: f32 = 1.25;
+const RBF_NUM: u64 = 110;
+const RBF_DENOM: u64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE: i64 = 100;
 const BASE_FEE_LOWER_BOUND_FACTOR: i64 = 10;
 const REPUB_MSG_LIMIT: usize = 30;
@@ -273,7 +274,7 @@ where
     for (_, hm) in rmsgs {
         for (_, msg) in hm {
             let sequence = get_state_sequence(api, &msg.from(), &cur_tipset.lock().clone())?;
-            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence) {
+            if let Err(e) = add_helper(api, bls_sig_cache, pending, msg, sequence, true, true) {
                 error!("Failed to read message from reorg to mpool: {}", e);
             }
         }
@@ -369,10 +370,10 @@ pub mod tests {
 
         let (last, body) = smsg_vec.split_last().unwrap();
         for smsg in body {
-            mpool.add(smsg.clone()).unwrap();
+            mpool.add(smsg.clone(), true).unwrap();
         }
         assert_eq!(
-            mpool.add(last.clone()),
+            mpool.add(last.clone(), true,),
             Err(Error::TooManyPendingMessages(sender.to_string(), true))
         );
     }
@@ -456,9 +457,9 @@ pub mod tests {
 
         mpool.api.inner.lock().set_state_sequence(&sender, 0);
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
-        mpool.add(smsg_vec[0].clone()).unwrap();
+        mpool.add(smsg_vec[0].clone(), true).unwrap();
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
-        mpool.add(smsg_vec[1].clone()).unwrap();
+        mpool.add(smsg_vec[1].clone(), true).unwrap();
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
 
         let a = mock_block(1, 1);
@@ -525,10 +526,10 @@ pub mod tests {
             drop(api_temp);
         }
 
-        mpool.add(smsg_vec[0].clone()).unwrap();
-        mpool.add(smsg_vec[1].clone()).unwrap();
-        mpool.add(smsg_vec[2].clone()).unwrap();
-        mpool.add(smsg_vec[3].clone()).unwrap();
+        mpool.add(smsg_vec[0].clone(), true).unwrap();
+        mpool.add(smsg_vec[1].clone(), true).unwrap();
+        mpool.add(smsg_vec[2].clone(), true).unwrap();
+        mpool.add(smsg_vec[3].clone(), true).unwrap();
 
         mpool.api.set_state_sequence(&sender, 0);
 
@@ -624,11 +625,11 @@ pub mod tests {
         }
 
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 0);
-        mpool.push(smsg_vec[0].clone()).await.unwrap();
+        mpool.push_trusted(smsg_vec[0].clone()).await.unwrap();
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 1);
-        mpool.push(smsg_vec[1].clone()).await.unwrap();
+        mpool.push_trusted(smsg_vec[1].clone()).await.unwrap();
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 2);
-        mpool.push(smsg_vec[2].clone()).await.unwrap();
+        mpool.push_trusted(smsg_vec[2].clone()).await.unwrap();
         assert_eq!(mpool.get_sequence(&sender).unwrap(), 3);
 
         let header = mock_block(1, 1);

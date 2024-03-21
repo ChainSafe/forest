@@ -215,6 +215,7 @@ where
     module.register_async_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)?;
     module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;
     module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
+    module.register_async_method(MPOOL_PUSH_UNTRUSTED, mpool_push_untrusted::<DB>)?;
     module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;

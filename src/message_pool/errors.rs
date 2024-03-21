@@ -19,6 +19,12 @@ pub enum Error {
     MessageValueTooHigh,
     #[error("Message sequence too low")]
     SequenceTooLow,
+    #[error("message sequence has too big a gap from expected sequence (sequence: {0}, next_sequence: {1})")]
+    SequenceGapTooBig(u64, u64),
+    #[error(
+        "rejecting replace by fee because of sequence gap (sequence: {0}, next_sequence: {1})"
+    )]
+    SequenceGap(u64, u64),
     #[error("Not enough funds to execute transaction")]
     NotEnoughFunds,
     #[cfg(test)]

@@ -763,11 +763,11 @@ mod test_selection {
         // order his messages first
         for i in 0..10 {
             let m = create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1);
-            mpool.add(m).unwrap();
+            mpool.add_unstrict(m, true).unwrap();
         }
         for i in 0..10 {
             let m = create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1);
-            mpool.add(m).unwrap();
+            mpool.add_unstrict(m, true).unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -822,6 +822,7 @@ mod test_selection {
 
         // create a block and advance the chain without applying to the mpool
         let mut msgs = Vec::with_capacity(20);
+        // MAX_NONCE_GAP=4
         for i in 10..20 {
             msgs.push(create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 1));
             msgs.push(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1));
@@ -833,17 +834,16 @@ mod test_selection {
         // now create another set of messages and add them to the mpool
         for i in 20..30 {
             mpool
-                .add(create_smsg(
-                    &a2,
-                    &a1,
-                    &mut w1,
-                    i,
-                    TEST_GAS_LIMIT,
-                    2 * i + 200,
-                ))
+                .add_unstrict(
+                    create_smsg(&a2, &a1, &mut w1, i, TEST_GAS_LIMIT, 2 * i + 200),
+                    true,
+                )
                 .unwrap();
             mpool
-                .add(create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1))
+                .add_unstrict(
+                    create_smsg(&a1, &a2, &mut w2, i, TEST_GAS_LIMIT, i + 1),
+                    true,
+                )
                 .unwrap();
         }
         // select messages in the last tipset; this should include the missed messages
@@ -932,7 +932,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
             let m = create_fake_smsg(
                 &mpool,
                 &a1,
@@ -941,7 +941,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -1013,7 +1013,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
             let m = create_smsg(
                 &a1,
                 &a2,
@@ -1022,7 +1022,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 1.0).unwrap();
@@ -1108,7 +1108,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (1 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 0.25).unwrap();
@@ -1183,7 +1183,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (200000 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
             let m = create_fake_smsg(
                 &mpool,
                 &a1,
@@ -1192,7 +1192,7 @@ mod test_selection {
                 TEST_GAS_LIMIT,
                 (190000 + i % 3 + bias) as u64,
             );
-            mpool.add(m).unwrap();
+            mpool.add(m, true).unwrap();
         }
 
         let msgs = mpool.select_messages(&ts, 0.1).unwrap();
@@ -1303,7 +1303,7 @@ mod test_selection {
                     TEST_GAS_LIMIT,
                     premium as u64,
                 );
-                mpool.add(m).unwrap();
+                mpool.add(m, true).unwrap();
             }
         }
 

@@ -6,6 +6,7 @@
 // inclusion in the chain. Messages are added either directly for locally
 // published messages or through pubsub propagation.
 
+use std::ops::{AddAssign as _, SubAssign as _};
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 use crate::blocks::{CachingBlockHeader, Tipset};
@@ -52,6 +53,8 @@ const SIG_VAL_CACHE_SIZE: NonZeroUsize = nonzero!(32000usize);
 
 pub const MAX_ACTOR_PENDING_MESSAGES: u64 = 1000;
 pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
+pub const MAX_NONCE_GAP: u64 = 4;
+pub const MAX_UNTRUSTED_NONCE_GAP: u64 = 0;
 
 /// Simple structure that contains a hash-map of messages where k: a message
 /// from address, v: a message which corresponds to that address.
@@ -59,6 +62,7 @@ pub const MAX_UNTRUSTED_ACTOR_PENDING_MESSAGES: u64 = 10;
 pub struct MsgSet {
     pub(in crate::message_pool) msgs: HashMap<u64, SignedMessage>,
     next_sequence: u64,
+    required_funds: TokenAmount,
 }
 
 impl MsgSet {
@@ -68,67 +72,72 @@ impl MsgSet {
         MsgSet {
             msgs: HashMap::new(),
             next_sequence: sequence,
+            required_funds: TokenAmount::from_atto(0),
         }
     }
 
     /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
     /// message has a sequence greater than any existing message sequence.
-    /// Use this method when pushing a message coming from trusted sources.
-    pub fn add_trusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
+    pub fn add<T>(
+        &mut self,
+        api: &T,
+        m: SignedMessage,
+        strict: bool,
+        trusted: bool,
+    ) -> Result<(), Error>
     where
         T: Provider,
     {
-        self.add(api, m, true)
-    }
-
-    /// Add a signed message to the `MsgSet`. Increase `next_sequence` if the
-    /// message has a sequence greater than any existing message sequence.
-    /// Use this method when pushing a message coming from untrusted sources.
-    #[allow(dead_code)]
-    pub fn add_untrusted<T>(&mut self, api: &T, m: SignedMessage) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        self.add(api, m, false)
-    }
-
-    fn add<T>(&mut self, api: &T, m: SignedMessage, trusted: bool) -> Result<(), Error>
-    where
-        T: Provider,
-    {
-        let max_actor_pending_messages = if trusted {
-            api.max_actor_pending_messages()
+        let mut next_nonce = self.next_sequence;
+        let mut nonce_gap = false;
+        let (max_actor_pending_messages, max_nonce_gap) = if trusted {
+            (api.max_actor_pending_messages(), api.max_nonce_gap())
         } else {
-            api.max_untrusted_actor_pending_messages()
+            (
+                api.max_untrusted_actor_pending_messages(),
+                api.max_untrusted_nonce_gap(),
+            )
         };
 
-        if self.msgs.is_empty() || m.sequence() >= self.next_sequence {
-            self.next_sequence = m.sequence() + 1;
+        if next_nonce == m.sequence() {
+            next_nonce += 1;
+            while self.msgs.contains_key(&next_nonce) {
+                next_nonce += 1;
+            }
+        } else if strict && m.sequence() > next_nonce + max_nonce_gap {
+            return Err(Error::SequenceGapTooBig(m.sequence(), next_nonce));
+        } else if m.sequence() > next_nonce {
+            nonce_gap = true;
         }
 
         if let Some(exms) = self.msgs.get(&m.sequence()) {
+            if strict && nonce_gap {
+                return Err(Error::SequenceGap(m.sequence(), next_nonce));
+            }
+
             if m.cid()? != exms.cid()? {
-                let premium = &exms.message().gas_premium;
-                let min_price = premium.clone()
-                    + ((premium * RBF_NUM).div_floor(RBF_DENOM))
-                    + TokenAmount::from_atto(1u8);
-                if m.message().gas_premium <= min_price {
+                let min_price = compute_min_rbf(&exms.message().gas_premium);
+                if m.message().gas_premium < min_price {
                     return Err(Error::GasPriceTooLow);
                 }
             } else {
                 return Err(Error::DuplicateSequence);
             }
-        }
 
-        if self.msgs.len() as u64 >= max_actor_pending_messages {
+            self.required_funds.sub_assign(exms.required_funds());
+        } else if strict && self.msgs.len() as u64 >= max_actor_pending_messages {
             return Err(Error::TooManyPendingMessages(
                 m.message.from().to_string(),
                 trusted,
             ));
         }
+
+        self.next_sequence = next_nonce;
+        self.required_funds.add_assign(m.required_funds());
         if self.msgs.insert(m.sequence(), m).is_none() {
-            metrics::MPOOL_MESSAGE_TOTAL.inc();
+            metrics::MPOOL_MESSAGE_TOTAL.set(self.msgs.len() as _);
         }
+
         Ok(())
     }
 
@@ -208,15 +217,25 @@ where
         Ok(())
     }
 
+    pub async fn push_trusted(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push(msg, true, true).await
+    }
+
+    pub async fn push_untrusted(&self, msg: SignedMessage) -> Result<Cid, Error> {
+        self.push(msg, true, false).await
+    }
+
     /// Push a signed message to the `MessagePool`. Additionally performs basic
     /// checks on the validity of a message.
-    pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
+    async fn push(&self, msg: SignedMessage, local: bool, trusted: bool) -> Result<Cid, Error> {
         self.check_message(&msg)?;
         let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
         let cur_ts = self.cur_tipset.lock().clone();
-        let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
+        let publish = self.add_tipset(msg.clone(), &cur_ts, local, trusted)?;
         let msg_ser = to_vec(&msg)?;
-        self.add_local(msg)?;
+        if local {
+            self.add_local(msg)?;
+        }
         if publish {
             self.network_sender
                 .send_async(NetworkMessage::PubsubMessage {
@@ -245,12 +264,18 @@ where
 
     /// This is a helper to push that will help to make sure that the message
     /// fits the parameters to be pushed to the `MessagePool`.
-    pub fn add(&self, msg: SignedMessage) -> Result<(), Error> {
+    pub fn add(&self, msg: SignedMessage, trusted: bool) -> Result<(), Error> {
         self.check_message(&msg)?;
-
         let tip = self.cur_tipset.lock().clone();
+        self.add_tipset(msg, &tip, false, trusted)?;
+        Ok(())
+    }
 
-        self.add_tipset(msg, &tip, false)?;
+    #[cfg(test)]
+    pub fn add_unstrict(&self, msg: SignedMessage, trusted: bool) -> Result<(), Error> {
+        self.check_message(&msg)?;
+        let tip = self.cur_tipset.lock().clone();
+        self.add_tipset(msg, &tip, true, trusted)?;
         Ok(())
     }
 
@@ -274,7 +299,13 @@ where
     /// Verify the `state_sequence` and balance for the sender of the message
     /// given then call `add_locked` to finish adding the `signed_message`
     /// to pending.
-    fn add_tipset(&self, msg: SignedMessage, cur_ts: &Tipset, local: bool) -> Result<bool, Error> {
+    fn add_tipset(
+        &self,
+        msg: SignedMessage,
+        cur_ts: &Tipset,
+        local: bool,
+        trusted: bool,
+    ) -> Result<bool, Error> {
         let sequence = self.get_state_sequence(&msg.from(), cur_ts)?;
 
         if sequence > msg.message().sequence {
@@ -299,7 +330,7 @@ where
         if balance < msg_balance {
             return Err(Error::NotEnoughFunds);
         }
-        self.add_helper(msg)?;
+        self.add_helper(msg, local, trusted)?;
         Ok(publish)
     }
 
@@ -307,7 +338,7 @@ where
     /// hash-map. If an entry in the hash-map does not yet exist, create a
     /// new `mset` that will correspond to the from message and push it to
     /// the pending hash-map.
-    fn add_helper(&self, msg: SignedMessage) -> Result<(), Error> {
+    fn add_helper(&self, msg: SignedMessage, local: bool, trusted: bool) -> Result<(), Error> {
         let from = msg.from();
         let cur_ts = self.cur_tipset.lock().clone();
         add_helper(
@@ -316,6 +347,8 @@ where
             self.pending.as_ref(),
             msg,
             self.get_state_sequence(&from, &cur_ts)?,
+            local,
+            trusted,
         )
     }
 
@@ -412,7 +445,7 @@ where
     pub fn load_local(&mut self) -> Result<(), Error> {
         let mut local_msgs = self.local_msgs.write();
         for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
-            self.add(k.clone()).unwrap_or_else(|err| {
+            self.add(k.clone(), true).unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
                     warn!("error adding message: {:?}", err);
                     local_msgs.remove(&k);
@@ -601,6 +634,8 @@ pub(in crate::message_pool) fn add_helper<T>(
     pending: &SyncRwLock<HashMap<Address, MsgSet>>,
     msg: SignedMessage,
     sequence: u64,
+    local: bool,
+    trusted: bool,
 ) -> Result<(), Error>
 where
     T: Provider,
@@ -623,11 +658,11 @@ where
     let mut pending = pending.write();
     let msett = pending.get_mut(&msg.from());
     match msett {
-        Some(mset) => mset.add_trusted(api, msg)?,
+        Some(mset) => mset.add(api, msg, !local, trusted)?,
         None => {
             let mut mset = MsgSet::new(sequence);
             let from = msg.from();
-            mset.add_trusted(api, msg)?;
+            mset.add(api, msg, !local, trusted)?;
             pending.insert(from, mset);
         }
     }
@@ -682,4 +717,8 @@ pub fn remove(
     }
 
     Ok(())
+}
+
+fn compute_min_rbf(current_premium: &TokenAmount) -> TokenAmount {
+    (current_premium * RBF_NUM).div_floor(RBF_DENOM) + TokenAmount::from_atto(1)
 }

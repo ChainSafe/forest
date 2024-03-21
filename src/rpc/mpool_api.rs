@@ -111,7 +111,22 @@ where
 {
     let LotusJson((signed_message,)) = params.parse()?;
 
-    let cid = data.mpool.as_ref().push(signed_message).await?;
+    let cid = data.mpool.as_ref().push_trusted(signed_message).await?;
+
+    Ok(cid.into())
+}
+
+/// Add `SignedMessage` from untrusted source to `mpool`, return message CID
+pub async fn mpool_push_untrusted<DB>(
+    params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<Cid>, JsonRpcError>
+where
+    DB: Blockstore + Send + Sync + 'static,
+{
+    let LotusJson((signed_message,)) = params.parse()?;
+
+    let cid = data.mpool.as_ref().push_untrusted(signed_message).await?;
 
     Ok(cid.into())
 }
@@ -165,7 +180,7 @@ where
 
     let smsg = SignedMessage::new_from_parts(umsg, sig)?;
 
-    data.mpool.as_ref().push(smsg.clone()).await?;
+    data.mpool.as_ref().push_trusted(smsg.clone()).await?;
 
     Ok(smsg.into())
 }
