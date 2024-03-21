@@ -102,8 +102,12 @@ pub enum ApiCommands {
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
-        /// Include methods that may be excluded by the default exclusions.
-        #[arg(long, help_heading("Filtering"), long_help(DocumentDefaultExclusions))]
+        #[arg(
+            long,
+            help_heading("Filtering"),
+            help(INCLUDE_SHORT_HELP),
+            long_help(DocumentDefaultExclusions)
+        )]
         include: Vec<String>,
         /// Exclude methods in addition to the default exclusions.
         #[arg(long, help_heading("Filtering"))]
@@ -114,6 +118,7 @@ pub enum ApiCommands {
     },
 }
 
+const INCLUDE_SHORT_HELP: &str = "Include methods that may be excluded by the default exclusions.";
 // sorted and deduplicated please
 const DEFAULT_BLOCK: &[&str] = &[
     "Filecoin.ChainGetParentReceipts",
@@ -132,15 +137,15 @@ struct DocumentDefaultExclusions;
 
 impl IntoResettable<StyledStr> for DocumentDefaultExclusions {
     fn into_resettable(self) -> Resettable<StyledStr> {
-        let s = match DEFAULT_BLOCK.is_empty() {
-            true => String::from("There are currently no default exclusions."),
+        let mut s = String::from(INCLUDE_SHORT_HELP);
+        match DEFAULT_BLOCK.is_empty() {
+            true => s += "\n(There are currently no default exclusions.)",
             false => {
-                let mut s = String::from("The current exclusions are:\n");
+                s += "\n\nThe current default exclusions are:\n";
                 for it in DEFAULT_BLOCK.iter() {
                     s += &format!("\t- {}\n", it);
                 }
                 s += "These methods are potentially broken, and should not be used until the root cause is resolved.";
-                s
             }
         };
         Resettable::Value(StyledStr::from(s))
