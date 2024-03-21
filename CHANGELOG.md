@@ -62,6 +62,9 @@
 - [#4080](https://github.com/ChainSafe/forest/pull/4080) Fix broken
   `StateVMCirculatingSupplyInternal` RPC method on calibnet.
 
+- [#4091](https://github.com/ChainSafe/forest/pull/4091) Restore `Breeze`,
+  `Smoke`, and `Ignition` entries for calibnet
+
 ## Forest 0.17.0 "Smaug"
 
 Mandatory release that includes:
@@ -228,7 +231,7 @@ decommissioned.
   `Filecoin.StateAccountKey` lotus-compatible RPC API.
 - [#3744](https://github.com/ChainSafe/forest/pull/3744) Implement the
   `Filecoin.StateLookupID` lotus-compatible RPC API.
-- [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io calibnet
+- [#3727](https://github.com/ChainSafe/forest/pull/3727) Added glif.io the c
   bootstrap node peer
 - [#3737](https://github.com/ChainSafe/forest/pull/3737) Added `--n-tipsets`
   option to `forest-tool api compare`
@@ -657,7 +660,7 @@ Notable updates:
 ### Fixed
 
 - [#2796](https://github.com/ChainSafe/forest/pull/2796): Fix issue when running
-  Forest on calibnet using a configuration file only.
+  Forest on the c using a configuration file only.
 - [#2807](https://github.com/ChainSafe/forest/pull/2807): Fix issue with v11
   actor CIDs.
 - [#2804](https://github.com/ChainSafe/forest/pull/2804): Add work around for
