@@ -7,8 +7,11 @@ use std::{ops::Add, sync::Arc};
 use super::gas_api;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
+use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
+use crate::rpc::sync_api::sync_state;
+use crate::rpc_api::data_types::RPCSyncState;
 use crate::rpc_api::{
     data_types::{Data, RPCState},
     eth_api::BigInt as EthBigInt,
@@ -18,6 +21,7 @@ use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
 use anyhow::{bail, Context, Result};
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use num_bigint::BigInt;
@@ -49,7 +53,7 @@ pub async fn eth_block_number<DB: Blockstore>(
         .chain_index
         .load_tipset(effective_parent)
     {
-        Ok(format!("0x{:x}", parent.epoch()))
+        Ok(format!("{:#x}", parent.epoch()))
     } else {
         Ok("0x0".to_string())
     }
@@ -59,7 +63,7 @@ pub async fn eth_chain_id<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     Ok(format!(
-        "0x{:x}",
+        "{:#x}",
         data.state_manager.chain_config().eth_chain_id
     ))
 }
@@ -96,6 +100,32 @@ pub async fn eth_get_balance<DB: Blockstore>(
         .context("Failed to retrieve actor")?;
 
     Ok(EthBigInt(actor.balance.atto().clone()))
+}
+
+pub async fn eth_syncing<DB: Blockstore>(
+    _params: Params<'_>,
+    data: Data<RPCState<DB>>,
+) -> Result<LotusJson<EthSyncingResult>, JsonRpcError> {
+    let RPCSyncState { active_syncs } = sync_state(data).await?;
+    match active_syncs
+        .iter()
+        .rev()
+        .find_or_first(|ss| ss.stage() != SyncStage::Idle)
+    {
+        Some(sync_state) => match (sync_state.base(), sync_state.target()) {
+            (Some(base), Some(target)) => Ok(LotusJson(EthSyncingResult {
+                done_sync: sync_state.stage() == SyncStage::Complete,
+                current_block: sync_state.epoch(),
+                starting_block: base.epoch(),
+                highest_block: target.epoch(),
+            })),
+            _ => Err(JsonRpcError::internal_error(
+                "missing syncing information, try again",
+                None,
+            )),
+        },
+        None => Err(JsonRpcError::internal_error("sync state not found", None)),
+    }
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(

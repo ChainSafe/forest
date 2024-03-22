@@ -155,6 +155,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
     access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
+    access.insert(eth_api::ETH_SYNCING, Access::Read);
 
     // Pubsub API
     access.insert(CANCEL_METHOD_NAME, Access::Read);
@@ -561,6 +562,7 @@ pub mod eth_api {
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
     pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
+    pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
 
     const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -681,8 +683,8 @@ pub mod eth_api {
         fn into_lotus_json(self) -> Self::LotusJson {
             match self {
                 Self::PredefinedBlock(predefined) => predefined.to_string(),
-                Self::BlockNumber(number) => format!("0x{:x}", number),
-                Self::BlockHash(hash, _require_canonical) => format!("0x{:x}", hash.0),
+                Self::BlockNumber(number) => format!("{:#x}", number),
+                Self::BlockHash(hash, _require_canonical) => format!("{:#x}", hash.0),
             }
         }
 
@@ -706,6 +708,78 @@ pub mod eth_api {
         }
     }
 
+    #[derive(Debug, Clone, Default)]
+    pub struct EthSyncingResult {
+        pub done_sync: bool,
+        pub starting_block: i64,
+        pub current_block: i64,
+        pub highest_block: i64,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum EthSyncingResultLotusJson {
+        DoneSync(bool),
+        Syncing {
+            #[serde(rename = "startingblock", with = "crate::lotus_json::hexify")]
+            starting_block: i64,
+            #[serde(rename = "currentblock", with = "crate::lotus_json::hexify")]
+            current_block: i64,
+            #[serde(rename = "highestblock", with = "crate::lotus_json::hexify")]
+            highest_block: i64,
+        },
+    }
+
+    impl HasLotusJson for EthSyncingResult {
+        type LotusJson = EthSyncingResultLotusJson;
+
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            match self {
+                Self {
+                    done_sync: false,
+                    starting_block,
+                    current_block,
+                    highest_block,
+                } => EthSyncingResultLotusJson::Syncing {
+                    starting_block,
+                    current_block,
+                    highest_block,
+                },
+                _ => EthSyncingResultLotusJson::DoneSync(false),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json {
+                EthSyncingResultLotusJson::DoneSync(syncing) => {
+                    if syncing {
+                        // Dangerous to panic here, log error instead.
+                        tracing::error!("Invalid EthSyncingResultLotusJson: {syncing}");
+                    }
+                    Self {
+                        done_sync: true,
+                        ..Default::default()
+                    }
+                }
+                EthSyncingResultLotusJson::Syncing {
+                    starting_block,
+                    current_block,
+                    highest_block,
+                } => Self {
+                    done_sync: false,
+                    starting_block,
+                    current_block,
+                    highest_block,
+                },
+            }
+        }
+    }
+
     #[cfg(test)]
     mod test {
         use super::*;
@@ -715,7 +789,7 @@ pub mod eth_api {
         fn gas_price_result_serde_roundtrip(i: u128) {
             let r = GasPriceResult(i.into());
             let encoded = serde_json::to_string(&r).unwrap();
-            assert_eq!(encoded, format!("\"0x{i:x}\""));
+            assert_eq!(encoded, format!("\"{i:#x}\""));
             let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
             assert_eq!(r.0, decoded.0);
         }
