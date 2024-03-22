@@ -4,6 +4,7 @@
 !Filecoin.ChainGetTipSetAfterHeight
 !Filecoin.ChainGetParentReceipts
 !Filecoin.MinerGetBaseInfo
+!Filecoin.StateCall
 !Filecoin.StateListMessages
 !Filecoin.StateSearchMsg
 !Filecoin.StateSearchMsgLimited
