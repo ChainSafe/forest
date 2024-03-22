@@ -3,11 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// Beacon API
-pub mod beacon_api {
-    pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
-}
-
 /// Chain API
 pub mod chain_api {
     use std::{path::PathBuf, sync::Arc};

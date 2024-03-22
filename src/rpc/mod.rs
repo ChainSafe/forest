@@ -4,7 +4,7 @@
 // API handlers
 pub mod auth_api;
 mod auth_layer;
-mod beacon_api;
+pub mod beacon_api;
 mod chain_api;
 mod channel;
 mod common_api;
@@ -33,12 +33,11 @@ use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::{
-    beacon_api::beacon_get_entry,
     common_api::{session, shutdown, start_time, version},
     state_api::*,
 };
 use crate::rpc_api::{
-    beacon_api::*, chain_api::*, common_api::*, eth_api::*, gas_api::*, mpool_api::*, net_api::*,
+    chain_api::*, common_api::*, eth_api::*, gas_api::*, mpool_api::*, net_api::*,
     node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 
@@ -185,6 +184,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     use auth_api::*;
+    use beacon_api::*;
     use chain_api::*;
     use eth_api::*;
     use gas_api::*;
