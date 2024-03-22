@@ -48,8 +48,10 @@ for port in "${PORTS[@]}"; do
   diff "$parent_path/test_data/calibnet_block_3000.json" "$temp_dir/block.json"
 done
 
+# TODO(aatifsyed): https://github.com/ChainSafe/forest/pull/4096
+#                  `--filter` logic should be commonised
 # Compare the http endpoints
-$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http --n-tipsets 5
+$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/http --lotus /ip4/127.0.0.1/tcp/8081/http --n-tipsets 5 '--filter=!Filecoin.StateWaitMsg'
 
 # Compare the ws endpoints
-$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/ws --lotus /ip4/127.0.0.1/tcp/8081/ws --n-tipsets 5
+$FOREST_TOOL_PATH api compare "$snapshot" --forest /ip4/127.0.0.1/tcp/8080/ws --lotus /ip4/127.0.0.1/tcp/8081/ws --n-tipsets 5 '--filter=!Filecoin.StateWaitMsg'
