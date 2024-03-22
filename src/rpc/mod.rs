@@ -12,13 +12,15 @@ mod gas_api;
 mod mpool_api;
 mod net_api;
 mod node_api;
-mod reflect;
 mod state_api;
 mod sync_api;
 mod wallet_api;
 
-mod error;
 pub use error::JsonRpcError;
+pub(self) use reflect::Ctx;
+pub use reflect::{RpcMethod, RpcMethodExt};
+mod error;
+mod reflect;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -53,7 +55,6 @@ use tracing::info;
 
 use self::chain_api::ChainGetPath;
 use self::reflect::openrpc_types::ParamStructure;
-use self::reflect::RpcMethodExt as _;
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
