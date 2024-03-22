@@ -38,6 +38,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
+use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::Path;
@@ -194,17 +195,16 @@ enum EndpointStatus {
 
 impl EndpointStatus {
     fn from_json_error(err: JsonRpcError) -> Self {
-        if err.code == JsonRpcError::INVALID_REQUEST.code {
-            EndpointStatus::InvalidRequest
-        } else if err.code == JsonRpcError::METHOD_NOT_FOUND.code {
-            EndpointStatus::MissingMethod
-        } else if err.code == JsonRpcError::PARSE_ERROR.code {
-            EndpointStatus::InvalidResponse
-        } else if err.code == 0 && err.message.contains("timed out") {
-            EndpointStatus::Timeout
-        } else {
-            tracing::debug!("{err}");
-            EndpointStatus::InternalServerError
+        match err.known_code() {
+            ErrorCode::ParseError => Self::InvalidResponse,
+            ErrorCode::OversizedRequest => Self::InvalidRequest,
+            ErrorCode::InvalidRequest => Self::InvalidRequest,
+            ErrorCode::MethodNotFound => Self::MissingMethod,
+            it if it.code() == 0 && it.message().contains("timed out") => Self::Timeout,
+            _ => {
+                tracing::debug!(?err);
+                Self::InternalServerError
+            }
         }
     }
 }
@@ -996,7 +996,7 @@ where
         },
     };
     crate::utils::io::terminal_cleanup();
-    result.map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
+    result
 }
 
 async fn run_tests(

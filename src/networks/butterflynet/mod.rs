@@ -8,12 +8,14 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
 
-use crate::{db::SettingsStore, utils::net::http_get};
+use crate::{db::SettingsStore, shim::version::NetworkVersion, utils::net::http_get};
 
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
     get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
+
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V21;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -67,6 +69,48 @@ pub const ETH_CHAIN_ID: u64 = 3141592;
 /// Height epochs.
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
+        (
+            Height::Breeze,
+            HeightInfo {
+                epoch: -50,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Smoke,
+            HeightInfo {
+                epoch: -2,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Ignition,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
+            Height::ActorsV2,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Liftoff,
+            HeightInfo {
+                epoch: -6,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Calico,
+            HeightInfo {
+                epoch: -9,
+                bundle: None,
+            },
+        ),
         (
             Height::Watermelon,
             HeightInfo {

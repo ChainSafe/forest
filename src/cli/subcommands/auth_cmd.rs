@@ -37,7 +37,7 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
         "sign" => SIGN,
         "write" => WRITE,
         "read" => READ,
-        _ => return Err(JsonRpcError::INVALID_PARAMS),
+        _ => return Err(JsonRpcError::invalid_params("unknown permission", None)),
     }
     .iter()
     .map(ToString::to_string)
