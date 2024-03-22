@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+// API handlers
 mod auth_api;
 mod auth_layer;
 mod beacon_api;
@@ -16,11 +17,13 @@ mod state_api;
 mod sync_api;
 mod wallet_api;
 
+// Other RPC-specific modules
 pub use error::JsonRpcError;
 use reflect::Ctx;
 pub use reflect::RpcMethodExt;
 mod error;
 mod reflect;
+pub mod types;
 
 use std::net::SocketAddr;
 use std::sync::Arc;

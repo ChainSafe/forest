@@ -1,6 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+//! Types that are shared _between_ APIs.
+//!
+//! If a type here is used by only one API, it should be relocated.
+
 use std::str::FromStr;
 
 use crate::beacon::BeaconEntry;

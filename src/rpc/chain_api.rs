@@ -8,15 +8,12 @@ use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::message::ChainMessage;
+use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
 use crate::rpc::{
     error::JsonRpcError,
     reflect::{Ctx, RpcMethod},
 };
-use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
-use crate::rpc_api::{
-    chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages},
-};
+use crate::rpc_api::chain_api::*;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;

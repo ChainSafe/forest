@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use crate::rpc::types::{APIVersion, Version};
 use crate::rpc::{error::JsonRpcError, RPCState};
-use crate::rpc_api::data_types::{APIVersion, Version};
 
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;

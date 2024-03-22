@@ -7,8 +7,8 @@ use std::convert::TryFrom;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
+use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
 use crate::rpc::Ctx;
-use crate::rpc_api::data_types::{ApiTipsetKey, MessageSendSpec};
 use crate::shim::{address::Protocol, message::Message};
 
 use ahash::{HashSet, HashSetExt};

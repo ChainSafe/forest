@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
-use crate::rpc_api::data_types::CirculatingSupply;
+use crate::rpc::types::CirculatingSupply;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
