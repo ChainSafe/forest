@@ -711,9 +711,9 @@ pub mod eth_api {
     #[derive(Debug, Clone, Default)]
     pub struct EthSyncingResult {
         pub done_sync: bool,
-        pub startingblock: i64,
-        pub currentblock: i64,
-        pub highestblock: i64,
+        pub starting_block: i64,
+        pub current_block: i64,
+        pub highest_block: i64,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -721,12 +721,12 @@ pub mod eth_api {
     pub enum EthSyncingResultLotusJson {
         DoneSync(bool),
         Syncing {
-            #[serde(with = "crate::lotus_json::hexify")]
-            startingblock: i64,
-            #[serde(with = "crate::lotus_json::hexify")]
-            currentblock: i64,
-            #[serde(with = "crate::lotus_json::hexify")]
-            highestblock: i64,
+            #[serde(rename = "startingblock", with = "crate::lotus_json::hexify")]
+            starting_block: i64,
+            #[serde(rename = "currentblock", with = "crate::lotus_json::hexify")]
+            current_block: i64,
+            #[serde(rename = "highestblock", with = "crate::lotus_json::hexify")]
+            highest_block: i64,
         },
     }
 
@@ -742,13 +742,13 @@ pub mod eth_api {
             match self {
                 Self {
                     done_sync: false,
-                    startingblock,
-                    currentblock,
-                    highestblock,
+                    starting_block,
+                    current_block,
+                    highest_block,
                 } => EthSyncingResultLotusJson::Syncing {
-                    startingblock,
-                    currentblock,
-                    highestblock,
+                    starting_block,
+                    current_block,
+                    highest_block,
                 },
                 _ => EthSyncingResultLotusJson::DoneSync(false),
             }
@@ -767,14 +767,14 @@ pub mod eth_api {
                     }
                 }
                 EthSyncingResultLotusJson::Syncing {
-                    startingblock,
-                    currentblock,
-                    highestblock,
+                    starting_block,
+                    current_block,
+                    highest_block,
                 } => Self {
                     done_sync: false,
-                    startingblock,
-                    currentblock,
-                    highestblock,
+                    starting_block,
+                    current_block,
+                    highest_block,
                 },
             }
         }

@@ -115,9 +115,9 @@ pub async fn eth_syncing<DB: Blockstore>(
         Some(sync_state) => match (sync_state.base(), sync_state.target()) {
             (Some(base), Some(target)) => Ok(LotusJson(EthSyncingResult {
                 done_sync: sync_state.stage() == SyncStage::Complete,
-                currentblock: sync_state.epoch(),
-                startingblock: base.epoch(),
-                highestblock: target.epoch(),
+                current_block: sync_state.epoch(),
+                starting_block: base.epoch(),
+                highest_block: target.epoch(),
             })),
             _ => Err(JsonRpcError::internal_error(
                 "missing syncing information, try again",
