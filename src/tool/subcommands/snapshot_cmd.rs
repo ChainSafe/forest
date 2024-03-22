@@ -4,13 +4,12 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::ipld::recurse_links_hash;
+use crate::ipld::stream_chain;
 use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
@@ -274,29 +273,17 @@ where
     DB: Blockstore + Send + Sync,
 {
     let epoch_limit = ts.epoch() - epochs as i64;
-    let mut seen = CidHashSet::default();
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),
     );
 
-    for tipset in ts
-        .chain(db)
-        .take_while(|tipset| tipset.epoch() > epoch_limit)
-    {
+    let tipsets = ts.chain(db).inspect(|tipset| {
         let height = tipset.epoch();
         pb.set_message(format!("{} remaining epochs", height - epoch_limit));
-
-        let mut assert_cid_exists = |cid: Cid| async move {
-            let data = db.get(&cid)?;
-            data.with_context(|| format!("Broken IPLD link at epoch: {height}"))
-        };
-
-        for h in tipset.block_headers() {
-            recurse_links_hash(&mut seen, h.state_root, &mut assert_cid_exists, &|_| ()).await?;
-            recurse_links_hash(&mut seen, h.messages, &mut assert_cid_exists, &|_| ()).await?;
-        }
-    }
+    });
+    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");
     Ok(())

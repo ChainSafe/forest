@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::ops::DerefMut;
-use std::{collections::VecDeque, future::Future, mem, sync::Arc};
+use std::{collections::VecDeque, mem, sync::Arc};
 
+use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
-use crate::{blocks::Tipset, utils::encoding::from_slice_with_fallback};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::Stream;
@@ -24,82 +24,6 @@ use tokio::task;
 use tokio::task::{JoinHandle, JoinSet};
 
 const BLOCK_CHANNEL_LIMIT: usize = 2048;
-
-/// Traverses all Cid links, hashing and loading all unique values and using the
-/// callback function to interact with the data.
-#[async_recursion::async_recursion]
-async fn traverse_ipld_links_hash<F, T>(
-    walked: &mut CidHashSet,
-    load_block: &mut F,
-    ipld: &Ipld,
-    on_inserted: &(impl Fn(usize) + Send + Sync),
-) -> Result<(), anyhow::Error>
-where
-    F: FnMut(Cid) -> T + Send,
-    T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
-{
-    match ipld {
-        Ipld::Map(m) => {
-            for (_, v) in m.iter() {
-                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
-            }
-        }
-        Ipld::List(list) => {
-            for v in list.iter() {
-                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
-            }
-        }
-        &Ipld::Link(cid) => {
-            // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
-            if cid.codec() == crate::shim::crypto::IPLD_RAW {
-                if !walked.insert(cid) {
-                    return Ok(());
-                }
-                on_inserted(walked.len());
-                let _ = load_block(cid).await?;
-            }
-            if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                if !walked.insert(cid) {
-                    return Ok(());
-                }
-                on_inserted(walked.len());
-                let bytes = load_block(cid).await?;
-                let ipld = from_slice_with_fallback(&bytes)?;
-                traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
-            }
-        }
-        _ => (),
-    }
-    Ok(())
-}
-
-/// Load and hash CIDs and resolve recursively.
-pub async fn recurse_links_hash<F, T>(
-    walked: &mut CidHashSet,
-    root: Cid,
-    load_block: &mut F,
-    on_inserted: &(impl Fn(usize) + Send + Sync),
-) -> Result<(), anyhow::Error>
-where
-    F: FnMut(Cid) -> T + Send,
-    T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
-{
-    if !walked.insert(root) {
-        // Cid has already been traversed
-        return Ok(());
-    }
-    on_inserted(walked.len());
-    if root.codec() != fvm_ipld_encoding::DAG_CBOR {
-        return Ok(());
-    }
-
-    let bytes = load_block(root).await?;
-    let ipld = from_slice_with_fallback(&bytes)?;
-
-    traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
-
-    Ok(())
-}
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
