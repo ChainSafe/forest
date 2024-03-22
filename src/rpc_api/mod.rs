@@ -3,27 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// Authorization API
-pub mod auth_api {
-    use chrono::Duration;
-    use serde::{Deserialize, Serialize};
-    use serde_with::{serde_as, DurationSeconds};
-
-    use crate::lotus_json::lotus_json_with_self;
-
-    pub const AUTH_NEW: &str = "Filecoin.AuthNew";
-    #[serde_as]
-    #[derive(Deserialize, Serialize)]
-    pub struct AuthNewParams {
-        pub perms: Vec<String>,
-        #[serde_as(as = "DurationSeconds<i64>")]
-        pub token_exp: Duration,
-    }
-    lotus_json_with_self!(AuthNewParams);
-
-    pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
-}
-
 /// Beacon API
 pub mod beacon_api {
     pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";

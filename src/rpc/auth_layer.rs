@@ -3,9 +3,8 @@
 
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
-use crate::rpc::CANCEL_METHOD_NAME;
+use crate::rpc::{auth_api, CANCEL_METHOD_NAME};
 use crate::rpc_api::*;
-
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use hyper::header::{HeaderValue, AUTHORIZATION};

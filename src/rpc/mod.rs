@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 // API handlers
-mod auth_api;
+pub mod auth_api;
 mod auth_layer;
 mod beacon_api;
 mod chain_api;
@@ -38,8 +38,8 @@ use crate::rpc::{
     state_api::*,
 };
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, eth_api::*, gas_api::*, mpool_api::*,
-    net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
+    beacon_api::*, chain_api::*, common_api::*, eth_api::*, gas_api::*, mpool_api::*, net_api::*,
+    node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 
 use fvm_ipld_blockstore::Blockstore;
