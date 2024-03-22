@@ -280,7 +280,11 @@ where
 
     let tipsets = ts.chain(db).inspect(|tipset| {
         let height = tipset.epoch();
-        pb.set_message(format!("{} remaining epochs", height - epoch_limit));
+        if height - epoch_limit >= 0 {
+            pb.set_message(format!("{} remaining epochs (state)", height - epoch_limit));
+        } else {
+            pb.set_message(format!("{} remaining epochs (spine)", height));
+        }
     });
     let mut stream = stream_chain(&db, tipsets, epoch_limit);
     while stream.try_next().await?.is_some() {}
