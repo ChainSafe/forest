@@ -58,7 +58,7 @@ type ModuleState<T> = Arc<crate::rpc::RPCState<T>>;
 /// for generality.
 /// However, fixing it as [`Ctx<...>`] saves on complexity/confusion for implementors,
 /// at the expense of handler flexibility, which could come back to bite us.
-/// - All handlers accept [`RPCState`].
+/// - All handlers accept the same type.
 /// - All `Ctx`s must be `Send + Sync + 'static` due to bounds on [`RpcModule`].
 /// - Handlers don't specialize on top of the given bounds, but they MAY relax them.
 pub trait RpcMethod<const ARITY: usize> {

@@ -1,14 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-//! In general, `forest` wants to support the same RPC messages as `lotus` (go
-//! implementation of Filecoin).
-//!
-//! Follow the pattern set below, and don't forget to add an entry to the
-//! [`ACCESS_MAP`] with the relevant permissions (consult the go implementation,
-//! looking for a comment like `// perm: admin`)
-//!
-//! Future work:
-//! - Have an `RpcEndpoint` trait.
 
 pub mod data_types;
 
