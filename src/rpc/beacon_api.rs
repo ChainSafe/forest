@@ -17,7 +17,7 @@ use jsonrpsee::types::Params;
 /// becomes available
 pub async fn beacon_get_entry<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<BeaconEntry>, JsonRpcError> {
     let (first,): (ChainEpoch,) = params.parse()?;
 

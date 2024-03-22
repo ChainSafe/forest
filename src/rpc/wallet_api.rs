@@ -23,7 +23,7 @@ use num_traits::Zero;
 /// Return the balance from `StateManager` for a given `Address`
 pub async fn wallet_balance<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let (addr_str,): (String,) = params.parse()?;
 
@@ -49,7 +49,7 @@ pub async fn wallet_balance<DB: Blockstore>(
 /// Get the default Address for the Wallet
 pub async fn wallet_default_address<DB: Blockstore>(
     _params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<Option<String>, JsonRpcError> {
     let keystore = data.keystore.read().await;
 
@@ -60,7 +60,7 @@ pub async fn wallet_default_address<DB: Blockstore>(
 /// Export `KeyInfo` from the Wallet given its address
 pub async fn wallet_export<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<KeyInfo>, JsonRpcError> {
     let (addr_str,): (String,) = params.parse()?;
 
@@ -75,7 +75,7 @@ pub async fn wallet_export<DB: Blockstore>(
 /// Return whether or not a Key is in the Wallet
 pub async fn wallet_has<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<bool, JsonRpcError> {
     let (addr_str,): (String,) = params.parse()?;
 
@@ -90,7 +90,7 @@ pub async fn wallet_has<DB: Blockstore>(
 /// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
 pub async fn wallet_import<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let params: LotusJson<Vec<KeyInfo>> = params.parse()?;
 
@@ -116,7 +116,7 @@ pub async fn wallet_import<DB: Blockstore>(
 /// List all Addresses in the Wallet
 pub async fn wallet_list<DB: Blockstore>(
     _params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
     let keystore = data.keystore.read().await;
     Ok(crate::key_management::list_addrs(&keystore)?.into())
@@ -125,7 +125,7 @@ pub async fn wallet_list<DB: Blockstore>(
 /// Generate a new Address that is stored in the Wallet
 pub async fn wallet_new<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((sig_raw,)): LotusJson<(SignatureType,)> = params.parse()?;
 
@@ -145,7 +145,7 @@ pub async fn wallet_new<DB: Blockstore>(
 /// Set the default Address for the Wallet
 pub async fn wallet_set_default<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((address,)): LotusJson<(Address,)> = params.parse()?;
 
@@ -161,7 +161,7 @@ pub async fn wallet_set_default<DB: Blockstore>(
 /// Sign a vector of bytes
 pub async fn wallet_sign<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Signature>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -212,7 +212,7 @@ pub async fn wallet_verify(params: Params<'_>) -> Result<bool, JsonRpcError> {
 /// Deletes a wallet given its address.
 pub async fn wallet_delete<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let (addr_str,): (String,) = params.parse()?;
 

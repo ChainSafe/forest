@@ -33,7 +33,7 @@ pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
 }
 
 pub async fn eth_block_number<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
@@ -60,7 +60,7 @@ pub async fn eth_block_number<DB: Blockstore>(
 }
 
 pub async fn eth_chain_id<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     Ok(format!(
         "{:#x}",
@@ -69,7 +69,7 @@ pub async fn eth_chain_id<DB: Blockstore>(
 }
 
 pub async fn eth_gas_price<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
@@ -84,7 +84,7 @@ pub async fn eth_gas_price<DB: Blockstore>(
 
 pub async fn eth_get_balance<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<EthBigInt, JsonRpcError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
@@ -104,7 +104,7 @@ pub async fn eth_get_balance<DB: Blockstore>(
 
 pub async fn eth_syncing<DB: Blockstore>(
     _params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<EthSyncingResult>, JsonRpcError> {
     let RPCSyncState { active_syncs } = sync_state(data).await?;
     match active_syncs

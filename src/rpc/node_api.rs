@@ -12,7 +12,7 @@ use crate::rpc_api::{
 use fvm_ipld_blockstore::Blockstore;
 
 pub async fn node_status<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
 

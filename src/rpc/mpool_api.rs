@@ -21,7 +21,7 @@ use super::gas_api::estimate_message_gas;
 /// Gets next nonce for the specified sender.
 pub async fn mpool_get_nonce<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<u64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -34,7 +34,7 @@ where
 /// Return `Vec` of pending messages in `mpool`
 pub async fn mpool_pending<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -104,7 +104,7 @@ where
 /// Add `SignedMessage` to `mpool`, return message CID
 pub async fn mpool_push<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Cid>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -119,7 +119,7 @@ where
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub async fn mpool_push_message<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<SignedMessage>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,

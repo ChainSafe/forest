@@ -16,7 +16,7 @@ use parking_lot::RwLock;
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
@@ -26,7 +26,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
 /// Marks a block as bad, meaning it will never be synced.
 pub async fn sync_mark_bad<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
@@ -41,7 +41,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 
 /// Returns the current status of the `ChainSync` process.
 pub async fn sync_state<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<RPCSyncState, JsonRpcError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })

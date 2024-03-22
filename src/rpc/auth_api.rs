@@ -15,7 +15,7 @@ use jsonrpsee::types::Params;
 /// RPC call to create a new JWT Token
 pub async fn auth_new<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let auth_params: AuthNewParams = params.parse()?;
 
@@ -28,7 +28,7 @@ pub async fn auth_new<DB: Blockstore>(
 /// RPC call to verify JWT Token and return the token's permissions
 pub async fn auth_verify<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<Vec<String>, JsonRpcError>
 where
     DB: Blockstore,
