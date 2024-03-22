@@ -11,3 +11,4 @@
 !Filecoin.StateSearchMsgLimited
 !Filecoin.StateVMCirculatingSupplyInternal
 !Filecoin.StateWaitMsg
+!Filecoin.StateSectorGetInfo
