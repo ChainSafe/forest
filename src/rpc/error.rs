@@ -1,38 +1,64 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
-use jsonrpsee::types::error::{
-    ErrorObjectOwned, INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, PARSE_ERROR_CODE,
-};
+use jsonrpsee::types::error::{self, ErrorCode, ErrorObjectOwned};
 
-#[derive(derive_more::From, derive_more::Into, Debug)]
+#[derive(derive_more::From, derive_more::Into, Debug, PartialEq)]
 pub struct JsonRpcError {
     inner: ErrorObjectOwned,
 }
 
 impl JsonRpcError {
-    fn new(code: i32, message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
+    pub fn new(
+        code: i32,
+        message: impl Display,
+        data: impl Into<Option<serde_json::Value>>,
+    ) -> Self {
         Self {
             inner: ErrorObjectOwned::owned(code, message.to_string(), data.into()),
         }
     }
-    pub fn parse_error(message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
-        Self::new(PARSE_ERROR_CODE, message, data)
+    pub fn message(&self) -> &str {
+        self.inner.message()
     }
-    pub fn internal_error(
-        message: impl Display,
-        data: impl Into<Option<serde_json::Value>>,
-    ) -> Self {
-        Self::new(INTERNAL_ERROR_CODE, message, data)
+    pub fn known_code(&self) -> ErrorCode {
+        self.inner.code().into()
     }
-    pub fn invalid_params(
-        message: impl Display,
-        data: impl Into<Option<serde_json::Value>>,
-    ) -> Self {
-        Self::new(INVALID_PARAMS_CODE, message, data)
+}
+
+impl Display for JsonRpcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("JSON-RPC error:\n")?;
+        f.write_fmt(format_args!("\tcode: {}\n", self.inner.code()))?;
+        f.write_fmt(format_args!("\tmessage: {}\n", self.inner.message()))?;
+        if let Some(data) = self.inner.data() {
+            f.write_fmt(format_args!("\tdata: {}\n", data))?
+        }
+        Ok(())
     }
+}
+
+impl std::error::Error for JsonRpcError {}
+
+macro_rules! ctor {
+    ($($ctor:ident { $code:expr })*) => {
+        $(
+            impl JsonRpcError {
+                pub fn $ctor(message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
+                    Self::new($code, message, data)
+                }
+            }
+        )*
+    }
+}
+
+ctor! {
+    parse_error { error::PARSE_ERROR_CODE }
+    internal_error { error::INTERNAL_ERROR_CODE }
+    invalid_params { error::INVALID_PARAMS_CODE }
+    method_not_found { error::METHOD_NOT_FOUND_CODE }
 }
 
 macro_rules! from2internal {
