@@ -53,7 +53,7 @@ pub async fn eth_block_number<DB: Blockstore>(
         .chain_index
         .load_tipset(effective_parent)
     {
-        Ok(format!("0x{:x}", parent.epoch()))
+        Ok(format!("{:#x}", parent.epoch()))
     } else {
         Ok("0x0".to_string())
     }
@@ -63,7 +63,7 @@ pub async fn eth_chain_id<DB: Blockstore>(
     data: Data<RPCState<DB>>,
 ) -> Result<String, JsonRpcError> {
     Ok(format!(
-        "0x{:x}",
+        "{:#x}",
         data.state_manager.chain_config().eth_chain_id
     ))
 }

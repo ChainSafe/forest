@@ -683,8 +683,8 @@ pub mod eth_api {
         fn into_lotus_json(self) -> Self::LotusJson {
             match self {
                 Self::PredefinedBlock(predefined) => predefined.to_string(),
-                Self::BlockNumber(number) => format!("0x{:x}", number),
-                Self::BlockHash(hash, _require_canonical) => format!("0x{:x}", hash.0),
+                Self::BlockNumber(number) => format!("{:#x}", number),
+                Self::BlockHash(hash, _require_canonical) => format!("{:#x}", hash.0),
             }
         }
 
@@ -789,7 +789,7 @@ pub mod eth_api {
         fn gas_price_result_serde_roundtrip(i: u128) {
             let r = GasPriceResult(i.into());
             let encoded = serde_json::to_string(&r).unwrap();
-            assert_eq!(encoded, format!("\"0x{i:x}\""));
+            assert_eq!(encoded, format!("\"{i:#x}\""));
             let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
             assert_eq!(r.0, decoded.0);
         }
