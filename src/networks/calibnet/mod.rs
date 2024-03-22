@@ -7,6 +7,8 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
+use crate::shim::version::NetworkVersion;
+
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
     get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
@@ -18,6 +20,7 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
 });
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
 /// Default bootstrap peer ids.
 pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
@@ -36,6 +39,27 @@ pub const ETH_CHAIN_ID: u64 = 314159;
 /// Height epochs.
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
+        (
+            Height::Breeze,
+            HeightInfo {
+                epoch: -1,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Smoke,
+            HeightInfo {
+                epoch: -2,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Ignition,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
         (
             Height::ActorsV2,
             HeightInfo {

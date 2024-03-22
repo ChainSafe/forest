@@ -72,6 +72,12 @@ impl DerefMut for NetworkVersion {
     }
 }
 
+impl From<u32> for NetworkVersion {
+    fn from(value: u32) -> Self {
+        NetworkVersion(NetworkVersion_latest::new(value))
+    }
+}
+
 impl From<NetworkVersion_v2> for NetworkVersion {
     fn from(value: NetworkVersion_v2) -> Self {
         NetworkVersion((value as u32).into())
@@ -105,5 +111,13 @@ impl From<NetworkVersion> for NetworkVersion_v3 {
 impl From<NetworkVersion> for NetworkVersion_v4 {
     fn from(other: NetworkVersion) -> Self {
         other.0
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for NetworkVersion {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let value = u32::arbitrary(g);
+        NetworkVersion(NetworkVersion_latest::new(value))
     }
 }
