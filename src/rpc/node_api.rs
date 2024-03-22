@@ -11,9 +11,7 @@ use crate::rpc_api::{
 };
 use fvm_ipld_blockstore::Blockstore;
 
-pub async fn node_status<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<NodeStatusResult, JsonRpcError> {
+pub async fn node_status<DB: Blockstore>(data: Ctx<DB>) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
 
     let head = data.state_manager.chain_store().heaviest_tipset();

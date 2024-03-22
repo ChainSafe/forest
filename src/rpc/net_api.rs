@@ -16,9 +16,7 @@ use jsonrpsee::types::Params;
 
 use anyhow::Result;
 
-pub async fn net_addrs_listen<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<AddrInfo, JsonRpcError> {
+pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::AddrsListen(tx),
@@ -33,9 +31,7 @@ pub async fn net_addrs_listen<DB: Blockstore>(
     })
 }
 
-pub async fn net_peers<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<Vec<AddrInfo>, JsonRpcError> {
+pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Peers(tx),
@@ -60,9 +56,7 @@ pub async fn net_listening() -> Result<bool, JsonRpcError> {
     Ok(true)
 }
 
-pub async fn net_info<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<NetInfoResult, JsonRpcError> {
+pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Info(tx),

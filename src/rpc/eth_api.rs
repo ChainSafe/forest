@@ -32,9 +32,7 @@ pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     Ok(vec![])
 }
 
-pub async fn eth_block_number<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+pub async fn eth_block_number<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
     // This is the parent of the head tipset. The head tipset is speculative, has not been
@@ -59,18 +57,14 @@ pub async fn eth_block_number<DB: Blockstore>(
     }
 }
 
-pub async fn eth_chain_id<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+pub async fn eth_chain_id<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
     Ok(format!(
         "{:#x}",
         data.state_manager.chain_config().eth_chain_id
     ))
 }
 
-pub async fn eth_gas_price<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<GasPriceResult, JsonRpcError> {
+pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;

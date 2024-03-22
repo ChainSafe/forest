@@ -388,9 +388,7 @@ pub async fn chain_get_genesis<DB: Blockstore>(
     Ok(Some(Tipset::from(genesis).into()))
 }
 
-pub async fn chain_head<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
+pub async fn chain_head<DB: Blockstore>(data: Ctx<DB>) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
     Ok((*heaviest).clone().into())
 }

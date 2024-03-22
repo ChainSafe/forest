@@ -97,9 +97,7 @@ pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
 }
 
 /// gets network name from state manager
-pub async fn state_network_name<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+pub async fn state_network_name<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
     let state_manager = &data.state_manager;
     let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
 

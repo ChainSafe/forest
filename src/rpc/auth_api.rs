@@ -26,10 +26,7 @@ pub async fn auth_new<DB: Blockstore>(
 }
 
 /// RPC call to verify JWT Token and return the token's permissions
-pub async fn auth_verify<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<Vec<String>, JsonRpcError>
+pub async fn auth_verify<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<Vec<String>, JsonRpcError>
 where
     DB: Blockstore,
 {

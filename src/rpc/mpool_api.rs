@@ -19,10 +19,7 @@ use jsonrpsee::types::Params;
 use super::gas_api::estimate_message_gas;
 
 /// Gets next nonce for the specified sender.
-pub async fn mpool_get_nonce<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<u64, JsonRpcError>
+pub async fn mpool_get_nonce<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<u64, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

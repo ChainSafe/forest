@@ -40,9 +40,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub async fn sync_state<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<RPCSyncState, JsonRpcError> {
+pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, JsonRpcError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }
