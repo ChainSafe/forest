@@ -60,7 +60,7 @@ impl ShedCommands {
                     multiaddr: host,
                     token: None,
                 };
-                let head = client.chain_head().await.context("couldn't get HEAD")?;
+                let head = client.chain_head().await?;
                 let end_height = match height {
                     Some(it) => it,
                     None => head
