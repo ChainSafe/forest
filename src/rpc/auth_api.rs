@@ -5,9 +5,7 @@ use crate::auth::*;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
-use crate::rpc_api::{
-    auth_api::*,
-};
+use crate::rpc_api::auth_api::*;
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;

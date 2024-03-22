@@ -17,8 +17,8 @@ mod sync_api;
 mod wallet_api;
 
 pub use error::JsonRpcError;
- use reflect::Ctx;
-pub use reflect::{RpcMethodExt};
+use reflect::Ctx;
+pub use reflect::RpcMethodExt;
 mod error;
 mod reflect;
 
