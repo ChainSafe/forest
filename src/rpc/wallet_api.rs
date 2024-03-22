@@ -7,6 +7,7 @@ use std::{convert::TryFrom, str::FromStr};
 use crate::key_management::{Key, KeyInfo};
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
+use crate::rpc::Ctx;
 use crate::rpc_api::data_types::{Data, RPCState};
 use crate::shim::{
     address::Address,

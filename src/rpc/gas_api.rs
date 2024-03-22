@@ -7,6 +7,7 @@ use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE
 use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::rpc::error::JsonRpcError;
+use crate::rpc::Ctx;
 use crate::rpc_api::data_types::*;
 use crate::shim::address::Address;
 use crate::shim::econ::BLOCK_GAS_LIMIT;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::error::JsonRpcError;
+use crate::rpc::Ctx;
 use crate::{
     beacon::BeaconEntry,
     lotus_json::LotusJson,
