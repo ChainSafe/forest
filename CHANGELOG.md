@@ -65,6 +65,9 @@
 - [#4091](https://github.com/ChainSafe/forest/pull/4091) Restore `Breeze`,
   `Smoke`, and `Ignition` entries for calibnet
 
+- [#4093](https://github.com/ChainSafe/forest/pull/4093) Fix parsing issue in
+  the `Filecoin.StateAccountKey` RPC method.
+
 ## Forest 0.17.0 "Smaug"
 
 Mandatory release that includes:

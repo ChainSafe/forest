@@ -1224,7 +1224,7 @@ where
         let info = miner_state.info(self.blockstore())?;
 
         let worker_key = self
-            .resolve_to_deterministic_address(info.worker.into(), Some(tipset.clone()))
+            .resolve_to_deterministic_address(info.worker.into(), tipset.clone())
             .await?;
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
@@ -1358,14 +1358,13 @@ where
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,
-        ts: Option<Arc<Tipset>>,
+        ts: Arc<Tipset>,
     ) -> anyhow::Result<Address> {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
             BLS | Secp256k1 | Delegated => Ok(address),
             Actor => anyhow::bail!("cannot resolve actor address to key address"),
             _ => {
-                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 if let Ok(state) =
                     StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())
