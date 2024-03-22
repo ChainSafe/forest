@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::clock::ChainEpoch;
+use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
 use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
@@ -21,6 +21,7 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
 });
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
 pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
     Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/mainnet")));

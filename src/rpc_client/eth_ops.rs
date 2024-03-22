@@ -28,4 +28,8 @@ impl ApiInfo {
     ) -> RpcRequest<BigInt> {
         RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_param))
     }
+
+    pub fn eth_syncing_req() -> RpcRequest<EthSyncingResult> {
+        RpcRequest::new_v1(ETH_SYNCING, ())
+    }
 }

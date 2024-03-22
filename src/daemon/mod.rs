@@ -369,7 +369,6 @@ pub(super) async fn start(
                 shutdown_send,
             )
             .await
-            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");

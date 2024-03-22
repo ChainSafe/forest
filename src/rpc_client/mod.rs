@@ -13,7 +13,6 @@ pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
 
-use std::borrow::Cow;
 use std::env;
 use std::fmt;
 use std::marker::PhantomData;
@@ -22,12 +21,14 @@ use std::time::Duration;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
+pub use crate::rpc::JsonRpcError;
 use crate::utils::net::global_http_client;
 use jsonrpsee::{
     core::{client::ClientT, traits::ToRpcParams},
-    types::{params::TwoPointZero, Id, Request},
+    types::{Id, Request},
     ws_client::WsClientBuilder,
 };
+use serde::de::IntoDeserializer;
 use serde::Deserialize;
 use tracing::{debug, error};
 
@@ -94,7 +95,7 @@ impl ApiInfo {
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
         let params = serde_json::value::to_raw_value(&req.params)
-            .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
+            .map_err(|e| JsonRpcError::invalid_params(e, None))?;
         let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
         let api_url = multiaddress_to_url(
@@ -121,42 +122,48 @@ impl ApiInfo {
         };
 
         let response = request.send().await?;
-        if response.status() == http0::StatusCode::NOT_FOUND {
-            return Err(JsonRpcError::METHOD_NOT_FOUND);
-        }
-        if response.status() == http0::StatusCode::FORBIDDEN {
-            let msg = if self.token.is_none() {
-                "Permission denied: Token required."
-            } else {
-                "Permission denied: Insufficient rights."
-            };
-            return Err(JsonRpcError {
-                code: response.status().as_u16() as i64,
-                message: Cow::Borrowed(msg),
-            });
-        }
-        if !response.status().is_success() {
-            let err = JsonRpcError {
-                code: response.status().as_u16() as i64,
-                message: Cow::Owned(response.text().await?),
-            };
-            error!("Failure: {}\n{request_log}", err.message);
-            return Err(err);
-        }
-        let json = response.bytes().await?;
-        let rpc_res: JsonRpcResponse<T::LotusJson> =
-            serde_json::from_slice(&json).map_err(|_| JsonRpcError::PARSE_ERROR)?;
-
-        let resp = match rpc_res {
-            JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-            JsonRpcResponse::Error { error, .. } => {
-                error!("Failure: {}\n{request_log}", error.message);
-                Err(error)
+        let result = match response.status() {
+            http0::StatusCode::NOT_FOUND => {
+                Err(JsonRpcError::method_not_found("method_not_found", None))
+            }
+            http0::StatusCode::FORBIDDEN => Err(JsonRpcError::new(
+                response.status().as_u16().into(),
+                match &self.token {
+                    Some(_) => "Permission denied: Insufficient rights.",
+                    None => "Permission denied: Token required.",
+                },
+                None,
+            )),
+            other if !other.is_success() => Err(JsonRpcError::new(
+                other.as_u16().into(),
+                response.text().await?,
+                None,
+            )),
+            _ok => {
+                let bytes = response.bytes().await?;
+                let response = serde_json::from_slice::<
+                    jsonrpsee::types::Response<&serde_json::value::RawValue>,
+                >(&bytes)
+                .map_err(|e| JsonRpcError::parse_error(e, None))?;
+                debug!(?response);
+                match response.payload {
+                    jsonrpsee::types::ResponsePayload::Success(it) => {
+                        T::LotusJson::deserialize(it.into_deserializer())
+                            .map(T::from_lotus_json)
+                            .map_err(|e| JsonRpcError::parse_error(e, None))
+                    }
+                    jsonrpsee::types::ResponsePayload::Error(e) => {
+                        Err(JsonRpcError::parse_error(e, None))
+                    }
+                }
             }
         };
 
-        tracing::debug!("Response: {:?}", resp);
-        resp
+        if let Err(err) = &result {
+            error!("Failure: {}\n{request_log}", err.message());
+        }
+
+        result
     }
 
     pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(
@@ -169,110 +176,26 @@ impl ApiInfo {
         let ws_client = WsClientBuilder::default()
             .request_timeout(req.timeout)
             .build(api_url.to_string())
-            .await?;
-        let response_lotus_json: T::LotusJson = ws_client.request(req.method_name, req).await?;
-
-        let resp = Ok(HasLotusJson::from_lotus_json(response_lotus_json));
-
-        tracing::debug!("Response: {:?}", resp);
-        resp
-    }
-}
-
-/// Error object in a response
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct JsonRpcError {
-    pub code: i64,
-    pub message: Cow<'static, str>,
-}
-
-impl JsonRpcError {
-    // https://www.jsonrpc.org/specification#error_object
-    // -32700 	Parse error 	Invalid JSON was received by the server.
-    //                          An error occurred on the server while parsing the JSON text.
-    // -32600 	Invalid Request 	The JSON sent is not a valid Request object.
-    // -32601 	Method not found 	The method does not exist / is not available.
-    // -32602 	Invalid params 	Invalid method parameter(s).
-    // -32603 	Internal error 	Internal JSON-RPC error.
-    // -32000 to -32099 	Server error 	Reserved for implementation-defined server-errors.
-    pub const PARSE_ERROR: JsonRpcError = JsonRpcError {
-        code: -32700,
-        message: Cow::Borrowed(
-            "Invalid JSON was received by the server. \
-             An error occurred on the server while parsing the JSON text.",
-        ),
-    };
-    pub const INVALID_REQUEST: JsonRpcError = JsonRpcError {
-        code: -32600,
-        message: Cow::Borrowed("The JSON sent is not a valid Request object."),
-    };
-    pub const METHOD_NOT_FOUND: JsonRpcError = JsonRpcError {
-        code: -32601,
-        message: Cow::Borrowed("The method does not exist / is not available."),
-    };
-    pub const INVALID_PARAMS: JsonRpcError = JsonRpcError {
-        code: -32602,
-        message: Cow::Borrowed("Invalid method parameter(s)."),
-    };
-    pub const TIMED_OUT: JsonRpcError = JsonRpcError {
-        code: 0,
-        message: Cow::Borrowed("Operation timed out."),
-    };
-}
-
-impl std::fmt::Display for JsonRpcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (code={})", self.message, self.code)
-    }
-}
-
-impl std::error::Error for JsonRpcError {
-    fn description(&self) -> &str {
-        &self.message
+            .await
+            .map_err(|e| JsonRpcError::internal_error(e, None))?;
+        let response = ws_client
+            .request(req.method_name, req)
+            .await
+            .map(HasLotusJson::from_lotus_json)
+            .map_err(|e| JsonRpcError::internal_error(e, None))?;
+        debug!(?response);
+        Ok(response)
     }
 }
 
 impl From<reqwest::Error> for JsonRpcError {
-    fn from(reqwest_error: reqwest::Error) -> Self {
-        JsonRpcError {
-            code: reqwest_error
-                .status()
-                .map(|s| s.as_u16())
-                .unwrap_or_default() as i64,
-            message: Cow::Owned(reqwest_error.to_string()),
-        }
+    fn from(e: reqwest::Error) -> Self {
+        Self::new(
+            e.status().map(|it| it.as_u16()).unwrap_or_default().into(),
+            e,
+            None,
+        )
     }
-}
-
-impl From<jsonrpsee::core::client::Error> for JsonRpcError {
-    fn from(error: jsonrpsee::core::client::Error) -> Self {
-        use jsonrpsee::core::client::Error::*;
-
-        match error {
-            RequestTimeout => JsonRpcError::TIMED_OUT,
-            e => JsonRpcError {
-                code: 500,
-                message: Cow::Owned(e.to_string()),
-            },
-        }
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum JsonRpcResponse<'a, R> {
-    Result {
-        jsonrpc: TwoPointZero,
-        result: R,
-        #[serde(borrow)]
-        id: Id<'a>,
-    },
-    Error {
-        jsonrpc: TwoPointZero,
-        error: JsonRpcError,
-        #[serde(borrow)]
-        id: Id<'a>,
-    },
 }
 
 struct Url {
