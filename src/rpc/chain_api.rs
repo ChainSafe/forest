@@ -15,7 +15,7 @@ use crate::rpc::{
 use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages, Data, RPCState},
+    data_types::{ApiTipsetKey, BlockMessages, RPCState},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;

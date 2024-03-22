@@ -7,7 +7,6 @@ use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
 use crate::rpc_api::{
     auth_api::*,
-    data_types::{Data, RPCState},
 };
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;

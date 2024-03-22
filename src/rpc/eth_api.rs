@@ -14,7 +14,6 @@ use crate::rpc::sync_api::sync_state;
 use crate::rpc::Ctx;
 use crate::rpc_api::data_types::RPCSyncState;
 use crate::rpc_api::{
-    data_types::{Data, RPCState},
     eth_api::BigInt as EthBigInt,
     eth_api::*,
 };

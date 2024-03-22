@@ -7,7 +7,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
 use crate::rpc_api::{
-    data_types::{Data, RPCState},
     node_api::NodeStatusResult,
 };
 use fvm_ipld_blockstore::Blockstore;

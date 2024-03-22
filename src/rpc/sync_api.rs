@@ -6,7 +6,7 @@ use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
-use crate::rpc_api::data_types::{Data, RPCState, RPCSyncState};
+use crate::rpc_api::data_types::{RPCSyncState};
 
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;

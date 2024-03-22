@@ -6,7 +6,6 @@ use crate::rpc::Ctx;
 use crate::{
     beacon::BeaconEntry,
     lotus_json::LotusJson,
-    rpc_api::data_types::{Data, RPCState},
     shim::clock::ChainEpoch,
 };
 use anyhow::Result;

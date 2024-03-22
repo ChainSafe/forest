@@ -7,7 +7,7 @@ use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
 use crate::rpc_api::{
-    data_types::{AddrInfo, Data, RPCState},
+    data_types::{AddrInfo},
     net_api::*,
 };
 use cid::multibase;
