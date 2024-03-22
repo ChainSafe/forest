@@ -406,6 +406,7 @@ impl AttachCommand {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(false)
                 .open(&path)?;
 
             // This is safe to call at this point
