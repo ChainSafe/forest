@@ -24,7 +24,7 @@ use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,

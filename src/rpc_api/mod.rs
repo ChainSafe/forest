@@ -1,8 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod data_types;
-
 /// JSON-RPC API definitions
 
 /// Authorization API
@@ -35,7 +33,6 @@ pub mod beacon_api {
 pub mod chain_api {
     use std::{path::PathBuf, sync::Arc};
 
-    use super::data_types::ApiTipsetKey;
     #[cfg(test)]
     use crate::blocks::RawBlockHeader;
     use crate::blocks::Tipset;
@@ -43,6 +40,7 @@ pub mod chain_api {
     #[cfg(test)]
     use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
     use crate::lotus_json::{HasLotusJson, LotusJson};
+    use crate::rpc::types::ApiTipsetKey;
     use crate::shim::clock::ChainEpoch;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};

@@ -11,8 +11,8 @@ use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
+use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
-use crate::rpc_api::data_types::RPCSyncState;
 use crate::rpc_api::{eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 

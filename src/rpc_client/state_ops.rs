@@ -4,9 +4,10 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::rpc::types::*;
 use crate::{
     blocks::TipsetKey,
-    rpc_api::{data_types::*, state_api::*},
+    rpc_api::state_api::*,
     shim::{
         address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::Message,
         message::MethodNum, state_tree::ActorState, version::NetworkVersion,

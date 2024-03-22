@@ -5,8 +5,8 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc::error::JsonRpcError;
-use crate::rpc::Ctx;
-use crate::rpc_api::{data_types::AddrInfo, net_api::*};
+use crate::rpc::{types::AddrInfo, Ctx};
+use crate::rpc_api::net_api::*;
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;

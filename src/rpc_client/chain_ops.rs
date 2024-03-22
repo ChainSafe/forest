@@ -3,12 +3,12 @@
 
 use std::time::Duration;
 
-use crate::rpc_api::data_types::*;
+use crate::rpc::types::*;
 use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
+    rpc::types::BlockMessages,
     rpc_api::chain_api::*,
-    rpc_api::data_types::BlockMessages,
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
