@@ -330,7 +330,7 @@ pub mod hexify {
         T: Num + std::fmt::LowerHex,
         S: Serializer,
     {
-        serializer.serialize_str(format!("0x{value:x}").as_str())
+        serializer.serialize_str(format!("{value:#x}").as_str())
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>

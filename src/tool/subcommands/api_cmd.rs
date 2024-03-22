@@ -218,7 +218,7 @@ struct RpcTest {
 impl RpcTest {
     // Check that an endpoint exist and that both the Lotus and Forest JSON
     // response follows the same schema.
-    fn basic<T: DeserializeOwned>(request: RpcRequest<T>) -> RpcTest
+    fn basic<T>(request: RpcRequest<T>) -> RpcTest
     where
         T: HasLotusJson,
     {
@@ -523,6 +523,7 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
+        RpcTest::basic(ApiInfo::eth_syncing_req()),
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Latest),

@@ -155,6 +155,7 @@ pub static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
     access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
+    access.insert(eth_api::ETH_SYNCING, Access::Read);
 
     // Pubsub API
     access.insert(CANCEL_METHOD_NAME, Access::Read);
@@ -561,6 +562,7 @@ pub mod eth_api {
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
     pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
+    pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
 
     const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -703,6 +705,78 @@ pub mod eth_api {
 
             // Return some default value if we can't convert
             Self::PredefinedBlock(Predefined::Latest)
+        }
+    }
+
+    #[derive(Debug, Clone, Default)]
+    pub struct EthSyncingResult {
+        pub done_sync: bool,
+        pub startingblock: i64,
+        pub currentblock: i64,
+        pub highestblock: i64,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum EthSyncingResultLotusJson {
+        DoneSync(bool),
+        Syncing {
+            #[serde(with = "crate::lotus_json::hexify")]
+            startingblock: i64,
+            #[serde(with = "crate::lotus_json::hexify")]
+            currentblock: i64,
+            #[serde(with = "crate::lotus_json::hexify")]
+            highestblock: i64,
+        },
+    }
+
+    impl HasLotusJson for EthSyncingResult {
+        type LotusJson = EthSyncingResultLotusJson;
+
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            vec![]
+        }
+
+        fn into_lotus_json(self) -> Self::LotusJson {
+            match self {
+                Self {
+                    done_sync: false,
+                    startingblock,
+                    currentblock,
+                    highestblock,
+                } => EthSyncingResultLotusJson::Syncing {
+                    startingblock,
+                    currentblock,
+                    highestblock,
+                },
+                _ => EthSyncingResultLotusJson::DoneSync(false),
+            }
+        }
+
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            match lotus_json {
+                EthSyncingResultLotusJson::DoneSync(syncing) => {
+                    if syncing {
+                        // Dangerous to panic here, log error instead.
+                        tracing::error!("Invalid EthSyncingResultLotusJson: {syncing}");
+                    }
+                    Self {
+                        done_sync: true,
+                        ..Default::default()
+                    }
+                }
+                EthSyncingResultLotusJson::Syncing {
+                    startingblock,
+                    currentblock,
+                    highestblock,
+                } => Self {
+                    done_sync: false,
+                    startingblock,
+                    currentblock,
+                    highestblock,
+                },
+            }
         }
     }
 
