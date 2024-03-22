@@ -4,4 +4,5 @@
 !Filecoin.ChainGetTipSetAfterHeight
 !Filecoin.MinerGetBaseInfo
 !Filecoin.StateAccountKey
+!Filecoin.StateCall
 !Filecoin.StateListMessages
