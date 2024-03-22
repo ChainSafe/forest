@@ -323,6 +323,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-ubuntu
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
       - uses: actions/cache@v4
         id: cache
@@ -331,32 +334,34 @@ jobs:
           key: proof-params-2k
       - name: Load cache into volume
         if: steps.cache.outputs.cache-hit == 'true'
-        run: >
+        run: |
           docker volume create devnet_filecoin-proofs
-
-          docker run --rm -v devnet_filecoin-proofs:/proofs -v
-          $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /cache/*
-          /proofs"
+          docker run --rm \
+            -v devnet_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            ubuntu:focal \
+            bash -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
       - name: Devnet setup
-        run: ./scripts/devnet/ci_setup.sh
+        run: ./scripts/devnet/setup.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Devnet check
-        run: ./scripts/devnet/ci_check.sh
+        run: ./scripts/devnet/check.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
       - name: Dump docker logs
         if: always()
         uses: jwalton/gh-docker-logs@v2
       - name: Prepare cache folder for uploading
         if: steps.cache.outputs.cache-hit != 'true'
-        run: >
-          docker run --rm -v devnet_filecoin-proofs:/proofs -v
-          $FIL_PROOFS_PARAMETER_CACHE:/cache ubuntu:focal bash -c "cp /proofs/*
-          /cache"
-
+        run: |
+          docker run --rm \
+            -v devnet_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            ubuntu:focal \
+            bash -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
   calibnet-rpc-checks:
     needs:

@@ -27,7 +27,6 @@ const BLOCK_CHANNEL_LIMIT: usize = 2048;
 
 /// Traverses all Cid links, hashing and loading all unique values and using the
 /// callback function to interact with the data.
-#[async_recursion::async_recursion]
 async fn traverse_ipld_links_hash<F, T>(
     walked: &mut CidHashSet,
     load_block: &mut F,
@@ -41,12 +40,12 @@ where
     match ipld {
         Ipld::Map(m) => {
             for (_, v) in m.iter() {
-                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
+                Box::pin(traverse_ipld_links_hash(walked, load_block, v, on_inserted)).await?;
             }
         }
         Ipld::List(list) => {
             for v in list.iter() {
-                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
+                Box::pin(traverse_ipld_links_hash(walked, load_block, v, on_inserted)).await?;
             }
         }
         &Ipld::Link(cid) => {
@@ -65,7 +64,13 @@ where
                 on_inserted(walked.len());
                 let bytes = load_block(cid).await?;
                 let ipld = from_slice_with_fallback(&bytes)?;
-                traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
+                Box::pin(traverse_ipld_links_hash(
+                    walked,
+                    load_block,
+                    &ipld,
+                    on_inserted,
+                ))
+                .await?;
             }
         }
         _ => (),
