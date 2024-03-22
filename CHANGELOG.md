@@ -62,9 +62,6 @@
 - [#4080](https://github.com/ChainSafe/forest/pull/4080) Fix broken
   `StateVMCirculatingSupplyInternal` RPC method on calibnet.
 
-- [#4085](https://github.com/ChainSafe/forest/pull/4085) Fix discrepancies in
-  the `Filecoin.StateCall` RPC method.
-
 - [#4091](https://github.com/ChainSafe/forest/pull/4091) Restore `Breeze`,
   `Smoke`, and `Ignition` entries for calibnet
 
