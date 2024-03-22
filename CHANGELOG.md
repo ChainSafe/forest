@@ -62,6 +62,9 @@
 - [#4080](https://github.com/ChainSafe/forest/pull/4080) Fix broken
   `StateVMCirculatingSupplyInternal` RPC method on calibnet.
 
+- [#4093](https://github.com/ChainSafe/forest/pull/4093) Fix parsing issue in
+  the `Filecoin.StateAccountKey` RPC method.
+
 ## Forest 0.17.0 "Smaug"
 
 Mandatory release that includes:
