@@ -15,7 +15,7 @@ use crate::rpc::{
 use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages, RPCState},
+    data_types::{ApiTipsetKey, BlockMessages},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -477,7 +477,7 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
-    data: &RPCState<DB>,
+    data: &crate::rpc::RPCState<DB>,
 ) -> Subscriber<Vec<ApiHeadChange>> {
     let (sender, receiver) = broadcast::channel(100);
 

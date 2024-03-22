@@ -19,7 +19,6 @@ use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 
 use anyhow::{Context, Result};
-use std::sync::Arc;
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
@@ -35,7 +34,7 @@ pub async fn gas_estimate_fee_cap<DB: Blockstore>(
 }
 
 fn estimate_fee_cap<DB: Blockstore>(
-    data: &Arc<RPCState<DB>>,
+    data: &Ctx<DB>,
     msg: Message,
     max_queue_blks: i64,
     _: ApiTipsetKey,
@@ -72,7 +71,7 @@ pub async fn gas_estimate_gas_premium<DB: Blockstore>(
 }
 
 pub async fn estimate_gas_premium<DB: Blockstore>(
-    data: &Arc<RPCState<DB>>,
+    data: &Ctx<DB>,
     mut nblocksincl: u64,
 ) -> Result<TokenAmount, JsonRpcError> {
     if nblocksincl == 0 {
@@ -167,7 +166,7 @@ where
 }
 
 async fn estimate_gas_limit<DB>(
-    data: &Arc<RPCState<DB>>,
+    data: &Ctx<DB>,
     msg: Message,
     _: ApiTipsetKey,
 ) -> Result<i64, JsonRpcError>
@@ -226,7 +225,7 @@ where
 }
 
 pub async fn estimate_message_gas<DB>(
-    data: &Arc<RPCState<DB>>,
+    data: &Ctx<DB>,
     msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,

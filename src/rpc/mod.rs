@@ -35,9 +35,8 @@ use crate::rpc::{
     state_api::*,
 };
 use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, data_types::RPCState, eth_api::*,
-    gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*,
-    wallet_api::*,
+    auth_api::*, beacon_api::*, chain_api::*, common_api::*, eth_api::*, gas_api::*, mpool_api::*,
+    net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 
 use fvm_ipld_blockstore::Blockstore;
@@ -57,6 +56,21 @@ use self::chain_api::ChainGetPath;
 use self::reflect::openrpc_types::ParamStructure;
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
+
+/// This is where you store persistent data, or at least access to stateful
+/// data.
+pub struct RPCState<DB> {
+    pub keystore: Arc<RwLock<KeyStore>>,
+    pub chain_store: Arc<crate::chain::ChainStore<DB>>,
+    pub state_manager: Arc<crate::state_manager::StateManager<DB>>,
+    pub mpool: Arc<crate::message_pool::MessagePool<crate::message_pool::MpoolRpcProvider<DB>>>,
+    pub bad_blocks: Arc<crate::chain_sync::BadBlockCache>,
+    pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
+    pub network_send: flume::Sender<crate::libp2p::NetworkMessage>,
+    pub network_name: String,
+    pub start_time: chrono::DateTime<chrono::Utc>,
+    pub beacon: Arc<crate::beacon::BeaconSchedule>,
+}
 
 #[derive(Clone)]
 struct PerConnection<RpcMiddleware, HttpMiddleware> {

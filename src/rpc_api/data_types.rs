@@ -2,18 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::str::FromStr;
-use std::sync::Arc;
 
-use crate::beacon::{BeaconEntry, BeaconSchedule};
+use crate::beacon::BeaconEntry;
 use crate::blocks::{CachingBlockHeader, TipsetKey};
-use crate::chain::ChainStore;
-use crate::chain_sync::{BadBlockCache, SyncState};
-use crate::key_management::KeyStore;
+use crate::chain_sync::SyncState;
 pub use crate::libp2p::Multiaddr;
-use crate::libp2p::{Multihash, NetworkMessage};
+use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
-use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
@@ -27,9 +23,7 @@ use crate::shim::{
     sector::{RegisteredSealProof, SectorNumber},
     state_tree::{ActorID, ActorState},
 };
-use crate::state_manager::StateManager;
 use ahash::HashSet;
-use chrono::Utc;
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
 use fil_actor_interface::miner::MinerInfo;
@@ -40,39 +34,13 @@ use fil_actor_interface::{
 };
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use nonempty::NonEmpty;
 use num_bigint::BigInt;
-use parking_lot::RwLock as SyncRwLock;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
-use tokio::sync::RwLock;
-
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
-//                  avoid double indirection
-#[deprecated]
-pub type Data<T> = Arc<Arc<T>>;
-
-/// This is where you store persistent data, or at least access to stateful
-/// data.
-pub struct RPCState<DB>
-where
-    DB: Blockstore,
-{
-    pub keystore: Arc<RwLock<KeyStore>>,
-    pub chain_store: Arc<ChainStore<DB>>,
-    pub state_manager: Arc<StateManager<DB>>,
-    pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<SyncRwLock<SyncState>>,
-    pub network_send: flume::Sender<NetworkMessage>,
-    pub network_name: String,
-    pub start_time: chrono::DateTime<Utc>,
-    pub beacon: Arc<BeaconSchedule>,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]

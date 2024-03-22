@@ -24,8 +24,6 @@ pub mod openrpc_types;
 mod parser;
 mod util;
 
-use crate::rpc_api::data_types::RPCState;
-
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::JsonRpcError as Error;
 
@@ -49,9 +47,9 @@ use std::{future::Future, sync::Arc};
 /// Type to be used by [`RpcMethod::handle`].
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
 //                  avoid double indirection
-pub type Ctx<T> = Arc<Arc<RPCState<T>>>;
+pub type Ctx<T> = Arc<Arc<crate::rpc::RPCState<T>>>;
 /// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
-type ModuleState<T> = Arc<RPCState<T>>;
+type ModuleState<T> = Arc<crate::rpc::RPCState<T>>;
 
 /// A definition of an RPC method handler which can be registered with a
 /// [`SelfDescribingRpcModule`].
