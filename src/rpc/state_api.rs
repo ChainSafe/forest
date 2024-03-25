@@ -1082,7 +1082,7 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
 pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<DealCollateralBounds>, JsonRpcError> {
+) -> Result<DealCollateralBounds, JsonRpcError> {
     let LotusJson((size, verified, ApiTipsetKey(tsk))) = params.parse()?;
 
     // This is more eloquent than giving the whole match pattern a type.
@@ -1125,8 +1125,8 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
         supply.into(),
     );
 
-    Ok(LotusJson(DealCollateralBounds {
+    Ok(DealCollateralBounds {
         max: max.into(),
         min: min.into(),
-    }))
+    })
 }

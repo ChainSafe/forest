@@ -220,7 +220,7 @@ impl ApiInfo {
         size: PaddedPieceSize,
         verified: bool,
         tsk: ApiTipsetKey,
-    ) -> RpcRequest<Vec<Address>> {
+    ) -> RpcRequest<DealCollateralBounds> {
         RpcRequest::new(STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, (size, verified, tsk))
     }
 
