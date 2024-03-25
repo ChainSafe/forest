@@ -223,6 +223,8 @@ pub mod state_api {
     pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
     pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
     pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
+    pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
+        "Filecoin.StateDealProviderCollateralBounds";
     pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
     pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
     pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
