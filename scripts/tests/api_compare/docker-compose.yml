@@ -121,7 +121,6 @@ services:
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - node-data:/data
-      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - ./filter-list:/data/filter-list
     networks:
       - api-tests
@@ -143,7 +142,6 @@ services:
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - node-data:/data
-      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
       - ./filter-list:/data/filter-list
     networks:
       - api-tests
@@ -159,19 +157,13 @@ services:
   post-setup:
     depends_on:
       api-compare:
-        required: true
         condition: service_completed_successfully
       api-compare-offline:
-        required: true
         condition: service_completed_successfully
-    image: ${LOTUS_IMAGE}
-    volumes:
-      - node-data:/data
-      - lotus-data:/var/lib/lotus
-      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    image: ubuntu:focal
     networks:
       - api-tests
-    entrypoint: [ "/bin/bash", "-c" ]
+    entrypoint: [ "/bin/sh", "-c" ]
     command:
       - |
         set -euxo pipefail
