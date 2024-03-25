@@ -6,10 +6,10 @@ use std::{
     time::Duration,
 };
 
-use crate::chain_sync::SyncStage;
-use crate::rpc_client::*;
+use crate::{chain_sync::SyncStage, rpc_api::data_types::RPCSyncState, rpc_client::*};
 use cid::Cid;
 use clap::Subcommand;
+use itertools::Itertools as _;
 use ticker::Ticker;
 
 use crate::cli::subcommands::format_vec_pretty;
@@ -46,20 +46,25 @@ impl SyncCommands {
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = api.sync_status().await?;
-                    let state = response.active_syncs.first();
+                    let RPCSyncState { active_syncs } = api.sync_status().await?;
+                    let state = active_syncs
+                        .iter()
+                        .rev()
+                        .find_or_first(|ss| {
+                            ss.stage() != SyncStage::Idle && ss.stage() != SyncStage::Complete
+                        })
+                        .expect("Infallible, active_syncs is NonEmpty");
 
-                    let target_height = if let Some(tipset) = state.target() {
-                        tipset.epoch()
-                    } else {
-                        0
-                    };
-
-                    let base_height = if let Some(tipset) = state.base() {
-                        tipset.epoch()
-                    } else {
-                        0
-                    };
+                    let base_height = state
+                        .base()
+                        .as_ref()
+                        .map(|ts| ts.epoch())
+                        .unwrap_or_default();
+                    let target_height = state
+                        .target()
+                        .as_ref()
+                        .map(|ts| ts.epoch())
+                        .unwrap_or_default();
 
                     println!(
                         "Worker: 0; Base: {}; Target: {}; (diff: {})",
