@@ -23,6 +23,13 @@ jobs:
       uses: ludeeus/action-shellcheck@2.0.0
       env:
         SHELLCHECK_OPTS: --external-sources --source-path=SCRIPTDIR
+  yaml-shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run yaml shellcheck
+        run: |
+          docker run --rm -v "$PWD/.github:/app" yaml_shellcheck app/**/*.yml
   rubocop:
     runs-on: ubuntu-latest
     steps:
