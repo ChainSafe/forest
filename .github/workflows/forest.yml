@@ -24,7 +24,7 @@ env:
   CC: sccache clang
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
-  SHELL_IMAGE: ubuntu:focal
+  SHELL_IMAGE: busybox
 jobs:
   build-macos:
     name: Build MacOS

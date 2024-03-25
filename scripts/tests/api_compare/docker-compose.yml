@@ -160,7 +160,7 @@ services:
         condition: service_completed_successfully
       api-compare-offline:
         condition: service_completed_successfully
-    image: ubuntu:focal
+    image: busybox
     networks:
       - api-tests
     entrypoint: [ "/bin/sh", "-c" ]
