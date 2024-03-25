@@ -2,12 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::error::JsonRpcError;
-use crate::{
-    beacon::BeaconEntry,
-    lotus_json::LotusJson,
-    rpc_api::data_types::{Data, RPCState},
-    shim::clock::ChainEpoch,
-};
+use crate::rpc::Ctx;
+use crate::{beacon::BeaconEntry, lotus_json::LotusJson, shim::clock::ChainEpoch};
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
@@ -17,7 +13,7 @@ use jsonrpsee::types::Params;
 /// becomes available
 pub async fn beacon_get_entry<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<BeaconEntry>, JsonRpcError> {
     let (first,): (ChainEpoch,) = params.parse()?;
 

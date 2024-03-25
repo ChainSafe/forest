@@ -5,10 +5,8 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::{
-    data_types::{AddrInfo, Data, RPCState},
-    net_api::*,
-};
+use crate::rpc::Ctx;
+use crate::rpc_api::{data_types::AddrInfo, net_api::*};
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
@@ -16,9 +14,7 @@ use jsonrpsee::types::Params;
 
 use anyhow::Result;
 
-pub async fn net_addrs_listen<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<AddrInfo, JsonRpcError> {
+pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::AddrsListen(tx),
@@ -33,9 +29,7 @@ pub async fn net_addrs_listen<DB: Blockstore>(
     })
 }
 
-pub async fn net_peers<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<Vec<AddrInfo>, JsonRpcError> {
+pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Peers(tx),
@@ -60,9 +54,7 @@ pub async fn net_listening() -> Result<bool, JsonRpcError> {
     Ok(true)
 }
 
-pub async fn net_info<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<NetInfoResult, JsonRpcError> {
+pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Info(tx),
@@ -74,7 +66,7 @@ pub async fn net_info<DB: Blockstore>(
 
 pub async fn net_connect<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let (AddrInfo { id, addrs },) = params.parse()?;
 
@@ -98,7 +90,7 @@ pub async fn net_connect<DB: Blockstore>(
 
 pub async fn net_disconnect<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let (id,): (String,) = params.parse()?;
 
@@ -117,7 +109,7 @@ pub async fn net_disconnect<DB: Blockstore>(
 
 pub async fn net_agent_version<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let (id,): (String,) = params.parse()?;
 
@@ -138,7 +130,7 @@ pub async fn net_agent_version<DB: Blockstore>(
 
 pub async fn net_auto_nat_status<DB: Blockstore>(
     _params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<NatStatusResult, JsonRpcError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
@@ -151,7 +143,7 @@ pub async fn net_auto_nat_status<DB: Blockstore>(
 
 pub async fn net_version<DB: Blockstore>(
     _params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     Ok(format!(
         "{}",

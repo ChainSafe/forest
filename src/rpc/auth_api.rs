@@ -4,10 +4,8 @@
 use crate::auth::*;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::{
-    auth_api::*,
-    data_types::{Data, RPCState},
-};
+use crate::rpc::Ctx;
+use crate::rpc_api::auth_api::*;
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
@@ -15,7 +13,7 @@ use jsonrpsee::types::Params;
 /// RPC call to create a new JWT Token
 pub async fn auth_new<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let auth_params: AuthNewParams = params.parse()?;
 
@@ -26,10 +24,7 @@ pub async fn auth_new<DB: Blockstore>(
 }
 
 /// RPC call to verify JWT Token and return the token's permissions
-pub async fn auth_verify<DB>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
-) -> Result<Vec<String>, JsonRpcError>
+pub async fn auth_verify<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<Vec<String>, JsonRpcError>
 where
     DB: Blockstore,
 {
