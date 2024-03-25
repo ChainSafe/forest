@@ -24,6 +24,7 @@ env:
   CC: sccache clang
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
+  BASH_IMAGE: ubuntu:focal
 jobs:
   build-macos:
     name: Build MacOS
@@ -339,7 +340,7 @@ jobs:
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            ubuntu:focal \
+            $BASH_IMAGE \
             bash -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -360,7 +361,7 @@ jobs:
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            ubuntu:focal \
+            $BASH_IMAGE \
             bash -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
   calibnet-rpc-checks:
@@ -384,7 +385,7 @@ jobs:
           docker run --rm \
             -v api_compare_filecoin-proofs:/proofs \
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            ubuntu:focal \
+            $BASH_IMAGE \
             bash -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -402,6 +403,6 @@ jobs:
           docker run --rm \
             -v api_compare_filecoin-proofs:/proofs \
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            ubuntu:focal \
+            $BASH_IMAGE \
             bash -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
