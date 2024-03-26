@@ -15,8 +15,6 @@ services:
     command:
       - |
         set -euxo pipefail
-        apt-get update
-        apt-get install -y aria2
         aria2c -d /data -x5 https://forest-archive.chainsafe.dev/latest/calibnet/
   forest:
     depends_on:
