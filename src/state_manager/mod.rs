@@ -416,7 +416,7 @@ where
 
         let prior_messsages = tipset_messages
             .iter()
-            .filter(|msg| msg.message().from() == msg.from());
+            .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
         // Handle state forks
         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
