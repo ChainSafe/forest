@@ -25,12 +25,12 @@ stop_services() {
 trap stop_services EXIT
 
 # Run forest daemon RPC server at 2345
-"$FOREST_PATH" --chain calibnet --encrypt-keystore false --no-gc --height=-900 --auto-download-snapshot &
+"$FOREST_PATH" --chain calibnet --encrypt-keystore false --no-gc --height=-1999 --auto-download-snapshot &
 FOREST_PID=$!
 
 "$FOREST_CLI_PATH" sync wait
 EXPORTED_SNAPSHOT="latest.forest.car.zst"
-"$FOREST_CLI_PATH" snapshot export -o "$EXPORTED_SNAPSHOT" -d=900 --include-message-receipts
+"$FOREST_CLI_PATH" snapshot export -o "$EXPORTED_SNAPSHOT" --include-message-receipts
 
 old_snapshot=forest_diff_calibnet_2022-11-02_height_0+3000.forest.car.zst
 curl --location --remote-name "https://forest-archive.chainsafe.dev/calibnet/diff/$old_snapshot"

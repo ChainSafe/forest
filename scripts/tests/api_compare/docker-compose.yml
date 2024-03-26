@@ -21,7 +21,7 @@ services:
         # Setup data_dir to avoid downloading snapshot on every local run
         echo "[client]" > config.toml
         echo "data_dir = \"/data/forest\"" >> config.toml
-        forest --config config.toml --chain ${CHAIN} --encrypt-keystore false --no-gc --height=-900 --auto-download-snapshot --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        forest --config config.toml --chain ${CHAIN} --encrypt-keystore false --no-gc --height=-1999 --auto-download-snapshot --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
     healthcheck:
       test: [ "CMD", "forest-cli", "chain", "head" ]
       interval: 15s
@@ -49,7 +49,7 @@ services:
       - |
         set -euxo pipefail
         forest-cli sync wait
-        forest-cli snapshot export -o "$SNAPSHOT_PATH" -d=900 --include-message-receipts
+        forest-cli snapshot export -o "$SNAPSHOT_PATH" --include-message-receipts
   api-serve:
     depends_on:
       snapshot-export:
