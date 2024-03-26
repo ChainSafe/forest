@@ -3,5 +3,6 @@
 !Filecoin.ChainGetPath
 !Filecoin.ChainGetTipSetAfterHeight
 !Filecoin.MinerGetBaseInfo
+!Filecoin.StateCall
 !Filecoin.StateListMessages
 !Filecoin.StateSectorGetInfo
