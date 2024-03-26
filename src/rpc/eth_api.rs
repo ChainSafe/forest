@@ -11,12 +11,9 @@ use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
+use crate::rpc::Ctx;
 use crate::rpc_api::data_types::RPCSyncState;
-use crate::rpc_api::{
-    data_types::{Data, RPCState},
-    eth_api::BigInt as EthBigInt,
-    eth_api::*,
-};
+use crate::rpc_api::{eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
 use anyhow::{bail, Context, Result};
@@ -32,9 +29,7 @@ pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     Ok(vec![])
 }
 
-pub async fn eth_block_number<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<String, JsonRpcError> {
+pub async fn eth_block_number<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
     // This is the parent of the head tipset. The head tipset is speculative, has not been
@@ -59,18 +54,14 @@ pub async fn eth_block_number<DB: Blockstore>(
     }
 }
 
-pub async fn eth_chain_id<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<String, JsonRpcError> {
+pub async fn eth_chain_id<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
     Ok(format!(
         "{:#x}",
         data.state_manager.chain_config().eth_chain_id
     ))
 }
 
-pub async fn eth_gas_price<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<GasPriceResult, JsonRpcError> {
+pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResult, JsonRpcError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;
@@ -84,7 +75,7 @@ pub async fn eth_gas_price<DB: Blockstore>(
 
 pub async fn eth_get_balance<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<EthBigInt, JsonRpcError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
@@ -104,7 +95,7 @@ pub async fn eth_get_balance<DB: Blockstore>(
 
 pub async fn eth_syncing<DB: Blockstore>(
     _params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<EthSyncingResult>, JsonRpcError> {
     let RPCSyncState { active_syncs } = sync_state(data).await?;
     match active_syncs

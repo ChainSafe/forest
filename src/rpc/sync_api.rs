@@ -5,7 +5,8 @@
 use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{Data, RPCState, RPCSyncState};
+use crate::rpc::Ctx;
+use crate::rpc_api::data_types::RPCSyncState;
 
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
@@ -16,7 +17,7 @@ use parking_lot::RwLock;
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
@@ -26,7 +27,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
 /// Marks a block as bad, meaning it will never be synced.
 pub async fn sync_mark_bad<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
@@ -40,9 +41,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub async fn sync_state<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<RPCSyncState, JsonRpcError> {
+pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, JsonRpcError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }
@@ -61,6 +60,7 @@ mod tests {
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
     use crate::networks::ChainConfig;
+    use crate::rpc::RPCState;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;

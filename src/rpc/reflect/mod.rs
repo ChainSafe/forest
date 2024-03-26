@@ -24,8 +24,6 @@ pub mod openrpc_types;
 mod parser;
 mod util;
 
-use crate::rpc_api::data_types::RPCState;
-
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::JsonRpcError as Error;
 
@@ -49,9 +47,9 @@ use std::{future::Future, sync::Arc};
 /// Type to be used by [`RpcMethod::handle`].
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
 //                  avoid double indirection
-pub type Ctx<T> = Arc<Arc<RPCState<T>>>;
+pub type Ctx<T> = Arc<Arc<crate::rpc::RPCState<T>>>;
 /// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
-type ModuleState<T> = Arc<RPCState<T>>;
+type ModuleState<T> = Arc<crate::rpc::RPCState<T>>;
 
 /// A definition of an RPC method handler which can be registered with a
 /// [`SelfDescribingRpcModule`].
@@ -60,7 +58,7 @@ type ModuleState<T> = Arc<RPCState<T>>;
 /// for generality.
 /// However, fixing it as [`Ctx<...>`] saves on complexity/confusion for implementors,
 /// at the expense of handler flexibility, which could come back to bite us.
-/// - All handlers accept [`RPCState`].
+/// - All handlers accept the same type.
 /// - All `Ctx`s must be `Send + Sync + 'static` due to bounds on [`RpcModule`].
 /// - Handlers don't specialize on top of the given bounds, but they MAY relax them.
 pub trait RpcMethod<const ARITY: usize> {
@@ -161,7 +159,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             .push(Self::openrpc(&mut module.schema_generator, module.calling_convention).unwrap());
     }
     /// Call this method on an [`RpcModule`].
-    fn call(
+    fn call_module(
         module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
         calling_convention: ConcreteCallingConvention,

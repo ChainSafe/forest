@@ -5,15 +5,11 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::{
-    data_types::{Data, RPCState},
-    node_api::NodeStatusResult,
-};
+use crate::rpc::Ctx;
+use crate::rpc_api::node_api::NodeStatusResult;
 use fvm_ipld_blockstore::Blockstore;
 
-pub async fn node_status<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<NodeStatusResult, JsonRpcError> {
+pub async fn node_status<DB: Blockstore>(data: Ctx<DB>) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
 
     let head = data.state_manager.chain_store().heaviest_tipset();

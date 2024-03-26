@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use super::{
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+    parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
@@ -206,10 +206,10 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Dragon,
             HeightInfo {
-                // 2024-04-02T14:00:00Z - Epoch will be updated in final release
-                epoch: i64::MAX,
+                // Thu Apr 11 02:00:00 PM UTC 2024
+                epoch: 3_817_920,
                 bundle: Some(
-                    Cid::try_from("bafy2bzacecoplaet2m4kzueqgutjxpl76bhmuiq5hmo3ueighbnxas3rj4dvy")
+                    Cid::try_from("bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e")
                         .unwrap(),
                 ),
             },
@@ -228,8 +228,12 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| 
             config: &DRAND_MAINNET,
         },
         DrandPoint {
-            // 2024-04-02T14:00:00Z - Epoch will be updated in final release
-            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT").unwrap_or(i64::MAX),
+            // 2024-04-11T15:00:00Z - 120 epochs after the Dragon upgrade
+            height: HEIGHT_INFOS
+                .get(&Height::Dragon)
+                .expect("Dragon height must be defined")
+                .epoch
+                + 120,
             config: &DRAND_QUICKNET,
         },
     ]
