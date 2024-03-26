@@ -3,7 +3,8 @@ version: "3.8"
 
 services:
   init: 
-    image: ubuntu:focal
+    build:
+      dockerfile: aria2-Dockerfile
     volumes:
       - node-data:/data
     networks:
