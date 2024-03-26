@@ -115,7 +115,6 @@ pin_project! {
         seen: CidHashSet,
         stateroot_limit: ChainEpoch,
         fail_on_dead_links: bool,
-        include_message_receipts:bool,
     }
 }
 
@@ -145,7 +144,6 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
-    include_message_receipts: bool,
 ) -> ChainStream<DB, T> {
     ChainStream {
         tipset_iter,
@@ -154,7 +152,6 @@ pub fn stream_chain<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
         seen: CidHashSet::default(),
         stateroot_limit,
         fail_on_dead_links: true,
-        include_message_receipts,
     }
 }
 
@@ -164,7 +161,6 @@ pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
     db: DB,
     tipset_iter: T,
     stateroot_limit: ChainEpoch,
-    include_message_receipts: bool,
 ) -> ChainStream<DB, T> {
     ChainStream {
         tipset_iter,
@@ -173,7 +169,6 @@ pub fn stream_graph<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin>(
         seen: CidHashSet::default(),
         stateroot_limit,
         fail_on_dead_links: false,
-        include_message_receipts,
     }
 }
 
@@ -192,7 +187,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
         };
 
         let stateroot_limit = *this.stateroot_limit;
-        let include_message_receipts = *this.include_message_receipts;
         loop {
             while let Some(task) = this.dfs.front_mut() {
                 match task {
@@ -250,11 +244,6 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                             for p in &block.parents {
                                 this.dfs.push_back(Emit(p));
                             }
-                        }
-
-                        // Process block messages receipts.
-                        if include_message_receipts && block.epoch > stateroot_limit {
-                            this.dfs.push_back(Emit(block.message_receipts));
                         }
 
                         // Process block messages.

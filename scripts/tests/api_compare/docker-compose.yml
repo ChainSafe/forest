@@ -2,7 +2,25 @@
 version: "3.8"
 
 services:
+  init: 
+    image: ubuntu:focal
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        apt-get update
+        apt-get install -y aria2
+        aria2c -d /data -x5 https://forest-archive.chainsafe.dev/latest/calibnet/
   forest:
+    depends_on:
+      init:
+        condition: service_completed_successfully
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -18,41 +36,19 @@ services:
     command:
       - |
         set -euxo pipefail
-        # Setup data_dir to avoid downloading snapshot on every local run
-        echo "[client]" > config.toml
-        echo "data_dir = \"/data/forest\"" >> config.toml
-        forest --config config.toml --chain ${CHAIN} --encrypt-keystore false --no-gc --height=-1999 --auto-download-snapshot --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --height=-20 \
+          --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
       test: [ "CMD", "forest-cli", "chain", "head" ]
       interval: 15s
       timeout: 3s
       retries: 3
       start_period: 30s
-  snapshot-export:
-    depends_on:
-      forest:
-        condition: service_healthy
-    build:
-      context: ../../../.
-      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
-    networks:
-      - api-tests
-    volumes:
-      - node-data:/data
-      - filecoin-proofs:/proofs
-    env_file:
-      - .env
-    environment:
-      - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
-    entrypoint: [ "/bin/bash", "-c" ]
-    command:
-      - |
-        set -euxo pipefail
-        forest-cli sync wait
-        forest-cli snapshot export -o "$SNAPSHOT_PATH" --include-message-receipts
   api-serve:
     depends_on:
-      snapshot-export:
+      init:
         condition: service_completed_successfully
     build:
       context: ../../../.
@@ -68,11 +64,11 @@ services:
     command:
       - |
         set -euxo pipefail
-        forest-tool api serve "$SNAPSHOT_PATH" \
+        forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
           --chain calibnet --port ${FOREST_OFFLINE_RPC_PORT}
   lotus:
     depends_on:
-      snapshot-export:
+      init:
         condition: service_completed_successfully
     image: ${LOTUS_IMAGE}
     volumes:
@@ -91,7 +87,8 @@ services:
     command:
       - |
         set -euxo pipefail
-        lotus daemon --import-snapshot "$SNAPSHOT_PATH" --remove-existing-chain
+        lotus daemon --remove-existing-chain --halt-after-import --import-snapshot $(ls /data/*.car.zst | tail -n 1)
+        lotus daemon
   lotus-sync-wait:
     depends_on:
       lotus:
@@ -109,9 +106,13 @@ services:
     command:
       - |
         set -euxo pipefail
-        until lotus sync wait; do
+        until lotus chain head; do
             sleep 5
         done
+        FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        lotus chain sethead --epoch $(($(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) - 20))
+        sleep 30
+        lotus sync wait
   api-compare:
     depends_on:
       lotus-sync-wait:
@@ -128,7 +129,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        forest-tool api compare "$SNAPSHOT_PATH" \
+        forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest "/dns/forest/tcp/$FOREST_RPC_PORT/http" \
           --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
           --n-tipsets 5 \
@@ -149,7 +150,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        forest-tool api compare "$SNAPSHOT_PATH" \
+        forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest "/dns/api-serve/tcp/$FOREST_OFFLINE_RPC_PORT/http" \
           --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
           --n-tipsets 5 \

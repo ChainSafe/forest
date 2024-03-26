@@ -163,7 +163,6 @@ where
         output_path,
         tipset_keys: ApiTipsetKey(tsk),
         skip_checksum,
-        include_message_receipts,
         dry_run,
     }: ChainExportParams = params.parse()?;
 
@@ -195,7 +194,6 @@ where
             recent_roots,
             VoidAsyncWriter,
             CidHashSet::default(),
-            include_message_receipts,
             skip_checksum,
         )
         .await
@@ -207,7 +205,6 @@ where
             recent_roots,
             file,
             CidHashSet::default(),
-            include_message_receipts,
             skip_checksum,
         )
         .await
