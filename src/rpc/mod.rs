@@ -162,10 +162,7 @@ where
 
 fn create_module<DB>(
     state: Arc<RPCState<DB>>,
-) -> (
-    RpcModule<Arc<RPCState<DB>>>,
-    reflect::openrpc_types::OpenRPC,
-)
+) -> (RpcModule<RPCState<DB>>, reflect::openrpc_types::OpenRPC)
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -176,7 +173,7 @@ where
 
 #[deprecated = "methods should use `create_module`"]
 fn register_methods<DB>(
-    module: &mut RpcModule<Arc<RPCState<DB>>>,
+    module: &mut RpcModule<RPCState<DB>>,
     block_delay: u64,
     forest_version: &'static str,
     shutdown_send: Sender<()>,

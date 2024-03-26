@@ -47,9 +47,9 @@ use std::{future::Future, sync::Arc};
 /// Type to be used by [`RpcMethod::handle`].
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
 //                  avoid double indirection
-pub type Ctx<T> = Arc<Arc<crate::rpc::RPCState<T>>>;
+pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
 /// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
-type ModuleState<T> = Arc<crate::rpc::RPCState<T>>;
+type ModuleState<T> = crate::rpc::RPCState<T>;
 
 /// A definition of an RPC method handler which can be registered with a
 /// [`SelfDescribingRpcModule`].
@@ -296,9 +296,9 @@ pub struct SelfDescribingRpcModule<Ctx> {
 }
 
 impl<Ctx> SelfDescribingRpcModule<Ctx> {
-    pub fn new(ctx: Ctx, calling_convention: ParamStructure) -> Self {
+    pub fn new(ctx: Arc<Ctx>, calling_convention: ParamStructure) -> Self {
         Self {
-            inner: jsonrpsee::server::RpcModule::new(ctx),
+            inner: jsonrpsee::server::RpcModule::from_arc(ctx.into()),
             schema_generator: SchemaGenerator::new(SchemaSettings::openapi3()),
             calling_convention,
             methods: vec![],
