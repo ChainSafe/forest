@@ -45,8 +45,6 @@ use serde::{
 use std::{future::Future, sync::Arc};
 
 /// Type to be used by [`RpcMethod::handle`].
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4007
-//                  avoid double indirection
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
 /// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
 type ModuleState<T> = crate::rpc::RPCState<T>;
@@ -298,7 +296,7 @@ pub struct SelfDescribingRpcModule<Ctx> {
 impl<Ctx> SelfDescribingRpcModule<Ctx> {
     pub fn new(ctx: Arc<Ctx>, calling_convention: ParamStructure) -> Self {
         Self {
-            inner: jsonrpsee::server::RpcModule::from_arc(ctx.into()),
+            inner: jsonrpsee::server::RpcModule::from_arc(ctx),
             schema_generator: SchemaGenerator::new(SchemaSettings::openapi3()),
             calling_convention,
             methods: vec![],
