@@ -15,7 +15,12 @@ services:
     command:
       - |
         set -euxo pipefail
-        aria2c -d /data -x5 https://forest-archive.chainsafe.dev/latest/calibnet/
+        # if there are some files in the data directory, then we don't need to fetch the snapshot
+        if [ "$$(ls -A /data/*.car.zst)" ]; then
+          echo "Snapshot already fetched"
+        else
+          aria2c -d /data -x5 https://forest-archive.chainsafe.dev/latest/calibnet/
+        fi
   forest:
     depends_on:
       init:
