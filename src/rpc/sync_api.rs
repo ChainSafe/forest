@@ -149,18 +149,16 @@ mod tests {
 
         let cid = r#"[{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}]"#;
 
-        match sync_check_bad(Params::new(Some(cid)), Arc::new(state.clone())).await {
+        match sync_check_bad(Params::new(Some(cid)), state.clone()).await {
             Ok(reason) => assert_eq!(reason, ""),
             Err(e) => std::panic::panic_any(e),
         }
 
         // Mark that block as bad manually and check again to verify
-        assert!(
-            sync_mark_bad(Params::new(Some(cid)), Arc::new(state.clone()))
-                .await
-                .is_ok()
-        );
-        match sync_check_bad(Params::new(Some(cid)), Arc::new(state.clone())).await {
+        assert!(sync_mark_bad(Params::new(Some(cid)), state.clone())
+            .await
+            .is_ok());
+        match sync_check_bad(Params::new(Some(cid)), state.clone()).await {
             Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
             Err(e) => std::panic::panic_any(e),
         }
@@ -172,7 +170,7 @@ mod tests {
 
         let st_copy = state.sync_state.clone();
 
-        match sync_state(Arc::new(state.clone())).await {
+        match sync_state(state.clone()).await {
             Ok(ret) => assert_eq!(
                 ret.active_syncs,
                 nonempty![clone_state(st_copy.as_ref()).await]
@@ -184,7 +182,7 @@ mod tests {
         st_copy.write().set_stage(SyncStage::Messages);
         st_copy.write().set_epoch(4);
 
-        match sync_state(Arc::new(state.clone())).await {
+        match sync_state(state.clone()).await {
             Ok(ret) => {
                 assert_eq!(
                     ret.active_syncs,
