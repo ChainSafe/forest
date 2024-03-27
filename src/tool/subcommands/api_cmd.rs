@@ -3,57 +3,53 @@
 
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
-use crate::chain_sync::SyncConfig;
-use crate::chain_sync::SyncStage;
+use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
-use crate::db::car::ManyCar;
-use crate::db::{parity_db::ParityDb, parity_db_config::ParityDbConfig};
+use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
-use crate::networks::parse_bootstrap_peers;
-use crate::networks::ChainConfig;
-use crate::networks::NetworkChain;
+use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_api::data_types::{MessageFilter, MessageLookup};
-use crate::rpc_api::eth_api::Address as EthAddress;
-use crate::rpc_api::eth_api::*;
-use crate::rpc_client::CommunicationProtocol;
-use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
-use crate::shim::address::{Address, Protocol};
-use crate::shim::crypto::Signature;
-use crate::shim::state_tree::StateTree;
+use crate::rpc_api::{
+    data_types::{MessageFilter, MessageLookup},
+    eth_api::{Address as EthAddress, *},
+};
+use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::shim::{
+    address::{Address, Protocol},
+    crypto::Signature,
+    state_tree::StateTree,
+};
 use crate::state_manager::StateManager;
 use crate::utils::version::FOREST_VERSION_STRING;
-use crate::Client;
 use ahash::HashMap;
 use anyhow::{bail, Context as _};
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::Path;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
 use tabled::{builder::Builder, settings::Style};
-use tokio::sync::Semaphore;
 use tokio::{
     signal::{
         ctrl_c,
         unix::{signal, SignalKind},
     },
-    sync::{mpsc, RwLock},
+    sync::{mpsc, RwLock, Semaphore},
     task::JoinSet,
 };
 use tracing::{info, warn};
@@ -70,9 +66,6 @@ pub enum ApiCommands {
         // RPC port
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
-        // Data Directory
-        #[arg(long, default_value = "offline-rpc-db")]
-        data_dir: PathBuf,
         // Allow downloading snapshot automatically
         #[arg(long)]
         auto_download_snapshot: bool,
@@ -134,19 +127,11 @@ impl ApiCommands {
                 snapshot_files,
                 chain,
                 port,
-                data_dir,
                 auto_download_snapshot,
                 height,
             } => {
-                start_offline_server(
-                    snapshot_files,
-                    chain,
-                    port,
-                    data_dir,
-                    auto_download_snapshot,
-                    height,
-                )
-                .await?;
+                start_offline_server(snapshot_files, chain, port, auto_download_snapshot, height)
+                    .await?;
             }
             Self::Compare {
                 forest,
@@ -864,15 +849,11 @@ async fn start_offline_server(
     snapshot_files: Vec<PathBuf>,
     chain: NetworkChain,
     rpc_port: u16,
-    rpc_data_dir: PathBuf,
     auto_download_snapshot: bool,
     height: i64,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
-    let client = Client::default();
-    let db_path = client.data_dir.as_path().join(rpc_data_dir);
-    let db_writer = Arc::new(ParityDb::open(&db_path, &ParityDbConfig::default())?);
-    let db = Arc::new(ManyCar::new(db_writer.clone()));
+    let db = Arc::new(ManyCar::new(MemoryDB::default()));
 
     let snapshot_files = if snapshot_files.is_empty() {
         let (snapshot_url, num_bytes, path) =
@@ -976,10 +957,6 @@ async fn start_offline_server(
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port).await?;
 
-    // TODO: this should more be done in a script
-    // Cleanup offline RPC resources
-    info!("Cleaning offline RPC data directory: {}", db_path.display());
-    std::fs::remove_dir_all(&db_path)?;
     Ok(())
 }
 
