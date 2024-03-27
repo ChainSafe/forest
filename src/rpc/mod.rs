@@ -354,7 +354,7 @@ where
     module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
     module.register_subscription(
         ETH_SUBSCRIBE,
-        "notif",
+        "eth_subscription",
         "boom",
         |params, pending, _ctx| async move {
             let event_types = match params.parse::<Vec<String>>() {
