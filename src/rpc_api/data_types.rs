@@ -32,7 +32,9 @@ use fil_actor_interface::{
     miner::MinerPower,
     power::Claim,
 };
-use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+use fil_actor_miner_state::v12::{
+    BeneficiaryTerm, PendingBeneficiaryChange, SectorOnChainInfoFlags,
+};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use libipld_core::ipld::Ipld;
@@ -754,6 +756,9 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
 
+    /// Additional flags, see [`SectorOnChainInfoFlags`]
+    pub flags: u32,
+
     #[serde(with = "crate::lotus_json")]
     /// Integral of active deals over sector lifetime
     pub deal_weight: BigInt,
@@ -771,12 +776,13 @@ pub struct SectorOnChainInfo {
     /// time
     pub expected_day_reward: TokenAmount,
 
+    /// Epoch at which this sector's power was most recently updated
+    pub power_base_epoch: ChainEpoch,
+
     #[serde(with = "crate::lotus_json")]
     /// Expected twenty day projection of reward for sector computed at
     /// activation time
     pub expected_storage_pledge: TokenAmount,
-
-    pub replaced_sector_age: ChainEpoch,
 
     #[serde(with = "crate::lotus_json")]
     pub replaced_day_reward: TokenAmount,
@@ -784,9 +790,6 @@ pub struct SectorOnChainInfo {
     #[serde(with = "crate::lotus_json")]
     #[serde(rename = "SectorKeyCID")]
     pub sector_key_cid: Option<Cid>,
-
-    #[serde(rename = "SimpleQAPower")]
-    pub simple_qa_power: bool,
 }
 
 impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
@@ -798,12 +801,17 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
             deal_ids: other.deal_ids,
             activation: other.activation,
             expiration: other.expiration,
+            flags: if other.simple_qa_power {
+                SectorOnChainInfoFlags::SIMPLE_QA_POWER.bits()
+            } else {
+                Default::default()
+            },
             deal_weight: other.deal_weight,
             verified_deal_weight: other.verified_deal_weight,
             initial_pledge: other.initial_pledge.into(),
             expected_day_reward: other.expected_day_reward.into(),
             expected_storage_pledge: other.expected_storage_pledge.into(),
-            replaced_sector_age: other.replaced_sector_age,
+            power_base_epoch: other.activation,
             // `replaced_day_reward` has to be zero and Lemmih cannot figure out
             // why. Lotus casts all `SectorOnChainInfo` structs to the miner-v9
             // version which clears some fields (like `simple_qa_power`) but it
@@ -811,7 +819,6 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
             // Lemmih will figure it out.
             replaced_day_reward: TokenAmount::default(),
             sector_key_cid: other.sector_key_cid,
-            simple_qa_power: other.simple_qa_power,
         }
     }
 }
