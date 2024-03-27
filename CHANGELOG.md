@@ -29,6 +29,21 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.17.1 "Villentretenmerth"
+
+This is a mandatory release that includes scheduled migration for the NV22
+_Dragon_ network upgrade for mainnet and fix for the calibration network.
+Various other fixes and improvements are included as well, see below for
+details.
+
+### Added
+
 - [#4029](https://github.com/ChainSafe/forest/pull/4029) Add
   `forest-tool shed private-key-from-key-pair` and
   `forest-tool shed key-pair-from-private-key` commands. These facilate moving
@@ -49,8 +64,6 @@
 
 - [#4119](https://github.com/ChainSafe/forest/pull/4119) Add support for NV22
   fix for calibration network.
-
-### Changed
 
 ### Removed
 
