@@ -136,7 +136,7 @@ services:
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest "/dns/forest/tcp/$FOREST_RPC_PORT/http" \
           --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
-          --n-tipsets 5 \
+          --n-tipsets 10 \
           --filter-file /data/filter-list
   api-compare-offline:
     depends_on:
@@ -147,7 +147,7 @@ services:
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - node-data:/data
-      - ./filter-list:/data/filter-list
+      - ./filter-list-offline:/data/filter-list-offline
     networks:
       - api-tests
     entrypoint: [ "/bin/bash", "-c" ]
@@ -157,8 +157,8 @@ services:
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
           --forest "/dns/api-serve/tcp/$FOREST_OFFLINE_RPC_PORT/http" \
           --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
-          --n-tipsets 5 \
-          --filter-file /data/filter-list || true # Fixme
+          --n-tipsets 10 \
+          --filter-file /data/filter-list-offline || true # Fixme
   post-setup:
     depends_on:
       api-compare:
