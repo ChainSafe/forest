@@ -13,7 +13,7 @@ pub enum BitswapInboundResponseEvent {
     DataBlock(PeerId, Cid, Vec<u8>),
 }
 
-// Note: This method performs db IO syncronously to reduce complexity
+// Note: This method performs db IO synchronously to reduce complexity
 pub fn handle_event_impl<S: BitswapStoreRead>(
     request_manager: &Arc<BitswapRequestManager>,
     bitswap: &mut BitswapBehaviour,

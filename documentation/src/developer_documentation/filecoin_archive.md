@@ -36,7 +36,7 @@ tipset, a link to the state-tree of the parent, and a link to a set of messages
 Filecoin p2p network gives access to all block headers but not all state-trees
 and messages.
 
-## State trees and mesages
+## State trees and messages
 
 State trees are persistent data structures built primarily with persistent
 hashmaps ([HAMT]) and persistent vectors ([AMT]). The state tree for a given
