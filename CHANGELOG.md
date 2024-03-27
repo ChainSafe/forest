@@ -47,6 +47,9 @@
 - [#4071](https://github.com/ChainSafe/forest/pull/4071) Add
   `forest-tool net ping` command that pings a peer via its multiaddress.
 
+- [#4119](https://github.com/ChainSafe/forest/pull/4119) Add support for NV22
+  fix for calibration network.
+
 ### Changed
 
 ### Removed
