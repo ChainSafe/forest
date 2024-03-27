@@ -69,7 +69,7 @@ services:
       - |
         set -euxo pipefail
         forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
-          --chain calibnet --port ${FOREST_OFFLINE_RPC_PORT}
+          --chain calibnet --height=-20 --port ${FOREST_OFFLINE_RPC_PORT}
   lotus:
     depends_on:
       init:
@@ -91,8 +91,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        lotus daemon --remove-existing-chain --halt-after-import --import-snapshot $(ls /data/*.car.zst | tail -n 1)
-        lotus daemon
+        lotus daemon --remove-existing-chain --import-snapshot $(ls /data/*.car.zst | tail -n 1)
   lotus-sync-wait:
     depends_on:
       lotus:
@@ -113,8 +112,11 @@ services:
         until lotus chain head; do
             sleep 5
         done
+        # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
+        lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
         lotus chain sethead --epoch $(($(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) - 20))
+        # wait for 30s to make sure the re-validation starts
         sleep 30
         lotus sync wait
   api-compare:
