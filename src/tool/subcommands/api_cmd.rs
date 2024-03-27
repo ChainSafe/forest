@@ -4,7 +4,6 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
-use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
 use crate::db::{car::ManyCar, MemoryDB};
@@ -34,6 +33,7 @@ use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
 use std::{
@@ -69,6 +69,10 @@ pub enum ApiCommands {
         // Allow downloading snapshot automatically
         #[arg(long)]
         auto_download_snapshot: bool,
+        /// Validate snapshot at given EPOCH, use a negative value -N to validate
+        /// the last N EPOCH(s) starting at HEAD.
+        #[arg(long, default_value_t = -20)]
+        height: i64,
     },
     /// Compare
     Compare {
@@ -124,8 +128,10 @@ impl ApiCommands {
                 chain,
                 port,
                 auto_download_snapshot,
+                height,
             } => {
-                start_offline_server(snapshot_files, chain, port, auto_download_snapshot).await?;
+                start_offline_server(snapshot_files, chain, port, auto_download_snapshot, height)
+                    .await?;
             }
             Self::Compare {
                 forest,
@@ -555,7 +561,6 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         shared_tipset.key().into(),
     )));
 
-    let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
@@ -576,115 +581,106 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-            for msg in bls_messages {
-                if seen.insert(msg.cid()?) {
-                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        Default::default(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
-                            .with_timeout(Duration::from_secs(30)),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: Some(msg.from()),
-                            to: Some(msg.to()),
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
-                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(validate_message_lookup(
-                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                    ));
-                }
+            for msg in bls_messages.into_iter().unique() {
+                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                    msg.cid()?,
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    root_tsk.into(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    Default::default(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
+                    msg.from(),
+                    root_tsk.into(),
+                )));
+                tests.push(
+                    validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                        .with_timeout(Duration::from_secs(30)),
+                );
+                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                    msg.cid()?,
+                )));
+                tests.push(validate_message_lookup(
+                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                ));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: Some(msg.to()),
+                    },
+                    root_tsk.into(),
+                    shared_tipset.epoch(),
+                )));
+                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                    msg.cid()?,
+                )));
+                tests.push(validate_message_lookup(
+                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                ));
             }
-            for msg in secp_messages {
-                if seen.insert(msg.cid()?) {
-                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        Default::default(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
-                            .with_timeout(Duration::from_secs(30)),
-                    );
-                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(validate_message_lookup(
-                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                    ));
-                    tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: None,
-                            to: Some(msg.to()),
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: Some(msg.from()),
-                            to: None,
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: None,
-                            to: None,
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
+            for msg in secp_messages.into_iter().unique() {
+                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                    msg.cid()?,
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    root_tsk.into(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    Default::default(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
+                    msg.from(),
+                    root_tsk.into(),
+                )));
+                tests.push(
+                    validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                        .with_timeout(Duration::from_secs(30)),
+                );
+                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                    msg.cid()?,
+                )));
+                tests.push(validate_message_lookup(
+                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                ));
+                tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: None,
+                        to: Some(msg.to()),
+                    },
+                    root_tsk.into(),
+                    shared_tipset.epoch(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: None,
+                    },
+                    root_tsk.into(),
+                    shared_tipset.epoch(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: None,
+                        to: None,
+                    },
+                    root_tsk.into(),
+                    shared_tipset.epoch(),
+                )));
 
-                    if !msg.params().is_empty() {
-                        tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
+                if !msg.params().is_empty() {
+                    tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
                             root_tsk.into(),
                         )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
-                    }
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
@@ -854,6 +850,7 @@ async fn start_offline_server(
     chain: NetworkChain,
     rpc_port: u16,
     auto_download_snapshot: bool,
+    height: i64,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
     let db = Arc::new(ManyCar::new(MemoryDB::default()));
@@ -908,11 +905,11 @@ async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let ts = db.heaviest_tipset()?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
 
     state_manager
         .chain_store()
-        .set_heaviest_tipset(Arc::new(ts))?;
+        .set_heaviest_tipset(head_ts.clone())?;
 
     let beacon = Arc::new(
         state_manager
@@ -929,6 +926,22 @@ async fn start_offline_server(
         state_manager.chain_config().clone(),
         &mut JoinSet::new(),
     )?;
+
+    // Validate tipsets since the {height} EPOCH when `height >= 0`,
+    // or valiadte the last {-height} EPOCH(s) when `height < 0`
+    let n_ts_to_validate = if height > 0 {
+        (head_ts.epoch() - height).max(0)
+    } else {
+        -height
+    } as usize;
+    if n_ts_to_validate > 0 {
+        if let Err(e) =
+            state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))
+        {
+            warn!("{e}");
+        }
+    }
+
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
@@ -952,7 +965,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
-    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
+    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
     let forest_version = FOREST_VERSION_STRING.as_str();
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;

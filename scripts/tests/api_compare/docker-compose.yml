@@ -2,35 +2,32 @@
 version: "3.8"
 
 services:
-  # Initialisation service. Downloads the shared assets to facilitate the setup of the other services.
-  init:
-    image: ${FOREST_IMAGE}
-    user: root
+  init: 
+    build:
+      dockerfile: aria2-Dockerfile
     volumes:
       - node-data:/data
-      - filecoin-proofs:/proofs
-    env_file:
-      - .env
-    entrypoint: ["/bin/bash", "-c" ]
+    networks:
+      - api-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
         # if there are some files in the data directory, then we don't need to fetch the snapshot
-        if [ "$$(ls -A /data/snapshot/)" ]; then
+        if [ "$$(ls -A /data/*.car.zst)" ]; then
           echo "Snapshot already fetched"
         else
-          mkdir -p /data/snapshot
-          forest-tool snapshot fetch  --chain ${CHAIN} --directory /data/snapshot/
-        fi
-        # copy proofs to the shared volume, if they are not already there
-        if [ "$$(ls -A /proofs/)" ]; then
-          cp -r ${FIL_PROOFS_PARAMETER_CACHE}/* /proofs/
+          aria2c -d /data -x5 https://forest-archive.chainsafe.dev/latest/calibnet/
         fi
   forest:
     depends_on:
       init:
         condition: service_completed_successfully
-    image: ${FOREST_IMAGE}
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - node-data:/data
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
@@ -38,11 +35,41 @@ services:
       - api-tests
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
-    entrypoint: ["/bin/bash", "-c" ]
+      - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
-        forest --import-snapshot /data/snapshot/* --encrypt-keystore false --chain ${CHAIN} --rpc-address 0.0.0.0:${FOREST_RPC_PORT}
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --height=-20 \
+          --import-snapshot $(ls /data/*.car.zst | tail -n 1)
+    healthcheck:
+      test: [ "CMD", "forest-cli", "chain", "head" ]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+  api-serve:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - api-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
+          --chain calibnet --port ${FOREST_OFFLINE_RPC_PORT}
   lotus:
     depends_on:
       init:
@@ -50,6 +77,7 @@ services:
     image: ${LOTUS_IMAGE}
     volumes:
       - node-data:/data
+      - lotus-data:/var/lib/lotus
       - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
     networks:
       - api-tests
@@ -57,15 +85,100 @@ services:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
       - LOTUS_FEVM_ENABLEETHRPC=1
-    entrypoint: ["/bin/bash", "-c" ]
+      - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
+      - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
         set -euxo pipefail
-        lotus daemon --import-snapshot /data/snapshot/* --remove-existing-chain
+        lotus daemon --remove-existing-chain --halt-after-import --import-snapshot $(ls /data/*.car.zst | tail -n 1)
+        lotus daemon
+  lotus-sync-wait:
+    depends_on:
+      lotus:
+        condition: service_started
+    image: ${LOTUS_IMAGE}
+    volumes:
+      - node-data:/data
+      - lotus-data:/var/lib/lotus
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - api-tests
+    environment:
+      - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        until lotus chain head; do
+            sleep 5
+        done
+        FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        lotus chain sethead --epoch $(($(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) - 20))
+        sleep 30
+        lotus sync wait
+  api-compare:
+    depends_on:
+      lotus-sync-wait:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - ./filter-list:/data/filter-list
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
+          --forest "/dns/forest/tcp/$FOREST_RPC_PORT/http" \
+          --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
+          --n-tipsets 10 \
+          --filter-file /data/filter-list
+  api-compare-offline:
+    depends_on:
+      lotus-sync-wait:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - ./filter-list-offline:/data/filter-list-offline
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
+          --forest "/dns/api-serve/tcp/$FOREST_OFFLINE_RPC_PORT/http" \
+          --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
+          --n-tipsets 10 \
+          --filter-file /data/filter-list-offline || true # Fixme
+  post-setup:
+    depends_on:
+      api-compare:
+        condition: service_completed_successfully
+      api-compare-offline:
+        condition: service_completed_successfully
+    image: busybox
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        echo "Success"
 
 volumes:
   filecoin-proofs:
   node-data:
+  # mount this to /var/lib/lotus to avoid creating random volumes
+  lotus-data:
 
 networks:
   api-tests:

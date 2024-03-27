@@ -224,7 +224,7 @@ pub async fn chain_read_obj<DB: Blockstore>(
         .state_manager
         .blockstore()
         .get(&obj_cid)?
-        .context("can't find object with that cid")?;
+        .with_context(|| format!("can't find object with cid={obj_cid}"))?;
     Ok(LotusJson(bytes))
 }
 
