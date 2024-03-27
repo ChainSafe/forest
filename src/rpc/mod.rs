@@ -39,14 +39,17 @@ use crate::rpc_api::{
     net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
 };
 
+use ethereum_types::H256;
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
 use jsonrpsee::{
-    core::RegisterMethodError,
+    core::{traits::IdProvider, RegisterMethodError},
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
+    types::SubscriptionId,
     Methods,
 };
+use rand::Rng;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tower::Service;
@@ -78,6 +81,25 @@ struct PerConnection<RpcMiddleware, HttpMiddleware> {
     stop_handle: StopHandle,
     svc_builder: TowerServiceBuilder<RpcMiddleware, HttpMiddleware>,
     keystore: Arc<RwLock<KeyStore>>,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct RandomHexStringIdProvider {}
+
+impl RandomHexStringIdProvider {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl IdProvider for RandomHexStringIdProvider {
+    fn next_id(&self) -> SubscriptionId<'static> {
+        let mut bytes = [0u8; 32];
+        let mut rng = rand::thread_rng();
+        rng.fill(&mut bytes);
+
+        SubscriptionId::Str(format!("{:#x}", H256::from(bytes)).into())
+    }
 }
 
 pub async fn start_rpc<DB>(
@@ -119,6 +141,7 @@ where
         svc_builder: Server::builder()
             // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
             .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
+            .set_id_provider(RandomHexStringIdProvider::new())
             .to_service_builder(),
         keystore,
     };
@@ -329,6 +352,41 @@ where
     module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
     module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
+    module.register_subscription(
+        ETH_SUBSCRIBE,
+        "notif",
+        "boom",
+        |params, pending, _ctx| async move {
+            let event_types = match params.parse::<Vec<String>>() {
+                Ok(v) => v,
+                Err(e) => {
+                    pending
+                        .reject(jsonrpsee::types::ErrorObjectOwned::from(e))
+                        .await;
+                    // If the subscription has not been "accepted" then
+                    // the return value will be "ignored" as it's not
+                    // allowed to send out any further notifications on
+                    // on the subscription.
+                    return Ok(());
+                }
+            };
+            // `event_types` is one OR more of:
+            //  - "newHeads": notify when new blocks arrive
+            //  - "pendingTransactions": notify when new messages arrive in the message pool
+            //  - "logs": notify new event logs that match a criteria
+
+            tracing::trace!("Subscribing to events: {:?}", event_types);
+
+            // Mark the subscription is accepted after the params has been parsed successful.
+            // This is actually responds the underlying RPC method call and may fail if the
+            // connection is closed.
+            let sink = pending.accept().await?;
+
+            tracing::trace!("Subscribtion id: {:?}", sink.subscription_id());
+
+            Ok(())
+        },
+    )?;
 
     Ok(())
 }

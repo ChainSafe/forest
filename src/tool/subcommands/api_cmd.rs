@@ -36,6 +36,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
+use serde_json::json;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
@@ -777,8 +778,10 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
 }
 
 fn websocket_tests() -> Vec<RpcTest> {
-    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
-    vec![test]
+    vec![
+        RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet"),
+        RpcTest::basic(ApiInfo::eth_subscribe_req(json!(["newHeads"]))),
+    ]
 }
 
 fn derive_protocol(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<CommunicationProtocol> {
