@@ -946,6 +946,8 @@ async fn start_offline_server(
         &mut JoinSet::new(),
     )?;
 
+    // Validate tipsets since the {height} EPOCH when `height >= 0`,
+    // or valiadte the last {-height} EPOCH(s) when `height < 0`
     let n_ts_to_validate = if height > 0 {
         (head_ts.epoch() - height).max(0)
     } else {
