@@ -12,7 +12,7 @@ use crate::rpc::{
     error::JsonRpcError,
     reflect::{Ctx, RpcMethod},
 };
-use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
+use crate::rpc_api::data_types::{ApiHeadChange, ApiHeaders, ApiMessage, ApiReceipt};
 use crate::rpc_api::{
     chain_api::*,
     data_types::{ApiTipsetKey, BlockMessages},
@@ -500,6 +500,24 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 .send(vec![ApiHeadChange { change, headers }])
                 .is_err()
             {
+                break;
+            }
+        }
+    });
+    receiver
+}
+
+pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subscriber<ApiHeaders> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    let mut subscriber = data.chain_store.publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let headers = match v {
+                HeadChange::Apply(ts) => ApiHeaders(ts.block_headers().clone().into()),
+            };
+            if sender.send(headers).is_err() {
                 break;
             }
         }

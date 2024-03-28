@@ -32,4 +32,8 @@ impl ApiInfo {
     pub fn eth_syncing_req() -> RpcRequest<EthSyncingResult> {
         RpcRequest::new_v1(ETH_SYNCING, ())
     }
+
+    pub fn eth_subscribe_req(event: serde_json::Value) -> RpcRequest<EthSubscriptionID> {
+        RpcRequest::new_v1(ETH_SUBSCRIBE, event)
+    }
 }
