@@ -59,7 +59,7 @@ impl ApiInfo {
         epoch: ChainEpoch,
         head: ApiTipsetKey,
     ) -> RpcRequest<Tipset> {
-        RpcRequest::new(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
+        RpcRequest::new_v1(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
     }
 
     #[allow(unused)] // consistency

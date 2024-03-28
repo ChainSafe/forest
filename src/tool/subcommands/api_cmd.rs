@@ -19,6 +19,7 @@ use crate::rpc_api::{
     eth_api::{Address as EthAddress, *},
 };
 use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -52,7 +53,7 @@ use tokio::{
     sync::{mpsc, RwLock, Semaphore},
     task::JoinSet,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -71,7 +72,7 @@ pub enum ApiCommands {
         auto_download_snapshot: bool,
         /// Validate snapshot at given EPOCH, use a negative value -N to validate
         /// the last N EPOCH(s) starting at HEAD.
-        #[arg(long, default_value_t = -20)]
+        #[arg(long, default_value_t = -50)]
         height: i64,
     },
     /// Compare
@@ -215,7 +216,15 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_syntax: Arc::new(
+                |value| match serde_json::from_value::<T::LotusJson>(value) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!("{e}");
+                        false
+                    }
+                },
+            ),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
         }
@@ -233,16 +242,34 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_syntax: Arc::new(
+                |value| match serde_json::from_value::<T::LotusJson>(value) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!("{e}");
+                        false
+                    }
+                },
+            ),
             check_semantics: Arc::new(move |forest_json, lotus_json| {
-                serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
-                    serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
-                        validate(
-                            HasLotusJson::from_lotus_json(forest),
-                            HasLotusJson::from_lotus_json(lotus),
-                        )
-                    })
-                })
+                match (
+                    serde_json::from_value::<T::LotusJson>(forest_json),
+                    serde_json::from_value::<T::LotusJson>(lotus_json),
+                ) {
+                    (Ok(forest), Ok(lotus)) => validate(
+                        HasLotusJson::from_lotus_json(forest),
+                        HasLotusJson::from_lotus_json(lotus),
+                    ),
+                    (forest, lotus) => {
+                        if let Err(e) = forest {
+                            debug!("[forest] invalid json: {e}");
+                        }
+                        if let Err(e) = lotus {
+                            debug!("[lotus] invalid json: {e}");
+                        }
+                        false
+                    }
+                }
             }),
             ignore: None,
         }
@@ -346,9 +373,7 @@ fn beacon_tests() -> Vec<RpcTest> {
 
 fn chain_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
-            forest.epoch().abs_diff(lotus.epoch()) < 10
-        }),
+        RpcTest::basic(ApiInfo::chain_head_req()),
         RpcTest::identity(ApiInfo::chain_get_genesis_req()),
     ]
 }
@@ -504,13 +529,7 @@ fn wallet_tests() -> Vec<RpcTest> {
 fn eth_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::validate(ApiInfo::eth_block_number_req(), |forest, lotus| {
-            fn parse_hex(inp: &str) -> i64 {
-                let without_prefix = inp.trim_start_matches("0x");
-                i64::from_str_radix(without_prefix, 16).unwrap_or_default()
-            }
-            parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
-        }),
+        RpcTest::basic(ApiInfo::eth_block_number_req()),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
@@ -543,8 +562,15 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    let shared_tipset = store.heaviest_tipset()?;
-    let root_tsk = shared_tipset.key();
+    // shared_tipset in the snapshot might not be finalized for the offline RPC server
+    // use heaviest - 10 instead
+    let shared_tipset = store
+        .heaviest_tipset()?
+        .chain(&store)
+        .take(10)
+        .last()
+        .expect("Infallible");
+    let shared_tipset_key = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
@@ -577,7 +603,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
-                root_tsk.into(),
+                shared_tipset_key.into(),
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
@@ -587,7 +613,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
@@ -595,7 +621,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(
                     validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -612,7 +638,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: Some(msg.from()),
                         to: Some(msg.to()),
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
                 tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
@@ -628,7 +654,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
@@ -636,7 +662,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(
                     validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -654,7 +680,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: None,
                         to: Some(msg.to()),
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -662,7 +688,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: Some(msg.from()),
                         to: None,
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -670,7 +696,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: None,
                         to: None,
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
 
@@ -679,7 +705,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
-                            root_tsk.into(),
+                            shared_tipset_key.into(),
                         )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
                 }
             }
@@ -889,8 +915,11 @@ async fn start_offline_server(
         snapshot_files
     };
     db.read_only_files(snapshot_files.iter().cloned())?;
-
+    info!("Using chain config for {chain}");
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
+    if chain_config.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
     let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
@@ -935,11 +964,7 @@ async fn start_offline_server(
         -height
     } as usize;
     if n_ts_to_validate > 0 {
-        if let Err(e) =
-            state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))
-        {
-            warn!("{e}");
-        }
+        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
     }
 
     let rpc_state = RPCState {

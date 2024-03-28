@@ -13,16 +13,18 @@ pub use fvm4::state_tree::{
     ActorState as ActorStateV4, ActorState as ActorState_latest, StateTree as StateTreeV4,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::repr::{Deserialize_repr, Serialize_repr};
+use fvm_ipld_encoding::{
+    repr::{Deserialize_repr, Serialize_repr},
+    CborStore as _,
+};
 use fvm_shared2::state::StateTreeVersion as StateTreeVersionV2;
-pub use fvm_shared3::state::StateRoot;
 use fvm_shared3::state::StateTreeVersion as StateTreeVersionV3;
-pub use fvm_shared3::ActorID;
 use fvm_shared4::state::StateTreeVersion as StateTreeVersionV4;
 use num::FromPrimitive;
 use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 
+pub use super::fvm_shared_latest::{state::StateRoot, ActorID};
 use crate::shim::{address::Address, econ::TokenAmount};
 
 #[derive(
@@ -162,10 +164,14 @@ where
             Ok(StateTree::FvmV3(st))
         } else if let Ok(st) = StateTreeV2::new_from_root(store.clone(), c) {
             Ok(StateTree::FvmV2(st))
-        } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store, c) {
+        } else if let Ok(st) = super::state_tree_v0::StateTreeV0::new_from_root(store.clone(), c) {
             Ok(StateTree::V0(st))
         } else {
-            bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version.")
+            let state_root = store.get_cbor::<StateRoot>(c).ok().flatten();
+            let state_root_version = state_root
+                .map(|sr| format!("{:?}", sr.version))
+                .unwrap_or_else(|| "unknown".into());
+            bail!("Can't create a valid state tree from the given root. This error may indicate unsupported version. state_root_cid={c}, state_root_version={state_root_version}")
         }
     }
 
