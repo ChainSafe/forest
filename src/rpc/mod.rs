@@ -61,6 +61,8 @@ use self::reflect::openrpc_types::ParamStructure;
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
 
+const ETH_SUBSCRIPTION: &str = "eth_subscription";
+
 /// This is where you store persistent data, or at least access to stateful
 /// data.
 pub struct RPCState<DB> {
@@ -355,8 +357,8 @@ where
     module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
     module.register_subscription(
         ETH_SUBSCRIBE,
-        "eth_subscription",
-        "boom",
+        ETH_SUBSCRIPTION,
+        ETH_UNSUBSCRIBE,
         |params, pending, ctx| async move {
             let event_types = match params.parse::<Vec<String>>() {
                 Ok(v) => v,
