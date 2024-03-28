@@ -50,6 +50,7 @@ use jsonrpsee::{
     Methods,
 };
 use rand::Rng;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tower::Service;
@@ -356,7 +357,7 @@ where
         ETH_SUBSCRIBE,
         "eth_subscription",
         "boom",
-        |params, pending, _ctx| async move {
+        |params, pending, ctx| async move {
             let event_types = match params.parse::<Vec<String>>() {
                 Ok(v) => v,
                 Err(e) => {
@@ -377,12 +378,48 @@ where
 
             tracing::trace!("Subscribing to events: {:?}", event_types);
 
-            // Mark the subscription is accepted after the params has been parsed successful.
-            // This is actually responds the underlying RPC method call and may fail if the
-            // connection is closed.
-            let sink = pending.accept().await?;
+            let mut receiver = new_heads(&ctx);
+            tokio::spawn(async move {
+                // Mark the subscription is accepted after the params has been parsed successful.
+                // This is actually responds the underlying RPC method call and may fail if the
+                // connection is closed.
+                let sink = pending.accept().await.unwrap();
 
-            tracing::trace!("Subscribtion id: {:?}", sink.subscription_id());
+                tracing::trace!("Subscription started (id: {:?})", sink.subscription_id());
+
+                loop {
+                    tokio::select! {
+                        action = receiver.recv() => {
+                            match action {
+                                Ok(v) => {
+                                    match jsonrpsee::SubscriptionMessage::from_json(&v) {
+                                        Ok(msg) => {
+                                            // This fails only if the connection is closed
+                                            if sink.send(msg).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::error!("Failed to serialize message: {:?}", e);
+                                            break;
+                                        }
+                                    }
+                                }
+                                Err(RecvError::Closed) => {
+                                    break;
+                                }
+                                Err(RecvError::Lagged(_)) => {
+                                }
+                            }
+                        }
+                        _ = sink.closed() => {
+                            break;
+                        }
+                    }
+                }
+
+                tracing::trace!("Subscription task ended (id: {:?})", sink.subscription_id());
+            });
 
             Ok(())
         },
