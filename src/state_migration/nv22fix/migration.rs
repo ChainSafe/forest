@@ -134,8 +134,8 @@ where
     DB: Blockstore + Send + Sync,
 {
     assert!(
-        chain_config.network == NetworkChain::Calibnet,
-        "NV22fix only supported on Calibnet"
+        chain_config.network.is_testnet(),
+        "NV22fix only supported on Testnets"
     );
 
     let new_manifest_cid = chain_config
