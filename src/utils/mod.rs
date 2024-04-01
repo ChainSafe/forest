@@ -4,6 +4,7 @@
 pub mod cid;
 pub mod db;
 pub mod encoding;
+pub mod error;
 pub mod io;
 pub mod misc;
 pub mod monitoring;
