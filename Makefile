@@ -51,9 +51,7 @@ clean:
 lint-all: lint audit spellcheck
 
 audit:
-	# https://rustsec.org/advisories/RUSTSEC-2024-0320
-	# https://github.com/ChainSafe/forest/issues/4109
-	cargo audit --ignore RUSTSEC-2024-0320 || (echo "See .config/audit.toml"; false)
+	cargo audit || (echo "See .config/audit.toml"; false)
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
