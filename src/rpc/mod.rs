@@ -12,7 +12,7 @@ mod eth_api;
 pub mod gas_api;
 pub mod mpool_api;
 pub mod net_api;
-mod node_api;
+pub mod node_api;
 pub mod state_api;
 pub mod sync_api;
 pub mod wallet_api;
@@ -33,7 +33,7 @@ use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 use crate::rpc::state_api::*;
-use crate::rpc_api::{eth_api::*, node_api::NODE_STATUS};
+use crate::rpc_api::eth_api::*;
 
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
