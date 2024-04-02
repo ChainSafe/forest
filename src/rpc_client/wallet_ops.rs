@@ -4,7 +4,7 @@
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 use crate::{
     key_management::KeyInfo,
-    rpc_api::wallet_api::*,
+    rpc::wallet_api::*,
     shim::{
         address::Address,
         crypto::{Signature, SignatureType},

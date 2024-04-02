@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use crate::rpc::types::{APIVersion, Version};
 use crate::rpc::{error::JsonRpcError, RPCState};
-use crate::rpc_api::data_types::{APIVersion, Version};
 
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
@@ -13,6 +13,12 @@ use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
+
+pub const VERSION: &str = "Filecoin.Version";
+pub const SHUTDOWN: &str = "Filecoin.Shutdown";
+pub const START_TIME: &str = "Filecoin.StartTime";
+pub const DISCOVER: &str = "Filecoin.Discover";
+pub const SESSION: &str = "Filecoin.Session";
 
 /// The session UUID uniquely identifies the API node.
 pub fn session() -> Result<String, JsonRpcError> {

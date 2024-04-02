@@ -6,8 +6,41 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
-use crate::rpc_api::node_api::NodeStatusResult;
 use fvm_ipld_blockstore::Blockstore;
+
+pub const NODE_STATUS: &str = "Filecoin.NodeStatus";
+pub type NodeStatusResult = NodeStatus;
+
+use serde::{Deserialize, Serialize};
+
+use crate::lotus_json::lotus_json_with_self;
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct NodeSyncStatus {
+    pub epoch: u64,
+    pub behind: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct NodePeerStatus {
+    pub peers_to_publish_msgs: u32,
+    pub peers_to_publish_blocks: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct NodeChainStatus {
+    pub blocks_per_tipset_last_100: f64,
+    pub blocks_per_tipset_last_finality: f64,
+}
+
+#[derive(Debug, Deserialize, Default, Serialize, Clone)]
+pub struct NodeStatus {
+    pub sync_status: NodeSyncStatus,
+    pub peer_status: NodePeerStatus,
+    pub chain_status: NodeChainStatus,
+}
+
+lotus_json_with_self!(NodeStatus);
 
 pub async fn node_status<DB: Blockstore>(data: Ctx<DB>) -> Result<NodeStatusResult, JsonRpcError> {
     let mut node_status = NodeStatusResult::default();
