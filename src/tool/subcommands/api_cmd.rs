@@ -13,10 +13,10 @@ use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::rpc::eth_api::Address as EthAddress;
+use crate::rpc::eth_api::*;
 use crate::rpc::types::{MessageFilter, MessageLookup};
 use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_api::eth_api::Address as EthAddress;
-use crate::rpc_api::eth_api::*;
 use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::{
     address::{Address, Protocol},

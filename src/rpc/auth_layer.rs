@@ -4,10 +4,9 @@
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
-    auth_api, beacon_api, chain_api, common_api, gas_api, mpool_api, net_api, node_api, state_api,
-    sync_api, wallet_api, CANCEL_METHOD_NAME,
+    auth_api, beacon_api, chain_api, common_api, eth_api, gas_api, mpool_api, net_api, node_api,
+    state_api, sync_api, wallet_api, CANCEL_METHOD_NAME,
 };
-use crate::rpc_api::*;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use hyper::header::{HeaderValue, AUTHORIZATION};
