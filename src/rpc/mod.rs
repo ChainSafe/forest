@@ -1,12 +1,13 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod auth_layer;
+mod channel;
+
 // API handlers
 pub mod auth_api;
-mod auth_layer;
 pub mod beacon_api;
 pub mod chain_api;
-mod channel;
 pub mod common_api;
 pub mod eth_api;
 pub mod gas_api;
