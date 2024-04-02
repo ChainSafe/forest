@@ -5,10 +5,6 @@
 !Filecoin.StateCall
 !Filecoin.StateListMessages
 !Filecoin.StateSectorGetInfo
-!Filecoin.ChainGetTipSetByHeight
-!Filecoin.ChainHead
-!Filecoin.EthBlockNumber
-!Filecoin.EthGetBalance
 !Filecoin.EthSyncing
 !Filecoin.NetAddrsListen
 !Filecoin.NetAgentVersion
