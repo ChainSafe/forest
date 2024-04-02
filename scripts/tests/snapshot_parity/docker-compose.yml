@@ -1,0 +1,132 @@
+# Docker compose file to run Forest and Lotus API tests.
+version: "3.8"
+
+services:
+  init: 
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+    networks:
+      - snapshot-parity-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        # if there are some files in the data directory, then we don't need to fetch the snapshot
+        if [ "$$(ls -A /data/*.car.zst)" ]; then
+          echo "Snapshot already fetched"
+        else
+          forest-tool snapshot fetch --chain calibnet -d /data
+        fi
+        mkdir -p /data/exported
+  forest:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - snapshot-parity-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --import-snapshot $(ls /data/*.car.zst | tail -n 1) &
+        sleep 15
+        forest-cli sync wait
+        forest-cli snapshot export -t=$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) -d=${EXPORT_EPOCHS} -o /data/exported/forest.car.zst
+        kill -KILL $!
+  lotus:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+      # To force the daemons run sequentially on CI to get rid of OOM
+      forest:
+        condition: service_completed_successfully
+    image: ${LOTUS_IMAGE}
+    volumes:
+      - node-data:/data
+      - lotus-data:/var/lib/lotus
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
+    networks:
+      - snapshot-parity-tests
+    environment:
+      - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - LOTUS_API_LISTENADDRESS=/ip4/0.0.0.0/tcp/${LOTUS_RPC_PORT}/http
+      - LOTUS_FEVM_ENABLEETHRPC=1
+      - LOTUS_CHAINSTORE_ENABLESPLITSTORE=false
+      - FULLNODE_API_INFO=/dns/lotus/tcp/${LOTUS_RPC_PORT}/http
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        lotus daemon --remove-existing-chain --import-snapshot $(ls /data/*.car.zst | tail -n 1) &
+        lotus wait-api --timeout 10m
+        lotus sync wait
+        lotus chain export --tipset @$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) --recent-stateroots ${EXPORT_EPOCHS} --skip-old-msgs /data/exported/lotus.car
+        kill -KILL $!
+  compare: 
+    depends_on:
+      forest:
+        condition: service_completed_successfully
+      lotus:
+        condition: service_completed_successfully
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+    networks:
+      - snapshot-parity-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        pushd /data/exported
+        # Skip the CAR format line
+        forest-tool archive info forest.car.zst | tail -n +2 > forest.txt
+        cat forest.txt
+        # Skip the CAR format line
+        forest-tool archive info lotus.car | tail -n +2 > lotus.txt
+        cat lotus.txt
+        diff forest.txt lotus.txt
+        ## Too slow, comment out for now
+        # apt-get update
+        # apt-get install -y zstd
+        # zstd -d forest.car.zst
+        # cmp forest.car lotus.car
+        popd
+  post-setup:
+    depends_on:
+      compare:
+        condition: service_completed_successfully
+    image: busybox
+    networks:
+      - snapshot-parity-tests
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        echo "Success"
+
+volumes:
+  filecoin-proofs:
+  node-data:
+  # mount this to /var/lib/lotus to avoid creating random volumes
+  lotus-data:
+
+networks:
+  snapshot-parity-tests:

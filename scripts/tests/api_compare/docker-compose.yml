@@ -109,9 +109,7 @@ services:
     command:
       - |
         set -euxo pipefail
-        until lotus chain head; do
-            sleep 5
-        done
+        lotus wait-api --timeout 10m
         # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
         lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
