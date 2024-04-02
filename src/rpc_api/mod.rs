@@ -3,22 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// Wallet API
-pub mod wallet_api {
-    pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-    pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-    pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-    pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-    pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-    pub const WALLET_LIST: &str = "Filecoin.WalletList";
-    pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-    pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-    pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-    pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
-    pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-    pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
-}
-
 /// State API
 pub mod state_api {
     pub const STATE_CALL: &str = "Filecoin.StateCall";
