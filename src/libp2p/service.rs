@@ -11,7 +11,7 @@ use crate::libp2p_bitswap::{
     BitswapStoreRead, BitswapStoreReadWrite,
 };
 use crate::message::SignedMessage;
-use crate::{blocks::GossipBlock, rpc_api::net_api::NetInfoResult};
+use crate::{blocks::GossipBlock, rpc::net_api::NetInfoResult};
 use crate::{chain::ChainStore, utils::encoding::from_slice_with_fallback};
 use ahash::{HashMap, HashSet};
 use cid::Cid;
