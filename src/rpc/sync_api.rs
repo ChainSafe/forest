@@ -14,6 +14,10 @@ use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use parking_lot::RwLock;
 
+pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
+pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
+pub const SYNC_STATE: &str = "Filecoin.SyncState";
+
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
     params: Params<'_>,

@@ -3,13 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// Sync API
-pub mod sync_api {
-    pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-    pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-    pub const SYNC_STATE: &str = "Filecoin.SyncState";
-}
-
 /// Wallet API
 pub mod wallet_api {
     pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
