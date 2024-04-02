@@ -3,14 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// Gas API
-pub mod gas_api {
-    pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-    pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-    pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-    pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
-}
-
 /// Common API
 pub mod common_api {
     pub const VERSION: &str = "Filecoin.Version";
