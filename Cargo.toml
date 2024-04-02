@@ -154,7 +154,7 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
 regex = "1.10"
-reqwest = { version = "0.11.25", default-features = false, features = [
+reqwest = { version = "0.11", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
@@ -173,7 +173,7 @@ serde_with = { version = "3.6.1", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
-similar = "2.2.1"
+similar = "2"
 slotmap = "1.0"
 smallvec = "1.13"
 smart-default = "0.7.1"
@@ -219,7 +219,7 @@ derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 http-range-header = "0.4.0"
-insta = { version = "1.36.1", features = ["yaml"] }
+insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6.4"
@@ -228,7 +228,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.207"
+ra_ap_syntax = "0.0.208"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
