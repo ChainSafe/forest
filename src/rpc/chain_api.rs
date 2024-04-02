@@ -2,20 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+#[cfg(test)]
+use crate::blocks::RawBlockHeader;
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
+use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::HasLotusJson;
 use crate::lotus_json::LotusJson;
+#[cfg(test)]
+use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::ChainMessage;
+use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
 use crate::rpc::{
     error::JsonRpcError,
     reflect::{Ctx, RpcMethod},
-};
-use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
-use crate::rpc_api::{
-    chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -29,12 +31,130 @@ use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
 use once_cell::sync::Lazy;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{
     broadcast::{self, Receiver as Subscriber},
     Mutex,
 };
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainExportParams {
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
+    pub skip_checksum: bool,
+    pub dry_run: bool,
+}
+
+lotus_json_with_self!(ChainExportParams);
+
+pub type ChainExportResult = Option<String>;
+
+pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
+pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
+pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
+pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
+pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
+pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
+pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
+pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
+pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
+pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
+pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
+pub const CHAIN_GET_PATH: &str = "Filecoin.ChainGetPath";
+pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
+pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
+pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
+pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PathChange<T = Arc<Tipset>> {
+    Revert(T),
+    Apply(T),
+}
+impl HasLotusJson for PathChange {
+    type LotusJson = PathChange<LotusJson<Tipset>>;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        use serde_json::json;
+        vec![(
+            json!({
+                "revert": {
+                    "Blocks": [
+                        {
+                            "BeaconEntries": null,
+                            "ForkSignaling": 0,
+                            "Height": 0,
+                            "Messages": { "/": "baeaaaaa" },
+                            "Miner": "f00",
+                            "ParentBaseFee": "0",
+                            "ParentMessageReceipts": { "/": "baeaaaaa" },
+                            "ParentStateRoot": { "/":"baeaaaaa" },
+                            "ParentWeight": "0",
+                            "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
+                            "Timestamp": 0,
+                            "WinPoStProof": null
+                        }
+                    ],
+                    "Cids": [
+                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
+                    ],
+                    "Height": 0
+                }
+            }),
+            Self::Revert(Arc::new(Tipset::from(RawBlockHeader::default()))),
+        )]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        match self {
+            PathChange::Revert(it) => PathChange::Revert(LotusJson(Tipset::clone(&it))),
+            PathChange::Apply(it) => PathChange::Apply(LotusJson(Tipset::clone(&it))),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        match lotus_json {
+            PathChange::Revert(it) => PathChange::Revert(it.into_inner().into()),
+            PathChange::Apply(it) => PathChange::Apply(it.into_inner().into()),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T> quickcheck::Arbitrary for PathChange<T>
+where
+    T: quickcheck::Arbitrary,
+{
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let inner = T::arbitrary(g);
+        g.choose(&[PathChange::Apply(inner.clone()), PathChange::Revert(inner)])
+            .unwrap()
+            .clone()
+    }
+}
+
+#[test]
+fn snapshots() {
+    assert_all_snapshots::<PathChange>()
+}
+
+#[cfg(test)]
+quickcheck::quickcheck! {
+    fn quickcheck(val: PathChange) -> () {
+        assert_unchanged_via_json(val)
+    }
+}
 
 pub async fn chain_get_message<DB: Blockstore>(
     params: Params<'_>,

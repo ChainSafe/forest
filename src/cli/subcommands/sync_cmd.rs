@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{chain_sync::SyncStage, rpc_api::data_types::RPCSyncState, rpc_client::*};
+use crate::{chain_sync::SyncStage, rpc::types::RPCSyncState, rpc_client::*};
 use cid::Cid;
 use clap::Subcommand;
 use itertools::Itertools as _;

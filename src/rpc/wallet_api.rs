@@ -8,7 +8,6 @@ use crate::key_management::{Key, KeyInfo};
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::Ctx;
-
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -20,6 +19,19 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 use num_traits::Zero;
+
+pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
+pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
+pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
+pub const WALLET_HAS: &str = "Filecoin.WalletHas";
+pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
+pub const WALLET_LIST: &str = "Filecoin.WalletList";
+pub const WALLET_NEW: &str = "Filecoin.WalletNew";
+pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
+pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
+pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
+pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
+pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
 
 /// Return the balance from `StateManager` for a given `Address`
 pub async fn wallet_balance<DB: Blockstore>(

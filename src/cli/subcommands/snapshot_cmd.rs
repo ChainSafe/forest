@@ -4,8 +4,8 @@
 use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::rpc_api::chain_api::ChainExportParams;
-use crate::rpc_api::data_types::ApiTipsetKey;
+use crate::rpc::chain_api::ChainExportParams;
+use crate::rpc::types::ApiTipsetKey;
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::DateTime;

@@ -1,7 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::{data_types::AddrInfo, net_api::*};
+use crate::rpc::net_api::*;
+use crate::rpc::types::AddrInfo;
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 

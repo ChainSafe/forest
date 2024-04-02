@@ -7,8 +7,8 @@ use std::convert::TryFrom;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
+use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
 use crate::rpc::Ctx;
-use crate::rpc_api::data_types::{ApiTipsetKey, MessageSendSpec};
 use crate::shim::{address::Protocol, message::Message};
 
 use ahash::{HashSet, HashSetExt};
@@ -18,6 +18,11 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 
 use super::gas_api::estimate_message_gas;
+
+pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
+pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
+pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
+pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
 
 /// Gets next nonce for the specified sender.
 pub async fn mpool_get_nonce<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<u64, JsonRpcError>
