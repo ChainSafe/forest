@@ -67,7 +67,6 @@ pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
 pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
 pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
 pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
-pub const CHAIN_GET_PATH: &str = "Filecoin.ChainGetPath";
 pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
 pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
 pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
