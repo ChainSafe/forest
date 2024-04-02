@@ -64,6 +64,8 @@ pub trait RpcMethod<const ARITY: usize> {
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
+    /// URL endpoint that this method can be called at.
+    const URL_ENDPOINT: UrlEndpoint;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
@@ -73,6 +75,13 @@ pub trait RpcMethod<const ARITY: usize> {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
+}
+
+/// Path that a method can be called at.
+///
+/// Corresponds to e.g `rpc/v0` or `rpc/v1`.
+pub enum UrlEndpoint {
+    V0,
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
@@ -127,7 +136,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     }
     /// Register this method with an [`RpcModule`].
     fn register_raw(
-        module: &mut RpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
+        module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
         calling_convention: ParamStructure,
     ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
     where
@@ -146,7 +155,9 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     }
     /// Register this method and generate a schema entry for it in a [`SelfDescribingRpcModule`].
     fn register<'de>(
-        module: &mut SelfDescribingRpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
+        module: &mut SelfDescribingRpcModule<
+            crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>,
+        >,
     ) where
         Self::Ok: Serialize + Clone + 'static,
         Self::Ok: JsonSchema + Deserialize<'de>,
@@ -231,7 +242,7 @@ pub trait Params<const ARITY: usize> {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
 #[allow(unused)]
 fn unexpected(v: &serde_json::Value) -> Unexpected<'_> {
     match v {
