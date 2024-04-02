@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
-    message::SignedMessage, rpc::types::MessageSendSpec, rpc_api::mpool_api::*,
-    shim::address::Address, shim::message::Message,
+    message::SignedMessage, rpc::mpool_api::*, rpc::types::MessageSendSpec, shim::address::Address,
+    shim::message::Message,
 };
 use cid::Cid;
 

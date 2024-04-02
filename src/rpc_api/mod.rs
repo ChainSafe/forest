@@ -3,14 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// Message Pool API
-pub mod mpool_api {
-    pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
-    pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-    pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-    pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
-}
-
 /// Sync API
 pub mod sync_api {
     pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";

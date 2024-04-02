@@ -10,7 +10,7 @@ mod channel;
 mod common_api;
 mod eth_api;
 mod gas_api;
-mod mpool_api;
+pub mod mpool_api;
 mod net_api;
 mod node_api;
 mod state_api;
@@ -37,8 +37,8 @@ use crate::rpc::{
     state_api::*,
 };
 use crate::rpc_api::{
-    common_api::*, eth_api::*, gas_api::*, mpool_api::*, net_api::*, node_api::NODE_STATUS,
-    state_api::*, sync_api::*, wallet_api::*,
+    common_api::*, eth_api::*, gas_api::*, net_api::*, node_api::NODE_STATUS, state_api::*,
+    sync_api::*, wallet_api::*,
 };
 
 use fvm_ipld_blockstore::Blockstore;

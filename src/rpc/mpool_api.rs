@@ -19,6 +19,11 @@ use jsonrpsee::types::Params;
 
 use super::gas_api::estimate_message_gas;
 
+pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
+pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
+pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
+pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
+
 /// Gets next nonce for the specified sender.
 pub async fn mpool_get_nonce<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<u64, JsonRpcError>
 where
