@@ -272,7 +272,7 @@ async fn validate_ipld_links<DB>(ts: Tipset, db: &DB, epochs: u32) -> anyhow::Re
 where
     DB: Blockstore + Send + Sync,
 {
-    let epoch_limit = ts.epoch() - epochs as i64 + 1;
+    let epoch_limit = ts.epoch() - epochs as i64;
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),

@@ -45,4 +45,3 @@ pushd "$(mktemp --directory)"
     "$FOREST_TOOL_PATH" archive checkpoints "$validate_me" | grep bafy2bzaceatx7tlwdhez6vyias5qlhaxa54vjftigbuqzfsmdqduc6jdiclzc
 rm -- *
 popd
-
