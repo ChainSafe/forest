@@ -7,8 +7,8 @@ use crate::rpc::types::*;
 use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
+    rpc::chain_api::*,
     rpc::types::BlockMessages,
-    rpc_api::chain_api::*,
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
