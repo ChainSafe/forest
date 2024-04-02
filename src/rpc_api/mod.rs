@@ -3,48 +3,6 @@
 
 /// JSON-RPC API definitions
 
-/// State API
-pub mod state_api {
-    pub const STATE_CALL: &str = "Filecoin.StateCall";
-    pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-    pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
-    pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
-    pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-    pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-    pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-    pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
-    pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
-    pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
-    pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
-    pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
-    pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
-    pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
-    pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
-    pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
-    pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-    pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
-    pub const STATE_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.StateGetRandomnessFromTickets";
-    pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
-    pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
-    pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
-    pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
-    pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
-    pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
-    pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-    pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
-    pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
-    pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
-    pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";
-    pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
-    pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
-    pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
-    pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str =
-        "Filecoin.StateVMCirculatingSupplyInternal";
-    pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
-    pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
-    pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
-}
-
 /// Gas API
 pub mod gas_api {
     pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";

@@ -13,7 +13,7 @@ mod gas_api;
 pub mod mpool_api;
 mod net_api;
 mod node_api;
-mod state_api;
+pub mod state_api;
 pub mod sync_api;
 pub mod wallet_api;
 
@@ -36,9 +36,7 @@ use crate::rpc::{
     common_api::{session, shutdown, start_time, version},
     state_api::*,
 };
-use crate::rpc_api::{
-    common_api::*, eth_api::*, gas_api::*, net_api::*, node_api::NODE_STATUS, state_api::*,
-};
+use crate::rpc_api::{common_api::*, eth_api::*, gas_api::*, net_api::*, node_api::NODE_STATUS};
 
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
