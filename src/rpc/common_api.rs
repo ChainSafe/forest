@@ -14,6 +14,12 @@ use uuid::Uuid;
 
 static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
+pub const VERSION: &str = "Filecoin.Version";
+pub const SHUTDOWN: &str = "Filecoin.Shutdown";
+pub const START_TIME: &str = "Filecoin.StartTime";
+pub const DISCOVER: &str = "Filecoin.Discover";
+pub const SESSION: &str = "Filecoin.Session";
+
 /// The session UUID uniquely identifies the API node.
 pub fn session() -> Result<String, JsonRpcError> {
     Ok(SESSION_UUID.to_string())

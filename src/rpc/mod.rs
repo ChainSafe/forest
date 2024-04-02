@@ -7,7 +7,7 @@ mod auth_layer;
 pub mod beacon_api;
 pub mod chain_api;
 mod channel;
-mod common_api;
+pub mod common_api;
 mod eth_api;
 pub mod gas_api;
 pub mod mpool_api;
@@ -32,11 +32,8 @@ use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
-use crate::rpc::{
-    common_api::{session, shutdown, start_time, version},
-    state_api::*,
-};
-use crate::rpc_api::{common_api::*, eth_api::*, net_api::*, node_api::NODE_STATUS};
+use crate::rpc::state_api::*;
+use crate::rpc_api::{eth_api::*, net_api::*, node_api::NODE_STATUS};
 
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
@@ -183,6 +180,7 @@ where
     use auth_api::*;
     use beacon_api::*;
     use chain_api::*;
+    use common_api::*;
     use eth_api::*;
     use gas_api::*;
     use mpool_api::*;
