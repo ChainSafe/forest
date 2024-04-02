@@ -247,7 +247,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         }
 
                         // Process block messages.
-                        if block.epoch > stateroot_limit {
+                        if block.epoch >= stateroot_limit {
                             this.dfs.push_back(Iterate(
                                 DfsIter::from(block.messages)
                                     .filter_map(ipld_to_cid)
@@ -257,7 +257,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         // Visit the block if it's within required depth. And a special case for `0`
                         // epoch to match Lotus' implementation.
-                        if block.epoch == 0 || block.epoch > stateroot_limit {
+                        if block.epoch == 0 || block.epoch >= stateroot_limit {
                             // NOTE: In the original `walk_snapshot` implementation we walk the dag
                             // immediately. Which is what we do here as well, but using a queue.
                             this.dfs.push_back(Iterate(
@@ -489,7 +489,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         }
 
                         // Process block messages.
-                        if block.epoch > stateroot_limit
+                        if block.epoch >= stateroot_limit
                             && should_save_block_to_snapshot(block.messages)
                         {
                             if this.db.has(&block.messages)? {
@@ -507,7 +507,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
                         // Visit the block if it's within required depth. And a special case for `0`
                         // epoch to match Lotus' implementation.
-                        if (block.epoch == 0 || block.epoch > stateroot_limit)
+                        if (block.epoch == 0 || block.epoch >= stateroot_limit)
                             && should_save_block_to_snapshot(block.state_root)
                         {
                             if this.db.has(&block.state_root)? {
