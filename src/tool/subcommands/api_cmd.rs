@@ -4,7 +4,6 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
-use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::download_to;
 use crate::db::{car::ManyCar, MemoryDB};
@@ -14,12 +13,12 @@ use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::rpc::eth_api::Address as EthAddress;
+use crate::rpc::eth_api::*;
+use crate::rpc::types::{MessageFilter, MessageLookup};
 use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_api::{
-    data_types::{MessageFilter, MessageLookup},
-    eth_api::{Address as EthAddress, *},
-};
 use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -34,6 +33,7 @@ use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
 use std::{
@@ -52,7 +52,7 @@ use tokio::{
     sync::{mpsc, RwLock, Semaphore},
     task::JoinSet,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Subcommand)]
 pub enum ApiCommands {
@@ -69,6 +69,10 @@ pub enum ApiCommands {
         // Allow downloading snapshot automatically
         #[arg(long)]
         auto_download_snapshot: bool,
+        /// Validate snapshot at given EPOCH, use a negative value -N to validate
+        /// the last N EPOCH(s) starting at HEAD.
+        #[arg(long, default_value_t = -50)]
+        height: i64,
     },
     /// Compare
     Compare {
@@ -124,8 +128,10 @@ impl ApiCommands {
                 chain,
                 port,
                 auto_download_snapshot,
+                height,
             } => {
-                start_offline_server(snapshot_files, chain, port, auto_download_snapshot).await?;
+                start_offline_server(snapshot_files, chain, port, auto_download_snapshot, height)
+                    .await?;
             }
             Self::Compare {
                 forest,
@@ -209,7 +215,15 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_syntax: Arc::new(
+                |value| match serde_json::from_value::<T::LotusJson>(value) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!("{e}");
+                        false
+                    }
+                },
+            ),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
         }
@@ -227,16 +241,34 @@ impl RpcTest {
     {
         RpcTest {
             request: request.lower(),
-            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+            check_syntax: Arc::new(
+                |value| match serde_json::from_value::<T::LotusJson>(value) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        debug!("{e}");
+                        false
+                    }
+                },
+            ),
             check_semantics: Arc::new(move |forest_json, lotus_json| {
-                serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
-                    serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
-                        validate(
-                            HasLotusJson::from_lotus_json(forest),
-                            HasLotusJson::from_lotus_json(lotus),
-                        )
-                    })
-                })
+                match (
+                    serde_json::from_value::<T::LotusJson>(forest_json),
+                    serde_json::from_value::<T::LotusJson>(lotus_json),
+                ) {
+                    (Ok(forest), Ok(lotus)) => validate(
+                        HasLotusJson::from_lotus_json(forest),
+                        HasLotusJson::from_lotus_json(lotus),
+                    ),
+                    (forest, lotus) => {
+                        if let Err(e) = forest {
+                            debug!("[forest] invalid json: {e}");
+                        }
+                        if let Err(e) = lotus {
+                            debug!("[lotus] invalid json: {e}");
+                        }
+                        false
+                    }
+                }
             }),
             ignore: None,
         }
@@ -340,9 +372,7 @@ fn beacon_tests() -> Vec<RpcTest> {
 
 fn chain_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
-            forest.epoch().abs_diff(lotus.epoch()) < 10
-        }),
+        RpcTest::basic(ApiInfo::chain_head_req()),
         RpcTest::identity(ApiInfo::chain_get_genesis_req()),
     ]
 }
@@ -498,13 +528,7 @@ fn wallet_tests() -> Vec<RpcTest> {
 fn eth_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::validate(ApiInfo::eth_block_number_req(), |forest, lotus| {
-            fn parse_hex(inp: &str) -> i64 {
-                let without_prefix = inp.trim_start_matches("0x");
-                i64::from_str_radix(without_prefix, 16).unwrap_or_default()
-            }
-            parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
-        }),
+        RpcTest::basic(ApiInfo::eth_block_number_req()),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
@@ -541,8 +565,15 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    let shared_tipset = store.heaviest_tipset()?;
-    let root_tsk = shared_tipset.key();
+    // shared_tipset in the snapshot might not be finalized for the offline RPC server
+    // use heaviest - 10 instead
+    let shared_tipset = store
+        .heaviest_tipset()?
+        .chain(&store)
+        .take(10)
+        .last()
+        .expect("Infallible");
+    let shared_tipset_key = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
@@ -559,7 +590,6 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         shared_tipset.key().into(),
     )));
 
-    let mut seen = CidHashSet::default();
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
@@ -576,119 +606,110 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             )));
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
-                root_tsk.into(),
+                shared_tipset_key.into(),
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-            for msg in bls_messages {
-                if seen.insert(msg.cid()?) {
-                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        Default::default(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
-                            .with_timeout(Duration::from_secs(30)),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_req(msg.cid()?))
-                            .ignore("Not implemented yet"),
-                    );
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_search_msg_limited_req(
-                            msg.cid()?,
-                            800,
-                        ))
-                        .ignore("Not implemented yet"),
-                    );
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: Some(msg.from()),
-                            to: Some(msg.to()),
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
-                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(validate_message_lookup(
-                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                    ));
-                }
+            for msg in bls_messages.into_iter().unique() {
+                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                    msg.cid()?,
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    shared_tipset_key.into(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    Default::default(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
+                    msg.from(),
+                    shared_tipset_key.into(),
+                )));
+                tests.push(
+                    validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                        .with_timeout(Duration::from_secs(30)),
+                );
+                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                    msg.cid()?,
+                )));
+                tests.push(validate_message_lookup(
+                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                ));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: Some(msg.to()),
+                    },
+                    shared_tipset_key.into(),
+                    shared_tipset.epoch(),
+                )));
+                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                    msg.cid()?,
+                )));
+                tests.push(validate_message_lookup(
+                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                ));
             }
-            for msg in secp_messages {
-                if seen.insert(msg.cid()?) {
-                    tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                        msg.from(),
-                        Default::default(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                        msg.from(),
-                        root_tsk.into(),
-                    )));
-                    tests.push(
-                        validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
-                            .with_timeout(Duration::from_secs(30)),
-                    );
-                    tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                        msg.cid()?,
-                    )));
-                    tests.push(validate_message_lookup(
-                        ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                    ));
-                    tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: None,
-                            to: Some(msg.to()),
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: Some(msg.from()),
-                            to: None,
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
-                    tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                        MessageFilter {
-                            from: None,
-                            to: None,
-                        },
-                        root_tsk.into(),
-                        shared_tipset.epoch(),
-                    )));
+            for msg in secp_messages.into_iter().unique() {
+                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
+                    msg.cid()?,
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    shared_tipset_key.into(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    Default::default(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
+                    msg.from(),
+                    shared_tipset_key.into(),
+                )));
+                tests.push(
+                    validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
+                        .with_timeout(Duration::from_secs(30)),
+                );
+                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
+                    msg.cid()?,
+                )));
+                tests.push(validate_message_lookup(
+                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
+                ));
+                tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: None,
+                        to: Some(msg.to()),
+                    },
+                    shared_tipset_key.into(),
+                    shared_tipset.epoch(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: None,
+                    },
+                    shared_tipset_key.into(),
+                    shared_tipset.epoch(),
+                )));
+                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                    MessageFilter {
+                        from: None,
+                        to: None,
+                    },
+                    shared_tipset_key.into(),
+                    shared_tipset.epoch(),
+                )));
 
-                    if !msg.params().is_empty() {
-                        tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
+                if !msg.params().is_empty() {
+                    tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
-                            root_tsk.into(),
+                            shared_tipset_key.into(),
                         )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
-                    }
                 }
             }
             tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
@@ -858,6 +879,7 @@ async fn start_offline_server(
     chain: NetworkChain,
     rpc_port: u16,
     auto_download_snapshot: bool,
+    height: i64,
 ) -> anyhow::Result<()> {
     info!("Configuring Offline RPC Server");
     let db = Arc::new(ManyCar::new(MemoryDB::default()));
@@ -896,8 +918,11 @@ async fn start_offline_server(
         snapshot_files
     };
     db.read_only_files(snapshot_files.iter().cloned())?;
-
+    info!("Using chain config for {chain}");
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
+    if chain_config.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
     let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
@@ -912,11 +937,11 @@ async fn start_offline_server(
         chain_config,
         sync_config,
     )?);
-    let ts = db.heaviest_tipset()?;
+    let head_ts = Arc::new(db.heaviest_tipset()?);
 
     state_manager
         .chain_store()
-        .set_heaviest_tipset(Arc::new(ts))?;
+        .set_heaviest_tipset(head_ts.clone())?;
 
     let beacon = Arc::new(
         state_manager
@@ -933,6 +958,18 @@ async fn start_offline_server(
         state_manager.chain_config().clone(),
         &mut JoinSet::new(),
     )?;
+
+    // Validate tipsets since the {height} EPOCH when `height >= 0`,
+    // or valiadte the last {-height} EPOCH(s) when `height < 0`
+    let n_ts_to_validate = if height > 0 {
+        (head_ts.epoch() - height).max(0)
+    } else {
+        -height
+    } as usize;
+    if n_ts_to_validate > 0 {
+        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
+    }
+
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
@@ -956,7 +993,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
-    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), rpc_port);
+    let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
     let forest_version = FOREST_VERSION_STRING.as_str();
     let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;

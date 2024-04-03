@@ -8,6 +8,8 @@ use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 
+pub const BEACON_GET_ENTRY: &str = "Filecoin.BeaconGetEntry";
+
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available

@@ -30,7 +30,7 @@ use jsonrpsee::{
 };
 use serde::de::IntoDeserializer;
 use serde::Deserialize;
-use tracing::debug;
+use tracing::{debug, error};
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -105,7 +105,12 @@ impl ApiInfo {
         )
         .to_string();
 
-        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
+        let request_log = format!(
+            "JSON-RPC request URL: {}, payload: {}",
+            api_url,
+            serde_json::to_string(&rpc_req).unwrap_or_default()
+        );
+        debug!(request_log);
 
         let request = global_http_client()
             .post(api_url)
@@ -117,7 +122,7 @@ impl ApiInfo {
         };
 
         let response = request.send().await?;
-        match response.status() {
+        let result = match response.status() {
             http0::StatusCode::NOT_FOUND => {
                 Err(JsonRpcError::method_not_found("method_not_found", None))
             }
@@ -152,7 +157,13 @@ impl ApiInfo {
                     }
                 }
             }
+        };
+
+        if let Err(err) = &result {
+            error!("Failure: {}\n{request_log}", err.message());
         }
+
+        result
     }
 
     pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(

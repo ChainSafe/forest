@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::eth_api::*;
+use crate::rpc::eth_api::*;
 
 use super::{ApiInfo, RpcRequest};
 

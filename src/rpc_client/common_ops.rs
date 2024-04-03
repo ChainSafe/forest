@@ -1,10 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::{
-    common_api::{DISCOVER, SESSION, SHUTDOWN, START_TIME, VERSION},
-    data_types::{APIVersion, DiscoverResult},
-};
+use crate::rpc::common_api::{DISCOVER, SESSION, SHUTDOWN, START_TIME, VERSION};
+use crate::rpc::types::{APIVersion, DiscoverResult};
 use chrono::{DateTime, Utc};
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};

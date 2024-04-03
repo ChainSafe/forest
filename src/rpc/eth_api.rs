@@ -2,30 +2,336 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use std::{ops::Add, sync::Arc};
-
 use super::gas_api;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
+use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::ChainMessage;
+use crate::rpc::chain_api::get_parent_receipts;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
+use crate::rpc::types::ApiReceipt;
+use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
-use crate::rpc_api::data_types::ApiReceipt;
-use crate::rpc_api::data_types::RPCSyncState;
-use crate::rpc_api::{eth_api::BigInt as EthBigInt, eth_api::*};
+use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-
-use crate::rpc::chain_api::get_parent_receipts;
 use anyhow::{bail, Context, Result};
+use cid::{
+    multihash::{self, MultihashDigest},
+    Cid,
+};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use jsonrpsee::types::Params;
 use nonempty::nonempty;
-use num_bigint::BigInt;
+use num_bigint;
 use num_traits::Zero as _;
+use serde::{Deserialize, Serialize};
+use std::{fmt, str::FromStr};
+use std::{ops::Add, sync::Arc};
+
+pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
+pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
+pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
+pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
+pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
+pub const ETH_GET_BLOCK_BY_HASH: &str = "Filecoin.EthGetBlockByHash";
+pub const ETH_GET_BLOCK_BY_NUMBER: &str = "Filecoin.EthGetBlockByNumber";
+pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
+
+const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
+pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
+
+lotus_json_with_self!(GasPriceResult);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
+
+lotus_json_with_self!(BigInt);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct Nonce(#[serde(with = "crate::lotus_json::hexify")] pub u64);
+
+lotus_json_with_self!(Nonce);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct Uint64(#[serde(with = "crate::lotus_json::hexify")] pub u64);
+
+lotus_json_with_self!(Uint64);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct Bytes(#[serde(with = "crate::lotus_json::hexify_vec_bytes")] pub Vec<u8>);
+
+lotus_json_with_self!(Bytes);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct Address(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Address);
+
+lotus_json_with_self!(Address);
+
+impl Address {
+    pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
+        if self.is_masked_id() {
+            // This is a masked ID address.
+            #[allow(clippy::indexing_slicing)]
+            let bytes: [u8; 8] =
+                core::array::from_fn(|i| self.0.as_fixed_bytes()[MASKED_ID_PREFIX.len() + i]);
+            Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
+        } else {
+            // Otherwise, translate the address into an address controlled by the
+            // Ethereum Address Manager.
+            Ok(FilecoinAddress::new_delegated(
+                FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
+                self.0.as_bytes(),
+            )?)
+        }
+    }
+
+    fn is_masked_id(&self) -> bool {
+        self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
+    }
+}
+
+impl FromStr for Address {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Address(
+            ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
+        ))
+    }
+}
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct Hash(pub ethereum_types::H256);
+
+impl Hash {
+    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+    pub fn to_cid(&self) -> cid::Cid {
+        let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
+        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+    }
+}
+
+impl FromStr for Hash {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Hash(ethereum_types::H256::from_str(s)?))
+    }
+}
+
+impl From<Cid> for Hash {
+    fn from(cid: Cid) -> Self {
+        Hash(ethereum_types::H256::from_slice(
+            &cid.hash().digest()[0..32],
+        ))
+    }
+}
+
+lotus_json_with_self!(Hash);
+
+#[derive(Debug, Default, Clone)]
+pub enum Predefined {
+    Earliest,
+    Pending,
+    #[default]
+    Latest,
+}
+
+impl fmt::Display for Predefined {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            Predefined::Earliest => "earliest",
+            Predefined::Pending => "pending",
+            Predefined::Latest => "latest",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum BlockNumberOrHash {
+    PredefinedBlock(Predefined),
+    BlockNumber(i64),
+    BlockHash(Hash, bool),
+}
+
+impl BlockNumberOrHash {
+    pub fn from_predefined(predefined: Predefined) -> Self {
+        Self::PredefinedBlock(predefined)
+    }
+
+    pub fn from_block_number(number: i64) -> Self {
+        Self::BlockNumber(number)
+    }
+}
+
+impl HasLotusJson for BlockNumberOrHash {
+    type LotusJson = String;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        match self {
+            Self::PredefinedBlock(predefined) => predefined.to_string(),
+            Self::BlockNumber(number) => format!("{:#x}", number),
+            Self::BlockHash(hash, _require_canonical) => format!("{:#x}", hash.0),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        match lotus_json.as_str() {
+            "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
+            "pending" => return Self::PredefinedBlock(Predefined::Pending),
+            "latest" => return Self::PredefinedBlock(Predefined::Latest),
+            _ => (),
+        };
+
+        #[allow(clippy::indexing_slicing)]
+        if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
+            if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
+                return Self::BlockNumber(number);
+            }
+        }
+
+        // Return some default value if we can't convert
+        Self::PredefinedBlock(Predefined::Latest)
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Block {
+    pub hash: Hash,
+    pub parent_hash: Hash,
+    pub sha3_uncles: Hash,
+    pub miner: Address,
+    pub state_root: Hash,
+    pub transactions_root: Hash,
+    pub receipts_root: Hash,
+    pub logs_bloom: Bytes,
+    pub difficulty: Uint64,
+    pub total_difficulty: Uint64,
+    pub number: Uint64,
+    pub gas_limit: Uint64,
+    pub gas_used: Uint64,
+    pub timestamp: Uint64,
+    pub extra_data: Bytes,
+    pub mix_hash: Hash,
+    pub nonce: Nonce,
+    pub base_fee_per_gas: BigInt,
+    pub size: Uint64,
+    // can be Vec<Tx> or Vec<String> depending on query params
+    pub transactions: String,
+    pub uncles: Vec<Hash>,
+}
+
+lotus_json_with_self!(Block);
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Tx {
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub hash: Hash,
+    pub block_hash: Hash,
+    pub block_number: u64,
+    pub transaction_index: u64,
+    pub from: Address,
+    pub to: Address,
+    pub value: BigInt,
+    pub r#type: u64,
+    pub input: Vec<u8>,
+    pub gas: u64,
+    pub max_fee_per_gas: BigInt,
+    pub max_priority_fee_per_gas: BigInt,
+    pub access_list: Vec<Hash>,
+    pub v: BigInt,
+    pub r: BigInt,
+    pub s: BigInt,
+}
+
+lotus_json_with_self!(Tx);
+
+#[derive(Debug, Clone, Default)]
+pub struct EthSyncingResult {
+    pub done_sync: bool,
+    pub starting_block: i64,
+    pub current_block: i64,
+    pub highest_block: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum EthSyncingResultLotusJson {
+    DoneSync(bool),
+    Syncing {
+        #[serde(rename = "startingblock", with = "crate::lotus_json::hexify")]
+        starting_block: i64,
+        #[serde(rename = "currentblock", with = "crate::lotus_json::hexify")]
+        current_block: i64,
+        #[serde(rename = "highestblock", with = "crate::lotus_json::hexify")]
+        highest_block: i64,
+    },
+}
+
+impl HasLotusJson for EthSyncingResult {
+    type LotusJson = EthSyncingResultLotusJson;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        match self {
+            Self {
+                done_sync: false,
+                starting_block,
+                current_block,
+                highest_block,
+            } => EthSyncingResultLotusJson::Syncing {
+                starting_block,
+                current_block,
+                highest_block,
+            },
+            _ => EthSyncingResultLotusJson::DoneSync(false),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        match lotus_json {
+            EthSyncingResultLotusJson::DoneSync(syncing) => {
+                if syncing {
+                    // Dangerous to panic here, log error instead.
+                    tracing::error!("Invalid EthSyncingResultLotusJson: {syncing}");
+                }
+                Self {
+                    done_sync: true,
+                    ..Default::default()
+                }
+            }
+            EthSyncingResultLotusJson::Syncing {
+                starting_block,
+                current_block,
+                highest_block,
+            } => Self {
+                done_sync: false,
+                starting_block,
+                current_block,
+                highest_block,
+            },
+        }
+    }
+}
 
 pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
@@ -72,14 +378,14 @@ pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResu
         let gas_price = base_fee.add(premium);
         Ok(GasPriceResult(gas_price.atto().clone()))
     } else {
-        Ok(GasPriceResult(BigInt::zero()))
+        Ok(GasPriceResult(num_bigint::BigInt::zero()))
     }
 }
 
 pub async fn eth_get_balance<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<EthBigInt, JsonRpcError> {
+) -> Result<BigInt, JsonRpcError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
 
@@ -93,7 +399,7 @@ pub async fn eth_get_balance<DB: Blockstore>(
         .get_actor(&fil_addr)?
         .context("Failed to retrieve actor")?;
 
-    Ok(EthBigInt(actor.balance.atto().clone()))
+    Ok(BigInt(actor.balance.atto().clone()))
 }
 
 pub async fn eth_syncing<DB: Blockstore>(
@@ -224,12 +530,27 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
     let LotusJson((block_param, full_tx_info)): LotusJson<(BlockNumberOrHash, bool)> =
         params.parse()?;
 
-    // dbg!(&block_param);
-    // dbg!(&full_tx_info);
+    dbg!(&block_param);
+    dbg!(&full_tx_info);
 
     let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
 
     let block = block_from_filecoin_tipset(data, ts, full_tx_info).await?;
 
     Ok(block)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use quickcheck_macros::quickcheck;
+
+    #[quickcheck]
+    fn gas_price_result_serde_roundtrip(i: u128) {
+        let r = GasPriceResult(i.into());
+        let encoded = serde_json::to_string(&r).unwrap();
+        assert_eq!(encoded, format!("\"{i:#x}\""));
+        let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(r.0, decoded.0);
+    }
 }

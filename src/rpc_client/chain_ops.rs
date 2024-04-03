@@ -3,12 +3,12 @@
 
 use std::time::Duration;
 
-use crate::rpc_api::data_types::*;
+use crate::rpc::types::*;
 use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
-    rpc_api::chain_api::*,
-    rpc_api::data_types::BlockMessages,
+    rpc::chain_api::*,
+    rpc::types::BlockMessages,
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
@@ -59,7 +59,7 @@ impl ApiInfo {
         epoch: ChainEpoch,
         head: ApiTipsetKey,
     ) -> RpcRequest<Tipset> {
-        RpcRequest::new(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
+        RpcRequest::new_v1(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
     }
 
     #[allow(unused)] // consistency

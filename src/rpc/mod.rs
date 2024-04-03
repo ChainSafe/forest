@@ -1,26 +1,30 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod auth_api;
 mod auth_layer;
-mod beacon_api;
-mod chain_api;
 mod channel;
-mod common_api;
-mod eth_api;
-mod gas_api;
-mod mpool_api;
-mod net_api;
-mod node_api;
-mod state_api;
-mod sync_api;
-mod wallet_api;
 
+// API handlers
+pub mod auth_api;
+pub mod beacon_api;
+pub mod chain_api;
+pub mod common_api;
+pub mod eth_api;
+pub mod gas_api;
+pub mod mpool_api;
+pub mod net_api;
+pub mod node_api;
+pub mod state_api;
+pub mod sync_api;
+pub mod wallet_api;
+
+// Other RPC-specific modules
 pub use error::JsonRpcError;
 use reflect::Ctx;
 pub use reflect::RpcMethodExt;
 mod error;
 mod reflect;
+pub mod types;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -29,15 +33,7 @@ use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
-use crate::rpc::{
-    beacon_api::beacon_get_entry,
-    common_api::{session, shutdown, start_time, version},
-    state_api::*,
-};
-use crate::rpc_api::{
-    auth_api::*, beacon_api::*, chain_api::*, common_api::*, eth_api::*, gas_api::*, mpool_api::*,
-    net_api::*, node_api::NODE_STATUS, state_api::*, sync_api::*, wallet_api::*,
-};
+use crate::rpc::state_api::*;
 
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
@@ -182,7 +178,9 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     use auth_api::*;
+    use beacon_api::*;
     use chain_api::*;
+    use common_api::*;
     use eth_api::*;
     use gas_api::*;
     use mpool_api::*;
