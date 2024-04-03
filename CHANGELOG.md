@@ -116,7 +116,6 @@ Mandatory release that includes:
   defaults to using a local wallet instead of the builtin Forest wallet for
   greater security.
 
-
 ### Fixed
 
 - [#4019](https://github.com/ChainSafe/forest/pull/4019) Fix Forest sending
