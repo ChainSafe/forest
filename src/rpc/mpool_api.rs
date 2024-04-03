@@ -1,8 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
-
-use std::convert::TryFrom;
 
 use super::gas_api::estimate_message_gas;
 use super::RPCState;
@@ -15,8 +12,7 @@ use crate::shim::{
     address::{Address, Protocol},
     message::Message,
 };
-use ahash::{HashSet, HashSetExt};
-use anyhow::Result;
+use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
