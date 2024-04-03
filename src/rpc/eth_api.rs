@@ -45,6 +45,12 @@ pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
+const BLOOM_SIZE: usize = 2048;
+
+const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
+
+const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
+
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
@@ -59,6 +65,11 @@ lotus_json_with_self!(BigInt);
 pub struct Nonce(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::H64);
 
 lotus_json_with_self!(Nonce);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct Bloom(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Bloom);
+
+lotus_json_with_self!(Bloom);
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
 pub struct Uint64(#[serde(with = "crate::lotus_json::hexify")] pub u64);
@@ -220,7 +231,7 @@ pub struct Block {
     pub state_root: Hash,
     pub transactions_root: Hash,
     pub receipts_root: Hash,
-    pub logs_bloom: Bytes,
+    pub logs_bloom: Bloom,
     pub difficulty: Uint64,
     pub total_difficulty: Uint64,
     pub number: Uint64,
@@ -241,6 +252,7 @@ impl Block {
     pub fn new() -> Self {
         Self {
             gas_limit: Uint64(BLOCK_GAS_LIMIT),
+            logs_bloom: Bloom(ethereum_types::Bloom(FULL_BLOOM)),
             ..Default::default()
         }
     }
