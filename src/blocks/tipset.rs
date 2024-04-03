@@ -1,9 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
 use std::{fmt, sync::OnceLock};
 
-use crate::cid_collections::FrozenCidVec;
+use crate::cid_collections::SmallCidNonEmptyVec;
 use crate::db::{SettingsStore, SettingsStoreExt};
 use crate::networks::{calibnet, mainnet};
 use crate::shim::clock::ChainEpoch;
@@ -27,43 +28,78 @@ use super::{Block, CachingBlockHeader, RawBlockHeader, Ticket};
 /// Equal keys will have equivalent iteration order, but note that the `CIDs`
 /// are *not* maintained in the same order as the canonical iteration order of
 /// blocks in a tipset (which is by ticket)
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
-#[serde(transparent)]
-pub struct TipsetKey {
-    pub cids: FrozenCidVec,
-}
+pub struct TipsetKey(SmallCidNonEmptyVec);
 
 impl TipsetKey {
     // Special encoding to match Lotus.
     pub fn cid(&self) -> anyhow::Result<Cid> {
         use fvm_ipld_encoding::RawBytes;
+
         let mut bytes = Vec::new();
-        for cid in self.cids.clone() {
+        for cid in self.to_cids() {
             bytes.append(&mut cid.to_bytes())
         }
         Ok(Cid::from_cbor_blake2b256(&RawBytes::new(bytes))?)
     }
+
+    /// Returns `true` if the tipset key contains the given CID.
+    pub fn contains(&self, cid: Cid) -> bool {
+        self.0.contains(cid)
+    }
+
+    /// Returns a non-empty collection of `CID`
+    pub fn into_cids(self) -> NonEmpty<Cid> {
+        self.0.into_cids()
+    }
+
+    /// Returns a non-empty collection of `CID`
+    pub fn to_cids(&self) -> NonEmpty<Cid> {
+        self.0.clone().into_cids()
+    }
+
+    /// Returns an iterator of `CID`s.
+    pub fn iter(&self) -> impl Iterator<Item = Cid> + '_ {
+        self.0.iter()
+    }
 }
 
-impl FromIterator<Cid> for TipsetKey {
-    fn from_iter<T: IntoIterator<Item = Cid>>(iter: T) -> Self {
-        Self {
-            cids: iter.into_iter().collect(),
-        }
+impl From<NonEmpty<Cid>> for TipsetKey {
+    fn from(value: NonEmpty<Cid>) -> Self {
+        Self(value.into())
     }
 }
 
 impl fmt::Display for TipsetKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = self
-            .cids
-            .clone()
+            .to_cids()
             .into_iter()
             .map(|cid| cid.to_string())
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "[{}]", s)
+    }
+}
+
+impl<'a> IntoIterator for &'a TipsetKey {
+    type Item = <&'a SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <&'a SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+impl IntoIterator for TipsetKey {
+    type Item = <SmallCidNonEmptyVec as IntoIterator>::Item;
+
+    type IntoIter = <SmallCidNonEmptyVec as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -168,8 +204,7 @@ impl Tipset {
     /// present but invalid. If the tipset is missing, None is returned.
     pub fn load(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
-            .cids
-            .clone()
+            .to_cids()
             .into_iter()
             .map(|key| CachingBlockHeader::load(&store, key))
             .collect::<anyhow::Result<Option<Vec<_>>>>()?
@@ -185,7 +220,7 @@ impl Tipset {
         Ok(
             match settings.read_obj::<TipsetKey>(crate::db::setting_keys::HEAD_KEY)? {
                 Some(tsk) => tsk
-                    .cids
+                    .into_cids()
                     .into_iter()
                     .map(|key| CachingBlockHeader::load(store, key))
                     .collect::<anyhow::Result<Option<Vec<_>>>>()?
@@ -259,13 +294,12 @@ impl Tipset {
     }
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
-        self.key.get_or_init(|| {
-            TipsetKey::from_iter(self.headers.iter().map(CachingBlockHeader::cid).copied())
-        })
+        self.key
+            .get_or_init(|| TipsetKey::from(self.headers.clone().map(|h| *h.cid())))
     }
-    /// Returns slice of `CIDs` for the current tipset
-    pub fn cids(&self) -> Vec<Cid> {
-        self.key().cids.clone().into_iter().collect()
+    /// Returns a non-empty collection of `CIDs` for the current tipset
+    pub fn cids(&self) -> NonEmpty<Cid> {
+        self.key().to_cids()
     }
     /// Returns the keys of the parents of the blocks in the tipset.
     pub fn parents(&self) -> &TipsetKey {
@@ -306,6 +340,19 @@ impl Tipset {
         itertools::unfold(Some(self), move |tipset| {
             tipset.take().map(|child| {
                 *tipset = Tipset::load(&store, child.parents()).ok().flatten();
+                child
+            })
+        })
+    }
+
+    /// Returns an iterator of all tipsets
+    pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
+        itertools::unfold(Some(self), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = Tipset::load(&store, child.parents())
+                    .ok()
+                    .flatten()
+                    .map(Arc::new);
                 child
             })
         })
@@ -414,7 +461,7 @@ impl FullTipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKey::from_iter(self.blocks.iter().map(Block::cid).copied()))
+            .get_or_init(|| TipsetKey::from(self.blocks.clone().map(|b| *b.cid())))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -461,12 +508,32 @@ mod lotus_json {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use nonempty::NonEmpty;
+    use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::TipsetKey;
 
     pub struct TipsetLotusJson(Tipset);
 
+    impl JsonSchema for TipsetLotusJson {
+        fn schema_name() -> String {
+            String::from("TipsetLotusJson")
+        }
+        fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+            // can't impl JsonSchema for NonEmpty...
+            #[derive(JsonSchema)]
+            #[serde(rename_all = "PascalCase")]
+            #[allow(unused)]
+            struct Helper {
+                cids: LotusJson<TipsetKey>,
+                blocks: LotusJson<Vec<CachingBlockHeader>>,
+                height: LotusJson<i64>,
+            }
+            Helper::json_schema(gen)
+        }
+    }
+
+    // NOTE: keep this in sync with JsonSchema implementation above
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
@@ -527,13 +594,13 @@ mod lotus_json {
                             "ParentMessageReceipts": { "/": "baeaaaaa" },
                             "ParentStateRoot": { "/":"baeaaaaa" },
                             "ParentWeight": "0",
-                            "Parents": null,
+                            "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
                             "Timestamp": 0,
                             "WinPoStProof": null
                         }
                     ],
                     "Cids": [
-                        { "/": "bafy2bzacean6ik6kxe6i6nv5of3ocoq4czioo556fxifhunwue2q7kqmn6zqc" }
+                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
                     ],
                     "Height": 0
                 }),
@@ -703,12 +770,11 @@ mod test {
     fn ensure_parent_cids_are_equal() {
         let h0 = RawBlockHeader {
             miner_address: Address::new_id(0),
-            parents: TipsetKey::default(),
             ..Default::default()
         };
         let h1 = RawBlockHeader {
             miner_address: Address::new_id(1),
-            parents: TipsetKey::from_iter([Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
+            parents: TipsetKey::from(nonempty![Cid::new_v1(DAG_CBOR, Identity.digest(&[]))]),
             ..Default::default()
         };
         assert_eq!(

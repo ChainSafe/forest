@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use crate::{libp2p::keypair::get_keypair, rpc_client::ApiInfo};
 use anyhow::Context as _;
+use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Subcommand;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
 use libp2p::Multiaddr;
@@ -29,6 +30,22 @@ pub enum ShedCommands {
         /// Path to the key-pair file.
         keypair: PathBuf,
     },
+    /// Generate a base64-encoded private key from the given key-pair file.
+    /// This effectively transforms Forest's key-pair file into a Lotus-compatible private key.
+    PrivateKeyFromKeyPair {
+        /// Path to the key-pair file.
+        keypair: PathBuf,
+    },
+    /// Generate a key-pair file from the given base64-encoded private key.
+    /// This effectively transforms Lotus's private key into a Forest-compatible key-pair file.
+    /// If `output` is not provided, the key-pair is printed to stdout as a base64-encoded string.
+    KeyPairFromPrivateKey {
+        /// Base64-encoded private key.
+        private_key: String,
+        /// Path to save the key-pair file.
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 impl ShedCommands {
@@ -43,7 +60,7 @@ impl ShedCommands {
                     multiaddr: host,
                     token: None,
                 };
-                let head = client.chain_head().await.context("couldn't get HEAD")?;
+                let head = client.chain_head().await?;
                 let end_height = match height {
                     Some(it) => it,
                     None => head
@@ -58,7 +75,7 @@ impl ShedCommands {
                 let mut epoch2cids =
                     futures::stream::iter((start_height..=end_height).map(|epoch| {
                         client
-                            .chain_get_tipset_by_height(i64::from(epoch), head.key().clone())
+                            .chain_get_tipset_by_height(i64::from(epoch), head.key().into())
                             .map_ok(|tipset| {
                                 let cids = tipset.block_headers().iter().map(|it| *it.cid());
                                 (tipset.epoch(), cids.collect::<Vec<_>>())
@@ -77,6 +94,27 @@ impl ShedCommands {
                 let keypair = get_keypair(&keypair)
                     .with_context(|| format!("couldn't get keypair from {}", keypair.display()))?;
                 println!("{}", keypair.public().to_peer_id());
+            }
+            ShedCommands::PrivateKeyFromKeyPair { keypair } => {
+                let keypair = get_keypair(&keypair)
+                    .with_context(|| format!("couldn't get keypair from {}", keypair.display()))?;
+                let encoded = BASE64_STANDARD.encode(keypair.to_protobuf_encoding()?);
+                println!("{encoded}");
+            }
+            ShedCommands::KeyPairFromPrivateKey {
+                private_key,
+                output,
+            } => {
+                let private_key = BASE64_STANDARD.decode(private_key)?;
+                let keypair_data = libp2p::identity::Keypair::from_protobuf_encoding(&private_key)?
+                    // While a keypair can be any type, Forest only supports Ed25519.
+                    .try_into_ed25519()?
+                    .to_bytes();
+                if let Some(output) = output {
+                    std::fs::write(output, keypair_data)?;
+                } else {
+                    println!("{}", BASE64_STANDARD.encode(keypair_data));
+                }
             }
         }
         Ok(())

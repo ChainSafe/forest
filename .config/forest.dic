@@ -2,6 +2,8 @@
 Algorand/M
 API/M
 APIs
+arities
+arity
 async
 attoFIL
 benchmark/GD
@@ -44,6 +46,7 @@ GC
 GiB
 HAMT
 hasher
+implementor/SM
 IPFS
 IPLD
 JSON
@@ -61,8 +64,10 @@ multiaddr/SM
 multihash
 multisig
 mutex
+OpenRPC
 overallocation
 P2P
+param/SM
 ParityDb
 ParityDB
 parsable
@@ -70,6 +75,8 @@ PoC
 pointer/SM
 PoSt
 RPC
+schema/SM
+schemas
 SECP
 SECP256k1
 seekable

@@ -2,17 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+#[cfg(test)]
+use crate::blocks::RawBlockHeader;
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
+use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::HasLotusJson;
 use crate::lotus_json::LotusJson;
+#[cfg(test)]
+use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::ChainMessage;
-use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{ApiHeadChange, ApiMessage, ApiReceipt};
-use crate::rpc_api::{
-    chain_api::*,
-    data_types::{ApiTipsetKey, BlockMessages, Data, RPCState},
+use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
+use crate::rpc::{
+    error::JsonRpcError,
+    reflect::{Ctx, RpcMethod},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -26,16 +31,134 @@ use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
 use once_cell::sync::Lazy;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{
     broadcast::{self, Receiver as Subscriber},
     Mutex,
 };
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainExportParams {
+    pub epoch: ChainEpoch,
+    pub recent_roots: i64,
+    pub output_path: PathBuf,
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
+    pub skip_checksum: bool,
+    pub dry_run: bool,
+}
+
+lotus_json_with_self!(ChainExportParams);
+
+pub type ChainExportResult = Option<String>;
+
+pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
+pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
+pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
+pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
+pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
+pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
+pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
+pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
+pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
+pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
+pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
+pub const CHAIN_GET_PATH: &str = "Filecoin.ChainGetPath";
+pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
+pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
+pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
+pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
+pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
+
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PathChange<T = Arc<Tipset>> {
+    Revert(T),
+    Apply(T),
+}
+impl HasLotusJson for PathChange {
+    type LotusJson = PathChange<LotusJson<Tipset>>;
+
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        use serde_json::json;
+        vec![(
+            json!({
+                "revert": {
+                    "Blocks": [
+                        {
+                            "BeaconEntries": null,
+                            "ForkSignaling": 0,
+                            "Height": 0,
+                            "Messages": { "/": "baeaaaaa" },
+                            "Miner": "f00",
+                            "ParentBaseFee": "0",
+                            "ParentMessageReceipts": { "/": "baeaaaaa" },
+                            "ParentStateRoot": { "/":"baeaaaaa" },
+                            "ParentWeight": "0",
+                            "Parents": [{"/":"bafyreiaqpwbbyjo4a42saasj36kkrpv4tsherf2e7bvezkert2a7dhonoi"}],
+                            "Timestamp": 0,
+                            "WinPoStProof": null
+                        }
+                    ],
+                    "Cids": [
+                        { "/": "bafy2bzaceag62hjj3o43lf6oyeox3fvg5aqkgl5zagbwpjje3ajwg6yw4iixk" }
+                    ],
+                    "Height": 0
+                }
+            }),
+            Self::Revert(Arc::new(Tipset::from(RawBlockHeader::default()))),
+        )]
+    }
+
+    fn into_lotus_json(self) -> Self::LotusJson {
+        match self {
+            PathChange::Revert(it) => PathChange::Revert(LotusJson(Tipset::clone(&it))),
+            PathChange::Apply(it) => PathChange::Apply(LotusJson(Tipset::clone(&it))),
+        }
+    }
+
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        match lotus_json {
+            PathChange::Revert(it) => PathChange::Revert(it.into_inner().into()),
+            PathChange::Apply(it) => PathChange::Apply(it.into_inner().into()),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T> quickcheck::Arbitrary for PathChange<T>
+where
+    T: quickcheck::Arbitrary,
+{
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let inner = T::arbitrary(g);
+        g.choose(&[PathChange::Apply(inner.clone()), PathChange::Revert(inner)])
+            .unwrap()
+            .clone()
+    }
+}
+
+#[test]
+fn snapshots() {
+    assert_all_snapshots::<PathChange>()
+}
+
+#[cfg(test)]
+quickcheck::quickcheck! {
+    fn quickcheck(val: PathChange) -> () {
+        assert_unchanged_via_json(val)
+    }
+}
+
 pub async fn chain_get_message<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Message>, JsonRpcError> {
     let LotusJson((msg_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -52,7 +175,7 @@ pub async fn chain_get_message<DB: Blockstore>(
 
 pub async fn chain_get_parent_messages<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -71,7 +194,7 @@ pub async fn chain_get_parent_messages<DB: Blockstore>(
 
 pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
     let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -137,7 +260,7 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
 
 pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
     let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
 
@@ -149,7 +272,7 @@ pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
 
 pub async fn chain_export<DB>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<Option<String>, JsonRpcError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -213,7 +336,7 @@ where
 
 pub async fn chain_read_obj<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
     let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -221,13 +344,13 @@ pub async fn chain_read_obj<DB: Blockstore>(
         .state_manager
         .blockstore()
         .get(&obj_cid)?
-        .context("can't find object with that cid")?;
+        .with_context(|| format!("can't find object with cid={obj_cid}"))?;
     Ok(LotusJson(bytes))
 }
 
 pub async fn chain_has_obj<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<bool, JsonRpcError> {
     let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -236,7 +359,7 @@ pub async fn chain_has_obj<DB: Blockstore>(
 
 pub async fn chain_get_block_messages<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<BlockMessages, JsonRpcError> {
     let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -266,6 +389,24 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
     Ok(ret)
 }
 
+pub enum ChainGetPath {}
+
+impl RpcMethod<2> for ChainGetPath {
+    const NAME: &'static str = "Filecoin.ChainGetPath";
+    const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
+    type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
+    type Ok = LotusJson<Vec<PathChange>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(from), LotusJson(to)): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        impl_chain_get_path(&ctx.chain_store, &from, &to)
+            .map(LotusJson)
+            .map_err(Into::into)
+    }
+}
+
 /// Find the path between two tipsets, as a series of [`PathChange`]s.
 ///
 /// ```text
@@ -283,17 +424,6 @@ pub async fn chain_get_block_messages<DB: Blockstore>(
 /// ```
 ///
 /// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-pub async fn chain_get_path<DB: Blockstore>(
-    params: Params<'_>,
-    data: Data<RPCState<DB>>,
-) -> Result<LotusJson<Vec<PathChange>>, JsonRpcError> {
-    let LotusJson((from, to)) = params.parse()?;
-
-    impl_chain_get_path(&data.chain_store, &from, &to)
-        .map(LotusJson)
-        .map_err(Into::into)
-}
-
 fn impl_chain_get_path(
     chain_store: &ChainStore<impl Blockstore>,
     from: &TipsetKey,
@@ -335,7 +465,7 @@ fn impl_chain_get_path(
 
 pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
         params.parse()?;
@@ -352,23 +482,40 @@ pub async fn chain_get_tipset_by_height<DB: Blockstore>(
     Ok((*tss).clone().into())
 }
 
+pub async fn chain_get_tipset_after_height<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
+        params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let tss = data
+        .state_manager
+        .chain_store()
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
+    Ok((*tss).clone().into())
+}
+
 pub async fn chain_get_genesis<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
     let genesis = data.state_manager.chain_store().genesis_block_header();
     Ok(Some(Tipset::from(genesis).into()))
 }
 
-pub async fn chain_head<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
+pub async fn chain_head<DB: Blockstore>(data: Ctx<DB>) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let heaviest = data.state_manager.chain_store().heaviest_tipset();
     Ok((*heaviest).clone().into())
 }
 
 pub async fn chain_get_block<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
     let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
 
@@ -382,7 +529,7 @@ pub async fn chain_get_block<DB: Blockstore>(
 
 pub async fn chain_get_tipset<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<LotusJson<Tipset>, JsonRpcError> {
     let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
 
@@ -397,7 +544,7 @@ pub async fn chain_get_tipset<DB: Blockstore>(
 // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 pub async fn chain_set_head<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
 
@@ -407,7 +554,7 @@ pub async fn chain_set_head<DB: Blockstore>(
         .load_required_tipset_or_heaviest(&tsk)?;
     let mut current = data.state_manager.chain_store().heaviest_tipset();
     while current.epoch() >= new_head.epoch() {
-        for cid in current.key().cids.clone() {
+        for cid in current.key().to_cids() {
             data.state_manager
                 .chain_store()
                 .unmark_block_as_validated(&cid);
@@ -427,7 +574,7 @@ pub async fn chain_set_head<DB: Blockstore>(
 
 pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let (basefee_lookback,): (u32,) = params.parse()?;
 
@@ -450,15 +597,15 @@ pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
 
 pub(crate) fn chain_notify<DB: Blockstore>(
     _params: Params<'_>,
-    data: &RPCState<DB>,
-) -> Subscriber<ApiHeadChange> {
+    data: &crate::rpc::RPCState<DB>,
+) -> Subscriber<Vec<ApiHeadChange>> {
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store.heaviest_tipset();
     let (change, headers) = ("current".into(), current.block_headers().clone().into());
     sender
-        .send(ApiHeadChange { change, headers })
+        .send(vec![ApiHeadChange { change, headers }])
         .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store.publisher().subscribe();
@@ -469,7 +616,10 @@ pub(crate) fn chain_notify<DB: Blockstore>(
                 HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
             };
 
-            if sender.send(ApiHeadChange { change, headers }).is_err() {
+            if sender
+                .send(vec![ApiHeadChange { change, headers }])
+                .is_err()
+            {
                 break;
             }
         }
@@ -639,7 +789,7 @@ mod tests {
             )
             .unwrap()
         }
-        fn calibnet() -> Self {
+        pub fn calibnet() -> Self {
             Self::_load(
                 networks::calibnet::DEFAULT_GENESIS,
                 *networks::calibnet::GENESIS_CID,

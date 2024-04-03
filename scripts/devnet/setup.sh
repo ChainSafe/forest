@@ -9,9 +9,6 @@ PARENT_PATH=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 pushd "${PARENT_PATH}"
 source .env
 
-# We use a custom Dockerfile for CI to speed up the build process.
-export FOREST_DOCKERFILE_OVERRIDE=scripts/devnet/forest_ci.dockerfile
-
 # This should not be needed in GH. It is useful for running locally.
 docker compose down --remove-orphans
 docker compose rm -f

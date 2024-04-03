@@ -3,12 +3,12 @@
 
 use std::time::Duration;
 
-use crate::rpc_api::data_types::{ApiMessage, ApiReceipt};
+use crate::rpc::types::*;
 use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
-    rpc_api::chain_api::*,
-    rpc_api::data_types::BlockMessages,
+    rpc::chain_api::*,
+    rpc::types::BlockMessages,
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
@@ -42,7 +42,7 @@ impl ApiInfo {
     pub async fn chain_get_tipset_by_height(
         &self,
         epoch: ChainEpoch,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> Result<Tipset, JsonRpcError> {
         self.call(Self::chain_get_tipset_by_height_req(epoch, head))
             .await
@@ -50,9 +50,16 @@ impl ApiInfo {
 
     pub fn chain_get_tipset_by_height_req(
         epoch: ChainEpoch,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> RpcRequest<Tipset> {
         RpcRequest::new(CHAIN_GET_TIPSET_BY_HEIGHT, (epoch, head))
+    }
+
+    pub fn chain_get_tipset_after_height_req(
+        epoch: ChainEpoch,
+        head: ApiTipsetKey,
+    ) -> RpcRequest<Tipset> {
+        RpcRequest::new_v1(CHAIN_GET_TIPSET_AFTER_HEIGHT, (epoch, head))
     }
 
     #[allow(unused)] // consistency

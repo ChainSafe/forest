@@ -24,7 +24,7 @@ use crate::interpreter::{MessageCallbackCtx, VMTrace};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -313,12 +313,12 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        let state =
+            StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
 
         let act = state
             .get_actor(addr)
-            .map_err(|e| Error::State(e.to_string()))?
+            .map_err(Error::state)?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
         let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
@@ -416,7 +416,7 @@ where
 
         let prior_messsages = tipset_messages
             .iter()
-            .filter(|msg| msg.message().from() == msg.from());
+            .filter(|ts_msg| ts_msg.message().from() == msg.from());
 
         // Handle state forks
         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
@@ -726,11 +726,11 @@ where
             .cs
             .chain_index
             .load_required_tipset(tipset.parents())
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(format!("Failed to load tipset: {err}")))?;
         let messages = self
             .cs
             .messages_for_tipset(&pts)
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(format!("Failed to load messages for tipset: {err}")))?;
         messages
             .iter()
             .enumerate()
@@ -754,12 +754,13 @@ where
                         message.from(),
                     )))
                 } else {
+                    let block_header = tipset.block_headers().first();
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        tipset.block_headers().first(),
+                        block_header,
                         index,
                     )
-                    .map_err(|err| Error::Other(err.to_string()))
+                    .map_err(|err| Error::Other(format!("Failed to get parent receipt (message_receipts={}, index={index}, error={err})", block_header.message_receipts)))
                 }
             })
             .next()
@@ -975,7 +976,7 @@ where
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
+            .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.cs.heaviest_tipset();
         let maybe_message_reciept = self.tipset_executed_message(&from, &message, true)?;
         if let Some(r) = maybe_message_reciept {
@@ -1224,7 +1225,7 @@ where
         let info = miner_state.info(self.blockstore())?;
 
         let worker_key = self
-            .resolve_to_deterministic_address(info.worker.into(), Some(tipset.clone()))
+            .resolve_to_deterministic_address(info.worker.into(), tipset.clone())
             .await?;
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
@@ -1358,14 +1359,13 @@ where
     pub async fn resolve_to_deterministic_address(
         self: &Arc<Self>,
         address: Address,
-        ts: Option<Arc<Tipset>>,
+        ts: Arc<Tipset>,
     ) -> anyhow::Result<Address> {
         use crate::shim::address::Protocol::*;
         match address.protocol() {
             BLS | Secp256k1 | Delegated => Ok(address),
             Actor => anyhow::bail!("cannot resolve actor address to key address"),
             _ => {
-                let ts = ts.unwrap_or_else(|| self.chain_store().heaviest_tipset());
                 // First try to resolve the actor in the parent state, so we don't have to compute anything.
                 if let Ok(state) =
                     StateTree::new_from_root(self.chain_store().db.clone(), ts.parent_state())

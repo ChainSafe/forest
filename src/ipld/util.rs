@@ -1,14 +1,15 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::{collections::VecDeque, future::Future, sync::Arc};
+use std::ops::DerefMut;
+use std::{collections::VecDeque, mem, sync::Arc};
 
+use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::ipld::Ipld;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::CarBlock;
 use crate::utils::encoding::extract_cids;
-use crate::{blocks::Tipset, utils::encoding::from_slice_with_fallback};
 use anyhow::Context as _;
 use cid::Cid;
 use futures::Stream;
@@ -23,82 +24,6 @@ use tokio::task;
 use tokio::task::{JoinHandle, JoinSet};
 
 const BLOCK_CHANNEL_LIMIT: usize = 2048;
-
-/// Traverses all Cid links, hashing and loading all unique values and using the
-/// callback function to interact with the data.
-#[async_recursion::async_recursion]
-async fn traverse_ipld_links_hash<F, T>(
-    walked: &mut CidHashSet,
-    load_block: &mut F,
-    ipld: &Ipld,
-    on_inserted: &(impl Fn(usize) + Send + Sync),
-) -> Result<(), anyhow::Error>
-where
-    F: FnMut(Cid) -> T + Send,
-    T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
-{
-    match ipld {
-        Ipld::Map(m) => {
-            for (_, v) in m.iter() {
-                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
-            }
-        }
-        Ipld::List(list) => {
-            for v in list.iter() {
-                traverse_ipld_links_hash(walked, load_block, v, on_inserted).await?;
-            }
-        }
-        &Ipld::Link(cid) => {
-            // WASM blocks are stored as IPLD_RAW. They should be loaded but not traversed.
-            if cid.codec() == crate::shim::crypto::IPLD_RAW {
-                if !walked.insert(cid) {
-                    return Ok(());
-                }
-                on_inserted(walked.len());
-                let _ = load_block(cid).await?;
-            }
-            if cid.codec() == fvm_ipld_encoding::DAG_CBOR {
-                if !walked.insert(cid) {
-                    return Ok(());
-                }
-                on_inserted(walked.len());
-                let bytes = load_block(cid).await?;
-                let ipld = from_slice_with_fallback(&bytes)?;
-                traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
-            }
-        }
-        _ => (),
-    }
-    Ok(())
-}
-
-/// Load and hash CIDs and resolve recursively.
-pub async fn recurse_links_hash<F, T>(
-    walked: &mut CidHashSet,
-    root: Cid,
-    load_block: &mut F,
-    on_inserted: &(impl Fn(usize) + Send + Sync),
-) -> Result<(), anyhow::Error>
-where
-    F: FnMut(Cid) -> T + Send,
-    T: Future<Output = Result<Vec<u8>, anyhow::Error>> + Send,
-{
-    if !walked.insert(root) {
-        // Cid has already been traversed
-        return Ok(());
-    }
-    on_inserted(walked.len());
-    if root.codec() != fvm_ipld_encoding::DAG_CBOR {
-        return Ok(());
-    }
-
-    let bytes = load_block(root).await?;
-    let ipld = from_slice_with_fallback(&bytes)?;
-
-    traverse_ipld_links_hash(walked, load_block, &ipld, on_inserted).await?;
-
-    Ok(())
-}
 
 fn should_save_block_to_snapshot(cid: Cid) -> bool {
     // Don't include identity CIDs.
@@ -316,7 +241,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents.cids.clone() {
+                            for p in &block.parents {
                                 this.dfs.push_back(Emit(p));
                             }
                         }
@@ -363,18 +288,21 @@ pin_project! {
         queue: Vec<Cid>,
         fail_on_dead_links: bool,
     }
+
+    impl<DB, T> PinnedDrop for UnorderedChainStream<DB, T> {
+        fn drop(this: Pin<&mut Self>) {
+           this.worker_handle.abort()
+        }
+    }
 }
 
 impl<DB, T> UnorderedChainStream<DB, T> {
     pub fn into_seen(self) -> CidHashSet {
-        match Arc::try_unwrap(self.seen) {
-            Ok(v) => v.into_inner(),
-            Err(v) => v.lock().clone(),
-        }
-    }
-
-    pub async fn join_workers(self) -> anyhow::Result<()> {
-        self.worker_handle.await?
+        let mut set = CidHashSet::new();
+        let mut guard = self.seen.lock();
+        let data = guard.deref_mut();
+        mem::swap(data, &mut set);
+        set
     }
 }
 
@@ -476,7 +404,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                 let db = db.clone();
                 let block_sender = block_sender.clone();
                 handles.spawn(async move {
-                    while let Ok(cid) = extract_receiver.recv_async().await {
+                    'main: while let Ok(cid) = extract_receiver.recv_async().await {
                         let mut cid_vec = vec![cid];
                         while let Some(cid) = cid_vec.pop() {
                             if should_save_block_to_snapshot(cid) && seen.lock().insert(cid) {
@@ -485,14 +413,16 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                                         let mut new_values = extract_cids(&data)?;
                                         cid_vec.append(&mut new_values);
                                     }
-                                    block_sender
-                                        .send(Ok(CarBlock { cid, data }))
-                                        .expect("unreachable");
+                                    // Break out of the loop if the receiving end quit.
+                                    if block_sender.send(Ok(CarBlock { cid, data })).is_err() {
+                                        break 'main;
+                                    }
                                 } else if fail_on_dead_links {
-                                    block_sender
-                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)))
-                                        .expect("unreachable");
-                                    break;
+                                    // If the receiving end has already quit - just ignore it and
+                                    // break out of the loop.
+                                    let _ = block_sender
+                                        .send(Err(anyhow::anyhow!("missing key: {}", cid)));
+                                    break 'main;
                                 }
                             }
                         }
@@ -553,7 +483,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
 
                         if block.epoch == 0 {
                             // The genesis block has some kind of dummy parent that needs to be emitted.
-                            for p in block.parents.cids.clone() {
+                            for p in &block.parents {
                                 this.queue.push(p);
                             }
                         }

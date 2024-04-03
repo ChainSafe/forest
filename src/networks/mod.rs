@@ -64,7 +64,7 @@ impl Display for NetworkChain {
         match self {
             NetworkChain::Mainnet => write!(f, "mainnet"),
             NetworkChain::Calibnet => write!(f, "calibnet"),
-            NetworkChain::Butterflynet => write!(f, "Butterflynet"),
+            NetworkChain::Butterflynet => write!(f, "butterflynet"),
             NetworkChain::Devnet(name) => write!(f, "{name}"),
         }
     }
@@ -126,6 +126,8 @@ pub enum Height {
     Watermelon,
     WatermelonFix,
     WatermelonFix2,
+    Dragon,
+    DragonFix,
 }
 
 impl Default for Height {
@@ -161,6 +163,8 @@ impl From<Height> for NetworkVersion {
             Height::Watermelon => NetworkVersion::V21,
             Height::WatermelonFix => NetworkVersion::V21,
             Height::WatermelonFix2 => NetworkVersion::V21,
+            Height::Dragon => NetworkVersion::V22,
+            Height::DragonFix => NetworkVersion::V22,
         }
     }
 }
@@ -195,6 +199,7 @@ pub struct ChainConfig {
     pub bootstrap_peers: Vec<Multiaddr>,
     pub block_delay_secs: u32,
     pub propagation_delay_secs: u32,
+    pub genesis_network: NetworkVersion,
     pub height_infos: HashMap<Height, HeightInfo>,
     #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
     #[serde(default = "default_policy")]
@@ -211,6 +216,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
+            genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: Policy::mainnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
@@ -225,6 +231,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 10,
+            genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: Policy::calibnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
@@ -257,6 +264,7 @@ impl ChainConfig {
             bootstrap_peers: Vec::new(),
             block_delay_secs: 4,
             propagation_delay_secs: 1,
+            genesis_network: *GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy,
             eth_chain_id: ETH_CHAIN_ID as u32,
@@ -272,6 +280,7 @@ impl ChainConfig {
             bootstrap_peers: DEFAULT_BOOTSTRAP.clone(),
             block_delay_secs: EPOCH_DURATION_SECONDS as u32,
             propagation_delay_secs: 6,
+            genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_butterfly_policy!(v10),
             eth_chain_id: ETH_CHAIN_ID as u32,
@@ -290,17 +299,17 @@ impl ChainConfig {
         }
     }
 
+    /// Returns the network version at the given epoch.
+    /// If the epoch is before the first upgrade, the genesis network version is returned.
     pub fn network_version(&self, epoch: ChainEpoch) -> NetworkVersion {
-        let height = self
-            .height_infos
+        self.height_infos
             .iter()
             .sorted_by_key(|(_, info)| info.epoch)
             .rev()
             .find(|(_, info)| epoch > info.epoch)
-            .map(|(height, _)| *height)
-            .unwrap_or(Height::Breeze);
-
-        From::from(height)
+            .map(|(height, _)| NetworkVersion::from(*height))
+            .unwrap_or(self.genesis_network_version())
+            .max(self.genesis_network)
     }
 
     pub fn get_beacon_schedule(&self, genesis_ts: u64) -> BeaconSchedule {
@@ -356,6 +365,10 @@ impl ChainConfig {
     pub fn is_testnet(&self) -> bool {
         self.network.is_testnet()
     }
+
+    pub fn genesis_network_version(&self) -> NetworkVersion {
+        self.genesis_network
+    }
 }
 
 impl Default for ChainConfig {
@@ -408,6 +421,35 @@ fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
+        assert!(height_infos.get(&Height::Breeze).is_some());
+        assert!(height_infos.get(&Height::Smoke).is_some());
+        assert!(height_infos.get(&Height::Ignition).is_some());
+        assert!(height_infos.get(&Height::ActorsV2).is_some());
+        assert!(height_infos.get(&Height::Liftoff).is_some());
+        assert!(height_infos.get(&Height::Calico).is_some());
+    }
+
+    #[test]
+    fn test_mainnet_heights() {
+        heights_are_present(&mainnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_calibnet_heights() {
+        heights_are_present(&calibnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_devnet_heights() {
+        heights_are_present(&devnet::HEIGHT_INFOS);
+    }
+
+    #[test]
+    fn test_butterflynet_heights() {
+        heights_are_present(&butterflynet::HEIGHT_INFOS);
+    }
 
     #[test]
     fn test_get_upgrade_height_no_env_var() {

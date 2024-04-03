@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::clock::ChainEpoch;
+use crate::shim::{clock::ChainEpoch, version::NetworkVersion};
 use ahash::HashMap;
 use cid::Cid;
 use libp2p::Multiaddr;
@@ -21,6 +21,7 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecnamqgqmifpluoeldx7zzglxcljo6oja4vrmtj7432rphldpdmm2").unwrap()
 });
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
 pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
     Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/mainnet")));
@@ -202,6 +203,17 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 ),
             },
         ),
+        (
+            Height::Dragon,
+            HeightInfo {
+                // Thu Apr 11 02:00:00 PM UTC 2024
+                epoch: 3_817_920,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e")
+                        .unwrap(),
+                ),
+            },
+        ),
     ])
 });
 
@@ -216,8 +228,12 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| 
             config: &DRAND_MAINNET,
         },
         DrandPoint {
-            // height is TBD
-            height: i64::MAX,
+            // 2024-04-11T15:00:00Z - 120 epochs after the Dragon upgrade
+            height: HEIGHT_INFOS
+                .get(&Height::Dragon)
+                .expect("Dragon height must be defined")
+                .epoch
+                + 120,
             config: &DRAND_QUICKNET,
         },
     ]

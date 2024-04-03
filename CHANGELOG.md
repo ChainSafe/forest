@@ -29,6 +29,73 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.17.1 "Villentretenmerth"
+
+This is a mandatory release that includes scheduled migration for the NV22
+_Dragon_ network upgrade for mainnet and fix for the calibration network.
+Various other fixes and improvements are included as well, see below for
+details.
+
+### Added
+
+- [#4029](https://github.com/ChainSafe/forest/pull/4029) Add
+  `forest-tool shed private-key-from-key-pair` and
+  `forest-tool shed key-pair-from-private-key` commands. These facilate moving
+  between Forest and Lotus without losing the peer-to-peer identity.
+
+- [#4052](https://github.com/ChainSafe/forest/pull/4052) Add
+  `forest-cli net reachability` command that prints information about
+  reachability from the internet.
+
+- [#4058](https://github.com/ChainSafe/forest/issues/4058) Add support for
+  multiple snapshot files in the `forest-tool api serve` command.
+
+- [#4056](https://github.com/ChainSafe/forest/pull/4056) Enable libp2p `quic`
+  protocol
+
+- [#4071](https://github.com/ChainSafe/forest/pull/4071) Add
+  `forest-tool net ping` command that pings a peer via its multiaddress.
+
+- [#4119](https://github.com/ChainSafe/forest/pull/4119) Add support for NV22
+  fix for calibration network.
+
+### Removed
+
+- [#4018](https://github.com/ChainSafe/forest/pull/4018) Remove --ws flag from
+  `forest-tool api compare`.
+
+### Fixed
+
+- [#4068](https://github.com/ChainSafe/forest/pull/4068) Fix schema bug in the
+  `ChainNotify` RPC method.
+
+- [#4080](https://github.com/ChainSafe/forest/pull/4080) Fix broken
+  `StateVMCirculatingSupplyInternal` RPC method on calibnet.
+
+- [#4091](https://github.com/ChainSafe/forest/pull/4091) Restore `Breeze`,
+  `Smoke`, and `Ignition` entries for calibnet
+
+- [#4093](https://github.com/ChainSafe/forest/pull/4093) Fix parsing issue in
+  the `Filecoin.StateAccountKey` RPC method.
+
+## Forest 0.17.0 "Smaug"
+
+Mandatory release that includes:
+
+- support for the NV22 _Dragon_ network upgrade, together with the required
+  state migration,
+- important networking improvements that increase Forest resilience to network
+  disruptions,
+- various improvements and support for new RPC methods.
+
+### Added
+
 - [#3555](https://github.com/ChainSafe/forest/issues/3555) Add Forest database
   query optimizations when serving with many car files.
 
@@ -36,15 +103,24 @@
   `--p2p-listen-address` option to `forest` to override p2p addresses that
   forest listens on
 
+- [#4031](https://github.com/ChainSafe/forest/pull/4031) Added RPC method
+  `Filecoin.NetAgentVersion` and `--agent` flag to the `forest-cli net peers`
+  subcommand, that will list the agent version of the connected peers.
+
+- [#3955](https://github.com/ChainSafe/forest/pull/3955) Added support for the
+  NV22 _Dragon_ network upgrade, together with the required state migration.
+
 ### Changed
 
 - [#3976](https://github.com/ChainSafe/forest/pull/3976) `forest-wallet`
   defaults to using a local wallet instead of the builtin Forest wallet for
   greater security.
 
-### Removed
 
 ### Fixed
+
+- [#4019](https://github.com/ChainSafe/forest/pull/4019) Fix Forest sending
+  stale notifications after channel cancelation.
 
 ## Forest 0.16.8 "English Channel"
 

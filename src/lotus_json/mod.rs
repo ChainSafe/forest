@@ -126,6 +126,7 @@ use derive_more::From;
 use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
 use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
 use serde_json::json;
@@ -329,7 +330,7 @@ pub mod hexify {
         T: Num + std::fmt::LowerHex,
         S: Serializer,
     {
-        serializer.serialize_str(format!("0x{value:x}").as_str())
+        serializer.serialize_str(format!("{value:#x}").as_str())
     }
 
     pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
@@ -394,6 +395,20 @@ where
 #[serde(bound = "T: HasLotusJson + Clone")]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 
+impl<T> JsonSchema for LotusJson<T>
+where
+    T: HasLotusJson,
+    T::LotusJson: JsonSchema,
+{
+    fn schema_name() -> String {
+        T::LotusJson::schema_name()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        T::LotusJson::json_schema(gen)
+    }
+}
+
 impl<T> LotusJson<T> {
     pub fn into_inner(self) -> T {
         self.0
@@ -418,12 +433,23 @@ impl<T> Stringify<T> {
     }
 }
 
+impl<T> JsonSchema for Stringify<T> {
+    fn schema_name() -> String {
+        String::schema_name()
+    }
+
+    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
+        String::json_schema(gen)
+    }
+}
+
 macro_rules! lotus_json_with_self {
     ($($domain_ty:ty),* $(,)?) => {
         $(
             impl $crate::lotus_json::HasLotusJson for $domain_ty {
                 type LotusJson = Self;
-                #[cfg(test)] fn snapshots() -> Vec<(serde_json::Value, Self)> {
+                #[cfg(test)]
+                fn snapshots() -> Vec<(serde_json::Value, Self)> {
                     unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
                 }
                 fn into_lotus_json(self) -> Self::LotusJson {

@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::eth_api::*;
+use crate::rpc::eth_api::*;
 
 use super::{ApiInfo, RpcRequest};
 
@@ -27,5 +27,9 @@ impl ApiInfo {
         block_param: BlockNumberOrHash,
     ) -> RpcRequest<BigInt> {
         RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_param))
+    }
+
+    pub fn eth_syncing_req() -> RpcRequest<EthSyncingResult> {
+        RpcRequest::new_v1(ETH_SYNCING, ())
     }
 }

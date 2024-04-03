@@ -27,7 +27,7 @@ use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::start_rpc;
-use crate::rpc_api::data_types::RPCState;
+use crate::rpc::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
@@ -369,7 +369,6 @@ pub(super) async fn start(
                 shutdown_send,
             )
             .await
-            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");

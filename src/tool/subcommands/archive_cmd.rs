@@ -44,7 +44,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::{apply_block_messages, NO_CALLBACK};
 use anyhow::{bail, Context as _};
-use chrono::NaiveDateTime;
+use chrono::DateTime;
 use cid::Cid;
 use clap::Subcommand;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -52,7 +52,6 @@ use futures::TryStreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::ProgressIterator;
 use itertools::Itertools;
-use nonempty::NonEmpty;
 use sha2::Sha256;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -343,12 +342,10 @@ fn build_output_path(
         true => output_path.join(snapshot::filename(
             TrustedVendor::Forest,
             chain,
-            NaiveDateTime::from_timestamp_opt(
-                genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS,
-                0,
-            )
-            .unwrap_or_default()
-            .into(),
+            DateTime::from_timestamp(genesis_timestamp as i64 + epoch * EPOCH_DURATION_SECONDS, 0)
+                .unwrap_or_default()
+                .naive_utc()
+                .date(),
             epoch,
             true,
         )),
@@ -466,8 +463,7 @@ async fn merge_snapshots(
 
     let store = ManyCar::try_from(snapshot_files)?;
     let heaviest_tipset = store.heaviest_tipset()?;
-    let roots = NonEmpty::from_vec(heaviest_tipset.key().cids.clone().into_iter().collect())
-        .context("tipset key cannot be empty")?;
+    let roots = heaviest_tipset.key().to_cids();
 
     if !force && output_path.exists() {
         let have_permission = Confirm::with_theme(&ColorfulTheme::default())

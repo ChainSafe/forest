@@ -5,7 +5,8 @@
 use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::JsonRpcError;
-use crate::rpc_api::data_types::{Data, RPCState, RPCSyncState};
+use crate::rpc::types::RPCSyncState;
+use crate::rpc::Ctx;
 
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
@@ -13,10 +14,14 @@ use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use parking_lot::RwLock;
 
+pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
+pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
+pub const SYNC_STATE: &str = "Filecoin.SyncState";
+
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<String, JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
@@ -26,7 +31,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
 /// Marks a block as bad, meaning it will never be synced.
 pub async fn sync_mark_bad<DB: Blockstore>(
     params: Params<'_>,
-    data: Data<RPCState<DB>>,
+    data: Ctx<DB>,
 ) -> Result<(), JsonRpcError> {
     let LotusJson((cid,)) = params.parse()?;
 
@@ -40,9 +45,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub async fn sync_state<DB: Blockstore>(
-    data: Data<RPCState<DB>>,
-) -> Result<RPCSyncState, JsonRpcError> {
+pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, JsonRpcError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }
@@ -61,6 +64,7 @@ mod tests {
     use crate::libp2p::NetworkMessage;
     use crate::message_pool::{MessagePool, MpoolRpcProvider};
     use crate::networks::ChainConfig;
+    use crate::rpc::RPCState;
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
@@ -109,7 +113,7 @@ mod tests {
                 .set_heaviest_tipset(Arc::new(ts.clone()))
                 .unwrap();
 
-            for i in tsk.cids.clone().into_iter() {
+            for i in tsk.to_cids() {
                 let bz2 = bz.clone();
                 db.put_keyed(&i, &bz2).unwrap();
             }
@@ -149,18 +153,16 @@ mod tests {
 
         let cid = r#"[{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}]"#;
 
-        match sync_check_bad(Params::new(Some(cid)), Arc::new(state.clone())).await {
+        match sync_check_bad(Params::new(Some(cid)), state.clone()).await {
             Ok(reason) => assert_eq!(reason, ""),
             Err(e) => std::panic::panic_any(e),
         }
 
         // Mark that block as bad manually and check again to verify
-        assert!(
-            sync_mark_bad(Params::new(Some(cid)), Arc::new(state.clone()))
-                .await
-                .is_ok()
-        );
-        match sync_check_bad(Params::new(Some(cid)), Arc::new(state.clone())).await {
+        assert!(sync_mark_bad(Params::new(Some(cid)), state.clone())
+            .await
+            .is_ok());
+        match sync_check_bad(Params::new(Some(cid)), state.clone()).await {
             Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
             Err(e) => std::panic::panic_any(e),
         }
@@ -172,7 +174,7 @@ mod tests {
 
         let st_copy = state.sync_state.clone();
 
-        match sync_state(Arc::new(state.clone())).await {
+        match sync_state(state.clone()).await {
             Ok(ret) => assert_eq!(
                 ret.active_syncs,
                 nonempty![clone_state(st_copy.as_ref()).await]
@@ -184,7 +186,7 @@ mod tests {
         st_copy.write().set_stage(SyncStage::Messages);
         st_copy.write().set_epoch(4);
 
-        match sync_state(Arc::new(state.clone())).await {
+        match sync_state(state.clone()).await {
             Ok(ret) => {
                 assert_eq!(
                     ret.active_syncs,

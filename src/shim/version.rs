@@ -56,6 +56,7 @@ impl NetworkVersion {
     pub const V19: Self = Self(NetworkVersion_latest::new(19));
     pub const V20: Self = Self(NetworkVersion_latest::new(20));
     pub const V21: Self = Self(NetworkVersion_latest::new(21));
+    pub const V22: Self = Self(NetworkVersion_latest::new(22));
 }
 
 impl Deref for NetworkVersion {
@@ -68,6 +69,12 @@ impl Deref for NetworkVersion {
 impl DerefMut for NetworkVersion {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<u32> for NetworkVersion {
+    fn from(value: u32) -> Self {
+        NetworkVersion(NetworkVersion_latest::new(value))
     }
 }
 
@@ -104,5 +111,13 @@ impl From<NetworkVersion> for NetworkVersion_v3 {
 impl From<NetworkVersion> for NetworkVersion_v4 {
     fn from(other: NetworkVersion) -> Self {
         other.0
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for NetworkVersion {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let value = u32::arbitrary(g);
+        NetworkVersion(NetworkVersion_latest::new(value))
     }
 }

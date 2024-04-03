@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::node_api::{NodeStatus, NODE_STATUS};
+use crate::rpc::node_api::{NodeStatus, NODE_STATUS};
 
 use super::{ApiInfo, JsonRpcError, RpcRequest};
 

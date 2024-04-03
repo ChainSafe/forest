@@ -1,19 +1,19 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
-use std::sync::Arc;
+//! Types that are shared _between_ APIs.
+//!
+//! If a type here is used by only one API, it should be relocated.
 
-use crate::beacon::{BeaconEntry, BeaconSchedule};
+use std::str::FromStr;
+
+use crate::beacon::BeaconEntry;
 use crate::blocks::{CachingBlockHeader, TipsetKey};
-use crate::chain::ChainStore;
-use crate::chain_sync::{BadBlockCache, SyncState};
-use crate::key_management::KeyStore;
+use crate::chain_sync::SyncState;
 pub use crate::libp2p::Multiaddr;
-use crate::libp2p::{Multihash, NetworkMessage};
+use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::signed_message::SignedMessage;
-use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
@@ -25,12 +25,11 @@ use crate::shim::{
     fvm_shared_latest::MethodNum,
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
-    state_tree::ActorState,
+    state_tree::{ActorID, ActorState},
 };
-use crate::state_manager::StateManager;
 use ahash::HashSet;
-use chrono::Utc;
 use cid::Cid;
+use fil_actor_interface::market::AllocationID;
 use fil_actor_interface::miner::MinerInfo;
 use fil_actor_interface::{
     market::{DealProposal, DealState},
@@ -39,36 +38,13 @@ use fil_actor_interface::{
 };
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use nonempty::NonEmpty;
 use num_bigint::BigInt;
-use parking_lot::RwLock as SyncRwLock;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
-use tokio::sync::RwLock;
-
-pub type Data<T> = Arc<Arc<T>>;
-
-/// This is where you store persistent data, or at least access to stateful
-/// data.
-pub struct RPCState<DB>
-where
-    DB: Blockstore,
-{
-    pub keystore: Arc<RwLock<KeyStore>>,
-    pub chain_store: Arc<ChainStore<DB>>,
-    pub state_manager: Arc<StateManager<DB>>,
-    pub mpool: Arc<MessagePool<MpoolRpcProvider<DB>>>,
-    pub bad_blocks: Arc<BadBlockCache>,
-    pub sync_state: Arc<SyncRwLock<SyncState>>,
-    pub network_send: flume::Sender<NetworkMessage>,
-    pub network_name: String,
-    pub start_time: chrono::DateTime<Utc>,
-    pub beacon: Arc<BeaconSchedule>,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -100,6 +76,110 @@ pub struct MessageSendSpec {
 }
 
 lotus_json_with_self!(MessageSendSpec);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDealState {
+    pub sector_start_epoch: ChainEpoch,
+    pub last_updated_epoch: ChainEpoch,
+    pub slash_epoch: ChainEpoch,
+    #[serde(skip)]
+    pub verified_claim: AllocationID,
+}
+
+lotus_json_with_self!(ApiDealState);
+
+impl From<DealState> for ApiDealState {
+    fn from(s: DealState) -> Self {
+        let DealState {
+            sector_start_epoch,
+            last_updated_epoch,
+            slash_epoch,
+            verified_claim,
+        } = s;
+        Self {
+            sector_start_epoch,
+            last_updated_epoch,
+            slash_epoch,
+            verified_claim,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiDealProposal {
+    #[serde(rename = "PieceCID", with = "crate::lotus_json")]
+    pub piece_cid: Cid,
+    pub piece_size: u64,
+    pub verified_deal: bool,
+    #[serde(with = "crate::lotus_json")]
+    pub client: Address,
+    #[serde(with = "crate::lotus_json")]
+    pub provider: Address,
+    pub label: String,
+    pub start_epoch: ChainEpoch,
+    pub end_epoch: ChainEpoch,
+    #[serde(with = "crate::lotus_json")]
+    pub storage_price_per_epoch: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub provider_collateral: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub client_collateral: TokenAmount,
+}
+
+lotus_json_with_self!(ApiDealProposal);
+
+impl From<DealProposal> for ApiDealProposal {
+    fn from(p: DealProposal) -> Self {
+        let DealProposal {
+            piece_cid,
+            piece_size,
+            verified_deal,
+            client,
+            provider,
+            label,
+            start_epoch,
+            end_epoch,
+            storage_price_per_epoch,
+            provider_collateral,
+            client_collateral,
+        } = p;
+        Self {
+            piece_cid,
+            piece_size: piece_size.0,
+            verified_deal,
+            client: client.into(),
+            provider: provider.into(),
+            label,
+            start_epoch,
+            end_epoch,
+            storage_price_per_epoch: storage_price_per_epoch.into(),
+            provider_collateral: provider_collateral.into(),
+            client_collateral: client_collateral.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMarketDeal {
+    #[serde(with = "crate::lotus_json")]
+    pub proposal: ApiDealProposal,
+    #[serde(with = "crate::lotus_json")]
+    pub state: ApiDealState,
+}
+
+lotus_json_with_self!(ApiMarketDeal);
+
+impl From<MarketDeal> for ApiMarketDeal {
+    fn from(d: MarketDeal) -> Self {
+        Self {
+            proposal: d.proposal.into(),
+            state: d.state.into(),
+        }
+    }
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -147,7 +227,7 @@ pub struct MessageLookup {
 lotus_json_with_self!(MessageLookup);
 
 // Net API
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
@@ -224,8 +304,20 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiTipsetKey(pub Option<TipsetKey>);
+
+impl From<TipsetKey> for ApiTipsetKey {
+    fn from(value: TipsetKey) -> Self {
+        Self(Some(value))
+    }
+}
+
+impl From<&TipsetKey> for ApiTipsetKey {
+    fn from(value: &TipsetKey) -> Self {
+        value.clone().into()
+    }
+}
 
 impl HasLotusJson for ApiTipsetKey {
     type LotusJson = LotusJson<Vec<Cid>>;
@@ -238,17 +330,13 @@ impl HasLotusJson for ApiTipsetKey {
     fn into_lotus_json(self) -> Self::LotusJson {
         LotusJson(
             self.0
-                .map(|ts| ts.cids.into_iter().collect::<Vec<Cid>>())
+                .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
                 .unwrap_or_default(),
         )
     }
 
     fn from_lotus_json(LotusJson(lotus_json): Self::LotusJson) -> Self {
-        Self(if lotus_json.is_empty() {
-            None
-        } else {
-            Some(TipsetKey::from_iter(lotus_json))
-        })
+        Self(NonEmpty::from_vec(lotus_json).map(From::from))
     }
 }
 
@@ -806,6 +894,8 @@ pub struct ExecutionTrace {
     #[serde(with = "crate::lotus_json")]
     pub msg_rct: ReturnTrace,
     #[serde(with = "crate::lotus_json")]
+    pub invoked_actor: Option<ActorTrace>,
+    #[serde(with = "crate::lotus_json")]
     pub gas_charges: Vec<GasTrace>,
     #[serde(with = "crate::lotus_json")]
     pub subcalls: Vec<ExecutionTrace>,
@@ -828,11 +918,19 @@ pub struct MessageTrace {
     pub params_codec: u64,
     pub gas_limit: Option<u64>,
     pub read_only: Option<bool>,
-    #[serde(with = "crate::lotus_json")]
-    pub code_cid: Cid,
 }
 
 lotus_json_with_self!(MessageTrace);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct ActorTrace {
+    pub id: ActorID,
+    #[serde(with = "crate::lotus_json")]
+    pub state: ActorState,
+}
+
+lotus_json_with_self!(ActorTrace);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -1007,7 +1105,7 @@ mod tests {
         let api_ts = api_ts_lotus_json.into_inner();
         let cids_from_api_ts = api_ts
             .0
-            .map(|ts| ts.cids.into_iter().collect::<Vec<Cid>>())
+            .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
             .unwrap_or_default();
         assert_eq!(cids_from_api_ts, cids);
     }

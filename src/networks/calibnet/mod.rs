@@ -7,7 +7,12 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use super::{drand::DRAND_MAINNET, parse_bootstrap_peers, DrandPoint, Height, HeightInfo};
+use crate::shim::version::NetworkVersion;
+
+use super::{
+    drand::{DRAND_MAINNET, DRAND_QUICKNET},
+    get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+};
 
 /// Default genesis car file bytes.
 pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
@@ -15,6 +20,7 @@ pub const DEFAULT_GENESIS: &[u8] = include_bytes!("genesis.car");
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
     Cid::from_str("bafy2bzacecyaggy24wol5ruvs6qm73gjibs2l2iyhcqmvi7r7a4ph7zx3yqd4").unwrap()
 });
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V0;
 
 /// Default bootstrap peer ids.
 pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
@@ -34,6 +40,27 @@ pub const ETH_CHAIN_ID: u64 = 314159;
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
         (
+            Height::Breeze,
+            HeightInfo {
+                epoch: -1,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Smoke,
+            HeightInfo {
+                epoch: -2,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Ignition,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
             Height::ActorsV2,
             HeightInfo {
                 epoch: 30,
@@ -44,6 +71,13 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             Height::Tape,
             HeightInfo {
                 epoch: 60,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Liftoff,
+            HeightInfo {
+                epoch: -5,
                 bundle: None,
             },
         ),
@@ -191,14 +225,42 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 ),
             },
         ),
+        (
+            Height::Dragon,
+            HeightInfo {
+                epoch: 1_427_974,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi")
+                        .unwrap(),
+                ),
+            },
+        ),
+        (
+            Height::DragonFix,
+            HeightInfo {
+                // Wed Apr  3 11:00:00 AM UTC 2024
+                epoch: 1_493_854,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs")
+                        .unwrap(),
+                ),
+            },
+        ),
     ])
 });
 
-pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 1]> = Lazy::new(|| {
-    [DrandPoint {
-        height: 0,
-        config: &DRAND_MAINNET,
-    }]
+pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
+    [
+        DrandPoint {
+            height: 0,
+            config: &DRAND_MAINNET,
+        },
+        DrandPoint {
+            height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
+                .unwrap_or(HEIGHT_INFOS.get(&Height::Dragon).unwrap().epoch + 120),
+            config: &DRAND_QUICKNET,
+        },
+    ]
 });
 
 #[cfg(test)]

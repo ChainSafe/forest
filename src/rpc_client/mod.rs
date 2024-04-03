@@ -14,7 +14,6 @@ pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
 
-use std::borrow::Cow;
 use std::env;
 use std::fmt;
 use std::marker::PhantomData;
@@ -23,21 +22,21 @@ use std::time::Duration;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
+pub use crate::rpc::JsonRpcError;
 use crate::utils::net::global_http_client;
-use base64::prelude::{Engine, BASE64_STANDARD};
-use jsonrpsee::types::{params::TwoPointZero, Id, Request};
+use jsonrpsee::{
+    core::{client::ClientT, traits::ToRpcParams},
+    types::{Id, Request},
+    ws_client::WsClientBuilder,
+};
+use serde::de::IntoDeserializer;
 use serde::Deserialize;
-use tracing::debug;
-
-use futures_util::{SinkExt, StreamExt};
-use tokio_tungstenite::tungstenite;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
+use tracing::{debug, error};
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
 pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
-pub const DEFAULT_PROTOCOL: &str = "http";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug)]
@@ -92,14 +91,27 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
-    pub async fn call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
+    pub async fn call<T: HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
         let params = serde_json::value::to_raw_value(&req.params)
-            .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
+            .map_err(|e| JsonRpcError::invalid_params(e, None))?;
         let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
 
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint).to_string();
+        let api_url = multiaddress_to_url(
+            &self.multiaddr,
+            req.rpc_endpoint,
+            CommunicationProtocol::Http,
+        )
+        .to_string();
 
-        debug!("Using JSON-RPC v2 HTTP URL: {}", api_url);
+        let request_log = format!(
+            "JSON-RPC request URL: {}, payload: {}",
+            api_url,
+            serde_json::to_string(&rpc_req).unwrap_or_default()
+        );
+        debug!(request_log);
 
         let request = global_http_client()
             .post(api_url)
@@ -111,183 +123,80 @@ impl ApiInfo {
         };
 
         let response = request.send().await?;
-        if response.status() == http0::StatusCode::NOT_FOUND {
-            return Err(JsonRpcError::METHOD_NOT_FOUND);
-        }
-        if response.status() == http0::StatusCode::FORBIDDEN {
-            let msg = if self.token.is_none() {
-                "Permission denied: Token required."
-            } else {
-                "Permission denied: Insufficient rights."
-            };
-            return Err(JsonRpcError {
-                code: response.status().as_u16() as i64,
-                message: Cow::Borrowed(msg),
-            });
-        }
-        if !response.status().is_success() {
-            return Err(JsonRpcError {
-                code: response.status().as_u16() as i64,
-                message: Cow::Owned(response.text().await?),
-            });
-        }
-        let json = response.bytes().await?;
-        let rpc_res: JsonRpcResponse<T::LotusJson> =
-            serde_json::from_slice(&json).map_err(|_| JsonRpcError::PARSE_ERROR)?;
-
-        match rpc_res {
-            JsonRpcResponse::Result { result, .. } => Ok(HasLotusJson::from_lotus_json(result)),
-            JsonRpcResponse::Error { error, .. } => Err(error),
-        }
-    }
-
-    pub async fn ws_call<T: HasLotusJson>(&self, req: RpcRequest<T>) -> Result<T, JsonRpcError> {
-        let params = serde_json::value::to_raw_value(&req.params)
-            .map_err(|_| JsonRpcError::INVALID_PARAMS)?;
-        let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
-
-        let payload = serde_json::to_vec(&rpc_req).map_err(|_| JsonRpcError::INVALID_REQUEST)?;
-
-        let api_url = multiaddress_to_url(&self.multiaddr, req.rpc_endpoint);
-
-        debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
-
-        // A 16 byte key (base64 encoded) is expected for `Sec-WebSocket-Key` during a websocket handshake
-        // See 5. in https://datatracker.ietf.org/doc/html/rfc6455#section-4.2.1
-        let key = BASE64_STANDARD.encode(b"TheGreatOldOnes.");
-
-        let request = tungstenite::http::Request::builder()
-            .method("GET")
-            .uri(api_url.to_string())
-            .header("Host", api_url.host)
-            .header("Upgrade", "websocket")
-            .header("Connection", "upgrade")
-            .header("Sec-Websocket-Key", key)
-            .header("Sec-Websocket-Version", "13")
-            .body(())
-            .map_err(|_| JsonRpcError::INVALID_REQUEST)?;
-
-        let (ws_stream, _) = connect_async(request).await?;
-
-        let (mut write, mut read) = ws_stream.split();
-
-        write.send(WsMessage::Binary(payload)).await?;
-
-        match tokio::time::timeout(req.timeout, read.next()).await {
-            Ok(v) => {
-                if let Some(message) = v {
-                    let data = message?.into_data();
-                    let rpc_res: JsonRpcResponse<T::LotusJson> =
-                        serde_json::from_slice(&data).map_err(|_| JsonRpcError::PARSE_ERROR)?;
-
-                    match rpc_res {
-                        JsonRpcResponse::Result { result, .. } => {
-                            Ok(HasLotusJson::from_lotus_json(result))
-                        }
-                        JsonRpcResponse::Error { error, .. } => Err(error),
+        let result = match response.status() {
+            http0::StatusCode::NOT_FOUND => {
+                Err(JsonRpcError::method_not_found("method_not_found", None))
+            }
+            http0::StatusCode::FORBIDDEN => Err(JsonRpcError::new(
+                response.status().as_u16().into(),
+                match &self.token {
+                    Some(_) => "Permission denied: Insufficient rights.",
+                    None => "Permission denied: Token required.",
+                },
+                None,
+            )),
+            other if !other.is_success() => Err(JsonRpcError::new(
+                other.as_u16().into(),
+                response.text().await?,
+                None,
+            )),
+            _ok => {
+                let bytes = response.bytes().await?;
+                let response = serde_json::from_slice::<
+                    jsonrpsee::types::Response<&serde_json::value::RawValue>,
+                >(&bytes)
+                .map_err(|e| JsonRpcError::parse_error(e, None))?;
+                debug!(?response);
+                match response.payload {
+                    jsonrpsee::types::ResponsePayload::Success(it) => {
+                        T::LotusJson::deserialize(it.into_deserializer())
+                            .map(T::from_lotus_json)
+                            .map_err(|e| JsonRpcError::parse_error(e, None))
                     }
-                } else {
-                    Err(JsonRpcError::INVALID_REQUEST)
+                    jsonrpsee::types::ResponsePayload::Error(e) => {
+                        Err(JsonRpcError::parse_error(e, None))
+                    }
                 }
             }
-            Err(_) => Err(JsonRpcError::TIMED_OUT),
-        }
-    }
-}
-
-/// Error object in a response
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct JsonRpcError {
-    pub code: i64,
-    pub message: Cow<'static, str>,
-}
-
-impl JsonRpcError {
-    // https://www.jsonrpc.org/specification#error_object
-    // -32700 	Parse error 	Invalid JSON was received by the server.
-    //                          An error occurred on the server while parsing the JSON text.
-    // -32600 	Invalid Request 	The JSON sent is not a valid Request object.
-    // -32601 	Method not found 	The method does not exist / is not available.
-    // -32602 	Invalid params 	Invalid method parameter(s).
-    // -32603 	Internal error 	Internal JSON-RPC error.
-    // -32000 to -32099 	Server error 	Reserved for implementation-defined server-errors.
-    pub const PARSE_ERROR: JsonRpcError = JsonRpcError {
-        code: -32700,
-        message: Cow::Borrowed(
-            "Invalid JSON was received by the server. \
-             An error occurred on the server while parsing the JSON text.",
-        ),
-    };
-    pub const INVALID_REQUEST: JsonRpcError = JsonRpcError {
-        code: -32600,
-        message: Cow::Borrowed("The JSON sent is not a valid Request object."),
-    };
-    pub const METHOD_NOT_FOUND: JsonRpcError = JsonRpcError {
-        code: -32601,
-        message: Cow::Borrowed("The method does not exist / is not available."),
-    };
-    pub const INVALID_PARAMS: JsonRpcError = JsonRpcError {
-        code: -32602,
-        message: Cow::Borrowed("Invalid method parameter(s)."),
-    };
-    pub const TIMED_OUT: JsonRpcError = JsonRpcError {
-        code: 0,
-        message: Cow::Borrowed("Operation timed out."),
-    };
-}
-
-impl std::fmt::Display for JsonRpcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (code={})", self.message, self.code)
-    }
-}
-
-impl std::error::Error for JsonRpcError {
-    fn description(&self) -> &str {
-        &self.message
-    }
-}
-
-impl From<tungstenite::Error> for JsonRpcError {
-    fn from(tungstenite_error: tungstenite::Error) -> Self {
-        let status = match &tungstenite_error {
-            tungstenite::Error::Http(resp) => Some(resp.status()),
-            _ => None,
         };
-        JsonRpcError {
-            code: status.map(|s| s.as_u16()).unwrap_or_default() as i64,
-            message: Cow::Owned(tungstenite_error.to_string()),
+
+        if let Err(err) = &result {
+            error!("Failure: {}\n{request_log}", err.message());
         }
+
+        result
+    }
+
+    pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(
+        &self,
+        req: RpcRequest<T>,
+    ) -> Result<T, JsonRpcError> {
+        let api_url =
+            multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, CommunicationProtocol::Ws);
+        debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
+        let ws_client = WsClientBuilder::default()
+            .request_timeout(req.timeout)
+            .build(api_url.to_string())
+            .await
+            .map_err(|e| JsonRpcError::internal_error(e, None))?;
+        let response = ws_client
+            .request(req.method_name, req)
+            .await
+            .map(HasLotusJson::from_lotus_json)
+            .map_err(|e| JsonRpcError::internal_error(e, None))?;
+        debug!(?response);
+        Ok(response)
     }
 }
 
 impl From<reqwest::Error> for JsonRpcError {
-    fn from(reqwest_error: reqwest::Error) -> Self {
-        JsonRpcError {
-            code: reqwest_error
-                .status()
-                .map(|s| s.as_u16())
-                .unwrap_or_default() as i64,
-            message: Cow::Owned(reqwest_error.to_string()),
-        }
+    fn from(e: reqwest::Error) -> Self {
+        Self::new(
+            e.status().map(|it| it.as_u16()).unwrap_or_default().into(),
+            e,
+            None,
+        )
     }
-}
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-pub enum JsonRpcResponse<'a, R> {
-    Result {
-        jsonrpc: TwoPointZero,
-        result: R,
-        #[serde(borrow)]
-        id: Id<'a>,
-    },
-    Error {
-        jsonrpc: TwoPointZero,
-        error: JsonRpcError,
-        #[serde(borrow)]
-        id: Id<'a>,
-    },
 }
 
 struct Url {
@@ -307,12 +216,24 @@ impl fmt::Display for Url {
     }
 }
 
+#[derive(PartialEq, Eq, Debug, strum::EnumString, strum::Display)]
+pub enum CommunicationProtocol {
+    #[strum(serialize = "http")]
+    Http,
+    #[strum(serialize = "ws")]
+    Ws,
+}
+
 /// Parses a multi-address into a URL
-fn multiaddress_to_url(multiaddr: &Multiaddr, endpoint: &str) -> Url {
+fn multiaddress_to_url(
+    multiaddr: &Multiaddr,
+    endpoint: &str,
+    protocol: CommunicationProtocol,
+) -> Url {
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: DEFAULT_PROTOCOL.to_owned(),
+            protocol: protocol.to_string(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
             endpoint: endpoint.into(),
@@ -422,5 +343,11 @@ impl<T> RpcRequest<T> {
             rpc_endpoint: self.rpc_endpoint,
             timeout: self.timeout,
         }
+    }
+}
+
+impl<T> ToRpcParams for RpcRequest<T> {
+    fn to_rpc_params(self) -> Result<Option<Box<serde_json::value::RawValue>>, serde_json::Error> {
+        Ok(Some(serde_json::value::to_raw_value(&self.params)?))
     }
 }

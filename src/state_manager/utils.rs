@@ -244,7 +244,7 @@ mod test {
 
 /// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
-    use crate::rpc_api::data_types::{ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
+    use crate::rpc::types::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
     use std::collections::VecDeque;
 
     use crate::shim::{
@@ -254,7 +254,6 @@ pub mod structured {
         kernel::SyscallError,
         trace::{Call, CallReturn, ExecutionEvent},
     };
-    use cid::Cid;
     use fvm_ipld_encoding::{ipld_block::IpldBlock, RawBytes};
     use itertools::Either;
 
@@ -374,7 +373,7 @@ pub mod structured {
         ) -> Result<ExecutionTrace, BuildExecutionTraceError> {
             let mut gas_charges = vec![];
             let mut subcalls = vec![];
-            let mut code_cid = Default::default();
+            let mut actor_trace = None;
 
             // we don't use a for loop over `events` so we can pass them to recursive calls
             while let Some(event) = events.pop_front() {
@@ -392,9 +391,12 @@ pub mod structured {
                     ExecutionEvent::CallError(e) => Some(CallTreeReturn::Error(e)),
                     ExecutionEvent::Log(_ignored) => None,
                     ExecutionEvent::InvokeActor(cid) => {
-                        code_cid = match cid {
-                            Either::Left(cid) => cid,
-                            Either::Right(actor) => actor.state.code,
+                        actor_trace = match cid {
+                            Either::Left(_cid) => None,
+                            Either::Right(actor) => Some(ActorTrace {
+                                id: actor.id,
+                                state: actor.state,
+                            }),
                         };
                         None
                     }
@@ -409,10 +411,11 @@ pub mod structured {
                 // commonise the return branch
                 if let Some(ret) = found_return {
                     return Ok(ExecutionTrace {
-                        msg: to_message_trace(call, code_cid),
+                        msg: to_message_trace(call),
                         msg_rct: to_return_trace(ret),
                         gas_charges,
                         subcalls,
+                        invoked_actor: actor_trace,
                     });
                 }
             }
@@ -421,7 +424,7 @@ pub mod structured {
         }
     }
 
-    fn to_message_trace(call: Call, code_cid: Cid) -> MessageTrace {
+    fn to_message_trace(call: Call) -> MessageTrace {
         let (bytes, codec) = to_bytes_codec(call.params);
         MessageTrace {
             from: Address::new_id(call.from),
@@ -432,7 +435,6 @@ pub mod structured {
             params_codec: codec,
             gas_limit: call.gas_limit,
             read_only: call.read_only,
-            code_cid,
         }
     }
 
