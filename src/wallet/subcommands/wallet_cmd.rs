@@ -31,6 +31,145 @@ use num::Zero as _;
 
 use crate::cli::humantoken::TokenAmountPretty as _;
 
+struct WalletBackend {
+    pub remote: ApiInfo,
+    pub local: Option<KeyStore>,
+}
+
+impl WalletBackend {
+    fn new_remote(api: ApiInfo) -> Self {
+        WalletBackend {
+            remote: api,
+            local: None,
+        }
+    }
+
+    fn new_local(api: ApiInfo) -> anyhow::Result<Self> {
+        let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
+            bail!("Failed to find wallet directory");
+        };
+        // FIXME: Support encrypted wallets
+        let keystore = KeyStore::new(KeyStoreConfig::Persistent(dir.data_dir().to_path_buf()))?;
+
+        Ok(WalletBackend {
+            remote: api,
+            local: Some(keystore),
+        })
+    }
+
+    async fn list_addrs(&self) -> anyhow::Result<Vec<Address>> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::list_addrs(keystore)?)
+        } else {
+            Ok(self.remote.wallet_list().await?)
+        }
+    }
+
+    async fn wallet_export(&self, address: Address) -> anyhow::Result<KeyInfo> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::export_key_info(&address, &keystore)?)
+        } else {
+            Ok(self.remote.wallet_export(address.to_string()).await?)
+        }
+    }
+
+    async fn wallet_import(&mut self, key_info: KeyInfo) -> anyhow::Result<String> {
+        if let Some(keystore) = &mut self.local {
+            let key = Key::try_from(key_info)?;
+            let addr = format!("wallet-{}", key.address);
+
+            keystore.put(&addr, key.key_info)?;
+            Ok(key.address.to_string())
+        } else {
+            Ok(self.remote.wallet_import(vec![key_info]).await?)
+        }
+    }
+
+    async fn wallet_has(&self, address: Address) -> anyhow::Result<bool> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::find_key(&address, &keystore).is_ok())
+        } else {
+            Ok(self.remote.wallet_has(address.to_string()).await?)
+        }
+    }
+
+    async fn wallet_delete(&mut self, address: Address) -> anyhow::Result<()> {
+        if let Some(keystore) = &mut self.local {
+            Ok(crate::key_management::remove_key(&address, keystore)?)
+        } else {
+            Ok(self.remote.wallet_delete(address.to_string()).await?)
+        }
+    }
+
+    async fn wallet_new(&mut self, signature_type: SignatureType) -> anyhow::Result<String> {
+        if let Some(keystore) = &mut self.local {
+            let key = crate::key_management::generate_key(signature_type)?;
+
+            let addr = format!("wallet-{}", key.address);
+            keystore.put(&addr, key.key_info.clone())?;
+            let value = keystore.get("default");
+            if value.is_err() {
+                keystore.put("default", key.key_info)?
+            }
+
+            Ok(key.address.to_string())
+        } else {
+            Ok(self.remote.wallet_new(signature_type).await?)
+        }
+    }
+
+    async fn wallet_default_address(&self) -> anyhow::Result<Option<String>> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::get_default(&keystore)?.map(|s| s.to_string()))
+        } else {
+            Ok(self.remote.wallet_default_address().await?)
+        }
+    }
+
+    async fn wallet_set_default(&mut self, address: Address) -> anyhow::Result<()> {
+        if let Some(ref mut keystore) = &mut self.local {
+            let addr_string = format!("wallet-{}", address);
+            let key_info = keystore.get(&addr_string)?;
+            keystore.remove("default")?; // This line should unregister current default key then continue
+            keystore.put("default", key_info)?;
+            Ok(())
+        } else {
+            Ok(self.remote.wallet_set_default(address).await?)
+        }
+    }
+
+    async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
+        if let Some(keystore) = &self.local {
+            let key = crate::key_management::find_key(&address, &keystore)?;
+
+            Ok(crate::key_management::sign(
+                *key.key_info.key_type(),
+                key.key_info.private_key(),
+                &BASE64_STANDARD.decode(message)?,
+            )?)
+        } else {
+            Ok(self
+                .remote
+                .wallet_sign(address, message.into_bytes())
+                .await?)
+        }
+    }
+
+    async fn wallet_verify(
+        &self,
+        address: Address,
+        msg: Vec<u8>,
+        signature: Signature,
+    ) -> anyhow::Result<bool> {
+        if self.local.is_some() {
+            Ok(signature.verify(&msg, &address).is_ok())
+        } else {
+            // Relying on a remote server to validate signatures is not secure but it's useful for testing.
+            Ok(self.remote.wallet_verify(address, msg, signature).await?)
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
     /// Create a new wallet
@@ -130,15 +269,10 @@ pub enum WalletCommands {
 }
 impl WalletCommands {
     pub async fn run(self, api: ApiInfo, remote_wallet: bool) -> anyhow::Result<()> {
-        let local_keystore = if !remote_wallet {
-            let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
-                bail!("Failed to find wallet directory");
-            };
-            // FIXME: Support encrypted wallets
-            let keystore = KeyStore::new(KeyStoreConfig::Persistent(dir.data_dir().to_path_buf()))?;
-            Some(keystore)
+        let mut backend = if remote_wallet {
+            WalletBackend::new_remote(api)
         } else {
-            None
+            WalletBackend::new_local(api)?
         };
         match self {
             Self::New { signature_type } => {
@@ -147,35 +281,20 @@ impl WalletCommands {
                     _ => SignatureType::Bls,
                 };
 
-                let addr = if let Some(mut keystore) = local_keystore {
-                    let key = crate::key_management::generate_key(signature_type)?;
-
-                    let addr = format!("wallet-{}", key.address);
-                    keystore.put(&addr, key.key_info.clone())?;
-                    let value = keystore.get("default");
-                    if value.is_err() {
-                        keystore.put("default", key.key_info)?
-                    }
-
-                    key.address.to_string()
-                } else {
-                    api.wallet_new(signature_type).await?
-                };
+                let addr = backend.wallet_new(signature_type).await?;
                 println!("{addr}");
                 Ok(())
             }
             Self::Balance { address } => {
-                let balance = api.wallet_balance(address.to_string()).await?;
+                let balance = backend.remote.wallet_balance(address.to_string()).await?;
                 println!("{balance}");
                 Ok(())
             }
             Self::Default => {
-                let default_addr = if let Some(keystore) = local_keystore {
-                    crate::key_management::get_default(&keystore)?.map(|s| s.to_string())
-                } else {
-                    api.wallet_default_address().await?
-                }
-                .context("No default wallet address set")?;
+                let default_addr = backend
+                    .wallet_default_address()
+                    .await?
+                    .context("No default wallet address set")?;
                 println!("{default_addr}");
                 Ok(())
             }
@@ -185,11 +304,7 @@ impl WalletCommands {
                 let StrictAddress(address) = StrictAddress::from_str(&address_string)
                     .with_context(|| format!("Invalid address: {address_string}"))?;
 
-                let key_info = if let Some(keystore) = local_keystore {
-                    crate::key_management::export_key_info(&address, &keystore)?
-                } else {
-                    api.wallet_export(address.to_string()).await?
-                };
+                let key_info = backend.wallet_export(address).await?;
 
                 let encoded_key = serde_json::to_string(&LotusJson(key_info))?;
                 println!("{}", hex::encode(encoded_key));
@@ -199,23 +314,14 @@ impl WalletCommands {
                 let StrictAddress(address) = StrictAddress::from_str(&key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
-                let response = if let Some(keystore) = local_keystore {
-                    crate::key_management::find_key(&address, &keystore).is_ok()
-                } else {
-                    api.wallet_has(address.to_string()).await?
-                };
-                println!("{response}");
+                println!("{response}", response = backend.wallet_has(address).await?);
                 Ok(())
             }
             Self::Delete { address } => {
                 let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
 
-                if let Some(mut keystore) = local_keystore {
-                    crate::key_management::remove_key(&address, &mut keystore)?;
-                } else {
-                    api.wallet_delete(address.to_string()).await?;
-                }
+                backend.wallet_delete(address).await?;
                 println!("deleted {address}.");
                 Ok(())
             }
@@ -242,15 +348,7 @@ impl WalletCommands {
                 let LotusJson(key_info) = serde_json::from_str::<LotusJson<KeyInfo>>(key_str)
                     .context("invalid key format")?;
 
-                let key = if let Some(mut keystore) = local_keystore {
-                    let key = Key::try_from(key_info)?;
-                    let addr = format!("wallet-{}", key.address);
-
-                    keystore.put(&addr, key.key_info)?;
-                    key.address.to_string()
-                } else {
-                    api.wallet_import(vec![key_info]).await?
-                };
+                let key = backend.wallet_import(key_info).await?;
 
                 println!("{key}");
                 Ok(())
@@ -259,23 +357,15 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let response = if let Some(keystore) = &local_keystore {
-                    crate::key_management::list_addrs(keystore)?
-                } else {
-                    api.wallet_list().await?
-                };
+                let key_pairs = backend.list_addrs().await?;
 
-                let default = if let Some(keystore) = &local_keystore {
-                    crate::key_management::get_default(keystore)?.map(|s| s.to_string())
-                } else {
-                    api.wallet_default_address().await?
-                };
+                let default = backend.wallet_default_address().await?;
 
                 let (title_address, title_default_mark, title_balance) =
                     ("Address", "Default", "Balance");
                 println!("{title_address:41} {title_default_mark:7} {title_balance}");
 
-                for address in response {
+                for address in key_pairs {
                     let addr = address.to_string();
                     let default_address_mark = if default.as_ref() == Some(&addr) {
                         "X"
@@ -283,7 +373,7 @@ impl WalletCommands {
                         ""
                     };
 
-                    let balance_string = api.wallet_balance(addr.clone()).await?;
+                    let balance_string = backend.remote.wallet_balance(addr.clone()).await?;
 
                     let balance_token_amount =
                         TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
@@ -307,15 +397,7 @@ impl WalletCommands {
                 let StrictAddress(key) = StrictAddress::from_str(&key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
-                if let Some(mut keystore) = local_keystore {
-                    let addr_string = format!("wallet-{}", key);
-                    let key_info = keystore.get(&addr_string)?;
-                    keystore.remove("default")?; // This line should unregister current default key then continue
-                    keystore.put("default", key_info)?;
-                } else {
-                    api.wallet_set_default(key).await?;
-                }
-                Ok(())
+                backend.wallet_set_default(key).await
             }
             Self::Sign { address, message } => {
                 let StrictAddress(address) = StrictAddress::from_str(&address)
@@ -324,22 +406,15 @@ impl WalletCommands {
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = BASE64_STANDARD.encode(message);
 
-                let signature = if let Some(keystore) = local_keystore {
-                    let key = crate::key_management::find_key(&address, &keystore)?;
-
-                    crate::key_management::sign(
-                        *key.key_info.key_type(),
-                        key.key_info.private_key(),
-                        &BASE64_STANDARD.decode(message)?,
-                    )?
-                } else {
-                    api.wallet_sign(address, message.into_bytes()).await?
-                };
+                let signature = backend.wallet_sign(address, message).await?;
                 println!("{}", hex::encode(signature.bytes()));
                 Ok(())
             }
             Self::ValidateAddress { address } => {
-                let response = api.wallet_validate_address(address.to_string()).await?;
+                let response = backend
+                    .remote
+                    .wallet_validate_address(address.to_string())
+                    .await?;
                 println!("{response}");
                 Ok(())
             }
@@ -359,14 +434,9 @@ impl WalletCommands {
                 };
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
-                let response = if !remote_wallet {
-                    signature.verify(&msg, &address).is_ok()
-                } else {
-                    // Relying on a remote server to validate signatures is not secure but it's useful for testing.
-                    api.wallet_verify(address, msg, signature).await?
-                };
+                let is_valid = backend.wallet_verify(address, msg, signature).await?;
 
-                println!("{response}");
+                println!("{is_valid}");
                 Ok(())
             }
             Self::Send {
@@ -380,16 +450,9 @@ impl WalletCommands {
                 let from: Address = if let Some(from) = from {
                     StrictAddress::from_str(&from)?.into()
                 } else {
-                    StrictAddress::from_str(
-                        &if let Some(keystore) = &local_keystore {
-                            crate::key_management::get_default(keystore)?.map(|s| s.to_string())
-                        } else {
-                            api.wallet_default_address().await?
-                        }
-                        .context(
-                            "No default wallet address selected. Please set a default address.",
-                        )?,
-                    )?
+                    StrictAddress::from_str(&backend.wallet_default_address().await?.context(
+                        "No default wallet address selected. Please set a default address.",
+                    )?)?
                     .into()
                 };
 
@@ -405,9 +468,10 @@ impl WalletCommands {
                     ..Default::default()
                 };
 
-                let signed_msg = if let Some(keystore) = local_keystore {
+                let signed_msg = if let Some(keystore) = &backend.local {
                     let spec = None;
-                    let mut message = api
+                    let mut message = backend
+                        .remote
                         .gas_estimate_message_gas(message, spec, ApiTipsetKey(None))
                         .await?;
 
@@ -415,7 +479,7 @@ impl WalletCommands {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    message.sequence = api.mpool_get_nonce(from).await?;
+                    message.sequence = backend.remote.mpool_get_nonce(from).await?;
 
                     let key = crate::key_management::find_key(&from, &keystore)?;
                     let sig = crate::key_management::sign(
@@ -425,10 +489,10 @@ impl WalletCommands {
                     )?;
 
                     let smsg = SignedMessage::new_from_parts(message, sig)?;
-                    api.mpool_push(smsg.clone()).await?;
+                    backend.remote.mpool_push(smsg.clone()).await?;
                     smsg
                 } else {
-                    api.mpool_push_message(message, None).await?
+                    backend.remote.mpool_push_message(message, None).await?
                 };
 
                 println!("{}", signed_msg.cid().unwrap());
