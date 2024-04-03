@@ -6,7 +6,9 @@ use std::{
     str::{self, FromStr},
 };
 
-use crate::{cli::humantoken, message::SignedMessage, shim::address::Address};
+use crate::{
+    cli::humantoken, message::SignedMessage, rpc::types::ApiTipsetKey, shim::address::Address,
+};
 use crate::{key_management::Key, utils::io::read_file_to_string};
 use crate::{key_management::KeyInfo, rpc_client::ApiInfo};
 use crate::{lotus_json::LotusJson, KeyStore};
@@ -405,8 +407,9 @@ impl WalletCommands {
 
                 let signed_msg = if let Some(keystore) = local_keystore {
                     let spec = None;
-                    let tsk = Default::default();
-                    let mut message = api.gas_estimate_message_gas(message, spec, tsk).await?;
+                    let mut message = api
+                        .gas_estimate_message_gas(message, spec, ApiTipsetKey(None))
+                        .await?;
 
                     if message.gas_premium > message.gas_fee_cap {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")

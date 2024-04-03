@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
-    blocks::TipsetKey,
-    rpc_api::{data_types::MessageSendSpec, gas_api::*},
+    rpc::{
+        gas_api::*,
+        types::{ApiTipsetKey, MessageSendSpec},
+    },
     shim::message::Message,
 };
 
@@ -13,7 +15,7 @@ impl ApiInfo {
     pub fn gas_estimate_message_gas_req(
         msg: Message,
         spec: Option<MessageSendSpec>,
-        tsk: TipsetKey,
+        tsk: ApiTipsetKey,
     ) -> RpcRequest<Message> {
         RpcRequest::new(GAS_ESTIMATE_MESSAGE_GAS, (msg, spec, tsk))
     }
@@ -22,7 +24,7 @@ impl ApiInfo {
         &self,
         msg: Message,
         spec: Option<MessageSendSpec>,
-        tsk: TipsetKey,
+        tsk: ApiTipsetKey,
     ) -> Result<Message, JsonRpcError> {
         self.call(Self::gas_estimate_message_gas_req(msg, spec, tsk))
             .await
