@@ -1,5 +1,3 @@
-//! This module aims to support making JSON-RPC calls.
-//!
 //! # Design Goals
 //! - use [`jsonrpsee`] clients and primitives.
 //! - Support different call formats
@@ -8,29 +6,125 @@
 //! - Support different
 //!   - endpoint paths ("v0", "v1").
 //!   - communication protocols ("ws", "http").
-//! - Pool appropriately, making it suitable as a global client.
 //! - Support per-request timeouts.
 
-use std::fmt::{self, Debug, Display};
-use std::sync::Arc;
+use std::fmt::{self, Debug};
 use std::time::Duration;
 
 use http0::{header, HeaderMap, HeaderValue};
+use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;
 use libp2p::multiaddr::Protocol;
 use libp2p::Multiaddr;
 use serde::de::DeserializeOwned;
-use tracing::debug;
+use tracing::{debug, Instrument};
 use url::Url;
 
+use super::ApiVersion;
+
+/// A JSON-RPC client that can dispatch either a [`crate::rpc_client::RpcRequest`]
+/// or a [`crate::rpc::RpcMethod`] to a single URL.
 pub struct Client {
+    /// SHOULD end in a slash, due to our use of [`Url::join`].
     base_url: Url,
-    clients: Arc<cachemap2::CacheMap<Url, OneClient>>,
+    token: Option<String>,
+    // just having these versions inline is easier than using a map
+    v0: tokio::sync::OnceCell<OneClient>,
+    v1: tokio::sync::OnceCell<OneClient>,
+}
+
+impl Client {
+    pub fn new(base_url: Url, token: impl Into<Option<String>>) -> Self {
+        Self {
+            base_url,
+            token: token.into(),
+            v0: Default::default(),
+            v1: Default::default(),
+        }
+    }
+    pub async fn call<T: crate::lotus_json::HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: crate::rpc_client::RpcRequest<T>,
+    ) -> Result<T, ClientError> {
+        let crate::rpc_client::RpcRequest {
+            method_name,
+            params,
+            api_version,
+            timeout,
+            ..
+        } = req;
+
+        let client = self.get_or_init_client(api_version).await?;
+        let span = tracing::debug_span!("request", method = %method_name, url = %client.url);
+        let work = async {
+            // jsonrpsee's clients have a global `timeout`, but not a per-request timeout, which
+            // RpcRequest expects.
+            // So shim in our own timeout
+            let result_or_timeout = tokio::time::timeout(
+                timeout,
+                match params {
+                    serde_json::Value::Null => {
+                        client.request::<T::LotusJson, _>(method_name, ArrayParams::new())
+                    }
+                    serde_json::Value::Array(it) => {
+                        let mut params = ArrayParams::new();
+                        for param in it {
+                            params.insert(param)?
+                        }
+                        client.request(method_name, params)
+                    }
+                    serde_json::Value::Object(it) => {
+                        let mut params = ObjectParams::new();
+                        for (name, param) in it {
+                            params.insert(&name, param)?
+                        }
+                        client.request(method_name, params)
+                    }
+                    prim @ (serde_json::Value::Bool(_)
+                    | serde_json::Value::Number(_)
+                    | serde_json::Value::String(_)) => {
+                        return Err(ClientError::Custom(format!(
+                            "invalid parameter type: `{}`",
+                            prim
+                        )))
+                    }
+                },
+            )
+            .await;
+            let result = match result_or_timeout {
+                Ok(Ok(it)) => Ok(T::from_lotus_json(it)),
+                Ok(Err(e)) => Err(e),
+                Err(_) => Err(ClientError::RequestTimeout),
+            };
+            debug!(?result);
+            result
+        };
+        work.instrument(span.or_current()).await
+    }
+    async fn get_or_init_client(&self, version: ApiVersion) -> Result<&OneClient, ClientError> {
+        match version {
+            ApiVersion::V0 => &self.v0,
+            ApiVersion::V1 => &self.v1,
+        }
+        .get_or_try_init(|| async {
+            let url = self
+                .base_url
+                .join(match version {
+                    ApiVersion::V0 => "rpc/v0",
+                    ApiVersion::V1 => "rpc/v1",
+                })
+                .map_err(|it| {
+                    ClientError::Custom(format!("creating url for endpoint failed: {}", it))
+                })?;
+            OneClient::new(url, self.token.clone()).await
+        })
+        .await
+    }
 }
 
 /// Represents a single, persistent connection to a url over which requests can
-/// be made.
+/// be made using [`jsonrpsee`] primitives.
 struct OneClient {
     url: Url,
     inner: OneClientInner,
@@ -45,21 +139,7 @@ impl Debug for OneClient {
 }
 
 impl OneClient {
-    async fn from_multiaddr_with_path(
-        multiaddr: &Multiaddr,
-        path: impl Display,
-        token: impl Into<Option<String>>,
-    ) -> Result<Self, ClientError> {
-        let Some(mut it) = multiaddr2url(&multiaddr) else {
-            return Err(ClientError::Custom(format!(
-                "Couldn't convert multiaddr `{}` to URL",
-                multiaddr
-            )));
-        };
-        it.set_path(&path.to_string());
-        Self::from_url(it, token).await
-    }
-    async fn from_url(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
+    async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
         let timeout = Duration::MAX; // we handle timeouts ourselves.
         let headers = match token.into() {
             Some(it) => HeaderMap::from_iter([(
@@ -73,7 +153,7 @@ impl OneClient {
                     }
                 },
             )]),
-            None => Default::default(),
+            None => HeaderMap::new(),
         };
         let inner = match url.scheme() {
             "ws" | "wss" => OneClientInner::Ws(

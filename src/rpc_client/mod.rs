@@ -293,7 +293,7 @@ fn multiaddress_to_url(
 pub struct RpcRequest<T = serde_json::Value> {
     pub method_name: &'static str,
     pub params: serde_json::Value,
-    pub result_type: PhantomData<T>,
+    result_type: PhantomData<T>,
     pub api_version: ApiVersion,
     pub timeout: Duration,
 }
