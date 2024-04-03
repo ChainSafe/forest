@@ -3,6 +3,7 @@
 
 mod auth_layer;
 mod channel;
+mod client;
 
 // API handlers
 pub mod auth_api;

@@ -285,10 +285,10 @@ fn multiaddress_to_url(
 #[derive(Debug, Clone)]
 pub struct RpcRequest<T = serde_json::Value> {
     pub method_name: &'static str,
-    params: serde_json::Value,
-    result_type: PhantomData<T>,
-    rpc_endpoint: &'static str,
-    timeout: Duration,
+    pub params: serde_json::Value,
+    pub result_type: PhantomData<T>,
+    pub rpc_endpoint: &'static str,
+    pub timeout: Duration,
 }
 
 impl<T> RpcRequest<T> {

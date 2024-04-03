@@ -33,6 +33,7 @@ boa_parser = "0.18"
 boa_runtime = "0.18"
 byteorder = "1.5.0"
 bytes = "1.2"
+cachemap2 = "0.3.0"
 cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }
 cfg-if = "1"
 cfg-vis = "0.3.0"
@@ -93,7 +94,7 @@ indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22", features = ["server", "ws-client"] }
+jsonrpsee = { version = "0.22.2", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
