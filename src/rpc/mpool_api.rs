@@ -19,17 +19,15 @@ use ahash::{HashSet, HashSetExt};
 use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
 
-pub fn register(
+pub fn register_all(
     module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
 ) {
     MpoolGetNonce::register(module);
     MpoolPending::register(module);
     MpoolPush::register(module);
+    MpoolPushMessage::register(module);
 }
-
-pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
 
 /// Gets next nonce for the specified sender.
 pub enum MpoolGetNonce {}
@@ -135,55 +133,58 @@ impl RpcMethod<1> for MpoolPush {
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
-pub async fn mpool_push_message<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<SignedMessage>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((umsg, spec)): LotusJson<(Message, Option<MessageSendSpec>)> = params.parse()?;
+pub enum MpoolPushMessage {}
+impl RpcMethod<2> for MpoolPushMessage {
+    const NAME: &'static str = "Filecoin.MpoolPushMessage";
+    const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
+    type Params = (LotusJson<Message>, Option<MessageSendSpec>);
+    type Ok = LotusJson<SignedMessage>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(umsg), spec): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let from = umsg.from;
 
-    let from = umsg.from;
+        let mut keystore = ctx.keystore.as_ref().write().await;
+        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let key_addr = ctx
+            .state_manager
+            .resolve_to_key_addr(&from, &heaviest_tipset)
+            .await?;
 
-    let mut keystore = data.keystore.as_ref().write().await;
-    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
-    let key_addr = data
-        .state_manager
-        .resolve_to_key_addr(&from, &heaviest_tipset)
-        .await?;
+        if umsg.sequence != 0 {
+            return Err(anyhow::anyhow!(
+                "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
+            )
+            .into());
+        }
+        let mut umsg = estimate_message_gas(&ctx, umsg, spec, Default::default()).await?;
+        if umsg.gas_premium > umsg.gas_fee_cap {
+            return Err(anyhow::anyhow!(
+                "After estimation, gas premium is greater than gas fee cap"
+            )
+            .into());
+        }
 
-    if umsg.sequence != 0 {
-        return Err(anyhow::anyhow!(
-            "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
-        )
-        .into());
+        if from.protocol() == Protocol::ID {
+            umsg.from = key_addr;
+        }
+        let nonce = ctx.mpool.get_sequence(&from)?;
+        umsg.sequence = nonce;
+        let key = crate::key_management::Key::try_from(crate::key_management::try_find(
+            &key_addr,
+            &mut keystore,
+        )?)?;
+        let sig = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            umsg.cid().unwrap().to_bytes().as_slice(),
+        )?;
+
+        let smsg = SignedMessage::new_from_parts(umsg, sig)?;
+
+        ctx.mpool.as_ref().push(smsg.clone()).await?;
+
+        Ok(smsg.into())
     }
-    let mut umsg = estimate_message_gas::<DB>(&data, umsg, spec, Default::default()).await?;
-    if umsg.gas_premium > umsg.gas_fee_cap {
-        return Err(
-            anyhow::anyhow!("After estimation, gas premium is greater than gas fee cap").into(),
-        );
-    }
-
-    if from.protocol() == Protocol::ID {
-        umsg.from = key_addr;
-    }
-    let nonce = data.mpool.get_sequence(&from)?;
-    umsg.sequence = nonce;
-    let key = crate::key_management::Key::try_from(crate::key_management::try_find(
-        &key_addr,
-        &mut keystore,
-    )?)?;
-    let sig = crate::key_management::sign(
-        *key.key_info.key_type(),
-        key.key_info.private_key(),
-        umsg.cid().unwrap().to_bytes().as_slice(),
-    )?;
-
-    let smsg = SignedMessage::new_from_parts(umsg, sig)?;
-
-    data.mpool.as_ref().push(smsg.clone()).await?;
-
-    Ok(smsg.into())
 }

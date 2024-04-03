@@ -28,7 +28,7 @@ impl ApiInfo {
         message: Message,
         specs: Option<MessageSendSpec>,
     ) -> RpcRequest<SignedMessage> {
-        RpcRequest::new(MPOOL_PUSH_MESSAGE, (message, specs))
+        RpcRequest::new(MpoolPushMessage::NAME, (message, specs))
     }
 
     pub async fn mpool_pending(&self, cids: Vec<Cid>) -> Result<Vec<SignedMessage>, JsonRpcError> {
