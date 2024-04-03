@@ -548,8 +548,15 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     block.hash = block_hash;
     block.number = block_number;
     block.parent_hash = parent_cid.into();
-    block.timestamp = Uint64(tipset.block_headers()[0].timestamp);
-    block.base_fee_per_gas = BigInt(tipset.block_headers()[0].parent_base_fee.atto().clone());
+    block.timestamp = Uint64(tipset.block_headers().first().timestamp);
+    block.base_fee_per_gas = BigInt(
+        tipset
+            .block_headers()
+            .first()
+            .parent_base_fee
+            .atto()
+            .clone(),
+    );
     block.gas_used = Uint64(gas_used);
 
     Ok(block)
