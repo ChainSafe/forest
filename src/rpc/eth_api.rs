@@ -17,6 +17,7 @@ use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::crypto::Signature;
+use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
 use cid::{
@@ -234,6 +235,15 @@ pub struct Block {
     // can be Vec<Tx> or Vec<String> depending on query params
     pub transactions: String,
     pub uncles: Vec<Hash>,
+}
+
+impl Block {
+    pub fn new() -> Self {
+        Self {
+            gas_limit: Uint64(BLOCK_GAS_LIMIT),
+            ..Default::default()
+        }
+    }
 }
 
 lotus_json_with_self!(Block);
@@ -534,7 +544,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         // TODO: build tx and push to block transactions
     }
 
-    let mut block = Block::default();
+    let mut block = Block::new();
     block.hash = block_hash;
     block.number = block_number;
     block.parent_hash = parent_cid.into();
