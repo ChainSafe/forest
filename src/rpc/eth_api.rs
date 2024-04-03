@@ -51,6 +51,9 @@ const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
 
 const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
 
+/// Keccak-256 of an RLP of an empty array
+const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 
@@ -253,6 +256,7 @@ impl Block {
         Self {
             gas_limit: Uint64(BLOCK_GAS_LIMIT),
             logs_bloom: Bloom(ethereum_types::Bloom(FULL_BLOOM)),
+            sha3_uncles: Hash(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap()),
             ..Default::default()
         }
     }
