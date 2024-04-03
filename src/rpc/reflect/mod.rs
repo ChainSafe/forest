@@ -62,8 +62,8 @@ pub trait RpcMethod<const ARITY: usize> {
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
-    /// URL endpoint that this method can be called at.
-    const URL_ENDPOINT: UrlEndpoint;
+    /// See [`ApiVersion`].
+    const API_VERSION: ApiVersion;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
@@ -75,11 +75,16 @@ pub trait RpcMethod<const ARITY: usize> {
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
 }
 
-/// Path that a method can be called at.
+/// Lotus groups methods into API versions.
 ///
-/// Corresponds to e.g `rpc/v0` or `rpc/v1`.
-pub enum UrlEndpoint {
+/// These are significant because they are expressed in the URL path against which
+/// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
+///
+/// This information is important when using [`crate::rpc::client`].
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ApiVersion {
     V0,
+    V1,
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify

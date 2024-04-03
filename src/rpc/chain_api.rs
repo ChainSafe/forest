@@ -17,7 +17,7 @@ use crate::message::ChainMessage;
 use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
 use crate::rpc::{
     error::JsonRpcError,
-    reflect::{Ctx, RpcMethod, UrlEndpoint},
+    reflect::{ApiVersion, Ctx, RpcMethod},
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -393,7 +393,7 @@ pub enum ChainGetPath {}
 impl RpcMethod<2> for ChainGetPath {
     const NAME: &'static str = "Filecoin.ChainGetPath";
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
-    const URL_ENDPOINT: UrlEndpoint = UrlEndpoint::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
     type Ok = LotusJson<Vec<PathChange>>;
 

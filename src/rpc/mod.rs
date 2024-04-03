@@ -22,7 +22,7 @@ pub mod wallet_api;
 // Other RPC-specific modules
 pub use error::JsonRpcError;
 use reflect::Ctx;
-pub use reflect::{RpcMethod, RpcMethodExt};
+pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;

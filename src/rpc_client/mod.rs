@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
+use crate::rpc::ApiVersion;
 pub use crate::rpc::JsonRpcError;
 use crate::utils::net::global_http_client;
 use jsonrpsee::{
@@ -100,7 +101,7 @@ impl ApiInfo {
 
         let api_url = multiaddress_to_url(
             &self.multiaddr,
-            req.rpc_endpoint,
+            req.api_version,
             CommunicationProtocol::Http,
         )
         .to_string();
@@ -167,7 +168,7 @@ impl ApiInfo {
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
         let api_url =
-            multiaddress_to_url(&self.multiaddr, req.rpc_endpoint, CommunicationProtocol::Ws);
+            multiaddress_to_url(&self.multiaddr, req.api_version, CommunicationProtocol::Ws);
         debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
         let ws_client = WsClientBuilder::default()
             .request_timeout(req.timeout)
@@ -195,19 +196,21 @@ impl From<reqwest::Error> for JsonRpcError {
 }
 
 struct Url {
-    protocol: String,
-    port: u16,
+    scheme: String,
     host: String,
-    endpoint: String,
+    port: u16,
+    path: String,
 }
 
 impl fmt::Display for Url {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}://{}:{}/{}",
-            self.protocol, self.host, self.port, self.endpoint
-        )
+        let Self {
+            scheme,
+            host,
+            port,
+            path,
+        } = self;
+        write!(f, "{}://{}:{}/{}", scheme, host, port, path)
     }
 }
 
@@ -222,16 +225,20 @@ pub enum CommunicationProtocol {
 /// Parses a multi-address into a URL
 fn multiaddress_to_url(
     multiaddr: &Multiaddr,
-    endpoint: &str,
+    api_version: ApiVersion,
     protocol: CommunicationProtocol,
 ) -> Url {
+    let endpoint = match api_version {
+        ApiVersion::V0 => "rpc/v0",
+        ApiVersion::V1 => "rpc/v1",
+    };
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
         Url {
-            protocol: protocol.to_string(),
+            scheme: protocol.to_string(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
-            endpoint: endpoint.into(),
+            path: endpoint.into(),
         },
         |mut addr, protocol| {
             match protocol {
@@ -257,16 +264,16 @@ fn multiaddress_to_url(
                     addr.port = p;
                 }
                 Protocol::Http => {
-                    addr.protocol = "http".to_string();
+                    addr.scheme = "http".to_string();
                 }
                 Protocol::Https => {
-                    addr.protocol = "https".to_string();
+                    addr.scheme = "https".to_string();
                 }
                 Protocol::Ws(..) => {
-                    addr.protocol = "ws".to_string();
+                    addr.scheme = "ws".to_string();
                 }
                 Protocol::Wss(..) => {
-                    addr.protocol = "wss".to_string();
+                    addr.scheme = "wss".to_string();
                 }
                 _ => {}
             };
@@ -287,7 +294,7 @@ pub struct RpcRequest<T = serde_json::Value> {
     pub method_name: &'static str,
     pub params: serde_json::Value,
     pub result_type: PhantomData<T>,
-    pub rpc_endpoint: &'static str,
+    pub api_version: ApiVersion,
     pub timeout: Duration,
 }
 
@@ -301,7 +308,7 @@ impl<T> RpcRequest<T> {
                 ),
             ),
             result_type: PhantomData,
-            rpc_endpoint: "rpc/v0",
+            api_version: ApiVersion::V0,
             timeout: DEFAULT_TIMEOUT,
         }
     }
@@ -315,7 +322,7 @@ impl<T> RpcRequest<T> {
                 ),
             ),
             result_type: PhantomData,
-            rpc_endpoint: "rpc/v1",
+            api_version: ApiVersion::V1,
             timeout: DEFAULT_TIMEOUT,
         }
     }
@@ -335,7 +342,7 @@ impl<T> RpcRequest<T> {
             method_name: self.method_name,
             params: self.params,
             result_type: PhantomData,
-            rpc_endpoint: self.rpc_endpoint,
+            api_version: self.api_version,
             timeout: self.timeout,
         }
     }
