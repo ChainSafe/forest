@@ -1,12 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::RpcMethod as _;
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
     auth_api, beacon_api, chain_api, common_api, eth_api, gas_api, mpool_api, net_api, node_api,
-    reflect::RpcMethod, state_api, sync_api, wallet_api, CANCEL_METHOD_NAME,
+    state_api, sync_api, wallet_api, RpcMethod as _, CANCEL_METHOD_NAME,
 };
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
