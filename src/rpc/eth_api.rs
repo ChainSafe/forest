@@ -9,13 +9,16 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
+use crate::message::ChainMessage;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
 use crate::rpc::Ctx;
+use crate::rpc_api::data_types::ApiReceipt;
 use crate::rpc_api::data_types::RPCSyncState;
 use crate::rpc_api::{eth_api::BigInt as EthBigInt, eth_api::*};
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
+use crate::rpc::chain_api::get_parent_receipts;
 use anyhow::{bail, Context, Result};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
@@ -164,4 +167,69 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Ok(ts)
         }
     }
+}
+
+pub async fn eth_get_block_by_hash<DB: Blockstore + Send + Sync + 'static>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<Block, JsonRpcError> {
+    todo!()
+}
+
+async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
+    data: Ctx<DB>,
+    tipset: Arc<Tipset>,
+) -> Result<(Hash, Vec<ChainMessage>, Vec<ApiReceipt>)> {
+    let msgs = data.chain_store.messages_for_tipset(&tipset)?;
+
+    let (state_root, receipt_root) = data.state_manager.tipset_state(&tipset).await?;
+
+    let receipts = get_parent_receipts(data, receipt_root).await?;
+
+    if msgs.len() != receipts.len() {
+        bail!(
+            "receipts and message array lengths didn't match for tipset: {:?}",
+            tipset
+        )
+    }
+
+    Ok((state_root.into(), msgs, receipts))
+}
+
+pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
+    data: Ctx<DB>,
+    tipset: Arc<Tipset>,
+    full_tx_info: bool,
+) -> Result<Block> {
+    let parent_cid = tipset.parents().cid()?;
+
+    let block_number = Uint64(tipset.epoch() as u64);
+
+    let tsk = tipset.key();
+    let block_cid = tsk.cid()?;
+    let block_hash: Hash = block_cid.into();
+
+    let (state_root, msgs, receipts) = execute_tipset(data, tipset).await?;
+
+    let mut block = Block::default();
+    block.parent_hash = parent_cid.into();
+
+    Ok(block)
+}
+
+pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<Block, JsonRpcError> {
+    let LotusJson((block_param, full_tx_info)): LotusJson<(BlockNumberOrHash, bool)> =
+        params.parse()?;
+
+    // dbg!(&block_param);
+    // dbg!(&full_tx_info);
+
+    let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
+
+    let block = block_from_filecoin_tipset(data, ts, full_tx_info).await?;
+
+    Ok(block)
 }

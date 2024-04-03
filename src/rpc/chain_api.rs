@@ -72,6 +72,58 @@ pub async fn chain_get_parent_messages<DB: Blockstore>(
     }
 }
 
+pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
+    data: Ctx<DB>,
+    message_receipts: Cid,
+) -> Result<Vec<ApiReceipt>> {
+    let store = data.state_manager.blockstore();
+
+    let mut receipts = Vec::new();
+
+    // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
+    if let Ok(amt) = Amt::<fvm_shared4::receipt::Receipt, _>::load(&message_receipts, store)
+        .map_err(|_| {
+            ErrorObjectOwned::owned::<()>(
+                1,
+                format!("failed to root: ipld: could not find {}", message_receipts),
+                None,
+            )
+        })
+    {
+        amt.for_each(|_, receipt| {
+            receipts.push(ApiReceipt {
+                exit_code: receipt.exit_code.into(),
+                return_data: receipt.return_data.clone(),
+                gas_used: receipt.gas_used,
+                events_root: receipt.events_root,
+            });
+            Ok(())
+        })?;
+    } else {
+        // Fallback to Receipt_v2.
+        let amt = Amt::<fvm_shared2::receipt::Receipt, _>::load(&message_receipts, store).map_err(
+            |_| {
+                ErrorObjectOwned::owned::<()>(
+                    1,
+                    format!("failed to root: ipld: could not find {}", message_receipts),
+                    None,
+                )
+            },
+        )?;
+        amt.for_each(|_, receipt| {
+            receipts.push(ApiReceipt {
+                exit_code: receipt.exit_code.into(),
+                return_data: receipt.return_data.clone(),
+                gas_used: receipt.gas_used as _,
+                events_root: None,
+            });
+            Ok(())
+        })?;
+    }
+
+    Ok(receipts)
+}
+
 pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,

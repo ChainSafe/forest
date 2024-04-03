@@ -328,6 +328,8 @@ where
     module.register_async_method(ETH_CHAIN_ID, |_, state| eth_chain_id::<DB>(state))?;
     module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
+    module.register_async_method(ETH_GET_BLOCK_BY_HASH, eth_get_block_by_hash::<DB>)?;
+    module.register_async_method(ETH_GET_BLOCK_BY_NUMBER, eth_get_block_by_number::<DB>)?;
     module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
 
     Ok(())

@@ -392,6 +392,8 @@ pub mod eth_api {
     pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
     pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
     pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
+    pub const ETH_GET_BLOCK_BY_HASH: &str = "Filecoin.EthGetBlockByHash";
+    pub const ETH_GET_BLOCK_BY_NUMBER: &str = "Filecoin.EthGetBlockByNumber";
     pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
 
     const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -406,7 +408,22 @@ pub mod eth_api {
 
     lotus_json_with_self!(BigInt);
 
-    #[derive(Debug, Deserialize, Serialize, Default, Clone)]
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+    pub struct Nonce(#[serde(with = "crate::lotus_json::hexify")] pub u64);
+
+    lotus_json_with_self!(Nonce);
+
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+    pub struct Uint64(#[serde(with = "crate::lotus_json::hexify")] pub u64);
+
+    lotus_json_with_self!(Uint64);
+
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+    pub struct Bytes(#[serde(with = "crate::lotus_json::hexify_vec_bytes")] pub Vec<u8>);
+
+    lotus_json_with_self!(Bytes);
+
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
     pub struct Address(
         #[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Address,
     );
@@ -446,7 +463,7 @@ pub mod eth_api {
         }
     }
 
-    #[derive(Default, Clone)]
+    #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
     pub struct Hash(pub ethereum_types::H256);
 
     impl Hash {
@@ -465,7 +482,17 @@ pub mod eth_api {
         }
     }
 
-    #[derive(Default, Clone)]
+    impl From<Cid> for Hash {
+        fn from(cid: Cid) -> Self {
+            Hash(ethereum_types::H256::from_slice(
+                &cid.hash().digest()[0..32],
+            ))
+        }
+    }
+
+    lotus_json_with_self!(Hash);
+
+    #[derive(Debug, Default, Clone)]
     pub enum Predefined {
         Earliest,
         Pending,
@@ -485,7 +512,7 @@ pub mod eth_api {
     }
 
     #[allow(dead_code)]
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub enum BlockNumberOrHash {
         PredefinedBlock(Predefined),
         BlockNumber(i64),
@@ -537,6 +564,59 @@ pub mod eth_api {
             Self::PredefinedBlock(Predefined::Latest)
         }
     }
+
+    #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Block {
+        pub hash: Hash,
+        pub parent_hash: Hash,
+        pub sha3_uncles: Hash,
+        pub miner: Address,
+        pub state_root: Hash,
+        pub transactions_root: Hash,
+        pub receipts_root: Hash,
+        pub logs_bloom: Bytes,
+        pub difficulty: Uint64,
+        pub total_difficulty: Uint64,
+        pub number: Uint64,
+        pub gas_limit: Uint64,
+        pub gas_used: Uint64,
+        pub timestamp: Uint64,
+        pub extra_data: Bytes,
+        pub mix_hash: Hash,
+        pub nonce: Nonce,
+        pub base_fee_per_gas: BigInt,
+        pub size: Uint64,
+        // can be Vec<Tx> or Vec<String> depending on query params
+        pub transactions: String,
+        pub uncles: Vec<Hash>,
+    }
+
+    lotus_json_with_self!(Block);
+
+    #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+    pub struct Tx {
+        pub chain_id: u64,
+        pub nonce: u64,
+        pub hash: Hash,
+        pub block_hash: Hash,
+        pub block_number: u64,
+        pub transaction_index: u64,
+        pub from: Address,
+        pub to: Address,
+        pub value: BigInt,
+        pub r#type: u64,
+        pub input: Vec<u8>,
+        pub gas: u64,
+        pub max_fee_per_gas: BigInt,
+        pub max_priority_fee_per_gas: BigInt,
+        pub access_list: Vec<Hash>,
+        pub v: BigInt,
+        pub r: BigInt,
+        pub s: BigInt,
+    }
+
+    lotus_json_with_self!(Tx);
 
     #[derive(Debug, Clone, Default)]
     pub struct EthSyncingResult {

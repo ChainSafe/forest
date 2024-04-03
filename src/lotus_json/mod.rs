@@ -319,6 +319,28 @@ pub mod hexify_bytes {
     }
 }
 
+pub mod hexify_vec_bytes {
+    use super::*;
+
+    pub fn serialize<S>(value: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let v: Vec<String> = value.iter().map(|b| format!("{:#x}", b)).collect();
+        serializer.serialize_str(&format!("0x{}", v.join("")))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let v: String = String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)?;
+        todo!()
+    }
+}
+
 /// Usage: `#[serde(with = "hexify")]`
 pub mod hexify {
     use super::*;
