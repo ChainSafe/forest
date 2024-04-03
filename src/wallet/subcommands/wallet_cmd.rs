@@ -31,6 +31,10 @@ use num::Zero as _;
 
 use crate::cli::humantoken::TokenAmountPretty as _;
 
+// Abstraction over local and remote wallets. A connection to a running Filecoin
+// node is always required for balance queries and for sending messages. When a
+// local wallet is available, no sensitive information will be sent to the
+// remote Filecoin node.
 struct WalletBackend {
     pub remote: ApiInfo,
     pub local: Option<KeyStore>,
