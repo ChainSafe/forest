@@ -26,9 +26,9 @@ pub fn register(
 ) {
     MpoolGetNonce::register(module);
     MpoolPending::register(module);
+    MpoolPush::register(module);
 }
 
-pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
 pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
 
 /// Gets next nonce for the specified sender.
@@ -119,18 +119,19 @@ impl RpcMethod<1> for MpoolPending {
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
-pub async fn mpool_push<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Cid>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((signed_message,)) = params.parse()?;
-
-    let cid = data.mpool.as_ref().push(signed_message).await?;
-
-    Ok(cid.into())
+pub enum MpoolPush {}
+impl RpcMethod<1> for MpoolPush {
+    const NAME: &'static str = "Filecoin.MpoolPush";
+    const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    type Params = (LotusJson<SignedMessage>,);
+    type Ok = LotusJson<Cid>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(msg),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let cid = ctx.mpool.as_ref().push(msg).await?;
+        Ok(cid.into())
+    }
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
