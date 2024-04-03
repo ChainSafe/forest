@@ -219,7 +219,6 @@ where
     module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
     // Message Pool API
-    module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;
     module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
     module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
     // Sync API

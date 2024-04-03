@@ -25,9 +25,9 @@ pub fn register(
     module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
 ) {
     MpoolGetNonce::register(module);
+    MpoolPending::register(module);
 }
 
-pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
 pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
 pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
 
@@ -47,73 +47,75 @@ impl RpcMethod<1> for MpoolGetNonce {
 }
 
 /// Return `Vec` of pending messages in `mpool`
-pub async fn mpool_pending<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+pub enum MpoolPending {}
+impl RpcMethod<1> for MpoolPending {
+    const NAME: &'static str = "Filecoin.MpoolPending";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    type Params = (LotusJson<ApiTipsetKey>,);
+    type Ok = LotusJson<Vec<SignedMessage>>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let mut ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
 
-    let mut ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+        let (mut pending, mpts) = ctx.mpool.pending()?;
 
-    let (mut pending, mpts) = data.mpool.pending()?;
+        let mut have_cids = HashSet::new();
+        for item in pending.iter() {
+            have_cids.insert(item.cid()?);
+        }
 
-    let mut have_cids = HashSet::new();
-    for item in pending.iter() {
-        have_cids.insert(item.cid()?);
-    }
+        if mpts.epoch() > ts.epoch() {
+            return Ok(pending.into_iter().collect::<Vec<_>>().into());
+        }
 
-    if mpts.epoch() > ts.epoch() {
-        return Ok(pending.into_iter().collect::<Vec<_>>().into());
-    }
+        loop {
+            if mpts.epoch() == ts.epoch() {
+                if mpts == ts {
+                    break;
+                }
 
-    loop {
-        if mpts.epoch() == ts.epoch() {
-            if mpts == ts {
-                break;
+                // mpts has different blocks than ts
+                let have = ctx
+                    .mpool
+                    .as_ref()
+                    .messages_for_blocks(ts.block_headers().iter())?;
+
+                for sm in have {
+                    have_cids.insert(sm.cid()?);
+                }
             }
 
-            // mpts has different blocks than ts
-            let have = data
+            let msgs = ctx
                 .mpool
                 .as_ref()
                 .messages_for_blocks(ts.block_headers().iter())?;
 
-            for sm in have {
-                have_cids.insert(sm.cid()?);
-            }
-        }
+            for m in msgs {
+                if have_cids.contains(&m.cid()?) {
+                    continue;
+                }
 
-        let msgs = data
-            .mpool
-            .as_ref()
-            .messages_for_blocks(ts.block_headers().iter())?;
-
-        for m in msgs {
-            if have_cids.contains(&m.cid()?) {
-                continue;
+                have_cids.insert(m.cid()?);
+                pending.push(m);
             }
 
-            have_cids.insert(m.cid()?);
-            pending.push(m);
-        }
+            if mpts.epoch() >= ts.epoch() {
+                break;
+            }
 
-        if mpts.epoch() >= ts.epoch() {
-            break;
+            ts = ctx
+                .state_manager
+                .chain_store()
+                .chain_index
+                .load_required_tipset(ts.parents())?;
         }
-
-        ts = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(ts.parents())?;
+        Ok(pending.into_iter().collect::<Vec<_>>().into())
     }
-    Ok(pending.into_iter().collect::<Vec<_>>().into())
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID

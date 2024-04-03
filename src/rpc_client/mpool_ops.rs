@@ -3,7 +3,7 @@
 
 use crate::{
     message::SignedMessage,
-    rpc::{mpool_api::*, types::MessageSendSpec, RpcMethod as _},
+    rpc::{mpool_api::*, types::MessageSendSpec, RpcMethod},
     shim::{address::Address, message::Message},
 };
 use cid::Cid;
@@ -36,6 +36,6 @@ impl ApiInfo {
     }
 
     pub fn mpool_pending_req(cids: Vec<Cid>) -> RpcRequest<Vec<SignedMessage>> {
-        RpcRequest::new(MPOOL_PENDING, (cids,))
+        RpcRequest::new(MpoolPending::NAME, (cids,))
     }
 }
