@@ -576,7 +576,11 @@ where
             // Otherwise in some conditions, `forest-cli sync wait` takes very long to exit (only when the node enters FOLLOW mode)
             match (
                 chain_store.heaviest_tipset().epoch(),
-                get_now_epoch(genesis_timestamp, block_delay as i64),
+                get_now_epoch(
+                    chrono::Utc::now().timestamp(),
+                    genesis_timestamp,
+                    block_delay as i64,
+                ),
             ) {
                 (local_epoch, now_epoch) if local_epoch >= now_epoch => {
                     return Ok(NetworkHeadEvaluation::InSync)
@@ -616,7 +620,11 @@ where
                     }
                 };
 
-                let now_epoch = get_now_epoch(genesis_timestamp, block_delay as i64);
+                let now_epoch = get_now_epoch(
+                    chrono::Utc::now().timestamp(),
+                    genesis_timestamp,
+                    block_delay as i64,
+                );
                 let is_block_valid = |block: &Block| -> bool {
                     let header = &block.header;
                     if !header.is_within_clock_drift() {
@@ -1019,9 +1027,6 @@ where
 // expectedHeight := int64(sinceGenesis.Seconds()) / int64(build.BlockDelaySecs)
 // ```
 // See <https://github.com/filecoin-project/lotus/blob/b27c861485695d3f5bb92bcb281abc95f4d90fb6/chain/sync.go#L180>
-fn get_now_epoch(genesis_timestamp: i64, block_delay: i64) -> i64 {
-    chrono::Utc::now()
-        .timestamp()
-        .saturating_sub(genesis_timestamp)
-        / block_delay
+fn get_now_epoch(now_timestamp: i64, genesis_timestamp: i64, block_delay: i64) -> i64 {
+    now_timestamp.saturating_sub(genesis_timestamp) / block_delay
 }
