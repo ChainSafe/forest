@@ -8,7 +8,7 @@ use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
-use crate::message::ChainMessage;
+use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::chain_api::get_parent_receipts;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
@@ -16,6 +16,7 @@ use crate::rpc::types::ApiReceipt;
 use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
 use crate::shim::address::Address as FilecoinAddress;
+use crate::shim::crypto::Signature;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
 use cid::{
@@ -54,7 +55,7 @@ pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::B
 lotus_json_with_self!(BigInt);
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Nonce(#[serde(with = "crate::lotus_json::hexify")] pub u64);
+pub struct Nonce(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::H64);
 
 lotus_json_with_self!(Nonce);
 
@@ -484,11 +485,11 @@ pub async fn eth_get_block_by_hash<DB: Blockstore + Send + Sync + 'static>(
 
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
-    tipset: Arc<Tipset>,
+    tipset: &Arc<Tipset>,
 ) -> Result<(Hash, Vec<ChainMessage>, Vec<ApiReceipt>)> {
     let msgs = data.chain_store.messages_for_tipset(&tipset)?;
 
-    let (state_root, receipt_root) = data.state_manager.tipset_state(&tipset).await?;
+    let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
 
     let receipts = get_parent_receipts(data, receipt_root).await?;
 
@@ -515,10 +516,31 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let block_cid = tsk.cid()?;
     let block_hash: Hash = block_cid.into();
 
-    let (state_root, msgs, receipts) = execute_tipset(data, tipset).await?;
+    let (state_root, msgs, receipts) = execute_tipset(data, &tipset).await?;
+
+    let mut gas_used = 0;
+    for (i, msg) in msgs.iter().enumerate() {
+        let receipt = receipts[i].clone();
+        let ti = Uint64(i as u64);
+        gas_used += receipt.gas_used;
+        let smsg = match msg {
+            ChainMessage::Signed(msg) => msg.clone(),
+            ChainMessage::Unsigned(msg) => {
+                let sig = Signature::new_bls(vec![]);
+                SignedMessage::new_unchecked(msg.clone(), sig)
+            }
+        };
+
+        // TODO: build tx and push to block transactions
+    }
 
     let mut block = Block::default();
+    block.hash = block_hash;
+    block.number = block_number;
     block.parent_hash = parent_cid.into();
+    block.timestamp = Uint64(tipset.block_headers()[0].timestamp);
+    block.base_fee_per_gas = BigInt(tipset.block_headers()[0].parent_base_fee.atto().clone());
+    block.gas_used = Uint64(gas_used);
 
     Ok(block)
 }
