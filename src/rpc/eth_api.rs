@@ -247,7 +247,7 @@ pub struct Block {
     pub base_fee_per_gas: BigInt,
     pub size: Uint64,
     // can be Vec<Tx> or Vec<String> depending on query params
-    pub transactions: String,
+    pub transactions: Vec<Tx>,
     pub uncles: Vec<Hash>,
 }
 
@@ -264,14 +264,15 @@ impl Block {
 
 lotus_json_with_self!(Block);
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Tx {
     pub chain_id: u64,
     pub nonce: u64,
     pub hash: Hash,
     pub block_hash: Hash,
-    pub block_number: u64,
-    pub transaction_index: u64,
+    pub block_number: Uint64,
+    pub transaction_index: Uint64,
     pub from: Address,
     pub to: Address,
     pub value: BigInt,
@@ -512,7 +513,7 @@ pub async fn eth_get_block_by_hash<DB: Blockstore + Send + Sync + 'static>(
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     tipset: &Arc<Tipset>,
-) -> Result<(Hash, Vec<ChainMessage>, Vec<ApiReceipt>)> {
+) -> Result<(Cid, Vec<ChainMessage>, Vec<ApiReceipt>)> {
     let msgs = data.chain_store.messages_for_tipset(&tipset)?;
 
     let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
@@ -526,7 +527,21 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
         )
     }
 
-    Ok((state_root.into(), msgs, receipts))
+    Ok((state_root, msgs, receipts))
+}
+
+pub fn tx_from_signed_message<S>(smsg: SignedMessage, state: &StateTree<S>) -> Result<Tx> {
+    let mut tx: Tx = Tx::default();
+
+    if smsg.is_delegated() {
+    } else if smsg.is_secp256k1() {
+        // Secp Filecoin Message
+        tx.hash = smsg.cid()?.into();
+    } else {
+        // BLS Filecoin message
+        tx.hash = smsg.message().cid()?.into();
+    }
+    Ok(tx)
 }
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
@@ -542,8 +557,11 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let block_cid = tsk.cid()?;
     let block_hash: Hash = block_cid.into();
 
-    let (state_root, msgs, receipts) = execute_tipset(data, &tipset).await?;
+    let (state_root, msgs, receipts) = execute_tipset(data.clone(), &tipset).await?;
 
+    let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
+
+    let mut transactions = vec![];
     let mut gas_used = 0;
     for (i, msg) in msgs.iter().enumerate() {
         let receipt = receipts[i].clone();
@@ -558,6 +576,16 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         };
 
         // TODO: build tx and push to block transactions
+        let mut tx = tx_from_signed_message(smsg, &state_tree)?;
+        tx.block_hash = block_hash.clone();
+        tx.block_number = block_number.clone();
+        tx.transaction_index = ti;
+
+        if full_tx_info {
+            transactions.push(tx);
+        } else {
+            // TODO: push in some other vector
+        }
     }
 
     let mut block = Block::new();
@@ -574,6 +602,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
             .clone(),
     );
     block.gas_used = Uint64(gas_used);
+    block.transactions = transactions;
 
     Ok(block)
 }
