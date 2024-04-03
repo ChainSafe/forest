@@ -4,34 +4,46 @@
 
 use std::convert::TryFrom;
 
+use super::gas_api::estimate_message_gas;
+use super::RPCState;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::Ctx;
-use crate::shim::{address::Protocol, message::Message};
-
+use crate::rpc::{reflect::SelfDescribingRpcModule, Ctx, RpcMethod, RpcMethodExt as _};
+use crate::shim::{
+    address::{Address, Protocol},
+    message::Message,
+};
 use ahash::{HashSet, HashSetExt};
 use anyhow::Result;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 
-use super::gas_api::estimate_message_gas;
+pub fn register(
+    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
+) {
+    MpoolGetNonce::register(module);
+}
 
-pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
 pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
 pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
 pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
 
 /// Gets next nonce for the specified sender.
-pub async fn mpool_get_nonce<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<u64, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((address,)) = params.parse()?;
-
-    Ok(data.mpool.get_sequence(&address)?)
+pub enum MpoolGetNonce {}
+impl RpcMethod<1> for MpoolGetNonce {
+    const NAME: &'static str = "Filecoin.MpoolGetNonce";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    type Params = (LotusJson<Address>,);
+    type Ok = u64;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address,): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        Ok(ctx.mpool.get_sequence(&address.into_inner())?)
+    }
 }
 
 /// Return `Vec` of pending messages in `mpool`

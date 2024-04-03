@@ -1,12 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::RpcMethod as _;
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
     auth_api, beacon_api, chain_api, common_api, eth_api, gas_api, mpool_api, net_api, node_api,
     state_api, sync_api, wallet_api, CANCEL_METHOD_NAME,
 };
+use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use hyper::header::{HeaderValue, AUTHORIZATION};
@@ -14,13 +16,11 @@ use hyper::HeaderMap;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower::Layer;
 use tracing::debug;
-
-use ahash::{HashMap, HashMapExt as _};
-use once_cell::sync::Lazy;
-use std::sync::Arc;
 
 /// Access levels to be checked against JWT claims
 enum Access {
@@ -63,7 +63,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_PARENT_RECEIPTS, Access::Read);
 
     // Message Pool API
-    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
+    access.insert(mpool_api::MpoolGetNonce::NAME, Access::Read);
     access.insert(mpool_api::MPOOL_PENDING, Access::Read);
     access.insert(mpool_api::MPOOL_PUSH, Access::Write);
     access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
