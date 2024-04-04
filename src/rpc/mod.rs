@@ -21,7 +21,7 @@ pub mod wallet_api;
 // Other RPC-specific modules
 pub use error::JsonRpcError;
 use reflect::Ctx;
-pub use reflect::RpcMethodExt;
+pub use reflect::{RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;
@@ -164,6 +164,7 @@ where
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
     ChainGetPath::register(&mut module);
+    mpool_api::register_all(&mut module);
     module.finish()
 }
 
@@ -183,7 +184,6 @@ where
     use common_api::*;
     use eth_api::*;
     use gas_api::*;
-    use mpool_api::*;
     use net_api::*;
     use node_api::*;
     use sync_api::*;
@@ -217,11 +217,6 @@ where
     )?;
     module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
-    // Message Pool API
-    module.register_async_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)?;
-    module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;
-    module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
-    module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
     module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
