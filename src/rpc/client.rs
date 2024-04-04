@@ -1,3 +1,6 @@
+// Copyright 2019-2024 ChainSafe Systems
+// SPDX-License-Identifier: Apache-2.0, MIT
+
 //! # Design Goals
 //! - use [`jsonrpsee`] clients and primitives.
 //! - Support different call formats
