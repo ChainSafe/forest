@@ -4,8 +4,8 @@
 //!   - [`crate::rpc_client::RpcRequest`]
 //!   - [`crate::rpc::RpcMethod`]
 //! - Support different
-//!   - endpoint paths ("v0", "v1").
-//!   - communication protocols ("ws", "http").
+//!   - endpoint paths (`v0`, `v1`).
+//!   - communication protocols (`ws`, `http`).
 //! - Support per-request timeouts.
 
 use std::fmt::{self, Debug};
@@ -133,7 +133,7 @@ fn trace_params(params: impl jsonrpsee::core::traits::ToRpcParams) {
     }
 }
 
-/// Represents a single, persistent connection to a url over which requests can
+/// Represents a single, persistent connection to a URL over which requests can
 /// be made using [`jsonrpsee`] primitives.
 struct OneClient {
     url: Url,
