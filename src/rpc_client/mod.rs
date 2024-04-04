@@ -30,7 +30,7 @@ use jsonrpsee::{
 };
 use serde::de::IntoDeserializer;
 use serde::Deserialize;
-use tracing::{debug, error};
+use tracing::debug;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -158,10 +158,6 @@ impl ApiInfo {
                 }
             }
         };
-
-        if let Err(err) = &result {
-            error!("Failure: {}\n{request_log}", err.message());
-        }
 
         result
     }
