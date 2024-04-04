@@ -83,7 +83,7 @@ impl WalletBackend {
 
     async fn wallet_export(&self, address: Address) -> anyhow::Result<KeyInfo> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::export_key_info(&address, &keystore)?)
+            Ok(crate::key_management::export_key_info(&address, keystore)?)
         } else {
             Ok(self.remote.wallet_export(address.to_string()).await?)
         }
@@ -103,7 +103,7 @@ impl WalletBackend {
 
     async fn wallet_has(&self, address: Address) -> anyhow::Result<bool> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::find_key(&address, &keystore).is_ok())
+            Ok(crate::key_management::find_key(&address, keystore).is_ok())
         } else {
             Ok(self.remote.wallet_has(address.to_string()).await?)
         }
@@ -136,7 +136,7 @@ impl WalletBackend {
 
     async fn wallet_default_address(&self) -> anyhow::Result<Option<String>> {
         if let Some(keystore) = &self.local {
-            Ok(crate::key_management::get_default(&keystore)?.map(|s| s.to_string()))
+            Ok(crate::key_management::get_default(keystore)?.map(|s| s.to_string()))
         } else {
             Ok(self.remote.wallet_default_address().await?)
         }
@@ -156,7 +156,7 @@ impl WalletBackend {
 
     async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
         if let Some(keystore) = &self.local {
-            let key = crate::key_management::find_key(&address, &keystore)?;
+            let key = crate::key_management::find_key(&address, keystore)?;
 
             Ok(crate::key_management::sign(
                 *key.key_info.key_type(),
@@ -497,7 +497,7 @@ impl WalletCommands {
 
                     message.sequence = backend.remote.mpool_get_nonce(from).await?;
 
-                    let key = crate::key_management::find_key(&from, &keystore)?;
+                    let key = crate::key_management::find_key(&from, keystore)?;
                     let sig = crate::key_management::sign(
                         *key.key_info.key_type(),
                         key.key_info.private_key(),
