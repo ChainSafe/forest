@@ -64,7 +64,8 @@ const EIP_1559_TX_TYPE: u64 = 2;
 
 // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
 // As per https://github.com/ethereum-lists/chains
-const EIP_155_CHAIN_ID: u64 = 31415926;
+// TODO: use chain_config instead
+const EIP_155_CHAIN_ID: u64 = 0x4cb2f;
 
 #[repr(u64)]
 enum EAMMethod {
@@ -347,8 +348,8 @@ lotus_json_with_self!(Block);
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tx {
-    pub chain_id: u64,
-    pub nonce: u64,
+    pub chain_id: Uint64,
+    pub nonce: Uint64,
     pub hash: Hash,
     pub block_hash: Hash,
     pub block_number: Uint64,
@@ -356,9 +357,9 @@ pub struct Tx {
     pub from: Address,
     pub to: Address,
     pub value: BigInt,
-    pub r#type: u64,
+    pub r#type: Uint64,
     pub input: Vec<u8>,
-    pub gas: u64,
+    pub gas: Uint64,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
     pub access_list: Vec<Hash>,
@@ -722,13 +723,13 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
     let (r, s, v) = recover_sig(smsg.signature())?;
 
     Ok(Tx {
-        nonce: tx_args.nonce,
-        chain_id: tx_args.chain_id,
+        nonce: Uint64(tx_args.nonce),
+        chain_id: Uint64(tx_args.chain_id),
         to: tx_args.to,
         from,
         value: tx_args.value,
-        r#type: EIP_1559_TX_TYPE,
-        gas: tx_args.gas_limit,
+        r#type: Uint64(EIP_1559_TX_TYPE),
+        gas: Uint64(tx_args.gas_limit),
         max_fee_per_gas: tx_args.max_fee_per_gas,
         max_priority_fee_per_gas: tx_args.max_priority_fee_per_gas,
         access_list: vec![],
@@ -740,8 +741,34 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
     })
 }
 
+/// Convert a native message to an eth transaction.
+///
+///   - The state-tree must be from after the message was applied (ideally the following tipset).
+///   - In some cases, the "to" address may be `0xff0000000000000000000000ffffffffffffffff`. This
+///     means that the "to" address has not been assigned in the passed state-tree and can only
+///     happen if the transaction reverted.
+///
+/// `eth_tx_from_native_message` does NOT populate:
+/// - `hash`
+/// - `block_hash`
+/// - `block_number`
+/// - `transaction_index`
 fn eth_tx_from_native_message<S>(msg: &VmMessage, state: &StateTree<S>) -> Result<Tx> {
-    Ok(Tx::default())
+    // Lookup the from address. This must succeed.
+
+    // Finally, convert the input parameters to "solidity ABI".
+
+    let mut tx = Tx::default();
+    tx.nonce = Uint64(msg.sequence);
+    tx.chain_id = Uint64(EIP_155_CHAIN_ID);
+    tx.value = BigInt(msg.value.atto().clone());
+    tx.r#type = Uint64(EIP_1559_TX_TYPE);
+    tx.gas = Uint64(msg.gas_limit);
+    tx.max_fee_per_gas = BigInt(msg.gas_fee_cap.atto().clone());
+    tx.max_priority_fee_per_gas = BigInt(msg.gas_premium.atto().clone());
+    tx.access_list = vec![];
+
+    Ok(tx)
 }
 
 pub fn new_eth_tx_from_signed_message<S>(smsg: &SignedMessage, state: &StateTree<S>) -> Result<Tx> {
