@@ -8,7 +8,7 @@ use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
-use crate::message::{ChainMessage, SignedMessage};
+use crate::message::{ChainMessage, Message, SignedMessage};
 use crate::rpc::chain_api::get_parent_receipts;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
@@ -20,6 +20,7 @@ use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::message::Message as VmMessage;
+use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
 use cid::{
@@ -60,6 +61,32 @@ const ADDRESS_LENGTH: usize = 20;
 const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
 const EIP_1559_TX_TYPE: u64 = 2;
+
+// ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
+// As per https://github.com/ethereum-lists/chains
+const EIP_155_CHAIN_ID: u64 = 31415926;
+
+#[repr(u64)]
+enum EAMMethod {
+    Constructor = METHOD_CONSTRUCTOR,
+    Create = 2,
+    Create2 = 3,
+    CreateExternal = 4,
+}
+
+#[repr(u64)]
+pub enum EVMMethod {
+    Constructor = METHOD_CONSTRUCTOR,
+    Resurrect = 2,
+    GetBytecode = 3,
+    GetBytecodeHash = 4,
+    GetStorageAt = 5,
+    InvokeContractDelegate = 6,
+    // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
+    // number.
+    // InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
+    InvokeContract = 3844450837,
+}
 
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
@@ -342,6 +369,7 @@ pub struct Tx {
 
 lotus_json_with_self!(Tx);
 
+#[derive(Debug, Clone, Default)]
 struct TxArgs {
     pub chain_id: u64,
     pub nonce: u64,
@@ -607,7 +635,43 @@ fn is_eth_address(addr: &VmAddress) -> bool {
 }
 
 fn eth_tx_args_from_unsigned_eth_message(msg: &crate::shim::message::Message) -> Result<TxArgs> {
-    todo!()
+    let mut to = Address::default();
+    let mut params = vec![];
+
+    if msg.version != 0 {
+        bail!("unsupported msg version: {}", msg.version);
+    }
+
+    if msg.params().bytes().len() > 0 {
+        params = msg.params().bytes().to_vec();
+    }
+
+    if msg.to == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
+        if msg.method_num() != EAMMethod::CreateExternal as u64 {
+            bail!("unsupported EAM method");
+        } else if msg.method_num() == EVMMethod::InvokeContract as u64 {
+            let addr = Address::from_filecoin_address(&msg.to)?;
+            to = addr;
+        } else {
+            bail!(
+                "invalid methodnum {}: only allowed method is InvokeContract({})",
+                msg.method_num(),
+                EVMMethod::InvokeContract as u64
+            );
+        }
+    }
+
+    Ok(TxArgs {
+        chain_id: EIP_155_CHAIN_ID,
+        nonce: msg.sequence,
+        to,
+        value: BigInt(msg.value.atto().clone()),
+        max_fee_per_gas: BigInt(msg.gas_fee_cap.atto().clone()),
+        max_priority_fee_per_gas: BigInt(msg.gas_premium.atto().clone()),
+        gas_limit: msg.gas_limit,
+        input: params,
+        ..TxArgs::default()
+    })
 }
 
 fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
