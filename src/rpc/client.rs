@@ -31,8 +31,8 @@ pub struct Client {
     base_url: Url,
     token: Option<String>,
     // just having these versions inline is easier than using a map
-    v0: tokio::sync::OnceCell<OneClient>,
-    v1: tokio::sync::OnceCell<OneClient>,
+    v0: tokio::sync::OnceCell<UrlClient>,
+    v1: tokio::sync::OnceCell<UrlClient>,
 }
 
 impl Client {
@@ -105,7 +105,7 @@ impl Client {
         };
         work.instrument(span.or_current()).await
     }
-    async fn get_or_init_client(&self, version: ApiVersion) -> Result<&OneClient, ClientError> {
+    async fn get_or_init_client(&self, version: ApiVersion) -> Result<&UrlClient, ClientError> {
         match version {
             ApiVersion::V0 => &self.v0,
             ApiVersion::V1 => &self.v1,
@@ -120,7 +120,7 @@ impl Client {
                 .map_err(|it| {
                     ClientError::Custom(format!("creating url for endpoint failed: {}", it))
                 })?;
-            OneClient::new(url, self.token.clone()).await
+            UrlClient::new(url, self.token.clone()).await
         })
         .await
     }
@@ -136,14 +136,14 @@ fn trace_params(params: impl jsonrpsee::core::traits::ToRpcParams) {
     }
 }
 
-/// Represents a single, persistent connection to a URL over which requests can
-/// be made using [`jsonrpsee`] primitives.
-struct OneClient {
+/// Represents a single, perhaps persistent connection to a URL over which requests
+/// can be made using [`jsonrpsee`] primitives.
+struct UrlClient {
     url: Url,
     inner: OneClientInner,
 }
 
-impl Debug for OneClient {
+impl Debug for UrlClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("OneClient")
             .field("url", &self.url)
@@ -151,7 +151,7 @@ impl Debug for OneClient {
     }
 }
 
-impl OneClient {
+impl UrlClient {
     async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
         let timeout = Duration::MAX; // we handle timeouts ourselves.
         let headers = match token.into() {
@@ -161,7 +161,8 @@ impl OneClient {
                     Ok(it) => it,
                     Err(e) => {
                         return Err(ClientError::Custom(format!(
-                            "Invalid authorization token: {e}"
+                            "Invalid authorization token: {}",
+                            e
                         )))
                     }
                 },
@@ -182,7 +183,12 @@ impl OneClient {
                     .request_timeout(timeout)
                     .build(&url)?,
             ),
-            it => return Err(ClientError::Custom(format!("Unsupported URL scheme: {it}"))),
+            it => {
+                return Err(ClientError::Custom(format!(
+                    "Unsupported URL scheme: {}",
+                    it
+                )))
+            }
         };
         Ok(Self { url, inner })
     }
@@ -194,7 +200,7 @@ enum OneClientInner {
 }
 
 #[async_trait::async_trait]
-impl jsonrpsee::core::client::ClientT for OneClient {
+impl jsonrpsee::core::client::ClientT for UrlClient {
     async fn notification<P: jsonrpsee::core::traits::ToRpcParams + Send>(
         &self,
         method: &str,
@@ -227,7 +233,7 @@ impl jsonrpsee::core::client::ClientT for OneClient {
 }
 
 #[async_trait::async_trait]
-impl jsonrpsee::core::client::SubscriptionClientT for OneClient {
+impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
     async fn subscribe<'a, Notif, Params>(
         &self,
         subscribe_method: &'a str,
