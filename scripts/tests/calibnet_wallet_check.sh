@@ -29,7 +29,7 @@ forest_init
 FIL_AMT="500 atto FIL"
 
 $FOREST_WALLET_PATH import preloaded_wallet.key
-$FOREST_WALLET_PATH --remote-walet import preloaded_wallet.key
+$FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
 
 # The preloaded address
 ADDR_ONE=$($FOREST_WALLET_PATH list | tail -1 | cut -d ' ' -f1)
