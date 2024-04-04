@@ -173,14 +173,14 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn call_module(
         module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
-        calling_convention: ConcreteCallingConvention,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
     where
         Self::Params: Serialize,
         Self::Ok: DeserializeOwned + Clone + Send,
     {
         // stay on current thread so don't require `Self::Params: Send`
-        let params = Self::build_params(params, calling_convention);
+        // hardcode calling convention because lotus is by-position only
+        let params = Self::build_params(params, ConcreteCallingConvention::ByPosition);
         async {
             match params2params(params?)? {
                 Either::Left(it) => module.call(Self::NAME, it).await,
@@ -190,13 +190,12 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     }
     fn request(
         params: Self::Params,
-        calling_convention: ConcreteCallingConvention,
-        timeout: std::time::Duration,
     ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error>
     where
         Self::Params: Serialize,
     {
-        let params = match Self::build_params(params, calling_convention)? {
+        // hardcode calling convention because lotus is by-position only
+        let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
             RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
             RequestParameters::ByName(it) => serde_json::Value::Object(it),
         };
@@ -205,21 +204,23 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             params,
             result_type: std::marker::PhantomData,
             api_version: Self::API_VERSION,
-            timeout,
+            timeout: crate::rpc_client::DEFAULT_TIMEOUT,
         })
     }
     fn call(
         client: &crate::rpc::client::Client,
         params: Self::Params,
-        timeout: std::time::Duration,
     ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>>
     where
         Self::Params: Serialize,
         Self::Ok: DeserializeOwned,
     {
         // stay on current thread so don't require `Self::Params: Send`
-        let request = Self::request(params, ConcreteCallingConvention::ByPosition, timeout);
+        let request = Self::request(params);
         async {
+            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+            //                  Client::call has an inappropriate HasLotusJson
+            //                  bound, work around it for now.
             let json = client.call(request?.lower()).await?;
             Ok(serde_json::from_value(json)?)
         }
