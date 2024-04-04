@@ -59,6 +59,7 @@ use tokio::{
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum ApiCommands {
     // Serve
     Serve {
