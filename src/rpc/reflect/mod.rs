@@ -26,8 +26,6 @@ mod util;
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::JsonRpcError as Error;
-
-use futures::future::Either;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{MethodsError, RpcModule};
 use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};
@@ -43,6 +41,7 @@ use serde::{
     Deserialize,
 };
 use std::{future::Future, sync::Arc};
+use tokio_util::either::Either;
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -180,29 +179,49 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Self::Params: Serialize,
         Self::Ok: DeserializeOwned + Clone + Send,
     {
-        macro_rules! tri {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(it) => it,
-                    Err(e) => return Either::Left(futures::future::ready(Err(e.into()))),
-                }
-            };
+        // stay on current thread so don't require `Self::Params: Send`
+        let params = Self::build_params(params, calling_convention);
+        async {
+            match params2params(params?)? {
+                Either::Left(it) => module.call(Self::NAME, it).await,
+                Either::Right(it) => module.call(Self::NAME, it).await,
+            }
         }
-        match tri!(Self::build_params(params, calling_convention)) {
-            RequestParameters::ByPosition(args) => {
-                let mut builder = jsonrpsee::core::params::ArrayParams::new();
-                for arg in args {
-                    tri!(builder.insert(arg))
-                }
-                Either::Right(Either::Left(module.call(Self::NAME, builder)))
-            }
-            RequestParameters::ByName(args) => {
-                let mut builder = jsonrpsee::core::params::ObjectParams::new();
-                for (name, value) in args {
-                    tri!(builder.insert(&name, value));
-                }
-                Either::Right(Either::Right(module.call(Self::NAME, builder)))
-            }
+    }
+    fn request(
+        params: Self::Params,
+        calling_convention: ConcreteCallingConvention,
+        timeout: std::time::Duration,
+    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error>
+    where
+        Self::Params: Serialize,
+    {
+        let params = match Self::build_params(params, calling_convention)? {
+            RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
+            RequestParameters::ByName(it) => serde_json::Value::Object(it),
+        };
+        Ok(crate::rpc_client::RpcRequest {
+            method_name: Self::NAME,
+            params,
+            result_type: std::marker::PhantomData,
+            api_version: Self::API_VERSION,
+            timeout,
+        })
+    }
+    fn call(
+        client: &crate::rpc::client::Client,
+        params: Self::Params,
+        timeout: std::time::Duration,
+    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>>
+    where
+        Self::Params: Serialize,
+        Self::Ok: DeserializeOwned,
+    {
+        // stay on current thread so don't require `Self::Params: Send`
+        let request = Self::request(params, ConcreteCallingConvention::ByPosition, timeout);
+        async {
+            let json = client.call(request?.lower()).await?;
+            Ok(serde_json::from_value(json)?)
         }
     }
 }
@@ -342,4 +361,28 @@ impl<Ctx> SelfDescribingRpcModule<Ctx> {
 pub enum ConcreteCallingConvention {
     ByPosition,
     ByName,
+}
+
+fn params2params(
+    ours: RequestParameters,
+) -> Result<
+    Either<jsonrpsee::core::params::ArrayParams, jsonrpsee::core::params::ObjectParams>,
+    serde_json::Error,
+> {
+    match ours {
+        RequestParameters::ByPosition(args) => {
+            let mut builder = jsonrpsee::core::params::ArrayParams::new();
+            for arg in args {
+                builder.insert(arg)?
+            }
+            Ok(Either::Left(builder))
+        }
+        RequestParameters::ByName(args) => {
+            let mut builder = jsonrpsee::core::params::ObjectParams::new();
+            for (name, value) in args {
+                builder.insert(&name, value)?
+            }
+            Ok(Either::Right(builder))
+        }
+    }
 }
