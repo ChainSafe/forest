@@ -83,11 +83,14 @@ git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
 http = "1.0"
+# TODO(forest): https://github.com/ChainSafe/forest/issues/3961
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
+http02 = { version = "0.2", package = "http" }
 human-repr = "1.0"
 human_bytes = "0.4"
 humantime = "2.1.0"
 # TODO(forest): https://github.com/ChainSafe/forest/issues/3961
-#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
 hyper = { version = "0.14", features = ["full"] }
 indexmap = { version = "2.2", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }

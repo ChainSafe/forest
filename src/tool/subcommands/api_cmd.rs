@@ -16,6 +16,7 @@ use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{MessageFilter, MessageLookup};
+use crate::rpc::{mpool_api::MpoolGetNonce, RpcMethodExt as _};
 use crate::rpc::{start_rpc, RPCState};
 use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
@@ -673,7 +674,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(validate_message_lookup(
                     ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                 ));
-                tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                tests.push(RpcTest::basic(
+                    MpoolGetNonce::request((msg.from().into(),)).unwrap(),
+                ));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
                     MessageFilter {
                         from: None,

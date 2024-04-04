@@ -20,6 +20,7 @@ pub mod sync_api;
 pub mod wallet_api;
 
 // Other RPC-specific modules
+pub use client::Client;
 pub use error::JsonRpcError;
 use reflect::Ctx;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};

@@ -11,14 +11,12 @@
 use std::fmt::{self, Debug};
 use std::time::Duration;
 
-use http0::{header, HeaderMap, HeaderValue};
+use http02::{header, HeaderMap, HeaderValue};
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;
-use libp2p::multiaddr::Protocol;
-use libp2p::Multiaddr;
 use serde::de::DeserializeOwned;
-use tracing::{debug, Instrument};
+use tracing::{debug, Instrument, Level};
 use url::Url;
 
 use super::ApiVersion;
@@ -72,6 +70,7 @@ impl Client {
                         for param in it {
                             params.insert(param)?
                         }
+                        trace_params(params.clone());
                         client.request(method_name, params)
                     }
                     serde_json::Value::Object(it) => {
@@ -79,6 +78,7 @@ impl Client {
                         for (name, param) in it {
                             params.insert(&name, param)?
                         }
+                        trace_params(params.clone());
                         client.request(method_name, params)
                     }
                     prim @ (serde_json::Value::Bool(_)
@@ -120,6 +120,16 @@ impl Client {
             OneClient::new(url, self.token.clone()).await
         })
         .await
+    }
+}
+
+fn trace_params(params: impl jsonrpsee::core::traits::ToRpcParams) {
+    if tracing::enabled!(Level::TRACE) {
+        match params.to_rpc_params() {
+            Ok(Some(it)) => tracing::trace!(params = %it),
+            Ok(None) => tracing::trace!("no params"),
+            Err(error) => tracing::trace!(%error, "couldn't decode params"),
+        }
     }
 }
 
@@ -248,55 +258,4 @@ impl jsonrpsee::core::client::SubscriptionClientT for OneClient {
             OneClientInner::Https(it) => it.subscribe_to_method(method).await,
         }
     }
-}
-
-/// `"/dns/example.com/tcp/8080/http" -> "http://example.com:8080/"`
-///
-/// Returns [`None`] on unsupported formats, or if there is a URL parsing error.
-///
-/// Note that [`Multiaddr`]s do NOT support a (URL) `path`, so that must be handled
-/// out-of-band.
-fn multiaddr2url(m: &Multiaddr) -> Option<Url> {
-    let mut components = m.iter().peekable();
-    let host = match components.next()? {
-        Protocol::Dns(it) | Protocol::Dns4(it) | Protocol::Dns6(it) | Protocol::Dnsaddr(it) => {
-            it.to_string()
-        }
-        Protocol::Ip4(it) => it.to_string(),
-        Protocol::Ip6(it) => it.to_string(),
-        _ => return None,
-    };
-    let port = components
-        .next_if(|it| matches!(it, Protocol::Tcp(_)))
-        .map(|it| match it {
-            Protocol::Tcp(port) => port,
-            _ => unreachable!(),
-        });
-    // ENHANCEMENT: could recognise `Tcp/443/Tls` as `https`
-    let scheme = match components.next()? {
-        Protocol::Http => "http",
-        Protocol::Https => "https",
-        Protocol::Ws(it) if it == "/" => "ws",
-        Protocol::Wss(it) if it == "/" => "wss",
-        _ => return None,
-    };
-    let None = components.next() else { return None };
-    let parse_me = match port {
-        Some(port) => format!("{}://{}:{}", scheme, host, port),
-        None => format!("{}://{}", scheme, host),
-    };
-    parse_me.parse().ok()
-}
-
-#[test]
-fn test_multiaddr2url() {
-    #[track_caller]
-    fn do_test(input: &str, expected: &str) {
-        let multiaddr = input.parse().unwrap();
-        let url = multiaddr2url(&multiaddr).unwrap();
-        assert_eq!(url.as_str(), expected);
-    }
-    do_test("/dns/example.com/http", "http://example.com/");
-    do_test("/dns/example.com/tcp/8080/http", "http://example.com:8080/");
-    do_test("/ip4/127.0.0.1/wss", "wss://127.0.0.1/");
 }

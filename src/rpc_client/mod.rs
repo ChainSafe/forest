@@ -13,25 +13,17 @@ pub mod state_ops;
 pub mod sync_ops;
 pub mod wallet_ops;
 
-use std::env;
-use std::fmt;
-use std::marker::PhantomData;
-use std::str::FromStr;
-use std::time::Duration;
-
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
-use crate::rpc::ApiVersion;
 pub use crate::rpc::JsonRpcError;
-use crate::utils::net::global_http_client;
+use crate::rpc::{self, ApiVersion};
 use jsonrpsee::{
     core::{client::ClientT, traits::ToRpcParams},
-    types::{Id, Request},
     ws_client::WsClientBuilder,
 };
-use serde::de::IntoDeserializer;
-use serde::Deserialize;
+use std::{env, fmt, marker::PhantomData, str::FromStr, time::Duration};
 use tracing::debug;
+use url::Url;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_HOST: &str = "127.0.0.1";
@@ -91,78 +83,35 @@ impl ApiInfo {
         ApiInfo::from_str(&api_info)
     }
 
+    // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+    //                  This function should return jsonrpsee::core::ClientError,
+    //                  but that change should wait until _after_ all the methods
+    //                  have been migrated.
     pub async fn call<T: HasLotusJson + std::fmt::Debug>(
         &self,
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
-        let params = serde_json::value::to_raw_value(&req.params)
-            .map_err(|e| JsonRpcError::invalid_params(e, None))?;
-        let rpc_req = Request::new(req.method_name.into(), Some(&params), Id::Number(0));
-
-        let api_url = multiaddress_to_url(
-            &self.multiaddr,
-            req.api_version,
-            CommunicationProtocol::Http,
+        use jsonrpsee::core::ClientError;
+        match rpc::Client::new(
+            multiaddr2url(&self.multiaddr).ok_or(JsonRpcError::internal_error(
+                "couldn't convert multiaddr to URL",
+                None,
+            ))?,
+            self.token.clone(),
         )
-        .to_string();
-
-        let request_log = format!(
-            "JSON-RPC request URL: {}, payload: {}",
-            api_url,
-            serde_json::to_string(&rpc_req).unwrap_or_default()
-        );
-        debug!(request_log);
-
-        let request = global_http_client()
-            .post(api_url)
-            .timeout(req.timeout)
-            .json(&rpc_req);
-        let request = match self.token.as_ref() {
-            Some(token) => request.header(http::header::AUTHORIZATION, token),
-            _ => request,
-        };
-
-        let response = request.send().await?;
-        let result = match response.status() {
-            http::StatusCode::NOT_FOUND => {
-                Err(JsonRpcError::method_not_found("method_not_found", None))
-            }
-            http::StatusCode::FORBIDDEN => Err(JsonRpcError::new(
-                response.status().as_u16().into(),
-                match &self.token {
-                    Some(_) => "Permission denied: Insufficient rights.",
-                    None => "Permission denied: Token required.",
-                },
-                None,
-            )),
-            other if !other.is_success() => Err(JsonRpcError::new(
-                other.as_u16().into(),
-                response.text().await?,
-                None,
-            )),
-            _ok => {
-                let bytes = response.bytes().await?;
-                let response = serde_json::from_slice::<
-                    jsonrpsee::types::Response<&serde_json::value::RawValue>,
-                >(&bytes)
-                .map_err(|e| JsonRpcError::parse_error(e, None))?;
-                debug!(?response);
-                match response.payload {
-                    jsonrpsee::types::ResponsePayload::Success(it) => {
-                        T::LotusJson::deserialize(it.into_deserializer())
-                            .map(T::from_lotus_json)
-                            .map_err(|e| JsonRpcError::parse_error(e, None))
-                    }
-                    jsonrpsee::types::ResponsePayload::Error(e) => {
-                        Err(JsonRpcError::parse_error(e, None))
-                    }
-                }
-            }
-        };
-
-        result
+        .call(req)
+        .await
+        {
+            Ok(it) => Ok(it),
+            Err(e) => match e {
+                ClientError::Call(it) => Err(it.into()),
+                other => Err(JsonRpcError::internal_error(other, None)),
+            },
+        }
     }
 
+    // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+    //                  This should not be a separate code path.
     pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(
         &self,
         req: RpcRequest<T>,
@@ -195,14 +144,14 @@ impl From<reqwest::Error> for JsonRpcError {
     }
 }
 
-struct Url {
+struct UrlComponents {
     scheme: String,
     host: String,
     port: u16,
     path: String,
 }
 
-impl fmt::Display for Url {
+impl fmt::Display for UrlComponents {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             scheme,
@@ -227,14 +176,14 @@ fn multiaddress_to_url(
     multiaddr: &Multiaddr,
     api_version: ApiVersion,
     protocol: CommunicationProtocol,
-) -> Url {
+) -> UrlComponents {
     let endpoint = match api_version {
         ApiVersion::V0 => "rpc/v0",
         ApiVersion::V1 => "rpc/v1",
     };
     // Fold Multiaddress into a Url struct
     let addr = multiaddr.iter().fold(
-        Url {
+        UrlComponents {
             scheme: protocol.to_string(),
             port: DEFAULT_PORT,
             host: DEFAULT_HOST.to_owned(),
@@ -352,4 +301,55 @@ impl<T> ToRpcParams for RpcRequest<T> {
     fn to_rpc_params(self) -> Result<Option<Box<serde_json::value::RawValue>>, serde_json::Error> {
         Ok(Some(serde_json::value::to_raw_value(&self.params)?))
     }
+}
+
+/// `"/dns/example.com/tcp/8080/http" -> "http://example.com:8080/"`
+///
+/// Returns [`None`] on unsupported formats, or if there is a URL parsing error.
+///
+/// Note that [`Multiaddr`]s do NOT support a (URL) `path`, so that must be handled
+/// out-of-band.
+fn multiaddr2url(m: &Multiaddr) -> Option<Url> {
+    let mut components = m.iter().peekable();
+    let host = match components.next()? {
+        Protocol::Dns(it) | Protocol::Dns4(it) | Protocol::Dns6(it) | Protocol::Dnsaddr(it) => {
+            it.to_string()
+        }
+        Protocol::Ip4(it) => it.to_string(),
+        Protocol::Ip6(it) => it.to_string(),
+        _ => return None,
+    };
+    let port = components
+        .next_if(|it| matches!(it, Protocol::Tcp(_)))
+        .map(|it| match it {
+            Protocol::Tcp(port) => port,
+            _ => unreachable!(),
+        });
+    // ENHANCEMENT: could recognise `Tcp/443/Tls` as `https`
+    let scheme = match components.next()? {
+        Protocol::Http => "http",
+        Protocol::Https => "https",
+        Protocol::Ws(it) if it == "/" => "ws",
+        Protocol::Wss(it) if it == "/" => "wss",
+        _ => return None,
+    };
+    let None = components.next() else { return None };
+    let parse_me = match port {
+        Some(port) => format!("{}://{}:{}", scheme, host, port),
+        None => format!("{}://{}", scheme, host),
+    };
+    parse_me.parse().ok()
+}
+
+#[test]
+fn test_multiaddr2url() {
+    #[track_caller]
+    fn do_test(input: &str, expected: &str) {
+        let multiaddr = input.parse().unwrap();
+        let url = multiaddr2url(&multiaddr).unwrap();
+        assert_eq!(url.as_str(), expected);
+    }
+    do_test("/dns/example.com/http", "http://example.com/");
+    do_test("/dns/example.com/tcp/8080/http", "http://example.com:8080/");
+    do_test("/ip4/127.0.0.1/wss", "wss://127.0.0.1/");
 }
