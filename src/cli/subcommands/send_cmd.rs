@@ -3,7 +3,6 @@
 
 use std::str::FromStr as _;
 
-use crate::rpc;
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;

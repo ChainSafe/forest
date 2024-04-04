@@ -17,23 +17,20 @@ use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
 pub use crate::rpc::JsonRpcError;
 use crate::rpc::{self, ApiVersion};
-use jsonrpsee::{
-    core::{client::ClientT, traits::ToRpcParams},
-    ws_client::WsClientBuilder,
-};
+use anyhow::Context as _;
+use jsonrpsee::core::traits::ToRpcParams;
 use std::{env, fmt, marker::PhantomData, str::FromStr, time::Duration};
-use tracing::debug;
 use url::Url;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
-pub const DEFAULT_HOST: &str = "127.0.0.1";
-pub const DEFAULT_MULTIADDRESS: &str = "/ip4/127.0.0.1/tcp/2345/http";
 pub const DEFAULT_PORT: u16 = 2345;
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// Token and URL for an [`rpc::Client`].
 #[derive(Clone, Debug)]
 pub struct ApiInfo {
-    pub multiaddr: Multiaddr,
+    multiaddr: Multiaddr,
+    url: Url,
     pub token: Option<String>,
 }
 
@@ -50,24 +47,32 @@ impl fmt::Display for ApiInfo {
 }
 
 impl FromStr for ApiInfo {
-    type Err = multiaddr::Error;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s.split_once(':') {
-            // token:host
-            Some((jwt, host)) => ApiInfo {
-                multiaddr: host.parse()?,
-                token: Some(jwt.to_owned()),
-            },
-            // host
-            None => ApiInfo {
-                multiaddr: s.parse()?,
-                token: None,
-            },
+        let (token, host) = match s.split_once(':') {
+            Some((token, host)) => (Some(token), host),
+            None => (None, s),
+        };
+        let multiaddr = host.parse()?;
+        let url = multiaddr2url(&multiaddr).context("couldn't convert multiaddr to URL")?;
+        Ok(ApiInfo {
+            multiaddr,
+            url,
+            token: token.map(String::from),
         })
     }
 }
 
+impl Default for ApiInfo {
+    fn default() -> Self {
+        "/ip4/127.0.0.1/tcp/2345/http".parse().unwrap()
+    }
+}
+
 impl ApiInfo {
+    pub fn scheme(&self) -> &str {
+        self.url.scheme()
+    }
     // Update API handle with new (optional) token
     pub fn set_token(self, token: Option<String>) -> Self {
         ApiInfo {
@@ -78,9 +83,12 @@ impl ApiInfo {
 
     // Get API_INFO environment variable if exists, otherwise, use default
     // multiaddress. Fails if the environment variable is malformed.
-    pub fn from_env() -> Result<Self, multiaddr::Error> {
-        let api_info = env::var(API_INFO_KEY).unwrap_or_else(|_| DEFAULT_MULTIADDRESS.to_owned());
-        ApiInfo::from_str(&api_info)
+    pub fn from_env() -> anyhow::Result<Self> {
+        match env::var(API_INFO_KEY) {
+            Ok(it) => it.parse(),
+            Err(env::VarError::NotPresent) => Ok(Self::default()),
+            Err(it @ env::VarError::NotUnicode(_)) => Err(it.into()),
+        }
     }
 
     // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
@@ -109,128 +117,6 @@ impl ApiInfo {
             },
         }
     }
-
-    // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-    //                  This should not be a separate code path.
-    pub async fn ws_call<T: HasLotusJson + std::fmt::Debug + Send>(
-        &self,
-        req: RpcRequest<T>,
-    ) -> Result<T, JsonRpcError> {
-        let api_url =
-            multiaddress_to_url(&self.multiaddr, req.api_version, CommunicationProtocol::Ws);
-        debug!("Using JSON-RPC v2 WS URL: {}", &api_url);
-        let ws_client = WsClientBuilder::default()
-            .request_timeout(req.timeout)
-            .build(api_url.to_string())
-            .await
-            .map_err(|e| JsonRpcError::internal_error(e, None))?;
-        let response = ws_client
-            .request(req.method_name, req)
-            .await
-            .map(HasLotusJson::from_lotus_json)
-            .map_err(|e| JsonRpcError::internal_error(e, None))?;
-        debug!(?response);
-        Ok(response)
-    }
-}
-
-impl From<reqwest::Error> for JsonRpcError {
-    fn from(e: reqwest::Error) -> Self {
-        Self::new(
-            e.status().map(|it| it.as_u16()).unwrap_or_default().into(),
-            e,
-            None,
-        )
-    }
-}
-
-struct UrlComponents {
-    scheme: String,
-    host: String,
-    port: u16,
-    path: String,
-}
-
-impl fmt::Display for UrlComponents {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Self {
-            scheme,
-            host,
-            port,
-            path,
-        } = self;
-        write!(f, "{}://{}:{}/{}", scheme, host, port, path)
-    }
-}
-
-#[derive(PartialEq, Eq, Debug, strum::EnumString, strum::Display)]
-pub enum CommunicationProtocol {
-    #[strum(serialize = "http")]
-    Http,
-    #[strum(serialize = "ws")]
-    Ws,
-}
-
-/// Parses a multi-address into a URL
-fn multiaddress_to_url(
-    multiaddr: &Multiaddr,
-    api_version: ApiVersion,
-    protocol: CommunicationProtocol,
-) -> UrlComponents {
-    let endpoint = match api_version {
-        ApiVersion::V0 => "rpc/v0",
-        ApiVersion::V1 => "rpc/v1",
-    };
-    // Fold Multiaddress into a Url struct
-    let addr = multiaddr.iter().fold(
-        UrlComponents {
-            scheme: protocol.to_string(),
-            port: DEFAULT_PORT,
-            host: DEFAULT_HOST.to_owned(),
-            path: endpoint.into(),
-        },
-        |mut addr, protocol| {
-            match protocol {
-                Protocol::Ip6(ip) => {
-                    addr.host = ip.to_string();
-                }
-                Protocol::Ip4(ip) => {
-                    addr.host = ip.to_string();
-                }
-                Protocol::Dns(dns) => {
-                    addr.host = dns.to_string();
-                }
-                Protocol::Dns4(dns) => {
-                    addr.host = dns.to_string();
-                }
-                Protocol::Dns6(dns) => {
-                    addr.host = dns.to_string();
-                }
-                Protocol::Dnsaddr(dns) => {
-                    addr.host = dns.to_string();
-                }
-                Protocol::Tcp(p) => {
-                    addr.port = p;
-                }
-                Protocol::Http => {
-                    addr.scheme = "http".to_string();
-                }
-                Protocol::Https => {
-                    addr.scheme = "https".to_string();
-                }
-                Protocol::Ws(..) => {
-                    addr.scheme = "ws".to_string();
-                }
-                Protocol::Wss(..) => {
-                    addr.scheme = "wss".to_string();
-                }
-                _ => {}
-            };
-            addr
-        },
-    );
-
-    addr
 }
 
 /// An `RpcRequest` is an at-rest description of a remote procedure call. It can

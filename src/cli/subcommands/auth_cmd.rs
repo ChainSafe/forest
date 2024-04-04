@@ -58,10 +58,7 @@ impl AuthCommands {
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
                 let token = api.auth_new(perms, token_exp).await?;
-                let new_api = ApiInfo {
-                    token: Some(String::from_utf8(token)?),
-                    ..api
-                };
+                let new_api = api.set_token(Some(String::from_utf8(token)?));
                 println!("FULLNODE_API_INFO=\"{}\"", new_api);
                 Ok(())
             }
