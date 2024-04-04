@@ -189,6 +189,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             }
         }
     }
+    /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(
         params: Self::Params,
     ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error>
@@ -216,13 +217,11 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Self::Params: Serialize,
         Self::Ok: DeserializeOwned,
     {
-        // stay on current thread so don't require `Self::Params: Send`
-        let request = Self::request(params);
         async {
             // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
             //                  Client::call has an inappropriate HasLotusJson
             //                  bound, work around it for now.
-            let json = client.call(request?.lower()).await?;
+            let json = client.call(Self::request(params)?.lower()).await?;
             Ok(serde_json::from_value(json)?)
         }
     }

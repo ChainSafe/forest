@@ -95,27 +95,27 @@ impl ApiInfo {
     //                  This function should return jsonrpsee::core::ClientError,
     //                  but that change should wait until _after_ all the methods
     //                  have been migrated.
+    //
+    //                  In the limit, only rpc::Client should be making calls,
+    //                  and ApiInfo should be removed.
     pub async fn call<T: HasLotusJson + std::fmt::Debug>(
         &self,
         req: RpcRequest<T>,
     ) -> Result<T, JsonRpcError> {
         use jsonrpsee::core::ClientError;
-        match rpc::Client::new(
-            multiaddr2url(&self.multiaddr).ok_or(JsonRpcError::internal_error(
-                "couldn't convert multiaddr to URL",
-                None,
-            ))?,
-            self.token.clone(),
-        )
-        .call(req)
-        .await
-        {
+        match rpc::Client::from(self.clone()).call(req).await {
             Ok(it) => Ok(it),
             Err(e) => match e {
                 ClientError::Call(it) => Err(it.into()),
                 other => Err(JsonRpcError::internal_error(other, None)),
             },
         }
+    }
+}
+
+impl From<ApiInfo> for rpc::Client {
+    fn from(value: ApiInfo) -> Self {
+        rpc::Client::new(value.url, value.token)
     }
 }
 
