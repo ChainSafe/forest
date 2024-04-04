@@ -1256,12 +1256,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cachemap2"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68ccbd3153aa153b2f5eff557537ffce81e4dd6c50ae0eddc41dc8d0c388436f"
-
-[[package]]
 name = "camino"
 version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3214,7 +3208,6 @@ dependencies = [
  "boa_runtime",
  "byteorder",
  "bytes",
- "cachemap2",
  "cargo_metadata",
  "cbor4ii",
  "cfg-if",
