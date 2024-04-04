@@ -15,9 +15,11 @@ use crate::rpc::sync_api::sync_state;
 use crate::rpc::types::ApiReceipt;
 use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
-use crate::shim::address::Address as FilecoinAddress;
-use crate::shim::crypto::Signature;
+use crate::shim::address::{Address as FilecoinAddress, Protocol};
+use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::BLOCK_GAS_LIMIT;
+use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
+use crate::shim::fvm_shared_latest::message::Message as VmMessage;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
 use cid::{
@@ -29,6 +31,7 @@ use itertools::Itertools;
 use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use num_bigint;
+use num_bigint::Sign;
 use num_traits::Zero as _;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
@@ -53,6 +56,8 @@ const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
 
 /// Keccak-256 of an RLP of an empty array
 const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
+
+const EIP_1559_TX_TYPE: u64 = 2;
 
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
@@ -105,6 +110,10 @@ impl Address {
                 self.0.as_bytes(),
             )?)
         }
+    }
+
+    pub fn from_filecoin_address(address: &FilecoinAddress) -> Result<Self> {
+        todo!()
     }
 
     fn is_masked_id(&self) -> bool {
@@ -288,6 +297,20 @@ pub struct Tx {
 }
 
 lotus_json_with_self!(Tx);
+
+struct TxArgs {
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub to: Address,
+    pub value: BigInt,
+    pub max_fee_per_gas: BigInt,
+    pub max_priority_fee_per_gas: BigInt,
+    pub gas_limit: u64,
+    pub input: Vec<u8>,
+    pub v: BigInt,
+    pub r: BigInt,
+    pub s: BigInt,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct EthSyncingResult {
@@ -530,15 +553,103 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     Ok((state_root, msgs, receipts))
 }
 
-pub fn tx_from_signed_message<S>(smsg: SignedMessage, state: &StateTree<S>) -> Result<Tx> {
+fn is_eth_address(addr: &VmAddress) -> bool {
+    if addr.protocol() != Protocol::Delegated {
+        return false;
+    }
+    let f4_addr: Result<DelegatedAddress, _> = addr.payload().try_into();
+
+    f4_addr.is_ok()
+}
+
+fn eth_tx_args_from_unsigned_eth_message(msg: &crate::shim::message::Message) -> Result<TxArgs> {
+    todo!()
+}
+
+fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
+    if sig.signature_type() != SignatureType::Delegated {
+        bail!("recover_sig only supports Delegated signature");
+    }
+
+    let len = sig.bytes().len();
+    if len != 65 {
+        bail!("signature should be 65 bytes long, but got {len} bytes",);
+    }
+
+    let bytes = sig.bytes();
+
+    let r = num_bigint::BigInt::from_bytes_le(Sign::NoSign, &bytes[0..32]);
+
+    let s = num_bigint::BigInt::from_bytes_le(Sign::NoSign, &bytes[32..64]);
+
+    let v = num_bigint::BigInt::from_bytes_le(Sign::NoSign, &bytes[64..65]);
+
+    Ok((BigInt(r), BigInt(s), BigInt(v)))
+}
+
+/// `eth_tx_from_signed_eth_message` does NOT populate:
+/// - `hash`
+/// - `block_hash`
+/// - `block_number`
+/// - `transaction_index`
+fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
+    // The from address is always an f410f address, never an ID or other address.
+    let from = smsg.message().from;
+    if !is_eth_address(&from) {
+        bail!("sender must be an eth account, was {from}");
+    }
+
+    // Probably redundant, but we might as well check.
+    let sig_type = smsg.signature().signature_type();
+    if sig_type != SignatureType::Delegated {
+        bail!("signature is not delegated type, is type: {sig_type}");
+    }
+
+    // This should be impossible to fail as we've already asserted that we have an
+    // Ethereum Address sender...
+    let from = Address::from_filecoin_address(&from)?;
+
+    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message())?;
+
+    let (r, s, v) = recover_sig(smsg.signature())?;
+
+    Ok(Tx {
+        nonce: tx_args.nonce,
+        chain_id: tx_args.chain_id,
+        to: tx_args.to,
+        from,
+        value: tx_args.value,
+        r#type: EIP_1559_TX_TYPE,
+        gas: tx_args.gas_limit,
+        max_fee_per_gas: tx_args.max_fee_per_gas,
+        max_priority_fee_per_gas: tx_args.max_priority_fee_per_gas,
+        access_list: vec![],
+        v,
+        r,
+        s,
+        input: tx_args.input,
+        ..Tx::default()
+    })
+}
+
+fn eth_tx_from_native_message<S>(msg: &VmMessage, state: &StateTree<S>) -> Result<Tx> {
+    Ok(Tx::default())
+}
+
+pub fn new_eth_tx_from_signed_message<S>(smsg: &SignedMessage, state: &StateTree<S>) -> Result<Tx> {
     let mut tx: Tx = Tx::default();
 
     if smsg.is_delegated() {
+        // This is an eth tx
+        let eth_tx = eth_tx_from_signed_eth_message(smsg)?;
+        tx.hash = eth_tx.hash;
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
+        tx = eth_tx_from_native_message(&smsg.message.clone().into(), state)?;
         tx.hash = smsg.cid()?.into();
     } else {
         // BLS Filecoin message
+        tx = eth_tx_from_native_message(&smsg.message.clone().into(), state)?;
         tx.hash = smsg.message().cid()?.into();
     }
     Ok(tx)
@@ -576,7 +687,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         };
 
         // TODO: build tx and push to block transactions
-        let mut tx = tx_from_signed_message(smsg, &state_tree)?;
+        let mut tx = new_eth_tx_from_signed_message(&smsg, &state_tree)?;
         tx.block_hash = block_hash.clone();
         tx.block_number = block_number.clone();
         tx.transaction_index = ti;
