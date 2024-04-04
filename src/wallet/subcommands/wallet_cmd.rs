@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
+    cell::RefCell,
     path::PathBuf,
     str::{self, FromStr},
 };
 
 use crate::{
     cli::humantoken, message::SignedMessage, rpc::types::ApiTipsetKey, shim::address::Address,
+    ENCRYPTED_KEYSTORE_NAME,
 };
 use crate::{key_management::Key, utils::io::read_file_to_string};
 use crate::{key_management::KeyInfo, rpc_client::ApiInfo};
@@ -24,7 +26,7 @@ use crate::{
 use anyhow::{bail, Context as _};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
-use dialoguer::{theme::ColorfulTheme, Password};
+use dialoguer::{console::Term, theme::ColorfulTheme, Password};
 use directories::ProjectDirs;
 use num::BigInt;
 use num::Zero as _;
@@ -48,12 +50,22 @@ impl WalletBackend {
         }
     }
 
-    fn new_local(api: ApiInfo) -> anyhow::Result<Self> {
+    fn new_local(api: ApiInfo, want_encryption: bool) -> anyhow::Result<Self> {
         let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
             bail!("Failed to find wallet directory");
         };
-        // FIXME: Support encrypted wallets
-        let keystore = KeyStore::new(KeyStoreConfig::Persistent(dir.data_dir().to_path_buf()))?;
+
+        let wallet_dir = dir.data_dir().to_path_buf();
+
+        let is_encrypted = wallet_dir.join(ENCRYPTED_KEYSTORE_NAME).exists();
+
+        // Always use the encrypted keystore if it exists. It it does not exist,
+        // only use encryption when explicitly asked for it.
+        let keystore = if is_encrypted || want_encryption {
+            input_password_to_load_encrypted_keystore(wallet_dir)?
+        } else {
+            KeyStore::new(KeyStoreConfig::Persistent(wallet_dir.to_path_buf()))?
+        };
 
         Ok(WalletBackend {
             remote: api,
@@ -272,11 +284,11 @@ pub enum WalletCommands {
     },
 }
 impl WalletCommands {
-    pub async fn run(self, api: ApiInfo, remote_wallet: bool) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo, remote_wallet: bool, encrypt: bool) -> anyhow::Result<()> {
         let mut backend = if remote_wallet {
             WalletBackend::new_remote(api)
         } else {
-            WalletBackend::new_local(api)?
+            WalletBackend::new_local(api, encrypt)?
         };
         match self {
             Self::New { signature_type } => {
@@ -505,4 +517,39 @@ impl WalletCommands {
             }
         }
     }
+}
+
+/// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
+///
+/// This code makes blocking syscalls.
+fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Result<KeyStore> {
+    let keystore = RefCell::new(None);
+    let term = Term::stderr();
+
+    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
+    // so do that check ourselves.
+    // This means users can't pipe their password from stdin.
+    if !term.is_term() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "cannot read password from non-terminal",
+        )
+        .into());
+    }
+
+    dialoguer::Password::new()
+        .with_prompt("Enter the password for the wallet keystore")
+        .allow_empty_password(true) // let validator do validation
+        .validate_with(|input: &String| {
+            KeyStore::new(KeyStoreConfig::Encrypted(data_dir.clone(), input.clone()))
+                .map(|created| *keystore.borrow_mut() = Some(created))
+                .context(
+                    "Error: couldn't load keystore with this password. Try again or press Ctrl+C to abort.",
+                )
+        })
+        .interact_on(&term)?;
+
+    Ok(keystore
+        .into_inner()
+        .expect("validation succeeded, so keystore must be emplaced"))
 }

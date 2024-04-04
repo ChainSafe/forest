@@ -19,6 +19,10 @@ pub struct Cli {
     #[arg(long)]
     pub remote_wallet: bool,
 
+    /// Encrypt local wallet
+    #[arg(long)]
+    pub encrypt: bool,
+
     #[command(subcommand)]
     pub cmd: wallet_cmd::WalletCommands,
 }

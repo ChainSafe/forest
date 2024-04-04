@@ -18,6 +18,7 @@ where
     let Cli {
         opts,
         remote_wallet,
+        encrypt,
         cmd,
     } = Cli::parse_from(args);
 
@@ -33,6 +34,6 @@ where
                 CurrentNetwork::set_global(Network::Testnet);
             }
             // Run command
-            cmd.run(api, remote_wallet).await
+            cmd.run(api, remote_wallet, encrypt).await
         })
 }
