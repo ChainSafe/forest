@@ -54,6 +54,8 @@ const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
 
 const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
 
+const ADDRESS_LENGTH: usize = 20;
+
 /// Keccak-256 of an RLP of an empty array
 const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
@@ -112,12 +114,45 @@ impl Address {
         }
     }
 
-    pub fn from_filecoin_address(address: &FilecoinAddress) -> Result<Self> {
-        todo!()
+    pub fn from_filecoin_address(addr: &FilecoinAddress) -> Result<Self> {
+        match addr.protocol() {
+            Protocol::ID => Ok(Self::from_actor_id(addr.id()?)),
+            Protocol::Delegated => {
+                let payload = addr.payload();
+                let result: Result<DelegatedAddress, _> = payload.try_into();
+                if let Ok(f4_addr) = result {
+                    let namespace = f4_addr.namespace();
+                    if namespace != FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()? {
+                        bail!("invalid address {addr}");
+                    }
+                    let eth_addr = cast_eth_addr(f4_addr.subaddress())?;
+                    if eth_addr.is_masked_id() {
+                        bail!(
+                            "f410f addresses cannot embed masked-ID payloads: {}",
+                            eth_addr.0
+                        );
+                    }
+                    Ok(eth_addr)
+                } else {
+                    bail!("invalid delegated address namespace in: {addr}")
+                }
+            }
+            _ => {
+                bail!("invalid address {addr}");
+            }
+        }
     }
 
     fn is_masked_id(&self) -> bool {
         self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
+    }
+
+    fn from_actor_id(id: u64) -> Self {
+        let mut payload = ethereum_types::H160::default();
+        payload.as_bytes_mut()[0] = 0xff;
+        payload.as_bytes_mut()[12..20].copy_from_slice(&id.to_be_bytes());
+
+        Self(payload)
     }
 }
 
@@ -129,6 +164,15 @@ impl FromStr for Address {
             ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
         ))
     }
+}
+
+fn cast_eth_addr(bytes: &[u8]) -> Result<Address> {
+    if bytes.len() != ADDRESS_LENGTH {
+        bail!("cannot parse bytes into an Ethereum address: incorrect input length")
+    }
+    let mut payload = ethereum_types::H160::default();
+    payload.as_bytes_mut().copy_from_slice(bytes);
+    Ok(Address(payload))
 }
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
