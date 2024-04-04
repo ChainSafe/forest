@@ -6,7 +6,6 @@ pub mod beacon_ops;
 pub mod chain_ops;
 pub mod common_ops;
 pub mod eth_ops;
-pub mod mpool_ops;
 pub mod net_ops;
 pub mod node_ops;
 pub mod state_ops;
