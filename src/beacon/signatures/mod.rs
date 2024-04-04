@@ -83,6 +83,11 @@ pub fn verify_messages_chained(
 ) -> bool {
     let n_messages = messages.len();
     if n_messages != signatures.len() {
+        tracing::error!(
+            "n_messages {} != signatures.len() {}",
+            n_messages,
+            signatures.len()
+        );
         return false;
     }
     if n_messages == 0 {
@@ -92,6 +97,7 @@ pub fn verify_messages_chained(
     let public_key: G1Affine = public_key.as_affine();
     // zero key & single message should fail
     if n_messages == 1 && public_key.is_identity().into() {
+        tracing::error!("n_messages == 1 && public_key.is_identity().into()");
         return false;
     }
 
@@ -99,6 +105,7 @@ pub fn verify_messages_chained(
     // See Section 3.1. of the IRTF's BLS signatures spec:
     // https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.1
     if !blstrs::unique_messages(messages) {
+        tracing::error!("!blstrs::unique_messages(messages)");
         return false;
     }
 
@@ -122,10 +129,15 @@ pub fn verify_messages_chained(
             anyhow::Ok(acc)
         })
     else {
+        tracing::error!("failed end");
         return false;
     };
 
-    acc.finalverify(None)
+    let ret = acc.finalverify(None);
+    if !ret {
+        tracing::error!("acc.finalverify(None) failed");
+    }
+    ret
 }
 
 fn map_blst_error(e: impl std::fmt::Debug) -> anyhow::Error {
