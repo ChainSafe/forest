@@ -170,6 +170,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             .push(Self::openrpc(&mut module.schema_generator, module.calling_convention).unwrap());
     }
     /// Call this method on an [`RpcModule`].
+    #[allow(unused)] // included for completeness
     fn call_module(
         module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
@@ -265,8 +266,6 @@ pub trait Params<const ARITY: usize> {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-#[allow(unused)]
 fn unexpected(v: &serde_json::Value) -> Unexpected<'_> {
     match v {
         serde_json::Value::Null => Unexpected::Unit,
@@ -355,12 +354,11 @@ impl<Ctx> SelfDescribingRpcModule<Ctx> {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
-#[allow(unused)]
 /// [`openrpc_types::ParamStructure`] describes accepted param format.
 /// This is an actual param format, used to decide how to construct arguments.
 pub enum ConcreteCallingConvention {
     ByPosition,
+    #[allow(unused)] // included for completeness
     ByName,
 }
 
