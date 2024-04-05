@@ -15,7 +15,6 @@ anyhow = "1.0"
 argon2 = "0.5"
 async-compression = { version = "0.4", features = ["tokio", "zstd"] }
 async-fs = "2"
-async-recursion = "1"
 async-trait = "0.1"
 asynchronous-codec = "0.6"
 axum = "0.7"
