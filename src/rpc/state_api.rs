@@ -77,6 +77,8 @@ pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
 pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
 pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str = "Filecoin.StateVMCirculatingSupplyInternal";
 pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
+pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
+    "Filecoin.StateDealProviderCollateralBounds";
 pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
 pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
 
@@ -1116,13 +1118,16 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
 
     let power_claim = power_state.total_power();
 
+    let policy = &state_manager.chain_config().policy;
+
     let baseline_power = reward_state.this_epoch_baseline_power();
 
-    let (min, max) = reward::State::deal_provider_collateral_bounds(
+    let (min, max) = reward_state.deal_provider_collateral_bounds(
+        policy,
         size,
-        power_claim.raw_byte_power,
+        &power_claim.raw_byte_power,
         baseline_power,
-        supply.into(),
+        &supply.into(),
     );
 
     Ok(DealCollateralBounds {

@@ -490,6 +490,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-recursion"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30c5ef0ede93efbf733c1a727f3b6b5a1060bbedd5600183e66f6e4be4af0ec5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
+
+[[package]]
 name = "async-signal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2716,9 +2727,9 @@ checksum = "c007b1ae3abe1cb6f85a16305acd418b7ca6343b953633fee2b76d8f108b830f"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "028650dbb1544596ec2f78ec1e663191b2b44d87634f130819ead3e6ef0353cf"
+checksum = "3bbee28c5ba5e7f913700c925cb1be565bf53b05260a56a067ede024f8d51d88"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2732,9 +2743,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "210ace3e982f4bbbd6a3eca18a5b25e6f695d44344d44350e20e34ae7b1c9012"
+checksum = "44b1cdf23bff99fd6f4d421ab80d1c16eefa0388ddabe90721e17976fbdef6e6"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2747,9 +2758,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2ccd11bde82d189430b2e6ec2102f31ff919cabfad573a8cc6d55551b426522"
+checksum = "e22ed214170b2a74375fafa86aeb2c21c7310d16dfeddbc5611acb7a75d14e78"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2767,9 +2778,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7e058f4a7e9cde4226370c6905a97122d9ca620b4e4ddf7d25daa63ab2526b7"
+checksum = "eea2397e1cf0cac0a734feba3c8048537efc1f21570cdf19e925e42aefaa9e2a"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2787,9 +2798,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f55ffe39d3109583a8a6a5a00ade278de10cbd51be0317a859f60c3931fb84a1"
+checksum = "8ce2796f4f797353599471cbe4a07d2e22f6650e47cb0220dc66a0dbf18fe206"
 dependencies = [
  "anyhow",
  "cid",
@@ -2808,9 +2819,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "580d651f158da2b02bfe4908363e326e03d18a5033d738102af3019ebe3b63d5"
+checksum = "9e1cf27537550bceb6f9332d0a2e66f77e8196def7bb88fad8fad31fee582032"
 dependencies = [
  "anyhow",
  "cid",
@@ -2846,9 +2857,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "178685710f049cbdee1abcc25859bfab94899002d0ebc2f3ff4a2b9c3a320eeb"
+checksum = "3571610cce6e4b8c8e523c3ba82a49f533d41d73ad6966898cd27e5ed9171b1c"
 dependencies = [
  "anyhow",
  "cid",
@@ -2871,9 +2882,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e83454bd3c49afcd12ee7b1d5c01dd2cc1fd5269a9b0cf8dbacc32fe5e387076"
+checksum = "da3fec1ca7ac061c008857380b63135580597b39186a79457af9647c6aebd1d2"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
@@ -2901,9 +2912,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca96c6124d190900a6cc3cc44bab70780b2b2718bb441079bcda7c3c3cbdc4c5"
+checksum = "40e11b91a5b1475cb2caa65bfa00292fb30f8f7427e54dba83077c91d733b5f4"
 dependencies = [
  "anyhow",
  "cid",
@@ -2924,9 +2935,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3d7d87f50606f088eff9e777b3d67798378700f539710822680b9bc0944088c"
+checksum = "434f065bc7494d2d8eb61b14010d5a2387198a89a4d15e242fab3eb2accc7636"
 dependencies = [
  "anyhow",
  "cid",
@@ -2947,9 +2958,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae914722ee25fa68f5616a430d65958896f750ed2ba9160938d6029f8b86b285"
+checksum = "9387eea670ee107cf0cd9d8fe2ea69e4716a6b848247400ace38b8bf937d2fa0"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2963,9 +2974,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bcfa44cb18581d6d4fb3a7dd7cc532021d102d481d6a80d10997867e8fb27ab"
+checksum = "f9e3619014e641972634d6dadd294f17fa2b0c671c3a2dfe3686df2747e9efbd"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2980,9 +2991,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf716cdb4ca1943c5c1a1212007fdc487bb7419451980a34a197365b0548e645"
+checksum = "c31f10d46e7a720e50905b12155378d5752b1154bf2fa3c742af700391a3b43b"
 dependencies = [
  "anyhow",
  "cid",
@@ -3000,9 +3011,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "10.1.0"
+version = "11.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45d580901129af61cd96a6b7530341c54a7c75b33e52676db4db215706941aaf"
+checksum = "61e4f02a3e41637b2076be8a5838eaef5f47a0c5c772bb7070352fbdf0b934b0"
 dependencies = [
  "anyhow",
  "cid",
@@ -3192,6 +3203,7 @@ dependencies = [
  "assert_cmd",
  "async-compression",
  "async-fs 2.1.1",
+ "async-recursion",
  "async-trait",
  "asynchronous-codec 0.6.2",
  "axum 0.7.5",
@@ -4463,7 +4475,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio",
  "tower-service",
  "tracing",
