@@ -20,7 +20,7 @@ impl ApiInfo {
     }
 
     pub fn mpool_push_req(message: SignedMessage) -> RpcRequest<Cid> {
-        RpcRequest::new(MPOOL_PUSH, (message,))
+        RpcRequest::new(MpoolPush::NAME, (message,))
     }
 
     pub async fn mpool_push(&self, message: SignedMessage) -> Result<Cid, JsonRpcError> {
