@@ -1,174 +1,186 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
-use std::convert::TryFrom;
-
+use super::gas_api::estimate_message_gas;
+use super::RPCState;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::Ctx;
-use crate::shim::{address::Protocol, message::Message};
-
-use ahash::{HashSet, HashSetExt};
-use anyhow::Result;
+use crate::rpc::{reflect::SelfDescribingRpcModule, Ctx, RpcMethod, RpcMethodExt as _};
+use crate::shim::{
+    address::{Address, Protocol},
+    message::Message,
+};
+use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
 
-use super::gas_api::estimate_message_gas;
-
-pub const MPOOL_GET_NONCE: &str = "Filecoin.MpoolGetNonce";
-pub const MPOOL_PENDING: &str = "Filecoin.MpoolPending";
-pub const MPOOL_PUSH: &str = "Filecoin.MpoolPush";
-pub const MPOOL_PUSH_MESSAGE: &str = "Filecoin.MpoolPushMessage";
+pub fn register_all(
+    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
+) {
+    MpoolGetNonce::register(module);
+    MpoolPending::register(module);
+    MpoolPush::register(module);
+    MpoolPushMessage::register(module);
+}
 
 /// Gets next nonce for the specified sender.
-pub async fn mpool_get_nonce<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<u64, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((address,)) = params.parse()?;
-
-    Ok(data.mpool.get_sequence(&address)?)
+pub enum MpoolGetNonce {}
+impl RpcMethod<1> for MpoolGetNonce {
+    const NAME: &'static str = "Filecoin.MpoolGetNonce";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    type Params = (LotusJson<Address>,);
+    type Ok = u64;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address,): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        Ok(ctx.mpool.get_sequence(&address.into_inner())?)
+    }
 }
 
 /// Return `Vec` of pending messages in `mpool`
-pub async fn mpool_pending<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<SignedMessage>>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+pub enum MpoolPending {}
+impl RpcMethod<1> for MpoolPending {
+    const NAME: &'static str = "Filecoin.MpoolPending";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    type Params = (LotusJson<ApiTipsetKey>,);
+    type Ok = LotusJson<Vec<SignedMessage>>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let mut ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
 
-    let mut ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+        let (mut pending, mpts) = ctx.mpool.pending()?;
 
-    let (mut pending, mpts) = data.mpool.pending()?;
+        let mut have_cids = HashSet::new();
+        for item in pending.iter() {
+            have_cids.insert(item.cid()?);
+        }
 
-    let mut have_cids = HashSet::new();
-    for item in pending.iter() {
-        have_cids.insert(item.cid()?);
-    }
+        if mpts.epoch() > ts.epoch() {
+            return Ok(pending.into_iter().collect::<Vec<_>>().into());
+        }
 
-    if mpts.epoch() > ts.epoch() {
-        return Ok(pending.into_iter().collect::<Vec<_>>().into());
-    }
+        loop {
+            if mpts.epoch() == ts.epoch() {
+                if mpts == ts {
+                    break;
+                }
 
-    loop {
-        if mpts.epoch() == ts.epoch() {
-            if mpts == ts {
-                break;
+                // mpts has different blocks than ts
+                let have = ctx
+                    .mpool
+                    .as_ref()
+                    .messages_for_blocks(ts.block_headers().iter())?;
+
+                for sm in have {
+                    have_cids.insert(sm.cid()?);
+                }
             }
 
-            // mpts has different blocks than ts
-            let have = data
+            let msgs = ctx
                 .mpool
                 .as_ref()
                 .messages_for_blocks(ts.block_headers().iter())?;
 
-            for sm in have {
-                have_cids.insert(sm.cid()?);
-            }
-        }
+            for m in msgs {
+                if have_cids.contains(&m.cid()?) {
+                    continue;
+                }
 
-        let msgs = data
-            .mpool
-            .as_ref()
-            .messages_for_blocks(ts.block_headers().iter())?;
-
-        for m in msgs {
-            if have_cids.contains(&m.cid()?) {
-                continue;
+                have_cids.insert(m.cid()?);
+                pending.push(m);
             }
 
-            have_cids.insert(m.cid()?);
-            pending.push(m);
-        }
+            if mpts.epoch() >= ts.epoch() {
+                break;
+            }
 
-        if mpts.epoch() >= ts.epoch() {
-            break;
+            ts = ctx
+                .state_manager
+                .chain_store()
+                .chain_index
+                .load_required_tipset(ts.parents())?;
         }
-
-        ts = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(ts.parents())?;
+        Ok(pending.into_iter().collect::<Vec<_>>().into())
     }
-    Ok(pending.into_iter().collect::<Vec<_>>().into())
 }
 
 /// Add `SignedMessage` to `mpool`, return message CID
-pub async fn mpool_push<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Cid>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((signed_message,)) = params.parse()?;
-
-    let cid = data.mpool.as_ref().push(signed_message).await?;
-
-    Ok(cid.into())
+pub enum MpoolPush {}
+impl RpcMethod<1> for MpoolPush {
+    const NAME: &'static str = "Filecoin.MpoolPush";
+    const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    type Params = (LotusJson<SignedMessage>,);
+    type Ok = LotusJson<Cid>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(msg),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let cid = ctx.mpool.as_ref().push(msg).await?;
+        Ok(cid.into())
+    }
 }
 
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
-pub async fn mpool_push_message<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<SignedMessage>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((umsg, spec)): LotusJson<(Message, Option<MessageSendSpec>)> = params.parse()?;
+pub enum MpoolPushMessage {}
+impl RpcMethod<2> for MpoolPushMessage {
+    const NAME: &'static str = "Filecoin.MpoolPushMessage";
+    const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
+    type Params = (LotusJson<Message>, Option<MessageSendSpec>);
+    type Ok = LotusJson<SignedMessage>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(umsg), spec): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let from = umsg.from;
 
-    let from = umsg.from;
+        let mut keystore = ctx.keystore.as_ref().write().await;
+        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let key_addr = ctx
+            .state_manager
+            .resolve_to_key_addr(&from, &heaviest_tipset)
+            .await?;
 
-    let mut keystore = data.keystore.as_ref().write().await;
-    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
-    let key_addr = data
-        .state_manager
-        .resolve_to_key_addr(&from, &heaviest_tipset)
-        .await?;
+        if umsg.sequence != 0 {
+            return Err(anyhow::anyhow!(
+                "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
+            )
+            .into());
+        }
+        let mut umsg = estimate_message_gas(&ctx, umsg, spec, Default::default()).await?;
+        if umsg.gas_premium > umsg.gas_fee_cap {
+            return Err(anyhow::anyhow!(
+                "After estimation, gas premium is greater than gas fee cap"
+            )
+            .into());
+        }
 
-    if umsg.sequence != 0 {
-        return Err(anyhow::anyhow!(
-            "Expected nonce for MpoolPushMessage is 0, and will be calculated for you"
-        )
-        .into());
+        if from.protocol() == Protocol::ID {
+            umsg.from = key_addr;
+        }
+        let nonce = ctx.mpool.get_sequence(&from)?;
+        umsg.sequence = nonce;
+        let key = crate::key_management::Key::try_from(crate::key_management::try_find(
+            &key_addr,
+            &mut keystore,
+        )?)?;
+        let sig = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            umsg.cid().unwrap().to_bytes().as_slice(),
+        )?;
+
+        let smsg = SignedMessage::new_from_parts(umsg, sig)?;
+
+        ctx.mpool.as_ref().push(smsg.clone()).await?;
+
+        Ok(smsg.into())
     }
-    let mut umsg = estimate_message_gas::<DB>(&data, umsg, spec, Default::default()).await?;
-    if umsg.gas_premium > umsg.gas_fee_cap {
-        return Err(
-            anyhow::anyhow!("After estimation, gas premium is greater than gas fee cap").into(),
-        );
-    }
-
-    if from.protocol() == Protocol::ID {
-        umsg.from = key_addr;
-    }
-    let nonce = data.mpool.get_sequence(&from)?;
-    umsg.sequence = nonce;
-    let key = crate::key_management::Key::try_from(crate::key_management::try_find(
-        &key_addr,
-        &mut keystore,
-    )?)?;
-    let sig = crate::key_management::sign(
-        *key.key_info.key_type(),
-        key.key_info.private_key(),
-        umsg.cid().unwrap().to_bytes().as_slice(),
-    )?;
-
-    let smsg = SignedMessage::new_from_parts(umsg, sig)?;
-
-    data.mpool.as_ref().push(smsg.clone()).await?;
-
-    Ok(smsg.into())
 }

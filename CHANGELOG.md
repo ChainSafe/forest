@@ -35,6 +35,9 @@
 
 ### Fixed
 
+- [#4145](https://github.com/ChainSafe/forest/pull/4145) Fix the
+  `forest-cli net peers --agent` command in case the agent is not available.
+
 ## Forest 0.17.1 "Villentretenmerth"
 
 This is a mandatory release that includes scheduled migration for the NV22
