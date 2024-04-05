@@ -5,6 +5,7 @@
 - [Introduction](./introduction.md)
   - [Basic Usage](./basic_usage.md)
   - [Command-line interface](./cli.md)
+  - [Wallet handling](./wallet.md)
   - [Configuration](./configuration.md)
   - [Environment Variables](./environment_variables.md)
   - [Docker](./docker.md)
