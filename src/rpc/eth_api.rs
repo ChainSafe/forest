@@ -62,6 +62,9 @@ const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0
 
 const EIP_1559_TX_TYPE: u64 = 2;
 
+/// The address used in messages to actors that have since been deleted.
+const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
+
 // ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
 // As per https://github.com/ethereum-lists/chains
 // TODO: use chain_config instead
@@ -741,6 +744,40 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
     })
 }
 
+fn lookup_eth_address<DB: Blockstore>(
+    addr: &FilecoinAddress,
+    state: &StateTree<DB>,
+) -> Result<Address> {
+    // Attempt to convert directly, if it's an f4 address.
+    if let Ok(eth_addr) = Address::from_filecoin_address(addr) {
+        if !eth_addr.is_masked_id() {
+            return Ok(eth_addr);
+        }
+    }
+
+    // Otherwise, resolve the ID addr.
+    let id_addr = state.lookup_id(addr)?;
+
+    // Lookup on the target actor and try to get an f410 address.
+    if let Some(actor_state) = state.get_actor(addr)? {
+        if let Some(addr) = actor_state.delegated_address {
+            if let Ok(eth_addr) = Address::from_filecoin_address(&addr.into()) {
+                if !eth_addr.is_masked_id() {
+                    // Conversable into an eth address, use it.
+                    return Ok(eth_addr);
+                }
+            }
+        } else {
+            // No delegated address -> use a masked ID address
+        }
+    } else {
+        // Not found -> use a masked ID address
+    }
+
+    // Otherwise, use the masked address.
+    Ok(Address::from_actor_id(id_addr.unwrap()))
+}
+
 /// Convert a native message to an eth transaction.
 ///
 ///   - The state-tree must be from after the message was applied (ideally the following tipset).
@@ -753,25 +790,53 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-fn eth_tx_from_native_message<S>(msg: &VmMessage, state: &StateTree<S>) -> Result<Tx> {
+fn eth_tx_from_native_message<DB: Blockstore>(
+    msg: &SignedMessage,
+    state: &StateTree<DB>,
+) -> Result<Tx> {
     // Lookup the from address. This must succeed.
+    let from = lookup_eth_address(&msg.from(), state).with_context(|| {
+        format!(
+            "failed to lookup sender address {} when converting a native message to an eth txn",
+            msg.from()
+        )
+    })?;
+    // Lookup the to address. If the recipient doesn't exist, we replace the address with a
+    // known sentinel address.
+    let to = match lookup_eth_address(&msg.to(), state) {
+        Ok(addr) => addr,
+        Err(_err) => {
+            // TODO: bail in case of not "actor not found" errors
+            Address(ethereum_types::H160::from_str(REVERTED_ETH_ADDRESS)?)
+
+            // bail!(
+            //     "failed to lookup receiver address {} when converting a native message to an eth txn",
+            //     msg.to()
+            // )
+        }
+    };
 
     // Finally, convert the input parameters to "solidity ABI".
 
     let mut tx = Tx::default();
-    tx.nonce = Uint64(msg.sequence);
+    tx.to = to;
+    tx.from = from;
+    tx.nonce = Uint64(msg.message().sequence);
     tx.chain_id = Uint64(EIP_155_CHAIN_ID);
-    tx.value = BigInt(msg.value.atto().clone());
+    tx.value = BigInt(msg.message().value.atto().clone());
     tx.r#type = Uint64(EIP_1559_TX_TYPE);
-    tx.gas = Uint64(msg.gas_limit);
-    tx.max_fee_per_gas = BigInt(msg.gas_fee_cap.atto().clone());
-    tx.max_priority_fee_per_gas = BigInt(msg.gas_premium.atto().clone());
+    tx.gas = Uint64(msg.message().gas_limit);
+    tx.max_fee_per_gas = BigInt(msg.message().gas_fee_cap.atto().clone());
+    tx.max_priority_fee_per_gas = BigInt(msg.message().gas_premium.atto().clone());
     tx.access_list = vec![];
 
     Ok(tx)
 }
 
-pub fn new_eth_tx_from_signed_message<S>(smsg: &SignedMessage, state: &StateTree<S>) -> Result<Tx> {
+pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
+    smsg: &SignedMessage,
+    state: &StateTree<DB>,
+) -> Result<Tx> {
     let mut tx: Tx = Tx::default();
 
     if smsg.is_delegated() {
@@ -780,11 +845,11 @@ pub fn new_eth_tx_from_signed_message<S>(smsg: &SignedMessage, state: &StateTree
         tx.hash = eth_tx.hash;
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
-        tx = eth_tx_from_native_message(&smsg.message.clone().into(), state)?;
+        tx = eth_tx_from_native_message(smsg, state)?;
         tx.hash = smsg.cid()?.into();
     } else {
         // BLS Filecoin message
-        tx = eth_tx_from_native_message(&smsg.message.clone().into(), state)?;
+        tx = eth_tx_from_native_message(smsg, state)?;
         tx.hash = smsg.message().cid()?.into();
     }
     Ok(tx)
