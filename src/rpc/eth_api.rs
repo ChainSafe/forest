@@ -66,11 +66,6 @@ const EIP_1559_TX_TYPE: u64 = 2;
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
-// ChainId defines the chain ID used in the Ethereum JSON-RPC endpoint.
-// As per https://github.com/ethereum-lists/chains
-// TODO: use chain_config instead
-const EIP_155_CHAIN_ID: u64 = 0x4cb2f;
-
 #[repr(u64)]
 enum EAMMethod {
     Constructor = METHOD_CONSTRUCTOR,
@@ -382,7 +377,7 @@ lotus_json_with_self!(Tx);
 
 #[derive(Debug, Clone, Default)]
 struct TxArgs {
-    pub chain_id: u64,
+    pub chain_id: u32,
     pub nonce: u64,
     pub to: Address,
     pub value: BigInt,
@@ -645,7 +640,10 @@ fn is_eth_address(addr: &VmAddress) -> bool {
     f4_addr.is_ok()
 }
 
-fn eth_tx_args_from_unsigned_eth_message(msg: &crate::shim::message::Message) -> Result<TxArgs> {
+fn eth_tx_args_from_unsigned_eth_message(
+    msg: &crate::shim::message::Message,
+    chain_id: u32,
+) -> Result<TxArgs> {
     let mut to = Address::default();
     let mut params = vec![];
 
@@ -673,7 +671,7 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &crate::shim::message::Message) ->
     }
 
     Ok(TxArgs {
-        chain_id: EIP_155_CHAIN_ID,
+        chain_id,
         nonce: msg.sequence,
         to,
         value: msg.value.clone().into(),
@@ -711,7 +709,7 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
+fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -728,13 +726,13 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
     // Ethereum Address sender...
     let from = Address::from_filecoin_address(&from)?;
 
-    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message())?;
+    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message(), chain_id)?;
 
     let (r, s, v) = recover_sig(smsg.signature())?;
 
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
-        chain_id: Uint64(tx_args.chain_id),
+        chain_id: Uint64(chain_id as u64),
         to: tx_args.to,
         from,
         value: tx_args.value,
@@ -800,6 +798,7 @@ fn lookup_eth_address<DB: Blockstore>(
 fn eth_tx_from_native_message<DB: Blockstore>(
     msg: &SignedMessage,
     state: &StateTree<DB>,
+    chain_id: u32,
 ) -> Result<Tx> {
     // Lookup the from address. This must succeed.
     let from = lookup_eth_address(&msg.from(), state).with_context(|| {
@@ -849,7 +848,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     tx.from = from;
     tx.input = Bytes(input);
     tx.nonce = Uint64(msg.message().sequence);
-    tx.chain_id = Uint64(EIP_155_CHAIN_ID);
+    tx.chain_id = Uint64(chain_id as u64);
     tx.value = msg.message().value.clone().into();
     tx.r#type = Uint64(EIP_1559_TX_TYPE);
     tx.gas = Uint64(msg.message().gas_limit);
@@ -863,20 +862,21 @@ fn eth_tx_from_native_message<DB: Blockstore>(
 pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     smsg: &SignedMessage,
     state: &StateTree<DB>,
+    chain_id: u32,
 ) -> Result<Tx> {
     let mut tx: Tx = Tx::default();
 
     if smsg.is_delegated() {
         // This is an eth tx
-        let eth_tx = eth_tx_from_signed_eth_message(smsg)?;
+        let eth_tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
         tx.hash = eth_tx.hash;
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
-        tx = eth_tx_from_native_message(smsg, state)?;
+        tx = eth_tx_from_native_message(smsg, state, chain_id)?;
         tx.hash = smsg.cid()?.into();
     } else {
         // BLS Filecoin message
-        tx = eth_tx_from_native_message(smsg, state)?;
+        tx = eth_tx_from_native_message(smsg, state, chain_id)?;
         tx.hash = smsg.message().cid()?.into();
     }
     Ok(tx)
@@ -914,7 +914,11 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         };
 
         // TODO: build tx and push to block transactions
-        let mut tx = new_eth_tx_from_signed_message(&smsg, &state_tree)?;
+        let mut tx = new_eth_tx_from_signed_message(
+            &smsg,
+            &state_tree,
+            data.state_manager.chain_config().eth_chain_id,
+        )?;
         tx.block_hash = block_hash.clone();
         tx.block_number = block_number.clone();
         tx.transaction_index = ti;
