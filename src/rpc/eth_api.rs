@@ -8,7 +8,7 @@ use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
-use crate::message::{ChainMessage, Message, SignedMessage};
+use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::chain_api::get_parent_receipts;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::sync_api::sync_state;
@@ -21,6 +21,7 @@ use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
+use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
 use cid::{
@@ -373,11 +374,16 @@ pub struct Tx {
     pub s: BigInt,
 }
 
+impl Tx {
+    pub fn hash(&self) -> Hash {
+        Hash::default()
+    }
+}
+
 lotus_json_with_self!(Tx);
 
 #[derive(Debug, Clone, Default)]
 struct TxArgs {
-    pub chain_id: u32,
     pub nonce: u64,
     pub to: Address,
     pub value: BigInt,
@@ -640,10 +646,7 @@ fn is_eth_address(addr: &VmAddress) -> bool {
     f4_addr.is_ok()
 }
 
-fn eth_tx_args_from_unsigned_eth_message(
-    msg: &crate::shim::message::Message,
-    chain_id: u32,
-) -> Result<TxArgs> {
+fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     let mut to = Address::default();
     let mut params = vec![];
 
@@ -671,7 +674,6 @@ fn eth_tx_args_from_unsigned_eth_message(
     }
 
     Ok(TxArgs {
-        chain_id,
         nonce: msg.sequence,
         to,
         value: msg.value.clone().into(),
@@ -726,7 +728,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
     // Ethereum Address sender...
     let from = Address::from_filecoin_address(&from)?;
 
-    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message(), chain_id)?;
+    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message())?;
 
     let (r, s, v) = recover_sig(smsg.signature())?;
 
@@ -796,7 +798,7 @@ fn lookup_eth_address<DB: Blockstore>(
 /// - `block_number`
 /// - `transaction_index`
 fn eth_tx_from_native_message<DB: Blockstore>(
-    msg: &SignedMessage,
+    msg: &Message,
     state: &StateTree<DB>,
     chain_id: u32,
 ) -> Result<Tx> {
@@ -847,13 +849,13 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     tx.to = to;
     tx.from = from;
     tx.input = Bytes(input);
-    tx.nonce = Uint64(msg.message().sequence);
+    tx.nonce = Uint64(msg.sequence);
     tx.chain_id = Uint64(chain_id as u64);
-    tx.value = msg.message().value.clone().into();
+    tx.value = msg.value.clone().into();
     tx.r#type = Uint64(EIP_1559_TX_TYPE);
-    tx.gas = Uint64(msg.message().gas_limit);
-    tx.max_fee_per_gas = msg.message().gas_fee_cap.clone().into();
-    tx.max_priority_fee_per_gas = msg.message().gas_premium.clone().into();
+    tx.gas = Uint64(msg.gas_limit);
+    tx.max_fee_per_gas = msg.gas_fee_cap.clone().into();
+    tx.max_priority_fee_per_gas = msg.gas_premium.clone().into();
     tx.access_list = vec![];
 
     Ok(tx)
@@ -865,18 +867,19 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     chain_id: u32,
 ) -> Result<Tx> {
     let mut tx: Tx = Tx::default();
+    tx.chain_id = Uint64(1);
 
     if smsg.is_delegated() {
         // This is an eth tx
-        let eth_tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-        tx.hash = eth_tx.hash;
+        tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+        tx.hash = tx.hash();
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
-        tx = eth_tx_from_native_message(smsg, state, chain_id)?;
+        tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
         tx.hash = smsg.cid()?.into();
     } else {
         // BLS Filecoin message
-        tx = eth_tx_from_native_message(smsg, state, chain_id)?;
+        tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
         tx.hash = smsg.message().cid()?.into();
     }
     Ok(tx)
