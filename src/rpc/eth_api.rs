@@ -17,9 +17,8 @@ use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
-use crate::shim::econ::BLOCK_GAS_LIMIT;
+use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
-use crate::shim::fvm_shared_latest::message::Message as VmMessage;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
@@ -99,6 +98,12 @@ lotus_json_with_self!(GasPriceResult);
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
 pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
+
+impl From<TokenAmount> for BigInt {
+    fn from(amount: TokenAmount) -> Self {
+        Self(amount.atto().to_owned())
+    }
+}
 
 lotus_json_with_self!(BigInt);
 
@@ -669,9 +674,9 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &crate::shim::message::Message) ->
         chain_id: EIP_155_CHAIN_ID,
         nonce: msg.sequence,
         to,
-        value: BigInt(msg.value.atto().clone()),
-        max_fee_per_gas: BigInt(msg.gas_fee_cap.atto().clone()),
-        max_priority_fee_per_gas: BigInt(msg.gas_premium.atto().clone()),
+        value: msg.value.clone().into(),
+        max_fee_per_gas: msg.gas_fee_cap.clone().into(),
+        max_priority_fee_per_gas: msg.gas_premium.clone().into(),
         gas_limit: msg.gas_limit,
         input: params,
         ..TxArgs::default()
@@ -823,11 +828,11 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     tx.from = from;
     tx.nonce = Uint64(msg.message().sequence);
     tx.chain_id = Uint64(EIP_155_CHAIN_ID);
-    tx.value = BigInt(msg.message().value.atto().clone());
+    tx.value = msg.message().value.clone().into();
     tx.r#type = Uint64(EIP_1559_TX_TYPE);
     tx.gas = Uint64(msg.message().gas_limit);
-    tx.max_fee_per_gas = BigInt(msg.message().gas_fee_cap.atto().clone());
-    tx.max_priority_fee_per_gas = BigInt(msg.message().gas_premium.atto().clone());
+    tx.max_fee_per_gas = msg.message().gas_fee_cap.clone().into();
+    tx.max_priority_fee_per_gas = msg.message().gas_premium.clone().into();
     tx.access_list = vec![];
 
     Ok(tx)
@@ -904,14 +909,12 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     block.number = block_number;
     block.parent_hash = parent_cid.into();
     block.timestamp = Uint64(tipset.block_headers().first().timestamp);
-    block.base_fee_per_gas = BigInt(
-        tipset
-            .block_headers()
-            .first()
-            .parent_base_fee
-            .atto()
-            .clone(),
-    );
+    block.base_fee_per_gas = tipset
+        .block_headers()
+        .first()
+        .parent_base_fee
+        .clone()
+        .into();
     block.gas_used = Uint64(gas_used);
     block.transactions = transactions;
 
