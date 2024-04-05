@@ -19,6 +19,7 @@ use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
+use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
@@ -27,6 +28,7 @@ use cid::{
     Cid,
 };
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::CBOR;
 use itertools::Itertools;
 use jsonrpsee::types::Params;
 use nonempty::nonempty;
@@ -78,7 +80,7 @@ enum EAMMethod {
 }
 
 #[repr(u64)]
-pub enum EVMMethod {
+enum EVMMethod {
     Constructor = METHOD_CONSTRUCTOR,
     Resurrect = 2,
     GetBytecode = 3,
@@ -366,7 +368,7 @@ pub struct Tx {
     pub to: Address,
     pub value: BigInt,
     pub r#type: Uint64,
-    pub input: Vec<u8>,
+    pub input: Bytes,
     pub gas: Uint64,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
@@ -744,7 +746,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage) -> Result<Tx> {
         v,
         r,
         s,
-        input: tx_args.input,
+        input: Bytes(tx_args.input),
         ..Tx::default()
     })
 }
@@ -808,7 +810,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     })?;
     // Lookup the to address. If the recipient doesn't exist, we replace the address with a
     // known sentinel address.
-    let to = match lookup_eth_address(&msg.to(), state) {
+    let mut to = match lookup_eth_address(&msg.to(), state) {
         Ok(addr) => addr,
         Err(_err) => {
             // TODO: bail in case of not "actor not found" errors
@@ -823,9 +825,29 @@ fn eth_tx_from_native_message<DB: Blockstore>(
 
     // Finally, convert the input parameters to "solidity ABI".
 
+    // For empty, we use "0" as the codec. Otherwise, we use CBOR for message
+    // parameters.
+    let codec = if !msg.params().is_empty() { CBOR } else { 0 };
+
+    // We try to decode the input as an EVM method invocation and/or a contract creation. If
+    // that fails, we encode the "native" parameters as Solidity ABI.
+    let mut input: Vec<u8> = vec![];
+    if msg.method_num() == EVMMethod::InvokeContract as MethodNum
+        || msg.method_num() == EAMMethod::CreateExternal as MethodNum
+    {
+        input = msg.params().to_vec();
+        if msg.method_num() == EAMMethod::CreateExternal as MethodNum {
+            // to = None;
+        }
+    } else {
+        // default
+        // input = encodeFilecoinParamsAsABI(msg.Method, codec, msg.Params)
+    }
+
     let mut tx = Tx::default();
     tx.to = to;
     tx.from = from;
+    tx.input = Bytes(input);
     tx.nonce = Uint64(msg.message().sequence);
     tx.chain_id = Uint64(EIP_155_CHAIN_ID);
     tx.value = msg.message().value.clone().into();

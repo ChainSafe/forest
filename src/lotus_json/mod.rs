@@ -326,7 +326,7 @@ pub mod hexify_vec_bytes {
     where
         S: Serializer,
     {
-        let v: Vec<String> = value.iter().map(|b| format!("{:#x}", b)).collect();
+        let v: Vec<String> = value.iter().map(|b| format!("{:x}", b)).collect();
         serializer.serialize_str(&format!("0x{}", v.join("")))
     }
 
