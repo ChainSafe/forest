@@ -141,6 +141,65 @@ methods:
           Signature:
             $ref: "#/components/schemas/SignatureLotusJson"
       required: true
+  - name: Filecoin.AuthNew
+    params:
+      - name: params
+        schema:
+          type: object
+          required:
+            - perms
+            - token_exp
+          properties:
+            perms:
+              type: array
+              items:
+                type: string
+            token_exp:
+              type: integer
+              format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.AuthNew::Result"
+      schema:
+        $ref: "#/components/schemas/encoded binary"
+        nullable: true
+      required: true
+  - name: Filecoin.AuthVerify
+    params:
+      - name: header_raw
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.AuthVerify::Result"
+      schema:
+        type: array
+        items:
+          type: string
+      required: true
+  - name: Filecoin.BeaconGetEntry
+    params:
+      - name: first
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.BeaconGetEntry::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Round
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Round:
+            $ref: "#/components/schemas/uint64"
+      required: true
 components:
   schemas:
     CidLotusJsonGeneric_for_64:

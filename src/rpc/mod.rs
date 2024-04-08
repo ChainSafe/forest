@@ -167,6 +167,8 @@ where
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
     ChainGetPath::register(&mut module);
     mpool_api::register_all(&mut module);
+    auth_api::register_all(&mut module);
+    beacon_api::register_all(&mut module);
     module.finish()
 }
 
@@ -180,8 +182,6 @@ fn register_methods<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use auth_api::*;
-    use beacon_api::*;
     use chain_api::*;
     use common_api::*;
     use eth_api::*;
@@ -191,11 +191,6 @@ where
     use sync_api::*;
     use wallet_api::*;
 
-    // Auth API
-    module.register_async_method(AUTH_NEW, auth_new::<DB>)?;
-    module.register_async_method(AUTH_VERIFY, auth_verify::<DB>)?;
-    // Beacon API
-    module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
     module.register_async_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)?;
     module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
@@ -264,6 +259,11 @@ where
     module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
     module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
     module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
+    module.register_async_method(
+        STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
+        state_deal_provider_collateral_bounds::<DB>,
+    )?;
+
     module.register_async_method(
         STATE_MINER_PROVING_DEADLINE,
         state_miner_proving_deadline::<DB>,

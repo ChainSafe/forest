@@ -35,11 +35,11 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
     // Auth API
-    access.insert(auth_api::AUTH_NEW, Access::Admin);
-    access.insert(auth_api::AUTH_VERIFY, Access::Read);
+    access.insert(auth_api::AuthNew::NAME, Access::Admin);
+    access.insert(auth_api::AuthVerify::NAME, Access::Read);
 
     // Beacon API
-    access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
+    access.insert(beacon_api::BeaconGetEntry::NAME, Access::Read);
 
     // Chain API
     access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
@@ -64,7 +64,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Message Pool API
     access.insert(mpool_api::MpoolGetNonce::NAME, Access::Read);
     access.insert(mpool_api::MpoolPending::NAME, Access::Read);
-    access.insert(mpool_api::MpoolPush::NAME, Access::Write);
+    // Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
+    // can always be pushed over the p2p protocol, limiting the RPC doesn't
+    // improve security.
+    access.insert(mpool_api::MpoolPush::NAME, Access::Read);
     access.insert(mpool_api::MpoolPushMessage::NAME, Access::Sign);
 
     // Sync API
@@ -127,6 +130,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     );
     access.insert(state_api::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
     access.insert(state_api::MSIG_GET_PENDING, Access::Read);
+    access.insert(
+        state_api::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
+        Access::Read,
+    );
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);

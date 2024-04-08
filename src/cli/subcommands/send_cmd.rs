@@ -34,6 +34,11 @@ pub struct SendCommand {
 
 impl SendCommand {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        eprintln!(
+            "This command has been deprecated and will be removed in the future.\n\
+             Please use the 'forest-wallet' executable instead."
+        );
+
         let from: Address =
             if let Some(from) = &self.from {
                 StrictAddress::from_str(from)?.into()

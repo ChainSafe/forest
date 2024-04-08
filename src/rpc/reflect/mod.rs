@@ -221,7 +221,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
             //                  Client::call has an inappropriate HasLotusJson
             //                  bound, work around it for now.
-            let json = client.call(Self::request(params)?.lower()).await?;
+            let json = client.call(Self::request(params)?.map_ty()).await?;
             Ok(serde_json::from_value(json)?)
         }
     }
