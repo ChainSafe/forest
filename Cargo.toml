@@ -82,19 +82,21 @@ git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
 http = "1.0"
-http0 = { package = "http", version = "0.2" }
+# TODO(forest): https://github.com/ChainSafe/forest/issues/3961
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
+http02 = { version = "0.2", package = "http" }
 human-repr = "1.0"
 human_bytes = "0.4"
 humantime = "2.1.0"
 # TODO(forest): https://github.com/ChainSafe/forest/issues/3961
-#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
 hyper = { version = "0.14", features = ["full"] }
 indexmap = { version = "2.2", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22", features = ["server", "ws-client"] }
+jsonrpsee = { version = "0.22.2", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -155,7 +157,7 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
 regex = "1.10"
-reqwest = { version = "0.11", default-features = false, features = [
+reqwest = { version = "0.12", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",

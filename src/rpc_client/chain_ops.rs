@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use crate::rpc::types::*;
+use crate::rpc::{chain_api::ChainGetPath, types::*, RpcMethod};
 use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
@@ -117,7 +117,7 @@ impl ApiInfo {
     }
 
     pub fn chain_get_path_req(from: TipsetKey, to: TipsetKey) -> RpcRequest<Vec<PathChange>> {
-        RpcRequest::new(CHAIN_GET_PATH, (from, to))
+        RpcRequest::new(ChainGetPath::NAME, (from, to))
     }
 
     pub fn chain_has_obj_req(cid: Cid) -> RpcRequest<bool> {

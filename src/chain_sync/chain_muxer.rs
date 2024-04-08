@@ -564,12 +564,32 @@ where
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
         let genesis = self.genesis.clone();
+        let genesis_timestamp = self.genesis.block_headers().first().timestamp as i64;
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
         let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
 
         let evaluator = async move {
+            // If `local_epoch >= now_epoch`, return `NetworkHeadEvaluation::InSync`
+            // and enter FOLLOW mode directly instead of waiting to collect `tipset_sample_size` tipsets.
+            // Otherwise in some conditions, `forest-cli sync wait` takes very long to exit (only when the node enters FOLLOW mode)
+            match (
+                chain_store.heaviest_tipset().epoch(),
+                get_now_epoch(
+                    chrono::Utc::now().timestamp(),
+                    genesis_timestamp,
+                    block_delay as i64,
+                ),
+            ) {
+                (local_epoch, now_epoch) if local_epoch >= now_epoch => {
+                    return Ok(NetworkHeadEvaluation::InSync)
+                }
+                (local_epoch, now_epoch) => {
+                    info!("local head is behind the network, local_epoch: {local_epoch}, now_epoch: {now_epoch}");
+                }
+            };
+
             let mut tipsets = Vec::with_capacity(tipset_sample_size);
             while tipsets.len() < tipset_sample_size {
                 let event = match p2p_messages.recv_async().await {
@@ -600,12 +620,11 @@ where
                     }
                 };
 
-                let now_epoch = chrono::Utc::now()
-                    .timestamp()
-                    .saturating_add(block_delay as i64 - 1)
-                    .saturating_sub(genesis.block_headers().first().timestamp as i64)
-                    / block_delay as i64;
-
+                let now_epoch = get_now_epoch(
+                    chrono::Utc::now().timestamp(),
+                    genesis_timestamp,
+                    block_delay as i64,
+                );
                 let is_block_valid = |block: &Block| -> bool {
                     let header = &block.header;
                     if !header.is_within_clock_drift() {
@@ -639,7 +658,6 @@ where
                 .unwrap();
 
             // Query the heaviest tipset in the store
-            // Unwrapping is fine because the store always has at least one tipset
             let local_head = chain_store.heaviest_tipset();
 
             // We are in sync if the local head weight is heavier or
@@ -1001,4 +1019,14 @@ where
             }
         }
     }
+}
+
+// The formula matches lotus
+// ```go
+// sinceGenesis := build.Clock.Now().Sub(genesisTime)
+// expectedHeight := int64(sinceGenesis.Seconds()) / int64(build.BlockDelaySecs)
+// ```
+// See <https://github.com/filecoin-project/lotus/blob/b27c861485695d3f5bb92bcb281abc95f4d90fb6/chain/sync.go#L180>
+fn get_now_epoch(now_timestamp: i64, genesis_timestamp: i64, block_delay: i64) -> i64 {
+    now_timestamp.saturating_sub(genesis_timestamp) / block_delay
 }
