@@ -24,12 +24,13 @@ use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
+use bytes::Buf;
 use cid::{
     multihash::{self, MultihashDigest},
     Cid,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CBOR;
+use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
 use jsonrpsee::types::Params;
 use nonempty::nonempty;
@@ -785,6 +786,82 @@ fn lookup_eth_address<DB: Blockstore>(
     Ok(Address::from_actor_id(id_addr.unwrap()))
 }
 
+fn encode_filecoin_params_as_abi(
+    method: MethodNum,
+    codec: u64,
+    params: &fvm_ipld_encoding::RawBytes,
+) -> Result<Bytes> {
+    let mut buffer: Vec<u8> = vec![0x86, 0x8e, 0x10, 0xc4];
+    buffer.append(&mut encode_filecoin_returns_as_abi(method, codec, params));
+    Ok(Bytes(buffer))
+}
+
+fn encode_filecoin_returns_as_abi(
+    exit_code: u64,
+    codec: u64,
+    data: &fvm_ipld_encoding::RawBytes,
+) -> Vec<u8> {
+    encode_as_abi_helper(exit_code, codec, data)
+}
+
+// Format 2 numbers followed by an arbitrary byte array as solidity ABI. Both our native
+// inputs/outputs follow the same pattern, so we can reuse this code.
+fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
+    const EVM_WORD_SIZE: usize = 32;
+
+    // The first two params are "static" numbers. Then, we record the offset of the "data" arg,
+    // then, at that offset, we record the length of the data.
+    //
+    // In practice, this means we have 4 256-bit words back to back where the third arg (the
+    // offset) is _always_ '32*3'.
+    let static_args = [
+        param1,
+        param2,
+        (EVM_WORD_SIZE * 3) as u64,
+        data.len() as u64,
+    ];
+    // We always pad out to the next EVM "word" (32 bytes).
+    let total_words = static_args.len()
+        + (data.len() / EVM_WORD_SIZE)
+        + if data.len() % EVM_WORD_SIZE != 0 {
+            1
+        } else {
+            0
+        };
+    let len = total_words * EVM_WORD_SIZE;
+    let mut buf = vec![0u8; len];
+    let mut offset = 0;
+    // Below, we use copy instead of "appending" to preserve all the zero padding.
+    for arg in static_args.iter() {
+        // Write each "arg" into the last 8 bytes of each 32 byte word.
+        offset += EVM_WORD_SIZE;
+        let start = offset - 8;
+        buf[start..offset].copy_from_slice(&arg.to_be_bytes());
+    }
+
+    // Finally, we copy in the data.
+    // TODO: investigate
+    //buf[offset..].copy_from_slice(data);
+
+    buf
+}
+
+/// Decodes the payload using the given codec.
+fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<Bytes> {
+    match codec {
+        // TODO: handle IDENTITY?
+        DAG_CBOR | CBOR => {
+            let result: Result<Vec<u8>, _> = serde_ipld_dagcbor::de::from_reader(payload.reader());
+            match result {
+                Ok(buffer) => Ok(Bytes(buffer)),
+                Err(err) => bail!("decode_payload: failed to decode cbor payload: {err}"),
+            }
+        }
+        IPLD_RAW => Ok(Bytes(payload.to_vec())),
+        _ => bail!("decode_payload: unsupported codec {codec}"),
+    }
+}
+
 /// Convert a native message to an eth transaction.
 ///
 ///   - The state-tree must be from after the message was applied (ideally the following tipset).
@@ -832,23 +909,27 @@ fn eth_tx_from_native_message<DB: Blockstore>(
 
     // We try to decode the input as an EVM method invocation and/or a contract creation. If
     // that fails, we encode the "native" parameters as Solidity ABI.
-    let mut input: Vec<u8> = vec![];
-    if msg.method_num() == EVMMethod::InvokeContract as MethodNum
-        || msg.method_num() == EAMMethod::CreateExternal as MethodNum
-    {
-        input = msg.params().to_vec();
-        if msg.method_num() == EAMMethod::CreateExternal as MethodNum {
-            // to = None;
+    let input = 'decode: {
+        if msg.method_num() == EVMMethod::InvokeContract as MethodNum
+            || msg.method_num() == EAMMethod::CreateExternal as MethodNum
+        {
+            if let Ok(buffer) = decode_payload(msg.params(), codec) {
+                // If this is a valid "create external", unset the "to" address.
+                if msg.method_num() == EAMMethod::CreateExternal as MethodNum {
+                    // to = None;
+                }
+                break 'decode buffer;
+            }
+            // Yeah, we're going to ignore errors here because the user can send whatever they
+            // want and may send garbage.
         }
-    } else {
-        // default
-        // input = encodeFilecoinParamsAsABI(msg.Method, codec, msg.Params)
-    }
+        encode_filecoin_params_as_abi(msg.method_num(), codec, msg.params())?
+    };
 
     let mut tx = Tx::default();
     tx.to = to;
     tx.from = from;
-    tx.input = Bytes(input);
+    tx.input = input;
     tx.nonce = Uint64(msg.sequence);
     tx.chain_id = Uint64(chain_id as u64);
     tx.value = msg.value.clone().into();
