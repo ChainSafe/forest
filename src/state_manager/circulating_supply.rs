@@ -119,7 +119,7 @@ impl GenesisInfo {
     }
 
     /// Calculate total FIL circulating supply based on state, traversing the state tree and
-    /// checking Actor addresses. This can be a lengthy operation.
+    /// checking Actor types. This can be a lengthy operation.
     ///
     /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
     /// calculated differently.
