@@ -73,7 +73,7 @@ bafy2bzaceasy7bzgjwnl4mbjp3tfxdeq4mvdvfne7fj773w7x4d6ah7cdabkc
 ```
 
 It takes a minute or so for the transaction to be included in the Filecoin
-blockchain. Once the transactio has gone through, we can inspect our balances:
+blockchain. Once the transaction has gone through, we can inspect our balances:
 
 ```
 $ forest-wallet list
