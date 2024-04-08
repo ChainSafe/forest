@@ -11,7 +11,6 @@ use crate::rpc::{
 use anyhow::Result;
 use chrono::Duration;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
@@ -20,6 +19,7 @@ pub fn register_all(
     module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
 ) {
     AuthNew::register(module);
+    AuthVerify::register(module);
 }
 
 #[serde_as]
@@ -70,17 +70,21 @@ impl RpcMethod<1> for AuthNew {
     }
 }
 
-pub const AUTH_VERIFY: &str = "Filecoin.AuthVerify";
-/// RPC call to verify JWT Token and return the token's permissions
-pub async fn auth_verify<DB>(params: Params<'_>, data: Ctx<DB>) -> Result<Vec<String>, JsonRpcError>
-where
-    DB: Blockstore,
-{
-    let (header_raw,): (String,) = params.parse()?;
-
-    let ks = data.keystore.read().await;
-    let token = header_raw.trim_start_matches("Bearer ");
-    let ki = ks.get(JWT_IDENTIFIER)?;
-    let perms = verify_token(token, ki.private_key())?;
-    Ok(perms)
+pub enum AuthVerify {}
+impl RpcMethod<1> for AuthVerify {
+    const NAME: &'static str = "Filecoin.AuthVerify";
+    const PARAM_NAMES: [&'static str; 1] = ["header_raw"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (String,);
+    type Ok = Vec<String>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (header_raw,): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let ks = ctx.keystore.read().await;
+        let token = header_raw.trim_start_matches("Bearer ");
+        let ki = ks.get(JWT_IDENTIFIER)?;
+        let perms = verify_token(token, ki.private_key())?;
+        Ok(perms)
+    }
 }

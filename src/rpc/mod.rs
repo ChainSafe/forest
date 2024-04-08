@@ -181,7 +181,6 @@ fn register_methods<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use auth_api::*;
     use beacon_api::*;
     use chain_api::*;
     use common_api::*;
@@ -192,8 +191,6 @@ where
     use sync_api::*;
     use wallet_api::*;
 
-    // Auth API
-    module.register_async_method(AUTH_VERIFY, auth_verify::<DB>)?;
     // Beacon API
     module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
