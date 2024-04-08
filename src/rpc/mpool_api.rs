@@ -7,7 +7,7 @@ use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::{reflect::SelfDescribingRpcModule, Ctx, RpcMethod, RpcMethodExt as _};
+use crate::rpc::{reflect::SelfDescribingRpcModule, ApiVersion, Ctx, RpcMethod, RpcMethodExt as _};
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
@@ -30,6 +30,7 @@ pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     type Params = (LotusJson<Address>,);
     type Ok = u64;
     async fn handle(
@@ -45,6 +46,7 @@ pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     type Params = (LotusJson<ApiTipsetKey>,);
     type Ok = LotusJson<Vec<SignedMessage>>;
     async fn handle(
@@ -117,6 +119,7 @@ pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     type Params = (LotusJson<SignedMessage>,);
     type Ok = LotusJson<Cid>;
     async fn handle(
@@ -133,6 +136,7 @@ pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
     const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     type Params = (LotusJson<Message>, Option<MessageSendSpec>);
     type Ok = LotusJson<SignedMessage>;
     async fn handle(

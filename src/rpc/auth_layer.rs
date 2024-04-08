@@ -1,12 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::RpcMethod as _;
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
     auth_api, beacon_api, chain_api, common_api, eth_api, gas_api, mpool_api, net_api, node_api,
-    state_api, sync_api, wallet_api, CANCEL_METHOD_NAME,
+    state_api, sync_api, wallet_api, RpcMethod as _, CANCEL_METHOD_NAME,
 };
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
@@ -46,7 +45,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
     access.insert(chain_api::CHAIN_EXPORT, Access::Read);
     access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PATH, Access::Read);
+    access.insert(chain_api::ChainGetPath::NAME, Access::Read);
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);

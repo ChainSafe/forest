@@ -3,6 +3,7 @@
 
 mod auth_layer;
 mod channel;
+mod client;
 
 // API handlers
 pub mod auth_api;
@@ -19,9 +20,10 @@ pub mod sync_api;
 pub mod wallet_api;
 
 // Other RPC-specific modules
+pub use client::Client;
 pub use error::JsonRpcError;
 use reflect::Ctx;
-pub use reflect::{RpcMethod, RpcMethodExt};
+pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;

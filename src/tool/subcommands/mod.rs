@@ -29,6 +29,7 @@ pub struct Cli {
 
 /// forest-tool sub-commands
 #[derive(clap::Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum Subcommand {
     /// Create and restore backups
     #[command(subcommand)]

@@ -9,15 +9,19 @@ use crate::daemon::db_util::download_to;
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
-use crate::lotus_json::HasLotusJson;
+use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
-use crate::rpc::types::{MessageFilter, MessageLookup};
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::{
+    mpool_api::{MpoolGetNonce, MpoolPending},
+    RpcMethodExt as _,
+};
 use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -27,7 +31,7 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use crate::utils::version::FOREST_VERSION_STRING;
 use ahash::HashMap;
-use anyhow::{bail, Context as _};
+use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
@@ -56,6 +60,7 @@ use tokio::{
 use tracing::{debug, info, warn};
 
 #[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum ApiCommands {
     // Serve
     Serve {
@@ -229,6 +234,25 @@ impl RpcTest {
             ignore: None,
         }
     }
+    /// This is [`Self::basic`] without the [`HasLotusJson`] bound, for methods
+    /// where the return type does not need converting via a third type.
+    ///
+    /// This is a temporary measure, and should be removed when
+    /// <https://github.com/ChainSafe/forest/issues/4032> is completed.
+    fn basic_raw<T: DeserializeOwned>(request: RpcRequest<T>) -> Self {
+        Self {
+            request: request.lower(),
+            check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
+                Ok(_) => true,
+                Err(e) => {
+                    debug!(?e);
+                    false
+                }
+            }),
+            check_semantics: Arc::new(|_, _| true),
+            ignore: None,
+        }
+    }
 
     // Check that an endpoint exist, has the same JSON schema, and do custom
     // validation over both responses.
@@ -299,19 +323,9 @@ impl RpcTest {
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
-        use_websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
-        let (forest_resp, lotus_resp) = if use_websocket {
-            (
-                forest_api.ws_call(self.request.clone()).await,
-                lotus_api.ws_call(self.request.clone()).await,
-            )
-        } else {
-            (
-                forest_api.call(self.request.clone()).await,
-                lotus_api.call(self.request.clone()).await,
-            )
-        };
+        let forest_resp = forest_api.call(self.request.clone()).await;
+        let lotus_resp = lotus_api.call(self.request.clone()).await;
 
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
@@ -402,7 +416,9 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn mpool_tests() -> Vec<RpcTest> {
-    vec![RpcTest::basic(ApiInfo::mpool_pending_req(vec![]))]
+    vec![RpcTest::basic_raw(
+        MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap(),
+    )]
 }
 
 fn net_tests() -> Vec<RpcTest> {
@@ -681,7 +697,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(validate_message_lookup(
                     ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                 ));
-                tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                tests.push(RpcTest::basic(
+                    MpoolGetNonce::request((msg.from().into(),)).unwrap(),
+                ));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
                     MessageFilter {
                         from: None,
@@ -810,21 +828,6 @@ fn websocket_tests() -> Vec<RpcTest> {
     vec![test]
 }
 
-fn derive_protocol(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<CommunicationProtocol> {
-    let a = forest.multiaddr.clone().pop().map(|p| p.tag());
-    let b = lotus.multiaddr.clone().pop().map(|p| p.tag());
-
-    // Both `ApiInfo` should end with the same tag to be valid, and the protocol should be supported
-    match (a, b) {
-        (Some(x), Some(y)) if x == y => Ok(x.try_into()?),
-        _ => bail!(
-            "communication protocols mismatch: {:?} (Forest) is different from {:?} (Lotus)",
-            a,
-            b
-        ),
-    }
-}
-
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
 /// but other nodes may be used (such as `venus`). The `lotus` node is assumed
 /// to be correct and the `forest` node will be marked as incorrect if it
@@ -849,8 +852,6 @@ async fn compare_apis(
     snapshot_files: Vec<PathBuf>,
     config: ApiTestFlags,
 ) -> anyhow::Result<()> {
-    let communication = derive_protocol(&forest, &lotus)?;
-
     let mut tests = vec![];
 
     tests.extend(common_tests());
@@ -868,14 +869,13 @@ async fn compare_apis(
         tests.extend(snapshot_tests(store, config.n_tipsets)?);
     }
 
-    let use_websocket = communication == CommunicationProtocol::Ws;
-    if use_websocket {
-        tests.extend(websocket_tests());
+    if matches!(forest.scheme(), "ws" | "wss") && matches!(lotus.scheme(), "ws" | "wss") {
+        tests.extend(websocket_tests())
     }
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, &config, use_websocket).await
+    run_tests(tests, &forest, &lotus, &config).await
 }
 
 async fn start_offline_server(
@@ -1026,7 +1026,6 @@ async fn run_tests(
     forest: &ApiInfo,
     lotus: &ApiInfo,
     config: &ApiTestFlags,
-    use_websocket: bool,
 ) -> anyhow::Result<()> {
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
@@ -1056,7 +1055,7 @@ async fn run_tests(
         let forest = forest.clone();
         let lotus = lotus.clone();
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
+            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
             drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });
@@ -1264,30 +1263,5 @@ mod tests {
             .allow("Chain".to_string())
             .reject("Chain".to_string());
         assert!(!list.authorize("Filecoin.ChainGetBlock"));
-    }
-
-    #[test]
-    fn test_derive_protocol() {
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible");
-        assert!(matches!(
-            derive_protocol(&forest, &lotus),
-            Ok(CommunicationProtocol::Http)
-        ));
-
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/ws").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/ws").expect("infallible");
-        assert!(matches!(
-            derive_protocol(&forest, &lotus),
-            Ok(CommunicationProtocol::Ws)
-        ));
-
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/ws").expect("infallible");
-        assert!(derive_protocol(&forest, &lotus).is_err());
-
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/wss").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/wss").expect("infallible");
-        assert!(derive_protocol(&forest, &lotus).is_err());
     }
 }

@@ -7,10 +7,13 @@ use std::{
     str::FromStr,
 };
 
-use crate::chain::ChainEpochDelta;
 use crate::chain_sync::SyncStage;
 use crate::rpc_client::*;
 use crate::shim::{address::Address, message::Message};
+use crate::{
+    chain::ChainEpochDelta,
+    rpc::{self, mpool_api::MpoolPushMessage, RpcMethodExt as _},
+};
 use crate::{cli::humantoken, message::SignedMessage};
 use boa_engine::{
     object::{builtins::JsArray, FunctionObjectBuilder},
@@ -255,8 +258,11 @@ async fn send_message(params: SendMessageParams, api: ApiInfo) -> anyhow::Result
         Address::from_str(&to)?,
         humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
     );
-
-    Ok(api.mpool_push_message(message, None).await?)
+    Ok(
+        MpoolPushMessage::call(&rpc::Client::from(api), (message.into(), None))
+            .await?
+            .into_inner(),
+    )
 }
 
 type SleepParams = (u64,);
@@ -343,9 +349,6 @@ impl AttachCommand {
                 "wallet_list"        => |()| ApiInfo::wallet_list_req(),
                 "wallet_has"         => ApiInfo::wallet_has_req,
                 "wallet_set_default" => ApiInfo::wallet_set_default_req,
-
-                // Message Pool API
-                "mpool_push_message" => |(message, specs)| ApiInfo::mpool_push_message_req(message, specs),
 
                 // Common API
                 "version" => |()| ApiInfo::version_req(),
