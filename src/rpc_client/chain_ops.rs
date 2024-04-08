@@ -84,14 +84,6 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_SET_HEAD, (new_head,))
     }
 
-    pub async fn chain_read_obj(&self, cid: Cid) -> Result<Vec<u8>, JsonRpcError> {
-        self.call(Self::chain_read_obj_req(cid)).await
-    }
-
-    pub fn chain_read_obj_req(cid: Cid) -> RpcRequest<Vec<u8>> {
-        RpcRequest::new(CHAIN_READ_OBJ, (cid,))
-    }
-
     pub fn chain_get_path_req(from: TipsetKey, to: TipsetKey) -> RpcRequest<Vec<PathChange>> {
         RpcRequest::new(ChainGetPath::NAME, (from, to))
     }

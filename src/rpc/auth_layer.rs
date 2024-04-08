@@ -44,7 +44,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Chain API
     access.insert(chain_api::ChainGetMessage::NAME, Access::Read);
     access.insert(chain_api::ChainExport::NAME, Access::Read);
-    access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
+    access.insert(chain_api::ChainReadObj::NAME, Access::Read);
     access.insert(chain_api::ChainGetPath::NAME, Access::Read);
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);

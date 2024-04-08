@@ -16,6 +16,7 @@ use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon_api::BeaconGetEntry;
 use crate::rpc::chain_api::{
     ChainGetMessage, ChainGetMessagesInTipset, ChainGetParentMessages, ChainGetParentReceipts,
+    ChainReadObj,
 };
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
@@ -396,7 +397,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Default::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
-        RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
+        RpcTest::identity_raw(ChainReadObj::request((shared_block.cid().clone().into(),)).unwrap()),
         RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_path_req(
             shared_tipset.key().clone(),

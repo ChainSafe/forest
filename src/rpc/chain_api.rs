@@ -51,6 +51,7 @@ pub fn register_all(
     ChainGetParentReceipts::register(module);
     ChainGetMessagesInTipset::register(module);
     ChainExport::register(module);
+    ChainReadObj::register(module);
 }
 
 pub enum ChainGetMessage {}
@@ -263,19 +264,24 @@ impl RpcMethod<1> for ChainExport {
     }
 }
 
-pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
-pub async fn chain_read_obj<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
-    let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let bytes = data
-        .state_manager
-        .blockstore()
-        .get(&obj_cid)?
-        .with_context(|| format!("can't find object with cid={obj_cid}"))?;
-    Ok(LotusJson(bytes))
+pub enum ChainReadObj {}
+impl RpcMethod<1> for ChainReadObj {
+    const NAME: &'static str = "Filecoin.ChainReadObj";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Vec<u8>>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let bytes = ctx
+            .state_manager
+            .blockstore()
+            .get(&cid)?
+            .with_context(|| format!("can't find object with cid={cid}"))?;
+        Ok(LotusJson(bytes))
+    }
 }
 
 pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
