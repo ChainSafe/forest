@@ -50,7 +50,6 @@ use tokio::sync::RwLock;
 use tower::Service;
 use tracing::info;
 
-use self::chain_api::ChainGetPath;
 use self::reflect::openrpc_types::ParamStructure;
 
 const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
@@ -165,7 +164,7 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
-    ChainGetPath::register(&mut module);
+    chain_api::register_all(&mut module);
     mpool_api::register_all(&mut module);
     auth_api::register_all(&mut module);
     beacon_api::register_all(&mut module);
@@ -192,7 +191,6 @@ where
     use wallet_api::*;
 
     // Chain API
-    module.register_async_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)?;
     module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
     module.register_async_method(CHAIN_READ_OBJ, chain_read_obj::<DB>)?;
     module.register_async_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)?;

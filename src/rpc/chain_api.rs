@@ -16,8 +16,8 @@ use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::ChainMessage;
 use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
 use crate::rpc::{
-    error::JsonRpcError,
-    reflect::{ApiVersion, Ctx, RpcMethod},
+    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
+    RpcMethodExt as _,
 };
 use crate::shim::clock::ChainEpoch;
 use crate::shim::message::Message;
@@ -41,22 +41,34 @@ use tokio::sync::{
     Mutex,
 };
 
-pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
-pub async fn chain_get_message<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Message>, JsonRpcError> {
-    let LotusJson((msg_cid,)): LotusJson<(Cid,)> = params.parse()?;
+pub fn register_all(
+    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
+) {
+    ChainGetPath::register(module);
+    ChainGetMessage::register(module);
+}
 
-    let chain_message: ChainMessage = data
-        .state_manager
-        .blockstore()
-        .get_cbor(&msg_cid)?
-        .with_context(|| format!("can't find message with cid {msg_cid}"))?;
-    Ok(LotusJson(match chain_message {
-        ChainMessage::Signed(m) => m.into_message(),
-        ChainMessage::Unsigned(m) => m,
-    }))
+pub enum ChainGetMessage {}
+impl RpcMethod<1> for ChainGetMessage {
+    const NAME: &'static str = "Filecoin.ChainGetMessage";
+    const PARAM_NAMES: [&'static str; 1] = ["msg_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Message>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(msg_cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let chain_message: ChainMessage = ctx
+            .state_manager
+            .blockstore()
+            .get_cbor(&msg_cid)?
+            .with_context(|| format!("can't find message with cid {msg_cid}"))?;
+        Ok(LotusJson(match chain_message {
+            ChainMessage::Signed(m) => m.into_message(),
+            ChainMessage::Unsigned(m) => m,
+        }))
+    }
 }
 
 pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";

@@ -4,7 +4,6 @@
 use std::time::Duration;
 
 use crate::rpc::{chain_api::ChainGetPath, types::*, RpcMethod};
-use crate::shim::message::Message;
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
     rpc::chain_api::*,
@@ -97,15 +96,6 @@ impl ApiInfo {
     pub fn chain_export_req(params: ChainExportParams) -> RpcRequest<ChainExportResult> {
         // snapshot export could take a few hours on mainnet
         RpcRequest::new(CHAIN_EXPORT, params).with_timeout(Duration::MAX)
-    }
-
-    #[allow(dead_code)]
-    pub async fn chain_get_message(&self, cid: Cid) -> Result<Message, JsonRpcError> {
-        self.call(Self::chain_get_message_req(cid)).await
-    }
-
-    pub fn chain_get_message_req(cid: Cid) -> RpcRequest<Message> {
-        RpcRequest::new(CHAIN_GET_MESSAGE, (cid,))
     }
 
     pub async fn chain_read_obj(&self, cid: Cid) -> Result<Vec<u8>, JsonRpcError> {
