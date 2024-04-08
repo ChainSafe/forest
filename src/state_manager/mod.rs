@@ -1172,7 +1172,7 @@ where
         let prev_beacon = self
             .chain_store()
             .chain_index
-            .latest_beacon_entry(&tipset)?;
+            .latest_beacon_entry(tipset.clone())?;
 
         let entries: Vec<BeaconEntry> = beacon_schedule
             .beacon_entries_for_block(
