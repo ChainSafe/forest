@@ -72,8 +72,8 @@ impl RequestBuilder {
         };
         let accept_byte_ranges = response
             .headers()
-            .get(http0::header::ACCEPT_RANGES)
-            .map(http0::HeaderValue::as_bytes)
+            .get(http::header::ACCEPT_RANGES)
+            .map(http::HeaderValue::as_bytes)
             == Some(b"bytes");
         let resp = Response {
             client,
@@ -138,10 +138,10 @@ impl Stream for Decoder {
                         break Poll::Ready(Some(Err(err)));
                     }
                     let builder = self.client.request(self.method.clone(), self.url.clone());
-                    let mut headers = http0::HeaderMap::new();
-                    let value = http0::HeaderValue::from_str(&std::format!("bytes={}-", self.pos))
+                    let mut headers = http::HeaderMap::new();
+                    let value = http::HeaderValue::from_str(&std::format!("bytes={}-", self.pos))
                         .expect("unreachable");
-                    headers.insert(http0::header::RANGE, value);
+                    headers.insert(http::header::RANGE, value);
                     let builder = builder.headers(headers);
                     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Range_requests
                     self.decoder = Box::pin(

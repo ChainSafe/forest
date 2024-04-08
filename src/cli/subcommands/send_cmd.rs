@@ -3,6 +3,8 @@
 
 use std::str::FromStr as _;
 
+use crate::rpc::mpool_api::MpoolPushMessage;
+use crate::rpc::{self, RpcMethodExt as _};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
@@ -58,7 +60,9 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = api.mpool_push_message(message, None).await?;
+        let signed_msg = MpoolPushMessage::call(&rpc::Client::from(api), (message.into(), None))
+            .await?
+            .into_inner();
 
         println!("{}", signed_msg.cid().unwrap());
 

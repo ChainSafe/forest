@@ -8,7 +8,6 @@ use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Subcommand;
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
-use libp2p::Multiaddr;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
@@ -16,9 +15,6 @@ pub enum ShedCommands {
     ///
     /// Useful for getting blocks to live test an RPC endpoint.
     SummarizeTipsets {
-        /// Multiaddr of the RPC host.
-        #[arg(long, default_value = "/ip4/127.0.0.1/tcp/2345/http")]
-        host: Multiaddr,
         /// If omitted, defaults to the HEAD of the node.
         #[arg(long)]
         height: Option<u32>,
@@ -51,15 +47,8 @@ pub enum ShedCommands {
 impl ShedCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
-            ShedCommands::SummarizeTipsets {
-                host,
-                height,
-                ancestors,
-            } => {
-                let client = ApiInfo {
-                    multiaddr: host,
-                    token: None,
-                };
+            ShedCommands::SummarizeTipsets { height, ancestors } => {
+                let client = ApiInfo::from_env()?;
                 let head = client.chain_head().await?;
                 let end_height = match height {
                     Some(it) => it,
