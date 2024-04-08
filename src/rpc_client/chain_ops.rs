@@ -5,7 +5,6 @@ use crate::rpc::{chain_api::ChainGetPath, types::*, RpcMethod};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
     rpc::chain_api::*,
-    rpc::types::BlockMessages,
     shim::clock::ChainEpoch,
 };
 use cid::Cid;
@@ -27,10 +26,6 @@ impl ApiInfo {
 
     pub fn chain_get_block_req(cid: Cid) -> RpcRequest<CachingBlockHeader> {
         RpcRequest::new(CHAIN_GET_BLOCK, (cid,))
-    }
-
-    pub fn chain_get_block_messages_req(cid: Cid) -> RpcRequest<BlockMessages> {
-        RpcRequest::new(CHAIN_GET_BLOCK_MESSAGES, (cid,))
     }
 
     /// Get tipset at epoch. Pick younger tipset if epoch points to a
@@ -86,10 +81,6 @@ impl ApiInfo {
 
     pub fn chain_get_path_req(from: TipsetKey, to: TipsetKey) -> RpcRequest<Vec<PathChange>> {
         RpcRequest::new(ChainGetPath::NAME, (from, to))
-    }
-
-    pub fn chain_has_obj_req(cid: Cid) -> RpcRequest<bool> {
-        RpcRequest::new(CHAIN_HAS_OBJ, (cid,))
     }
 
     pub async fn chain_get_min_base_fee(

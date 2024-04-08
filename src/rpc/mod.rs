@@ -191,8 +191,6 @@ where
     use wallet_api::*;
 
     // Chain API
-    module.register_async_method(CHAIN_HAS_OBJ, chain_has_obj::<DB>)?;
-    module.register_async_method(CHAIN_GET_BLOCK_MESSAGES, chain_get_block_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
     module.register_async_method(
         CHAIN_GET_TIPSET_AFTER_HEIGHT,

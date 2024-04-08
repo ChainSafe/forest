@@ -13,8 +13,8 @@ use crate::lotus_json::HasLotusJson;
 use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
-use crate::message::ChainMessage;
-use crate::rpc::types::{ApiHeadChange, ApiTipsetKey, BlockMessages};
+use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::types::{ApiHeadChange, ApiTipsetKey};
 use crate::rpc::{
     reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
     RpcMethodExt as _,
@@ -52,6 +52,8 @@ pub fn register_all(
     ChainGetMessagesInTipset::register(module);
     ChainExport::register(module);
     ChainReadObj::register(module);
+    ChainHasObj::register(module);
+    ChainGetBlockMessages::register(module);
 }
 
 pub enum ChainGetMessage {}
@@ -284,47 +286,58 @@ impl RpcMethod<1> for ChainReadObj {
     }
 }
 
-pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
-pub async fn chain_has_obj<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<bool, JsonRpcError> {
-    let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
+pub enum ChainHasObj {}
+impl RpcMethod<1> for ChainHasObj {
+    const NAME: &'static str = "Filecoin.ChainHasObj";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<Cid>,);
+    type Ok = bool;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
+    }
 }
 
-pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
-pub async fn chain_get_block_messages<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<BlockMessages, JsonRpcError> {
-    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
+pub enum ChainGetBlockMessages {}
+impl RpcMethod<1> for ChainGetBlockMessages {
+    const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<Cid>,);
+    type Ok = BlockMessages;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let blk: CachingBlockHeader = ctx
+            .state_manager
+            .blockstore()
+            .get_cbor(&cid)?
+            .context("can't find block with that cid")?;
+        let blk_msgs = &blk.messages;
+        let (unsigned_cids, signed_cids) =
+            crate::chain::read_msg_cids(ctx.state_manager.blockstore(), blk_msgs)?;
+        let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
+            ctx.state_manager.blockstore(),
+            &unsigned_cids,
+            &signed_cids,
+        )?;
+        let cids = unsigned_cids
+            .into_iter()
+            .chain(signed_cids)
+            .collect::<Vec<_>>()
+            .into();
 
-    let blk: CachingBlockHeader = data
-        .state_manager
-        .blockstore()
-        .get_cbor(&blk_cid)?
-        .context("can't find block with that cid")?;
-    let blk_msgs = &blk.messages;
-    let (unsigned_cids, signed_cids) =
-        crate::chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
-    let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
-        data.state_manager.blockstore(),
-        &unsigned_cids,
-        &signed_cids,
-    )?;
-    let cids = unsigned_cids
-        .into_iter()
-        .chain(signed_cids)
-        .collect::<Vec<_>>();
-
-    let ret = BlockMessages {
-        bls_msg,
-        secp_msg,
-        cids,
-    };
-    Ok(ret)
+        let ret = BlockMessages {
+            bls_msg: bls_msg.into(),
+            secp_msg: secp_msg.into(),
+            cids,
+        };
+        Ok(ret)
+    }
 }
 
 pub enum ChainGetPath {}
@@ -602,6 +615,18 @@ fn load_api_messages_from_tipset(
 
     Ok(messages)
 }
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct BlockMessages {
+    #[serde(rename = "BlsMessages")]
+    pub bls_msg: LotusJson<Vec<Message>>,
+    #[serde(rename = "SecpkMessages")]
+    pub secp_msg: LotusJson<Vec<SignedMessage>>,
+    #[serde(rename = "Cids")]
+    pub cids: LotusJson<Vec<Cid>>,
+}
+
+lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

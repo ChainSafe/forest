@@ -11,7 +11,6 @@ use crate::chain_sync::SyncState;
 pub use crate::libp2p::Multiaddr;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
-use crate::message::signed_message::SignedMessage;
 use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
@@ -56,17 +55,6 @@ pub struct RPCSyncState {
 lotus_json_with_self!(RPCSyncState);
 
 // Chain API
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
-    pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::lotus_json")]
-    pub cids: Vec<Cid>,
-}
-
-lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
