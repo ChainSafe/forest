@@ -116,6 +116,12 @@ Mandatory release that includes:
 - [#3955](https://github.com/ChainSafe/forest/pull/3955) Added support for the
   NV22 _Dragon_ network upgrade, together with the required state migration.
 
+### Changed
+
+- [#3976](https://github.com/ChainSafe/forest/pull/3976) `forest-wallet`
+  defaults to using a local wallet instead of the builtin Forest wallet for
+  greater security.
+
 ### Fixed
 
 - [#4019](https://github.com/ChainSafe/forest/pull/4019) Fix Forest sending

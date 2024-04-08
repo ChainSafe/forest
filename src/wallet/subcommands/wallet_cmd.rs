@@ -2,25 +2,196 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::{
+    cell::RefCell,
     path::PathBuf,
     str::{self, FromStr},
 };
 
-use crate::lotus_json::LotusJson;
-use crate::shim::{
-    address::{Protocol, StrictAddress},
-    crypto::{Signature, SignatureType},
-    econ::TokenAmount,
+use crate::{
+    cli::humantoken,
+    message::SignedMessage,
+    rpc::{
+        mpool_api::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
+        types::ApiTipsetKey,
+        RpcMethodExt as _,
+    },
+    shim::address::Address,
+    ENCRYPTED_KEYSTORE_NAME,
 };
-use crate::utils::io::read_file_to_string;
+use crate::{key_management::Key, utils::io::read_file_to_string};
 use crate::{key_management::KeyInfo, rpc_client::ApiInfo};
-use anyhow::Context as _;
+use crate::{lotus_json::LotusJson, KeyStore};
+use crate::{
+    shim::{
+        address::{Protocol, StrictAddress},
+        crypto::{Signature, SignatureType},
+        econ::TokenAmount,
+        message::{Message, METHOD_SEND},
+    },
+    KeyStoreConfig,
+};
+use anyhow::{bail, Context as _};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
-use dialoguer::{theme::ColorfulTheme, Password};
+use dialoguer::{console::Term, theme::ColorfulTheme, Password};
+use directories::ProjectDirs;
 use num::BigInt;
+use num::Zero as _;
 
 use crate::cli::humantoken::TokenAmountPretty as _;
+
+// Abstraction over local and remote wallets. A connection to a running Filecoin
+// node is always required for balance queries and for sending messages. When a
+// local wallet is available, no sensitive information will be sent to the
+// remote Filecoin node.
+struct WalletBackend {
+    pub remote: ApiInfo,
+    pub local: Option<KeyStore>,
+}
+
+impl WalletBackend {
+    fn new_remote(api: ApiInfo) -> Self {
+        WalletBackend {
+            remote: api,
+            local: None,
+        }
+    }
+
+    fn new_local(api: ApiInfo, want_encryption: bool) -> anyhow::Result<Self> {
+        let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
+            bail!("Failed to find wallet directory");
+        };
+
+        let wallet_dir = dir.data_dir().to_path_buf();
+
+        let is_encrypted = wallet_dir.join(ENCRYPTED_KEYSTORE_NAME).exists();
+
+        // Always use the encrypted keystore if it exists. It it does not exist,
+        // only use encryption when explicitly asked for it.
+        let keystore = if is_encrypted || want_encryption {
+            input_password_to_load_encrypted_keystore(wallet_dir)?
+        } else {
+            KeyStore::new(KeyStoreConfig::Persistent(wallet_dir.to_path_buf()))?
+        };
+
+        Ok(WalletBackend {
+            remote: api,
+            local: Some(keystore),
+        })
+    }
+
+    async fn list_addrs(&self) -> anyhow::Result<Vec<Address>> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::list_addrs(keystore)?)
+        } else {
+            Ok(self.remote.wallet_list().await?)
+        }
+    }
+
+    async fn wallet_export(&self, address: Address) -> anyhow::Result<KeyInfo> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::export_key_info(&address, keystore)?)
+        } else {
+            Ok(self.remote.wallet_export(address.to_string()).await?)
+        }
+    }
+
+    async fn wallet_import(&mut self, key_info: KeyInfo) -> anyhow::Result<String> {
+        if let Some(keystore) = &mut self.local {
+            let key = Key::try_from(key_info)?;
+            let addr = format!("wallet-{}", key.address);
+
+            keystore.put(&addr, key.key_info)?;
+            Ok(key.address.to_string())
+        } else {
+            Ok(self.remote.wallet_import(vec![key_info]).await?)
+        }
+    }
+
+    async fn wallet_has(&self, address: Address) -> anyhow::Result<bool> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::find_key(&address, keystore).is_ok())
+        } else {
+            Ok(self.remote.wallet_has(address.to_string()).await?)
+        }
+    }
+
+    async fn wallet_delete(&mut self, address: Address) -> anyhow::Result<()> {
+        if let Some(keystore) = &mut self.local {
+            Ok(crate::key_management::remove_key(&address, keystore)?)
+        } else {
+            Ok(self.remote.wallet_delete(address.to_string()).await?)
+        }
+    }
+
+    async fn wallet_new(&mut self, signature_type: SignatureType) -> anyhow::Result<String> {
+        if let Some(keystore) = &mut self.local {
+            let key = crate::key_management::generate_key(signature_type)?;
+
+            let addr = format!("wallet-{}", key.address);
+            keystore.put(&addr, key.key_info.clone())?;
+            let value = keystore.get("default");
+            if value.is_err() {
+                keystore.put("default", key.key_info)?
+            }
+
+            Ok(key.address.to_string())
+        } else {
+            Ok(self.remote.wallet_new(signature_type).await?)
+        }
+    }
+
+    async fn wallet_default_address(&self) -> anyhow::Result<Option<String>> {
+        if let Some(keystore) = &self.local {
+            Ok(crate::key_management::get_default(keystore)?.map(|s| s.to_string()))
+        } else {
+            Ok(self.remote.wallet_default_address().await?)
+        }
+    }
+
+    async fn wallet_set_default(&mut self, address: Address) -> anyhow::Result<()> {
+        if let Some(ref mut keystore) = &mut self.local {
+            let addr_string = format!("wallet-{}", address);
+            let key_info = keystore.get(&addr_string)?;
+            keystore.remove("default")?; // This line should unregister current default key then continue
+            keystore.put("default", key_info)?;
+            Ok(())
+        } else {
+            Ok(self.remote.wallet_set_default(address).await?)
+        }
+    }
+
+    async fn wallet_sign(&self, address: Address, message: String) -> anyhow::Result<Signature> {
+        if let Some(keystore) = &self.local {
+            let key = crate::key_management::find_key(&address, keystore)?;
+
+            Ok(crate::key_management::sign(
+                *key.key_info.key_type(),
+                key.key_info.private_key(),
+                &BASE64_STANDARD.decode(message)?,
+            )?)
+        } else {
+            Ok(self
+                .remote
+                .wallet_sign(address, message.into_bytes())
+                .await?)
+        }
+    }
+
+    async fn wallet_verify(
+        &self,
+        address: Address,
+        msg: Vec<u8>,
+        signature: Signature,
+    ) -> anyhow::Result<bool> {
+        if self.local.is_some() {
+            Ok(signature.verify(&msg, &address).is_ok())
+        } else {
+            // Relying on a remote server to validate signatures is not secure but it's useful for testing.
+            Ok(self.remote.wallet_verify(address, msg, signature).await?)
+        }
+    }
+}
 
 #[derive(Debug, Subcommand)]
 pub enum WalletCommands {
@@ -101,10 +272,31 @@ pub enum WalletCommands {
         /// The address of the wallet to delete
         address: String,
     },
+    /// Send funds between accounts
+    Send {
+        /// optionally specify the account to send funds from (otherwise the default
+        /// one will be used)
+        #[arg(long)]
+        from: Option<String>,
+        target_address: String,
+        #[arg(value_parser = humantoken::parse)]
+        amount: TokenAmount,
+        #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
+        gas_feecap: TokenAmount,
+        /// In milliGas
+        #[arg(long, default_value_t = 0)]
+        gas_limit: i64,
+        #[arg(long, value_parser = humantoken::parse, default_value_t = TokenAmount::zero())]
+        gas_premium: TokenAmount,
+    },
 }
-
 impl WalletCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, api: ApiInfo, remote_wallet: bool, encrypt: bool) -> anyhow::Result<()> {
+        let mut backend = if remote_wallet {
+            WalletBackend::new_remote(api)
+        } else {
+            WalletBackend::new_local(api, encrypt)?
+        };
         match self {
             Self::New { signature_type } => {
                 let signature_type = match signature_type.to_lowercase().as_str() {
@@ -112,37 +304,47 @@ impl WalletCommands {
                     _ => SignatureType::Bls,
                 };
 
-                let response = api.wallet_new(signature_type).await?;
-                println!("{response}");
+                let addr = backend.wallet_new(signature_type).await?;
+                println!("{addr}");
                 Ok(())
             }
             Self::Balance { address } => {
-                let response = api.wallet_balance(address.to_string()).await?;
-                println!("{response}");
+                let balance = backend.remote.wallet_balance(address.to_string()).await?;
+                println!("{balance}");
                 Ok(())
             }
             Self::Default => {
-                let response = api
+                let default_addr = backend
                     .wallet_default_address()
                     .await?
-                    .unwrap_or_else(|| "No default wallet address set".to_string());
-                println!("{response}");
+                    .context("No default wallet address set")?;
+                println!("{default_addr}");
                 Ok(())
             }
-            Self::Export { address } => {
-                let response = api.wallet_export(address.to_string()).await?;
+            Self::Export {
+                address: address_string,
+            } => {
+                let StrictAddress(address) = StrictAddress::from_str(&address_string)
+                    .with_context(|| format!("Invalid address: {address_string}"))?;
 
-                let encoded_key = serde_json::to_string(&LotusJson(response))?;
+                let key_info = backend.wallet_export(address).await?;
+
+                let encoded_key = serde_json::to_string(&LotusJson(key_info))?;
                 println!("{}", hex::encode(encoded_key));
                 Ok(())
             }
             Self::Has { key } => {
-                let response = api.wallet_has(key.to_string()).await?;
-                println!("{response}");
+                let StrictAddress(address) = StrictAddress::from_str(&key)
+                    .with_context(|| format!("Invalid address: {key}"))?;
+
+                println!("{response}", response = backend.wallet_has(address).await?);
                 Ok(())
             }
             Self::Delete { address } => {
-                api.wallet_delete(address.to_string()).await?;
+                let StrictAddress(address) = StrictAddress::from_str(&address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
+
+                backend.wallet_delete(address).await?;
                 println!("deleted {address}.");
                 Ok(())
             }
@@ -166,10 +368,10 @@ impl WalletCommands {
 
                 let key_str = str::from_utf8(&decoded_key)?;
 
-                let LotusJson(key) = serde_json::from_str::<LotusJson<KeyInfo>>(key_str)
+                let LotusJson(key_info) = serde_json::from_str::<LotusJson<KeyInfo>>(key_str)
                     .context("invalid key format")?;
 
-                let key = api.wallet_import(vec![key]).await?;
+                let key = backend.wallet_import(key_info).await?;
 
                 println!("{key}");
                 Ok(())
@@ -178,15 +380,15 @@ impl WalletCommands {
                 no_round,
                 no_abbrev,
             } => {
-                let response = api.wallet_list().await?;
+                let key_pairs = backend.list_addrs().await?;
 
-                let default = api.wallet_default_address().await?;
+                let default = backend.wallet_default_address().await?;
 
                 let (title_address, title_default_mark, title_balance) =
                     ("Address", "Default", "Balance");
                 println!("{title_address:41} {title_default_mark:7} {title_balance}");
 
-                for address in response {
+                for address in key_pairs {
                     let addr = address.to_string();
                     let default_address_mark = if default.as_ref() == Some(&addr) {
                         "X"
@@ -194,7 +396,7 @@ impl WalletCommands {
                         ""
                     };
 
-                    let balance_string = api.wallet_balance(addr.clone()).await?;
+                    let balance_string = backend.remote.wallet_balance(addr.clone()).await?;
 
                     let balance_token_amount =
                         TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
@@ -218,8 +420,7 @@ impl WalletCommands {
                 let StrictAddress(key) = StrictAddress::from_str(&key)
                     .with_context(|| format!("Invalid address: {key}"))?;
 
-                api.wallet_set_default(key).await?;
-                Ok(())
+                backend.wallet_set_default(key).await
             }
             Self::Sign { address, message } => {
                 let StrictAddress(address) = StrictAddress::from_str(&address)
@@ -228,12 +429,15 @@ impl WalletCommands {
                 let message = hex::decode(message).context("Message has to be a hex string")?;
                 let message = BASE64_STANDARD.encode(message);
 
-                let response = api.wallet_sign(address, message.into_bytes()).await?;
-                println!("{}", hex::encode(response.bytes()));
+                let signature = backend.wallet_sign(address, message).await?;
+                println!("{}", hex::encode(signature.bytes()));
                 Ok(())
             }
             Self::ValidateAddress { address } => {
-                let response = api.wallet_validate_address(address.to_string()).await?;
+                let response = backend
+                    .remote
+                    .wallet_validate_address(address.to_string())
+                    .await?;
                 println!("{response}");
                 Ok(())
             }
@@ -253,11 +457,120 @@ impl WalletCommands {
                 };
                 let msg = hex::decode(message).context("Message has to be a hex string")?;
 
-                let response = api.wallet_verify(address, msg, signature).await?;
+                let is_valid = backend.wallet_verify(address, msg, signature).await?;
 
-                println!("{response}");
+                println!("{is_valid}");
+                Ok(())
+            }
+            Self::Send {
+                from,
+                target_address,
+                amount,
+                gas_feecap,
+                gas_limit,
+                gas_premium,
+            } => {
+                let from: Address = if let Some(from) = from {
+                    StrictAddress::from_str(&from)?.into()
+                } else {
+                    StrictAddress::from_str(&backend.wallet_default_address().await?.context(
+                        "No default wallet address selected. Please set a default address.",
+                    )?)?
+                    .into()
+                };
+
+                let message = Message {
+                    from,
+                    to: StrictAddress::from_str(&target_address)?.into(),
+                    value: amount,
+                    method_num: METHOD_SEND,
+                    gas_limit: gas_limit as u64,
+                    gas_fee_cap: gas_feecap,
+                    gas_premium,
+                    // JANK(aatifsyed): Why are we using a testing build of fvm_shared?
+                    ..Default::default()
+                };
+
+                let signed_msg = if let Some(keystore) = &backend.local {
+                    let spec = None;
+                    let mut message = backend
+                        .remote
+                        .gas_estimate_message_gas(message, spec, ApiTipsetKey(None))
+                        .await?;
+
+                    if message.gas_premium > message.gas_fee_cap {
+                        anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
+                    }
+
+                    message.sequence = MpoolGetNonce::call(
+                        &crate::rpc::Client::from(backend.remote.clone()),
+                        (LotusJson(from),),
+                    )
+                    .await?;
+
+                    let key = crate::key_management::find_key(&from, keystore)?;
+                    let sig = crate::key_management::sign(
+                        *key.key_info.key_type(),
+                        key.key_info.private_key(),
+                        message.cid().unwrap().to_bytes().as_slice(),
+                    )?;
+
+                    let smsg = SignedMessage::new_from_parts(message, sig)?;
+
+                    MpoolPush::call(
+                        &crate::rpc::Client::from(backend.remote.clone()),
+                        (LotusJson(smsg.clone()),),
+                    )
+                    .await?;
+                    smsg
+                } else {
+                    MpoolPushMessage::call(
+                        &crate::rpc::Client::from(backend.remote.clone()),
+                        (LotusJson(message), None),
+                    )
+                    .await?
+                    .into_inner()
+                };
+
+                println!("{}", signed_msg.cid().unwrap());
+
                 Ok(())
             }
         }
     }
+}
+
+/// Prompts for password, looping until the [`KeyStore`] is successfully loaded.
+///
+/// This code makes blocking syscalls.
+fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Result<KeyStore> {
+    let keystore = RefCell::new(None);
+    let term = Term::stderr();
+
+    // Unlike `dialoguer::Confirm`, `dialoguer::Password` doesn't fail if the terminal is not a tty
+    // so do that check ourselves.
+    // This means users can't pipe their password from stdin.
+    if !term.is_term() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotConnected,
+            "cannot read password from non-terminal",
+        )
+        .into());
+    }
+
+    dialoguer::Password::new()
+        .with_prompt("Enter the password for the wallet keystore")
+        .allow_empty_password(true) // let validator do validation
+        .validate_with(|input: &String| {
+            KeyStore::new(KeyStoreConfig::Encrypted(data_dir.clone(), input.clone()))
+                .map(|created| *keystore.borrow_mut() = Some(created))
+                .context(
+                    "Error: couldn't load keystore with this password. Try again or press Ctrl+C to abort.",
+                )
+        })
+        .interact_on(&term)?;
+
+    Ok(keystore
+        .into_inner()
+        .expect("validation succeeded, so keystore must be emplaced"))
 }
