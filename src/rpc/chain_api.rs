@@ -49,6 +49,7 @@ pub fn register_all(
     ChainGetParentMessages::register(module);
     ChainGetMessage::register(module);
     ChainGetParentReceipts::register(module);
+    ChainGetMessagesInTipset::register(module);
 }
 
 pub enum ChainGetMessage {}
@@ -173,17 +174,22 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     }
 }
 
-pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
-pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
-
-    let store = data.chain_store.blockstore();
-    let tipset = Tipset::load_required(store, &tsk)?;
-    let messages = load_api_messages_from_tipset(store, &tipset)?;
-    Ok(LotusJson(messages))
+pub enum ChainGetMessagesInTipset {}
+impl RpcMethod<1> for ChainGetMessagesInTipset {
+    const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<TipsetKey>,);
+    type Ok = LotusJson<Vec<ApiMessage>>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(tsk),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let store = ctx.chain_store.blockstore();
+        let tipset = Tipset::load_required(store, &tsk)?;
+        let messages = load_api_messages_from_tipset(store, &tipset)?;
+        Ok(LotusJson(messages))
+    }
 }
 
 pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";

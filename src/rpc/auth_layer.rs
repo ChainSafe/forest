@@ -56,7 +56,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
-    access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
+    access.insert(chain_api::ChainGetMessagesInTipset::NAME, Access::Read);
     access.insert(chain_api::ChainGetParentMessages::NAME, Access::Read);
     access.insert(chain_api::CHAIN_NOTIFY, Access::Read);
     access.insert(chain_api::ChainGetParentReceipts::NAME, Access::Read);

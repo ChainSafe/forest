@@ -14,7 +14,9 @@ use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon_api::BeaconGetEntry;
-use crate::rpc::chain_api::{ChainGetMessage, ChainGetParentMessages, ChainGetParentReceipts};
+use crate::rpc::chain_api::{
+    ChainGetMessage, ChainGetMessagesInTipset, ChainGetParentMessages, ChainGetParentReceipts,
+};
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
@@ -592,9 +594,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     )));
 
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
-        tests.push(RpcTest::identity(
-            ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
-        ));
+        tests.push(RpcTest::identity_raw(ChainGetMessagesInTipset::request((
+            tipset.key().clone().into(),
+        ))?));
         tests.push(RpcTest::identity(
             ApiInfo::state_deal_provider_collateral_bounds_req(
                 PaddedPieceSize(1),

@@ -206,10 +206,7 @@ where
     module.register_async_method(CHAIN_GET_BLOCK, chain_get_block::<DB>)?;
     module.register_async_method(CHAIN_SET_HEAD, chain_set_head::<DB>)?;
     module.register_async_method(CHAIN_GET_MIN_BASE_FEE, chain_get_min_base_fee::<DB>)?;
-    module.register_async_method(
-        CHAIN_GET_MESSAGES_IN_TIPSET,
-        chain_get_messages_in_tipset::<DB>,
-    )?;
+
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
     module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;

@@ -126,10 +126,6 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_MIN_BASE_FEE, (basefee_lookback,))
     }
 
-    pub fn chain_get_messages_in_tipset_req(tsk: TipsetKey) -> RpcRequest<Vec<ApiMessage>> {
-        RpcRequest::new(CHAIN_GET_MESSAGES_IN_TIPSET, (tsk,))
-    }
-
     pub fn chain_notify_req() -> RpcRequest<()> {
         RpcRequest::new(CHAIN_NOTIFY, ())
     }
