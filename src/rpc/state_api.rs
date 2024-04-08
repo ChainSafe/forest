@@ -35,7 +35,9 @@ use jsonrpsee::types::{error::ErrorObject, Params};
 use libipld_core::ipld::Ipld;
 use nonempty::{nonempty, NonEmpty};
 use num_bigint::BigInt;
+use num_traits::Euclid;
 use parking_lot::Mutex;
+use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
@@ -1085,6 +1087,9 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
     params: Params<'_>,
     data: Ctx<DB>,
 ) -> Result<DealCollateralBounds, JsonRpcError> {
+    let deal_provider_collateral_num = BigInt::from(110);
+    let deal_provider_collateral_denom = BigInt::from(100);
+
     let LotusJson((size, verified, ApiTipsetKey(tsk))) = params.parse()?;
 
     // This is more eloquent than giving the whole match pattern a type.
@@ -1110,7 +1115,7 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
 
     let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
 
-    let supply = genesis_info.get_circulating_supply(
+    let supply = genesis_info.get_vm_circulating_supply(
         ts.epoch(),
         &data.state_manager.blockstore_owned(),
         ts.parent_state(),
@@ -1130,8 +1135,13 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
         &supply.into(),
     );
 
+    let min = min
+        .atto()
+        .mul(deal_provider_collateral_num)
+        .div_euclid(&deal_provider_collateral_denom);
+
     Ok(DealCollateralBounds {
         max: max.into(),
-        min: min.into(),
+        min: TokenAmount::from_atto(min),
     })
 }
