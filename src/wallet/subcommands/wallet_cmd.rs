@@ -8,7 +8,14 @@ use std::{
 };
 
 use crate::{
-    cli::humantoken, message::SignedMessage, rpc::types::ApiTipsetKey, shim::address::Address,
+    cli::humantoken,
+    message::SignedMessage,
+    rpc::{
+        mpool_api::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
+        types::ApiTipsetKey,
+        RpcMethodExt as _,
+    },
+    shim::address::Address,
     ENCRYPTED_KEYSTORE_NAME,
 };
 use crate::{key_management::Key, utils::io::read_file_to_string};
@@ -495,7 +502,11 @@ impl WalletCommands {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    message.sequence = backend.remote.mpool_get_nonce(from).await?;
+                    message.sequence = MpoolGetNonce::call(
+                        &crate::rpc::Client::from(backend.remote.clone()),
+                        (LotusJson(from),),
+                    )
+                    .await?;
 
                     let key = crate::key_management::find_key(&from, keystore)?;
                     let sig = crate::key_management::sign(
@@ -505,10 +516,20 @@ impl WalletCommands {
                     )?;
 
                     let smsg = SignedMessage::new_from_parts(message, sig)?;
-                    backend.remote.mpool_push(smsg.clone()).await?;
+
+                    MpoolPush::call(
+                        &crate::rpc::Client::from(backend.remote.clone()),
+                        (LotusJson(smsg.clone()),),
+                    )
+                    .await?;
                     smsg
                 } else {
-                    backend.remote.mpool_push_message(message, None).await?
+                    MpoolPushMessage::call(
+                        &crate::rpc::Client::from(backend.remote.clone()),
+                        (LotusJson(message), None),
+                    )
+                    .await?
+                    .into_inner()
                 };
 
                 println!("{}", signed_msg.cid().unwrap());
