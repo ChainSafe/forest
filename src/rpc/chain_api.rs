@@ -50,6 +50,7 @@ pub fn register_all(
     ChainGetMessage::register(module);
     ChainGetParentReceipts::register(module);
     ChainGetMessagesInTipset::register(module);
+    ChainExport::register(module);
 }
 
 pub enum ChainGetMessage {}
@@ -192,68 +193,73 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     }
 }
 
-pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
-pub async fn chain_export<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<Option<String>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let ChainExportParams {
-        epoch,
-        recent_roots,
-        output_path,
-        tipset_keys: ApiTipsetKey(tsk),
-        skip_checksum,
-        dry_run,
-    }: ChainExportParams = params.parse()?;
-
-    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-
-    let _locked = LOCK.try_lock();
-    if _locked.is_err() {
-        return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
-    }
-
-    let chain_finality = data.state_manager.chain_config().policy.chain_finality;
-    if recent_roots < chain_finality {
-        return Err(anyhow::anyhow!(format!(
-            "recent-stateroots must be greater than {chain_finality}"
-        ))
-        .into());
-    }
-
-    let head = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    let start_ts =
-        data.chain_store
-            .chain_index
-            .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
-
-    match if dry_run {
-        crate::chain::export::<Sha256>(
-            Arc::clone(&data.chain_store.db),
-            &start_ts,
+pub enum ChainExport {}
+impl RpcMethod<1> for ChainExport {
+    const NAME: &'static str = "Filecoin.ChainExport";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (ChainExportParams,);
+    type Ok = Option<String>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (params,): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let ChainExportParams {
+            epoch,
             recent_roots,
-            VoidAsyncWriter,
-            CidHashSet::default(),
+            output_path,
+            tipset_keys: LotusJson(ApiTipsetKey(tsk)),
             skip_checksum,
-        )
-        .await
-    } else {
-        let file = tokio::fs::File::create(&output_path).await?;
-        crate::chain::export::<Sha256>(
-            Arc::clone(&data.chain_store.db),
-            &start_ts,
-            recent_roots,
-            file,
-            CidHashSet::default(),
-            skip_checksum,
-        )
-        .await
-    } {
-        Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
-        Err(e) => Err(anyhow::anyhow!(e).into()),
+            dry_run,
+        } = params;
+
+        static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+        let _locked = LOCK.try_lock();
+        if _locked.is_err() {
+            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        }
+
+        let chain_finality = ctx.state_manager.chain_config().policy.chain_finality;
+        if recent_roots < chain_finality {
+            return Err(anyhow::anyhow!(format!(
+                "recent-stateroots must be greater than {chain_finality}"
+            ))
+            .into());
+        }
+
+        let head = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let start_ts = ctx.chain_store.chain_index.tipset_by_height(
+            epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
+
+        match if dry_run {
+            crate::chain::export::<Sha256>(
+                Arc::clone(&ctx.chain_store.db),
+                &start_ts,
+                recent_roots,
+                VoidAsyncWriter,
+                CidHashSet::default(),
+                skip_checksum,
+            )
+            .await
+        } else {
+            let file = tokio::fs::File::create(&output_path).await?;
+            crate::chain::export::<Sha256>(
+                Arc::clone(&ctx.chain_store.db),
+                &start_ts,
+                recent_roots,
+                file,
+                CidHashSet::default(),
+                skip_checksum,
+            )
+            .await
+        } {
+            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+            Err(e) => Err(anyhow::anyhow!(e).into()),
+        }
     }
 }
 
@@ -645,20 +651,17 @@ impl HasLotusJson for ApiMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {
     pub epoch: ChainEpoch,
     pub recent_roots: i64,
     pub output_path: PathBuf,
-    #[serde(with = "crate::lotus_json")]
-    pub tipset_keys: ApiTipsetKey,
+    pub tipset_keys: LotusJson<ApiTipsetKey>,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
 
 lotus_json_with_self!(ChainExportParams);
-
-pub type ChainExportResult = Option<String>;
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]

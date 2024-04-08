@@ -1,8 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::time::Duration;
-
 use crate::rpc::{chain_api::ChainGetPath, types::*, RpcMethod};
 use crate::{
     blocks::{CachingBlockHeader, Tipset, TipsetKey},
@@ -84,18 +82,6 @@ impl ApiInfo {
 
     pub fn chain_set_head_req(new_head: TipsetKey) -> RpcRequest<()> {
         RpcRequest::new(CHAIN_SET_HEAD, (new_head,))
-    }
-
-    pub async fn chain_export(
-        &self,
-        params: ChainExportParams,
-    ) -> Result<ChainExportResult, JsonRpcError> {
-        self.call(Self::chain_export_req(params)).await
-    }
-
-    pub fn chain_export_req(params: ChainExportParams) -> RpcRequest<ChainExportResult> {
-        // snapshot export could take a few hours on mainnet
-        RpcRequest::new(CHAIN_EXPORT, params).with_timeout(Duration::MAX)
     }
 
     pub async fn chain_read_obj(&self, cid: Cid) -> Result<Vec<u8>, JsonRpcError> {
