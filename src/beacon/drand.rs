@@ -275,6 +275,14 @@ impl Beacon for DrandBeacon {
         entries: &'a [BeaconEntry],
         mut prev: &'a BeaconEntry,
     ) -> Result<bool, anyhow::Error> {
+        tracing::info!(
+            "drand verification: network={:?}, prev={}, entries({})={}",
+            self.network,
+            prev.round(),
+            entries.len(),
+            entries.iter().map(|e| e.round().to_string()).join("\n"),
+        );
+
         let mut validated = vec![];
         let is_valid = if self.network.is_unchained() {
             let mut messages = vec![];
@@ -328,17 +336,6 @@ impl Beacon for DrandBeacon {
             for entry in validated {
                 cache.put(entry.round(), entry.clone());
             }
-        } else if !is_valid {
-            tracing::warn!(
-                "drand verification failed on network {:?}\nprev:\n{}\nentries({}):\n{}",
-                self.network,
-                serde_json::to_string(prev).unwrap_or_default(),
-                entries.len(),
-                entries
-                    .iter()
-                    .map(|e| serde_json::to_string(e).unwrap_or_default())
-                    .join("\n"),
-            );
         }
 
         Ok(is_valid)
