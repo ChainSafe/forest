@@ -606,7 +606,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             ),
         ));
         for block in tipset.block_headers() {
-            let block_cid = block.cid().clone().into();
+            let block_cid = (*block.cid()).into();
             tests.extend([
                 RpcTest::identity_raw(ChainGetBlockMessages::request((block_cid,))?),
                 RpcTest::identity_raw(ChainGetParentMessages::request((block_cid,))?),
