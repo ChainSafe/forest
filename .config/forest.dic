@@ -46,13 +46,16 @@ GC
 GiB
 HAMT
 hasher
+healthcheck
 implementor/SM
 IPFS
 IPLD
 JSON
 JWT
 Kademlia
+Kubernetes
 libp2p
+liveness
 localhost
 mainnet
 MDNS

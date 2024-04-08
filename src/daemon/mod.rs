@@ -323,11 +323,11 @@ pub(super) async fn start(
     // Initialize ChainMuxer
     let chain_muxer = ChainMuxer::new(
         Arc::clone(&state_manager),
-        peer_manager,
+        peer_manager.clone(),
         mpool.clone(),
         network_send.clone(),
         network_rx,
-        Arc::new(Tipset::from(genesis_header)),
+        Arc::new(Tipset::from(&genesis_header)),
         tipset_sink,
         tipset_stream,
         opts.stateless,
@@ -335,6 +335,25 @@ pub(super) async fn start(
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+
+    {
+        let forest_state = crate::health::ForestState {
+            config: config.clone(),
+            chain_config: chain_config.clone(),
+            genesis_timestamp: genesis_header.timestamp,
+            sync_state: sync_state.clone(),
+            peer_manager,
+        };
+
+        let listener =
+            tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
+
+        services.spawn(async move {
+            crate::health::init_healthcheck_server(forest_state, listener)
+                .await
+                .context("Failed to initiate healthcheck server")
+        });
+    }
 
     // Start services
     if config.client.enable_rpc {
