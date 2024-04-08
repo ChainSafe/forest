@@ -14,7 +14,7 @@ use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::ChainMessage;
-use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
+use crate::rpc::types::{ApiHeadChange, ApiReceipt, ApiTipsetKey, BlockMessages};
 use crate::rpc::{
     reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
     RpcMethodExt as _,
@@ -45,6 +45,7 @@ pub fn register_all(
     module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
 ) {
     ChainGetPath::register(module);
+    ChainGetParentMessages::register(module);
     ChainGetMessage::register(module);
 }
 
@@ -71,23 +72,28 @@ impl RpcMethod<1> for ChainGetMessage {
     }
 }
 
-pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
-pub async fn chain_get_parent_messages<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let store = data.state_manager.blockstore();
-    let block_header: CachingBlockHeader = store
-        .get_cbor(&block_cid)?
-        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
-    if block_header.epoch == 0 {
-        Ok(LotusJson(vec![]))
-    } else {
-        let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-        let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
-        Ok(LotusJson(messages))
+pub enum ChainGetParentMessages {}
+impl RpcMethod<1> for ChainGetParentMessages {
+    const NAME: &'static str = "Filecoin.ChainGetParentMessages";
+    const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Vec<ApiMessage>>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(block_cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let store = ctx.state_manager.blockstore();
+        let block_header: CachingBlockHeader = store
+            .get_cbor(&block_cid)?
+            .with_context(|| format!("can't find block header with cid {block_cid}"))?;
+        if block_header.epoch == 0 {
+            Ok(LotusJson(vec![]))
+        } else {
+            let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
+            let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
+            Ok(LotusJson(messages))
+        }
     }
 }
 
@@ -568,6 +574,45 @@ fn load_api_messages_from_tipset(
     }
 
     Ok(messages)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct ApiMessage {
+    cid: Cid,
+    message: Message,
+}
+
+impl ApiMessage {
+    pub fn new(cid: Cid, message: Message) -> Self {
+        Self { cid, message }
+    }
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMessageLotusJson {
+    cid: LotusJson<Cid>,
+    message: LotusJson<Message>,
+}
+
+impl HasLotusJson for ApiMessage {
+    type LotusJson = ApiMessageLotusJson;
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ApiMessageLotusJson {
+            cid: LotusJson(self.cid),
+            message: LotusJson(self.message),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        ApiMessage {
+            cid: lotus_json.cid.into_inner(),
+            message: lotus_json.message.into_inner(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

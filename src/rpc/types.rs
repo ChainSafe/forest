@@ -264,45 +264,6 @@ impl Version {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct ApiMessage {
-    cid: Cid,
-    message: Message,
-}
-
-impl ApiMessage {
-    pub fn new(cid: Cid, message: Message) -> Self {
-        Self { cid, message }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiMessageLotusJson {
-    cid: LotusJson<Cid>,
-    message: LotusJson<Message>,
-}
-
-impl HasLotusJson for ApiMessage {
-    type LotusJson = ApiMessageLotusJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ApiMessageLotusJson {
-            cid: LotusJson(self.cid),
-            message: LotusJson(self.message),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        ApiMessage {
-            cid: lotus_json.cid.into_inner(),
-            message: lotus_json.message.into_inner(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiTipsetKey(pub Option<TipsetKey>);
 

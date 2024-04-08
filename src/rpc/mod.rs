@@ -210,7 +210,6 @@ where
         CHAIN_GET_MESSAGES_IN_TIPSET,
         chain_get_messages_in_tipset::<DB>,
     )?;
-    module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;

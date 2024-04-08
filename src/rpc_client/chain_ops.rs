@@ -130,10 +130,6 @@ impl ApiInfo {
         RpcRequest::new(CHAIN_GET_MESSAGES_IN_TIPSET, (tsk,))
     }
 
-    pub fn chain_get_parent_messages_req(block_cid: Cid) -> RpcRequest<Vec<ApiMessage>> {
-        RpcRequest::new(CHAIN_GET_PARENT_MESSAGES, (block_cid,))
-    }
-
     pub fn chain_notify_req() -> RpcRequest<()> {
         RpcRequest::new(CHAIN_NOTIFY, ())
     }
