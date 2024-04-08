@@ -168,6 +168,7 @@ where
     ChainGetPath::register(&mut module);
     mpool_api::register_all(&mut module);
     auth_api::register_all(&mut module);
+    beacon_api::register_all(&mut module);
     module.finish()
 }
 
@@ -181,7 +182,6 @@ fn register_methods<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use beacon_api::*;
     use chain_api::*;
     use common_api::*;
     use eth_api::*;
@@ -191,8 +191,6 @@ where
     use sync_api::*;
     use wallet_api::*;
 
-    // Beacon API
-    module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
     module.register_async_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)?;
     module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;

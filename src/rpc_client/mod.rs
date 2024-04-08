@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod beacon_ops;
 pub mod chain_ops;
 pub mod common_ops;
 pub mod eth_ops;
@@ -170,8 +169,8 @@ impl<T> RpcRequest<T> {
         self
     }
 
-    // Discard type information about the response.
-    pub fn lower(self) -> RpcRequest {
+    /// Map type information about the response.
+    pub fn map_ty<U>(self) -> RpcRequest<U> {
         RpcRequest {
             method_name: self.method_name,
             params: self.params,
@@ -179,6 +178,10 @@ impl<T> RpcRequest<T> {
             api_version: self.api_version,
             timeout: self.timeout,
         }
+    }
+    /// Discard type information about the response.
+    pub fn lower(self) -> RpcRequest {
+        self.map_ty()
     }
 }
 

@@ -39,7 +39,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(auth_api::AuthVerify::NAME, Access::Read);
 
     // Beacon API
-    access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
+    access.insert(beacon_api::BeaconGetEntry::NAME, Access::Read);
 
     // Chain API
     access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);

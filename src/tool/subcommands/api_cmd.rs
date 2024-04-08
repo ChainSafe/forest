@@ -13,6 +13,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::rpc::beacon_api::BeaconGetEntry;
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
@@ -212,36 +213,22 @@ struct RpcTest {
     ignore: Option<&'static str>,
 }
 
+/// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
+/// should be removed when <https://github.com/ChainSafe/forest/issues/4032> is
+/// completed.
 impl RpcTest {
-    // Check that an endpoint exist and that both the Lotus and Forest JSON
-    // response follows the same schema.
-    fn basic<T>(request: RpcRequest<T>) -> RpcTest
+    /// Check that an endpoint exists and that both the Lotus and Forest JSON
+    /// response follows the same schema.
+    fn basic<T>(request: RpcRequest<T>) -> Self
     where
         T: HasLotusJson,
     {
-        RpcTest {
-            request: request.lower(),
-            check_syntax: Arc::new(
-                |value| match serde_json::from_value::<T::LotusJson>(value) {
-                    Ok(_) => true,
-                    Err(e) => {
-                        debug!("{e}");
-                        false
-                    }
-                },
-            ),
-            check_semantics: Arc::new(|_, _| true),
-            ignore: None,
-        }
+        Self::basic_raw(request.map_ty::<T::LotusJson>())
     }
-    /// This is [`Self::basic`] without the [`HasLotusJson`] bound, for methods
-    /// where the return type does not need converting via a third type.
-    ///
-    /// This is a temporary measure, and should be removed when
-    /// <https://github.com/ChainSafe/forest/issues/4032> is completed.
+    /// See [Self::basic], and note on this `impl` block.
     fn basic_raw<T: DeserializeOwned>(request: RpcRequest<T>) -> Self {
         Self {
-            request: request.lower(),
+            request: request.map_ty(),
             check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
                 Ok(_) => true,
                 Err(e) => {
@@ -253,37 +240,36 @@ impl RpcTest {
             ignore: None,
         }
     }
-
-    // Check that an endpoint exist, has the same JSON schema, and do custom
-    // validation over both responses.
-    fn validate<T>(
+    /// Check that an endpoint exists, has the same JSON schema, and do custom
+    /// validation over both responses.
+    fn validate<T: HasLotusJson>(
         request: RpcRequest<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
-    ) -> RpcTest
-    where
-        T: HasLotusJson,
-        T::LotusJson: DeserializeOwned,
-    {
-        RpcTest {
-            request: request.lower(),
-            check_syntax: Arc::new(
-                |value| match serde_json::from_value::<T::LotusJson>(value) {
-                    Ok(_) => true,
-                    Err(e) => {
-                        debug!("{e}");
-                        false
-                    }
-                },
-            ),
+    ) -> Self {
+        Self::validate_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
+            validate(T::from_lotus_json(l), T::from_lotus_json(r))
+        })
+    }
+    /// See [Self::validate], and note on this `impl` block.
+    fn validate_raw<T: DeserializeOwned>(
+        request: RpcRequest<T>,
+        validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            request: request.map_ty(),
+            check_syntax: Arc::new(|value| match serde_json::from_value::<T>(value) {
+                Ok(_) => true,
+                Err(e) => {
+                    debug!("{e}");
+                    false
+                }
+            }),
             check_semantics: Arc::new(move |forest_json, lotus_json| {
                 match (
-                    serde_json::from_value::<T::LotusJson>(forest_json),
-                    serde_json::from_value::<T::LotusJson>(lotus_json),
+                    serde_json::from_value::<T>(forest_json),
+                    serde_json::from_value::<T>(lotus_json),
                 ) {
-                    (Ok(forest), Ok(lotus)) => validate(
-                        HasLotusJson::from_lotus_json(forest),
-                        HasLotusJson::from_lotus_json(lotus),
-                    ),
+                    (Ok(forest), Ok(lotus)) => validate(forest, lotus),
                     (forest, lotus) => {
                         if let Err(e) = forest {
                             debug!("[forest] invalid json: {e}");
@@ -298,24 +284,23 @@ impl RpcTest {
             ignore: None,
         }
     }
-
-    fn ignore(mut self, msg: &'static str) -> Self {
-        self.ignore = Some(msg);
-        self
+    /// Check that an endpoint exists and that Forest returns exactly the same
+    /// JSON as Lotus.
+    fn identity<T: PartialEq + HasLotusJson>(request: RpcRequest<T>) -> RpcTest {
+        Self::validate(request, |forest, lotus| forest == lotus)
     }
-
-    // Check that an endpoint exist and that Forest returns exactly the same
-    // JSON as Lotus.
-    fn identity<T: PartialEq>(request: RpcRequest<T>) -> RpcTest
-    where
-        T: HasLotusJson,
-        T::LotusJson: DeserializeOwned,
-    {
-        RpcTest::validate(request, |forest, lotus| forest == lotus)
+    /// See [Self::identity], and note on this `impl` block.
+    fn identity_raw<T: PartialEq + DeserializeOwned>(request: RpcRequest<T>) -> Self {
+        Self::validate_raw(request, |l, r| l == r)
     }
 
     fn with_timeout(mut self, timeout: Duration) -> Self {
         self.request.set_timeout(timeout);
+        self
+    }
+
+    fn ignore(mut self, msg: &'static str) -> Self {
+        self.ignore = Some(msg);
         self
     }
 
@@ -382,7 +367,9 @@ fn auth_tests() -> Vec<RpcTest> {
 }
 
 fn beacon_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(ApiInfo::beacon_get_entry_req(10101))]
+    vec![RpcTest::identity_raw(
+        BeaconGetEntry::request((10101,)).unwrap(),
+    )]
 }
 
 fn chain_tests() -> Vec<RpcTest> {
