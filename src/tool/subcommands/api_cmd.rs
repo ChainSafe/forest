@@ -37,6 +37,7 @@ use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared2::piece::PaddedPieceSize;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
@@ -605,6 +606,13 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
         tests.push(RpcTest::identity(
             ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
+        ));
+        tests.push(RpcTest::identity(
+            ApiInfo::state_deal_provider_collateral_bounds_req(
+                PaddedPieceSize(1),
+                true,
+                tipset.key().into(),
+            ),
         ));
         for block in tipset.block_headers() {
             tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(

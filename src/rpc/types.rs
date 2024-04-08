@@ -1069,6 +1069,17 @@ pub struct ApiHeadChange {
 
 lotus_json_with_self!(ApiHeadChange);
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct DealCollateralBounds {
+    #[serde(with = "crate::lotus_json")]
+    pub min: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub max: TokenAmount,
+}
+
+lotus_json_with_self!(DealCollateralBounds);
+
 #[cfg(test)]
 mod tests {
     use super::*;
