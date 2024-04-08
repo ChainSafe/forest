@@ -167,6 +167,7 @@ where
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
     ChainGetPath::register(&mut module);
     mpool_api::register_all(&mut module);
+    auth_api::register_all(&mut module);
     module.finish()
 }
 
@@ -192,7 +193,6 @@ where
     use wallet_api::*;
 
     // Auth API
-    module.register_async_method(AUTH_NEW, auth_new::<DB>)?;
     module.register_async_method(AUTH_VERIFY, auth_verify::<DB>)?;
     // Beacon API
     module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
