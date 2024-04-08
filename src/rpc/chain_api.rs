@@ -14,19 +14,20 @@ use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::ChainMessage;
-use crate::rpc::types::{ApiHeadChange, ApiReceipt, ApiTipsetKey, BlockMessages};
+use crate::rpc::types::{ApiHeadChange, ApiTipsetKey, BlockMessages};
 use crate::rpc::{
     reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
     RpcMethodExt as _,
 };
 use crate::shim::clock::ChainEpoch;
+use crate::shim::error::ExitCode;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
@@ -47,6 +48,7 @@ pub fn register_all(
     ChainGetPath::register(module);
     ChainGetParentMessages::register(module);
     ChainGetMessage::register(module);
+    ChainGetParentReceipts::register(module);
 }
 
 pub enum ChainGetMessage {}
@@ -97,49 +99,29 @@ impl RpcMethod<1> for ChainGetParentMessages {
     }
 }
 
-pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
-pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
-    let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
+pub enum ChainGetParentReceipts {}
+impl RpcMethod<1> for ChainGetParentReceipts {
+    const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
+    const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Vec<ApiReceipt>>;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(block_cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let store = ctx.state_manager.blockstore();
+        let block_header: CachingBlockHeader = store
+            .get_cbor(&block_cid)?
+            .with_context(|| format!("can't find block header with cid {block_cid}"))?;
+        let mut receipts = Vec::new();
+        if block_header.epoch == 0 {
+            return Ok(LotusJson(vec![]));
+        }
 
-    let store = data.state_manager.blockstore();
-    let block_header: CachingBlockHeader = store
-        .get_cbor(&block_cid)?
-        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
-    let mut receipts = Vec::new();
-    if block_header.epoch == 0 {
-        return Ok(LotusJson(vec![]));
-    }
-
-    // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
-    if let Ok(amt) =
-        Amt::<fvm_shared4::receipt::Receipt, _>::load(&block_header.message_receipts, store)
-            .map_err(|_| {
-                ErrorObjectOwned::owned::<()>(
-                    1,
-                    format!(
-                        "failed to root: ipld: could not find {}",
-                        block_header.message_receipts
-                    ),
-                    None,
-                )
-            })
-    {
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
-                gas_used: receipt.gas_used,
-                events_root: receipt.events_root,
-            });
-            Ok(())
-        })?;
-    } else {
-        // Fallback to Receipt_v2.
-        let amt =
-            Amt::<fvm_shared2::receipt::Receipt, _>::load(&block_header.message_receipts, store)
+        // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
+        if let Ok(amt) =
+            Amt::<fvm_shared4::receipt::Receipt, _>::load(&block_header.message_receipts, store)
                 .map_err(|_| {
                     ErrorObjectOwned::owned::<()>(
                         1,
@@ -149,19 +131,46 @@ pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
                         ),
                         None,
                     )
-                })?;
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
-                gas_used: receipt.gas_used as _,
-                events_root: None,
-            });
-            Ok(())
-        })?;
-    }
+                })
+        {
+            amt.for_each(|_, receipt| {
+                receipts.push(ApiReceipt {
+                    exit_code: receipt.exit_code.into(),
+                    return_data: receipt.return_data.clone().into(),
+                    gas_used: receipt.gas_used,
+                    events_root: receipt.events_root.into(),
+                });
+                Ok(())
+            })?;
+        } else {
+            // Fallback to Receipt_v2.
+            let amt = Amt::<fvm_shared2::receipt::Receipt, _>::load(
+                &block_header.message_receipts,
+                store,
+            )
+            .map_err(|_| {
+                ErrorObjectOwned::owned::<()>(
+                    1,
+                    format!(
+                        "failed to root: ipld: could not find {}",
+                        block_header.message_receipts
+                    ),
+                    None,
+                )
+            })?;
+            amt.for_each(|_, receipt| {
+                receipts.push(ApiReceipt {
+                    exit_code: receipt.exit_code.into(),
+                    return_data: receipt.return_data.clone().into(),
+                    gas_used: receipt.gas_used as _,
+                    events_root: None.into(),
+                });
+                Ok(())
+            })?;
+        }
 
-    Ok(LotusJson(receipts))
+        Ok(LotusJson(receipts))
+    }
 }
 
 pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
@@ -575,6 +584,21 @@ fn load_api_messages_from_tipset(
 
     Ok(messages)
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiReceipt {
+    // Exit status of message execution
+    pub exit_code: ExitCode,
+    // `Return` value if the exit code is zero
+    #[serde(rename = "Return")]
+    pub return_data: LotusJson<RawBytes>,
+    // Non-negative value of GasUsed
+    pub gas_used: u64,
+    pub events_root: LotusJson<Option<Cid>>,
+}
+
+lotus_json_with_self!(ApiReceipt);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ApiMessage {
