@@ -804,8 +804,8 @@ fn encode_filecoin_returns_as_abi(
     encode_as_abi_helper(exit_code, codec, data)
 }
 
-// Format 2 numbers followed by an arbitrary byte array as solidity ABI. Both our native
-// inputs/outputs follow the same pattern, so we can reuse this code.
+/// Format 2 numbers followed by an arbitrary byte array as solidity ABI. Both our native
+/// inputs/outputs follow the same pattern, so we can reuse this code.
 fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
     const EVM_WORD_SIZE: usize = 32;
 
@@ -823,7 +823,7 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
     // We always pad out to the next EVM "word" (32 bytes).
     let total_words = static_args.len()
         + (data.len() / EVM_WORD_SIZE)
-        + if data.len() % EVM_WORD_SIZE != 0 {
+        + if (data.len() % EVM_WORD_SIZE) != 0 {
             1
         } else {
             0
@@ -840,8 +840,8 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
     }
 
     // Finally, we copy in the data.
-    // TODO: investigate
-    //buf[offset..].copy_from_slice(data);
+    let data_len = data.len();
+    buf[offset..offset + data_len].copy_from_slice(data);
 
     buf
 }
@@ -1052,6 +1052,7 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
 mod test {
     use super::*;
     use quickcheck_macros::quickcheck;
+    use std::num::ParseIntError;
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
@@ -1060,5 +1061,22 @@ mod test {
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r.0, decoded.0);
+    }
+
+    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[test]
+    fn test_abi_encoding() {
+        const EXPECTED: &str = "000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000510000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001b1111111111111111111020200301000000044444444444444444010000000000";
+        const DATA: &str = "111111111111111111102020030100000004444444444444444401";
+        let expected_bytes = decode_hex(EXPECTED).unwrap();
+        let data_bytes = decode_hex(DATA).unwrap();
+
+        assert_eq!(expected_bytes, encode_as_abi_helper(22, 81, &data_bytes));
     }
 }
