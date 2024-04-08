@@ -1,17 +1,16 @@
 # Wallet handling
 
-There are two wallets for Forest: One accessible by the Forest node, and one
-that is only accessible by you. It's recommended that you only use the local
-wallet for security reasons. The wallet in the Forest node exists for backward
-compatiblity with Lotus.
+There are two wallets for Forest: One is accessible by the Forest node, and one
+is only accessible by you. It is recommended that you only use the local wallet
+for security reasons. The wallet in the Forest node exists for backward
+compatibility with Lotus.
 
 ## Configuration
 
-To query the balance of an account or to transfer funds, you need access to a
-running Filecoin node. You can either run such a node yourself or use a publicly
-available node. As a rule of thumb, don't send real money through a node that
-you do not trust. The rest of this document will assume you're using play money
-on calibnet.
+To query an account's balance or transfer funds, you need access to a running
+Filecoin node. You can run such a node yourself or use a publicly available
+node. As a rule of thumb, only send real money through a node that you trust.
+The rest of this document will assume you're using play money on calibnet.
 
 Glif.io runs a public Filecoin node at that we can use by setting
 `FULLNODE_API_INFO`:
@@ -122,4 +121,4 @@ OPTIONS:
 
 If you want to use the builtin wallet in a Lotus or Forest node, you can use the
 `forest-wallet` executable with the `--remote-wallet` option. The subcommands
-remain the same but they require write access to the remote Filecoin node.
+remain the same but require write access to the remote Filecoin node.
