@@ -13,6 +13,7 @@ use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
+use crate::rpc::beacon_api::BeaconGetEntry;
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
@@ -224,7 +225,7 @@ impl RpcTest {
     {
         Self::basic_raw(request.map_ty::<T::LotusJson>())
     }
-    /// See [Self::basic], and note on this impl block.
+    /// See [Self::basic], and note on this `impl` block.
     fn basic_raw<T: DeserializeOwned>(request: RpcRequest<T>) -> Self {
         Self {
             request: request.map_ty(),
@@ -245,11 +246,11 @@ impl RpcTest {
         request: RpcRequest<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
-        Self::validate_raw(request.map_ty::<T::LotusJson>(), |l, r| {
+        Self::validate_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
             validate(T::from_lotus_json(l), T::from_lotus_json(r))
         })
     }
-    /// See [Self::validate], and note on this impl block.
+    /// See [Self::validate], and note on this `impl` block.
     fn validate_raw<T: DeserializeOwned>(
         request: RpcRequest<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
@@ -288,7 +289,7 @@ impl RpcTest {
     fn identity<T: PartialEq + HasLotusJson>(request: RpcRequest<T>) -> RpcTest {
         Self::validate(request, |forest, lotus| forest == lotus)
     }
-    /// See [Self::identity], and note on this impl block.
+    /// See [Self::identity], and note on this `impl` block.
     fn identity_raw<T: PartialEq + DeserializeOwned>(request: RpcRequest<T>) -> Self {
         Self::validate_raw(request, |l, r| l == r)
     }
@@ -366,7 +367,9 @@ fn auth_tests() -> Vec<RpcTest> {
 }
 
 fn beacon_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(ApiInfo::beacon_get_entry_req(10101))]
+    vec![RpcTest::identity_raw(
+        BeaconGetEntry::request((10101,)).unwrap(),
+    )]
 }
 
 fn chain_tests() -> Vec<RpcTest> {
