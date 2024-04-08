@@ -22,6 +22,209 @@ methods:
           $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
         nullable: true
       required: true
+  - name: Filecoin.ChainGetParentMessages
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentMessages::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetMessage
+    params:
+      - name: msg_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMessage::Result"
+      schema:
+        type: object
+        required:
+          - From
+          - GasFeeCap
+          - GasLimit
+          - GasPremium
+          - Method
+          - Nonce
+          - To
+          - Value
+          - Version
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          From:
+            $ref: "#/components/schemas/String"
+          GasFeeCap:
+            $ref: "#/components/schemas/String"
+          GasLimit:
+            $ref: "#/components/schemas/uint64"
+          GasPremium:
+            $ref: "#/components/schemas/String"
+          Method:
+            $ref: "#/components/schemas/uint64"
+          Nonce:
+            $ref: "#/components/schemas/uint64"
+          Params:
+            $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+          To:
+            $ref: "#/components/schemas/String"
+          Value:
+            $ref: "#/components/schemas/String"
+          Version:
+            $ref: "#/components/schemas/uint64"
+      required: true
+  - name: Filecoin.ChainGetParentReceipts
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentReceipts::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiReceipt"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainGetMessagesInTipset
+    params:
+      - name: tsk
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMessagesInTipset::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainExport
+    params:
+      - name: params
+        schema:
+          type: object
+          required:
+            - dry_run
+            - epoch
+            - output_path
+            - recent_roots
+            - skip_checksum
+            - tipset_keys
+          properties:
+            dry_run:
+              type: boolean
+            epoch:
+              type: integer
+              format: int64
+            output_path:
+              type: string
+            recent_roots:
+              type: integer
+              format: int64
+            skip_checksum:
+              type: boolean
+            tipset_keys:
+              $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainExport::Result"
+      schema:
+        type: string
+        nullable: true
+      required: false
+  - name: Filecoin.ChainReadObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainReadObj::Result"
+      schema:
+        $ref: "#/components/schemas/encoded binary"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainHasObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainHasObj::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.ChainGetBlockMessages
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetBlockMessages::Result"
+      schema:
+        type: object
+        required:
+          - BlsMessages
+          - Cids
+          - SecpkMessages
+        properties:
+          BlsMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
+          Cids:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+          SecpkMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+      required: true
   - name: Filecoin.MpoolGetNonce
     params:
       - name: address
@@ -51,7 +254,7 @@ methods:
       schema:
         type: array
         items:
-          $ref: "#/components/schemas/SignedMessageLotusJson"
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
         nullable: true
       required: true
   - name: Filecoin.MpoolPush
@@ -202,6 +405,34 @@ methods:
       required: true
 components:
   schemas:
+    ApiMessageLotusJson:
+      type: object
+      required:
+        - Cid
+        - Message
+      properties:
+        Cid:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Message:
+          $ref: "#/components/schemas/MessageLotusJson"
+    ApiReceipt:
+      type: object
+      required:
+        - EventsRoot
+        - ExitCode
+        - GasUsed
+        - Return
+      properties:
+        EventsRoot:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        ExitCode:
+          $ref: "#/components/schemas/ExitCode"
+        GasUsed:
+          type: integer
+          format: uint64
+          minimum: 0
+        Return:
+          $ref: "#/components/schemas/VecU8LotusJson2"
     CidLotusJsonGeneric_for_64:
       type: object
       required:
@@ -209,6 +440,17 @@ components:
       properties:
         /:
           $ref: "#/components/schemas/String"
+    CidLotusJsonGeneric_for_642:
+      type: object
+      required:
+        - /
+      properties:
+        /:
+          $ref: "#/components/schemas/String"
+    ExitCode:
+      type: integer
+      format: uint32
+      minimum: 0
     MessageLotusJson:
       type: object
       required:
@@ -294,18 +536,6 @@ components:
       anyOf:
         - $ref: "#/components/schemas/SignatureType"
         - $ref: "#/components/schemas/String"
-    SignedMessageLotusJson:
-      type: object
-      required:
-        - Message
-        - Signature
-      properties:
-        CID:
-          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-        Message:
-          $ref: "#/components/schemas/MessageLotusJson"
-        Signature:
-          $ref: "#/components/schemas/SignatureLotusJson"
     String:
       type: string
     TipsetKeyLotusJson:
@@ -340,6 +570,16 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      nullable: true
+    "forest_filecoin::lotus_json::message::MessageLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
       nullable: true
     int64:
       type: integer
