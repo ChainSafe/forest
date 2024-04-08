@@ -35,8 +35,8 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
     // Auth API
-    access.insert(auth_api::AUTH_NEW, Access::Admin);
-    access.insert(auth_api::AUTH_VERIFY, Access::Read);
+    access.insert(auth_api::AuthNew::NAME, Access::Admin);
+    access.insert(auth_api::AuthVerify::NAME, Access::Read);
 
     // Beacon API
     access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
