@@ -328,6 +328,17 @@ impl Beacon for DrandBeacon {
             for entry in validated {
                 cache.put(entry.round(), entry.clone());
             }
+        } else if !is_valid {
+            tracing::warn!(
+                "drand verification failed on network {:?}\nprev:\n{}\nentries({}):\n{}",
+                self.network,
+                serde_json::to_string(prev).unwrap_or_default(),
+                entries.len(),
+                entries
+                    .iter()
+                    .map(|e| serde_json::to_string(e).unwrap_or_default())
+                    .join("\n"),
+            );
         }
 
         Ok(is_valid)
