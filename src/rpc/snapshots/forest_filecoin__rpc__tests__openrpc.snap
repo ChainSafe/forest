@@ -179,6 +179,27 @@ methods:
         items:
           type: string
       required: true
+  - name: Filecoin.BeaconGetEntry
+    params:
+      - name: first
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.BeaconGetEntry::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Round
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Round:
+            $ref: "#/components/schemas/uint64"
+      required: true
 components:
   schemas:
     CidLotusJsonGeneric_for_64:
