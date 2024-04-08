@@ -117,16 +117,16 @@ impl ApiInfo {
             .timeout(req.timeout)
             .json(&rpc_req);
         let request = match self.token.as_ref() {
-            Some(token) => request.header(http0::header::AUTHORIZATION, token),
+            Some(token) => request.header(http::header::AUTHORIZATION, token),
             _ => request,
         };
 
         let response = request.send().await?;
         let result = match response.status() {
-            http0::StatusCode::NOT_FOUND => {
+            http::StatusCode::NOT_FOUND => {
                 Err(JsonRpcError::method_not_found("method_not_found", None))
             }
-            http0::StatusCode::FORBIDDEN => Err(JsonRpcError::new(
+            http::StatusCode::FORBIDDEN => Err(JsonRpcError::new(
                 response.status().as_u16().into(),
                 match &self.token {
                     Some(_) => "Permission denied: Insufficient rights.",
