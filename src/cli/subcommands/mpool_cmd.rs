@@ -4,7 +4,11 @@
 use std::str::FromStr;
 
 use crate::blocks::Tipset;
+use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
+use crate::rpc::mpool_api::MpoolPending;
+use crate::rpc::types::ApiTipsetKey;
+use crate::rpc::{self, RpcMethodExt as _};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
@@ -211,7 +215,12 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = api.mpool_pending(vec![]).await?;
+                let messages = MpoolPending::call(
+                    &rpc::Client::from(api.clone()),
+                    (LotusJson(ApiTipsetKey(None)),),
+                )
+                .await?
+                .into_inner();
 
                 let local_addrs = if local {
                     let response = api.wallet_list().await?;
@@ -245,7 +254,12 @@ impl MpoolCommands {
                 let atto_str = api.chain_get_min_base_fee(basefee_lookback).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = api.mpool_pending(vec![]).await?;
+                let messages = MpoolPending::call(
+                    &rpc::Client::from(api.clone()),
+                    (LotusJson(ApiTipsetKey(None)),),
+                )
+                .await?
+                .into_inner();
 
                 let local_addrs = if local {
                     let response = api.wallet_list().await?;
