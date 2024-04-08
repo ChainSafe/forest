@@ -17,6 +17,7 @@ use cid::Cid;
 use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use fvm_shared2::piece::PaddedPieceSize;
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 
@@ -213,6 +214,14 @@ impl ApiInfo {
 
     pub fn state_list_miners_req(tsk: ApiTipsetKey) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
+
+    pub fn state_deal_provider_collateral_bounds_req(
+        size: PaddedPieceSize,
+        verified: bool,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<DealCollateralBounds> {
+        RpcRequest::new(STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, (size, verified, tsk))
     }
 
     pub fn state_list_messages_req(

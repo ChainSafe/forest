@@ -1,11 +1,11 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
-FROM golang:1.21.7-bullseye AS lotus-builder
+FROM golang:1.21-bullseye AS lotus-builder
 
 RUN apt-get update && apt-get install -y ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
 
 WORKDIR /lotus
 
-RUN git clone --depth 1 --branch v1.26.0 https://github.com/filecoin-project/lotus.git .
+RUN git clone --depth 1 --branch v1.26.1 https://github.com/filecoin-project/lotus.git .
 
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \

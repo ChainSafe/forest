@@ -5,8 +5,6 @@
 //!
 //! If a type here is used by only one API, it should be relocated.
 
-use std::str::FromStr;
-
 use crate::beacon::BeaconEntry;
 use crate::blocks::{CachingBlockHeader, TipsetKey};
 use crate::chain_sync::SyncState;
@@ -43,8 +41,10 @@ use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use nonempty::NonEmpty;
 use num_bigint::BigInt;
+use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -68,11 +68,10 @@ pub struct BlockMessages {
 
 lotus_json_with_self!(BlockMessages);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    #[serde(with = "crate::lotus_json")]
-    max_fee: TokenAmount,
+    max_fee: LotusJson<TokenAmount>,
 }
 
 lotus_json_with_self!(MessageSendSpec);
@@ -1069,6 +1068,17 @@ pub struct ApiHeadChange {
 }
 
 lotus_json_with_self!(ApiHeadChange);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct DealCollateralBounds {
+    #[serde(with = "crate::lotus_json")]
+    pub min: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub max: TokenAmount,
+}
+
+lotus_json_with_self!(DealCollateralBounds);
 
 #[cfg(test)]
 mod tests {

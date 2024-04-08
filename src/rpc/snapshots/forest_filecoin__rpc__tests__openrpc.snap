@@ -22,6 +22,184 @@ methods:
           $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
         nullable: true
       required: true
+  - name: Filecoin.MpoolGetNonce
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolGetNonce::Result"
+      schema:
+        type: integer
+        format: uint64
+        minimum: 0
+      required: true
+  - name: Filecoin.MpoolPending
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolPending::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/SignedMessageLotusJson"
+        nullable: true
+      required: true
+  - name: Filecoin.MpoolPush
+    params:
+      - name: msg
+        schema:
+          type: object
+          required:
+            - Message
+            - Signature
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            Message:
+              $ref: "#/components/schemas/MessageLotusJson"
+            Signature:
+              $ref: "#/components/schemas/SignatureLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolPush::Result"
+      schema:
+        type: object
+        required:
+          - /
+        properties:
+          /:
+            $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.MpoolPushMessage
+    params:
+      - name: usmg
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              $ref: "#/components/schemas/uint64"
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              $ref: "#/components/schemas/uint64"
+            Nonce:
+              $ref: "#/components/schemas/uint64"
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              $ref: "#/components/schemas/uint64"
+        required: true
+      - name: spec
+        schema:
+          $ref: "#/components/schemas/MessageSendSpec"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolPushMessage::Result"
+      schema:
+        type: object
+        required:
+          - Message
+          - Signature
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          Message:
+            $ref: "#/components/schemas/MessageLotusJson"
+          Signature:
+            $ref: "#/components/schemas/SignatureLotusJson"
+      required: true
+  - name: Filecoin.AuthNew
+    params:
+      - name: params
+        schema:
+          type: object
+          required:
+            - perms
+            - token_exp
+          properties:
+            perms:
+              type: array
+              items:
+                type: string
+            token_exp:
+              type: integer
+              format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.AuthNew::Result"
+      schema:
+        $ref: "#/components/schemas/encoded binary"
+        nullable: true
+      required: true
+  - name: Filecoin.AuthVerify
+    params:
+      - name: header_raw
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.AuthVerify::Result"
+      schema:
+        type: array
+        items:
+          type: string
+      required: true
+  - name: Filecoin.BeaconGetEntry
+    params:
+      - name: first
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.BeaconGetEntry::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Round
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Round:
+            $ref: "#/components/schemas/uint64"
+      required: true
 components:
   schemas:
     CidLotusJsonGeneric_for_64:
@@ -31,6 +209,54 @@ components:
       properties:
         /:
           $ref: "#/components/schemas/String"
+    MessageLotusJson:
+      type: object
+      required:
+        - From
+        - GasFeeCap
+        - GasLimit
+        - GasPremium
+        - Method
+        - Nonce
+        - To
+        - Value
+        - Version
+      properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        From:
+          $ref: "#/components/schemas/String"
+        GasFeeCap:
+          $ref: "#/components/schemas/String"
+        GasLimit:
+          $ref: "#/components/schemas/uint64"
+        GasPremium:
+          $ref: "#/components/schemas/String"
+        Method:
+          $ref: "#/components/schemas/uint64"
+        Nonce:
+          $ref: "#/components/schemas/uint64"
+        Params:
+          $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+        To:
+          $ref: "#/components/schemas/String"
+        Value:
+          $ref: "#/components/schemas/String"
+        Version:
+          $ref: "#/components/schemas/uint64"
+    MessageSendSpec:
+      type: object
+      required:
+        - MaxFee
+      properties:
+        MaxFee:
+          $ref: "#/components/schemas/String"
+    Nullable_CidLotusJsonGeneric_for_64:
+      $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      nullable: true
+    Nullable_VecU8LotusJson:
+      $ref: "#/components/schemas/VecU8LotusJson"
+      nullable: true
     PathChange_for_TipsetLotusJson:
       oneOf:
         - type: object
@@ -47,6 +273,39 @@ components:
             apply:
               $ref: "#/components/schemas/TipsetLotusJson"
           additionalProperties: false
+    SignatureLotusJson:
+      type: object
+      required:
+        - Data
+        - Type
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson2"
+        Type:
+          $ref: "#/components/schemas/SignatureTypeLotusJson"
+    SignatureType:
+      description: Signature variants for Filecoin signatures.
+      type: string
+      enum:
+        - Secp256k1
+        - Bls
+        - Delegated
+    SignatureTypeLotusJson:
+      anyOf:
+        - $ref: "#/components/schemas/SignatureType"
+        - $ref: "#/components/schemas/String"
+    SignedMessageLotusJson:
+      type: object
+      required:
+        - Message
+        - Signature
+      properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        Message:
+          $ref: "#/components/schemas/MessageLotusJson"
+        Signature:
+          $ref: "#/components/schemas/SignatureLotusJson"
     String:
       type: string
     TipsetKeyLotusJson:
@@ -64,6 +323,14 @@ components:
           $ref: "#/components/schemas/TipsetKeyLotusJson"
         Height:
           $ref: "#/components/schemas/int64"
+    VecU8LotusJson:
+      $ref: "#/components/schemas/encoded binary"
+      nullable: true
+    VecU8LotusJson2:
+      $ref: "#/components/schemas/encoded binary"
+      nullable: true
+    encoded binary:
+      type: string
     "forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson":
       type: array
       items:
@@ -77,3 +344,7 @@ components:
     int64:
       type: integer
       format: int64
+    uint64:
+      type: integer
+      format: uint64
+      minimum: 0

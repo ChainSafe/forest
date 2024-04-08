@@ -206,8 +206,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Dragon,
             HeightInfo {
-                // Thu Apr 11 02:00:00 PM UTC 2024
-                epoch: 3_817_920,
+                // Thu Apr 24 02:00:00 PM UTC 2024
+                epoch: 3_855_360,
                 bundle: Some(
                     Cid::try_from("bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e")
                         .unwrap(),

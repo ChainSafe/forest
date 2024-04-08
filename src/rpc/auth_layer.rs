@@ -5,8 +5,9 @@ use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
     auth_api, beacon_api, chain_api, common_api, eth_api, gas_api, mpool_api, net_api, node_api,
-    state_api, sync_api, wallet_api, CANCEL_METHOD_NAME,
+    state_api, sync_api, wallet_api, RpcMethod as _, CANCEL_METHOD_NAME,
 };
+use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use hyper::header::{HeaderValue, AUTHORIZATION};
@@ -14,13 +15,11 @@ use hyper::HeaderMap;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower::Layer;
 use tracing::debug;
-
-use ahash::{HashMap, HashMapExt as _};
-use once_cell::sync::Lazy;
-use std::sync::Arc;
 
 /// Access levels to be checked against JWT claims
 enum Access {
@@ -36,17 +35,17 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
     // Auth API
-    access.insert(auth_api::AUTH_NEW, Access::Admin);
-    access.insert(auth_api::AUTH_VERIFY, Access::Read);
+    access.insert(auth_api::AuthNew::NAME, Access::Admin);
+    access.insert(auth_api::AuthVerify::NAME, Access::Read);
 
     // Beacon API
-    access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
+    access.insert(beacon_api::BeaconGetEntry::NAME, Access::Read);
 
     // Chain API
     access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
     access.insert(chain_api::CHAIN_EXPORT, Access::Read);
     access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PATH, Access::Read);
+    access.insert(chain_api::ChainGetPath::NAME, Access::Read);
     access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
     access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
@@ -63,10 +62,13 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_PARENT_RECEIPTS, Access::Read);
 
     // Message Pool API
-    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
-    access.insert(mpool_api::MPOOL_PENDING, Access::Read);
-    access.insert(mpool_api::MPOOL_PUSH, Access::Write);
-    access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
+    access.insert(mpool_api::MpoolGetNonce::NAME, Access::Read);
+    access.insert(mpool_api::MpoolPending::NAME, Access::Read);
+    // Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
+    // can always be pushed over the p2p protocol, limiting the RPC doesn't
+    // improve security.
+    access.insert(mpool_api::MpoolPush::NAME, Access::Read);
+    access.insert(mpool_api::MpoolPushMessage::NAME, Access::Sign);
 
     // Sync API
     access.insert(sync_api::SYNC_CHECK_BAD, Access::Read);
@@ -128,6 +130,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     );
     access.insert(state_api::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
     access.insert(state_api::MSIG_GET_PENDING, Access::Read);
+    access.insert(
+        state_api::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
+        Access::Read,
+    );
 
     // Gas API
     access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);

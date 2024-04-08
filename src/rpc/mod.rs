@@ -3,6 +3,7 @@
 
 mod auth_layer;
 mod channel;
+mod client;
 
 // API handlers
 pub mod auth_api;
@@ -19,9 +20,10 @@ pub mod sync_api;
 pub mod wallet_api;
 
 // Other RPC-specific modules
+pub use client::Client;
 pub use error::JsonRpcError;
 use reflect::Ctx;
-pub use reflect::RpcMethodExt;
+pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;
@@ -164,6 +166,9 @@ where
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
     ChainGetPath::register(&mut module);
+    mpool_api::register_all(&mut module);
+    auth_api::register_all(&mut module);
+    beacon_api::register_all(&mut module);
     module.finish()
 }
 
@@ -177,23 +182,15 @@ fn register_methods<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use auth_api::*;
-    use beacon_api::*;
     use chain_api::*;
     use common_api::*;
     use eth_api::*;
     use gas_api::*;
-    use mpool_api::*;
     use net_api::*;
     use node_api::*;
     use sync_api::*;
     use wallet_api::*;
 
-    // Auth API
-    module.register_async_method(AUTH_NEW, auth_new::<DB>)?;
-    module.register_async_method(AUTH_VERIFY, auth_verify::<DB>)?;
-    // Beacon API
-    module.register_async_method(BEACON_GET_ENTRY, beacon_get_entry::<DB>)?;
     // Chain API
     module.register_async_method(CHAIN_GET_MESSAGE, chain_get_message::<DB>)?;
     module.register_async_method(CHAIN_EXPORT, chain_export::<DB>)?;
@@ -217,11 +214,6 @@ where
     )?;
     module.register_async_method(CHAIN_GET_PARENT_MESSAGES, chain_get_parent_messages::<DB>)?;
     module.register_async_method(CHAIN_GET_PARENT_RECEIPTS, chain_get_parent_receipts::<DB>)?;
-    // Message Pool API
-    module.register_async_method(MPOOL_GET_NONCE, mpool_get_nonce::<DB>)?;
-    module.register_async_method(MPOOL_PENDING, mpool_pending::<DB>)?;
-    module.register_async_method(MPOOL_PUSH, mpool_push::<DB>)?;
-    module.register_async_method(MPOOL_PUSH_MESSAGE, mpool_push_message::<DB>)?;
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
     module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
@@ -267,6 +259,11 @@ where
     module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
     module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
     module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
+    module.register_async_method(
+        STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
+        state_deal_provider_collateral_bounds::<DB>,
+    )?;
+
     module.register_async_method(
         STATE_MINER_PROVING_DEADLINE,
         state_miner_proving_deadline::<DB>,
