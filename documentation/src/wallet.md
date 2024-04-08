@@ -43,7 +43,7 @@ The generated address will be unique and it will have a balance of `0 FIL`.
 Since this is a testnet account, we can add FIL to it from the
 [faucet](https://faucet.calibnet.chainsafe-fil.io/funds.html)/[alternate faucet](https://faucet.triangleplatform.com/filecoin/calibration).
 
-After requesting the funds and waiting roughly a minute, we can see the founds
+After requesting the funds and waiting roughly a minute, we can see the funds
 arrive in our wallet:
 
 ```
