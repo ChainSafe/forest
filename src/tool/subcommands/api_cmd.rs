@@ -213,7 +213,7 @@ struct RpcTest {
     ignore: Option<&'static str>,
 }
 
-/// Duplication between <method> and <method>_raw is a temporary measure, and
+/// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
 /// should be removed when <https://github.com/ChainSafe/forest/issues/4032> is
 /// completed.
 impl RpcTest {
