@@ -38,6 +38,20 @@
 
 ### Fixed
 
+## Forest 0.17.2 "Dovakhin"
+
+This is a **mandatory** release for all mainnet node operators. It changes the
+NV22 _dragon_ network upgrade epoch to 3855360 (Wed Apr 24 02:00:00 PM UTC
+2024)). All mainnet node **must** be updated to this version before the network
+upgrade epoch to avoid being stuck on a fork.
+
+### Changed
+
+- [#4151](https://github.com/ChainSafe/forest/pull/4151) Changed the Dragon NV22
+  network upgrade epoch to 3855360 (April 24th 2024).
+
+### Fixed
+
 - [#4145](https://github.com/ChainSafe/forest/pull/4145) Fix the
   `forest-cli net peers --agent` command in case the agent is not available.
 
