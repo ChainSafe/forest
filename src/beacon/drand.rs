@@ -280,7 +280,7 @@ impl Beacon for DrandBeacon {
             self.network,
             prev.round(),
             entries.len(),
-            entries.iter().map(|e| e.round().to_string()).join("\n"),
+            entries.iter().map(|e| e.round().to_string()).join(","),
         );
 
         let mut validated = vec![];
