@@ -662,16 +662,16 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     if msg.to == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
         if msg.method_num() != EAMMethod::CreateExternal as u64 {
             bail!("unsupported EAM method");
-        } else if msg.method_num() == EVMMethod::InvokeContract as u64 {
-            let addr = Address::from_filecoin_address(&msg.to)?;
-            to = addr;
-        } else {
-            bail!(
-                "invalid methodnum {}: only allowed method is InvokeContract({})",
-                msg.method_num(),
-                EVMMethod::InvokeContract as u64
-            );
         }
+    } else if msg.method_num() == EVMMethod::InvokeContract as u64 {
+        let addr = Address::from_filecoin_address(&msg.to)?;
+        to = addr;
+    } else {
+        bail!(
+            "invalid methodnum {}: only allowed method is InvokeContract({})",
+            msg.method_num(),
+            EVMMethod::InvokeContract as u64
+        );
     }
 
     Ok(TxArgs {
