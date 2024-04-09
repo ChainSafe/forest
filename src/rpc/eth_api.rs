@@ -37,6 +37,7 @@ use nonempty::nonempty;
 use num_bigint;
 use num_bigint::Sign;
 use num_traits::Zero as _;
+use rlp::encode;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 use std::{ops::Add, sync::Arc};
@@ -377,7 +378,8 @@ pub struct Tx {
 
 impl Tx {
     pub fn hash(&self) -> Hash {
-        Hash::default()
+        let eth_tx_args: TxArgs = self.clone().into();
+        eth_tx_args.hash()
     }
 }
 
@@ -385,6 +387,7 @@ lotus_json_with_self!(Tx);
 
 #[derive(Debug, Clone, Default)]
 struct TxArgs {
+    pub chain_id: u64,
     pub nonce: u64,
     pub to: Address,
     pub value: BigInt,
@@ -395,6 +398,35 @@ struct TxArgs {
     pub v: BigInt,
     pub r: BigInt,
     pub s: BigInt,
+}
+
+impl From<Tx> for TxArgs {
+    fn from(tx: Tx) -> Self {
+        Self {
+            chain_id: tx.chain_id.0,
+            nonce: tx.nonce.0,
+            to: tx.to,
+            value: tx.value,
+            max_fee_per_gas: tx.max_fee_per_gas,
+            max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+            gas_limit: tx.gas.0,
+            input: tx.input.0,
+            v: tx.v,
+            r: tx.r,
+            s: tx.s,
+        }
+    }
+}
+
+impl TxArgs {
+    pub fn hash(&self) -> Hash {
+        let rlp = self.rlp_signed_message();
+        Hash::default()
+    }
+
+    pub fn rlp_signed_message(&self) -> Vec<u8> {
+        vec![]
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1077,5 +1109,44 @@ mod test {
         let data_bytes = decode_hex(DATA).unwrap();
 
         assert_eq!(expected_bytes, encode_as_abi_helper(22, 81, &data_bytes));
+    }
+
+    #[test]
+    fn test_rlp_encoding() {
+        let eth_tx_args = TxArgs {
+            chain_id: 314159,
+            nonce: 486,
+            to: Address(
+                ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
+                    .unwrap(),
+            ),
+            value: BigInt(num_bigint::BigInt::from(0)),
+            max_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000120)),
+            max_priority_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000000)),
+            gas_limit: 37442471,
+            input: [
+                88, 196, 56, 52, 135, 190, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 102, 13, 77, 18, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                59, 98, 97, 102, 107, 114, 101, 105, 101, 111, 111, 117, 50, 109, 54, 53, 98, 118,
+                55, 101, 97, 120, 110, 119, 103, 101, 109, 117, 98, 114, 54, 117, 120, 114, 105,
+                105, 104, 103, 54, 100, 116, 100, 110, 108, 122, 102, 52, 105, 97, 111, 55, 104,
+                108, 110, 106, 109, 100, 115, 114, 117, 0, 0, 0, 0, 0,
+            ]
+            .to_vec(),
+            v: BigInt(num_bigint::BigInt::default()),
+            r: BigInt(num_bigint::BigInt::default()),
+            s: BigInt(num_bigint::BigInt::default()),
+        };
+
+        let expected_hash = Hash(
+            ethereum_types::H256::from_str(
+                "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f",
+            )
+            .unwrap(),
+        );
+        assert_eq!(expected_hash, eth_tx_args.hash());
     }
 }
