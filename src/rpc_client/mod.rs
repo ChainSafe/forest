@@ -13,8 +13,7 @@ pub mod wallet_ops;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
-pub use crate::rpc::JsonRpcError;
-use crate::rpc::{self, ApiVersion};
+use crate::rpc::{self, ApiVersion, ServerError};
 use anyhow::Context as _;
 use jsonrpsee::core::traits::ToRpcParams;
 use std::{env, fmt, marker::PhantomData, str::FromStr, time::Duration};
@@ -90,7 +89,7 @@ impl ApiInfo {
     }
 
     // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-    //                  This function should return jsonrpsee::core::ClientError,
+    //                  This function should return rpc::ClientError,
     //                  but that change should wait until _after_ all the methods
     //                  have been migrated.
     //
@@ -99,13 +98,13 @@ impl ApiInfo {
     pub async fn call<T: HasLotusJson + std::fmt::Debug>(
         &self,
         req: RpcRequest<T>,
-    ) -> Result<T, JsonRpcError> {
+    ) -> Result<T, ServerError> {
         use jsonrpsee::core::ClientError;
         match rpc::Client::from(self.clone()).call(req).await {
             Ok(it) => Ok(it),
             Err(e) => match e {
                 ClientError::Call(it) => Err(it.into()),
-                other => Err(JsonRpcError::internal_error(other, None)),
+                other => Err(ServerError::internal_error(other, None)),
             },
         }
     }

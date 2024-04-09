@@ -21,14 +21,14 @@ use fvm_shared2::piece::PaddedPieceSize;
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 
-use super::{ApiInfo, JsonRpcError, RpcRequest};
+use super::{ApiInfo, RpcRequest, ServerError};
 
 impl ApiInfo {
     pub async fn state_get_actor(
         &self,
         address: Address,
         head: TipsetKey,
-    ) -> Result<Option<ActorState>, JsonRpcError> {
+    ) -> Result<Option<ActorState>, ServerError> {
         self.call(Self::state_get_actor_req(address, head)).await
     }
 
@@ -43,7 +43,7 @@ impl ApiInfo {
         &self,
         root: Cid,
         opt_path: Option<PathBuf>,
-    ) -> Result<String, JsonRpcError> {
+    ) -> Result<String, ServerError> {
         self.call(Self::state_fetch_root_req(root, opt_path)).await
     }
 
@@ -51,7 +51,7 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub async fn state_network_name(&self) -> Result<String, JsonRpcError> {
+    pub async fn state_network_name(&self) -> Result<String, ServerError> {
         self.call(Self::state_network_name_req()).await
     }
 

@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::{ApiVersion, Ctx, JsonRpcError, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::{beacon::BeaconEntry, lotus_json::LotusJson, shim::clock::ChainEpoch};
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
@@ -28,7 +28,7 @@ impl RpcMethod<1> for BeaconGetEntry {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (first,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let (_, beacon) = ctx.beacon.beacon_for_epoch(first)?;
         let rr =
             beacon.max_beacon_round_for_epoch(ctx.state_manager.get_network_version(first), first);

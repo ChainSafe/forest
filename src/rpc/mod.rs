@@ -21,12 +21,44 @@ pub mod wallet_api;
 
 // Other RPC-specific modules
 pub use client::Client;
-pub use error::JsonRpcError;
+pub use error::ServerError;
 use reflect::Ctx;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;
+
+/// Protocol or transport-specific error
+#[allow(unused)]
+pub use jsonrpsee::core::ClientError;
+
+#[allow(unused)]
+/// All handler definitions.
+///
+/// Usage guide:
+/// ```ignore
+/// use crate::rpc::{self, prelude::*};
+///
+/// let client = rpc::Client::from(..);
+/// ChainHead::call(&client, ()).await?;
+/// fn foo() -> rpc::ClientError {..}
+/// fn bar() -> rpc::ServerError {..}
+/// ```
+pub mod prelude {
+    use super::*;
+
+    pub use reflect::RpcMethodExt as _;
+
+    macro_rules! export {
+        ($ty:ty) => {
+            pub use $ty;
+        };
+    }
+    auth_api::for_each_method!(export);
+    beacon_api::for_each_method!(export);
+    chain_api::for_each_method!(export);
+    mpool_api::for_each_method!(export);
+}
 
 use std::net::SocketAddr;
 use std::sync::Arc;

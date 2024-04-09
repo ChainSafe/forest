@@ -4,7 +4,7 @@
 
 use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::types::RPCSyncState;
 use crate::rpc::Ctx;
 
@@ -22,7 +22,7 @@ pub const SYNC_STATE: &str = "Filecoin.SyncState";
 pub async fn sync_check_bad<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let LotusJson((cid,)) = params.parse()?;
 
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
@@ -32,7 +32,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
 pub async fn sync_mark_bad<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
+) -> Result<(), ServerError> {
     let LotusJson((cid,)) = params.parse()?;
 
     data.bad_blocks
@@ -45,7 +45,7 @@ async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
 }
 
 /// Returns the current status of the `ChainSync` process.
-pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, JsonRpcError> {
+pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, ServerError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
 }

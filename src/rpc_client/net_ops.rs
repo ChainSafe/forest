@@ -1,13 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{ApiInfo, RpcRequest, ServerError};
 use crate::rpc::net_api::*;
 use crate::rpc::types::AddrInfo;
 
-use super::{ApiInfo, JsonRpcError, RpcRequest};
-
 impl ApiInfo {
-    pub async fn net_addrs_listen(&self) -> Result<AddrInfo, JsonRpcError> {
+    pub async fn net_addrs_listen(&self) -> Result<AddrInfo, ServerError> {
         self.call(Self::net_addrs_listen_req()).await
     }
 
@@ -15,7 +14,7 @@ impl ApiInfo {
         RpcRequest::new(NET_ADDRS_LISTEN, ())
     }
 
-    pub async fn net_peers(&self) -> Result<Vec<AddrInfo>, JsonRpcError> {
+    pub async fn net_peers(&self) -> Result<Vec<AddrInfo>, ServerError> {
         self.call(Self::net_peers_req()).await
     }
 
@@ -27,7 +26,7 @@ impl ApiInfo {
         RpcRequest::new_v1(NET_LISTENING, ())
     }
 
-    pub async fn net_info(&self) -> Result<NetInfoResult, JsonRpcError> {
+    pub async fn net_info(&self) -> Result<NetInfoResult, ServerError> {
         self.call(Self::net_info_req()).await
     }
 
@@ -35,7 +34,7 @@ impl ApiInfo {
         RpcRequest::new(NET_INFO, ())
     }
 
-    pub async fn net_connect(&self, addr: AddrInfo) -> Result<(), JsonRpcError> {
+    pub async fn net_connect(&self, addr: AddrInfo) -> Result<(), ServerError> {
         self.call(Self::net_connect_req(addr)).await
     }
 
@@ -43,7 +42,7 @@ impl ApiInfo {
         RpcRequest::new(NET_CONNECT, (addr,))
     }
 
-    pub async fn net_disconnect(&self, peer: String) -> Result<(), JsonRpcError> {
+    pub async fn net_disconnect(&self, peer: String) -> Result<(), ServerError> {
         self.call(Self::net_disconnect_req(peer)).await
     }
 
@@ -51,7 +50,7 @@ impl ApiInfo {
         RpcRequest::new(NET_DISCONNECT, (peer,))
     }
 
-    pub async fn net_agent_version(&self, peer: String) -> Result<String, JsonRpcError> {
+    pub async fn net_agent_version(&self, peer: String) -> Result<String, ServerError> {
         self.call(Self::net_agent_version_req(peer)).await
     }
 
@@ -59,7 +58,7 @@ impl ApiInfo {
         RpcRequest::new(NET_AGENT_VERSION, (peer,))
     }
 
-    pub async fn net_auto_nat_status(&self) -> Result<NatStatusResult, JsonRpcError> {
+    pub async fn net_auto_nat_status(&self) -> Result<NatStatusResult, ServerError> {
         self.call(Self::net_auto_nat_status_req()).await
     }
 

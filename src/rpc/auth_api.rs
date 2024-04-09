@@ -4,7 +4,7 @@
 use crate::auth::*;
 use crate::lotus_json::lotus_json_with_self;
 use crate::lotus_json::LotusJson;
-use crate::rpc::{ApiVersion, Ctx, JsonRpcError, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use anyhow::Result;
 use chrono::Duration;
 use fvm_ipld_blockstore::Blockstore;
@@ -31,7 +31,7 @@ impl RpcMethod<1> for AuthNew {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (params,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read().await;
         let ki = ks.get(JWT_IDENTIFIER)?;
         let token = create_token(params.perms, ki.private_key(), params.token_exp)?;
@@ -49,7 +49,7 @@ impl RpcMethod<1> for AuthVerify {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (header_raw,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let ks = ctx.keystore.read().await;
         let token = header_raw.trim_start_matches("Bearer ");
         let ki = ks.get(JWT_IDENTIFIER)?;

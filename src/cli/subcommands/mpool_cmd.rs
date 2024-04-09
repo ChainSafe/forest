@@ -1,18 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use crate::blocks::Tipset;
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc::mpool_api::MpoolPending;
-use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{
-    self,
-    chain_api::{ChainGetMinBaseFee, ChainHead},
-    RpcMethodExt as _,
-};
+use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;

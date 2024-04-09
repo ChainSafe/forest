@@ -6,7 +6,7 @@ use crate::blocks::TipsetKey;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
 use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait};
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::types::*;
 use crate::rpc::Ctx;
 use crate::shim::address::Address;
@@ -31,7 +31,7 @@ pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
 pub async fn gas_estimate_fee_cap<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, ApiTipsetKey)> =
         params.parse()?;
 
@@ -43,7 +43,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     msg: Message,
     max_queue_blks: i64,
     _: ApiTipsetKey,
-) -> Result<TokenAmount, JsonRpcError> {
+) -> Result<TokenAmount, ServerError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
@@ -62,7 +62,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 pub async fn gas_estimate_gas_premium<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let LotusJson((nblocksincl, _sender, _gas_limit, _)): LotusJson<(
         u64,
         Address,
@@ -78,7 +78,7 @@ pub async fn gas_estimate_gas_premium<DB: Blockstore>(
 pub async fn estimate_gas_premium<DB: Blockstore>(
     data: &Ctx<DB>,
     mut nblocksincl: u64,
-) -> Result<TokenAmount, JsonRpcError> {
+) -> Result<TokenAmount, ServerError> {
     if nblocksincl == 0 {
         nblocksincl = 1;
     }
@@ -161,7 +161,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
 pub async fn gas_estimate_gas_limit<DB>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<i64, JsonRpcError>
+) -> Result<i64, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -174,7 +174,7 @@ async fn estimate_gas_limit<DB>(
     data: &Ctx<DB>,
     msg: Message,
     _: ApiTipsetKey,
-) -> Result<i64, JsonRpcError>
+) -> Result<i64, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -217,7 +217,7 @@ where
 pub async fn gas_estimate_message_gas<DB>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<Message>, JsonRpcError>
+) -> Result<LotusJson<Message>, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -234,7 +234,7 @@ pub async fn estimate_message_gas<DB>(
     msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
-) -> Result<Message, JsonRpcError>
+) -> Result<Message, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

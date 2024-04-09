@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::rpc::{self, prelude::*};
+use crate::rpc_client::ApiInfo;
 use crate::shim::econ::TokenAmount;
-use crate::{
-    rpc::{self, chain_api::ChainHead, RpcMethodExt as _},
-    rpc_client::ApiInfo,
-};
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use futures::TryFutureExt as _;

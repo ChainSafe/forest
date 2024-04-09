@@ -14,16 +14,11 @@ use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon_api::BeaconGetEntry;
-use crate::rpc::chain_api::*;
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{
-    mpool_api::{MpoolGetNonce, MpoolPending},
-    RpcMethodExt as _,
-};
-use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
+use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -193,7 +188,7 @@ enum EndpointStatus {
 }
 
 impl EndpointStatus {
-    fn from_json_error(err: JsonRpcError) -> Self {
+    fn from_json_error(err: ServerError) -> Self {
         match err.known_code() {
             ErrorCode::ParseError => Self::InvalidResponse,
             ErrorCode::OversizedRequest => Self::InvalidRequest,

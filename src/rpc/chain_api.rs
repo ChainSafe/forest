@@ -15,7 +15,7 @@ use crate::lotus_json::LotusJson;
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{ApiVersion, Ctx, JsonRpcError, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::message::Message;
@@ -74,7 +74,7 @@ impl RpcMethod<1> for ChainGetMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(msg_cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let chain_message: ChainMessage = ctx
             .state_manager
             .blockstore()
@@ -99,7 +99,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(block_cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let store = ctx.state_manager.blockstore();
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
@@ -126,7 +126,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(block_cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let store = ctx.state_manager.blockstore();
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
@@ -202,7 +202,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(tsk),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let store = ctx.chain_store.blockstore();
         let tipset = Tipset::load_required(store, &tsk)?;
         let messages = load_api_messages_from_tipset(store, &tipset)?;
@@ -222,7 +222,7 @@ impl RpcMethod<1> for ChainExport {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let ChainExportParams {
             epoch,
             recent_roots,
@@ -294,7 +294,7 @@ impl RpcMethod<1> for ChainReadObj {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let bytes = ctx
             .state_manager
             .blockstore()
@@ -316,7 +316,7 @@ impl RpcMethod<1> for ChainHasObj {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
     }
 }
@@ -333,7 +333,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx
             .state_manager
             .blockstore()
@@ -374,7 +374,7 @@ impl RpcMethod<2> for ChainGetPath {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(from), LotusJson(to)): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         impl_chain_get_path(&ctx.chain_store, &from, &to)
             .map(LotusJson)
             .map_err(Into::into)
@@ -452,7 +452,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
             .chain_store()
@@ -478,7 +478,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
             .chain_store()
@@ -501,7 +501,7 @@ impl RpcMethod<0> for ChainGetGenesis {
     type Params = ();
     type Ok = Option<LotusJson<Tipset>>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, JsonRpcError> {
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let genesis = ctx.state_manager.chain_store().genesis_block_header();
         Ok(Some(Tipset::from(genesis).into()))
     }
@@ -516,7 +516,7 @@ impl RpcMethod<0> for ChainHead {
     type Params = ();
     type Ok = LotusJson<Tipset>;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, JsonRpcError> {
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
         Ok((*heaviest).clone().into())
     }
@@ -534,7 +534,7 @@ impl RpcMethod<1> for ChainGetBlock {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx
             .state_manager
             .blockstore()
@@ -556,7 +556,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
             .chain_store()
@@ -577,7 +577,7 @@ impl RpcMethod<1> for ChainSetHead {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         // This is basically a port of the reference implementation at
         // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 
@@ -618,7 +618,7 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (lookback,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let mut current = ctx.state_manager.chain_store().heaviest_tipset();
         let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
 
@@ -674,7 +674,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
 fn load_api_messages_from_tipset(
     store: &impl Blockstore,
     tipset: &Tipset,
-) -> Result<Vec<ApiMessage>, JsonRpcError> {
+) -> Result<Vec<ApiMessage>, ServerError> {
     let full_tipset = tipset
         .fill_from_blockstore(store)
         .context("Failed to load full tipset")?;

@@ -25,7 +25,7 @@ mod parser;
 mod util;
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
-use super::error::JsonRpcError as Error;
+use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{MethodsError, RpcModule};
 use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};

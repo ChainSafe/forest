@@ -5,7 +5,7 @@ use super::gas_api::estimate_message_gas;
 
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
 use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 use crate::shim::{
@@ -39,7 +39,7 @@ impl RpcMethod<1> for MpoolGetNonce {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.mpool.get_sequence(&address.into_inner())?)
     }
 }
@@ -57,7 +57,7 @@ impl RpcMethod<1> for MpoolPending {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let mut ts = ctx
             .state_manager
             .chain_store()
@@ -132,7 +132,7 @@ impl RpcMethod<1> for MpoolPush {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(msg),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let cid = ctx.mpool.as_ref().push(msg).await?;
         Ok(cid.into())
     }
@@ -151,7 +151,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(umsg), spec): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let from = umsg.from;
 
         let mut keystore = ctx.keystore.as_ref().write().await;

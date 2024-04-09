@@ -5,11 +5,7 @@ use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::RpcMethodExt as _;
-use crate::rpc::{
-    self,
-    chain_api::{ChainExport, ChainExportParams, ChainGetTipSetByHeight, ChainHead},
-};
+use crate::rpc::{self, chain_api::ChainExportParams, prelude::*};
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::DateTime;
