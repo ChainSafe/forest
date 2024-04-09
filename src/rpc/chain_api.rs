@@ -472,7 +472,7 @@ pub enum ChainGetTipSetAfterHeight {}
 impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetAfterHeight";
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
     type Ok = LotusJson<Tipset>;
