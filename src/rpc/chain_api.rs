@@ -13,20 +13,21 @@ use crate::lotus_json::HasLotusJson;
 use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
-use crate::message::ChainMessage;
-use crate::rpc::types::{ApiHeadChange, ApiMessage, ApiReceipt, ApiTipsetKey, BlockMessages};
+use crate::message::{ChainMessage, SignedMessage};
+use crate::rpc::types::{ApiHeadChange, ApiTipsetKey};
 use crate::rpc::{
-    error::JsonRpcError,
-    reflect::{ApiVersion, Ctx, RpcMethod},
+    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
+    RpcMethodExt as _,
 };
 use crate::shim::clock::ChainEpoch;
+use crate::shim::error::ExitCode;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
+use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
@@ -41,38 +42,674 @@ use tokio::sync::{
     Mutex,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+pub fn register_all(
+    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
+) {
+    ChainGetPath::register(module);
+    ChainGetParentMessages::register(module);
+    ChainGetMessage::register(module);
+    ChainGetParentReceipts::register(module);
+    ChainGetMessagesInTipset::register(module);
+    ChainExport::register(module);
+    ChainReadObj::register(module);
+    ChainHasObj::register(module);
+    ChainGetBlockMessages::register(module);
+}
+
+pub enum ChainGetMessage {}
+impl RpcMethod<1> for ChainGetMessage {
+    const NAME: &'static str = "Filecoin.ChainGetMessage";
+    const PARAM_NAMES: [&'static str; 1] = ["msg_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Message>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(msg_cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let chain_message: ChainMessage = ctx
+            .state_manager
+            .blockstore()
+            .get_cbor(&msg_cid)?
+            .with_context(|| format!("can't find message with cid {msg_cid}"))?;
+        Ok(LotusJson(match chain_message {
+            ChainMessage::Signed(m) => m.into_message(),
+            ChainMessage::Unsigned(m) => m,
+        }))
+    }
+}
+
+pub enum ChainGetParentMessages {}
+impl RpcMethod<1> for ChainGetParentMessages {
+    const NAME: &'static str = "Filecoin.ChainGetParentMessages";
+    const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Vec<ApiMessage>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(block_cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let store = ctx.state_manager.blockstore();
+        let block_header: CachingBlockHeader = store
+            .get_cbor(&block_cid)?
+            .with_context(|| format!("can't find block header with cid {block_cid}"))?;
+        if block_header.epoch == 0 {
+            Ok(LotusJson(vec![]))
+        } else {
+            let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
+            let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
+            Ok(LotusJson(messages))
+        }
+    }
+}
+
+pub enum ChainGetParentReceipts {}
+impl RpcMethod<1> for ChainGetParentReceipts {
+    const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
+    const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Vec<ApiReceipt>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(block_cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let store = ctx.state_manager.blockstore();
+        let block_header: CachingBlockHeader = store
+            .get_cbor(&block_cid)?
+            .with_context(|| format!("can't find block header with cid {block_cid}"))?;
+        let mut receipts = Vec::new();
+        if block_header.epoch == 0 {
+            return Ok(LotusJson(vec![]));
+        }
+
+        // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
+        if let Ok(amt) =
+            Amt::<fvm_shared4::receipt::Receipt, _>::load(&block_header.message_receipts, store)
+                .map_err(|_| {
+                    ErrorObjectOwned::owned::<()>(
+                        1,
+                        format!(
+                            "failed to root: ipld: could not find {}",
+                            block_header.message_receipts
+                        ),
+                        None,
+                    )
+                })
+        {
+            amt.for_each(|_, receipt| {
+                receipts.push(ApiReceipt {
+                    exit_code: receipt.exit_code.into(),
+                    return_data: receipt.return_data.clone().into(),
+                    gas_used: receipt.gas_used,
+                    events_root: receipt.events_root.into(),
+                });
+                Ok(())
+            })?;
+        } else {
+            // Fallback to Receipt_v2.
+            let amt = Amt::<fvm_shared2::receipt::Receipt, _>::load(
+                &block_header.message_receipts,
+                store,
+            )
+            .map_err(|_| {
+                ErrorObjectOwned::owned::<()>(
+                    1,
+                    format!(
+                        "failed to root: ipld: could not find {}",
+                        block_header.message_receipts
+                    ),
+                    None,
+                )
+            })?;
+            amt.for_each(|_, receipt| {
+                receipts.push(ApiReceipt {
+                    exit_code: receipt.exit_code.into(),
+                    return_data: receipt.return_data.clone().into(),
+                    gas_used: receipt.gas_used as _,
+                    events_root: None.into(),
+                });
+                Ok(())
+            })?;
+        }
+
+        Ok(LotusJson(receipts))
+    }
+}
+
+pub enum ChainGetMessagesInTipset {}
+impl RpcMethod<1> for ChainGetMessagesInTipset {
+    const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<TipsetKey>,);
+    type Ok = LotusJson<Vec<ApiMessage>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(tsk),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let store = ctx.chain_store.blockstore();
+        let tipset = Tipset::load_required(store, &tsk)?;
+        let messages = load_api_messages_from_tipset(store, &tipset)?;
+        Ok(LotusJson(messages))
+    }
+}
+
+pub enum ChainExport {}
+impl RpcMethod<1> for ChainExport {
+    const NAME: &'static str = "Filecoin.ChainExport";
+    const PARAM_NAMES: [&'static str; 1] = ["params"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (ChainExportParams,);
+    type Ok = Option<String>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (params,): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let ChainExportParams {
+            epoch,
+            recent_roots,
+            output_path,
+            tipset_keys: LotusJson(ApiTipsetKey(tsk)),
+            skip_checksum,
+            dry_run,
+        } = params;
+
+        static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+
+        let _locked = LOCK.try_lock();
+        if _locked.is_err() {
+            return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
+        }
+
+        let chain_finality = ctx.state_manager.chain_config().policy.chain_finality;
+        if recent_roots < chain_finality {
+            return Err(anyhow::anyhow!(format!(
+                "recent-stateroots must be greater than {chain_finality}"
+            ))
+            .into());
+        }
+
+        let head = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let start_ts = ctx.chain_store.chain_index.tipset_by_height(
+            epoch,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
+
+        match if dry_run {
+            crate::chain::export::<Sha256>(
+                Arc::clone(&ctx.chain_store.db),
+                &start_ts,
+                recent_roots,
+                VoidAsyncWriter,
+                CidHashSet::default(),
+                skip_checksum,
+            )
+            .await
+        } else {
+            let file = tokio::fs::File::create(&output_path).await?;
+            crate::chain::export::<Sha256>(
+                Arc::clone(&ctx.chain_store.db),
+                &start_ts,
+                recent_roots,
+                file,
+                CidHashSet::default(),
+                skip_checksum,
+            )
+            .await
+        } {
+            Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
+            Err(e) => Err(anyhow::anyhow!(e).into()),
+        }
+    }
+}
+
+pub enum ChainReadObj {}
+impl RpcMethod<1> for ChainReadObj {
+    const NAME: &'static str = "Filecoin.ChainReadObj";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<Vec<u8>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let bytes = ctx
+            .state_manager
+            .blockstore()
+            .get(&cid)?
+            .with_context(|| format!("can't find object with cid={cid}"))?;
+        Ok(LotusJson(bytes))
+    }
+}
+
+pub enum ChainHasObj {}
+impl RpcMethod<1> for ChainHasObj {
+    const NAME: &'static str = "Filecoin.ChainHasObj";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Cid>,);
+    type Ok = bool;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
+    }
+}
+
+pub enum ChainGetBlockMessages {}
+impl RpcMethod<1> for ChainGetBlockMessages {
+    const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Cid>,);
+    type Ok = BlockMessages;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let blk: CachingBlockHeader = ctx
+            .state_manager
+            .blockstore()
+            .get_cbor(&cid)?
+            .context("can't find block with that cid")?;
+        let blk_msgs = &blk.messages;
+        let (unsigned_cids, signed_cids) =
+            crate::chain::read_msg_cids(ctx.state_manager.blockstore(), blk_msgs)?;
+        let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
+            ctx.state_manager.blockstore(),
+            &unsigned_cids,
+            &signed_cids,
+        )?;
+        let cids = unsigned_cids
+            .into_iter()
+            .chain(signed_cids)
+            .collect::<Vec<_>>()
+            .into();
+
+        let ret = BlockMessages {
+            bls_msg: bls_msg.into(),
+            secp_msg: secp_msg.into(),
+            cids,
+        };
+        Ok(ret)
+    }
+}
+
+pub enum ChainGetPath {}
+impl RpcMethod<2> for ChainGetPath {
+    const NAME: &'static str = "Filecoin.ChainGetPath";
+    const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
+    type Ok = LotusJson<Vec<PathChange>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(from), LotusJson(to)): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        impl_chain_get_path(&ctx.chain_store, &from, &to)
+            .map(LotusJson)
+            .map_err(Into::into)
+    }
+}
+
+/// Find the path between two tipsets, as a series of [`PathChange`]s.
+///
+/// ```text
+/// 0 - A - B - C - D
+///     ^~~~~~~~> apply B, C
+///
+/// 0 - A - B - C - D
+///     <~~~~~~~^ revert C, B
+///
+///     <~~~~~~~~ revert C, B
+/// 0 - A - B  - C
+///     |
+///      -- B' - C'
+///      ~~~~~~~~> then apply B', C'
+/// ```
+///
+/// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
+fn impl_chain_get_path(
+    chain_store: &ChainStore<impl Blockstore>,
+    from: &TipsetKey,
+    to: &TipsetKey,
+) -> anyhow::Result<Vec<PathChange>> {
+    let mut to_revert = chain_store
+        .load_required_tipset_or_heaviest(from)
+        .context("couldn't load `from`")?;
+    let mut to_apply = chain_store
+        .load_required_tipset_or_heaviest(to)
+        .context("couldn't load `to`")?;
+
+    let mut all_reverts = vec![];
+    let mut all_applies = vec![];
+
+    // This loop is guaranteed to terminate if the blockstore contain no cycles.
+    // This is currently computationally infeasible.
+    while to_revert != to_apply {
+        if to_revert.epoch() > to_apply.epoch() {
+            let next = chain_store
+                .load_required_tipset_or_heaviest(to_revert.parents())
+                .context("couldn't load ancestor of `from`")?;
+            all_reverts.push(to_revert);
+            to_revert = next;
+        } else {
+            let next = chain_store
+                .load_required_tipset_or_heaviest(to_apply.parents())
+                .context("couldn't load ancestor of `to`")?;
+            all_applies.push(to_apply);
+            to_apply = next;
+        }
+    }
+    Ok(all_reverts
+        .into_iter()
+        .map(PathChange::Revert)
+        .chain(all_applies.into_iter().rev().map(PathChange::Apply))
+        .collect())
+}
+
+pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
+pub async fn chain_get_tipset_by_height<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
+        params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let tss = data
+        .state_manager
+        .chain_store()
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
+    Ok((*tss).clone().into())
+}
+
+pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
+pub async fn chain_get_tipset_after_height<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
+        params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let tss = data
+        .state_manager
+        .chain_store()
+        .chain_index
+        .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
+    Ok((*tss).clone().into())
+}
+
+pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
+pub async fn chain_get_genesis<DB: Blockstore>(
+    data: Ctx<DB>,
+) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
+    let genesis = data.state_manager.chain_store().genesis_block_header();
+    Ok(Some(Tipset::from(genesis).into()))
+}
+
+pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
+pub async fn chain_head<DB: Blockstore>(data: Ctx<DB>) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let heaviest = data.state_manager.chain_store().heaviest_tipset();
+    Ok((*heaviest).clone().into())
+}
+
+pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
+pub async fn chain_get_block<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
+    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
+
+    let blk: CachingBlockHeader = data
+        .state_manager
+        .blockstore()
+        .get_cbor(&blk_cid)?
+        .context("can't find BlockHeader with that cid")?;
+    Ok(blk.into())
+}
+
+pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
+pub async fn chain_get_tipset<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Tipset>, JsonRpcError> {
+    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+
+    let ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    Ok((*ts).clone().into())
+}
+
+// This is basically a port of the reference implementation at
+// https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
+pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
+pub async fn chain_set_head<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<(), JsonRpcError> {
+    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+
+    let new_head = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
+    let mut current = data.state_manager.chain_store().heaviest_tipset();
+    while current.epoch() >= new_head.epoch() {
+        for cid in current.key().to_cids() {
+            data.state_manager
+                .chain_store()
+                .unmark_block_as_validated(&cid);
+        }
+        let parents = &current.block_headers().first().parents;
+        current = data
+            .state_manager
+            .chain_store()
+            .chain_index
+            .load_required_tipset(parents)?;
+    }
+    data.state_manager
+        .chain_store()
+        .set_heaviest_tipset(new_head)
+        .map_err(Into::into)
+}
+
+pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
+pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<String, JsonRpcError> {
+    let (basefee_lookback,): (u32,) = params.parse()?;
+
+    let mut current = data.state_manager.chain_store().heaviest_tipset();
+    let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
+
+    for _ in 0..basefee_lookback {
+        let parents = &current.block_headers().first().parents;
+        current = data
+            .state_manager
+            .chain_store()
+            .chain_index
+            .load_required_tipset(parents)?;
+
+        min_base_fee = min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
+    }
+
+    Ok(min_base_fee.atto().to_string())
+}
+
+pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
+pub(crate) fn chain_notify<DB: Blockstore>(
+    _params: Params<'_>,
+    data: &crate::rpc::RPCState<DB>,
+) -> Subscriber<Vec<ApiHeadChange>> {
+    let (sender, receiver) = broadcast::channel(100);
+
+    // As soon as the channel is created, send the current tipset
+    let current = data.chain_store.heaviest_tipset();
+    let (change, headers) = ("current".into(), current.block_headers().clone().into());
+    sender
+        .send(vec![ApiHeadChange { change, headers }])
+        .expect("receiver is not dropped");
+
+    let mut subscriber = data.chain_store.publisher().subscribe();
+
+    tokio::spawn(async move {
+        while let Ok(v) = subscriber.recv().await {
+            let (change, headers) = match v {
+                HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
+            };
+
+            if sender
+                .send(vec![ApiHeadChange { change, headers }])
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
+    receiver
+}
+
+fn load_api_messages_from_tipset(
+    store: &impl Blockstore,
+    tipset: &Tipset,
+) -> Result<Vec<ApiMessage>, JsonRpcError> {
+    let full_tipset = tipset
+        .fill_from_blockstore(store)
+        .context("Failed to load full tipset")?;
+    let blocks = full_tipset.into_blocks();
+    let mut messages = vec![];
+    let mut seen = CidHashSet::default();
+    for block in blocks {
+        for msg in block.bls_msgs() {
+            let cid = msg.cid()?;
+            if seen.insert(cid) {
+                messages.push(ApiMessage::new(cid, msg.clone()));
+            }
+        }
+
+        for msg in block.secp_msgs() {
+            let cid = msg.cid()?;
+            if seen.insert(cid) {
+                messages.push(ApiMessage::new(cid, msg.message.clone()));
+            }
+        }
+    }
+
+    Ok(messages)
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct BlockMessages {
+    #[serde(rename = "BlsMessages")]
+    pub bls_msg: LotusJson<Vec<Message>>,
+    #[serde(rename = "SecpkMessages")]
+    pub secp_msg: LotusJson<Vec<SignedMessage>>,
+    #[serde(rename = "Cids")]
+    pub cids: LotusJson<Vec<Cid>>,
+}
+
+lotus_json_with_self!(BlockMessages);
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiReceipt {
+    // Exit status of message execution
+    pub exit_code: ExitCode,
+    // `Return` value if the exit code is zero
+    #[serde(rename = "Return")]
+    pub return_data: LotusJson<RawBytes>,
+    // Non-negative value of GasUsed
+    pub gas_used: u64,
+    pub events_root: LotusJson<Option<Cid>>,
+}
+
+lotus_json_with_self!(ApiReceipt);
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct ApiMessage {
+    cid: Cid,
+    message: Message,
+}
+
+impl ApiMessage {
+    pub fn new(cid: Cid, message: Message) -> Self {
+        Self { cid, message }
+    }
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiMessageLotusJson {
+    cid: LotusJson<Cid>,
+    message: LotusJson<Message>,
+}
+
+impl HasLotusJson for ApiMessage {
+    type LotusJson = ApiMessageLotusJson;
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        ApiMessageLotusJson {
+            cid: LotusJson(self.cid),
+            message: LotusJson(self.message),
+        }
+    }
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        ApiMessage {
+            cid: lotus_json.cid.into_inner(),
+            message: lotus_json.message.into_inner(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {
     pub epoch: ChainEpoch,
     pub recent_roots: i64,
     pub output_path: PathBuf,
-    #[serde(with = "crate::lotus_json")]
-    pub tipset_keys: ApiTipsetKey,
+    pub tipset_keys: LotusJson<ApiTipsetKey>,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
 
 lotus_json_with_self!(ChainExportParams);
-
-pub type ChainExportResult = Option<String>;
-
-pub const CHAIN_GET_MESSAGE: &str = "Filecoin.ChainGetMessage";
-pub const CHAIN_EXPORT: &str = "Filecoin.ChainExport";
-pub const CHAIN_READ_OBJ: &str = "Filecoin.ChainReadObj";
-pub const CHAIN_HAS_OBJ: &str = "Filecoin.ChainHasObj";
-pub const CHAIN_GET_BLOCK_MESSAGES: &str = "Filecoin.ChainGetBlockMessages";
-pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
-pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
-pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
-pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
-pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
-pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
-pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
-pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
-pub const CHAIN_GET_MESSAGES_IN_TIPSET: &str = "Filecoin.ChainGetMessagesInTipset";
-pub const CHAIN_GET_PARENT_MESSAGES: &str = "Filecoin.ChainGetParentMessages";
-pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
-pub const CHAIN_GET_PARENT_RECEIPTS: &str = "Filecoin.ChainGetParentReceipts";
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -155,42 +792,6 @@ quickcheck::quickcheck! {
     }
 }
 
-pub async fn chain_get_message<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Message>, JsonRpcError> {
-    let LotusJson((msg_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let chain_message: ChainMessage = data
-        .state_manager
-        .blockstore()
-        .get_cbor(&msg_cid)?
-        .with_context(|| format!("can't find message with cid {msg_cid}"))?;
-    Ok(LotusJson(match chain_message {
-        ChainMessage::Signed(m) => m.into_message(),
-        ChainMessage::Unsigned(m) => m,
-    }))
-}
-
-pub async fn chain_get_parent_messages<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let store = data.state_manager.blockstore();
-    let block_header: CachingBlockHeader = store
-        .get_cbor(&block_cid)?
-        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
-    if block_header.epoch == 0 {
-        Ok(LotusJson(vec![]))
-    } else {
-        let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-        let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
-        Ok(LotusJson(messages))
-    }
-}
-
 pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     message_receipts: Cid,
@@ -212,9 +813,9 @@ pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         amt.for_each(|_, receipt| {
             receipts.push(ApiReceipt {
                 exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
+                return_data: LotusJson(receipt.return_data.clone()),
                 gas_used: receipt.gas_used,
-                events_root: receipt.events_root,
+                events_root: LotusJson(receipt.events_root),
             });
             Ok(())
         })?;
@@ -232,480 +833,15 @@ pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         amt.for_each(|_, receipt| {
             receipts.push(ApiReceipt {
                 exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
+                return_data: LotusJson(receipt.return_data.clone()),
                 gas_used: receipt.gas_used as _,
-                events_root: None,
+                events_root: LotusJson(None),
             });
             Ok(())
         })?;
     }
 
     Ok(receipts)
-}
-
-pub async fn chain_get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiReceipt>>, JsonRpcError> {
-    let LotusJson((block_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let store = data.state_manager.blockstore();
-    let block_header: CachingBlockHeader = store
-        .get_cbor(&block_cid)?
-        .with_context(|| format!("can't find block header with cid {block_cid}"))?;
-    let mut receipts = Vec::new();
-    if block_header.epoch == 0 {
-        return Ok(LotusJson(vec![]));
-    }
-
-    // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
-    if let Ok(amt) =
-        Amt::<fvm_shared4::receipt::Receipt, _>::load(&block_header.message_receipts, store)
-            .map_err(|_| {
-                ErrorObjectOwned::owned::<()>(
-                    1,
-                    format!(
-                        "failed to root: ipld: could not find {}",
-                        block_header.message_receipts
-                    ),
-                    None,
-                )
-            })
-    {
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
-                gas_used: receipt.gas_used,
-                events_root: receipt.events_root,
-            });
-            Ok(())
-        })?;
-    } else {
-        // Fallback to Receipt_v2.
-        let amt =
-            Amt::<fvm_shared2::receipt::Receipt, _>::load(&block_header.message_receipts, store)
-                .map_err(|_| {
-                    ErrorObjectOwned::owned::<()>(
-                        1,
-                        format!(
-                            "failed to root: ipld: could not find {}",
-                            block_header.message_receipts
-                        ),
-                        None,
-                    )
-                })?;
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: receipt.return_data.clone(),
-                gas_used: receipt.gas_used as _,
-                events_root: None,
-            });
-            Ok(())
-        })?;
-    }
-
-    Ok(LotusJson(receipts))
-}
-
-pub(crate) async fn chain_get_messages_in_tipset<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiMessage>>, JsonRpcError> {
-    let LotusJson((tsk,)): LotusJson<(TipsetKey,)> = params.parse()?;
-
-    let store = data.chain_store.blockstore();
-    let tipset = Tipset::load_required(store, &tsk)?;
-    let messages = load_api_messages_from_tipset(store, &tipset)?;
-    Ok(LotusJson(messages))
-}
-
-pub async fn chain_export<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<Option<String>, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let ChainExportParams {
-        epoch,
-        recent_roots,
-        output_path,
-        tipset_keys: ApiTipsetKey(tsk),
-        skip_checksum,
-        dry_run,
-    }: ChainExportParams = params.parse()?;
-
-    static LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-
-    let _locked = LOCK.try_lock();
-    if _locked.is_err() {
-        return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
-    }
-
-    let chain_finality = data.state_manager.chain_config().policy.chain_finality;
-    if recent_roots < chain_finality {
-        return Err(anyhow::anyhow!(format!(
-            "recent-stateroots must be greater than {chain_finality}"
-        ))
-        .into());
-    }
-
-    let head = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    let start_ts =
-        data.chain_store
-            .chain_index
-            .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
-
-    match if dry_run {
-        crate::chain::export::<Sha256>(
-            Arc::clone(&data.chain_store.db),
-            &start_ts,
-            recent_roots,
-            VoidAsyncWriter,
-            CidHashSet::default(),
-            skip_checksum,
-        )
-        .await
-    } else {
-        let file = tokio::fs::File::create(&output_path).await?;
-        crate::chain::export::<Sha256>(
-            Arc::clone(&data.chain_store.db),
-            &start_ts,
-            recent_roots,
-            file,
-            CidHashSet::default(),
-            skip_checksum,
-        )
-        .await
-    } {
-        Ok(checksum_opt) => Ok(checksum_opt.map(|hash| hash.encode_hex())),
-        Err(e) => Err(anyhow::anyhow!(e).into()),
-    }
-}
-
-pub async fn chain_read_obj<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<u8>>, JsonRpcError> {
-    let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let bytes = data
-        .state_manager
-        .blockstore()
-        .get(&obj_cid)?
-        .with_context(|| format!("can't find object with cid={obj_cid}"))?;
-    Ok(LotusJson(bytes))
-}
-
-pub async fn chain_has_obj<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<bool, JsonRpcError> {
-    let LotusJson((obj_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    Ok(data.state_manager.blockstore().get(&obj_cid)?.is_some())
-}
-
-pub async fn chain_get_block_messages<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<BlockMessages, JsonRpcError> {
-    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let blk: CachingBlockHeader = data
-        .state_manager
-        .blockstore()
-        .get_cbor(&blk_cid)?
-        .context("can't find block with that cid")?;
-    let blk_msgs = &blk.messages;
-    let (unsigned_cids, signed_cids) =
-        crate::chain::read_msg_cids(data.state_manager.blockstore(), blk_msgs)?;
-    let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
-        data.state_manager.blockstore(),
-        &unsigned_cids,
-        &signed_cids,
-    )?;
-    let cids = unsigned_cids
-        .into_iter()
-        .chain(signed_cids)
-        .collect::<Vec<_>>();
-
-    let ret = BlockMessages {
-        bls_msg,
-        secp_msg,
-        cids,
-    };
-    Ok(ret)
-}
-
-pub enum ChainGetPath {}
-
-impl RpcMethod<2> for ChainGetPath {
-    const NAME: &'static str = "Filecoin.ChainGetPath";
-    const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
-    type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
-    type Ok = LotusJson<Vec<PathChange>>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore>,
-        (LotusJson(from), LotusJson(to)): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
-        impl_chain_get_path(&ctx.chain_store, &from, &to)
-            .map(LotusJson)
-            .map_err(Into::into)
-    }
-}
-
-/// Find the path between two tipsets, as a series of [`PathChange`]s.
-///
-/// ```text
-/// 0 - A - B - C - D
-///     ^~~~~~~~> apply B, C
-///
-/// 0 - A - B - C - D
-///     <~~~~~~~^ revert C, B
-///
-///     <~~~~~~~~ revert C, B
-/// 0 - A - B  - C
-///     |
-///      -- B' - C'
-///      ~~~~~~~~> then apply B', C'
-/// ```
-///
-/// Exposes errors from the [`Blockstore`], and returns an error if there is no common ancestor.
-fn impl_chain_get_path(
-    chain_store: &ChainStore<impl Blockstore>,
-    from: &TipsetKey,
-    to: &TipsetKey,
-) -> anyhow::Result<Vec<PathChange>> {
-    let mut to_revert = chain_store
-        .load_required_tipset_or_heaviest(from)
-        .context("couldn't load `from`")?;
-    let mut to_apply = chain_store
-        .load_required_tipset_or_heaviest(to)
-        .context("couldn't load `to`")?;
-
-    let mut all_reverts = vec![];
-    let mut all_applies = vec![];
-
-    // This loop is guaranteed to terminate if the blockstore contain no cycles.
-    // This is currently computationally infeasible.
-    while to_revert != to_apply {
-        if to_revert.epoch() > to_apply.epoch() {
-            let next = chain_store
-                .load_required_tipset_or_heaviest(to_revert.parents())
-                .context("couldn't load ancestor of `from`")?;
-            all_reverts.push(to_revert);
-            to_revert = next;
-        } else {
-            let next = chain_store
-                .load_required_tipset_or_heaviest(to_apply.parents())
-                .context("couldn't load ancestor of `to`")?;
-            all_applies.push(to_apply);
-            to_apply = next;
-        }
-    }
-    Ok(all_reverts
-        .into_iter()
-        .map(PathChange::Revert)
-        .chain(all_applies.into_iter().rev().map(PathChange::Apply))
-        .collect())
-}
-
-pub async fn chain_get_tipset_by_height<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let tss = data
-        .state_manager
-        .chain_store()
-        .chain_index
-        .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-    Ok((*tss).clone().into())
-}
-
-pub async fn chain_get_tipset_after_height<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let tss = data
-        .state_manager
-        .chain_store()
-        .chain_index
-        .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
-    Ok((*tss).clone().into())
-}
-
-pub async fn chain_get_genesis<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
-    let genesis = data.state_manager.chain_store().genesis_block_header();
-    Ok(Some(Tipset::from(genesis).into()))
-}
-
-pub async fn chain_head<DB: Blockstore>(data: Ctx<DB>) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let heaviest = data.state_manager.chain_store().heaviest_tipset();
-    Ok((*heaviest).clone().into())
-}
-
-pub async fn chain_get_block<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
-    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
-
-    let blk: CachingBlockHeader = data
-        .state_manager
-        .blockstore()
-        .get_cbor(&blk_cid)?
-        .context("can't find BlockHeader with that cid")?;
-    Ok(blk.into())
-}
-
-pub async fn chain_get_tipset<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
-
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    Ok((*ts).clone().into())
-}
-
-// This is basically a port of the reference implementation at
-// https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
-pub async fn chain_set_head<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
-
-    let new_head = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let mut current = data.state_manager.chain_store().heaviest_tipset();
-    while current.epoch() >= new_head.epoch() {
-        for cid in current.key().to_cids() {
-            data.state_manager
-                .chain_store()
-                .unmark_block_as_validated(&cid);
-        }
-        let parents = &current.block_headers().first().parents;
-        current = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(parents)?;
-    }
-    data.state_manager
-        .chain_store()
-        .set_heaviest_tipset(new_head)
-        .map_err(Into::into)
-}
-
-pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
-    let (basefee_lookback,): (u32,) = params.parse()?;
-
-    let mut current = data.state_manager.chain_store().heaviest_tipset();
-    let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
-
-    for _ in 0..basefee_lookback {
-        let parents = &current.block_headers().first().parents;
-        current = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(parents)?;
-
-        min_base_fee = min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
-    }
-
-    Ok(min_base_fee.atto().to_string())
-}
-
-pub(crate) fn chain_notify<DB: Blockstore>(
-    _params: Params<'_>,
-    data: &crate::rpc::RPCState<DB>,
-) -> Subscriber<Vec<ApiHeadChange>> {
-    let (sender, receiver) = broadcast::channel(100);
-
-    // As soon as the channel is created, send the current tipset
-    let current = data.chain_store.heaviest_tipset();
-    let (change, headers) = ("current".into(), current.block_headers().clone().into());
-    sender
-        .send(vec![ApiHeadChange { change, headers }])
-        .expect("receiver is not dropped");
-
-    let mut subscriber = data.chain_store.publisher().subscribe();
-
-    tokio::spawn(async move {
-        while let Ok(v) = subscriber.recv().await {
-            let (change, headers) = match v {
-                HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
-            };
-
-            if sender
-                .send(vec![ApiHeadChange { change, headers }])
-                .is_err()
-            {
-                break;
-            }
-        }
-    });
-    receiver
-}
-
-fn load_api_messages_from_tipset(
-    store: &impl Blockstore,
-    tipset: &Tipset,
-) -> Result<Vec<ApiMessage>, JsonRpcError> {
-    let full_tipset = tipset
-        .fill_from_blockstore(store)
-        .context("Failed to load full tipset")?;
-    let blocks = full_tipset.into_blocks();
-    let mut messages = vec![];
-    let mut seen = CidHashSet::default();
-    for block in blocks {
-        for msg in block.bls_msgs() {
-            let cid = msg.cid()?;
-            if seen.insert(cid) {
-                messages.push(ApiMessage::new(cid, msg.clone()));
-            }
-        }
-
-        for msg in block.secp_msgs() {
-            let cid = msg.cid()?;
-            if seen.insert(cid) {
-                messages.push(ApiMessage::new(cid, msg.message.clone()));
-            }
-        }
-    }
-
-    Ok(messages)
 }
 
 #[cfg(test)]

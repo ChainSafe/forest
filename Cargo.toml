@@ -1,6 +1,6 @@
 [package]
 name = "forest-filecoin"
-version = "0.17.1"
+version = "0.17.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
@@ -97,7 +97,7 @@ indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22.2", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.22.4", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -232,7 +232,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.208"
+ra_ap_syntax = "0.0.210"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
