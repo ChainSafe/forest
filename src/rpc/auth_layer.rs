@@ -168,6 +168,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
     access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
     access.insert(eth_api::ETH_SYNCING, Access::Read);
+    access.insert(eth_api::WEB3_CLIENT_VERSION, Access::Read);
 
     // Pubsub API
     access.insert(CANCEL_METHOD_NAME, Access::Read);
