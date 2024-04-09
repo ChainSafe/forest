@@ -5,20 +5,6 @@ mod auth_layer;
 mod channel;
 mod client;
 
-// API handlers
-pub mod auth_api;
-pub mod beacon_api;
-pub mod chain_api;
-pub mod common_api;
-pub mod eth_api;
-pub mod gas_api;
-pub mod mpool_api;
-pub mod net_api;
-pub mod node_api;
-pub mod state_api;
-pub mod sync_api;
-pub mod wallet_api;
-
 // Other RPC-specific modules
 pub use client::Client;
 pub use error::ServerError;
@@ -27,6 +13,7 @@ pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;
+pub use methods::*;
 
 /// Protocol or transport-specific error
 #[allow(unused)]
@@ -58,6 +45,21 @@ pub mod prelude {
     beacon_api::for_each_method!(export);
     chain_api::for_each_method!(export);
     mpool_api::for_each_method!(export);
+}
+
+mod methods {
+    pub mod auth_api;
+    pub mod beacon_api;
+    pub mod chain_api;
+    pub mod common_api;
+    pub mod eth_api;
+    pub mod gas_api;
+    pub mod mpool_api;
+    pub mod net_api;
+    pub mod node_api;
+    pub mod state_api;
+    pub mod sync_api;
+    pub mod wallet_api;
 }
 
 use std::net::SocketAddr;
