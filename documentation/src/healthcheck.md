@@ -6,10 +6,10 @@ can be used to monitor the node status and perform actions based on the results.
 
 ## Endpoints
 
-All endpoints operate on port `2346` by default. This behaviour can be changed
-via the `--healthcheck-address` flag. All endpoints expose a `verbose` optional
-query parameter that can be used to get more detailed information about the
-node's health status.
+All healthcheck endpoints operate on port `2346` by default. This behaviour can
+be changed via the `--healthcheck-address` flag. All endpoints expose a
+`verbose` optional query parameter that can be used to get more detailed
+information about the node's health status.
 
 Endpoints return a `200 OK` status code if the node is healthy and a
 `503 Service Unavailable` status code if the node is not healthy.
