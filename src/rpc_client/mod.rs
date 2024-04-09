@@ -1,15 +1,15 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-pub mod chain_ops;
-pub mod common_ops;
-pub mod eth_ops;
-pub mod gas_ops;
-pub mod net_ops;
-pub mod node_ops;
-pub mod state_ops;
-pub mod sync_ops;
-pub mod wallet_ops;
+mod chain_ops;
+mod common_ops;
+mod eth_ops;
+mod gas_ops;
+mod net_ops;
+mod node_ops;
+mod state_ops;
+mod sync_ops;
+mod wallet_ops;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
