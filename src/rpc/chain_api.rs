@@ -61,8 +61,10 @@ impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";
     const PARAM_NAMES: [&'static str; 1] = ["msg_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<Cid>,);
     type Ok = LotusJson<Message>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(msg_cid),): Self::Params,
@@ -84,8 +86,10 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const NAME: &'static str = "Filecoin.ChainGetParentMessages";
     const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<Cid>,);
     type Ok = LotusJson<Vec<ApiMessage>>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(block_cid),): Self::Params,
@@ -109,8 +113,10 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
     const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<Cid>,);
     type Ok = LotusJson<Vec<ApiReceipt>>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(block_cid),): Self::Params,
@@ -183,8 +189,10 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<TipsetKey>,);
     type Ok = LotusJson<Vec<ApiMessage>>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(tsk),): Self::Params,
@@ -201,8 +209,10 @@ impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (ChainExportParams,);
     type Ok = Option<String>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (params,): Self::Params,
@@ -271,8 +281,10 @@ impl RpcMethod<1> for ChainReadObj {
     const NAME: &'static str = "Filecoin.ChainReadObj";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<Cid>,);
     type Ok = LotusJson<Vec<u8>>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
@@ -291,8 +303,10 @@ impl RpcMethod<1> for ChainHasObj {
     const NAME: &'static str = "Filecoin.ChainHasObj";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<Cid>,);
     type Ok = bool;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
@@ -306,8 +320,10 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<Cid>,);
     type Ok = BlockMessages;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(cid),): Self::Params,
@@ -345,6 +361,7 @@ impl RpcMethod<2> for ChainGetPath {
     const NAME: &'static str = "Filecoin.ChainGetPath";
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
     type Ok = LotusJson<Vec<PathChange>>;
 

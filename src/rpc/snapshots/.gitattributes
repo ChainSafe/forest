@@ -1,1 +1,5 @@
+# To keep certain files from displaying in diffs by default, 
+# or counting toward the repository language, 
+# you can mark them with the linguist-generated attribute in a .gitattributes file.
+# - github docs
 *.snap linguist-generated=true
