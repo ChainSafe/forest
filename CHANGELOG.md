@@ -34,6 +34,10 @@
 
 ### Changed
 
+- [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
+  Filecoin proof parameters source to ChainSafe's hosted Cloudflare R2 bucket.
+  IPFS gateway can still be enforced via `FOREST_PROOFS_ONLY_IPFS_GATEWAY=1`.
+
 ### Removed
 
 ### Fixed
