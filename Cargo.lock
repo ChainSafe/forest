@@ -3322,6 +3322,7 @@ dependencies = [
  "regex-automata 0.4.6",
  "reqwest 0.12.3",
  "rlimit",
+ "rlp",
  "rs-car-ipfs",
  "rustyline",
  "schemars",
