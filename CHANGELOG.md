@@ -32,6 +32,9 @@
 - [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
   `Filecoin.StateDealProviderCollateralBounds` RPC method.
 
+- [#4169](https://github.com/ChainSafe/forest/pull/4169) Add support for the
+  `Filecoin.Web3ClientVersion` RPC method.
+
 ### Changed
 
 ### Removed
