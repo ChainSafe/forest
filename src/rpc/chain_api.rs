@@ -15,10 +15,7 @@ use crate::lotus_json::LotusJson;
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{
-    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
-    RpcMethodExt as _,
-};
+use crate::rpc::{ApiVersion, Ctx, JsonRpcError, RpcMethod};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::message::Message;
@@ -42,27 +39,28 @@ use tokio::sync::{
     Mutex,
 };
 
-pub fn register_all(
-    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
-) {
-    ChainGetPath::register(module);
-    ChainGetParentMessages::register(module);
-    ChainGetMessage::register(module);
-    ChainGetParentReceipts::register(module);
-    ChainGetMessagesInTipset::register(module);
-    ChainExport::register(module);
-    ChainReadObj::register(module);
-    ChainHasObj::register(module);
-    ChainGetBlockMessages::register(module);
-    ChainGetTipSetByHeight::register(module);
-    ChainGetTipSetAfterHeight::register(module);
-    ChainGetGenesis::register(module);
-    ChainHead::register(module);
-    ChainGetBlock::register(module);
-    ChainGetTipSet::register(module);
-    ChainSetHead::register(module);
-    ChainGetMinBaseFee::register(module);
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::chain_api::ChainGetMessage);
+        $callback!(crate::rpc::chain_api::ChainGetParentMessages);
+        $callback!(crate::rpc::chain_api::ChainGetParentReceipts);
+        $callback!(crate::rpc::chain_api::ChainGetMessagesInTipset);
+        $callback!(crate::rpc::chain_api::ChainExport);
+        $callback!(crate::rpc::chain_api::ChainReadObj);
+        $callback!(crate::rpc::chain_api::ChainHasObj);
+        $callback!(crate::rpc::chain_api::ChainGetBlockMessages);
+        $callback!(crate::rpc::chain_api::ChainGetPath);
+        $callback!(crate::rpc::chain_api::ChainGetTipSetByHeight);
+        $callback!(crate::rpc::chain_api::ChainGetTipSetAfterHeight);
+        $callback!(crate::rpc::chain_api::ChainGetGenesis);
+        $callback!(crate::rpc::chain_api::ChainHead);
+        $callback!(crate::rpc::chain_api::ChainGetBlock);
+        $callback!(crate::rpc::chain_api::ChainGetTipSet);
+        $callback!(crate::rpc::chain_api::ChainSetHead);
+        $callback!(crate::rpc::chain_api::ChainGetMinBaseFee);
+    };
 }
+pub(crate) use for_each_method;
 
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {

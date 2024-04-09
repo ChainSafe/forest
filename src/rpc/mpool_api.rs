@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas_api::estimate_message_gas;
-use super::RPCState;
+
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::JsonRpcError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::{reflect::SelfDescribingRpcModule, ApiVersion, Ctx, RpcMethod, RpcMethodExt as _};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
@@ -16,14 +16,15 @@ use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
-pub fn register_all(
-    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
-) {
-    MpoolGetNonce::register(module);
-    MpoolPending::register(module);
-    MpoolPush::register(module);
-    MpoolPushMessage::register(module);
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::mpool_api::MpoolGetNonce);
+        $callback!(crate::rpc::mpool_api::MpoolPending);
+        $callback!(crate::rpc::mpool_api::MpoolPush);
+        $callback!(crate::rpc::mpool_api::MpoolPushMessage);
+    };
 }
+pub(crate) use for_each_method;
 
 /// Gets next nonce for the specified sender.
 pub enum MpoolGetNonce {}

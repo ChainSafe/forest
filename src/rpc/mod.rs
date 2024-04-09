@@ -164,10 +164,15 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
-    chain_api::register_all(&mut module);
-    mpool_api::register_all(&mut module);
-    auth_api::register_all(&mut module);
-    beacon_api::register_all(&mut module);
+    macro_rules! register {
+        ($ty:ty) => {
+            <$ty>::register(&mut module);
+        };
+    }
+    chain_api::for_each_method!(register);
+    mpool_api::for_each_method!(register);
+    auth_api::for_each_method!(register);
+    beacon_api::for_each_method!(register);
     module.finish()
 }
 

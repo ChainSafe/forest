@@ -1,19 +1,17 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::{
-    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
-    RpcMethodExt as _,
-};
+use crate::rpc::{ApiVersion, Ctx, JsonRpcError, RpcMethod};
 use crate::{beacon::BeaconEntry, lotus_json::LotusJson, shim::clock::ChainEpoch};
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 
-pub fn register_all(
-    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
-) {
-    BeaconGetEntry::register(module);
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::beacon_api::BeaconGetEntry);
+    };
 }
+pub(crate) use for_each_method;
 
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry

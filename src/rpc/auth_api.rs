@@ -4,10 +4,7 @@
 use crate::auth::*;
 use crate::lotus_json::lotus_json_with_self;
 use crate::lotus_json::LotusJson;
-use crate::rpc::{
-    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
-    RpcMethodExt as _,
-};
+use crate::rpc::{ApiVersion, Ctx, JsonRpcError, RpcMethod};
 use anyhow::Result;
 use chrono::Duration;
 use fvm_ipld_blockstore::Blockstore;
@@ -15,41 +12,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 
-pub fn register_all(
-    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
-) {
-    AuthNew::register(module);
-    AuthVerify::register(module);
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::auth_api::AuthNew);
+        $callback!(crate::rpc::auth_api::AuthVerify);
+    };
 }
-
-#[serde_as]
-#[derive(Deserialize, Serialize)]
-pub struct AuthNewParams {
-    pub perms: Vec<String>,
-    #[serde_as(as = "DurationSeconds<i64>")]
-    pub token_exp: Duration,
-}
-lotus_json_with_self!(AuthNewParams);
-
-/// `#[derive(JsonSchema)]` doesn't play nicely with [`serde_as`].
-///
-/// The correct solution is `token_exp: u64`, but the auth tests use negative
-/// durations, so accept the tech debt for this for now
-impl JsonSchema for AuthNewParams {
-    fn schema_name() -> String {
-        "AuthNewParams".into()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        #[derive(JsonSchema)]
-        #[allow(dead_code)]
-        struct Helper {
-            perms: Vec<String>,
-            token_exp: i64,
-        }
-        Helper::json_schema(gen)
-    }
-}
+pub(crate) use for_each_method;
 
 /// RPC call to create a new JWT Token
 pub enum AuthNew {}
@@ -86,5 +55,34 @@ impl RpcMethod<1> for AuthVerify {
         let ki = ks.get(JWT_IDENTIFIER)?;
         let perms = verify_token(token, ki.private_key())?;
         Ok(perms)
+    }
+}
+
+#[serde_as]
+#[derive(Deserialize, Serialize)]
+pub struct AuthNewParams {
+    pub perms: Vec<String>,
+    #[serde_as(as = "DurationSeconds<i64>")]
+    pub token_exp: Duration,
+}
+lotus_json_with_self!(AuthNewParams);
+
+/// `#[derive(JsonSchema)]` doesn't play nicely with [`serde_as`].
+///
+/// The correct solution is `token_exp: u64`, but the auth tests use negative
+/// durations, so accept the tech debt for this for now
+impl JsonSchema for AuthNewParams {
+    fn schema_name() -> String {
+        "AuthNewParams".into()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        #[derive(JsonSchema)]
+        #[allow(dead_code)]
+        struct Helper {
+            perms: Vec<String>,
+            token_exp: i64,
+        }
+        Helper::json_schema(gen)
     }
 }
