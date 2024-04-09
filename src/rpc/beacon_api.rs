@@ -23,8 +23,10 @@ impl RpcMethod<1> for BeaconGetEntry {
     const NAME: &'static str = "Filecoin.BeaconGetEntry";
     const PARAM_NAMES: [&'static str; 1] = ["first"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+
     type Params = (ChainEpoch,);
     type Ok = LotusJson<BeaconEntry>;
+
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (first,): Self::Params,

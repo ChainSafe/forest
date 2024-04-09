@@ -11,7 +11,6 @@ use crate::chain_sync::SyncState;
 pub use crate::libp2p::Multiaddr;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
-use crate::message::signed_message::SignedMessage;
 use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
@@ -56,17 +55,6 @@ pub struct RPCSyncState {
 lotus_json_with_self!(RPCSyncState);
 
 // Chain API
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
-    pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::lotus_json")]
-    pub cids: Vec<Cid>,
-}
-
-lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -261,45 +249,6 @@ pub struct Version(u32);
 impl Version {
     pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
         Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct ApiMessage {
-    cid: Cid,
-    message: Message,
-}
-
-impl ApiMessage {
-    pub fn new(cid: Cid, message: Message) -> Self {
-        Self { cid, message }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiMessageLotusJson {
-    cid: LotusJson<Cid>,
-    message: LotusJson<Message>,
-}
-
-impl HasLotusJson for ApiMessage {
-    type LotusJson = ApiMessageLotusJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ApiMessageLotusJson {
-            cid: LotusJson(self.cid),
-            message: LotusJson(self.message),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        ApiMessage {
-            cid: lotus_json.cid.into_inner(),
-            message: lotus_json.message.into_inner(),
-        }
     }
 }
 
@@ -551,23 +500,6 @@ impl HasLotusJson for PendingBeneficiaryChange {
         }
     }
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiReceipt {
-    // Exit status of message execution
-    pub exit_code: ExitCode,
-    // `Return` value if the exit code is zero
-    #[serde(rename = "Return")]
-    #[serde(with = "crate::lotus_json")]
-    pub return_data: RawBytes,
-    // Non-negative value of GasUsed
-    pub gas_used: u64,
-    #[serde(with = "crate::lotus_json")]
-    pub events_root: Option<Cid>,
-}
-
-lotus_json_with_self!(ApiReceipt);
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

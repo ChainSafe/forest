@@ -4,6 +4,8 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::ChainMessage;
+use crate::rpc::chain_api::ChainReadObj;
+use crate::rpc::{self, RpcMethodExt as _};
 use crate::rpc_client::{ApiInfo, JsonRpcError};
 use anyhow::bail;
 use cid::Cid;
@@ -58,6 +60,7 @@ pub enum ChainCommands {
 
 impl ChainCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         match self {
             Self::Block { cid } => {
                 print_pretty_json(api.chain_get_block(cid).await?.into_lotus_json())
@@ -65,7 +68,9 @@ impl ChainCommands {
             Self::Genesis => print_pretty_json(LotusJson(api.chain_get_genesis().await?)),
             Self::Head => print_rpc_res_cids(api.chain_head().await?),
             Self::Message { cid } => {
-                let bytes = api.chain_read_obj(cid).await?;
+                let bytes = ChainReadObj::call(&client, (cid.into(),))
+                    .await?
+                    .into_inner();
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
                     ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
                     ChainMessage::Signed(m) => {
@@ -75,7 +80,10 @@ impl ChainCommands {
                 }
             }
             Self::ReadObj { cid } => {
-                println!("{}", hex::encode(api.chain_read_obj(cid).await?));
+                let bytes = ChainReadObj::call(&client, (cid.into(),))
+                    .await?
+                    .into_inner();
+                println!("{}", hex::encode(bytes));
                 Ok(())
             }
             Self::SetHead {

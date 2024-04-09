@@ -42,12 +42,12 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(beacon_api::BeaconGetEntry::NAME, Access::Read);
 
     // Chain API
-    access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
-    access.insert(chain_api::CHAIN_EXPORT, Access::Read);
-    access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
+    access.insert(chain_api::ChainGetMessage::NAME, Access::Read);
+    access.insert(chain_api::ChainExport::NAME, Access::Read);
+    access.insert(chain_api::ChainReadObj::NAME, Access::Read);
     access.insert(chain_api::ChainGetPath::NAME, Access::Read);
-    access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
-    access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
+    access.insert(chain_api::ChainHasObj::NAME, Access::Read);
+    access.insert(chain_api::ChainGetBlockMessages::NAME, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
     access.insert(chain_api::CHAIN_GET_TIPSET_AFTER_HEIGHT, Access::Read);
     access.insert(chain_api::CHAIN_GET_GENESIS, Access::Read);
@@ -56,10 +56,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
     access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
     access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
-    access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
+    access.insert(chain_api::ChainGetMessagesInTipset::NAME, Access::Read);
+    access.insert(chain_api::ChainGetParentMessages::NAME, Access::Read);
     access.insert(chain_api::CHAIN_NOTIFY, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PARENT_RECEIPTS, Access::Read);
+    access.insert(chain_api::ChainGetParentReceipts::NAME, Access::Read);
 
     // Message Pool API
     access.insert(mpool_api::MpoolGetNonce::NAME, Access::Read);
