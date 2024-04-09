@@ -725,13 +725,13 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
         bail!("signature is not delegated type, is type: {sig_type}");
     }
 
-    // This should be impossible to fail as we've already asserted that we have an
-    // Ethereum Address sender...
-    let from = Address::from_filecoin_address(&from)?;
-
     let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message())?;
 
     let (r, s, v) = recover_sig(smsg.signature())?;
+
+    // This should be impossible to fail as we've already asserted that we have an
+    // Ethereum Address sender...
+    let from = Address::from_filecoin_address(&from)?;
 
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
@@ -997,7 +997,6 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
             }
         };
 
-        // TODO: build tx and push to block transactions
         let mut tx = new_eth_tx_from_signed_message(
             &smsg,
             &state_tree,
