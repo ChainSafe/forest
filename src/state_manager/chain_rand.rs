@@ -114,7 +114,7 @@ where
         lookback: bool,
     ) -> anyhow::Result<[u8; 32]> {
         let rand_ts: Arc<Tipset> = self.get_beacon_randomness_tipset(round, lookback)?;
-        let be = self.chain_index.latest_beacon_entry(&rand_ts)?;
+        let be = self.chain_index.latest_beacon_entry(rand_ts)?;
         Ok(digest(be.signature()))
     }
 
