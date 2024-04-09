@@ -24,7 +24,7 @@ cat <<- EOF > $CONFIG_PATH
 	kademlia = true
 EOF
 
-$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --save-token ./admin_token --rpc-address 127.0.0.1:12345 --metrics-address 127.0.0.1:6117 &
+$FOREST_PATH --chain calibnet --encrypt-keystore false --auto-download-snapshot --config "$CONFIG_PATH" --save-token ./admin_token --rpc-address 127.0.0.1:12345 --metrics-address 127.0.0.1:6117 --healthcheck-address 127.0.0.1:2347 &
 FOREST_NODE_PID=$!
 # Verify that more peers are connected via kademlia
 until (( $(curl http://127.0.0.1:6117/metrics | grep full_peers | tail -n 1 | cut --delimiter=" " --fields=2) > 1 )); do
