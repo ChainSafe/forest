@@ -4,14 +4,16 @@
 use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::rpc::chain_api::ChainExportParams;
+use crate::rpc::chain_api::{ChainExport, ChainExportParams};
 use crate::rpc::types::ApiTipsetKey;
+use crate::rpc::RpcMethodExt;
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 
@@ -79,7 +81,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())).into(),
                     skip_checksum,
                     dry_run,
                 };
@@ -110,8 +112,11 @@ impl SnapshotCommands {
                         }
                     }
                 });
-
-                let hash_result = api.chain_export(params).await?;
+                // Manually construct RpcRequest because snapshot export could
+                // take a few hours on mainnet
+                let hash_result = api
+                    .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
+                    .await?;
 
                 handle.abort();
                 let _ = handle.await;
