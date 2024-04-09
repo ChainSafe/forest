@@ -13,7 +13,7 @@ use crate::shim::{
     state_tree::ActorState, version::NetworkVersion,
 };
 use crate::state_manager::chain_rand::ChainRand;
-use crate::state_manager::vm_circ_supply::GenesisInfo;
+use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use ahash::{HashMap, HashMapExt};
@@ -864,8 +864,11 @@ pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
 
     let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
 
-    let supply =
-        genesis_info.get_circulating_supply(height, &state_manager.blockstore_owned(), root)?;
+    let supply = genesis_info.get_state_circulating_supply(
+        height,
+        &state_manager.blockstore_owned(),
+        root,
+    )?;
 
     Ok(LotusJson(supply))
 }
