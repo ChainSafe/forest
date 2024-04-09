@@ -346,7 +346,7 @@ pub async fn eth_syncing<DB: Blockstore>(
     }
 }
 
-pub fn web3_client_version<DB: Blockstore>(forest_version: &str) -> Result<String, JsonRpcError> {
+pub fn web3_client_version(forest_version: &str) -> Result<String, JsonRpcError> {
     Ok(forest_version.into())
 }
 
