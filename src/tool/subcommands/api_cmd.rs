@@ -14,10 +14,7 @@ use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon_api::BeaconGetEntry;
-use crate::rpc::chain_api::{
-    ChainGetBlockMessages, ChainGetMessage, ChainGetMessagesInTipset, ChainGetParentMessages,
-    ChainGetParentReceipts, ChainHasObj, ChainReadObj,
-};
+use crate::rpc::chain_api::*;
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
@@ -378,31 +375,36 @@ fn beacon_tests() -> Vec<RpcTest> {
 
 fn chain_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(ApiInfo::chain_head_req()),
-        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
+        RpcTest::basic_raw(ChainHead::request(()).unwrap()),
+        RpcTest::identity_raw(ChainGetGenesis::request(()).unwrap()),
     ]
 }
 
 fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block_cid = *shared_tipset.min_ticket_block().cid();
+    let shared_block_cid = (*shared_tipset.min_ticket_block().cid()).into();
 
     vec![
-        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid.into(),)).unwrap()),
-        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid.into(),)).unwrap()),
-        RpcTest::identity(ApiInfo::chain_get_block_req(shared_block_cid)),
-        RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
-            shared_tipset.epoch(),
-            Default::default(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
-            shared_tipset.epoch(),
-            Default::default(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
-        RpcTest::identity(ApiInfo::chain_get_path_req(
-            shared_tipset.key().clone(),
-            shared_tipset.parents().clone(),
-        )),
+        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(ChainGetBlock::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(
+            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
+                .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
+                .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetTipSet::request((LotusJson(shared_tipset.key().clone().into()),)).unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetPath::request((
+                shared_tipset.key().clone().into(),
+                shared_tipset.parents().clone().into(),
+            ))
+            .unwrap(),
+        ),
     ]
 }
 

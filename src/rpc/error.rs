@@ -3,7 +3,10 @@
 
 use std::fmt::{self, Display};
 
-use jsonrpsee::types::error::{self, ErrorCode, ErrorObjectOwned};
+use jsonrpsee::{
+    core::ClientError,
+    types::error::{self, ErrorCode, ErrorObjectOwned},
+};
 
 #[derive(derive_more::From, derive_more::Into, Debug, PartialEq)]
 pub struct JsonRpcError {
@@ -92,6 +95,12 @@ from2internal! {
     std::io::Error,
     std::time::SystemTimeError,
     tokio::task::JoinError,
+}
+
+impl From<JsonRpcError> for ClientError {
+    fn from(value: JsonRpcError) -> Self {
+        Self::Call(value.inner)
+    }
 }
 
 impl<T> From<flume::SendError<T>> for JsonRpcError {

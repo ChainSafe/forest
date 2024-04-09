@@ -8,7 +8,11 @@ use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::mpool_api::MpoolPending;
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{self, RpcMethodExt as _};
+use crate::rpc::{
+    self,
+    chain_api::{ChainGetMinBaseFee, ChainHead},
+    RpcMethodExt as _,
+};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
@@ -208,6 +212,7 @@ fn print_stats(stats: &[MpStat], basefee_lookback: u32) {
 
 impl MpoolCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         match self {
             Self::Pending {
                 local,
@@ -215,12 +220,9 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = MpoolPending::call(
-                    &rpc::Client::from(api.clone()),
-                    (LotusJson(ApiTipsetKey(None)),),
-                )
-                .await?
-                .into_inner();
+                let messages = MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),))
+                    .await?
+                    .into_inner();
 
                 let local_addrs = if local {
                     let response = api.wallet_list().await?;
@@ -248,18 +250,15 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = api.chain_head().await?;
+                let tipset = ChainHead::call(&client, ()).await?.into_inner();
                 let curr_base_fee = tipset.block_headers().first().parent_base_fee.to_owned();
 
-                let atto_str = api.chain_get_min_base_fee(basefee_lookback).await?;
+                let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = MpoolPending::call(
-                    &rpc::Client::from(api.clone()),
-                    (LotusJson(ApiTipsetKey(None)),),
-                )
-                .await?
-                .into_inner();
+                let messages = MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),))
+                    .await?
+                    .into_inner();
 
                 let local_addrs = if local {
                     let response = api.wallet_list().await?;
