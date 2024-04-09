@@ -14,6 +14,10 @@ use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon_api::BeaconGetEntry;
+use crate::rpc::chain_api::{
+    ChainGetBlockMessages, ChainGetMessage, ChainGetMessagesInTipset, ChainGetParentMessages,
+    ChainGetParentReceipts, ChainHasObj, ChainReadObj,
+};
 use crate::rpc::eth_api::Address as EthAddress;
 use crate::rpc::eth_api::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
@@ -380,10 +384,12 @@ fn chain_tests() -> Vec<RpcTest> {
 }
 
 fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block = shared_tipset.min_ticket_block();
+    let shared_block_cid = *shared_tipset.min_ticket_block().cid();
 
     vec![
-        RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
+        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid.into(),)).unwrap()),
+        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid.into(),)).unwrap()),
+        RpcTest::identity(ApiInfo::chain_get_block_req(shared_block_cid)),
         RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
             shared_tipset.epoch(),
             Default::default(),
@@ -393,8 +399,6 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Default::default(),
         )),
         RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
-        RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
-        RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
         RpcTest::identity(ApiInfo::chain_get_path_req(
             shared_tipset.key().clone(),
             shared_tipset.parents().clone(),
@@ -591,9 +595,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     )));
 
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
-        tests.push(RpcTest::identity(
-            ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
-        ));
+        tests.push(RpcTest::identity_raw(ChainGetMessagesInTipset::request((
+            tipset.key().clone().into(),
+        ))?));
         tests.push(RpcTest::identity(
             ApiInfo::state_deal_provider_collateral_bounds_req(
                 PaddedPieceSize(1),
@@ -602,15 +606,12 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             ),
         ));
         for block in tipset.block_headers() {
-            tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(
-                *block.cid(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
-                *block.cid(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_receipts_req(
-                *block.cid(),
-            )));
+            let block_cid = (*block.cid()).into();
+            tests.extend([
+                RpcTest::identity_raw(ChainGetBlockMessages::request((block_cid,))?),
+                RpcTest::identity_raw(ChainGetParentMessages::request((block_cid,))?),
+                RpcTest::identity_raw(ChainGetParentReceipts::request((block_cid,))?),
+            ]);
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
                 shared_tipset_key.into(),
@@ -618,9 +619,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages.into_iter().unique() {
-                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                    msg.cid()?,
-                )));
+                tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
+                    .cid()?
+                    .into(),))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
                     shared_tipset_key.into(),
@@ -659,9 +660,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 ));
             }
             for msg in secp_messages.into_iter().unique() {
-                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                    msg.cid()?,
-                )));
+                tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
+                    .cid()?
+                    .into(),))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
                     shared_tipset_key.into(),
