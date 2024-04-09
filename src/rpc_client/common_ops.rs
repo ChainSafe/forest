@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ApiInfo, RpcRequest, ServerError};
-use crate::rpc::common_api::{DISCOVER, SESSION, SHUTDOWN, START_TIME, VERSION};
+use crate::rpc::common::{DISCOVER, SESSION, SHUTDOWN, START_TIME, VERSION};
 use crate::rpc::types::{APIVersion, DiscoverResult};
 use chrono::{DateTime, Utc};
 

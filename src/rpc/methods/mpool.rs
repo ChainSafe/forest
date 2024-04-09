@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::gas_api::estimate_message_gas;
+use super::gas::estimate_message_gas;
 
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
@@ -18,10 +18,10 @@ use fvm_ipld_blockstore::Blockstore;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
-        $callback!(crate::rpc::mpool_api::MpoolGetNonce);
-        $callback!(crate::rpc::mpool_api::MpoolPending);
-        $callback!(crate::rpc::mpool_api::MpoolPush);
-        $callback!(crate::rpc::mpool_api::MpoolPushMessage);
+        $callback!(crate::rpc::mpool::MpoolGetNonce);
+        $callback!(crate::rpc::mpool::MpoolPending);
+        $callback!(crate::rpc::mpool::MpoolPush);
+        $callback!(crate::rpc::mpool::MpoolPushMessage);
     };
 }
 pub(crate) use for_each_method;

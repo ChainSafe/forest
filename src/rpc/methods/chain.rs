@@ -41,23 +41,23 @@ use tokio::sync::{
 
 macro_rules! for_each_method {
     ($callback:ident) => {
-        $callback!(crate::rpc::chain_api::ChainGetMessage);
-        $callback!(crate::rpc::chain_api::ChainGetParentMessages);
-        $callback!(crate::rpc::chain_api::ChainGetParentReceipts);
-        $callback!(crate::rpc::chain_api::ChainGetMessagesInTipset);
-        $callback!(crate::rpc::chain_api::ChainExport);
-        $callback!(crate::rpc::chain_api::ChainReadObj);
-        $callback!(crate::rpc::chain_api::ChainHasObj);
-        $callback!(crate::rpc::chain_api::ChainGetBlockMessages);
-        $callback!(crate::rpc::chain_api::ChainGetPath);
-        $callback!(crate::rpc::chain_api::ChainGetTipSetByHeight);
-        $callback!(crate::rpc::chain_api::ChainGetTipSetAfterHeight);
-        $callback!(crate::rpc::chain_api::ChainGetGenesis);
-        $callback!(crate::rpc::chain_api::ChainHead);
-        $callback!(crate::rpc::chain_api::ChainGetBlock);
-        $callback!(crate::rpc::chain_api::ChainGetTipSet);
-        $callback!(crate::rpc::chain_api::ChainSetHead);
-        $callback!(crate::rpc::chain_api::ChainGetMinBaseFee);
+        $callback!(crate::rpc::chain::ChainGetMessage);
+        $callback!(crate::rpc::chain::ChainGetParentMessages);
+        $callback!(crate::rpc::chain::ChainGetParentReceipts);
+        $callback!(crate::rpc::chain::ChainGetMessagesInTipset);
+        $callback!(crate::rpc::chain::ChainExport);
+        $callback!(crate::rpc::chain::ChainReadObj);
+        $callback!(crate::rpc::chain::ChainHasObj);
+        $callback!(crate::rpc::chain::ChainGetBlockMessages);
+        $callback!(crate::rpc::chain::ChainGetPath);
+        $callback!(crate::rpc::chain::ChainGetTipSetByHeight);
+        $callback!(crate::rpc::chain::ChainGetTipSetAfterHeight);
+        $callback!(crate::rpc::chain::ChainGetGenesis);
+        $callback!(crate::rpc::chain::ChainHead);
+        $callback!(crate::rpc::chain::ChainGetBlock);
+        $callback!(crate::rpc::chain::ChainGetTipSet);
+        $callback!(crate::rpc::chain::ChainSetHead);
+        $callback!(crate::rpc::chain::ChainGetMinBaseFee);
     };
 }
 pub(crate) use for_each_method;

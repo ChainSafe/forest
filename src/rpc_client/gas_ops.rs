@@ -4,7 +4,7 @@
 use super::{ApiInfo, RpcRequest, ServerError};
 use crate::{
     rpc::{
-        gas_api::*,
+        gas::*,
         types::{ApiTipsetKey, MessageSendSpec},
     },
     shim::message::Message,

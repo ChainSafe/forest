@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ApiInfo, RpcRequest, ServerError};
-use crate::rpc::net_api::*;
+use crate::rpc::net::*;
 use crate::rpc::types::AddrInfo;
 
 impl ApiInfo {

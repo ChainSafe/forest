@@ -7,7 +7,7 @@ use std::time::Duration;
 use crate::rpc::types::*;
 use crate::{
     blocks::TipsetKey,
-    rpc::state_api::*,
+    rpc::state::*,
     shim::{
         address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::Message,
         message::MethodNum, state_tree::ActorState, version::NetworkVersion,

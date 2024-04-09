@@ -8,7 +8,7 @@ use fvm_ipld_blockstore::Blockstore;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
-        $callback!(crate::rpc::beacon_api::BeaconGetEntry);
+        $callback!(crate::rpc::beacon::BeaconGetEntry);
     };
 }
 pub(crate) use for_each_method;

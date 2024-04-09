@@ -8,7 +8,7 @@ use crate::{
     lotus_json::LotusJson,
     rpc::{
         self,
-        chain_api::{ChainGetTipSetByHeight, ChainHead},
+        chain::{ChainGetTipSetByHeight, ChainHead},
         types::ApiTipsetKey,
         RpcMethodExt as _,
     },

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ApiInfo, RpcRequest};
-use crate::rpc::eth_api::*;
+use crate::rpc::eth::*;
 
 impl ApiInfo {
     pub fn eth_accounts_req() -> RpcRequest<Vec<String>> {

@@ -5,6 +5,6 @@ use super::{ApiInfo, RpcRequest};
 
 impl ApiInfo {
     pub fn chain_notify_req() -> RpcRequest<()> {
-        RpcRequest::new(crate::rpc::chain_api::CHAIN_NOTIFY, ())
+        RpcRequest::new(crate::rpc::chain::CHAIN_NOTIFY, ())
     }
 }

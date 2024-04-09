@@ -14,8 +14,8 @@ use serde_with::{serde_as, DurationSeconds};
 
 macro_rules! for_each_method {
     ($callback:ident) => {
-        $callback!(crate::rpc::auth_api::AuthNew);
-        $callback!(crate::rpc::auth_api::AuthVerify);
+        $callback!(crate::rpc::auth::AuthNew);
+        $callback!(crate::rpc::auth::AuthVerify);
     };
 }
 pub(crate) use for_each_method;

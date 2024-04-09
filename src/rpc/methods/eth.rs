@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use super::gas_api;
+use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::rpc::error::ServerError;
-use crate::rpc::sync_api::sync_state;
+use crate::rpc::sync::sync_state;
 use crate::rpc::types::RPCSyncState;
-use crate::rpc::Ctx;
+use crate::rpc::{self, Ctx};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
@@ -292,7 +292,7 @@ pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResu
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;
-    if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
+    if let Ok(premium) = gas::estimate_gas_premium(&data, 10000).await {
         let gas_price = base_fee.add(premium);
         Ok(GasPriceResult(gas_price.atto().clone()))
     } else {
@@ -346,7 +346,7 @@ pub async fn eth_syncing<DB: Blockstore>(
     }
 }
 
-pub fn web3_client_version(forest_version: &str) -> Result<String, JsonRpcError> {
+pub fn web3_client_version(forest_version: &str) -> Result<String, rpc::ServerError> {
     Ok(forest_version.into())
 }
 

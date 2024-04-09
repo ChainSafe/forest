@@ -4,7 +4,7 @@
 use crate::rpc_client::ApiInfo;
 use crate::{
     auth::*,
-    rpc::{self, auth_api::AuthNewParams, prelude::*},
+    rpc::{self, auth::AuthNewParams, prelude::*},
 };
 use chrono::Duration;
 use clap::Subcommand;

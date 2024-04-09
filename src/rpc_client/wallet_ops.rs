@@ -4,7 +4,7 @@
 use super::{ApiInfo, RpcRequest, ServerError};
 use crate::{
     key_management::KeyInfo,
-    rpc::wallet_api::*,
+    rpc::wallet::*,
     shim::{
         address::Address,
         crypto::{Signature, SignatureType},
