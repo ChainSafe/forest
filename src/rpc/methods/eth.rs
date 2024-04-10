@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use super::gas_api;
+use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
-use crate::rpc::error::JsonRpcError;
-use crate::rpc::sync_api::sync_state;
+use crate::rpc::error::ServerError;
+use crate::rpc::sync::sync_state;
 use crate::rpc::types::RPCSyncState;
-use crate::rpc::Ctx;
+use crate::rpc::{self, Ctx};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
@@ -251,12 +251,12 @@ impl HasLotusJson for EthSyncingResult {
     }
 }
 
-pub async fn eth_accounts() -> Result<Vec<String>, JsonRpcError> {
+pub async fn eth_accounts() -> Result<Vec<String>, ServerError> {
     // EthAccounts will always return [] since we don't expect Forest to manage private keys
     Ok(vec![])
 }
 
-pub async fn eth_block_number<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
+pub async fn eth_block_number<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
     // `eth_block_number` needs to return the height of the latest committed tipset.
     // Ethereum clients expect all transactions included in this block to have execution outputs.
     // This is the parent of the head tipset. The head tipset is speculative, has not been
@@ -281,18 +281,18 @@ pub async fn eth_block_number<DB: Blockstore>(data: Ctx<DB>) -> Result<String, J
     }
 }
 
-pub async fn eth_chain_id<DB: Blockstore>(data: Ctx<DB>) -> Result<String, JsonRpcError> {
+pub async fn eth_chain_id<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
     Ok(format!(
         "{:#x}",
         data.state_manager.chain_config().eth_chain_id
     ))
 }
 
-pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResult, JsonRpcError> {
+pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResult, ServerError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
     let block0 = ts.block_headers().first();
     let base_fee = &block0.parent_base_fee;
-    if let Ok(premium) = gas_api::estimate_gas_premium(&data, 10000).await {
+    if let Ok(premium) = gas::estimate_gas_premium(&data, 10000).await {
         let gas_price = base_fee.add(premium);
         Ok(GasPriceResult(gas_price.atto().clone()))
     } else {
@@ -303,7 +303,7 @@ pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResu
 pub async fn eth_get_balance<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<BigInt, JsonRpcError> {
+) -> Result<BigInt, ServerError> {
     let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
         params.parse()?;
 
@@ -323,7 +323,7 @@ pub async fn eth_get_balance<DB: Blockstore>(
 pub async fn eth_syncing<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<EthSyncingResult>, JsonRpcError> {
+) -> Result<LotusJson<EthSyncingResult>, ServerError> {
     let RPCSyncState { active_syncs } = sync_state(data).await?;
     match active_syncs
         .iter()
@@ -337,16 +337,16 @@ pub async fn eth_syncing<DB: Blockstore>(
                 starting_block: base.epoch(),
                 highest_block: target.epoch(),
             })),
-            _ => Err(JsonRpcError::internal_error(
+            _ => Err(ServerError::internal_error(
                 "missing syncing information, try again",
                 None,
             )),
         },
-        None => Err(JsonRpcError::internal_error("sync state not found", None)),
+        None => Err(ServerError::internal_error("sync state not found", None)),
     }
 }
 
-pub fn web3_client_version(forest_version: &str) -> Result<String, JsonRpcError> {
+pub fn web3_client_version(forest_version: &str) -> Result<String, rpc::ServerError> {
     Ok(forest_version.into())
 }
 

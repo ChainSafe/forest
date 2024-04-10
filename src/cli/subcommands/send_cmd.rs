@@ -3,8 +3,7 @@
 
 use std::str::FromStr as _;
 
-use crate::rpc::mpool_api::MpoolPushMessage;
-use crate::rpc::{self, RpcMethodExt as _};
+use crate::rpc::{self, prelude::*};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;

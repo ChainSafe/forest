@@ -1,14 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_client::{ApiInfo, JsonRpcError};
+use crate::rpc_client::ApiInfo;
 use crate::{
     auth::*,
-    rpc::{
-        self,
-        auth_api::{AuthNew, AuthNewParams},
-        RpcMethodExt as _,
-    },
+    rpc::{self, auth::AuthNewParams, prelude::*},
 };
 use chrono::Duration;
 use clap::Subcommand;
@@ -38,13 +34,13 @@ pub enum AuthCommands {
     },
 }
 
-fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
+fn process_perms(perm: String) -> Result<Vec<String>, rpc::ServerError> {
     Ok(match perm.as_str() {
         "admin" => ADMIN,
         "sign" => SIGN,
         "write" => WRITE,
         "read" => READ,
-        _ => return Err(JsonRpcError::invalid_params("unknown permission", None)),
+        _ => return Err(rpc::ServerError::invalid_params("unknown permission", None)),
     }
     .iter()
     .map(ToString::to_string)

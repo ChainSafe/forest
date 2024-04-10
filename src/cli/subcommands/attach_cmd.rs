@@ -12,7 +12,7 @@ use crate::rpc_client::*;
 use crate::shim::{address::Address, message::Message};
 use crate::{
     chain::ChainEpochDelta,
-    rpc::{self, mpool_api::MpoolPushMessage, RpcMethodExt as _},
+    rpc::{self, prelude::*},
 };
 use crate::{cli::humantoken, message::SignedMessage};
 use boa_engine::{

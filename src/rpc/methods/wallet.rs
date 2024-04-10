@@ -6,7 +6,7 @@ use std::{convert::TryFrom, str::FromStr};
 
 use crate::key_management::{Key, KeyInfo};
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::Ctx;
 use crate::shim::{
     address::Address,
@@ -37,7 +37,7 @@ pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
 pub async fn wallet_balance<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let (addr_str,): (String,) = params.parse()?;
 
     let address = Address::from_str(&addr_str)?;
@@ -63,7 +63,7 @@ pub async fn wallet_balance<DB: Blockstore>(
 pub async fn wallet_default_address<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<Option<String>, JsonRpcError> {
+) -> Result<Option<String>, ServerError> {
     let keystore = data.keystore.read().await;
 
     let addr = crate::key_management::get_default(&keystore)?;
@@ -74,7 +74,7 @@ pub async fn wallet_default_address<DB: Blockstore>(
 pub async fn wallet_export<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<KeyInfo>, JsonRpcError> {
+) -> Result<LotusJson<KeyInfo>, ServerError> {
     let (addr_str,): (String,) = params.parse()?;
 
     let addr = Address::from_str(&addr_str)?;
@@ -89,7 +89,7 @@ pub async fn wallet_export<DB: Blockstore>(
 pub async fn wallet_has<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<bool, JsonRpcError> {
+) -> Result<bool, ServerError> {
     let (addr_str,): (String,) = params.parse()?;
 
     let addr = Address::from_str(&addr_str)?;
@@ -104,7 +104,7 @@ pub async fn wallet_has<DB: Blockstore>(
 pub async fn wallet_import<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let params: LotusJson<Vec<KeyInfo>> = params.parse()?;
 
     let key_info = params
@@ -130,7 +130,7 @@ pub async fn wallet_import<DB: Blockstore>(
 pub async fn wallet_list<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<Vec<Address>>, JsonRpcError> {
+) -> Result<LotusJson<Vec<Address>>, ServerError> {
     let keystore = data.keystore.read().await;
     Ok(crate::key_management::list_addrs(&keystore)?.into())
 }
@@ -139,7 +139,7 @@ pub async fn wallet_list<DB: Blockstore>(
 pub async fn wallet_new<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let LotusJson((sig_raw,)): LotusJson<(SignatureType,)> = params.parse()?;
 
     let mut keystore = data.keystore.write().await;
@@ -159,7 +159,7 @@ pub async fn wallet_new<DB: Blockstore>(
 pub async fn wallet_set_default<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
+) -> Result<(), ServerError> {
     let LotusJson((address,)): LotusJson<(Address,)> = params.parse()?;
 
     let mut keystore = data.keystore.write().await;
@@ -175,7 +175,7 @@ pub async fn wallet_set_default<DB: Blockstore>(
 pub async fn wallet_sign<DB>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<Signature>, JsonRpcError>
+) -> Result<LotusJson<Signature>, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -207,7 +207,7 @@ where
 /// Validates whether a given string can be decoded as a well-formed address
 pub(in crate::rpc) async fn wallet_validate_address(
     params: Params<'_>,
-) -> Result<LotusJson<Address>, JsonRpcError> {
+) -> Result<LotusJson<Address>, ServerError> {
     let (addr_str,): (String,) = params.parse()?;
 
     let addr = Address::from_str(&addr_str)?;
@@ -215,7 +215,7 @@ pub(in crate::rpc) async fn wallet_validate_address(
 }
 
 /// Verify a Signature, true if verified, false otherwise
-pub async fn wallet_verify(params: Params<'_>) -> Result<bool, JsonRpcError> {
+pub async fn wallet_verify(params: Params<'_>) -> Result<bool, ServerError> {
     let LotusJson((address, msg, sig)): LotusJson<(Address, Vec<u8>, Signature)> =
         params.parse()?;
 
@@ -226,7 +226,7 @@ pub async fn wallet_verify(params: Params<'_>) -> Result<bool, JsonRpcError> {
 pub async fn wallet_delete<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
+) -> Result<(), ServerError> {
     let (addr_str,): (String,) = params.parse()?;
 
     let mut keystore = data.keystore.write().await;

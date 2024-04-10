@@ -3,45 +3,6 @@ source: src/rpc/mod.rs
 expression: spec
 ---
 methods:
-  - name: Filecoin.ChainGetPath
-    params:
-      - name: from
-        schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
-        required: true
-      - name: to
-        schema:
-          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
-        required: true
-    paramStructure: by-position
-    result:
-      name: "Filecoin.ChainGetPath::Result"
-      schema:
-        type: array
-        items:
-          $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
-        nullable: true
-      required: true
-  - name: Filecoin.ChainGetParentMessages
-    params:
-      - name: block_cid
-        schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
-        required: true
-    paramStructure: by-position
-    result:
-      name: "Filecoin.ChainGetParentMessages::Result"
-      schema:
-        type: array
-        items:
-          $ref: "#/components/schemas/ApiMessageLotusJson"
-        nullable: true
-      required: true
   - name: Filecoin.ChainGetMessage
     params:
       - name: msg_cid
@@ -91,6 +52,26 @@ methods:
             $ref: "#/components/schemas/String"
           Version:
             $ref: "#/components/schemas/uint64"
+      required: true
+  - name: Filecoin.ChainGetParentMessages
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentMessages::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessageLotusJson"
+        nullable: true
       required: true
   - name: Filecoin.ChainGetParentReceipts
     params:
@@ -224,6 +205,25 @@ methods:
             $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
           SecpkMessages:
             $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+      required: true
+  - name: Filecoin.ChainGetPath
+    params:
+      - name: from
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+      - name: to
+        schema:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetPath::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
+        nullable: true
       required: true
   - name: Filecoin.ChainGetTipSetByHeight
     params:

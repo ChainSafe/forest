@@ -1,15 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::{ApiInfo, RpcRequest, ServerError};
 use crate::{
     rpc::{
-        gas_api::*,
+        gas::*,
         types::{ApiTipsetKey, MessageSendSpec},
     },
     shim::message::Message,
 };
-
-use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
     pub fn gas_estimate_message_gas_req(
@@ -25,7 +24,7 @@ impl ApiInfo {
         msg: Message,
         spec: Option<MessageSendSpec>,
         tsk: ApiTipsetKey,
-    ) -> Result<Message, JsonRpcError> {
+    ) -> Result<Message, ServerError> {
         self.call(Self::gas_estimate_message_gas_req(msg, spec, tsk))
             .await
     }

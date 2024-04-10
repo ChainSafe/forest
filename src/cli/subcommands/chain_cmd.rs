@@ -4,8 +4,7 @@
 use crate::blocks::{Tipset, TipsetKey};
 use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::ChainMessage;
-use crate::rpc::chain_api::*;
-use crate::rpc::{self, RpcMethodExt as _};
+use crate::rpc::{self, prelude::*};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;

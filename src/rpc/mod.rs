@@ -5,28 +5,63 @@ mod auth_layer;
 mod channel;
 mod client;
 
-// API handlers
-pub mod auth_api;
-pub mod beacon_api;
-pub mod chain_api;
-pub mod common_api;
-pub mod eth_api;
-pub mod gas_api;
-pub mod mpool_api;
-pub mod net_api;
-pub mod node_api;
-pub mod state_api;
-pub mod sync_api;
-pub mod wallet_api;
-
 // Other RPC-specific modules
 pub use client::Client;
-pub use error::JsonRpcError;
+pub use error::ServerError;
 use reflect::Ctx;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 mod error;
 mod reflect;
 pub mod types;
+pub use methods::*;
+
+/// Protocol or transport-specific error
+#[allow(unused)]
+pub use jsonrpsee::core::ClientError;
+
+#[allow(unused)]
+/// All handler definitions.
+///
+/// Usage guide:
+/// ```ignore
+/// use crate::rpc::{self, prelude::*};
+///
+/// let client = rpc::Client::from(..);
+/// ChainHead::call(&client, ()).await?;
+/// fn foo() -> rpc::ClientError {..}
+/// fn bar() -> rpc::ServerError {..}
+/// ```
+pub mod prelude {
+    use super::*;
+
+    pub use reflect::RpcMethodExt as _;
+
+    macro_rules! export {
+        ($ty:ty) => {
+            pub use $ty;
+        };
+    }
+    auth::for_each_method!(export);
+    beacon::for_each_method!(export);
+    chain::for_each_method!(export);
+    mpool::for_each_method!(export);
+}
+
+/// All the methods live in their own folder
+mod methods {
+    pub mod auth;
+    pub mod beacon;
+    pub mod chain;
+    pub mod common;
+    pub mod eth;
+    pub mod gas;
+    pub mod mpool;
+    pub mod net;
+    pub mod node;
+    pub mod state;
+    pub mod sync;
+    pub mod wallet;
+}
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -35,7 +70,7 @@ use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
-use crate::rpc::state_api::*;
+use crate::rpc::state::*;
 
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
@@ -104,7 +139,7 @@ where
 
     pubsub_module.register_channel("Filecoin.ChainNotify", {
         let state_clone = state.clone();
-        move |params| chain_api::chain_notify(params, &state_clone)
+        move |params| chain::chain_notify(params, &state_clone)
     })?;
     module.merge(pubsub_module)?;
 
@@ -164,10 +199,15 @@ where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
-    chain_api::register_all(&mut module);
-    mpool_api::register_all(&mut module);
-    auth_api::register_all(&mut module);
-    beacon_api::register_all(&mut module);
+    macro_rules! register {
+        ($ty:ty) => {
+            <$ty>::register(&mut module);
+        };
+    }
+    chain::for_each_method!(register);
+    mpool::for_each_method!(register);
+    auth::for_each_method!(register);
+    beacon::for_each_method!(register);
     module.finish()
 }
 
@@ -181,13 +221,13 @@ fn register_methods<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use common_api::*;
-    use eth_api::*;
-    use gas_api::*;
-    use net_api::*;
-    use node_api::*;
-    use sync_api::*;
-    use wallet_api::*;
+    use common::*;
+    use eth::*;
+    use gas::*;
+    use net::*;
+    use node::*;
+    use sync::*;
+    use wallet::*;
 
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
