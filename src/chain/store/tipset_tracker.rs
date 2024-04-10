@@ -57,11 +57,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
             if let Ok(Some(block)) = CachingBlockHeader::load(&self.db, *cid) {
                 if header.miner_address == block.miner_address {
                     warn!(
-                        "Have multiple blocks from miner {} at height {} in our tipset cache {}-{}",
-                        header.miner_address,
-                        header.epoch,
-                        header.cid(),
-                        cid
+                        %header.miner_address, %header.epoch, header.cid = %header.cid(), %cid, "multiple blocks from miner in our tipset cache"
                     );
                 }
             }
@@ -75,9 +71,7 @@ impl<DB: Blockstore> TipsetTracker<DB> {
         let mut entries = self.entries.lock();
         let mut finality_entries = entries.split_off(&cut_off_epoch);
         debug!(
-            "Cleared {} entries, cut off at {}",
-            entries.len(),
-            cut_off_epoch,
+            n = %entries.len(), %cut_off_epoch, "cleared entries"
         );
         std::mem::swap(&mut finality_entries, &mut entries);
     }

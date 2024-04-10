@@ -218,7 +218,7 @@ where
         let curr_weight = heaviest_weight;
 
         if new_weight > curr_weight {
-            info!("New heaviest tipset! {} (EPOCH = {})", ts.key(), ts.epoch());
+            info!(key = %ts.key(), epoch = %ts.epoch(), "new heaviest tipset");
             self.set_heaviest_tipset(ts)?;
         }
         Ok(())
@@ -228,7 +228,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            debug!("Block {cid} was previously validated");
+            debug!(%cid, "block was previously validated");
         }
         validated
     }

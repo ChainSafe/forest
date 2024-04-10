@@ -157,9 +157,7 @@ where
             .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
         let tsk = head.key();
         tracing::debug!(
-            "ChainExchange message sync tipsets: epoch: {}, len: {}",
-            head.epoch(),
-            tipsets.len()
+            epoch = %head.epoch(), len = %tipsets.len(), "ChainExchange message sync tipsets"
         );
         self.handle_chain_exchange_request(
             peer_id,
@@ -173,9 +171,7 @@ where
                         || header_len != msg.secp_msg_includes.len()
                     {
                         tracing::warn!(
-                            "header_len: {header_len}, msg.bls_msg_includes.len(): {}, msg.secp_msg_includes.len(): {}",
-                            msg.bls_msg_includes.len(),
-                            msg.secp_msg_includes.len()
+                            %header_len, msg.bls_msg_includes.len = %msg.bls_msg_includes.len(), msg.secp_msg_includes.len = %msg.secp_msg_includes.len()
                         );
                         return false;
                     }
@@ -307,14 +303,14 @@ where
                                     Ok(r) => Ok(r),
                                     Err(e) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
-                                        debug!("Failed chain_exchange response: {e}");
+                                        debug!(error = %e, "failed chain_exchange response");
                                         Err(e)
                                     }
                                 }
                             }
                             Err(e) => {
                                 network_failures.fetch_add(1, Ordering::Relaxed);
-                                debug!("Failed chain_exchange request to peer {peer_id:?}: {e}");
+                                debug!(?peer_id, error = %e, "failed chain_exchange request to peer");
                                 Err(e)
                             }
                         }
@@ -349,7 +345,7 @@ where
         match SystemTime::now().duration_since(global_pre_time) {
             Ok(t) => self.peer_manager.log_global_success(t),
             Err(e) => {
-                warn!("logged time less than before request: {}", e);
+                warn!(error = %e, "logged time less than before request");
             }
         }
 
@@ -363,7 +359,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        debug!("Sending ChainExchange Request to {peer_id}");
+        debug!(%peer_id, "sending ChainExchange request");
 
         let req_pre_time = SystemTime::now();
 
@@ -392,7 +388,7 @@ where
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
                 peer_manager.log_success(peer_id, res_duration);
-                debug!("Succeeded: ChainExchange Request to {peer_id}");
+                debug!(%peer_id, "succeeded ChainExchange request");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
@@ -409,14 +405,14 @@ where
                         peer_manager.log_failure(peer_id, res_duration);
                     }
                 }
-                debug!("Failed: ChainExchange Request to {peer_id}");
+                debug!(%peer_id, "failed ChainExchange request");
                 Err(format!("Internal libp2p error: {e:?}"))
             }
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
                 peer_manager.log_failure(peer_id, res_duration);
-                debug!("Timeout: ChainExchange Request to {peer_id}");
+                debug!(%peer_id, "timeout: ChainExchange request");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }
         }
@@ -429,7 +425,7 @@ where
         peer_id: PeerId,
         request: HelloRequest,
     ) -> anyhow::Result<(PeerId, SystemTime, Option<HelloResponse>)> {
-        trace!("Sending Hello Message to {}", peer_id);
+        trace!(%peer_id, "sending Hello message");
 
         // Create oneshot channel for receiving response from sent hello.
         let (tx, rx) = flume::bounded(1);

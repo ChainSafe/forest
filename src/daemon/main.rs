@@ -58,7 +58,7 @@ fn build_daemon<'a>(config: &DaemonConfig) -> anyhow::Result<Daemon<'a>> {
                 1,
             );
         }
-        info!("Forest has been detached and runs in the background (PID: {child_pid}).");
+        info!(%child_pid, "Forest has been detached and runs in the background");
         process::exit(0);
     });
 
@@ -92,16 +92,16 @@ where
     if let Some(path) = &path {
         match path {
             ConfigPath::Env(path) => {
-                info!("FOREST_CONFIG_PATH loaded: {}", path.display())
+                info!(path = %path.display(), "FOREST_CONFIG_PATH loaded")
             }
             ConfigPath::Project(path) => {
-                info!("Project config loaded: {}", path.display())
+                info!(path = %path.display(), "project config loaded")
             }
             _ => (),
         }
         check_for_unknown_keys(path.to_path_buf(), &cfg);
     } else {
-        info!("Using default {} config", cfg.chain);
+        info!(%cfg.chain, "using default config");
     }
     if opts.dry_run {
         return Ok(());
@@ -116,9 +116,7 @@ where
             if opts.detach {
                 create_ipc_lock()?;
                 info!(
-                    "Redirecting stdout and stderr to files {} and {}.",
-                    cfg.daemon.stdout.display(),
-                    cfg.daemon.stderr.display()
+                    stdout = %cfg.daemon.stdout.display(), stderr = %cfg.daemon.stderr.display(), "redirecting stdout and stderr to files"
                 );
                 build_daemon(&cfg.daemon)?.start()?;
             }

@@ -271,7 +271,7 @@ where
                 match network.hello_request(peer_id, request).await {
                     Ok(response) => response,
                     Err(e) => {
-                        debug!("Hello request failed: {}", e);
+                        debug!(error = %e, "hello request failed");
                         return;
                     }
                 };
@@ -301,17 +301,13 @@ where
         network: SyncNetworkContext<DB>,
     ) -> Result<FullTipset, ChainMuxerError> {
         debug!(
-            "Received block over GossipSub: {} height {} from {}",
-            block.header.cid(),
-            block.header.epoch,
-            source,
+            block.header.cid = %block.header.cid(), %block.header.epoch, %source, "received block over GossipSub"
         );
 
         let epoch = block.header.epoch;
 
         debug!(
-            "Getting messages of gossipblock, epoch: {epoch}, block: {}",
-            block.header.cid()
+            % epoch, block.header.cid = %block.header.cid(), "getting messages of gossipblock"
         );
         // Get bls_message in the store or over Bitswap
         let bls_messages: Vec<_> = block
@@ -344,8 +340,7 @@ where
     fn handle_pubsub_message(mem_pool: Arc<MessagePool<M>>, message: SignedMessage) {
         if let Err(why) = mem_pool.add(message) {
             debug!(
-                "GossipSub message could not be added to the mem pool: {}",
-                why
+                reason = %why, "GossipSub message could not be added to the mem pool"
             );
         }
     }
@@ -386,7 +381,7 @@ where
                 {
                     Ok(tipset) => tipset,
                     Err(why) => {
-                        debug!("Querying full tipset failed: {}", why);
+                        debug!(reason = %why, "querying full tipset failed");
                         return Err(why);
                     }
                 };
@@ -480,8 +475,7 @@ where
             < chain_store.heaviest_tipset().epoch()
         {
             debug!(
-                "Skip processing tipset at epoch {} from {source} that is too old",
-                tipset.epoch()
+                tipset.epoch = %tipset.epoch(), %source, "skip processing old tipset"
             );
             return Ok(None);
         }
@@ -495,8 +489,7 @@ where
         ) {
             metrics::INVALID_TIPSET_TOTAL.inc();
             warn!(
-                "Validating tipset received through GossipSub failed: {}",
-                why
+                reason = %why, "failed to validate tipset received through GossipSub"
             );
             return Err(why.into());
         }
@@ -531,7 +524,7 @@ where
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {why}");
+                        debug!(reason = %why, "receiving event from p2p event stream failed");
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -550,7 +543,7 @@ where
                 {
                     Ok(_) => {}
                     Err(why) => {
-                        debug!("Processing GossipSub event failed: {why:?}");
+                        debug!(reason = ?why, "processing GossipSub event failed");
                     }
                 };
             }
@@ -586,7 +579,7 @@ where
                     return Ok(NetworkHeadEvaluation::InSync)
                 }
                 (local_epoch, now_epoch) => {
-                    info!("local head is behind the network, local_epoch: {local_epoch}, now_epoch: {now_epoch}");
+                    info!(%local_epoch, %now_epoch, "local head is behind the network");
                 }
             };
 
@@ -595,7 +588,7 @@ where
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
+                        debug!(reason = %why, "receiving event from p2p event stream failed");
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -615,7 +608,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        debug!("Processing GossipSub event failed: {:?}", why);
+                        debug!(reason = ?why , "processing GossipSub event failed");
                         continue;
                     }
                 };
@@ -629,15 +622,13 @@ where
                     let header = &block.header;
                     if !header.is_within_clock_drift() {
                         warn!(
-                            "Skipping tipset with invalid block timestamp from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
-                            header.epoch, header.timestamp
+                            %now_epoch, %header.epoch, %header.timestamp, "skipping tipset with invalid block timestamp from the future"
                         );
                         false
                     } else if tipset.epoch() > now_epoch {
                         warn!(
-                                "Skipping tipset with invalid epoch from the future, now_epoch: {now_epoch}, epoch: {}, timestamp: {}",
-                                header.epoch, header.timestamp
-                            );
+                            %now_epoch, %header.epoch, %header.timestamp, "skipping tipset with invalid epoch from the future"
+                        );
                         false
                     } else {
                         true
@@ -732,7 +723,7 @@ where
                 let event = match p2p_messages.recv_async().await {
                     Ok(event) => event,
                     Err(why) => {
-                        debug!("Receiving event from p2p event stream failed: {}", why);
+                        debug!(reason = %why , "receiving event from p2p event stream failed");
                         return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                     }
                 };
@@ -752,7 +743,7 @@ where
                     Ok(Some((tipset, source))) => (tipset, source),
                     Ok(None) => continue,
                     Err(why) => {
-                        debug!("Processing GossipSub event failed: {:?}", why);
+                        debug!(reason = ?why, "processing GossipSub event failed");
                         continue;
                     }
                 };
@@ -826,7 +817,7 @@ where
                         .send_async(Arc::new(tipset.into_tipset()))
                         .await
                     {
-                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
+                        debug!(reason = %why, "sending tipset to TipsetProcessor failed");
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }
@@ -834,7 +825,7 @@ where
                     let event = match p2p_messages.recv_async().await {
                         Ok(event) => event,
                         Err(why) => {
-                            debug!("Receiving event from p2p event stream failed: {}", why);
+                            debug!(reason = %why, "receiving event from p2p event stream failed");
                             return Err(ChainMuxerError::P2PEventStreamReceive(why.to_string()));
                         }
                     };
@@ -854,7 +845,7 @@ where
                         Ok(Some((tipset, source))) => (tipset, source),
                         Ok(None) => continue,
                         Err(why) => {
-                            debug!("Processing GossipSub event failed: {:?}", why);
+                            debug!(reason = ?why, "processing GossipSub event failed");
                             continue;
                         }
                     };
@@ -899,7 +890,7 @@ where
                     }
                 }
                 Some(Err(e)) => {
-                    error!("Following the network failed unexpectedly: {}", e);
+                    error!(error = %e, "following the network failed unexpectedly");
                     Err(e)
                 }
                 // This arm is reliably unreachable because the FuturesUnordered
@@ -955,13 +946,13 @@ where
                             network_head,
                             local_head,
                         } => {
-                            info!("Local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD = {} -> NETWORK_HEAD = {}", local_head.epoch(), network_head.epoch());
+                            info!(local_head.epoch = %local_head.epoch(), network_head.epoch = %network_head.epoch(), "local node is behind the network, starting BOOTSTRAP from LOCAL_HEAD");
                             self.state = ChainMuxerState::Bootstrap(
                                 self.bootstrap(network_head, local_head),
                             );
                         }
                         NetworkHeadEvaluation::InRange { network_head } => {
-                            info!("Local node is within range of the NETWORK_HEAD = {}, starting FOLLOW", network_head.epoch());
+                            info!(network_head.epoch = %network_head.epoch(), "local node is within range of the NETWORK_HEAD, starting FOLLOW");
                             self.state = ChainMuxerState::Follow(self.follow(Some(network_head)));
                         }
                         NetworkHeadEvaluation::InSync => {
@@ -971,8 +962,7 @@ where
                     },
                     Poll::Ready(Err(why)) => {
                         error!(
-                            "Evaluating the network head failed, retrying. Error = {:?}",
-                            why
+                            reason = ?why , "evaluating the network head failed, retrying"
                         );
                         metrics::NETWORK_HEAD_EVALUATION_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
@@ -989,7 +979,7 @@ where
                             self.state = ChainMuxerState::Idle;
                         }
                         Poll::Ready(Err(why)) => {
-                            error!("Bootstrapping failed, re-evaluating the network head to retry the bootstrap. Error = {:?}", why);
+                            error!(reason = ?why , "bootstrapping failed, re-evaluating the network head to retry the bootstrap");
                             metrics::BOOTSTRAP_ERRORS.inc();
                             self.state = ChainMuxerState::Idle;
                         }
@@ -1003,7 +993,7 @@ where
                         self.state = ChainMuxerState::Idle;
                     }
                     Poll::Ready(Err(why)) => {
-                        error!("Following the network failed, restarted. Error = {:?}", why);
+                        error!(reason = ?why, "following the network failed, restarted");
                         metrics::FOLLOW_NETWORK_ERRORS.inc();
                         self.state = ChainMuxerState::Idle;
                     }
