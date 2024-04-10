@@ -10,21 +10,32 @@ use std::{
     time::Duration,
 };
 
-use crate::{shim::sector::SectorSize, utils::net::download_ipfs_file_trustlessly};
+use crate::{
+    shim::sector::SectorSize,
+    utils::net::{download_ipfs_file_trustlessly, global_http_client},
+};
 use ahash::HashMap;
+use anyhow::{bail, Context};
 use backoff::{future::retry, ExponentialBackoffBuilder};
 use blake2b_simd::{Hash, State as Blake2b};
 use cid::Cid;
+use futures::{AsyncWriteExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::fs::{self};
 use tracing::{debug, error, info, warn};
 
 const GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 const PARAM_DIR: &str = "filecoin-proof-parameters";
+const DEFAULT_PARAMETERS: &str = include_str!("./parameters.json");
+
+/// Domain bound to the Cloudflare R2 bucket.
+const CLOUDFLARE_PROOF_PARAMETER_DOMAIN: &str = "filecoin-proof-parameters.chainsafe.dev";
+
+/// If set to 1, enforce using the IPFS gateway for fetching parameters.
+const PROOFS_ONLY_IPFS_GATEWAY_ENV: &str = "FOREST_PROOFS_ONLY_IPFS_GATEWAY";
 const DIR_ENV: &str = "FIL_PROOFS_PARAMETER_CACHE";
 const GATEWAY_ENV: &str = "IPFS_GATEWAY";
 const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
-const DEFAULT_PARAMETERS: &str = include_str!("./parameters.json");
 
 /// Sector size options for fetching.
 pub enum SectorSizeOpt {
@@ -152,6 +163,13 @@ pub async fn get_params_default(
     get_params(data_dir, DEFAULT_PARAMETERS, storage_size, dry_run).await
 }
 
+fn should_use_ipfs_gateway() -> bool {
+    match std::env::var(PROOFS_ONLY_IPFS_GATEWAY_ENV) {
+        Ok(var) => matches!(var.to_lowercase().as_str(), "1" | "true"),
+        _ => false,
+    }
+}
+
 async fn fetch_verify_params(
     data_dir: &Path,
     name: &str,
@@ -168,7 +186,12 @@ async fn fetch_verify_params(
         }
     }
 
-    fetch_params(&path, &info).await?;
+    if should_use_ipfs_gateway() {
+        fetch_params(&path, &info).await?;
+    } else if let Err(e) = fetch_params_cloudflare(name, &path).await {
+        warn!("Failed to fetch param file from Cloudflare R2: {e:?}. Falling back to IPFS gateway",);
+        fetch_params(&path, &info).await?;
+    }
 
     check_file(&path, &info).await?;
     Ok(())
@@ -190,6 +213,66 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
     .await;
     debug!("Done fetching param file {:?} from {}", path, gw);
     result
+}
+
+/// Downloads the parameter file from Cloudflare R2 to the given path. It wraps the [`download_from_cloudflare`] function with a retry and timeout mechanisms.
+async fn fetch_params_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
+    info!("Fetching param file {name} from Cloudflare R2 {CLOUDFLARE_PROOF_PARAMETER_DOMAIN}");
+    let backoff = ExponentialBackoffBuilder::default()
+        .with_max_elapsed_time(Some(Duration::from_secs(60 * 30)))
+        .build();
+    let result = retry(backoff, || async {
+        Ok(download_from_cloudflare(name, path).await?)
+    })
+    .await;
+    debug!(
+        "Done fetching param file {} from Cloudflare",
+        path.display()
+    );
+    result
+}
+
+/// Downloads the parameter file from Cloudflare R2 to the given path. In case of an error,
+/// the file is not written to the final path to avoid corrupted files.
+async fn download_from_cloudflare(name: &str, path: &Path) -> anyhow::Result<()> {
+    let response = global_http_client()
+        .get(format!(
+            "https://{CLOUDFLARE_PROOF_PARAMETER_DOMAIN}/{name}"
+        ))
+        .send()
+        .await
+        .context("Failed to fetch param file from Cloudflare R2")?;
+
+    if !response.status().is_success() {
+        bail!(
+            "Failed to fetch param file from Cloudflare R2: {:?}",
+            response
+        );
+    }
+    // Create a temporary file to write the response to. This is to avoid writing
+    // to the final file path in case of an error and ending up with corrupted files.
+    //
+    // Note that we're using the same directory as the final path to avoid moving the file
+    // across filesystems.
+    let tmp = tempfile::NamedTempFile::new_in(path.parent().context("No parent dir")?)
+        .context("Failed to create temp file")?
+        .into_temp_path();
+
+    let reader = response
+        .bytes_stream()
+        .map_err(std::io::Error::other)
+        .into_async_read();
+
+    let mut writer = futures::io::BufWriter::new(async_fs::File::create(&tmp).await?);
+    futures::io::copy(reader, &mut writer)
+        .await
+        .context("Failed to write to temp file")?;
+
+    writer.flush().await.context("Failed to flush temp file")?;
+    writer.close().await.context("Failed to close temp file")?;
+
+    tmp.persist(path).context("Failed to persist temp file")?;
+    Ok(())
 }
 
 async fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> {
