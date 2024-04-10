@@ -313,6 +313,9 @@ where
     module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
     module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
+    module.register_method(WEB3_CLIENT_VERSION, move |_, _| {
+        web3_client_version(forest_version)
+    })?;
 
     Ok(())
 }

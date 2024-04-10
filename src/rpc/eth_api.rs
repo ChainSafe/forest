@@ -35,6 +35,7 @@ pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
 pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
 pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
 pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
+pub const WEB3_CLIENT_VERSION: &str = "Filecoin.Web3ClientVersion";
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -343,6 +344,10 @@ pub async fn eth_syncing<DB: Blockstore>(
         },
         None => Err(JsonRpcError::internal_error("sync state not found", None)),
     }
+}
+
+pub fn web3_client_version(forest_version: &str) -> Result<String, JsonRpcError> {
+    Ok(forest_version.into())
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(

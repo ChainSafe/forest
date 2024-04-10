@@ -32,4 +32,8 @@ impl ApiInfo {
     pub fn eth_syncing_req() -> RpcRequest<EthSyncingResult> {
         RpcRequest::new_v1(ETH_SYNCING, ())
     }
+
+    pub fn web3_client_version_req() -> RpcRequest<String> {
+        RpcRequest::new_v1(WEB3_CLIENT_VERSION, ())
+    }
 }
