@@ -329,9 +329,9 @@ impl Tipset {
                 ticket.vrfproof < other_ticket.vrfproof
             });
         if broken {
-            info!("Weight tie broken in favour of {}", self.key());
+            info!(winner = %self.key(), "weight tie broken");
         } else {
-            info!("Weight tie left unbroken, default to {}", other.key());
+            info!(default = %other.key() , "weight tie defaulted");
         }
         broken
     }

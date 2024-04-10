@@ -127,10 +127,7 @@ impl RawBlockHeader {
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
         tracing::debug!(
-            "beacon network at {}: {:?}, is_chained: {}",
-            self.epoch,
-            curr_beacon.network(),
-            curr_beacon.network().is_chained()
+            epoch = %self.epoch, curr_beacon.network = ?curr_beacon.network(), curr_beacon.network.is_chained = %curr_beacon.network().is_chained(), "beacon network"
         );
         // Before quicknet upgrade, we had "chained" beacons, and so required two entries at a fork
         if curr_beacon.network().is_chained() {
