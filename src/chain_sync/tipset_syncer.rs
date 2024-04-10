@@ -368,7 +368,7 @@ where
             }
         }
 
-        trace!("Tipsets received through stream: {}", grouped_tipsets.len());
+        trace!(len = %grouped_tipsets.len(), "Tipsets received through stream");
 
         // Consume the tipsets read off of the stream and attempt to update the state
         // machine
@@ -381,7 +381,7 @@ where
                     .into_iter()
                     .max_by(|(_, a), (_, b)| a.weight_cmp(b))
                 {
-                    trace!("Finding range for tipset epoch = {}", epoch);
+                    trace!(%epoch, "finding range for tipset");
                     self.state = TipsetProcessorState::FindRange {
                         epoch,
                         parents,
@@ -449,11 +449,11 @@ where
                         match range_syncer.add_tipset(ts) {
                             Ok(added) => {
                                 if added {
-                                    trace!("Successfully added tipset [key = {:?}] to running range syncer", tipset_key);
+                                    trace!(key = ?tipset_key, "successfully added tipset to running range syncer");
                                 }
                             }
                             Err(why) => {
-                                error!("Adding tipset to range syncer failed: {}", why);
+                                error!(reason = %why, "adding tipset to range syncer failed");
                             }
                         }
                     });
@@ -504,16 +504,14 @@ where
                 } => match range_finder.take() {
                     Some(mut range_syncer) => {
                         debug!(
-                            "Determined epoch range for next sync: [{}, {}]",
-                            range_syncer.current_head.epoch(),
-                            range_syncer.proposed_head.epoch(),
+                            current_head_epoch = %range_syncer.current_head.epoch(), proposed_head_epoch = %range_syncer.proposed_head.epoch(), "determined epoch range for next sync"
                         );
                         // Add current_sync to the yielded range syncer.
                         // These tipsets match the range's [epoch, parents]
                         if let Some(tipset_group) = current_sync.take() {
                             tipset_group.tipsets().into_iter().for_each(|ts| {
                                 if let Err(why) = range_syncer.add_tipset(ts) {
-                                    error!("Adding tipset to range syncer failed: {}", why);
+                                    error!(reason = %why, "adding tipset to range syncer failed");
                                 }
                             });
                         }
@@ -537,15 +535,13 @@ where
                         Poll::Ready(Ok(_)) => {
                             metrics::HEAD_EPOCH.set(proposed_head_epoch);
                             info!(
-                                "Successfully synced tipset range: [{}, {}]",
-                                current_head_epoch, proposed_head_epoch,
+                                %current_head_epoch, %proposed_head_epoch, "successfully synced tipset range"
                             );
                         }
                         Poll::Ready(Err(why)) => {
                             metrics::TIPSET_RANGE_SYNC_FAILURE_TOTAL.inc();
                             error!(
-                                "Syncing tipset range [{}, {}] failed: {}",
-                                current_head_epoch, proposed_head_epoch, why,
+                                %current_head_epoch, %proposed_head_epoch, reason = %why, "syncing tipset range failed"
                             );
                         }
                         Poll::Pending => return Poll::Pending,
@@ -656,9 +652,7 @@ where
         // as the original proposed Tipset
         if additional_head.epoch() != self.proposed_head.epoch() {
             error!(
-                "Epoch for tipset ({}) added to TipsetSyncer does not match initialized tipset ({})",
-                additional_head.epoch(),
-                self.proposed_head.epoch(),
+                additional_head_epoch = %additional_head.epoch(), proposed_head_epoch = %self.proposed_head.epoch() , "epoch for tipset added to TipsetSyncer does not match initialized tipset"
             );
             return Err(TipsetRangeSyncerError::InvalidTipsetEpoch);
         }
@@ -784,17 +778,11 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     // At this point the head is synced and it can be set in the store as the
     // heaviest
     debug!(
-        "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {:?}",
-        proposed_head.epoch(),
-        current_head.epoch(),
-        proposed_head.key()
+        proposed_head.epoch = %proposed_head.epoch(), current_head.epoch = %current_head.epoch(), proposed_head.key = ?proposed_head.key(), "tipset range successfully verified"
     );
     if let Err(why) = chain_store.put_tipset(&proposed_head) {
         error!(
-            "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
-            proposed_head.epoch(),
-            proposed_head.key(),
-            why
+            proposed_head.epoch = %proposed_head.epoch(), proposed_head.key = ?proposed_head.key(), reason = %why, "putting tipset range head in the store failed"
         );
         return Err(why.into());
     };
@@ -1141,7 +1129,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
         "Validating tipset: EPOCH = {epoch}, N blocks = {}",
         blocks.len()
     );
-    debug!("Tipset keys: {full_tipset_key}");
+    debug!(%full_tipset_key);
 
     for b in blocks {
         let validation_fn = tokio::task::spawn(validate_block(state_manager.clone(), Arc::new(b)));
@@ -1155,10 +1143,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
             }
             Err((cid, why)) => {
                 warn!(
-                    "Validating block [CID = {}] in EPOCH = {} failed: {}",
-                    cid.clone(),
-                    epoch,
-                    why
+                    %cid, %epoch , %why, "validating block failed"
                 );
                 // Only do bad block accounting if the function was called with
                 // `is_strict` = true
@@ -1203,10 +1188,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
     let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());
     trace!(
-        "Validating block: epoch = {}, weight = {}, key = {}",
-        block.header().epoch,
-        block.header().weight,
-        block.header().cid(),
+        epoch = %block.header().epoch, weight = %block.header().weight, cid = %block.header().cid(), "validating block"
     );
     let chain_store = state_manager.chain_store().clone();
     let block_cid = block.cid();
@@ -1554,8 +1536,7 @@ fn block_timestamp_checks(header: &CachingBlockHeader) -> Result<(), TipsetRange
         ));
     } else if header.timestamp > time_now {
         warn!(
-            "Got block from the future, but within clock drift threshold, {} > {}",
-            header.timestamp, time_now
+            %header.timestamp, %time_now, "got block from the future, but within clock drift threshold"
         );
     }
     Ok(())
