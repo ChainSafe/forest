@@ -43,7 +43,7 @@ where
             for _ in 0..max_retries {
                 match make_fut().await {
                     Ok(ok) => return Ok(ok),
-                    Err(err) => error!("retrying operation after {err:?}"),
+                    Err(err) => error!(?err, "must retry operation"),
                 }
                 if let Some(delay) = args.delay {
                     sleep(delay).await;

@@ -188,7 +188,7 @@ impl BitswapRequestManager {
             .cloned()
             .collect();
 
-        debug!("Found {} valid peers for {cid}", validated_peers.len());
+        debug!(n_peers = %validated_peers.len(), %cid, "found valid peers");
         let selected_peers = if validated_peers.is_empty() {
             // Fallback to all peers
             peers
@@ -198,7 +198,7 @@ impl BitswapRequestManager {
 
         for peer in selected_peers {
             if let Err(e) = self.outbound_have_request_tx.send((peer, cid)) {
-                warn!("{e}");
+                warn!(%e,);
             }
         }
 
@@ -238,14 +238,13 @@ impl BitswapRequestManager {
                     Err(e) => {
                         metrics::message_counter_inbound_response_block_update_db_failure().inc();
                         warn!(
-                            "Failed to update db: {e}, cid: {cid}, data: {:?}",
-                            block.data()
+                            error = %e, %cid, data = ?block.data(), "failed to update db"
                         );
                         false
                     }
                 },
                 Err(e) => {
-                    warn!("Failed to construct block: {e}, cid: {cid}");
+                    warn!(%e, %cid, "failed to construct block");
                     false
                 }
             };
@@ -292,7 +291,7 @@ impl BitswapRequestManager {
                     // node no longer wants those blocks.
                     for &peer in self.peers.read().iter() {
                         if let Err(e) = self.outbound_cancel_request_tx.send((peer, cid)) {
-                            warn!("{e}");
+                            warn!(%e,);
                         }
                     }
                 } else {

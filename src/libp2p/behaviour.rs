@@ -130,7 +130,7 @@ impl ForestBehaviour {
                 .with_max_established_per_peer(Some(MAX_ESTABLISHED_PER_PEER)),
         );
 
-        info!("libp2p Forest version: {}", FOREST_VERSION_STRING.as_str());
+        info!(version = %FOREST_VERSION_STRING.as_str(), "libp2p Forest");
         Ok(ForestBehaviour {
             gossipsub,
             discovery,

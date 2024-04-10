@@ -159,7 +159,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
                     job_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let job_counter = job_counter.load(std::sync::atomic::Ordering::Relaxed);
                     if job_counter % 100_000 == 0 {
-                        tracing::info!("Processed {job_counter} actors", job_counter = job_counter);
+                        tracing::info!(count = %job_counter, "processed actors");
                     }
                 }
             }
@@ -204,7 +204,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
 
             Ok(())
         })?;
-        tracing::info!("Processed {job_counter} deferred migrations");
+        tracing::info!(count = %job_counter, "processed deferred migrations");
 
         // execute post migration actions, e.g., create new actors
         for post_migrator in self.post_migrators.iter() {

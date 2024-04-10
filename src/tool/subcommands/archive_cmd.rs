@@ -380,7 +380,7 @@ async fn do_export(
         bail!("For {}, depth has to be at least {}.", network, finality);
     }
 
-    info!("looking up a tipset by epoch: {}", epoch);
+    info!(%epoch, "looking up tipset");
 
     let index = ChainIndex::new(&store);
 
@@ -432,8 +432,7 @@ async fn do_export(
         })?;
 
     info!(
-        "exporting snapshot at location: {}",
-        output_path.to_str().unwrap_or_default()
+        location = %output_path.to_str().unwrap_or_default(), "exporting snapshot"
     );
 
     let pb = indicatif::ProgressBar::new_spinner().with_style(

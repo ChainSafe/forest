@@ -649,7 +649,7 @@ pub async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
             Ok(()) => *fetched += 1,
             Err(msg) => {
                 *failures += 1;
-                tracing::debug!("Request failed: {msg}");
+                tracing::debug!(%msg, "request failed");
             }
         }
     }
@@ -680,8 +680,7 @@ pub async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
                     if counter % 1_000 == 0 {
                         // set RUST_LOG=forest_filecoin::rpc::state_api=debug to enable these printouts.
                         tracing::debug!(
-                                "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
-                                dfs_guard.len(), task_set.len()
+                                cids = %counter, %fetched, %failures, dfs = %dfs_guard.len(), concurrent = %task_set.len(), "graph walk"
                             );
                     }
 

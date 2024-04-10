@@ -29,7 +29,7 @@ impl Collector for DBCollector {
         let db_size = match fs_extra::dir::get_size(self.db_directory.clone()) {
             Ok(db_size) => db_size,
             Err(e) => {
-                error!("Calculating DB size for metrics failed: {:?}", e);
+                error!(?e, "calculating DB size for metrics failed");
                 0
             }
         };

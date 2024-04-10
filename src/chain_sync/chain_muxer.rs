@@ -854,7 +854,7 @@ where
                     // tipset in the store
                     if tipset.weight() < chain_store.heaviest_tipset().weight() {
                         // Only send heavier Tipsets to the TipsetProcessor
-                        trace!("Dropping tipset [Key = {:?}] that is not heavier than the heaviest tipset in the store", tipset.key());
+                        trace!(key = ?tipset.key(), "dropping tipset that is not heavier than the heaviest tipset in the store");
                         continue;
                     }
 
@@ -862,7 +862,7 @@ where
                         .send_async(Arc::new(tipset.into_tipset()))
                         .await
                     {
-                        debug!("Sending tipset to TipsetProcessor failed: {}", why);
+                        debug!(%why, "sending tipset to TipsetProcessor failed");
                         return Err(ChainMuxerError::TipsetChannelSend(why.to_string()));
                     };
                 }

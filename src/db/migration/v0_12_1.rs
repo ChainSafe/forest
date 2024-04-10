@@ -35,17 +35,14 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
         let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
         if temp_db_path.exists() {
             info!(
-                "removing old temporary database {temp_db_path}",
-                temp_db_path = temp_db_path.display()
+                temp_db_path = %temp_db_path.display(), "removing old temporary database"
             );
             std::fs::remove_dir_all(&temp_db_path)?;
         }
 
         // copy the old database to a new directory
         info!(
-            "copying old database from {source_db} to {temp_db_path}",
-            source_db = source_db.display(),
-            temp_db_path = temp_db_path.display()
+            src = %source_db.display(), dst = %temp_db_path.display(), "copying old database"
         );
         fs_extra::copy_items(
             &[source_db.as_path()],

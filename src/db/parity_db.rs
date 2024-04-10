@@ -251,14 +251,14 @@ impl DBStatistics for ParityDb {
 
         let mut buf = Vec::new();
         if let Err(err) = self.db.write_stats_text(&mut buf, None) {
-            warn!("Unable to write database statistics: {err}");
+            warn!(%err, "unable to write database statistics");
             return None;
         }
 
         match String::from_utf8(buf) {
             Ok(stats) => Some(stats),
             Err(e) => {
-                warn!("Malformed statistics: {e}");
+                warn!(%e, "malformed statistics");
                 None
             }
         }

@@ -75,7 +75,7 @@ impl DBCommands {
                         Ok(())
                     }
                     Err(err) => {
-                        error!("{err}");
+                        error!(%err,);
                         Ok(())
                     }
                 }

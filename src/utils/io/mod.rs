@@ -28,7 +28,7 @@ pub fn set_user_perm(file: &File) -> Result<()> {
     perm.set_mode((libc::S_IWUSR | libc::S_IRUSR).into());
     file.set_permissions(perm)?;
 
-    info!("Permissions set to 0600 on {:?}", file);
+    info!(?file, "Permissions set to 0600");
 
     Ok(())
 }

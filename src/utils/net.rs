@@ -69,7 +69,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
     // is thrown.
     let (stream, content_length) = match Url::parse(location) {
         Ok(url) => {
-            info!("Downloading file: {}", url);
+            info!(%url, "downloading file");
             let resume_resp = reqwest_resume::get(url).await?;
             let resp = resume_resp.response().error_for_status_ref()?;
             let content_length = resp.content_length().unwrap_or_default();
@@ -81,7 +81,7 @@ pub async fn reader(location: &str) -> anyhow::Result<impl AsyncBufRead> {
             (Left(stream), content_length)
         }
         Err(_) => {
-            info!("Reading file: {}", location);
+            info!(%location, "reading file");
             let stream = tokio::fs::File::open(location).await?;
             let content_length = stream.metadata().await?.len();
             (Right(stream), content_length)

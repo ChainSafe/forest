@@ -49,10 +49,7 @@ impl Drop for MemStatsTracker {
     fn drop(&mut self) {
         self.cancelled.store(true, atomic::Ordering::Relaxed);
         info!(
-            "Peak physical memory usage: {}",
-            self.peak_physical_mem
-                .load(atomic::Ordering::Relaxed)
-                .human_count_bytes()
+            peak_physical_memory_usage = %self.peak_physical_mem.load(atomic::Ordering::Acquire).human_count_bytes()
         );
     }
 }

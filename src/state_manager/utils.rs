@@ -337,8 +337,7 @@ pub mod structured {
 
         if !front_load_me.is_empty() {
             tracing::warn!(
-                "vm tracing: ignoring {} trailing gas charges",
-                front_load_me.len()
+                n = %front_load_me.len(), "vm tracing: ignoring trailing gas charges"
             );
         }
 
@@ -347,8 +346,7 @@ pub mod structured {
             1 => Ok(Some(call_trees.remove(0))),
             many => {
                 tracing::warn!(
-                    "vm tracing: ignoring {} call trees at the root level",
-                    many - 1
+                    n = %many - 1, "vm tracing: ignoring call trees at the root level"
                 );
                 Ok(Some(call_trees.remove(0)))
             }

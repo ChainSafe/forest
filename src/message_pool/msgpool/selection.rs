@@ -143,8 +143,7 @@ where
 
         if chains.get_at(0).is_some_and(|it| it.gas_perf < 0.0) {
             tracing::warn!(
-                "all messages in mpool have non-positive gas performance {}",
-                chains[0].gas_perf
+                perf = %chains[0].gas_perf, "all messages in mpool have non-positive gas performance"
             );
             return Ok(result);
         }
@@ -445,8 +444,7 @@ where
             }
 
             if random_count > 0 {
-                tracing::warn!("optimal selection failed to pack a block; picked {} messages with random selection",
-                    random_count);
+                tracing::warn!(count = %random_count, "optimal selection failed to pack a block; picked messages with random selection");
             }
         }
 
@@ -548,8 +546,7 @@ fn merge_and_trim(
 
     if !chains.is_empty() && first_chain_gas_perf < 0.0 {
         tracing::warn!(
-            "all priority messages in mpool have negative gas performance bestGasPerf: {}",
-            first_chain_gas_perf
+            best_gas_perf = %first_chain_gas_perf, "all priority messages in mpool have negative gas performance"
         );
         return (Vec::new(), gas_limit);
     }

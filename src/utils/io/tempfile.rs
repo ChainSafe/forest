@@ -15,7 +15,7 @@ impl Drop for TempFile {
     fn drop(&mut self) {
         if self.path.exists() {
             if let Err(err) = fs::remove_file(&self.path) {
-                warn!("Failed to delete {}: {err}", self.path.display());
+                warn!(path = %self.path.display(), %err, "failed to delete");
             }
         }
     }

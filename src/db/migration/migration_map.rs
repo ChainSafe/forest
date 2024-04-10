@@ -88,8 +88,7 @@ pub struct Migration {
 impl Migration {
     pub fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<()> {
         info!(
-            "Migrating database from version {} to {}",
-            self.from, self.to
+            from = %self.from, to = %self.to, "migrating database"
         );
 
         self.pre_checks(chain_data_path)?;

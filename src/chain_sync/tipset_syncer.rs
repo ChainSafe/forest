@@ -951,10 +951,7 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     // the store.
     if let Err(why) = chain_store.put_tipset(&proposed_head) {
         error!(
-            "Putting tipset [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
-            proposed_head.epoch(),
-            proposed_head.key(),
-            why
+            epoch = %proposed_head.epoch(), key = ?proposed_head.key(), %why, "putting tipset in the store failed"
         );
         return Err(why.into());
     };
@@ -1126,8 +1123,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
     let blocks = full_tipset.into_blocks();
 
     info!(
-        "Validating tipset: EPOCH = {epoch}, N blocks = {}",
-        blocks.len()
+        %epoch, n_blocks = %blocks.len(), "validating tipset"
     );
     debug!(%full_tipset_key);
 

@@ -412,7 +412,7 @@ fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
         if let Ok(epoch) = value.parse() {
             return Some(epoch);
         } else {
-            warn!("Failed to parse {env_var_key}={value}, value should be an integer");
+            warn!(key = %env_var_key, %value, "failed to parse environment variable - value should be an integer");
         }
     }
     None

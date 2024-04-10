@@ -241,7 +241,7 @@ fn create_notif_message(
     let msg =
         format!(r#"{{"jsonrpc":"2.0","method":"{method}","params":[{channel_id},{result}]}}"#,);
 
-    tracing::debug!("Sending notification: {}", msg);
+    tracing::debug!(%msg, "sending notification");
 
     Ok(msg)
 }
@@ -290,7 +290,7 @@ impl Default for RpcModule {
                             let arr: [Id<'_>; 1] = params.parse()?;
                             let sub_id = arr[0].clone().into_owned();
 
-                            tracing::debug!("Got cancel request: id={sub_id}");
+                            tracing::debug!(%sub_id, "got cancel request");
 
                             let opt = channels.lock().remove(&sub_id);
                             match opt {
@@ -306,7 +306,7 @@ impl Default for RpcModule {
                         match result {
                             Ok(channel_id) => {
                                 let resp = close_channel_response(channel_id);
-                                tracing::debug!("Sending close message: {}", resp.as_result());
+                                tracing::debug!(result = %resp.as_result(), "sending close message");
                                 resp
                             }
                             Err(e) => {
@@ -342,7 +342,7 @@ impl RpcModule {
                 let mut receiver = callback(params);
                 tokio::spawn(async move {
                     let sink = pending.accept().await.unwrap();
-                    tracing::debug!("Channel created: chann_id={}", sink.channel_id);
+                    tracing::debug!(id = %sink.channel_id, "channel created");
 
                     loop {
                         tokio::select! {

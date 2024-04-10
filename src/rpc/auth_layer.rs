@@ -251,7 +251,7 @@ async fn check_permissions(
         Some(token) => {
             let token = token.to_str().map_err(|_| ErrorCode::ParseError)?;
 
-            debug!("JWT from HTTP Header: {}", token);
+            debug!(%token, "JWT from HTTP header");
 
             auth_verify(token, keystore)
                 .await
@@ -260,7 +260,7 @@ async fn check_permissions(
         // If no token is passed, assume read behavior
         None => vec!["read".to_owned()],
     };
-    debug!("Decoded JWT Claims: {}", claims.join(","));
+    debug!(claims = %claims.join(","), "decoded JWT claims");
 
     match ACCESS_MAP.get(&method) {
         Some(access) => {

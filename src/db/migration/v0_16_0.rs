@@ -54,8 +54,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
         let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
         if temp_db_path.exists() {
             info!(
-                "removing old temporary database {temp_db_path}",
-                temp_db_path = temp_db_path.display()
+                temp_db_path = %temp_db_path.display(), "removing old temporary database"
             );
             std::fs::remove_dir_all(&temp_db_path)?;
         }
@@ -67,9 +66,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
         // from older versions.
         if old_car_db_path.is_dir() {
             info!(
-                "copying snapshot from {source_db} to {temp_db_path}",
-                source_db = old_car_db_path.display(),
-                temp_db_path = new_car_db_path.display()
+                src = %old_car_db_path.display(), dst = %new_car_db_path.display(), "copying snapshot"
             );
 
             fs_extra::copy_items(
@@ -84,11 +81,11 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
 
         // because of the rolling db, we have to do the migration for each sub-database...
         for sub_db in &db_paths {
-            info!("migrating RollingDB partition {:?}", sub_db);
+            info!(partition = ?sub_db, "migrating RollingDB partition");
             let db = ParityDb::open(sub_db)?;
 
             for col in DbColumn::iter() {
-                info!("migrating column {}", col);
+                info!(%col, "migrating column");
                 let mut res = anyhow::Ok(());
                 if col == DbColumn::GraphDagCborBlake2b256 {
                     db.db.iter_column_while(col as u8, |val| {

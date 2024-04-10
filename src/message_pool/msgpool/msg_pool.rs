@@ -414,7 +414,7 @@ where
         for k in local_msgs.iter().cloned().collect::<Vec<SignedMessage>>() {
             self.add(k.clone()).unwrap_or_else(|err| {
                 if err == Error::SequenceTooLow {
-                    warn!("error adding message: {:?}", err);
+                    warn!(?err, "failed to add message");
                     local_msgs.remove(&k);
                 }
             })
@@ -543,7 +543,7 @@ where
                         .context("Error changing head")?;
                     }
                     Err(RecvError::Lagged(e)) => {
-                        warn!("Head change subscriber lagged: skipping {} events", e);
+                        warn!(%e, "head change subscriber lagged, skipping events");
                     }
                     Err(RecvError::Closed) => {
                         break Ok(());
@@ -581,7 +581,7 @@ where
                 )
                 .await
                 {
-                    warn!("Failed to republish pending messages: {}", e.to_string());
+                    warn!(e = %e.to_string(), "failed to republish pending messages");
                 }
             }
         });
@@ -651,7 +651,7 @@ fn verify_msg_before_add(
             get_base_fee_lower_bound(base_fee, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE);
         if m.gas_fee_cap() < base_fee_lower_bound {
             if local {
-                warn!("local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound: {})",m.gas_fee_cap(), base_fee_lower_bound);
+                warn!(gas_fee_cap = %m.gas_fee_cap(), %base_fee_lower_bound, "local message will not be immediately published because GasFeeCap doesn't meet the lower bound for inclusion in the next 20 blocks");
                 return Ok(false);
             }
             return Err(Error::SoftValidationFailure(format!("GasFeeCap doesn't meet base fee lower bound for inclusion in the next 20 blocks (GasFeeCap: {}, baseFeeLowerBound:{})",

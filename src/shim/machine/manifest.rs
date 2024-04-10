@@ -63,7 +63,7 @@ impl BuiltinActorManifest {
             )
         }
         if !name2cid.is_empty() {
-            tracing::warn!("unknown actors in list: [{}]", name2cid.keys().join(", "))
+            tracing::warn!(keys = %name2cid.keys().join(", "), "unknown actors in list")
         }
         Ok(Self {
             builtin2cid,

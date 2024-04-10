@@ -50,7 +50,7 @@ where
     if let Err(err) =
         kubert_prometheus_process::register(default_registry().sub_registry_with_prefix("process"))
     {
-        warn!("Failed to register process metrics: {err}");
+        warn!(%err, "failed to register process metrics");
     }
 
     // Add the DBCollector to the registry
@@ -72,7 +72,7 @@ async fn collect_prometheus_metrics() -> impl IntoResponse {
     let mut metrics = String::new();
     match prometheus_client::encoding::text::encode(&mut metrics, &DEFAULT_REGISTRY.read()) {
         Ok(()) => {}
-        Err(e) => warn!("{e}"),
+        Err(e) => warn!(%e,),
     };
 
     (

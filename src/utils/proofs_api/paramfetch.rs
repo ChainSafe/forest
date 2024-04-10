@@ -114,7 +114,7 @@ pub async fn get_params(
                 fetch_verify_params(&data_dir_clone, &name, Arc::new(info))
                     .await
                     .map_err(|err| {
-                        error!("Error fetching param file {name}: {err}");
+                        error!(file_name = %name, %err, "error fetching param file");
                         err
                     })
             }))
@@ -163,7 +163,7 @@ async fn fetch_verify_params(
         Ok(()) => return Ok(()),
         Err(e) => {
             if e.kind() != ErrorKind::NotFound {
-                warn!("Error checking file: {}", e);
+                warn!(%e, "error checking file");
             }
         }
     }
@@ -177,7 +177,7 @@ async fn fetch_verify_params(
 async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
     let cid = Cid::from_str(&info.cid)?;
     let gw = std::env::var(GATEWAY_ENV).unwrap_or_else(|_| GATEWAY.to_owned());
-    info!("Fetching param file {} from {gw}", path.display());
+    info!(file = %path.display(), source = %gw, "fetching param file");
     let backoff = ExponentialBackoffBuilder::default()
         // Up to 30 minutes for downloading the file. This may be drastic,
         // but the gateway proved to be unreliable at times and we
@@ -188,7 +188,7 @@ async fn fetch_params(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
         Ok(download_ipfs_file_trustlessly(&cid, Some(GATEWAY), path).await?)
     })
     .await;
-    debug!("Done fetching param file {:?} from {}", path, gw);
+    debug!(?path, source = %gw, "done fetching param file");
     result
 }
 
@@ -213,7 +213,7 @@ async fn check_file(path: &Path, info: &ParameterData) -> Result<(), io::Error> 
     #[allow(clippy::indexing_slicing)]
     let str_sum = &str_sum[..32];
     if str_sum == info.digest {
-        debug!("Parameter file {:?} is ok", path);
+        debug!(?path, "parameter file is ok");
         Ok(())
     } else {
         Err(io::Error::other(format!(

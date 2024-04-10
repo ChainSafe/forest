@@ -264,7 +264,7 @@ impl RpcTest {
             check_syntax: Arc::new(|value| match serde_json::from_value::<T>(value) {
                 Ok(_) => true,
                 Err(e) => {
-                    debug!("{e}");
+                    debug!(%e,);
                     false
                 }
             }),
@@ -898,9 +898,7 @@ async fn start_offline_server(
             }
         }
         info!(
-            "Downloading latest snapshot for {} size {}",
-            chain,
-            indicatif::HumanBytes(num_bytes)
+            %chain, size = %indicatif::HumanBytes(num_bytes), "downloading latest snapshot"
         );
         let downloaded_snapshot_path = std::env::current_dir()?.join(path);
         download_to(&snapshot_url, &downloaded_snapshot_path).await?;
@@ -910,7 +908,7 @@ async fn start_offline_server(
         snapshot_files
     };
     db.read_only_files(snapshot_files.iter().cloned())?;
-    info!("Using chain config for {chain}");
+    info!(%chain, "using chain config");
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);

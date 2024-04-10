@@ -229,7 +229,7 @@ impl HasLotusJson for EthSyncingResult {
             EthSyncingResultLotusJson::DoneSync(syncing) => {
                 if syncing {
                     // Dangerous to panic here, log error instead.
-                    tracing::error!("Invalid EthSyncingResultLotusJson: {syncing}");
+                    tracing::error!(%syncing, "invalid EthSyncingResultLotusJson");
                 }
                 Self {
                     done_sync: true,

@@ -392,7 +392,7 @@ where
                 let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                debug!("Completed tipset state calculation {:?}", tipset.cids());
+                debug!(cids = ?tipset.cids(), "completed tipset state calculation");
                 Ok(ts_state)
             })
             .await
@@ -921,8 +921,7 @@ where
                     },
                     Err(RecvError::Lagged(i)) => {
                         warn!(
-                            "wait for message head change subscriber lagged, skipped {} events",
-                            i
+                            n = %i, "wait for message head change subscriber lagged, skipped events"
                         );
                     }
                     Err(RecvError::Closed) => break,
@@ -1596,7 +1595,7 @@ where
                 let mut vm = create_vm(parent_state, epoch_i, timestamp)?;
                 // run cron for null rounds if any
                 if let Err(e) = vm.run_cron(epoch_i, callback.as_mut()) {
-                    error!("Beginning of epoch cron failed to run: {}", e);
+                    error!(%e, "beginning of epoch cron failed to run");
                 }
                 vm.flush()
             })?;

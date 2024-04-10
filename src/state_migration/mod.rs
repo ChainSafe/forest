@@ -92,7 +92,7 @@ where
 
     for (height, migrate) in mappings {
         if epoch == chain_config.epoch(height) {
-            tracing::info!("Running {height} migration at epoch {epoch}");
+            tracing::info!(%height, %epoch, "running migration");
             let start_time = std::time::Instant::now();
             let new_state = migrate(chain_config, db, parent_state, epoch)?;
             let elapsed = start_time.elapsed().as_secs_f32();
@@ -105,7 +105,7 @@ where
                 .unwrap_or_default();
             if new_state != *parent_state {
                 reveal_three_trees();
-                tracing::info!("State migration at height {height}(epoch {epoch}) was successful, Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took: {elapsed}s.");
+                tracing::info!(%height, %epoch, previous_state = %parent_state, %new_state, actors = %new_state_actors, %elapsed, "state migration at was successful");
             } else {
                 anyhow:: bail!("State post migration at height {height} must not match. Previous state: {parent_state}, new state: {new_state}, new state actors: {new_state_actors}. Took {elapsed}s.");
             }
