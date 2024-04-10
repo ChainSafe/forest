@@ -33,6 +33,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
 use jsonrpsee::types::Params;
+use keccak_hash::keccak;
 use nonempty::nonempty;
 use num_bigint;
 use num_bigint::Sign;
@@ -451,7 +452,7 @@ fn format_address(value: &Address) -> BytesMut {
 impl TxArgs {
     pub fn hash(&self) -> Hash {
         let rlp = self.rlp_signed_message();
-        Hash::default()
+        Hash(keccak(&rlp))
     }
 
     pub fn rlp_signed_message(&self) -> Vec<u8> {
@@ -480,9 +481,9 @@ impl TxArgs {
             .map(|b| format!("{:02x}", b))
             .collect::<Vec<_>>()
             .join("");
-        dbg!(&hex);
+        tracing::trace!("rlp: {}", &hex);
 
-        vec![]
+        bytes
     }
 }
 
