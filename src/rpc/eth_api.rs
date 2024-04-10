@@ -24,7 +24,7 @@ use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
-use bytes::Buf;
+use bytes::{Buf, BytesMut};
 use cid::{
     multihash::{self, MultihashDigest},
     Cid,
@@ -37,7 +37,7 @@ use nonempty::nonempty;
 use num_bigint;
 use num_bigint::Sign;
 use num_traits::Zero as _;
-use rlp::encode;
+use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 use std::{ops::Add, sync::Arc};
@@ -418,6 +418,36 @@ impl From<Tx> for TxArgs {
     }
 }
 
+fn format_u64(value: &u64) -> BytesMut {
+    let bytes = value.to_be_bytes();
+    let first_non_zero = bytes.iter().position(|&b| b != 0);
+
+    match first_non_zero {
+        Some(i) => bytes[i..].into(),
+        None => {
+            // If all bytes are zero, return an empty slice
+            BytesMut::new()
+        }
+    }
+}
+
+fn format_bigint(value: &BigInt) -> BytesMut {
+    let (_, bytes) = value.0.to_bytes_be();
+    let first_non_zero = bytes.iter().position(|&b| b != 0);
+
+    match first_non_zero {
+        Some(i) => bytes[i..].into(),
+        None => {
+            // If all bytes are zero, return an empty slice
+            BytesMut::new()
+        }
+    }
+}
+
+fn format_address(value: &Address) -> BytesMut {
+    value.0.as_bytes().into()
+}
+
 impl TxArgs {
     pub fn hash(&self) -> Hash {
         let rlp = self.rlp_signed_message();
@@ -425,6 +455,34 @@ impl TxArgs {
     }
 
     pub fn rlp_signed_message(&self) -> Vec<u8> {
+        let mut stream = RlpStream::new_list(10); // THIS IS IMPORTANT
+        stream.append(&format_u64(&self.chain_id));
+        stream.append(&format_u64(&self.nonce));
+        stream.append(&format_bigint(&self.max_priority_fee_per_gas));
+        stream.append(&format_bigint(&self.max_fee_per_gas));
+        stream.append(&format_u64(&self.gas_limit));
+        stream.append(&format_address(&self.to));
+        stream.append(&format_bigint(&self.value));
+        stream.append(&self.input);
+        let access_list: &[u8] = &[];
+        stream.append(&access_list);
+
+        stream.begin_list(3);
+        stream.append(&format_bigint(&self.v));
+        stream.append(&format_bigint(&self.r));
+        stream.append(&format_bigint(&self.s));
+
+        let mut rlp = stream.out()[..].to_vec();
+        let mut bytes: Vec<u8> = vec![0x02];
+        bytes.append(&mut rlp);
+
+        let hex = bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join("");
+        dbg!(&hex);
+
         vec![]
     }
 }
