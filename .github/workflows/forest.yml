@@ -410,7 +410,10 @@ jobs:
     needs:
       - build-ubuntu
     name: Calibnet snapshot parity checks
-    runs-on: ubuntu-latest
+    runs-on: buildjet-8vcpu-ubuntu-2204
+    # Run the job only if the PR is not a draft.
+    # This is done to limit the runner cost.
+    # if: github.event.pull_request.draft == false
     env:
       # We use a custom Dockerfile for CI to speed up the build process.
       FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile

@@ -54,8 +54,8 @@ services:
       init:
         condition: service_completed_successfully
       # To force the daemons run sequentially on CI to get rid of OOM
-      forest:
-        condition: service_completed_successfully
+      # forest:
+      #   condition: service_completed_successfully
     image: ${LOTUS_IMAGE}
     volumes:
       - node-data:/data
