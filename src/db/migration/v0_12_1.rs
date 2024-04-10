@@ -49,7 +49,7 @@ impl MigrationOperation for Migration0_12_1_0_13_0 {
         );
         fs_extra::copy_items(
             &[source_db.as_path()],
-            temp_db_path.clone(),
+            &temp_db_path,
             &CopyOptions::default().copy_inside(true),
         )?;
 
