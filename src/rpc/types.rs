@@ -6,7 +6,7 @@
 //! If a type here is used by only one API, it should be relocated.
 
 use crate::beacon::BeaconEntry;
-use crate::blocks::{CachingBlockHeader, TipsetKey};
+use crate::blocks::TipsetKey;
 use crate::chain_sync::SyncState;
 pub use crate::libp2p::Multiaddr;
 use crate::libp2p::Multihash;
@@ -989,17 +989,6 @@ pub struct Transaction {
 }
 
 lotus_json_with_self!(Transaction);
-
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiHeadChange {
-    #[serde(rename = "Type")]
-    pub change: String,
-    #[serde(rename = "Val", with = "crate::lotus_json")]
-    pub headers: Vec<CachingBlockHeader>,
-}
-
-lotus_json_with_self!(ApiHeadChange);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

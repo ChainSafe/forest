@@ -181,7 +181,6 @@ fn register_methods<DB>(
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    use chain_api::*;
     use common_api::*;
     use eth_api::*;
     use gas_api::*;
@@ -189,19 +188,6 @@ where
     use node_api::*;
     use sync_api::*;
     use wallet_api::*;
-
-    // Chain API
-    module.register_async_method(CHAIN_GET_TIPSET_BY_HEIGHT, chain_get_tipset_by_height::<DB>)?;
-    module.register_async_method(
-        CHAIN_GET_TIPSET_AFTER_HEIGHT,
-        chain_get_tipset_after_height::<DB>,
-    )?;
-    module.register_async_method(CHAIN_GET_GENESIS, |_, state| chain_get_genesis::<DB>(state))?;
-    module.register_async_method(CHAIN_GET_TIPSET, chain_get_tipset::<DB>)?;
-    module.register_async_method(CHAIN_HEAD, |_, state| chain_head::<DB>(state))?;
-    module.register_async_method(CHAIN_GET_BLOCK, chain_get_block::<DB>)?;
-    module.register_async_method(CHAIN_SET_HEAD, chain_set_head::<DB>)?;
-    module.register_async_method(CHAIN_GET_MIN_BASE_FEE, chain_get_min_base_fee::<DB>)?;
 
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;

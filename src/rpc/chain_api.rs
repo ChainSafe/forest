@@ -14,7 +14,7 @@ use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::message::{ChainMessage, SignedMessage};
-use crate::rpc::types::{ApiHeadChange, ApiTipsetKey};
+use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{
     reflect::SelfDescribingRpcModule, ApiVersion, Ctx, JsonRpcError, RPCState, RpcMethod,
     RpcMethodExt as _,
@@ -54,6 +54,14 @@ pub fn register_all(
     ChainReadObj::register(module);
     ChainHasObj::register(module);
     ChainGetBlockMessages::register(module);
+    ChainGetTipSetByHeight::register(module);
+    ChainGetTipSetAfterHeight::register(module);
+    ChainGetGenesis::register(module);
+    ChainHead::register(module);
+    ChainGetBlock::register(module);
+    ChainGetTipSet::register(module);
+    ChainSetHead::register(module);
+    ChainGetMinBaseFee::register(module);
 }
 
 pub enum ChainGetMessage {}
@@ -431,144 +439,205 @@ fn impl_chain_get_path(
         .collect())
 }
 
-pub const CHAIN_GET_TIPSET_BY_HEIGHT: &str = "Filecoin.ChainGetTipSetByHeight";
-pub async fn chain_get_tipset_by_height<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
-        params.parse()?;
+/// Get tipset at epoch. Pick younger tipset if epoch points to a
+/// null-tipset. Only tipsets below the given `head` are searched. If `head`
+/// is null, the node will use the heaviest tipset.
+pub enum ChainGetTipSetByHeight {}
+impl RpcMethod<2> for ChainGetTipSetByHeight {
+    const NAME: &'static str = "Filecoin.ChainGetTipSetByHeight";
+    const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let tss = data
-        .state_manager
-        .chain_store()
-        .chain_index
-        .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-    Ok((*tss).clone().into())
+    type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
+    type Ok = LotusJson<Tipset>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let tss = ctx
+            .state_manager
+            .chain_store()
+            .chain_index
+            .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
+        Ok((*tss).clone().into())
+    }
 }
 
-pub const CHAIN_GET_TIPSET_AFTER_HEIGHT: &str = "Filecoin.ChainGetTipSetAfterHeight";
-pub async fn chain_get_tipset_after_height<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((height, ApiTipsetKey(tsk))): LotusJson<(ChainEpoch, ApiTipsetKey)> =
-        params.parse()?;
+pub enum ChainGetTipSetAfterHeight {}
+impl RpcMethod<2> for ChainGetTipSetAfterHeight {
+    const NAME: &'static str = "Filecoin.ChainGetTipSetAfterHeight";
+    const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let tss = data
-        .state_manager
-        .chain_store()
-        .chain_index
-        .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
-    Ok((*tss).clone().into())
+    type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
+    type Ok = LotusJson<Tipset>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let tss = ctx
+            .state_manager
+            .chain_store()
+            .chain_index
+            .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
+        Ok((*tss).clone().into())
+    }
 }
 
-pub const CHAIN_GET_GENESIS: &str = "Filecoin.ChainGetGenesis";
-pub async fn chain_get_genesis<DB: Blockstore>(
-    data: Ctx<DB>,
-) -> Result<Option<LotusJson<Tipset>>, JsonRpcError> {
-    let genesis = data.state_manager.chain_store().genesis_block_header();
-    Ok(Some(Tipset::from(genesis).into()))
+pub enum ChainGetGenesis {}
+impl RpcMethod<0> for ChainGetGenesis {
+    const NAME: &'static str = "Filecoin.ChainGetGenesis";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = Option<LotusJson<Tipset>>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, JsonRpcError> {
+        let genesis = ctx.state_manager.chain_store().genesis_block_header();
+        Ok(Some(Tipset::from(genesis).into()))
+    }
 }
 
-pub const CHAIN_HEAD: &str = "Filecoin.ChainHead";
-pub async fn chain_head<DB: Blockstore>(data: Ctx<DB>) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let heaviest = data.state_manager.chain_store().heaviest_tipset();
-    Ok((*heaviest).clone().into())
+pub enum ChainHead {}
+impl RpcMethod<0> for ChainHead {
+    const NAME: &'static str = "Filecoin.ChainHead";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = LotusJson<Tipset>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, JsonRpcError> {
+        let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
+        Ok((*heaviest).clone().into())
+    }
 }
 
-pub const CHAIN_GET_BLOCK: &str = "Filecoin.ChainGetBlock";
-pub async fn chain_get_block<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<CachingBlockHeader>, JsonRpcError> {
-    let LotusJson((blk_cid,)): LotusJson<(Cid,)> = params.parse()?;
+pub enum ChainGetBlock {}
+impl RpcMethod<1> for ChainGetBlock {
+    const NAME: &'static str = "Filecoin.ChainGetBlock";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let blk: CachingBlockHeader = data
-        .state_manager
-        .blockstore()
-        .get_cbor(&blk_cid)?
-        .context("can't find BlockHeader with that cid")?;
-    Ok(blk.into())
+    type Params = (LotusJson<Cid>,);
+    type Ok = LotusJson<CachingBlockHeader>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let blk: CachingBlockHeader = ctx
+            .state_manager
+            .blockstore()
+            .get_cbor(&cid)?
+            .context("can't find BlockHeader with that cid")?;
+        Ok(blk.into())
+    }
 }
 
-pub const CHAIN_GET_TIPSET: &str = "Filecoin.ChainGetTipSet";
-pub async fn chain_get_tipset<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Tipset>, JsonRpcError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+pub enum ChainGetTipSet {}
+impl RpcMethod<1> for ChainGetTipSet {
+    const NAME: &'static str = "Filecoin.ChainGetTipSet";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    Ok((*ts).clone().into())
+    type Params = (LotusJson<ApiTipsetKey>,);
+    type Ok = LotusJson<Tipset>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        Ok((*ts).clone().into())
+    }
 }
 
-// This is basically a port of the reference implementation at
-// https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
-pub const CHAIN_SET_HEAD: &str = "Filecoin.ChainSetHead";
-pub async fn chain_set_head<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+pub enum ChainSetHead {}
+impl RpcMethod<1> for ChainSetHead {
+    const NAME: &'static str = "Filecoin.ChainSetHead";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let new_head = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let mut current = data.state_manager.chain_store().heaviest_tipset();
-    while current.epoch() >= new_head.epoch() {
-        for cid in current.key().to_cids() {
-            data.state_manager
+    type Params = (LotusJson<ApiTipsetKey>,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        // This is basically a port of the reference implementation at
+        // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
+
+        let new_head = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let mut current = ctx.state_manager.chain_store().heaviest_tipset();
+        while current.epoch() >= new_head.epoch() {
+            for cid in current.key().to_cids() {
+                ctx.state_manager
+                    .chain_store()
+                    .unmark_block_as_validated(&cid);
+            }
+            let parents = &current.block_headers().first().parents;
+            current = ctx
+                .state_manager
                 .chain_store()
-                .unmark_block_as_validated(&cid);
+                .chain_index
+                .load_required_tipset(parents)?;
         }
-        let parents = &current.block_headers().first().parents;
-        current = data
-            .state_manager
+        ctx.state_manager
             .chain_store()
-            .chain_index
-            .load_required_tipset(parents)?;
+            .set_heaviest_tipset(new_head)
+            .map_err(Into::into)
     }
-    data.state_manager
-        .chain_store()
-        .set_heaviest_tipset(new_head)
-        .map_err(Into::into)
 }
 
-pub const CHAIN_GET_MIN_BASE_FEE: &str = "Filecoin.ChainGetMinBaseFee";
-pub(crate) async fn chain_get_min_base_fee<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
-    let (basefee_lookback,): (u32,) = params.parse()?;
+pub enum ChainGetMinBaseFee {}
+impl RpcMethod<1> for ChainGetMinBaseFee {
+    const NAME: &'static str = "Filecoin.ChainGetMinBaseFee";
+    const PARAM_NAMES: [&'static str; 1] = ["lookback"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let mut current = data.state_manager.chain_store().heaviest_tipset();
-    let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
+    type Params = (u32,);
+    type Ok = String;
 
-    for _ in 0..basefee_lookback {
-        let parents = &current.block_headers().first().parents;
-        current = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(parents)?;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (lookback,): Self::Params,
+    ) -> Result<Self::Ok, JsonRpcError> {
+        let mut current = ctx.state_manager.chain_store().heaviest_tipset();
+        let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
 
-        min_base_fee = min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
+        for _ in 0..lookback {
+            let parents = &current.block_headers().first().parents;
+            current = ctx
+                .state_manager
+                .chain_store()
+                .chain_index
+                .load_required_tipset(parents)?;
+
+            min_base_fee =
+                min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
+        }
+
+        Ok(min_base_fee.atto().to_string())
     }
-
-    Ok(min_base_fee.atto().to_string())
 }
 
 pub const CHAIN_NOTIFY: &str = "Filecoin.ChainNotify";
@@ -710,6 +779,17 @@ pub struct ChainExportParams {
 }
 
 lotus_json_with_self!(ChainExportParams);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiHeadChange {
+    #[serde(rename = "Type")]
+    pub change: String,
+    #[serde(rename = "Val", with = "crate::lotus_json")]
+    pub headers: Vec<CachingBlockHeader>,
+}
+
+lotus_json_with_self!(ApiHeadChange);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]

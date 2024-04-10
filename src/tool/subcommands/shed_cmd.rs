@@ -3,7 +3,17 @@
 
 use std::path::PathBuf;
 
-use crate::{libp2p::keypair::get_keypair, rpc_client::ApiInfo};
+use crate::{
+    libp2p::keypair::get_keypair,
+    lotus_json::LotusJson,
+    rpc::{
+        self,
+        chain_api::{ChainGetTipSetByHeight, ChainHead},
+        types::ApiTipsetKey,
+        RpcMethodExt as _,
+    },
+    rpc_client::ApiInfo,
+};
 use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::Subcommand;
@@ -48,8 +58,8 @@ impl ShedCommands {
     pub async fn run(self) -> anyhow::Result<()> {
         match self {
             ShedCommands::SummarizeTipsets { height, ancestors } => {
-                let client = ApiInfo::from_env()?;
-                let head = client.chain_head().await?;
+                let client = rpc::Client::from(ApiInfo::from_env()?);
+                let head = ChainHead::call(&client, ()).await?.into_inner();
                 let end_height = match height {
                     Some(it) => it,
                     None => head
@@ -63,12 +73,17 @@ impl ShedCommands {
 
                 let mut epoch2cids =
                     futures::stream::iter((start_height..=end_height).map(|epoch| {
-                        client
-                            .chain_get_tipset_by_height(i64::from(epoch), head.key().into())
-                            .map_ok(|tipset| {
-                                let cids = tipset.block_headers().iter().map(|it| *it.cid());
-                                (tipset.epoch(), cids.collect::<Vec<_>>())
-                            })
+                        ChainGetTipSetByHeight::call(
+                            &client,
+                            (
+                                i64::from(epoch),
+                                LotusJson(ApiTipsetKey(Some(head.key().clone()))),
+                            ),
+                        )
+                        .map_ok(|LotusJson(tipset)| {
+                            let cids = tipset.block_headers().iter().map(|it| *it.cid());
+                            (tipset.epoch(), cids.collect::<Vec<_>>())
+                        })
                     }))
                     .buffered(12);
 

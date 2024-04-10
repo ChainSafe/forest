@@ -256,6 +256,9 @@ pub trait Params<const ARITY: usize> {
                 Ok(it) => Ok(it),
                 Err(_) => Err(serde_json::Error::custom("ARITY mismatch")),
             },
+            Ok(serde_json::Value::Null) if ARITY == 0 => {
+                Ok(std::array::from_fn(|_ix| Default::default()))
+            }
             Ok(it) => Err(serde_json::Error::invalid_type(
                 unexpected(&it),
                 &"a Vec with an item for each argument",
