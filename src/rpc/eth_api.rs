@@ -455,7 +455,7 @@ impl TxArgs {
     }
 
     pub fn rlp_signed_message(&self) -> Vec<u8> {
-        let mut stream = RlpStream::new_list(10); // THIS IS IMPORTANT
+        let mut stream = RlpStream::new_list(12); // THIS IS IMPORTANT
         stream.append(&format_u64(&self.chain_id));
         stream.append(&format_u64(&self.nonce));
         stream.append(&format_bigint(&self.max_priority_fee_per_gas));
@@ -467,7 +467,6 @@ impl TxArgs {
         let access_list: &[u8] = &[];
         stream.append(&access_list);
 
-        stream.begin_list(3);
         stream.append(&format_bigint(&self.v));
         stream.append(&format_bigint(&self.r));
         stream.append(&format_bigint(&self.s));
