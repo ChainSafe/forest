@@ -1,5 +1,4 @@
 # Docker compose file to run Forest and Lotus API tests.
-version: "3.8"
 
 services:
   init: 
