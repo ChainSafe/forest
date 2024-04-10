@@ -230,7 +230,7 @@ where
         // Hint at the multihash which has to go in the `/p2p/<multihash>` part of the
         // peer's multiaddress. Useful if others want to use this node to bootstrap
         // from.
-        info!("p2p network peer id: {}", swarm.local_peer_id());
+        info!(p2p_network_peer_id = %swarm.local_peer_id());
 
         // Listen on network endpoints before being detached and connecting to any peers.
         for addr in &config.listening_multiaddrs {
@@ -242,12 +242,12 @@ where
                     } = swarm.select_next_some().await
                     {
                         if id == listener_id {
-                            info!("p2p peer is now listening on: {address}");
+                            info!(%address, "p2p peer is now listening");
                             break;
                         }
                     }
                 },
-                Err(err) => error!("Fail to listen on {addr}: {err}"),
+                Err(err) => error!(%addr, %err, "listening failure"),
             }
         }
 
@@ -285,7 +285,7 @@ where
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
-            warn!("Failed to bootstrap with Kademlia: {e}");
+            warn!(error = %e, "failed to bootstrap with Kademlia");
         }
 
         let bitswap_request_manager = self.swarm.behaviour().bitswap.request_manager();
@@ -394,9 +394,9 @@ fn dial_to_bootstrap_peers_if_needed(
 ) {
     for (peer, ma) in bootstrap_peers {
         if !swarm.behaviour().peers().contains(peer) {
-            info!("Re-dialing to bootstrap peer at {ma}");
+            info!(address = %ma, "re-dialing to bootstrap peer");
             if let Err(e) = swarm.dial(ma.clone()) {
-                warn!("{e}");
+                warn!(error = %e);
             }
         }
     }
@@ -412,12 +412,12 @@ fn handle_peer_ops(
         Ban(peer_id, reason) => {
             // Do not ban bootstrap nodes
             if !bootstrap_peers.contains_key(&peer_id) {
-                warn!("Banning {peer_id}, reason: {reason}");
+                warn!(%peer_id, %reason, "banning peer");
                 swarm.behaviour_mut().blocked_peers.block_peer(peer_id);
             }
         }
         Unban(peer_id) => {
-            info!("Unbanning {peer_id}");
+            info!(%peer_id, "unbanning");
             swarm.behaviour_mut().blocked_peers.unblock_peer(peer_id);
         }
     }
@@ -434,7 +434,7 @@ async fn handle_network_message(
     match message {
         NetworkMessage::PubsubMessage { topic, message } => {
             if let Err(e) = swarm.behaviour_mut().publish(topic, message) {
-                warn!("Failed to send gossipsub message: {:?}", e);
+                warn!(error = ?e, "failed to send gossipsub message");
             }
         }
         NetworkMessage::HelloRequest {
@@ -523,7 +523,7 @@ async fn handle_network_message(
 
                         match Swarm::dial(swarm, multiaddr.clone()) {
                             Ok(_) => {
-                                info!("Dialed {multiaddr}");
+                                info!(address = %multiaddr, "dialed");
                                 success = true;
                                 break;
                             }
@@ -532,13 +532,13 @@ async fn handle_network_message(
                                     DialError::Denied { cause } => {
                                         // try to get a more specific error cause
                                         if let Some(cause) = cause.downcast_ref::<Exceeded>() {
-                                            error!("Denied dialing (limits exceeded) {multiaddr}: {cause}");
+                                            error!(address = %multiaddr, %cause, "denied dialing (limits exceeded)");
                                         } else {
-                                            error!("Denied dialing {multiaddr}: {cause}")
+                                            error!(address = %multiaddr, %cause, "denied dialing")
                                         }
                                     }
                                     e => {
-                                        error!("Failed to dial {multiaddr}: {e}");
+                                        error!(address = %multiaddr, error = %e, "failed to dial");
                                     }
                                 };
                             }
@@ -582,11 +582,11 @@ async fn handle_discovery_event(
 ) {
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
-            debug!("Peer connected, {:?}", peer_id);
+            debug!(?peer_id , "peer connected");
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
-            debug!("Peer disconnected, {:?}", peer_id);
+            debug!(?peer_id, "peer disconnected");
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
         DiscoveryEvent::Discovery(_) => {}
@@ -607,7 +607,7 @@ async fn handle_gossip_event(
     {
         let topic = message.topic.as_str();
         let message = message.data;
-        trace!("Got a Gossip Message from {:?}", source);
+        trace!(?source, "received Gossip message");
         if topic == pubsub_block_str {
             match from_slice_with_fallback::<GossipBlock>(&message) {
                 Ok(b) => {
@@ -621,7 +621,7 @@ async fn handle_gossip_event(
                     .await;
                 }
                 Err(e) => {
-                    warn!("Gossip Block from peer {source:?} could not be deserialized: {e}",);
+                    warn!(?source , error = %e , "Gossip Block could not be deserialized");
                 }
             }
         } else if topic == pubsub_msg_str {
@@ -637,11 +637,11 @@ async fn handle_gossip_event(
                     .await;
                 }
                 Err(e) => {
-                    warn!("Gossip Message from peer {source:?} could not be deserialized: {e}");
+                    warn!(?source, error = %e , "Gossip Message from peer could not be deserialized");
                 }
             }
         } else {
-            warn!("Getting gossip messages from unknown topic: {topic}");
+            warn!(%topic, "getting gossip messages from unknown topic");
         }
     }
 }
@@ -676,7 +676,7 @@ async fn handle_hello_event(
                     .try_into()
                     .expect("System time since unix epoch should not exceed u64");
 
-                trace!("Received hello request: {:?}", request);
+                trace!(?request, "received hello request");
                 if &request.genesis_cid != genesis_cid {
                     peer_manager
                         .ban_peer(
@@ -699,7 +699,7 @@ async fn handle_hello_event(
                     // Send hello response immediately, no need to have the overhead of emitting
                     // channel and polling future here.
                     if let Err(e) = hello.send_response(channel, HelloResponse { arrival, sent }) {
-                        warn!("Failed to send HelloResponse: {e:?}");
+                        warn!(error = ?e, "failed to send HelloResponse");
                     } else {
                         emit_event(
                             network_sender_out,
@@ -741,9 +741,7 @@ async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManag
     match ping_event.result {
         Ok(rtt) => {
             trace!(
-                "PingSuccess::Ping rtt to {} is {} ms",
-                ping_event.peer.to_base58(),
-                rtt.as_millis()
+                peer = %ping_event.peer.to_base58(), rtt_millis = %rtt.as_millis(), "ping"
             );
         }
         Err(ping::Failure::Unsupported) => {
@@ -756,10 +754,10 @@ async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManag
                 .await;
         }
         Err(ping::Failure::Timeout) => {
-            warn!("Ping timeout: {}", ping_event.peer);
+            warn!(peer = %ping_event.peer , "ping timeout");
         }
         Err(ping::Failure::Other { error }) => {
-            debug!("Ping failure: {error}");
+            debug!(%error, "ping failure");
         }
     }
 }
@@ -785,7 +783,7 @@ async fn handle_chain_exchange_event<DB>(
                 request_id,
             } => {
                 trace!(
-                    "Received chain_exchange request (request_id:{request_id}, peer_id: {peer:?})",
+                    %request_id, ?peer, "received chain_exchange request"
                 );
                 emit_event(
                     network_sender_out,
@@ -800,7 +798,7 @@ async fn handle_chain_exchange_event<DB>(
                         channel,
                         make_chain_exchange_response(&db, &request),
                     )) {
-                        debug!("Failed to send ChainExchangeResponse: {e:?}");
+                        debug!(error = ?e, "failed to send ChainExchangeResponse");
                     }
                 });
             }
@@ -831,8 +829,7 @@ async fn handle_chain_exchange_event<DB>(
             request_id: _,
         } => {
             debug!(
-                "ChainExchange inbound error (peer: {:?}): {:?}",
-                peer, error
+                ?peer, ?error, "ChainExchange inbound error"
             );
         }
         request_response::Event::ResponseSent { request_id, .. } => {
@@ -887,7 +884,7 @@ async fn handle_forest_behaviour_event<DB>(
                 db.blockstore(),
                 event,
             ) {
-                warn!("bitswap: {e}");
+                warn!(%e, "bitswap");
             }
         }
         ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,

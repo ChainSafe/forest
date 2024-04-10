@@ -405,10 +405,7 @@ where
     while let Some(m) = msgs.get(i) {
         if m.sequence() < cur_seq {
             warn!(
-                "encountered message from actor {} with nonce {} less than the current nonce {}",
-                actor,
-                m.sequence(),
-                cur_seq
+                %actor, nonce = %m.sequence(), current_nonce = %cur_seq, "encountered message from actor with nonce less than the current nonce"
             );
             skip += 1;
             i += 1;

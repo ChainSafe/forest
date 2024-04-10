@@ -156,7 +156,7 @@ impl<'a> DiscoveryConfig<'a> {
                 peers.insert(*peer_id);
             }
             if let Err(e) = kademlia.bootstrap() {
-                warn!("Kademlia bootstrap failed: {}", e);
+                warn!(error = %e, "Kademlia bootstrap failed");
             }
             Some(kademlia)
         } else {
@@ -393,8 +393,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                 // We still have not hit the discovery max, send random request for peers.
                 let random_peer_id = PeerId::random();
                 debug!(
-                    "Libp2p <= Starting random Kademlia request for {:?}",
-                    random_peer_id
+                    ?random_peer_id, "libp2p starting random Kademlia request"
                 );
                 if let Some(kademlia) = self.discovery.kademlia.as_mut() {
                     kademlia.get_closest_peers(random_peer_id);
@@ -430,10 +429,10 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                         DerivedDiscoveryBehaviourEvent::Autonat(_) => {}
                         DerivedDiscoveryBehaviourEvent::Upnp(ev) => match ev {
                             upnp::Event::NewExternalAddr(addr) => {
-                                info!("UPnP NewExternalAddr: {addr}");
+                                info!(%addr, "UPnP NewExternalAddr");
                             }
                             upnp::Event::ExpiredExternalAddr(addr) => {
-                                info!("UPnP ExpiredExternalAddr: {addr}");
+                                info!(%addr, "UPnP ExpiredExternalAddr");
                             }
                             upnp::Event::GatewayNotFound => {
                                 info!("UPnP GatewayNotFound");
@@ -451,7 +450,7 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                                 // Intentionally ignore
                             }
                             other => {
-                                trace!("Libp2p => Unhandled Kademlia event: {:?}", other)
+                                trace!(event = ?other, "libp2p unhandled Kademlia event")
                             }
                         },
                         DerivedDiscoveryBehaviourEvent::Mdns(ev) => match ev {

@@ -56,7 +56,7 @@ impl ChainExchangeBehaviour {
                 // Demoting log level here because the same request might be sent to multiple
                 // remote peers simultaneously, it's expected that responses that arrive late
                 // might be sent to a closed channel
-                debug!("{err}");
+                debug!(%err);
             }
         }
     }
@@ -69,7 +69,7 @@ impl ChainExchangeBehaviour {
                 // remote peers simultaneously, it's expected that outbound failures that happen
                 // after receiving the first successful response could be sent to a closed
                 // channel.
-                debug!("{err}");
+                debug!(%err);
             }
         }
     }

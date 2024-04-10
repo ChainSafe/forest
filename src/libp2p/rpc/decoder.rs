@@ -58,7 +58,7 @@ where
                     "Buffer size exceeds the maximum allowed {}B",
                     *this.max_bytes_allowed,
                 ));
-                warn!("{err}");
+                warn!(error = %err);
                 return Poll::Ready(Err(err));
             }
             #[allow(clippy::indexing_slicing)]

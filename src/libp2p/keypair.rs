@@ -31,7 +31,7 @@ fn create_and_save_keypair(path: &Path) -> anyhow::Result<Keypair> {
         let mut backup_path = keypair_path.clone();
         backup_path.set_extension("bak");
 
-        info!("Backing up existing keypair to {}", backup_path.display());
+        info!(backup_path = %backup_path.display(), "backing up existing keypair");
         fs::rename(keypair_path, &backup_path)?;
     }
 
@@ -47,17 +47,17 @@ pub fn get_keypair(path_to_file: &Path) -> Option<Keypair> {
     match read_file_to_vec(path_to_file) {
         Err(e) => {
             info!("Networking keystore not found!");
-            trace!("Error {e}");
+            trace!(error = %e);
             None
         }
         Ok(mut vec) => match crate::libp2p::ed25519::Keypair::try_from_bytes(&mut vec) {
             Ok(kp) => {
-                debug!("Recovered libp2p keypair from {}", path_to_file.display());
+                debug!(path = %path_to_file.display(), "recovered libp2p keypair");
                 Some(kp.into())
             }
             Err(e) => {
                 info!("Could not decode networking keystore!");
-                info!("Error {e}");
+                info!(error = %e);
                 None
             }
         },

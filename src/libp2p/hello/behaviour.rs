@@ -48,7 +48,7 @@ impl HelloBehaviour {
         if let Some(channel) = self.response_channels.remove(request_id) {
             self.track_metrics();
             if let Err(err) = channel.send_async(response).await {
-                warn!("{err}");
+                warn!(%err);
             }
         }
     }

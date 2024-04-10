@@ -97,12 +97,11 @@ fn maybe_increase_fd_limit() -> anyhow::Result<()> {
 
     let soft_after = rlimit::increase_nofile_limit(DESIRED_SOFT_LIMIT)?;
     if soft_before < soft_after {
-        debug!("Increased file descriptor limit from {soft_before} to {soft_after}");
+        debug!(before = %soft_before, after = %soft_after, "increased file descriptor limit");
     }
     if soft_after < DESIRED_SOFT_LIMIT {
         warn!(
-            "File descriptor limit is too low: {soft_after} < {DESIRED_SOFT_LIMIT}. \
-            You may encounter 'too many open files' errors.",
+            actual_limit = %soft_after, desired_limit = %DESIRED_SOFT_LIMIT, "file descriptor limit is too low. 'too many open files' errors may be encountered"
         );
     }
 
@@ -148,8 +147,7 @@ pub(super) async fn start(
     }
 
     info!(
-        "Starting Forest daemon, version {}",
-        FOREST_VERSION_STRING.as_str()
+        version = %FOREST_VERSION_STRING.as_str(), "starting Forest daemon"
     );
     maybe_increase_fd_limit()?;
 
@@ -173,7 +171,7 @@ pub(super) async fn start(
     // to avoid breaking the node.
     let db_migration = crate::db::migration::DbMigration::new(chain_data_path.clone());
     if let Err(e) = db_migration.migrate() {
-        warn!("Failed to migrate database: {e}");
+        warn!(error = %e, "failed to migrate database");
     }
 
     let db_root_dir = db_root(&chain_data_path)?;
@@ -202,8 +200,7 @@ pub(super) async fn start(
             .await
             .with_context(|| format!("could not bind to {}", config.client.metrics_address))?;
         info!(
-            "Prometheus server started at {}",
-            config.client.metrics_address
+            address = %config.client.metrics_address, "prometheus server started"
         );
         let db_directory = crate::db::db_engine::db_root(&chain_path(&config))?;
         let db = db.writer().clone();
@@ -265,7 +262,7 @@ pub(super) async fn start(
 
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
 
-    info!("Using network :: {}", get_actual_chain_name(&network_name));
+    info!(network = %get_actual_chain_name(&network_name));
     display_chain_logo(&config.chain);
     let (tipset_sink, tipset_stream) = flume::bounded(20);
 
@@ -343,7 +340,7 @@ pub(super) async fn start(
         let rpc_chain_store = Arc::clone(&chain_store);
         let rpc_address = config.client.rpc_address;
 
-        info!("JSON-RPC endpoint will listen at {rpc_address}");
+        info!(%rpc_address, "JSON-RPC endpoint configured");
         let beacon = Arc::new(
             rpc_state_manager
                 .chain_config()
@@ -407,7 +404,7 @@ pub(super) async fn start(
             )
             .await?;
             db.read_only_files(std::iter::once(car_db_path.clone()))?;
-            debug!("Loaded car DB at {}", car_db_path.display());
+            debug!(path = %car_db_path.display(), "loaded car DB");
             state_manager
                 .chain_store()
                 .set_heaviest_tipset(Arc::new(ts))?;
@@ -529,7 +526,7 @@ fn handle_admin_token(opts: &CliOpts, config: &Config, keystore: &KeyStore) -> a
         ki.private_key(),
         token_exp,
     )?;
-    info!("Admin token: {token}");
+    info!(admin_token = %token);
     if let Some(path) = opts.save_token.as_ref() {
         std::fs::write(path, token)?;
     }
@@ -583,8 +580,7 @@ async fn load_or_create_keystore(config: &Config) -> anyhow::Result<KeyStore> {
             warn!("Forest has encryption disabled");
             if let Ok(_) | Err(VarError::NotUnicode(_)) = maybe_passphrase {
                 warn!(
-                    "Ignoring passphrase provided in {} - encryption is disabled",
-                    FOREST_KEYSTORE_PHRASE_ENV
+                    "ignoring passphrase provided in {FOREST_KEYSTORE_PHRASE_ENV} - encryption is disabled"
                 )
             }
             KeyStore::new(KeyStoreConfig::Persistent(config.client.data_dir.clone()))

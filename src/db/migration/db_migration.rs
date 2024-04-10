@@ -58,8 +58,7 @@ impl DbMigration {
             .unwrap_or_else(|| FOREST_VERSION.clone());
 
         info!(
-            "Migrating database from version {} to {}",
-            latest_db_version, *FOREST_VERSION
+            uplevel = %latest_db_version, downlevel = %*FOREST_VERSION, "migrating database"
         );
 
         let target_db_version = &FOREST_VERSION;
@@ -71,8 +70,7 @@ impl DbMigration {
         }
 
         info!(
-            "Migration to version {} complete",
-            target_db_version.to_string()
+            version = %target_db_version.to_string(), "migration complete"
         );
 
         Ok(())

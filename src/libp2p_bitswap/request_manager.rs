@@ -151,7 +151,7 @@ impl BitswapRequestManager {
 
             if let Some(responder) = responder {
                 if let Err(e) = responder.send_async(success).await {
-                    warn!("{e}");
+                    warn!(%e);
                 }
             }
 

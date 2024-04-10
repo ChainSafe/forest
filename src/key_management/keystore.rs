@@ -128,8 +128,7 @@ impl KeyStore {
                             serde_json::from_reader(reader)
                                 .map_err(|e| {
                                     error!(
-                                "failed to deserialize keyfile, initializing new keystore at: {:?}",
-                                file_path
+                                keystore_path = ?file_path, "failed to deserialize keyfile, initializing new keystore"
                             );
                                     e
                                 })
@@ -157,8 +156,7 @@ impl KeyStore {
                     Err(e) => {
                         if e.kind() == ErrorKind::NotFound {
                             warn!(
-                                "Keystore does not exist, initializing new keystore at: {:?}",
-                                file_path
+                                keystore_path = ?file_path, "keystore does not exist, initializing new keystore"
                             );
                             Ok(Self {
                                 key_info: HashMap::new(),
@@ -191,8 +189,7 @@ impl KeyStore {
                         if read_bytes == 0 {
                             // New encrypted keystore if file exists but is zero bytes (i.e., touch)
                             warn!(
-                                "Keystore does not exist, initializing new keystore at {:?}",
-                                file_path
+                                keystore_path = ?file_path , "keystore does not exist, initializing new keystore"
                             );
 
                             let (salt, encryption_key) =

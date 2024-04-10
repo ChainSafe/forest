@@ -249,7 +249,7 @@ impl<DB: Blockstore + Send + Sync + 'static> Consensus for ForestExterns<DB> {
                 let bail = |err| {
                     // When a lookup error occurs we should just bail terminating all the
                     // computations.
-                    error!("database lookup error: {err}");
+                    error!(error = %err, "database lookup error");
                     self.bail.store(true, Ordering::Relaxed);
                     Err(err)
                 };

@@ -95,7 +95,7 @@ impl PeerManager {
     /// new `PeerInfo` will be generated.
     pub fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
         let mut peers = self.peers.write();
-        trace!("Updating head for PeerId {}", &peer_id);
+        trace!(%peer_id, "updating head");
         if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
             pi.head = Some(ts);
         } else {
@@ -179,7 +179,7 @@ impl PeerManager {
     /// Logs a success for the given peer, and updates the average request
     /// duration.
     pub fn log_success(&self, peer: PeerId, dur: Duration) {
-        debug!("logging success for {:?}", peer);
+        debug!(?peer, "logging success");
         let mut peers = self.peers.write();
         // Attempt to remove the peer and decrement bad peer count
         if peers.bad_peers.remove(&peer) {
@@ -197,7 +197,7 @@ impl PeerManager {
     /// Logs a failure for the given peer, and updates the average request
     /// duration.
     pub fn log_failure(&self, peer: PeerId, dur: Duration) {
-        debug!("logging failure for {:?}", peer);
+        debug!(?peer, "logging failure");
         let mut peers = self.peers.write();
         if !peers.bad_peers.contains(&peer) {
             metrics::PEER_FAILURE_TOTAL.inc();
@@ -220,7 +220,7 @@ impl PeerManager {
         }
 
         // Add peer to bad peer set
-        debug!("marked peer {} bad", peer_id);
+        debug!(%peer_id, "marked peer bad");
         if peers.bad_peers.insert(peer_id) {
             metrics::BAD_PEERS.inc();
         }
@@ -231,7 +231,7 @@ impl PeerManager {
     /// Remove peer from managed set, does not mark as bad
     pub fn remove_peer(&self, peer_id: &PeerId) -> bool {
         let mut peers = self.peers.write();
-        debug!("removed peer {}", peer_id);
+        debug!(%peer_id, "removed peer");
         let removed = remove_peer(&mut peers, peer_id);
         if removed {
             metrics::FULL_PEERS.dec();
@@ -258,7 +258,7 @@ impl PeerManager {
             .send_async(PeerOperation::Ban(peer, reason.into()))
             .await
         {
-            warn!("ban_peer err: {e}");
+            warn!(error = %e, "error banning peer");
         }
     }
 
@@ -288,7 +288,7 @@ impl PeerManager {
                         .send_async(PeerOperation::Unban(peer))
                         .await
                     {
-                        warn!("unban_peer err: {e}");
+                        warn!(error = %e, "error unbanning peer");
                     }
                 }
             }
@@ -299,9 +299,7 @@ impl PeerManager {
 
 fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) -> bool {
     debug!(
-        "removing peer {:?}, remaining chain exchange peers: {}",
-        peer_id,
-        peers.full_peers.len()
+        removed_peer = ?peer_id, remaining_peers = %peers.full_peers.len()
     );
 
     peers.full_peers.remove(peer_id).is_some()

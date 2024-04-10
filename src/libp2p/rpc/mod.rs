@@ -160,7 +160,7 @@ where
         Ok(r) => r,
         Err(_) => {
             let err = io::Error::other("read_and_decode timeout");
-            tracing::warn!("{err}");
+            tracing::warn!(error = %err);
             Err(err)
         }
     }

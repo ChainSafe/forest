@@ -427,7 +427,7 @@ where
         }
 
         if let Err(e) = self.run_cron(epoch, callback.as_mut()) {
-            tracing::error!("End of epoch cron failed to run: {}", e);
+            tracing::error!(error = %e, "end of epoch cron failed to run");
         }
 
         Ok(receipts)
