@@ -45,7 +45,7 @@ where
                 Subcommand::Info(cmd) => cmd.run(api).await,
                 Subcommand::Snapshot(cmd) => cmd.run(api).await,
                 Subcommand::Attach(cmd) => cmd.run(api),
-                Subcommand::Shutdown(cmd) => cmd.run(api).await,
+                Subcommand::Shutdown(cmd) => cmd.run(rpc::Client::from(api)).await,
             }
         })
 }

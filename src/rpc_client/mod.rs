@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod chain_ops;
-mod common_ops;
 mod eth_ops;
 mod gas_ops;
 mod net_ops;

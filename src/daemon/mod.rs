@@ -363,10 +363,9 @@ pub(super) async fn start(
                     start_time,
                     beacon,
                     chain_store: rpc_chain_store,
+                    shutdown: shutdown_send,
                 },
                 rpc_address,
-                FOREST_VERSION_STRING.as_str(),
-                shutdown_send,
             )
             .await
         });
