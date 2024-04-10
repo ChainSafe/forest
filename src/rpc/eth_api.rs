@@ -1194,9 +1194,19 @@ mod test {
                 108, 110, 106, 109, 100, 115, 114, 117, 0, 0, 0, 0, 0,
             ]
             .to_vec(),
-            v: BigInt(num_bigint::BigInt::default()),
-            r: BigInt(num_bigint::BigInt::default()),
-            s: BigInt(num_bigint::BigInt::default()),
+            v: BigInt(num_bigint::BigInt::from_str("1").unwrap()),
+            r: BigInt(
+                num_bigint::BigInt::from_str(
+                    "84103132941276310528712440865285269631208564772362393569572880532520338257200",
+                )
+                .unwrap(),
+            ),
+            s: BigInt(
+                num_bigint::BigInt::from_str(
+                    "7820796778417228639067439047870612492553874254089570360061550763595363987236",
+                )
+                .unwrap(),
+            ),
         };
 
         let expected_hash = Hash(
