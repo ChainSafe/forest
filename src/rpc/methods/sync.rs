@@ -144,7 +144,7 @@ mod tests {
             start_time,
             chain_store: cs_for_chain.clone(),
             beacon,
-            shutdown: mpsc::channel(0).0, // dummy for tests
+            shutdown: mpsc::channel(1).0, // dummy for tests
         });
         (state, network_rx)
     }

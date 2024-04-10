@@ -394,7 +394,7 @@ mod tests {
                 start_time: Default::default(),
                 chain_store,
                 beacon,
-                shutdown: mpsc::channel(0).0, // dummy for tests
+                shutdown: mpsc::channel(1).0, // dummy for tests
             }
         }
     }
