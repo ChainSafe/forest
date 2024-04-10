@@ -9,6 +9,7 @@
   - [Configuration](./configuration.md)
   - [Environment Variables](./environment_variables.md)
   - [Docker](./docker.md)
+  - [Healthcheck](./healthcheck.md)
   - [Snapshot exporting](./snapshot_export.md)
   - [JavaScript Console](./js_console.md)
   - [Backups](./backups.md)
