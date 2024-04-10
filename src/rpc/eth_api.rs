@@ -788,11 +788,11 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
 
     let bytes = sig.bytes();
 
-    let r = num_bigint::BigInt::from_bytes_le(Sign::NoSign, &bytes[0..32]);
+    let r = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[0..32]);
 
-    let s = num_bigint::BigInt::from_bytes_le(Sign::NoSign, &bytes[32..64]);
+    let s = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[32..64]);
 
-    let v = num_bigint::BigInt::from_bytes_le(Sign::NoSign, &bytes[64..65]);
+    let v = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[64..65]);
 
     Ok((BigInt(r), BigInt(s), BigInt(v)))
 }
