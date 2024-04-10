@@ -316,9 +316,9 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     find_unknown_keys(vec![], &value, &config_value, &mut result);
     for (tables, k) in result.iter() {
         if tables.is_empty() {
-            error!("Unknown key `{k}` in top-level table");
+            error!(key = %k, "unknown key in top-level table");
         } else {
-            error!("Unknown key `{k}` in [{}]", tables.join("."));
+            error!(key = %k, tables = %tables.join("."), "unknown key");
         }
     }
     if !result.is_empty() {
@@ -333,7 +333,7 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
-    error!("{}", msg.as_ref());
+    error!(msg = %msg.as_ref());
     std::process::exit(code);
 }
 

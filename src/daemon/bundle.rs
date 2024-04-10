@@ -29,7 +29,7 @@ pub async fn load_actor_bundles(
         Ok(path) if !path.is_empty() => Some(path),
         _ => None,
     } {
-        info!("Loading actor bundle from {bundle_path} set by FOREST_ACTOR_BUNDLE_PATH environment variable");
+        info!(%bundle_path, "loading actor bundle set by FOREST_ACTOR_BUNDLE_PATH environment variable");
         load_actor_bundles_from_path(db, network, &bundle_path).await
     } else {
         load_actor_bundles_from_server(db, network).await

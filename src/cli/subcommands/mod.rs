@@ -106,7 +106,7 @@ pub(super) fn format_vec_pretty(vec: Vec<String>) -> String {
 /// Print an error message and exit the program with an error code
 /// Used for handling high level errors such as invalid parameters
 pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
-    error!("Error: {}", msg.as_ref());
+    error!(error = %msg.as_ref());
     std::process::exit(code);
 }
 

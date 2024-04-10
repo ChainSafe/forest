@@ -42,7 +42,7 @@ pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> 
         let car = ForestCar::try_from(file.as_path())
             .with_context(|| format!("Error loading car DB at {}", file.display()))?;
         store.read_only(car.into())?;
-        debug!("Loaded car DB at {}", file.display());
+        debug!(file = %file.display(), "loaded car DB");
     }
 
     Ok(())
@@ -55,7 +55,7 @@ pub async fn import_chain_as_forest_car(
     forest_car_db_dir: &Path,
     consume_snapshot_file: bool,
 ) -> anyhow::Result<(PathBuf, Tipset)> {
-    info!("Importing chain from snapshot at: {}", from_path.display());
+    info!(path = %from_path.display(), "importing chain from snapshot");
 
     let stopwatch = time::Instant::now();
 
@@ -86,9 +86,7 @@ pub async fn import_chain_as_forest_car(
 
     let ts = ForestCar::try_from(forest_car_db_path.as_path())?.heaviest_tipset()?;
     info!(
-        "Imported snapshot in: {}s, heaviest tipset epoch: {}",
-        stopwatch.elapsed().as_secs(),
-        ts.epoch()
+        elapsed_seconds = %stopwatch.elapsed().as_secs(), heaviest_tipst_epoch = %ts.epoch(), "imported snapshot"
     );
 
     Ok((forest_car_db_path, ts))
