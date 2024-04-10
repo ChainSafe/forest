@@ -465,7 +465,7 @@ impl TxArgs {
         stream.append(&format_bigint(&self.value));
         stream.append(&self.input);
         let access_list: &[u8] = &[];
-        stream.append(&access_list);
+        stream.append_list(&access_list);
 
         stream.append(&format_bigint(&self.v));
         stream.append(&format_bigint(&self.r));
