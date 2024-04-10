@@ -4,14 +4,15 @@
 use super::*;
 use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
-use crate::rpc::chain_api::ChainExportParams;
 use crate::rpc::types::ApiTipsetKey;
+use crate::rpc::{self, chain::ChainExportParams, prelude::*};
 use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
 use human_repr::HumanCount;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 
@@ -39,6 +40,7 @@ pub enum SnapshotCommands {
 
 impl SnapshotCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         match self {
             Self::Export {
                 output_path,
@@ -47,16 +49,16 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = api.chain_head().await?;
+                let chain_head = ChainHead::call(&client, ()).await?.into_inner();
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let raw_network_name = api.state_network_name().await?;
                 let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
-                let tipset = api
-                    .chain_get_tipset_by_height(epoch, Default::default())
-                    .await?;
+                let tipset = ChainGetTipSetByHeight::call(&client, (epoch, Default::default()))
+                    .await?
+                    .into_inner();
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
@@ -79,7 +81,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
+                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())).into(),
                     skip_checksum,
                     dry_run,
                 };
@@ -110,8 +112,11 @@ impl SnapshotCommands {
                         }
                     }
                 });
-
-                let hash_result = api.chain_export(params).await?;
+                // Manually construct RpcRequest because snapshot export could
+                // take a few hours on mainnet
+                let hash_result = api
+                    .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
+                    .await?;
 
                 handle.abort();
                 let _ = handle.await;

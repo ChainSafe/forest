@@ -1,8 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::auth::*;
-use crate::rpc_client::{ApiInfo, JsonRpcError};
+use crate::rpc_client::ApiInfo;
+use crate::{
+    auth::*,
+    rpc::{self, auth::AuthNewParams, prelude::*},
+};
 use chrono::Duration;
 use clap::Subcommand;
 use std::str::FromStr;
@@ -31,13 +34,13 @@ pub enum AuthCommands {
     },
 }
 
-fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
+fn process_perms(perm: String) -> Result<Vec<String>, rpc::ServerError> {
     Ok(match perm.as_str() {
         "admin" => ADMIN,
         "sign" => SIGN,
         "write" => WRITE,
         "read" => READ,
-        _ => return Err(JsonRpcError::invalid_params("unknown permission", None)),
+        _ => return Err(rpc::ServerError::invalid_params("unknown permission", None)),
     }
     .iter()
     .map(ToString::to_string)
@@ -46,22 +49,25 @@ fn process_perms(perm: String) -> Result<Vec<String>, JsonRpcError> {
 
 impl AuthCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         match self {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                print_rpc_res_bytes(api.auth_new(perms, token_exp).await?)
+                let res = AuthNew::call(&client, (AuthNewParams { perms, token_exp },))
+                    .await?
+                    .into_inner();
+                print_rpc_res_bytes(res)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let token = api.auth_new(perms, token_exp).await?;
-                let new_api = ApiInfo {
-                    token: Some(String::from_utf8(token)?),
-                    ..api
-                };
+                let token = AuthNew::call(&client, (AuthNewParams { perms, token_exp },))
+                    .await?
+                    .into_inner();
+                let new_api = api.set_token(Some(String::from_utf8(token)?));
                 println!("FULLNODE_API_INFO=\"{}\"", new_api);
                 Ok(())
             }

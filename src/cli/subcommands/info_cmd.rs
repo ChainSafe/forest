@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::rpc::{self, prelude::*};
 use crate::rpc_client::ApiInfo;
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
+use futures::TryFutureExt as _;
+use jsonrpsee::core::ClientError;
 
 use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use humantime::format_duration;
@@ -155,12 +158,13 @@ impl NodeStatusInfo {
 
 impl InfoCommand {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
-            api.node_status(),
-            api.chain_head(),
-            api.state_network_name(),
-            api.start_time(),
-            api.wallet_default_address(),
+            api.node_status().map_err(ClientError::from),
+            ChainHead::call(&client, ()),
+            api.state_network_name().map_err(ClientError::from),
+            api.start_time().map_err(ClientError::from),
+            api.wallet_default_address().map_err(ClientError::from),
         )?;
 
         let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
@@ -177,7 +181,7 @@ impl InfoCommand {
         let node_status_info = NodeStatusInfo::new(
             cur_duration,
             blocks_per_tipset_last_finality,
-            &head,
+            &head.into_inner(),
             start_time,
             network,
             default_wallet_address.clone(),

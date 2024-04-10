@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
+pub mod circulating_supply;
 mod errors;
 mod metrics;
 pub mod utils;
-pub mod vm_circ_supply;
 pub use self::errors::*;
 use self::utils::structured;
 
@@ -42,6 +42,7 @@ use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
+pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
@@ -67,7 +68,6 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 pub use utils::is_valid_for_sending;
-pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -1172,7 +1172,7 @@ where
         let prev_beacon = self
             .chain_store()
             .chain_index
-            .latest_beacon_entry(&tipset)?;
+            .latest_beacon_entry(tipset.clone())?;
 
         let entries: Vec<BeaconEntry> = beacon_schedule
             .beacon_entries_for_block(

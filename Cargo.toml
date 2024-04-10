@@ -1,11 +1,12 @@
 [package]
 name = "forest-filecoin"
-version = "0.17.1"
+version = "0.17.2"
 authors = ["ChainSafe Systems <info@chainsafe.io>"]
 repository = "https://github.com/ChainSafe/forest"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Rust Filecoin implementation."
+exclude = [".config", ".github", ".maintain", "documentation", "scripts"]
 
 [dependencies]
 ahash = "0.8"
@@ -51,18 +52,18 @@ dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 ethereum-types = "0.14.1"
-fil_actor_account_state = { version = "10.1.0" }
-fil_actor_cron_state = { version = "10.1.0" }
-fil_actor_datacap_state = { version = "10.1.0" }
-fil_actor_init_state = { version = "10.1.0" }
-fil_actor_interface = { version = "10.1.0" }
-fil_actor_market_state = { version = "10.1.0" }
-fil_actor_miner_state = { version = "10.1.0" }
-fil_actor_power_state = { version = "10.1.0" }
-fil_actor_reward_state = { version = "10.1.0" }
-fil_actor_system_state = { version = "10.1.0" }
-fil_actor_verifreg_state = { version = "10.1.0" }
-fil_actors_shared = { version = "10.1.0", features = ["json"] }
+fil_actor_account_state = { version = "11.0.0" }
+fil_actor_cron_state = { version = "11.0.0" }
+fil_actor_datacap_state = { version = "11.0.0" }
+fil_actor_init_state = { version = "11.0.0" }
+fil_actor_interface = { version = "11.0.0" }
+fil_actor_market_state = { version = "11.0.0" }
+fil_actor_miner_state = { version = "11.0.0" }
+fil_actor_power_state = { version = "11.0.0" }
+fil_actor_reward_state = { version = "11.0.0" }
+fil_actor_system_state = { version = "11.0.0" }
+fil_actor_verifreg_state = { version = "11.0.0" }
+fil_actors_shared = { version = "11.0.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 frc46_token = "10.0.0"
@@ -81,19 +82,21 @@ git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
 http = "1.0"
-http0 = { package = "http", version = "0.2" }
+# TODO(forest): https://github.com/ChainSafe/forest/issues/3961
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
+http02 = { version = "0.2", package = "http" }
 human-repr = "1.0"
 human_bytes = "0.4"
 humantime = "2.1.0"
 # TODO(forest): https://github.com/ChainSafe/forest/issues/3961
-#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/pull/1266
+#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
 hyper = { version = "0.14", features = ["full"] }
 indexmap = { version = "2.2", features = ["serde"] }
 indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22", features = ["server", "ws-client"] }
+jsonrpsee = { version = "0.22.4", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -154,7 +157,7 @@ rand_distr = "0.4"
 raw_sync_2 = "0.1"
 rayon = "1.8"
 regex = "1.10"
-reqwest = { version = "0.11", default-features = false, features = [
+reqwest = { version = "0.12", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
@@ -228,7 +231,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.208"
+ra_ap_syntax = "0.0.210"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"

@@ -22,6 +22,7 @@ CBOR
 CID/SM
 CIDs
 CLI
+Cloudflare
 clonable
 codebase
 codec
@@ -33,6 +34,7 @@ DB/S
 deserialize/D
 destructuring
 DNS
+durations
 enum
 Enum
 EOF
@@ -74,6 +76,7 @@ parsable
 PoC
 pointer/SM
 PoSt
+R2
 RPC
 schema/SM
 schemas

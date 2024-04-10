@@ -71,7 +71,7 @@ impl NetCommands {
                     )
                     .await
                     .into_iter()
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .map(|res| res.unwrap_or_else(|_| "<agent unknown>".to_owned()));
 
                     HashMap::from_iter(
                         addrs

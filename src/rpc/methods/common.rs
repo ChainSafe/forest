@@ -3,7 +3,7 @@
 #![allow(clippy::unused_async)]
 
 use crate::rpc::types::{APIVersion, Version};
-use crate::rpc::{error::JsonRpcError, RPCState};
+use crate::rpc::{error::ServerError, RPCState};
 
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
@@ -21,11 +21,11 @@ pub const DISCOVER: &str = "Filecoin.Discover";
 pub const SESSION: &str = "Filecoin.Session";
 
 /// The session UUID uniquely identifies the API node.
-pub fn session() -> Result<String, JsonRpcError> {
+pub fn session() -> Result<String, ServerError> {
     Ok(SESSION_UUID.to_string())
 }
 
-pub fn version(block_delay: u64, forest_version: &'static str) -> Result<APIVersion, JsonRpcError> {
+pub fn version(block_delay: u64, forest_version: &'static str) -> Result<APIVersion, ServerError> {
     let v = SemVer::parse(forest_version).unwrap();
     Ok(APIVersion {
         version: forest_version.to_string(),
@@ -34,7 +34,7 @@ pub fn version(block_delay: u64, forest_version: &'static str) -> Result<APIVers
     })
 }
 
-pub async fn shutdown(shutdown_send: Sender<()>) -> Result<(), JsonRpcError> {
+pub async fn shutdown(shutdown_send: Sender<()>) -> Result<(), ServerError> {
     // Trigger graceful shutdown
     if let Err(err) = shutdown_send.send(()).await {
         return Err(err.into());
@@ -45,6 +45,6 @@ pub async fn shutdown(shutdown_send: Sender<()>) -> Result<(), JsonRpcError> {
 /// gets start time from network
 pub fn start_time<DB: Blockstore>(
     data: &RPCState<DB>,
-) -> Result<chrono::DateTime<chrono::Utc>, JsonRpcError> {
+) -> Result<chrono::DateTime<chrono::Utc>, ServerError> {
     Ok(data.start_time)
 }
