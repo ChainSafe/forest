@@ -25,6 +25,7 @@ use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use anyhow::{bail, Context, Result};
 use bytes::{Buf, BytesMut};
+use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
 use cid::{
     multihash::{self, MultihashDigest},
     Cid,
@@ -746,7 +747,12 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     }
 
     if msg.params().bytes().len() > 0 {
-        params = msg.params().bytes().to_vec();
+        // TODO: could we do better?
+        let mut reader = SliceReader::new(msg.params().bytes());
+        match Value::decode(&mut reader) {
+            Ok(Value::Bytes(bytes)) => params = bytes,
+            _ => bail!("failed to read params byte array"),
+        }
     }
 
     if msg.to == FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR {
@@ -1182,9 +1188,7 @@ mod test {
             max_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000120)),
             max_priority_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000000)),
             gas_limit: 37442471,
-            // TODO: find out why our input was starting with the bytes 88 and 196
             input: decode_hex("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap(),
-            // TODO: find out why sig was init with default
             v: BigInt(num_bigint::BigInt::from_str("1").unwrap()),
             r: BigInt(
                 num_bigint::BigInt::from_str(
