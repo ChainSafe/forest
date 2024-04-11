@@ -247,7 +247,7 @@ impl<DB: Blockstore, T: Iterator<Item = Tipset> + Unpin> Stream for ChainStream<
                         }
 
                         // Process block messages.
-                        if block.epoch >= stateroot_limit {
+                        if block.epoch > stateroot_limit {
                             this.dfs.push_back(Iterate(
                                 DfsIter::from(block.messages)
                                     .filter_map(ipld_to_cid)
@@ -489,7 +489,7 @@ impl<DB: Blockstore + Send + Sync + 'static, T: Iterator<Item = Tipset> + Unpin>
                         }
 
                         // Process block messages.
-                        if block.epoch >= stateroot_limit
+                        if block.epoch > stateroot_limit
                             && should_save_block_to_snapshot(block.messages)
                         {
                             if this.db.has(&block.messages)? {
