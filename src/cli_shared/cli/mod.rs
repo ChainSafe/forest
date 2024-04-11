@@ -58,6 +58,9 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
+    /// Address used for healthcheck server. By defaults binds on localhost on port 2346.
+    #[arg(long)]
+    pub healthcheck_address: Option<SocketAddr>,
     /// P2P listen addresses, e.g., `--p2p-listen-address /ip4/0.0.0.0/tcp/12345 --p2p-listen-address /ip4/0.0.0.0/tcp/12346`
     #[arg(long)]
     pub p2p_listen_address: Option<Vec<Multiaddr>>,
@@ -168,6 +171,10 @@ impl CliOpts {
             }
         } else {
             cfg.client.enable_rpc = false;
+        }
+
+        if let Some(healthcheck_address) = self.healthcheck_address {
+            cfg.client.healthcheck_address = healthcheck_address;
         }
 
         if self.no_metrics {
