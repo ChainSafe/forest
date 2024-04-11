@@ -69,6 +69,7 @@ mod tests {
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
     use jsonrpsee::types::params::Params;
+    use tokio::sync::mpsc;
     use tokio::{sync::RwLock, task::JoinSet};
 
     use super::*;
@@ -143,6 +144,7 @@ mod tests {
             start_time,
             chain_store: cs_for_chain.clone(),
             beacon,
+            shutdown: mpsc::channel(1).0, // dummy for tests
         });
         (state, network_rx)
     }

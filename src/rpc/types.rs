@@ -42,6 +42,7 @@ use nonempty::NonEmpty;
 use num_bigint::BigInt;
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(test)]
 use serde_json::Value;
 use std::str::FromStr;
 
@@ -227,29 +228,6 @@ lotus_json_with_self!(AddrInfo);
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {
     pub multihash: Multihash,
-}
-
-/// Represents the current version of the API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct APIVersion {
-    pub version: String,
-    #[serde(rename = "APIVersion")]
-    pub api_version: Version,
-    pub block_delay: u64,
-}
-
-lotus_json_with_self!(APIVersion);
-
-/// Integer based value on version information. Highest order bits for Major,
-/// Mid order for Minor and lowest for Patch.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Version(u32);
-
-impl Version {
-    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
-    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
@@ -552,41 +530,6 @@ impl HasLotusJson for MinerPower {
         }
     }
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiscoverResult {
-    info: DiscoverInfo,
-    methods: Vec<DiscoverMethod>,
-    openrpc: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiscoverMethod {
-    deprecated: bool,
-    description: String,
-    external_docs: DiscoverDocs,
-    name: String,
-    param_structure: String,
-    params: Value,
-    // Missing 'result' field. Tracking issue:
-    // https://github.com/ChainSafe/forest/issues/3585
-    summary: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiscoverDocs {
-    description: String,
-    url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiscoverInfo {
-    title: String,
-    version: String,
-}
-
-lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
 
 /// State of all actor implementations.
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
