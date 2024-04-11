@@ -722,7 +722,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     tipset: &Arc<Tipset>,
-) -> Result<(Cid, Vec<ChainMessage>, Vec<ApiReceipt>)> {
+) -> Result<(Cid, Vec<(ChainMessage, ApiReceipt)>)> {
     let msgs = data.chain_store.messages_for_tipset(tipset)?;
 
     let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
@@ -736,7 +736,10 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
         )
     }
 
-    Ok((state_root, msgs, receipts))
+    Ok((
+        state_root,
+        msgs.into_iter().zip(receipts.into_iter()).collect(),
+    ))
 }
 
 fn is_eth_address(addr: &VmAddress) -> bool {
@@ -1088,15 +1091,14 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let block_cid = tsk.cid()?;
     let block_hash: Hash = block_cid.into();
 
-    let (state_root, msgs, receipts) = execute_tipset(data.clone(), &tipset).await?;
+    let (state_root, msgs_and_receipts) = execute_tipset(data.clone(), &tipset).await?;
 
     let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
 
     let mut full_transactions = vec![];
     let mut hash_transactions = vec![];
     let mut gas_used = 0;
-    for (i, msg) in msgs.iter().enumerate() {
-        let receipt = receipts[i].clone();
+    for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
         let ti = Uint64(i as u64);
         gas_used += receipt.gas_used;
         let smsg = match msg {
