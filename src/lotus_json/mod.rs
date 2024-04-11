@@ -335,10 +335,17 @@ pub mod hexify_vec_bytes {
     where
         D: Deserializer<'de>,
     {
-        let v: String = String::deserialize(deserializer)?
-            .parse()
-            .map_err(serde::de::Error::custom)?;
-        todo!()
+        let s = String::deserialize(deserializer)?;
+        #[allow(clippy::indexing_slicing)]
+        if s.len() >= 2 && &s[..2] == "0x" {
+            let result: Result<Vec<u8>, _> = (2..s.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+                .collect();
+            result.map_err(serde::de::Error::custom)
+        } else {
+            Err(serde::de::Error::custom("Invalid hex"))
+        }
     }
 }
 
