@@ -27,6 +27,7 @@ impl CommonArgs for Command {
         self.arg("--rpc")
             .arg("false")
             .arg("--no-metrics")
+            .arg("--no-healthcheck")
             .arg("--exit-after-init")
             .arg("--skip-load-actors")
     }

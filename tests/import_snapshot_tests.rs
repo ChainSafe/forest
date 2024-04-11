@@ -15,6 +15,7 @@ fn importing_bad_snapshot_should_fail() {
         .arg("--rpc")
         .arg("false")
         .arg("--no-metrics")
+        .arg("--no-healthcheck")
         .arg("--config")
         .arg(config_file)
         .arg("--encrypt-keystore")
