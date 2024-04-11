@@ -26,7 +26,6 @@ use crate::shim::{
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
-use crate::utils::version::FOREST_VERSION_STRING;
 use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
@@ -349,10 +348,9 @@ impl RpcTest {
 
 fn common_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(ApiInfo::version_req()),
-        RpcTest::basic(ApiInfo::start_time_req()),
-        RpcTest::basic(ApiInfo::discover_req()).ignore("Not implemented yet"),
-        RpcTest::basic(ApiInfo::session_req()),
+        RpcTest::basic_raw(Version::request(()).unwrap()),
+        RpcTest::basic_raw(StartTime::request(()).unwrap()),
+        RpcTest::basic_raw(Session::request(()).unwrap()),
     ]
 }
 
@@ -960,6 +958,8 @@ async fn start_offline_server(
         state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
     }
 
+    let (shutdown, shutdown_recv) = mpsc::channel(1);
+
     let rpc_state = RPCState {
         state_manager,
         keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory)?)),
@@ -971,25 +971,28 @@ async fn start_offline_server(
         start_time: chrono::Utc::now(),
         chain_store,
         beacon,
+        shutdown,
     };
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
-    start_offline_rpc(rpc_state, rpc_port).await?;
+    start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 
     Ok(())
 }
 
-pub async fn start_offline_rpc<DB>(state: RPCState<DB>, rpc_port: u16) -> anyhow::Result<()>
+async fn start_offline_rpc<DB>(
+    state: RPCState<DB>,
+    rpc_port: u16,
+    mut shutdown_recv: mpsc::Receiver<()>,
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
-    let forest_version = FOREST_VERSION_STRING.as_str();
-    let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
     let result = tokio::select! {
-        ret = start_rpc(state, rpc_address, forest_version, shutdown_send) => ret,
+        ret = start_rpc(state, rpc_address) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
