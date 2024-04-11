@@ -234,9 +234,8 @@ impl FromStr for Hash {
 
 impl From<Cid> for Hash {
     fn from(cid: Cid) -> Self {
-        Hash(ethereum_types::H256::from_slice(
-            &cid.hash().digest()[0..32],
-        ))
+        let (_, digest, _) = cid.hash().into_inner();
+        Hash(ethereum_types::H256::from_slice(&digest[0..32]))
     }
 }
 
@@ -724,7 +723,7 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     tipset: &Arc<Tipset>,
 ) -> Result<(Cid, Vec<ChainMessage>, Vec<ApiReceipt>)> {
-    let msgs = data.chain_store.messages_for_tipset(&tipset)?;
+    let msgs = data.chain_store.messages_for_tipset(tipset)?;
 
     let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
 
@@ -800,18 +799,21 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
 
     let len = sig.bytes().len();
     if len != 65 {
-        bail!("signature should be 65 bytes long, but got {len} bytes",);
+        bail!("signature should be 65 bytes long, but got {len} bytes");
     }
 
     let bytes = sig.bytes();
 
-    let r = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[0..32]);
+    #[allow(clippy::indexing_slicing)]
+    {
+        let r = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[0..32]);
 
-    let s = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[32..64]);
+        let s = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[32..64]);
 
-    let v = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[64..65]);
+        let v = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[64..65]);
 
-    Ok((BigInt(r), BigInt(s), BigInt(v)))
+        Ok((BigInt(r), BigInt(s), BigInt(v)))
+    }
 }
 
 /// `eth_tx_from_signed_eth_message` does NOT populate:
