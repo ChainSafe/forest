@@ -240,6 +240,12 @@ impl From<Cid> for Hash {
     }
 }
 
+impl fmt::Display for Hash {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:#x}", self.0)
+    }
+}
+
 lotus_json_with_self!(Hash);
 
 #[derive(Debug, Default, Clone)]
@@ -338,7 +344,7 @@ pub struct Block {
     pub base_fee_per_gas: BigInt,
     pub size: Uint64,
     // can be Vec<Tx> or Vec<String> depending on query params
-    pub transactions: Vec<Tx>,
+    pub transactions: Vec<String>,
     pub uncles: Vec<Hash>,
 }
 
@@ -1076,6 +1082,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
 
     let mut transactions = vec![];
+    let mut transaction_hashes = vec![];
     let mut gas_used = 0;
     for (i, msg) in msgs.iter().enumerate() {
         let receipt = receipts[i].clone();
@@ -1102,6 +1109,8 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
             transactions.push(tx);
         } else {
             // TODO: push in some other vector
+            //transactions.push(tx);
+            transaction_hashes.push(tx.hash().to_string());
         }
     }
 
@@ -1117,7 +1126,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         .clone()
         .into();
     block.gas_used = Uint64(gas_used);
-    block.transactions = transactions;
+    block.transactions = transaction_hashes;
 
     Ok(block)
 }
