@@ -24,10 +24,9 @@ pub trait CommonArgs {
 
 impl CommonArgs for Command {
     fn common_args(&mut self) -> &mut Self {
-        self.arg("--rpc-address")
-            .arg("127.0.0.1:0")
-            .arg("--metrics-address")
-            .arg("127.0.0.1:0")
+        self.arg("--rpc")
+            .arg("false")
+            .arg("--no-metrics")
             .arg("--exit-after-init")
             .arg("--skip-load-actors")
     }
