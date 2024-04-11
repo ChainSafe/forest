@@ -1110,7 +1110,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         } else {
             // TODO: push in some other vector
             //transactions.push(tx);
-            transaction_hashes.push(tx.hash().to_string());
+            transaction_hashes.push(tx.hash.to_string());
         }
     }
 
