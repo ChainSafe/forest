@@ -322,13 +322,18 @@ pub mod hexify_bytes {
 
 pub mod hexify_vec_bytes {
     use super::*;
+    use std::fmt::Write;
 
-    pub fn serialize<S>(value: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let v: Vec<String> = value.iter().map(|b| format!("{:02x}", b)).collect();
-        serializer.serialize_str(&format!("0x{}", v.join("")))
+        let mut s = String::with_capacity(2 + value.len() * 2);
+        s.push_str("0x");
+        for b in value {
+            write!(s, "{:02x}", b).expect("failed to write to string");
+        }
+        serializer.serialize_str(&s)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
