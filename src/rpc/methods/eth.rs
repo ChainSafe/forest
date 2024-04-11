@@ -1092,8 +1092,8 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
 
     let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
 
-    let mut transactions = vec![];
-    let mut transaction_hashes = vec![];
+    let mut full_transactions = vec![];
+    let mut hash_transactions = vec![];
     let mut gas_used = 0;
     for (i, msg) in msgs.iter().enumerate() {
         let receipt = receipts[i].clone();
@@ -1117,9 +1117,9 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         tx.transaction_index = ti;
 
         if full_tx_info {
-            transactions.push(tx);
+            full_transactions.push(tx);
         } else {
-            transaction_hashes.push(tx.hash.to_string());
+            hash_transactions.push(tx.hash.to_string());
         }
     }
 
@@ -1136,9 +1136,9 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         .into();
     block.gas_used = Uint64(gas_used);
     block.transactions = if full_tx_info {
-        Transactions::Full(transactions)
+        Transactions::Full(full_transactions)
     } else {
-        Transactions::Hash(transaction_hashes)
+        Transactions::Hash(hash_transactions)
     };
 
     Ok(block)
