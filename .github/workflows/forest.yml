@@ -8,6 +8,9 @@ concurrency:
   pull_request:
     branches:
       - main
+    # This needs to be declared explicitly so that the job is actually
+    # run when moved out of draft.
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - main
