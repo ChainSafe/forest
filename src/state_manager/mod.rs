@@ -691,7 +691,7 @@ where
     /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking(
-        self: &Arc<Self>,
+        &self,
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
@@ -1053,11 +1053,7 @@ where
     }
 
     /// Retrieves miner info.
-    pub fn miner_info(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerInfo, Error> {
+    pub fn miner_info(&self, addr: &Address, ts: &Tipset) -> Result<MinerInfo, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
@@ -1065,25 +1061,19 @@ where
 
         Ok(state.info(self.blockstore())?)
     }
+
     /// Retrieves miner faults.
-    pub fn miner_faults(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_faults(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
+
     /// Retrieves miner recoveries.
-    pub fn miner_recoveries(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_recoveries(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
         ts: &Arc<Tipset>,
         get_sector: impl Fn(Partition<'_>) -> BitField,
@@ -1111,11 +1101,7 @@ where
     }
 
     /// Retrieves miner power.
-    pub fn miner_power(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerPower, Error> {
+    pub fn miner_power(&self, addr: &Address, ts: &Tipset) -> Result<MinerPower, Error> {
         if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
             return Ok(MinerPower {
                 miner_power,

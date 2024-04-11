@@ -349,10 +349,6 @@ impl AttachCommand {
                 "wallet_list"        => |()| ApiInfo::wallet_list_req(),
                 "wallet_has"         => ApiInfo::wallet_has_req,
                 "wallet_set_default" => ApiInfo::wallet_set_default_req,
-
-                // Common API
-                "version" => |()| ApiInfo::version_req(),
-                "shutdown" => |()| ApiInfo::shutdown_req(),
         );
 
         // Bind send_message, sleep, sleep_tipsets

@@ -167,7 +167,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
 rustyline = "14"
-schemars = "0.8.16"
+schemars = { version = "0.8.16", features = ["chrono", "uuid1"] }
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -206,7 +206,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
-uuid = { version = "1.7", features = ["v4"] }
+uuid = { version = "1.7", features = ["v4", "serde"] }
 walkdir = "2"
 zstd = "0.13"
 

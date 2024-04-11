@@ -163,7 +163,7 @@ impl InfoCommand {
             api.node_status().map_err(ClientError::from),
             ChainHead::call(&client, ()),
             api.state_network_name().map_err(ClientError::from),
-            api.start_time().map_err(ClientError::from),
+            StartTime::call(&client, ()),
             api.wallet_default_address().map_err(ClientError::from),
         )?;
 

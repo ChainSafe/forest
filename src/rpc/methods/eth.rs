@@ -13,7 +13,7 @@ use crate::rpc::chain::{get_parent_receipts, ApiReceipt};
 use crate::rpc::error::ServerError;
 use crate::rpc::sync::sync_state;
 use crate::rpc::types::RPCSyncState;
-use crate::rpc::{self, Ctx};
+use crate::rpc::Ctx;
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -671,10 +671,6 @@ pub async fn eth_syncing<DB: Blockstore>(
         },
         None => Err(ServerError::internal_error("sync state not found", None)),
     }
-}
-
-pub fn web3_client_version(forest_version: &str) -> Result<String, rpc::ServerError> {
-    Ok(forest_version.into())
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(

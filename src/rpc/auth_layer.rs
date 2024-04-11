@@ -136,10 +136,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(gas::GAS_ESTIMATE_MESSAGE_GAS, Access::Read);
 
     // Common API
-    access.insert(common::VERSION, Access::Read);
-    access.insert(common::SESSION, Access::Read);
-    access.insert(common::SHUTDOWN, Access::Admin);
-    access.insert(common::START_TIME, Access::Read);
+    access.insert(common::Version::NAME, Access::Read);
+    access.insert(common::Session::NAME, Access::Read);
+    access.insert(common::Shutdown::NAME, Access::Admin);
+    access.insert(common::StartTime::NAME, Access::Read);
 
     // Net API
     access.insert(net::NET_ADDRS_LISTEN, Access::Read);

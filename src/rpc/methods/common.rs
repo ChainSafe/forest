@@ -1,50 +1,107 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
-use crate::rpc::types::{APIVersion, Version};
-use crate::rpc::{error::ServerError, RPCState};
-
+use crate::rpc::error::ServerError;
+use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
-use semver::Version as SemVer;
-use tokio::sync::mpsc::Sender;
-
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::any::Any;
 use uuid::Uuid;
 
 static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
-pub const VERSION: &str = "Filecoin.Version";
-pub const SHUTDOWN: &str = "Filecoin.Shutdown";
-pub const START_TIME: &str = "Filecoin.StartTime";
-pub const DISCOVER: &str = "Filecoin.Discover";
-pub const SESSION: &str = "Filecoin.Session";
-
-/// The session UUID uniquely identifies the API node.
-pub fn session() -> Result<String, ServerError> {
-    Ok(SESSION_UUID.to_string())
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::common::Session);
+        $callback!(crate::rpc::common::Version);
+        $callback!(crate::rpc::common::Shutdown);
+        $callback!(crate::rpc::common::StartTime);
+    };
 }
+pub(crate) use for_each_method;
 
-pub fn version(block_delay: u64, forest_version: &'static str) -> Result<APIVersion, ServerError> {
-    let v = SemVer::parse(forest_version).unwrap();
-    Ok(APIVersion {
-        version: forest_version.to_string(),
-        api_version: Version::new(v.major, v.minor, v.patch),
-        block_delay,
-    })
-}
+/// The returned session UUID uniquely identifies the API node.
+pub enum Session {}
+impl RpcMethod<0> for Session {
+    const NAME: &'static str = "Filecoin.Session";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-pub async fn shutdown(shutdown_send: Sender<()>) -> Result<(), ServerError> {
-    // Trigger graceful shutdown
-    if let Err(err) = shutdown_send.send(()).await {
-        return Err(err.into());
+    type Params = ();
+    type Ok = Uuid;
+
+    async fn handle(_: Ctx<impl Any>, (): Self::Params) -> Result<Uuid, ServerError> {
+        Ok(*SESSION_UUID)
     }
-    Ok(())
 }
 
-/// gets start time from network
-pub fn start_time<DB: Blockstore>(
-    data: &RPCState<DB>,
-) -> Result<chrono::DateTime<chrono::Utc>, ServerError> {
-    Ok(data.start_time)
+pub enum Version {}
+impl RpcMethod<0> for Version {
+    const NAME: &'static str = "Filecoin.Version";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = PublicVersion;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let v = &*crate::utils::version::FOREST_VERSION;
+        Ok(PublicVersion {
+            version: crate::utils::version::FOREST_VERSION_STRING.clone(),
+            api_version: ShiftingVersion::new(v.major, v.minor, v.patch),
+            block_delay: ctx.state_manager.chain_config().block_delay_secs,
+        })
+    }
+}
+
+pub enum Shutdown {}
+impl RpcMethod<0> for Shutdown {
+    const NAME: &'static str = "Filecoin.Shutdown";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = ();
+
+    async fn handle(ctx: Ctx<impl Any>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        ctx.shutdown.send(()).await?;
+        Ok(())
+    }
+}
+
+pub enum StartTime {}
+impl RpcMethod<0> for StartTime {
+    const NAME: &'static str = "Filecoin.StartTime";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = chrono::DateTime<chrono::Utc>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.start_time)
+    }
+}
+
+/// Represents the current version of the API.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct PublicVersion {
+    pub version: String,
+    #[serde(rename = "APIVersion")]
+    pub api_version: ShiftingVersion,
+    pub block_delay: u32,
+}
+
+/// Integer based value on version information. Highest order bits for Major,
+/// Mid order for Minor and lowest for Patch.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ShiftingVersion(u32);
+
+impl ShiftingVersion {
+    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
+        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
+    }
 }
