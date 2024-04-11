@@ -103,11 +103,11 @@ services:
         forest-tool archive info lotus.car | tail -n +2 > lotus.txt
         cat lotus.txt
         diff forest.txt lotus.txt
-        ## Too slow, comment out for now
-        # apt-get update
-        # apt-get install -y zstd
-        # zstd -d forest.car.zst
-        # cmp forest.car lotus.car
+        # Do byte-to-byte comparison
+        apt-get update
+        apt-get install -y zstd
+        zstd -d forest.car.zst
+        cmp forest.car lotus.car
         popd
   post-setup:
     depends_on:
