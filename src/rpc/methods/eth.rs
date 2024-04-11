@@ -385,7 +385,7 @@ pub struct Tx {
 }
 
 impl Tx {
-    pub fn hash(&self) -> Hash {
+    pub fn eth_hash(&self) -> Hash {
         let eth_tx_args: TxArgs = self.clone().into();
         eth_tx_args.hash()
     }
@@ -1051,7 +1051,7 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     if smsg.is_delegated() {
         // This is an eth tx
         tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-        tx.hash = tx.hash();
+        tx.hash = tx.eth_hash();
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
         tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
