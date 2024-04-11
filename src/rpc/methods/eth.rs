@@ -452,8 +452,7 @@ fn format_address(value: &Address) -> BytesMut {
 
 impl TxArgs {
     pub fn hash(&self) -> Hash {
-        let rlp = self.rlp_signed_message();
-        Hash(keccak(&rlp))
+        Hash(keccak(self.rlp_signed_message()))
     }
 
     pub fn rlp_signed_message(&self) -> Vec<u8> {
@@ -467,7 +466,7 @@ impl TxArgs {
         stream.append(&format_bigint(&self.value));
         stream.append(&self.input);
         let access_list: &[u8] = &[];
-        stream.append_list(&access_list);
+        stream.append_list(access_list);
 
         stream.append(&format_bigint(&self.v));
         stream.append(&format_bigint(&self.r));
@@ -743,7 +742,7 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
         bail!("unsupported msg version: {}", msg.version);
     }
 
-    if msg.params().bytes().len() > 0 {
+    if !msg.params().bytes().is_empty() {
         // TODO: could we do better?
         let mut reader = SliceReader::new(msg.params().bytes());
         match Value::decode(&mut reader) {
