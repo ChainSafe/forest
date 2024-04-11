@@ -27,6 +27,9 @@
 
 ### Breaking
 
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Rename environment
+  variable `TRUST_PARAMS` to `FOREST_FORCE_TRUST_PARAMS`.
+
 ### Added
 
 - [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
@@ -47,6 +50,9 @@
 ### Removed
 
 ### Fixed
+
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Fixed a bug where the
+  environment variable `IPFS_GATEWAY` was not used to change the IPFS gateway.
 
 ## Forest 0.17.2 "Dovakhin"
 

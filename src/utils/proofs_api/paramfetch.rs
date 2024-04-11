@@ -32,13 +32,18 @@ use super::{
     },
 };
 
-const IPFS_GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
-
+/// Default IPFS gateway to use for fetching parameters.
+/// Set via the [`IPFS_GATEWAY_ENV`] environment variable.
+const DEFAULT_IPFS_GATEWAY: &str = "https://proofs.filecoin.io/ipfs/";
 /// Domain bound to the Cloudflare R2 bucket.
 const CLOUDFLARE_PROOF_PARAMETER_DOMAIN: &str = "filecoin-proof-parameters.chainsafe.dev";
 
 /// If set to 1, enforce using the IPFS gateway for fetching parameters.
 const PROOFS_ONLY_IPFS_GATEWAY_ENV: &str = "FOREST_PROOFS_ONLY_IPFS_GATEWAY";
+
+/// Running Forest requires the download of chain's proof parameters which are large files, by default are hosted outside of China and very slow to download there.
+/// To get around that, users should set this variable to:
+/// <https://proof-parameters.s3.cn-south-1.jdcloud-oss.com/ipfs/>
 const IPFS_GATEWAY_ENV: &str = "IPFS_GATEWAY";
 
 /// Sector size options for fetching.
@@ -144,8 +149,13 @@ async fn fetch_verify_params(
 }
 
 async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
-    let gw = std::env::var(IPFS_GATEWAY_ENV).unwrap_or_else(|_| IPFS_GATEWAY.to_owned());
-    info!("Fetching param file {} from {gw}", path.display());
+    let gateway = std::env::var(IPFS_GATEWAY_ENV)
+        .unwrap_or_else(|_| DEFAULT_IPFS_GATEWAY.to_owned())
+        .parse()?;
+    info!(
+        "Fetching param file {path} from {gateway}",
+        path = path.display()
+    );
     let backoff = ExponentialBackoffBuilder::default()
         // Up to 30 minutes for downloading the file. This may be drastic,
         // but the gateway proved to be unreliable at times and we
@@ -153,10 +163,13 @@ async fn fetch_params_ipfs_gateway(path: &Path, info: &ParameterData) -> anyhow:
         .with_max_elapsed_time(Some(Duration::from_secs(60 * 30)))
         .build();
     let result = retry(backoff, || async {
-        Ok(download_ipfs_file_trustlessly(&info.cid, Some(IPFS_GATEWAY), path).await?)
+        Ok(download_ipfs_file_trustlessly(&info.cid, &gateway, path).await?)
     })
     .await;
-    debug!("Done fetching param file {:?} from {}", path, gw);
+    debug!(
+        "Done fetching param file {path} from {gateway}",
+        path = path.display(),
+    );
     result
 }
 

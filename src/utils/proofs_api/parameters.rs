@@ -23,7 +23,7 @@ use super::is_env_truthy;
 const PROOF_DIGEST_LEN: usize = 16;
 
 /// Environment variable that allows skipping checksum verification of the parameter files.
-const TRUST_PARAMS_ENV: &str = "TRUST_PARAMS";
+const FOREST_FORCE_TRUST_PARAMS_ENV: &str = "FOREST_FORCE_TRUST_PARAMS";
 
 /// Environment variable to set the directory where proofs parameters are stored. Defaults to
 /// [`PARAM_DIR`] in the data directory.
@@ -50,9 +50,9 @@ pub(super) struct ParameterData {
 }
 
 /// Ensures the parameter file is downloaded and has the correct checksum.
-/// This behavior can be disabled by setting the [`TRUST_PARAMS_ENV`] environment variable to 1.
+/// This behavior can be disabled by setting the [`FOREST_FORCE_TRUST_PARAMS_ENV`] environment variable to 1.
 pub(super) async fn check_parameter_file(path: &Path, info: &ParameterData) -> anyhow::Result<()> {
-    if is_env_truthy(TRUST_PARAMS_ENV) {
+    if is_env_truthy(FOREST_FORCE_TRUST_PARAMS_ENV) {
         warn!("Assuming parameter files are okay. Do not use in production!");
         return Ok(());
     }
@@ -104,7 +104,7 @@ pub(super) fn param_dir(data_dir: &Path) -> PathBuf {
 /// directory. To this end, the `FIL_PROOFS_PARAMETER_CACHE` environment
 /// variable is updated before the parameters are downloaded.
 ///
-/// More information available here: <https://github.com/filecoin-project/rust-fil-proofs#parameter-file-location>
+/// More information available [here](https://github.com/filecoin-project/rust-fil-proofs/blob/8f5bd86be36a55e33b9b293ba22ea13ca1f28163/README.md?plain=1#L219-L235).
 pub fn set_proofs_parameter_cache_dir_env(data_dir: &Path) {
     std::env::set_var(PROOFS_PARAMETER_CACHE_ENV, param_dir(data_dir));
 }

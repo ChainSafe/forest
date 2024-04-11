@@ -12,7 +12,7 @@ process.
 | FOREST_ACTOR_BUNDLE_PATH        | file path                        | empty                            | Path to the local actor bundle, download from remote servers when not set |
 | FIL_PROOFS_PARAMETER_CACHE      | dir path                         | empty                            | Path to folder that caches fil proof parameter files                      |
 | FOREST_PROOFS_ONLY_IPFS_GATEWAY | 1 or true                        | false                            | Use only IPFS gateway for proofs parameters download                      |
-| TRUST_PARAMS                    | 1 or true                        | false                            | Trust the parameters downloaded from the Cloudflare/IPFS                  |
+| FOREST_FORCE_TRUST_PARAMS       | 1 or true                        | false                            | Trust the parameters downloaded from the Cloudflare/IPFS                  |
 | IPFS_GATEWAY                    | URL                              | https://proofs.filecoin.io/ipfs/ | The IPFS gateway to use for downloading proofs parameters                 |
 
 ### FOREST_DB_DEV_MODE
