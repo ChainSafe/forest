@@ -321,6 +321,19 @@ impl HasLotusJson for BlockNumberOrHash {
     }
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
+pub enum Transactions {
+    Hash(Vec<String>),
+    Full(Vec<Tx>),
+}
+
+impl Default for Transactions {
+    fn default() -> Self {
+        Self::Hash(vec![])
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
@@ -344,7 +357,7 @@ pub struct Block {
     pub base_fee_per_gas: BigInt,
     pub size: Uint64,
     // can be Vec<Tx> or Vec<String> depending on query params
-    pub transactions: Vec<String>,
+    pub transactions: Transactions,
     pub uncles: Vec<Hash>,
 }
 
@@ -1108,8 +1121,6 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         if full_tx_info {
             transactions.push(tx);
         } else {
-            // TODO: push in some other vector
-            //transactions.push(tx);
             transaction_hashes.push(tx.hash.to_string());
         }
     }
@@ -1126,7 +1137,11 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         .clone()
         .into();
     block.gas_used = Uint64(gas_used);
-    block.transactions = transaction_hashes;
+    block.transactions = if full_tx_info {
+        Transactions::Full(transactions)
+    } else {
+        Transactions::Hash(transaction_hashes)
+    };
 
     Ok(block)
 }
