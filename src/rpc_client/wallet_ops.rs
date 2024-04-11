@@ -1,10 +1,10 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{ApiInfo, JsonRpcError, RpcRequest};
+use super::{ApiInfo, RpcRequest, ServerError};
 use crate::{
     key_management::KeyInfo,
-    rpc::wallet_api::*,
+    rpc::wallet::*,
     shim::{
         address::Address,
         crypto::{Signature, SignatureType},
@@ -12,7 +12,7 @@ use crate::{
 };
 
 impl ApiInfo {
-    pub async fn wallet_default_address(&self) -> Result<Option<String>, JsonRpcError> {
+    pub async fn wallet_default_address(&self) -> Result<Option<String>, ServerError> {
         self.call(Self::wallet_default_address_req()).await
     }
 
@@ -20,7 +20,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_DEFAULT_ADDRESS, ())
     }
 
-    pub async fn wallet_new(&self, signature_type: SignatureType) -> Result<String, JsonRpcError> {
+    pub async fn wallet_new(&self, signature_type: SignatureType) -> Result<String, ServerError> {
         self.call(Self::wallet_new_req(signature_type)).await
     }
 
@@ -28,7 +28,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_NEW, (signature_type,))
     }
 
-    pub async fn wallet_balance(&self, address: String) -> Result<String, JsonRpcError> {
+    pub async fn wallet_balance(&self, address: String) -> Result<String, ServerError> {
         self.call(Self::wallet_balance_req(address)).await
     }
 
@@ -36,7 +36,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_BALANCE, (address,))
     }
 
-    pub async fn wallet_export(&self, address: String) -> Result<KeyInfo, JsonRpcError> {
+    pub async fn wallet_export(&self, address: String) -> Result<KeyInfo, ServerError> {
         self.call(Self::wallet_export_req(address)).await
     }
 
@@ -44,7 +44,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_EXPORT, (address,))
     }
 
-    pub async fn wallet_import(&self, key: Vec<KeyInfo>) -> Result<String, JsonRpcError> {
+    pub async fn wallet_import(&self, key: Vec<KeyInfo>) -> Result<String, ServerError> {
         self.call(Self::wallet_import_req(key)).await
     }
 
@@ -52,7 +52,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_IMPORT, key)
     }
 
-    pub async fn wallet_list(&self) -> Result<Vec<Address>, JsonRpcError> {
+    pub async fn wallet_list(&self) -> Result<Vec<Address>, ServerError> {
         self.call(Self::wallet_list_req()).await
     }
 
@@ -60,7 +60,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_LIST, ())
     }
 
-    pub async fn wallet_has(&self, key: String) -> Result<bool, JsonRpcError> {
+    pub async fn wallet_has(&self, key: String) -> Result<bool, ServerError> {
         self.call(Self::wallet_has_req(key)).await
     }
 
@@ -68,7 +68,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_HAS, (key,))
     }
 
-    pub async fn wallet_set_default(&self, address: Address) -> Result<(), JsonRpcError> {
+    pub async fn wallet_set_default(&self, address: Address) -> Result<(), ServerError> {
         self.call(Self::wallet_set_default_req(address)).await
     }
 
@@ -80,7 +80,7 @@ impl ApiInfo {
         &self,
         address: Address,
         data: Vec<u8>,
-    ) -> Result<Signature, JsonRpcError> {
+    ) -> Result<Signature, ServerError> {
         self.call(Self::wallet_sign_req(address, data)).await
     }
 
@@ -88,7 +88,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_SIGN, (address, data))
     }
 
-    pub async fn wallet_validate_address(&self, address: String) -> Result<Address, JsonRpcError> {
+    pub async fn wallet_validate_address(&self, address: String) -> Result<Address, ServerError> {
         self.call(Self::wallet_validate_address_req(address)).await
     }
 
@@ -101,7 +101,7 @@ impl ApiInfo {
         address: Address,
         data: Vec<u8>,
         signature: Signature,
-    ) -> Result<bool, JsonRpcError> {
+    ) -> Result<bool, ServerError> {
         self.call(Self::wallet_verify_req(address, data, signature))
             .await
     }
@@ -114,7 +114,7 @@ impl ApiInfo {
         RpcRequest::new(WALLET_VERIFY, (address, data, signature))
     }
 
-    pub async fn wallet_delete(&self, address: String) -> Result<(), JsonRpcError> {
+    pub async fn wallet_delete(&self, address: String) -> Result<(), ServerError> {
         self.call(Self::wallet_delete_req(address)).await
     }
 

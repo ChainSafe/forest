@@ -1,18 +1,17 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::common_api::{DISCOVER, SESSION, SHUTDOWN, START_TIME, VERSION};
+use super::{ApiInfo, RpcRequest, ServerError};
+use crate::rpc::common::{DISCOVER, SESSION, SHUTDOWN, START_TIME, VERSION};
 use crate::rpc::types::{APIVersion, DiscoverResult};
 use chrono::{DateTime, Utc};
-
-use super::{ApiInfo, JsonRpcError, RpcRequest};
 
 impl ApiInfo {
     pub fn version_req() -> RpcRequest<APIVersion> {
         RpcRequest::new(VERSION, ())
     }
 
-    pub async fn start_time(&self) -> Result<DateTime<Utc>, JsonRpcError> {
+    pub async fn start_time(&self) -> Result<DateTime<Utc>, ServerError> {
         self.call(Self::start_time_req()).await
     }
 
@@ -20,7 +19,7 @@ impl ApiInfo {
         RpcRequest::new(START_TIME, ())
     }
 
-    pub async fn shutdown(&self) -> Result<(), JsonRpcError> {
+    pub async fn shutdown(&self) -> Result<(), ServerError> {
         self.call(Self::shutdown_req()).await
     }
 

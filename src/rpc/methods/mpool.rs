@@ -1,13 +1,13 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::gas_api::estimate_message_gas;
-use super::RPCState;
+use super::gas::estimate_message_gas;
+
 use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::{reflect::SelfDescribingRpcModule, ApiVersion, Ctx, RpcMethod, RpcMethodExt as _};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
@@ -16,14 +16,15 @@ use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
-pub fn register_all(
-    module: &mut SelfDescribingRpcModule<RPCState<impl Blockstore + Send + Sync + 'static>>,
-) {
-    MpoolGetNonce::register(module);
-    MpoolPending::register(module);
-    MpoolPush::register(module);
-    MpoolPushMessage::register(module);
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::mpool::MpoolGetNonce);
+        $callback!(crate::rpc::mpool::MpoolPending);
+        $callback!(crate::rpc::mpool::MpoolPush);
+        $callback!(crate::rpc::mpool::MpoolPushMessage);
+    };
 }
+pub(crate) use for_each_method;
 
 /// Gets next nonce for the specified sender.
 pub enum MpoolGetNonce {}
@@ -38,7 +39,7 @@ impl RpcMethod<1> for MpoolGetNonce {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address,): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.mpool.get_sequence(&address.into_inner())?)
     }
 }
@@ -56,7 +57,7 @@ impl RpcMethod<1> for MpoolPending {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let mut ts = ctx
             .state_manager
             .chain_store()
@@ -131,7 +132,7 @@ impl RpcMethod<1> for MpoolPush {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(msg),): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let cid = ctx.mpool.as_ref().push(msg).await?;
         Ok(cid.into())
     }
@@ -150,7 +151,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(umsg), spec): Self::Params,
-    ) -> Result<Self::Ok, JsonRpcError> {
+    ) -> Result<Self::Ok, ServerError> {
         let from = umsg.from;
 
         let mut keystore = ctx.keystore.as_ref().write().await;

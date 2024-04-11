@@ -13,20 +13,12 @@ use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
-use crate::rpc::beacon_api::BeaconGetEntry;
-use crate::rpc::chain_api::{
-    ChainGetBlockMessages, ChainGetMessage, ChainGetMessagesInTipset, ChainGetParentMessages,
-    ChainGetParentReceipts, ChainHasObj, ChainReadObj,
-};
-use crate::rpc::eth_api::Address as EthAddress;
-use crate::rpc::eth_api::*;
+use crate::rpc::beacon::BeaconGetEntry;
+use crate::rpc::eth::Address as EthAddress;
+use crate::rpc::eth::*;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{
-    mpool_api::{MpoolGetNonce, MpoolPending},
-    RpcMethodExt as _,
-};
-use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_client::{ApiInfo, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
+use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -196,7 +188,7 @@ enum EndpointStatus {
 }
 
 impl EndpointStatus {
-    fn from_json_error(err: JsonRpcError) -> Self {
+    fn from_json_error(err: ServerError) -> Self {
         match err.known_code() {
             ErrorCode::ParseError => Self::InvalidResponse,
             ErrorCode::OversizedRequest => Self::InvalidRequest,
@@ -378,31 +370,36 @@ fn beacon_tests() -> Vec<RpcTest> {
 
 fn chain_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(ApiInfo::chain_head_req()),
-        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
+        RpcTest::basic_raw(ChainHead::request(()).unwrap()),
+        RpcTest::identity_raw(ChainGetGenesis::request(()).unwrap()),
     ]
 }
 
 fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block_cid = *shared_tipset.min_ticket_block().cid();
+    let shared_block_cid = (*shared_tipset.min_ticket_block().cid()).into();
 
     vec![
-        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid.into(),)).unwrap()),
-        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid.into(),)).unwrap()),
-        RpcTest::identity(ApiInfo::chain_get_block_req(shared_block_cid)),
-        RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
-            shared_tipset.epoch(),
-            Default::default(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
-            shared_tipset.epoch(),
-            Default::default(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
-        RpcTest::identity(ApiInfo::chain_get_path_req(
-            shared_tipset.key().clone(),
-            shared_tipset.parents().clone(),
-        )),
+        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(ChainGetBlock::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(
+            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
+                .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
+                .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetTipSet::request((LotusJson(shared_tipset.key().clone().into()),)).unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetPath::request((
+                shared_tipset.key().clone().into(),
+                shared_tipset.parents().clone().into(),
+            ))
+            .unwrap(),
+        ),
     ]
 }
 
@@ -549,6 +546,7 @@ fn eth_tests() -> Vec<RpcTest> {
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Pending),
         )),
+        RpcTest::basic(ApiInfo::web3_client_version_req()),
     ]
 }
 

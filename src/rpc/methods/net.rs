@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::{types::AddrInfo, Ctx};
 use anyhow::Result;
 use cid::multibase;
@@ -88,7 +88,7 @@ impl From<libp2p::autonat::NatStatus> for NatStatusResult {
     }
 }
 
-pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, JsonRpcError> {
+pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::AddrsListen(tx),
@@ -103,7 +103,7 @@ pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo,
     })
 }
 
-pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, JsonRpcError> {
+pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Peers(tx),
@@ -124,11 +124,11 @@ pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, J
 }
 
 // NET_LISTENING always returns true.
-pub async fn net_listening() -> Result<bool, JsonRpcError> {
+pub async fn net_listening() -> Result<bool, ServerError> {
     Ok(true)
 }
 
-pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, JsonRpcError> {
+pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::Info(tx),
@@ -141,7 +141,7 @@ pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, Js
 pub async fn net_connect<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
+) -> Result<(), ServerError> {
     let (AddrInfo { id, addrs },) = params.parse()?;
 
     let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
@@ -165,7 +165,7 @@ pub async fn net_connect<DB: Blockstore>(
 pub async fn net_disconnect<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<(), JsonRpcError> {
+) -> Result<(), ServerError> {
     let (id,): (String,) = params.parse()?;
 
     let peer_id = PeerId::from_str(&id)?;
@@ -184,7 +184,7 @@ pub async fn net_disconnect<DB: Blockstore>(
 pub async fn net_agent_version<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let (id,): (String,) = params.parse()?;
 
     let peer_id = PeerId::from_str(&id)?;
@@ -205,7 +205,7 @@ pub async fn net_agent_version<DB: Blockstore>(
 pub async fn net_auto_nat_status<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<NatStatusResult, JsonRpcError> {
+) -> Result<NatStatusResult, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
         method: NetRPCMethods::AutoNATStatus(tx),
@@ -218,7 +218,7 @@ pub async fn net_auto_nat_status<DB: Blockstore>(
 pub async fn net_version<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     Ok(format!(
         "{}",
         data.state_manager.chain_config().eth_chain_id

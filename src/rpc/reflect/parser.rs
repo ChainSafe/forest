@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use super::{jsonrpc_types::RequestParameters, openrpc_types::ParamStructure, util::Optional as _};
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 
 /// Parser for JSON-RPC parameters.
 /// Abstracts calling convention, checks for unexpected params etc, so that
@@ -47,7 +47,7 @@ impl<'a> Parser<'a> {
         params: Option<RequestParameters>,
         names: &'a [&'a str], // in position order
         calling_convention: ParamStructure,
-    ) -> Result<Self, JsonRpcError> {
+    ) -> Result<Self, ServerError> {
         Self::_new(params, names, calling_convention).map_err(Into::into)
     }
     fn _new(
@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
         self.has_errored = true;
         Err(e)
     }
-    pub fn parse<T>(&mut self) -> Result<T, JsonRpcError>
+    pub fn parse<T>(&mut self) -> Result<T, ServerError>
     where
         T: for<'de> Deserialize<'de>,
     {
@@ -190,10 +190,10 @@ enum ParseError<'a> {
     MustBePositional,
 }
 
-impl<'a> From<ParseError<'a>> for JsonRpcError {
+impl<'a> From<ParseError<'a>> for ServerError {
     fn from(value: ParseError<'a>) -> Self {
         match value {
-            ParseError::Missing { index, name, ty } => JsonRpcError::invalid_params(
+            ParseError::Missing { index, name, ty } => ServerError::invalid_params(
                 "missing required parameter",
                 json!({
                     "index": index,
@@ -206,7 +206,7 @@ impl<'a> From<ParseError<'a>> for JsonRpcError {
                 name,
                 ty,
                 error,
-            } => JsonRpcError::invalid_params(
+            } => ServerError::invalid_params(
                 "error deserializing parameter",
                 json!({
                     "index": index,
@@ -216,16 +216,16 @@ impl<'a> From<ParseError<'a>> for JsonRpcError {
                 }),
             ),
             ParseError::UnexpectedPositional(n) => {
-                JsonRpcError::invalid_params("unexpected trailing arguments", json!({"count": n}))
+                ServerError::invalid_params("unexpected trailing arguments", json!({"count": n}))
             }
             ParseError::UnexpectedNamed(names) => {
-                JsonRpcError::invalid_params("unexpected named arguments", json!(names))
+                ServerError::invalid_params("unexpected named arguments", json!(names))
             }
             ParseError::MustBeNamed => {
-                JsonRpcError::invalid_params("this method only accepts arguments by-name", None)
+                ServerError::invalid_params("this method only accepts arguments by-name", None)
             }
             ParseError::MustBePositional => {
-                JsonRpcError::invalid_params("this method only accepts arguments by-position", None)
+                ServerError::invalid_params("this method only accepts arguments by-position", None)
             }
         }
     }

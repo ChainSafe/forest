@@ -4,7 +4,7 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::rpc::error::JsonRpcError;
+use crate::rpc::error::ServerError;
 use crate::rpc::Ctx;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -42,7 +42,7 @@ pub struct NodeStatus {
 
 lotus_json_with_self!(NodeStatus);
 
-pub async fn node_status<DB: Blockstore>(data: Ctx<DB>) -> Result<NodeStatusResult, JsonRpcError> {
+pub async fn node_status<DB: Blockstore>(data: Ctx<DB>) -> Result<NodeStatusResult, ServerError> {
     let mut node_status = NodeStatusResult::default();
 
     let head = data.state_manager.chain_store().heaviest_tipset();
