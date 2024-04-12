@@ -1159,6 +1159,7 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use num_traits::FromBytes;
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
 
@@ -1241,6 +1242,23 @@ mod test {
             let bytes: &[u8] = &freezed.slice(..);
             padded[8 - bytes.len()..].copy_from_slice(bytes);
             assert_eq!(i, u64::from_be_bytes(padded));
+        }
+    }
+
+    #[quickcheck]
+    fn bigint_roundtrip(bi: num_bigint::BigUint) {
+        let eth_bi = BigInt(bi.clone().into());
+        let bm = format_bigint(&eth_bi);
+
+        if eth_bi.0.is_zero() {
+            assert!(bm.is_empty());
+        } else {
+            // check that buffer doesn't start with zero
+            let freezed = bm.freeze();
+            assert!(!freezed.starts_with(&[0]));
+
+            // roundtrip
+            assert_eq!(bi, num_bigint::BigUint::from_be_bytes(&freezed.slice(..)));
         }
     }
 }
