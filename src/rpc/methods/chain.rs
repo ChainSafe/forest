@@ -882,7 +882,7 @@ pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         .map_err(|_| {
             ErrorObjectOwned::owned::<()>(
                 1,
-                format!("failed to root: ipld: could not find {}", message_receipts),
+                format!("failed to root: ipld: could not find {message_receipts}"),
                 None,
             )
         })
@@ -902,7 +902,7 @@ pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
             |_| {
                 ErrorObjectOwned::owned::<()>(
                     1,
-                    format!("failed to root: ipld: could not find {}", message_receipts),
+                    format!("failed to root: ipld: could not find {message_receipts}"),
                     None,
                 )
             },
