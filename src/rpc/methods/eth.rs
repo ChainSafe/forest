@@ -1171,7 +1171,7 @@ mod test {
         assert_eq!(r.0, decoded.0);
     }
 
-    pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
         (0..s.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
@@ -1224,5 +1224,23 @@ mod test {
             .unwrap(),
         );
         assert_eq!(expected_hash, eth_tx_args.hash());
+    }
+
+    #[quickcheck]
+    fn u64_roundtrip(i: u64) {
+        let bm = format_u64(i);
+        if i == 0 {
+            assert!(bm.is_empty());
+        } else {
+            // check that buffer doesn't start with zero
+            let freezed = bm.freeze();
+            assert!(!freezed.starts_with(&[0]));
+
+            // roundtrip
+            let mut padded = [0u8; 8];
+            let bytes: &[u8] = &freezed.slice(..);
+            padded[8 - bytes.len()..].copy_from_slice(bytes);
+            assert_eq!(i, u64::from_be_bytes(padded));
+        }
     }
 }
