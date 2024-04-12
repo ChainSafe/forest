@@ -759,7 +759,6 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     }
 
     if !msg.params().bytes().is_empty() {
-        // TODO: could we do better?
         let mut reader = SliceReader::new(msg.params().bytes());
         match Value::decode(&mut reader) {
             Ok(Value::Bytes(bytes)) => params = bytes,
