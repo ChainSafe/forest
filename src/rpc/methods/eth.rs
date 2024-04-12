@@ -19,7 +19,6 @@ use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
-use crate::shim::fvm_shared_latest::METHOD_CONSTRUCTOR;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
@@ -73,24 +72,13 @@ const EIP_1559_TX_TYPE: u64 = 2;
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
-#[allow(dead_code)]
 #[repr(u64)]
 enum EAMMethod {
-    Constructor = METHOD_CONSTRUCTOR,
-    Create = 2,
-    Create2 = 3,
     CreateExternal = 4,
 }
 
-#[allow(dead_code)]
 #[repr(u64)]
 enum EVMMethod {
-    Constructor = METHOD_CONSTRUCTOR,
-    Resurrect = 2,
-    GetBytecode = 3,
-    GetBytecodeHash = 4,
-    GetStorageAt = 5,
-    InvokeContractDelegate = 6,
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.
     // InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
