@@ -450,6 +450,7 @@ fn format_u64(value: u64) -> BytesMut {
     }
 }
 
+#[allow(clippy::indexing_slicing)]
 fn format_bigint(value: &BigInt) -> BytesMut {
     let (_, bytes) = value.0.to_bytes_be();
     let first_non_zero = bytes.iter().position(|&b| b != 0);
