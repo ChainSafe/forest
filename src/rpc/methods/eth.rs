@@ -144,6 +144,7 @@ impl Address {
         }
     }
 
+    // See https://github.com/filecoin-project/lotus/blob/v1.26.2/chain/types/ethtypes/eth_types.go#L347-L375 for reference implementation
     pub fn from_filecoin_address(addr: &FilecoinAddress) -> Result<Self> {
         match addr.protocol() {
             Protocol::ID => Ok(Self::from_actor_id(addr.id()?)),
