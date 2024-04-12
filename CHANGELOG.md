@@ -48,6 +48,9 @@
 - [#4184](https://github.com/ChainSafe/forest/pull/4184) Added
   `--no-healthcheck` flag to `forest` to disable the healthcheck endpoint.
 
+- [#4183](https://github.com/ChainSafe/forest/issues/4183) Add support for the
+  `Filecoin.EthGetBlockByNumber` RPC method.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
