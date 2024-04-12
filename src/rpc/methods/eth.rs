@@ -388,7 +388,8 @@ pub struct Tx {
     pub block_number: Uint64,
     pub transaction_index: Uint64,
     pub from: Address,
-    pub to: Address,
+    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
+    pub to: LotusJson<Option<Address>>,
     pub value: BigInt,
     pub r#type: Uint64,
     pub input: Bytes,
@@ -414,7 +415,7 @@ lotus_json_with_self!(Tx);
 struct TxArgs {
     pub chain_id: u64,
     pub nonce: u64,
-    pub to: Address,
+    pub to: Option<Address>,
     pub value: BigInt,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
@@ -430,7 +431,7 @@ impl From<Tx> for TxArgs {
         Self {
             chain_id: tx.chain_id.0,
             nonce: tx.nonce.0,
-            to: tx.to,
+            to: tx.to.0,
             value: tx.value,
             max_fee_per_gas: tx.max_fee_per_gas,
             max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
@@ -469,8 +470,12 @@ fn format_bigint(value: &BigInt) -> BytesMut {
     }
 }
 
-fn format_address(value: &Address) -> BytesMut {
-    value.0.as_bytes().into()
+fn format_address(value: &Option<Address>) -> BytesMut {
+    if let Some(addr) = value {
+        addr.0.as_bytes().into()
+    } else {
+        BytesMut::new()
+    }
 }
 
 impl TxArgs {
@@ -757,7 +762,7 @@ fn is_eth_address(addr: &VmAddress) -> bool {
 }
 
 fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
-    let mut to = Address::default();
+    let mut to = Some(Address::default());
     let mut params = vec![];
 
     if msg.version != 0 {
@@ -779,7 +784,7 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
         }
     } else if msg.method_num() == EVMMethod::InvokeContract as u64 {
         let addr = Address::from_filecoin_address(&msg.to)?;
-        to = addr;
+        to = Some(addr);
     } else {
         bail!(
             "invalid methodnum {}: only allowed method is InvokeContract({})",
@@ -853,7 +858,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
         chain_id: Uint64(chain_id as u64),
-        to: tx_args.to,
+        to: LotusJson(tx_args.to),
         from,
         value: tx_args.value,
         r#type: Uint64(EIP_1559_TX_TYPE),
@@ -1003,10 +1008,12 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     // Lookup the to address. If the recipient doesn't exist, we replace the address with a
     // known sentinel address.
     let mut to = match lookup_eth_address(&msg.to(), state) {
-        Ok(addr) => addr,
+        Ok(addr) => Some(addr),
         Err(_err) => {
             // TODO: bail in case of not "actor not found" errors
-            Address(ethereum_types::H160::from_str(REVERTED_ETH_ADDRESS)?)
+            Some(Address(ethereum_types::H160::from_str(
+                REVERTED_ETH_ADDRESS,
+            )?))
 
             // bail!(
             //     "failed to lookup receiver address {} when converting a native message to an eth txn",
@@ -1030,7 +1037,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
             if let Ok(buffer) = decode_payload(msg.params(), codec) {
                 // If this is a valid "create external", unset the "to" address.
                 if msg.method_num() == EAMMethod::CreateExternal as MethodNum {
-                    // to = None;
+                    to = None;
                 }
                 break 'decode buffer;
             }
@@ -1041,7 +1048,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     };
 
     let mut tx = Tx::default();
-    tx.to = to;
+    tx.to = LotusJson(to);
     tx.from = from;
     tx.input = input;
     tx.nonce = Uint64(msg.sequence);
@@ -1198,10 +1205,10 @@ mod test {
         let eth_tx_args = TxArgs {
             chain_id: 314159,
             nonce: 486,
-            to: Address(
+            to: Some(Address(
                 ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
                     .unwrap(),
-            ),
+            )),
             value: BigInt(num_bigint::BigInt::from(0)),
             max_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000120)),
             max_priority_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000000)),
