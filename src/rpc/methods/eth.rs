@@ -185,6 +185,7 @@ impl Address {
         self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
     }
 
+    #[allow(clippy::indexing_slicing)]
     fn from_actor_id(id: u64) -> Self {
         let mut payload = ethereum_types::H160::default();
         payload.as_bytes_mut()[0] = 0xff;
