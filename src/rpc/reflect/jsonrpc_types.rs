@@ -10,7 +10,10 @@ use serde_json::{Map, Value};
 /// > If present, parameters for the RPC call MUST be provided as a Structured value.
 /// > Either by-position through an Array or by-name through an Object.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(expecting = "An Array of positional parameters, or a Map of named parameters")]
+#[serde(
+    untagged,
+    expecting = "An Array of positional parameters, or a Map of named parameters"
+)]
 pub enum RequestParameters {
     /// > params MUST be an Array, containing the values in the Server expected order.
     ByPosition(Vec<Value>),
