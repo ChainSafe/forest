@@ -569,7 +569,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let message = Message {
         from: addr,
         to: addr,
-        value: TokenAmount::from_whole(1).into(),
+        value: TokenAmount::from_whole(1),
         method_num: METHOD_SEND,
         ..Default::default()
     };

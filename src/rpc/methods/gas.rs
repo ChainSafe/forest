@@ -213,7 +213,7 @@ where
     // Pretend that the message is signed. This has an influence on the gas
     // cost. We obviously can't generate a valid signature. Instead, we just
     // fill the signature with zeros. The validity is not checked.
-    let mut chain_msg = match from_a.protocol().into() {
+    let mut chain_msg = match from_a.protocol() {
         Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
             msg,
             Signature::new_secp256k1(vec![0; 65]),
