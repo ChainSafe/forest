@@ -1049,8 +1049,8 @@ fn eth_tx_from_native_message<DB: Blockstore>(
 
     Ok(Tx {
         to: LotusJson(to),
-        from: from,
-        input: input,
+        from,
+        input,
         nonce: Uint64(msg.sequence),
         chain_id: Uint64(chain_id as u64),
         value: msg.value.clone().into(),
