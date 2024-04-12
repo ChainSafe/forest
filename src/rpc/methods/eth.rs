@@ -438,16 +438,15 @@ impl From<Tx> for TxArgs {
     }
 }
 
-fn format_u64(value: &u64) -> BytesMut {
-    let bytes = value.to_be_bytes();
-    let first_non_zero = bytes.iter().position(|&b| b != 0);
-
-    match first_non_zero {
-        Some(i) => bytes[i..].into(),
-        None => {
-            // If all bytes are zero, return an empty slice
-            BytesMut::new()
-        }
+#[allow(clippy::indexing_slicing)]
+fn format_u64(value: u64) -> BytesMut {
+    if value != 0 {
+        let i = (value.leading_zeros() / 8) as usize;
+        let bytes = value.to_be_bytes();
+        bytes[i..].into()
+    } else {
+        // If all bytes are zero, return an empty slice
+        BytesMut::new()
     }
 }
 
@@ -475,11 +474,11 @@ impl TxArgs {
 
     pub fn rlp_signed_message(&self) -> Vec<u8> {
         let mut stream = RlpStream::new_list(12); // THIS IS IMPORTANT
-        stream.append(&format_u64(&self.chain_id));
-        stream.append(&format_u64(&self.nonce));
+        stream.append(&format_u64(self.chain_id));
+        stream.append(&format_u64(self.nonce));
         stream.append(&format_bigint(&self.max_priority_fee_per_gas));
         stream.append(&format_bigint(&self.max_fee_per_gas));
-        stream.append(&format_u64(&self.gas_limit));
+        stream.append(&format_u64(self.gas_limit));
         stream.append(&format_address(&self.to));
         stream.append(&format_bigint(&self.value));
         stream.append(&self.input);
