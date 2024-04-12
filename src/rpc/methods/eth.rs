@@ -1062,7 +1062,6 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     chain_id: u32,
 ) -> Result<Tx> {
     let mut tx: Tx = Tx::default();
-    tx.chain_id = Uint64(1);
 
     if smsg.is_delegated() {
         // This is an eth tx
