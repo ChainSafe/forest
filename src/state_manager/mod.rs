@@ -21,6 +21,7 @@ use crate::interpreter::{
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
@@ -199,12 +200,15 @@ pub struct InvocResult {
 type StateCallResult = Result<InvocResult, Error>;
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
+    #[serde(with = "crate::lotus_json")]
     escrow: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     locked: TokenAmount,
 }
+lotus_json_with_self!(MarketBalance);
 
 /// State manager handles all interactions with the internal Filecoin actors
 /// state. This encapsulates the [`ChainStore`] functionality, which only
