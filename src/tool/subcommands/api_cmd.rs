@@ -16,10 +16,13 @@ use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::eth::*;
+use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
+use crate::shim::econ::TokenAmount;
+use crate::shim::message::{Message, METHOD_SEND};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -561,6 +564,25 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
+fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let addr = Address::from_str("t15ydyu3d65gznpp2qxwpkjsgz4waubeunn6upvla").unwrap();
+    let message = Message {
+        from: addr,
+        to: addr,
+        value: TokenAmount::from_whole(1).into(),
+        method_num: METHOD_SEND,
+        // gas_limit: 1000000,
+        // gas_fee_cap: 100000,
+        // gas_premium: 0,
+        ..Default::default()
+    };
+
+    vec![RpcTest::identity_raw(
+        GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
+            .unwrap(),
+    )]
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
@@ -577,6 +599,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
+    tests.extend(gas_tests_with_tipset(&shared_tipset));
 
     // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
     // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow

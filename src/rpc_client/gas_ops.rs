@@ -11,6 +11,10 @@ use crate::{
 };
 
 impl ApiInfo {
+    pub fn gas_estimate_gas_limit_req(msg: Message, tsk: ApiTipsetKey) -> RpcRequest<i64> {
+        RpcRequest::new(GAS_ESTIMATE_GAS_LIMIT, (msg, tsk))
+    }
+
     pub fn gas_estimate_message_gas_req(
         msg: Message,
         spec: Option<MessageSendSpec>,
