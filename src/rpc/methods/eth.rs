@@ -1047,20 +1047,20 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         encode_filecoin_params_as_abi(msg.method_num(), codec, msg.params())?
     };
 
-    let mut tx = Tx::default();
-    tx.to = LotusJson(to);
-    tx.from = from;
-    tx.input = input;
-    tx.nonce = Uint64(msg.sequence);
-    tx.chain_id = Uint64(chain_id as u64);
-    tx.value = msg.value.clone().into();
-    tx.r#type = Uint64(EIP_1559_TX_TYPE);
-    tx.gas = Uint64(msg.gas_limit);
-    tx.max_fee_per_gas = msg.gas_fee_cap.clone().into();
-    tx.max_priority_fee_per_gas = msg.gas_premium.clone().into();
-    tx.access_list = vec![];
-
-    Ok(tx)
+    Ok(Tx {
+        to: LotusJson(to),
+        from: from,
+        input: input,
+        nonce: Uint64(msg.sequence),
+        chain_id: Uint64(chain_id as u64),
+        value: msg.value.clone().into(),
+        r#type: Uint64(EIP_1559_TX_TYPE),
+        gas: Uint64(msg.gas_limit),
+        max_fee_per_gas: msg.gas_fee_cap.clone().into(),
+        max_priority_fee_per_gas: msg.gas_premium.clone().into(),
+        access_list: vec![],
+        ..Tx::default()
+    })
 }
 
 pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
