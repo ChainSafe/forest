@@ -73,6 +73,7 @@ const EIP_1559_TX_TYPE: u64 = 2;
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 
+#[allow(dead_code)]
 #[repr(u64)]
 enum EAMMethod {
     Constructor = METHOD_CONSTRUCTOR,
@@ -81,6 +82,7 @@ enum EAMMethod {
     CreateExternal = 4,
 }
 
+#[allow(dead_code)]
 #[repr(u64)]
 enum EVMMethod {
     Constructor = METHOD_CONSTRUCTOR,
