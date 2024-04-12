@@ -200,6 +200,7 @@ tower = { version = "0.4", features = ["full"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7"
+tracing-configuration = { version = "0.1.0", path = "../../code/tracing-configuration" }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
@@ -215,6 +216,7 @@ termios = "0.3"
 ariadne = "0.4.0"
 assert_cmd = "2"
 bimap = "0.6.3"
+bstr = "1.9.1"
 cargo_metadata = "0.18.0"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
@@ -223,6 +225,7 @@ fvm3 = { package = "fvm", default-features = false, version = "~3.8", features =
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 http-range-header = "0.4.0"
 insta = { version = "1", features = ["yaml"] }
+io-extra = "0.3.0"
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6.4"

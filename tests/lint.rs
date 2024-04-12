@@ -37,33 +37,61 @@
 
 mod lints;
 
-use std::{io, ops::Range, process::Command};
+use std::{
+    fs::File,
+    io::{self, Write as _},
+    ops::Range,
+    process::{Command, Output, Stdio},
+    sync::Arc,
+    thread,
+};
 
+use anyhow::{anyhow, Context};
 use ariadne::{Color, ReportKind, Source};
 use cargo_metadata::{
     camino::{Utf8Path, Utf8PathBuf},
-    Message, MetadataCommand,
+    Message, Metadata,
 };
-use itertools::Itertools as _;
+use io_extra::{context, with, IoErrorExt};
+use itertools::{Either, Itertools as _};
 use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
-use tracing::{debug, info, trace};
+use tracing::{debug, debug_span, info, level_filters::LevelFilter, trace};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 #[test]
-#[ignore = "https://github.com/ChainSafe/forest/issues/3665"]
 fn lint() {
-    use tracing_subscriber::{filter::LevelFilter, util::SubscriberInitExt as _};
-    let _guard = tracing_subscriber::fmt()
-        .with_test_writer()
-        .with_max_level(LevelFilter::INFO)
-        .with_writer(io::stderr)
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().json().with_writer(|| {
+            match File::create("lint-log.json") {
+                Ok(it) => Either::Left(it),
+                Err(e) => {
+                    Either::Right(RepeatErr(Arc::new(context(e, "failed to create log file"))))
+                }
+            }
+        }))
+        .with(
+            tracing_subscriber::fmt::layer()
+                .without_time()
+                .with_filter(LevelFilter::INFO),
+        )
         .set_default();
-    LintRunner::new()
-        .run::<lints::NoTestsWithReturn>()
-        .run::<lints::SpecializedAssertions>()
-        .run_comment_linter()
-        .finish();
+    match LintRunner::new() {
+        Ok(it) => {
+            it.run::<lints::NoTestsWithReturn>()
+                .run::<lints::SpecializedAssertions>()
+                .run_comment_linter()
+                .finish();
+        }
+        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3665
+        //                  investigate flakiness
+        Err(e) => {
+            println!("skipping running linter: {:?}", e);
+            // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-a-warning-message
+            println!("::warning title=flaky-linter::{}", e);
+        }
+    }
 }
 
 #[must_use = "you must drive the runner to completion"]
@@ -75,13 +103,26 @@ struct LintRunner {
 impl LintRunner {
     /// Performs source file discovery and parsing.
     ///
+    /// Returns [`Err`] if any of the `cargo` commands fail, while we investigate
+    /// flakiness in this test - see <https://github.com/ChainSafe/forest/issues/3665>
+    ///
     /// # Panics
     /// - freely
-    pub fn new() -> Self {
+    pub fn new() -> anyhow::Result<Self> {
         info!("collecting source files...");
 
         // 1. get the package ids (there is only one in this case)
-        let metadata = MetadataCommand::new().no_deps().exec().unwrap();
+        let output = run(
+            Command::new("cargo").arg("metadata").args([
+                "--all-features",
+                "--no-deps",
+                "--verbose",
+                "--format-version=1",
+            ]),
+            io::sink(),
+            io::stderr(),
+        )?;
+        let metadata = serde_json::from_slice::<Metadata>(&output.stdout)?;
         // note: we need
         //           `forest-filecoin 0.13.0 (path+file:///home/aatif/chainsafe/forest)`
         //       as returned by `cargo metadata`, not
@@ -95,19 +136,17 @@ impl LintRunner {
         debug!(collected_package_ids = all_pkg_ids.iter().join(", "));
 
         // 2. get all the final artifacts
-        let output = Command::new("cargo")
-            .args([
+        let output = run(
+            Command::new("cargo").args([
                 "check",
                 "--workspace", // fwd-compatibility
                 "--message-format=json",
-                "--quiet",
                 "--all-targets",
                 "--all-features",
-            ])
-            .output()
-            .unwrap();
-
-        assert!(output.status.success());
+            ]),
+            io::sink(),
+            io::stderr(),
+        )?;
 
         let artifacts = Message::parse_stream(output.stdout.as_slice())
             .map(Result::unwrap)
@@ -198,10 +237,10 @@ impl LintRunner {
 
         info!(num_source_files = files.map.len());
 
-        Self {
+        Ok(Self {
             files,
             num_violations: 0,
-        }
+        })
     }
 
     /// Run the given linter.
@@ -342,6 +381,91 @@ impl LintRunner {
         }
         self.num_violations += num_violations;
         self
+    }
+}
+
+/// - captures and forwards stdio
+/// - converts error statuses to [`Err`]
+fn run<O, E>(cmd: &mut Command, stdout: O, stderr: E) -> anyhow::Result<Output>
+where
+    O: Send + io::Write,
+    E: Send + io::Write,
+{
+    let command = cmd.get_program().to_owned();
+    let args = cmd.get_args().map(ToOwned::to_owned).collect::<Vec<_>>();
+    debug_span!("running command", ?command, ?args).in_scope(|| {
+        thread::scope(|cx| {
+            let mut child = cmd
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?;
+            let stderr = cx.spawn({
+                let src = child.stderr.take().unwrap();
+                move || tee1(io::BufReader::new(src), stderr)
+            });
+            let stdout = cx.spawn({
+                let src = child.stdout.take().unwrap();
+                move || tee1(io::BufReader::new(src), stdout)
+            });
+            let res = child.wait();
+            let (stderr, e1) = stderr.join().unwrap();
+            let (stdout, e2) = stdout.join().unwrap();
+            debug!(?res, "joined command");
+            trace!(stderr = %bstr::BStr::new(&stderr), stdout = %bstr::BStr::new(&stdout));
+            match (
+                res.context("failed to join command"),
+                e1.map(|it| it.context("failed to forward stderr").into()),
+                e2.map(|it| it.context("failed to forward stdout").into()),
+            ) {
+                (Ok(status), None, None) => match status.success() {
+                    true => Ok(Output {
+                        status,
+                        stdout,
+                        stderr,
+                    }),
+                    false => Err(anyhow!(
+                        "command `{:?}` with arguments `{:?}` failed: {:?}",
+                        command,
+                        args,
+                        status
+                    )),
+                },
+                (Err(e), _, _) | (_, Some(e), _) | (_, _, Some(e)) => Err(e),
+            }
+        })
+    })
+}
+
+fn tee1(mut src: impl io::BufRead, mut fwd: impl io::Write) -> (Vec<u8>, Option<io::Error>) {
+    let mut cap = Vec::new();
+    let err = loop {
+        let consumed = match src.fill_buf() {
+            Ok(&[]) => break Ok(()),
+            Ok(it) => {
+                cap.write_all(it)
+                    .expect("<Vec<u8> as io::Write> is infallible");
+                match fwd.write_all(it).map_err(with("failed to forward output")) {
+                    Ok(()) => it.len(),
+                    Err(e) => break Err(e),
+                }
+            }
+            Err(e) => break Err(context(e, "failed to read source")),
+        };
+        src.consume(consumed); // borrowck
+    }
+    .err();
+    (cap, err)
+}
+
+struct RepeatErr(Arc<io::Error>);
+impl io::Write for RepeatErr {
+    fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+        Err(io::Error::new(self.0.kind(), Arc::clone(&self.0)))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Err(io::Error::new(self.0.kind(), Arc::clone(&self.0)))
     }
 }
 
