@@ -300,7 +300,6 @@ where
     module.register_async_method(MSIG_GET_PENDING, msig_get_pending::<DB>)?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
-    module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
     // Net API

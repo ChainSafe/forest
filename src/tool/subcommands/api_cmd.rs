@@ -571,9 +571,6 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         to: addr,
         value: TokenAmount::from_whole(1).into(),
         method_num: METHOD_SEND,
-        // gas_limit: 1000000,
-        // gas_fee_cap: 100000,
-        // gas_premium: 0,
         ..Default::default()
     };
 

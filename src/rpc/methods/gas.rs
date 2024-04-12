@@ -3,13 +3,14 @@
 #![allow(clippy::unused_async)]
 
 use crate::blocks::TipsetKey;
-use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
+use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::lotus_json::LotusJson;
-use crate::message::{ChainMessage, Message as MessageTrait};
+use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::rpc::error::ServerError;
 use crate::rpc::{types::*, RpcMethod};
 use crate::rpc::{ApiVersion, Ctx};
-use crate::shim::address::Address;
+use crate::shim::address::{Address, Protocol};
+use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::BLOCK_GAS_LIMIT;
 use crate::shim::{econ::TokenAmount, message::Message};
 use fvm_ipld_blockstore::Blockstore;
@@ -181,33 +182,23 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     }
 }
 
-/// Estimate the gas limit
-pub async fn gas_estimate_gas_limit<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<i64, ServerError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((msg, tsk)): LotusJson<(Message, ApiTipsetKey)> = params.parse()?;
-
-    estimate_gas_limit::<DB>(&data, msg, tsk).await
-}
-
 async fn estimate_gas_limit<DB>(
     data: &Ctx<DB>,
     msg: Message,
-    _: ApiTipsetKey,
+    ApiTipsetKey(tsk): ApiTipsetKey,
 ) -> Result<i64, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut msg = msg;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
-    msg.set_gas_fee_cap(TokenAmount::from_atto(MINIMUM_BASE_FEE + 1));
-    msg.set_gas_premium(TokenAmount::from_atto(1));
+    msg.set_gas_fee_cap(TokenAmount::from_atto(0));
+    msg.set_gas_premium(TokenAmount::from_atto(0));
 
-    let curr_ts = data.state_manager.chain_store().heaviest_tipset();
+    let curr_ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)
@@ -219,19 +210,31 @@ where
         .unwrap_or_default();
 
     let ts = data.mpool.cur_tipset.lock().clone();
+    // Pretend that the message is signed. This has an influence on the gas
+    // cost. We obviously can't generate a valid signature. Instead, we just
+    // fill the signature with zeros. The validity is not checked.
+    let mut chain_msg = match from_a.protocol().into() {
+        Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
+            msg,
+            Signature::new_secp256k1(vec![0; 65]),
+        )),
+        Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
+            msg,
+            Signature::new(SignatureType::Delegated, vec![0; 65]),
+        )),
+        _ => ChainMessage::Unsigned(msg),
+    };
+
     let res = data
         .state_manager
-        .call_with_gas(&mut ChainMessage::Unsigned(msg), &prior_messages, Some(ts))
+        .call_with_gas(&mut chain_msg, &prior_messages, Some(ts))
         .await?;
     match res.msg_rct {
         Some(rct) => {
             if rct.exit_code().value() != 0 {
                 return Ok(-1);
             }
-            // TODO(forest): https://github.com/ChainSafe/forest/issues/901
-            //               Figure out why we always under estimate the gas
-            //               calculation so we dont need to add 200000
-            Ok(rct.gas_used() as i64 + 200000)
+            Ok(rct.gas_used() as i64)
         }
         None => Ok(-1),
     }
