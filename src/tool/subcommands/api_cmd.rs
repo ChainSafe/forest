@@ -21,11 +21,11 @@ use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
-use crate::shim::econ::TokenAmount;
-use crate::shim::message::{Message, METHOD_SEND};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
+    econ::TokenAmount,
+    message::{Message, METHOD_SEND},
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
