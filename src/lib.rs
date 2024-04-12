@@ -51,6 +51,7 @@ mod db;
 mod documentation;
 mod fil_cns;
 mod genesis;
+mod health;
 mod interpreter;
 mod ipld;
 mod key_management;

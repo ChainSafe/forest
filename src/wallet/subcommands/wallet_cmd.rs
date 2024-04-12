@@ -11,7 +11,7 @@ use crate::{
     cli::humantoken,
     message::SignedMessage,
     rpc::{
-        mpool_api::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
+        mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
         types::ApiTipsetKey,
         RpcMethodExt as _,
     },
