@@ -17,7 +17,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::apply_block_messages;
 use crate::utils::db::car_stream::CarStream;
-use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
+use crate::utils::proofs_api::ensure_params_downloaded;
 use anyhow::{bail, Context as _};
 use cid::Cid;
 use clap::Subcommand;
@@ -354,7 +354,7 @@ where
     load_actor_bundles(&db, &network).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
-    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(
         &Config::default().client.data_dir,
     );
 
