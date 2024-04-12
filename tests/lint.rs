@@ -159,7 +159,9 @@ impl LintRunner {
                     Some(artifact)
                 }
                 Message::CompilerMessage(msg) => {
-                    info!(?msg, "compiler message");
+                    if let Some(it) = msg.message.rendered {
+                        eprintln!("{}", it)
+                    }
                     None
                 }
                 Message::BuildScriptExecuted(_)
