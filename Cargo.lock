@@ -3271,7 +3271,7 @@ dependencies = [
  "indicatif",
  "insta",
  "integer-encoding",
- "io-extra 0.3.0",
+ "io-extra",
  "is-terminal",
  "itertools 0.12.1",
  "jsonrpsee",
@@ -3364,7 +3364,6 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-chrome",
- "tracing-configuration",
  "tracing-loki",
  "tracing-subscriber",
  "unsigned-varint 0.8.0",
@@ -4903,12 +4902,6 @@ checksum = "b694dc9f70c3bda874626d2aed13b780f137aab435f4e9814121955cf706122e"
 dependencies = [
  "memoffset 0.9.1",
 ]
-
-[[package]]
-name = "io-extra"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "787c1a0107739b596b41269c3088ab8919c7f1b8929162a49575b83ca13f1003"
 
 [[package]]
 name = "io-extra"
@@ -9637,18 +9630,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tracing-configuration"
-version = "0.1.0"
-dependencies = [
- "io-extra 0.2.0",
- "serde",
- "thiserror",
- "tracing-appender",
- "tracing-core",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "tracing-core"
 version = "0.1.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9717,7 +9698,6 @@ version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
- "chrono",
  "matchers",
  "nu-ansi-term",
  "once_cell",

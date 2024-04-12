@@ -126,7 +126,7 @@ impl PendingSubscriptionSink {
         );
         let success = response.is_success();
 
-        // TODO: #1052
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4188
         //
         // Ideally the message should be sent only once.
         //

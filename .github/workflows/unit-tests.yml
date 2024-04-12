@@ -56,6 +56,12 @@ jobs:
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test
+      # TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3665
+      - name: upload flaky logs
+        uses: actions/upload-artifact@v4
+        with:
+          path: "./lint-log.ndjson"
+          if-no-files-found: "ignore"
   tests-release:
     # Change to `buildjet-8vcpu-ubuntu-2204` if `fuzzy` is down.
     # runs-on: fuzzy
@@ -87,3 +93,9 @@ jobs:
       - name: install nextest
         uses: taiki-e/install-action@nextest
       - run: make test-release
+      # TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3665
+      - name: upload flaky logs
+        uses: actions/upload-artifact@v4
+        with:
+          path: "./lint-log.ndjson"
+          if-no-files-found: "ignore"

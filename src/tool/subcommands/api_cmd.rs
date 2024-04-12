@@ -1123,7 +1123,7 @@ fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {
-        // FIXME: https://github.com/ChainSafe/forest/issues/3784
+        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         if let Some(json) = forest.as_mut() {
             json.return_dec = Ipld::Null;
         }

@@ -41,6 +41,7 @@ use std::{
     fs::File,
     io::{self, Write as _},
     ops::Range,
+    os::fd::{AsRawFd, FromRawFd},
     process::{Command, Output, Stdio},
     sync::Arc,
     thread,
@@ -53,7 +54,7 @@ use cargo_metadata::{
     Message, Metadata,
 };
 use io_extra::{context, with, IoErrorExt};
-use itertools::{Either, Itertools as _};
+use itertools::Itertools as _;
 use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
@@ -62,15 +63,15 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
 
 #[test]
 fn lint() {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().json().with_writer(|| {
-            match File::create("lint-log.json") {
-                Ok(it) => Either::Left(it),
-                Err(e) => {
-                    Either::Right(RepeatErr(Arc::new(context(e, "failed to create log file"))))
-                }
-            }
-        }))
+    let lint_log_json = File::create("lint-log.ndjson")
+        .unwrap_or_else(|_| unsafe { File::from_raw_fd(io::stdout().as_raw_fd()) });
+    let _guard = tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .json()
+                .with_writer(lint_log_json)
+                .with_filter(LevelFilter::TRACE),
+        )
         .with(
             tracing_subscriber::fmt::layer()
                 .without_time()
@@ -157,6 +158,13 @@ impl LintRunner {
                     debug!(source_file = %artifact.target.src_path);
                     Some(artifact)
                 }
+                Message::CompilerMessage(msg) => {
+                    info!(?msg, "compiler message");
+                    None
+                }
+                Message::BuildScriptExecuted(_)
+                | Message::BuildFinished(_)
+                | Message::TextLine(_) => None,
                 _ => None,
             });
 
@@ -324,8 +332,7 @@ impl LintRunner {
         info!("linting comments");
         let mut all_violations = vec![];
         let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();
-        let checker =
-            Regex::new(r"TODO\(.*\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
+        let checker = Regex::new(r"TODO\(.*\): https://github.com/").unwrap();
         for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
             for comment in ra_ap_syntax::SourceFile::parse(plaintext)
                 .tree()

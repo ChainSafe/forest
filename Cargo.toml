@@ -200,9 +200,8 @@ tower = { version = "0.4", features = ["full"] }
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7"
-tracing-configuration = { version = "0.1.0", path = "../../code/tracing-configuration" }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 uuid = { version = "1.7", features = ["v4", "serde"] }
