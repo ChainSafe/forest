@@ -1068,22 +1068,21 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     state: &StateTree<DB>,
     chain_id: u32,
 ) -> Result<Tx> {
-    let mut tx: Tx = Tx::default();
-
-    if smsg.is_delegated() {
+    let (tx, hash) = if smsg.is_delegated() {
         // This is an eth tx
-        tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-        tx.hash = tx.eth_hash();
+        let tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+        let hash = tx.eth_hash();
+        (tx, hash)
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
-        tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
-        tx.hash = smsg.cid()?.into();
+        let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
+        (tx, smsg.cid()?.into())
     } else {
         // BLS Filecoin message
-        tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
-        tx.hash = smsg.message().cid()?.into();
-    }
-    Ok(tx)
+        let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
+        (tx, smsg.message().cid()?.into())
+    };
+    Ok(Tx { hash, ..tx })
 }
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
