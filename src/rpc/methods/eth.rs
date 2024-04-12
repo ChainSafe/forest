@@ -1121,25 +1121,25 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         }
     }
 
-    let mut block = Block::new();
-    block.hash = block_hash;
-    block.number = block_number;
-    block.parent_hash = parent_cid.into();
-    block.timestamp = Uint64(tipset.block_headers().first().timestamp);
-    block.base_fee_per_gas = tipset
-        .block_headers()
-        .first()
-        .parent_base_fee
-        .clone()
-        .into();
-    block.gas_used = Uint64(gas_used);
-    block.transactions = if full_tx_info {
-        Transactions::Full(full_transactions)
-    } else {
-        Transactions::Hash(hash_transactions)
-    };
-
-    Ok(block)
+    Ok(Block {
+        hash: block_hash,
+        number: block_number,
+        parent_hash: parent_cid.into(),
+        timestamp: Uint64(tipset.block_headers().first().timestamp),
+        base_fee_per_gas: tipset
+            .block_headers()
+            .first()
+            .parent_base_fee
+            .clone()
+            .into(),
+        gas_used: Uint64(gas_used),
+        transactions: if full_tx_info {
+            Transactions::Full(full_transactions)
+        } else {
+            Transactions::Hash(hash_transactions)
+        },
+        ..Block::new()
+    })
 }
 
 pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
