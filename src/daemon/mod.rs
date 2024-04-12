@@ -336,7 +336,7 @@ pub(super) async fn start(
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
-    {
+    if config.client.enable_health_check {
         let forest_state = crate::health::ForestState {
             config: config.clone(),
             chain_config: chain_config.clone(),
