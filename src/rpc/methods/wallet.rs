@@ -69,20 +69,24 @@ impl RpcMethod<0> for WalletDefaultAddress {
     }
 }
 
-pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-/// Export `KeyInfo` from the Wallet given its address
-pub async fn wallet_export<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<KeyInfo>, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletExport {}
+impl RpcMethod<1> for WalletExport {
+    const NAME: &'static str = "Filecoin.WalletExport";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let addr = Address::from_str(&addr_str)?;
+    type Params = (LotusJson<Address>,);
+    type Ok = LotusJson<KeyInfo>;
 
-    let keystore = data.keystore.read().await;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
 
-    let key_info = crate::key_management::export_key_info(&addr, &keystore)?;
-    Ok(key_info.into())
+        let key_info = crate::key_management::export_key_info(&address, &keystore)?;
+        Ok(key_info.into())
+    }
 }
 
 pub const WALLET_HAS: &str = "Filecoin.WalletHas";

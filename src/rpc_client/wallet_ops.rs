@@ -42,7 +42,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_export_req(address: String) -> RpcRequest<KeyInfo> {
-        RpcRequest::new(WALLET_EXPORT, (address,))
+        todo!()
     }
 
     pub async fn wallet_import(&self, key: Vec<KeyInfo>) -> Result<String, ServerError> {
