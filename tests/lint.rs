@@ -84,8 +84,7 @@ impl LintRunner {
         ]
         .into_iter()
         .map(glob::glob)
-        .map(Result::unwrap) // PatternError
-        .flatten()
+        .flat_map(Result::unwrap) // PatternError
         .map(Result::unwrap) // GlobError
         .flat_map(|path| {
             // skip files we can't read or aren't syntactically valid
