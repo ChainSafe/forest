@@ -2,30 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::any::Any;
-use std::{convert::TryFrom, str::FromStr};
 
 use crate::key_management::{Key, KeyInfo};
 use crate::lotus_json::LotusJson;
-use crate::rpc::{
-    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, RPCState, RpcMethod, RpcMethodExt as _,
-    ServerError,
-};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     state_tree::StateTree,
 };
-use anyhow::{Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
-use num_traits::Zero;
-use schemars::JsonSchema;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::wallet::WalletBalance);
+        $callback!(crate::rpc::wallet::WalletDefaultAddress);
+        $callback!(crate::rpc::wallet::WalletExport);
+        $callback!(crate::rpc::wallet::WalletHas);
+        $callback!(crate::rpc::wallet::WalletImport);
+        $callback!(crate::rpc::wallet::WalletList);
+        $callback!(crate::rpc::wallet::WalletNew);
+        $callback!(crate::rpc::wallet::WalletSetDefault);
+        $callback!(crate::rpc::wallet::WalletSign);
+        $callback!(crate::rpc::wallet::WalletValidateAddress);
+        $callback!(crate::rpc::wallet::WalletVerify);
+        $callback!(crate::rpc::wallet::WalletDelete);
     };
 }
 pub(crate) use for_each_method;
