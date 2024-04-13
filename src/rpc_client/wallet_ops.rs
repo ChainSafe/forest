@@ -74,7 +74,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_set_default_req(address: Address) -> RpcRequest<()> {
-        RpcRequest::new(WALLET_SET_DEFAULT, (address,))
+        todo!()
     }
 
     pub async fn wallet_sign(

@@ -172,21 +172,26 @@ impl RpcMethod<1> for WalletNew {
     }
 }
 
-pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-/// Set the default Address for the Wallet
-pub async fn wallet_set_default<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let LotusJson((address,)): LotusJson<(Address,)> = params.parse()?;
+pub enum WalletSetDefault {}
+impl RpcMethod<1> for WalletSetDefault {
+    const NAME: &'static str = "Filecoin.WalletSetDefault";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let mut keystore = data.keystore.write().await;
+    type Params = (LotusJson<Address>,);
+    type Ok = ();
 
-    let addr_string = format!("wallet-{}", address);
-    let key_info = keystore.get(&addr_string)?;
-    keystore.remove("default")?; // This line should unregister current default key then continue
-    keystore.put("default", key_info)?;
-    Ok(())
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut keystore = ctx.keystore.write().await;
+        let addr_string = format!("wallet-{}", address);
+        let key_info = keystore.get(&addr_string)?;
+        keystore.remove("default")?; // This line should unregister current default key then continue
+        keystore.put("default", key_info)?;
+        Ok(())
+    }
 }
 
 pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
