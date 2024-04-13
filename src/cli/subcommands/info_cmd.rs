@@ -165,8 +165,8 @@ impl InfoCommand {
         let blocks_per_tipset_last_finality =
             node_status.chain_status.blocks_per_tipset_last_finality;
 
-        let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address {
-            let balance = WalletBalance::call(&client, (def_addr.clone().into(),))
+        let default_wallet_address_balance = if let Some(def_addr) = default_wallet_address {
+            let balance = WalletBalance::call(&client, (def_addr.into(),))
                 .await?
                 .into_inner();
             Some(balance)
@@ -180,7 +180,7 @@ impl InfoCommand {
             &head.into_inner(),
             start_time,
             network,
-            default_wallet_address.clone(),
+            default_wallet_address,
             default_wallet_address_balance,
         );
 
