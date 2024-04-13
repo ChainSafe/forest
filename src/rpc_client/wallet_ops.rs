@@ -120,6 +120,6 @@ impl ApiInfo {
     }
 
     pub fn wallet_delete_req(address: String) -> RpcRequest<()> {
-        RpcRequest::new(WALLET_DELETE, (address,))
+        todo!()
     }
 }

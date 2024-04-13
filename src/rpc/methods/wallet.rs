@@ -266,18 +266,23 @@ impl RpcMethod<3> for WalletVerify {
     }
 }
 
-pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
-/// Deletes a wallet given its address.
-pub async fn wallet_delete<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletDelete {}
+impl RpcMethod<1> for WalletDelete {
+    const NAME: &'static str = "Filecoin.WalletDelete";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let mut keystore = data.keystore.write().await;
-    let addr = Address::from_str(&addr_str)?;
-    crate::key_management::remove_key(&addr, &mut keystore)?;
-    Ok(())
+    type Params = (LotusJson<Address>,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut keystore = ctx.keystore.write().await;
+        crate::key_management::remove_key(&address, &mut keystore)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
