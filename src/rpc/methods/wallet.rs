@@ -249,13 +249,21 @@ impl RpcMethod<1> for WalletValidateAddress {
     }
 }
 
-pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-/// Verify a Signature, true if verified, false otherwise
-pub async fn wallet_verify(params: Params<'_>) -> Result<bool, ServerError> {
-    let LotusJson((address, msg, sig)): LotusJson<(Address, Vec<u8>, Signature)> =
-        params.parse()?;
+pub enum WalletVerify {}
+impl RpcMethod<3> for WalletVerify {
+    const NAME: &'static str = "Filecoin.WalletVerify";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "message", "signature"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    Ok(sig.verify(&msg, &address).is_ok())
+    type Params = (LotusJson<Address>, LotusJson<Vec<u8>>, LotusJson<Signature>);
+    type Ok = bool;
+
+    async fn handle(
+        _: Ctx<impl Any>,
+        (LotusJson(address), LotusJson(message), LotusJson(signature)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(signature.verify(&message, &address).is_ok())
+    }
 }
 
 pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";

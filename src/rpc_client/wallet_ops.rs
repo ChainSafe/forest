@@ -112,7 +112,7 @@ impl ApiInfo {
         data: Vec<u8>,
         signature: Signature,
     ) -> RpcRequest<bool> {
-        RpcRequest::new(WALLET_VERIFY, (address, data, signature))
+        todo!()
     }
 
     pub async fn wallet_delete(&self, address: String) -> Result<(), ServerError> {
