@@ -54,16 +54,19 @@ impl RpcMethod<1> for WalletBalance {
     }
 }
 
-pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-/// Get the default Address for the Wallet
-pub async fn wallet_default_address<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<Option<String>, ServerError> {
-    let keystore = data.keystore.read().await;
+pub enum WalletDefaultAddress {}
+impl RpcMethod<0> for WalletDefaultAddress {
+    const NAME: &'static str = "Filecoin.WalletDefaultAddress";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let addr = crate::key_management::get_default(&keystore)?;
-    Ok(addr.map(|s| s.to_string()))
+    type Params = ();
+    type Ok = LotusJson<Option<Address>>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+        Ok(LotusJson(crate::key_management::get_default(&keystore)?))
+    }
 }
 
 pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";

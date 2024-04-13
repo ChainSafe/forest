@@ -17,7 +17,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_default_address_req() -> RpcRequest<Option<String>> {
-        RpcRequest::new(WALLET_DEFAULT_ADDRESS, ())
+        todo!()
     }
 
     pub async fn wallet_new(&self, signature_type: SignatureType) -> Result<String, ServerError> {
