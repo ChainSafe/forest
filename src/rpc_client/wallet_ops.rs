@@ -66,7 +66,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_has_req(key: String) -> RpcRequest<bool> {
-        RpcRequest::new(WALLET_HAS, (key,))
+        todo!()
     }
 
     pub async fn wallet_set_default(&self, address: Address) -> Result<(), ServerError> {

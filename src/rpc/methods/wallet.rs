@@ -89,20 +89,22 @@ impl RpcMethod<1> for WalletExport {
     }
 }
 
-pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-/// Return whether or not a Key is in the Wallet
-pub async fn wallet_has<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<bool, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletHas {}
+impl RpcMethod<1> for WalletHas {
+    const NAME: &'static str = "Filecoin.WalletHas";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let addr = Address::from_str(&addr_str)?;
+    type Params = (LotusJson<Address>,);
+    type Ok = bool;
 
-    let keystore = data.keystore.read().await;
-
-    let key = crate::key_management::find_key(&addr, &keystore).is_ok();
-    Ok(key)
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+        Ok(crate::key_management::find_key(&address, &keystore).is_ok())
+    }
 }
 
 pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
