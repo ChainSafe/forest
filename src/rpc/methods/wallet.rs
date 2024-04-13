@@ -130,14 +130,19 @@ impl RpcMethod<1> for WalletImport {
     }
 }
 
-pub const WALLET_LIST: &str = "Filecoin.WalletList";
-/// List all Addresses in the Wallet
-pub async fn wallet_list<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<Address>>, ServerError> {
-    let keystore = data.keystore.read().await;
-    Ok(crate::key_management::list_addrs(&keystore)?.into())
+pub enum WalletList {}
+impl RpcMethod<0> for WalletList {
+    const NAME: &'static str = "Filecoin.WalletList";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = LotusJson<Vec<Address>>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+        Ok(crate::key_management::list_addrs(&keystore)?.into())
+    }
 }
 
 pub const WALLET_NEW: &str = "Filecoin.WalletNew";

@@ -58,7 +58,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_list_req() -> RpcRequest<Vec<Address>> {
-        RpcRequest::new(WALLET_LIST, ())
+        todo!()
     }
 
     pub async fn wallet_has(&self, key: String) -> Result<bool, ServerError> {
