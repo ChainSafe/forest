@@ -219,7 +219,7 @@ impl MpoolCommands {
                     .into_inner();
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?.into_inner();
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -255,7 +255,7 @@ impl MpoolCommands {
                     .into_inner();
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?.into_inner();
                     Some(HashSet::from_iter(response))
                 } else {
                     None

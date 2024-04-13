@@ -1,21 +1,20 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use crate::blocks::Tipset;
+use crate::cli::humantoken::TokenAmountPretty;
 use crate::rpc::{self, prelude::*};
 use crate::rpc_client::ApiInfo;
+use crate::shim::address::Address;
+use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use futures::TryFutureExt as _;
-use jsonrpsee::core::ClientError;
-
-use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use humantime::format_duration;
-use num::BigInt;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-use crate::cli::humantoken::TokenAmountPretty;
+use jsonrpsee::core::ClientError;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -39,8 +38,8 @@ pub struct NodeStatusInfo {
     /// Start time of the node
     pub start_time: DateTime<Utc>,
     pub network: String,
-    pub default_wallet_address: Option<String>,
-    pub default_wallet_address_balance: Option<String>,
+    pub default_wallet_address: Option<Address>,
+    pub default_wallet_address_balance: Option<TokenAmount>,
 }
 
 #[derive(Debug, strum::Display, PartialEq)]
@@ -58,8 +57,8 @@ impl NodeStatusInfo {
         head: &Tipset,
         start_time: DateTime<Utc>,
         network: String,
-        default_wallet_address: Option<String>,
-        default_wallet_address_balance: Option<String>,
+        default_wallet_address: Option<Address>,
+        default_wallet_address_balance: Option<TokenAmount>,
     ) -> NodeStatusInfo {
         let ts = head.min_timestamp() as i64;
         let cur_duration_secs = cur_duration.as_secs() as i64;
@@ -130,21 +129,15 @@ impl NodeStatusInfo {
         let wallet_info = {
             let wallet_address = self
                 .default_wallet_address
-                .clone()
+                .as_ref()
+                .map(|it| it.to_string())
                 .unwrap_or("address not set".to_string());
 
-            let wallet_balance = match self
+            let wallet_balance = self
                 .default_wallet_address_balance
                 .as_ref()
-                .map(|s| balance(s))
-                .transpose()
-            {
-                Ok(bal) => format!(
-                    "[balance: {}]",
-                    bal.unwrap_or("could not find balance".to_string())
-                ),
-                Err(e) => e.to_string(),
-            };
+                .map(|balance| format!("{:.4}", balance.pretty()))
+                .unwrap_or("could not find balance".to_string());
 
             format!(
                 "Default wallet address: {} [{}]",
@@ -164,15 +157,18 @@ impl InfoCommand {
             ChainHead::call(&client, ()),
             api.state_network_name().map_err(ClientError::from),
             StartTime::call(&client, ()),
-            api.wallet_default_address().map_err(ClientError::from),
+            WalletDefaultAddress::call(&client, ()),
         )?;
+        let default_wallet_address = default_wallet_address.into_inner();
 
         let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
         let blocks_per_tipset_last_finality =
             node_status.chain_status.blocks_per_tipset_last_finality;
 
         let default_wallet_address_balance = if let Some(def_addr) = &default_wallet_address {
-            let balance = api.wallet_balance(def_addr.clone()).await?;
+            let balance = WalletBalance::call(&client, (def_addr.clone().into(),))
+                .await?
+                .into_inner();
             Some(balance)
         } else {
             None
@@ -192,11 +188,6 @@ impl InfoCommand {
 
         Ok(())
     }
-}
-
-fn balance(bal: &str) -> Result<String, anyhow::Error> {
-    let balance_token_amount = TokenAmount::from_atto(bal.parse::<BigInt>()?);
-    Ok(format!("{:.4}", balance_token_amount.pretty()))
 }
 
 #[cfg(test)]
@@ -231,7 +222,7 @@ mod tests {
             sync_status: SyncStatus::Ok,
             start_time: DateTime::<chrono::Utc>::MIN_UTC,
             network: "calibnet".to_string(),
-            default_wallet_address: Some("-".to_string()),
+            default_wallet_address: None,
             default_wallet_address_balance: None,
         }
     }
