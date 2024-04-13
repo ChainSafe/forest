@@ -194,38 +194,41 @@ impl RpcMethod<1> for WalletSetDefault {
     }
 }
 
-pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-/// Sign a vector of bytes
-pub async fn wallet_sign<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Signature>, ServerError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((address, msg_string)): LotusJson<(Address, Vec<u8>)> = params.parse()?;
+pub enum WalletSign {}
+impl RpcMethod<2> for WalletSign {
+    const NAME: &'static str = "Filecoin.WalletSign";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let state_manager = &data.state_manager;
-    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
-    let key_addr = state_manager
-        .resolve_to_key_addr(&address, &heaviest_tipset)
-        .await?;
-    let keystore = &mut *data.keystore.write().await;
-    let key = match crate::key_management::find_key(&key_addr, keystore) {
-        Ok(key) => key,
-        Err(_) => {
-            let key_info = crate::key_management::try_find(&key_addr, keystore)?;
-            Key::try_from(key_info)?
-        }
-    };
+    type Params = (LotusJson<Address>, LotusJson<Vec<u8>>);
+    type Ok = LotusJson<Signature>;
 
-    let sig = crate::key_management::sign(
-        *key.key_info.key_type(),
-        key.key_info.private_key(),
-        &BASE64_STANDARD.decode(msg_string)?,
-    )?;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(address), LotusJson(message)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let key_addr = state_manager
+            .resolve_to_key_addr(&address, &heaviest_tipset)
+            .await?;
+        let keystore = &mut *ctx.keystore.write().await;
+        let key = match crate::key_management::find_key(&key_addr, keystore) {
+            Ok(key) => key,
+            Err(_) => {
+                let key_info = crate::key_management::try_find(&key_addr, keystore)?;
+                Key::try_from(key_info)?
+            }
+        };
 
-    Ok(sig.into())
+        let sig = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            &BASE64_STANDARD.decode(message)?,
+        )?;
+
+        Ok(sig.into())
+    }
 }
 
 pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";

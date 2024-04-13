@@ -86,7 +86,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_sign_req(address: Address, data: Vec<u8>) -> RpcRequest<Signature> {
-        RpcRequest::new(WALLET_SIGN, (address, data))
+        todo!()
     }
 
     pub async fn wallet_validate_address(&self, address: String) -> Result<Address, ServerError> {
