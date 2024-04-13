@@ -145,25 +145,31 @@ impl RpcMethod<0> for WalletList {
     }
 }
 
-pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-/// Generate a new Address that is stored in the Wallet
-pub async fn wallet_new<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((sig_raw,)): LotusJson<(SignatureType,)> = params.parse()?;
+pub enum WalletNew {}
+impl RpcMethod<1> for WalletNew {
+    const NAME: &'static str = "Filecoin.WalletNew";
+    const PARAM_NAMES: [&'static str; 1] = ["signature_type"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let mut keystore = data.keystore.write().await;
-    let key = crate::key_management::generate_key(sig_raw)?;
+    type Params = (LotusJson<SignatureType>,);
+    type Ok = LotusJson<Address>;
 
-    let addr = format!("wallet-{}", key.address);
-    keystore.put(&addr, key.key_info.clone())?;
-    let value = keystore.get("default");
-    if value.is_err() {
-        keystore.put("default", key.key_info)?
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(signature_type),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut keystore = ctx.keystore.write().await;
+        let key = crate::key_management::generate_key(signature_type)?;
+
+        let addr = format!("wallet-{}", key.address);
+        keystore.put(&addr, key.key_info.clone())?;
+        let value = keystore.get("default");
+        if value.is_err() {
+            keystore.put("default", key.key_info)?
+        }
+
+        Ok(key.address.into())
     }
-
-    Ok(key.address.to_string())
 }
 
 pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";

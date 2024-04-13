@@ -82,7 +82,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet::WalletHas::NAME, Access::Write);
     access.insert(wallet::WalletImport::NAME, Access::Admin);
     access.insert(wallet::WalletList::NAME, Access::Write);
-    access.insert(wallet::WALLET_NEW, Access::Write);
+    access.insert(wallet::WalletNew::NAME, Access::Write);
     access.insert(wallet::WALLET_SET_DEFAULT, Access::Write);
     access.insert(wallet::WALLET_SIGN, Access::Sign);
     access.insert(wallet::WALLET_VALIDATE_ADDRESS, Access::Read);

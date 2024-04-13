@@ -25,7 +25,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_new_req(signature_type: SignatureType) -> RpcRequest<String> {
-        RpcRequest::new(WALLET_NEW, (signature_type,))
+        todo!()
     }
 
     pub async fn wallet_balance(&self, address: String) -> Result<String, ServerError> {
