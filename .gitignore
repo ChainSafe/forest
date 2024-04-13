@@ -26,4 +26,3 @@ genesis.json
 # Tracing/profiling
 /perf.data*
 /trace-*.json
-/lint-log.ndjson

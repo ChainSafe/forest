@@ -215,7 +215,6 @@ termios = "0.3"
 ariadne = "0.4.0"
 assert_cmd = "2"
 bimap = "0.6.3"
-bstr = "1.9.1"
 cargo_metadata = "0.18.0"
 criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12.2"
