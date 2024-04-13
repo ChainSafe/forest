@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
 use std::{convert::TryFrom, str::FromStr};
 
@@ -20,19 +19,12 @@ use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 use num_traits::Zero;
 
-pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-pub const WALLET_LIST: &str = "Filecoin.WalletList";
-pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
-pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
+macro_rules! for_each_method {
+    ($callback:ident) => {};
+}
+pub(crate) use for_each_method;
 
+pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
 /// Return the balance from `StateManager` for a given `Address`
 pub async fn wallet_balance<DB: Blockstore>(
     params: Params<'_>,
@@ -59,6 +51,7 @@ pub async fn wallet_balance<DB: Blockstore>(
     }
 }
 
+pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
 /// Get the default Address for the Wallet
 pub async fn wallet_default_address<DB: Blockstore>(
     _params: Params<'_>,
@@ -70,6 +63,7 @@ pub async fn wallet_default_address<DB: Blockstore>(
     Ok(addr.map(|s| s.to_string()))
 }
 
+pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
 /// Export `KeyInfo` from the Wallet given its address
 pub async fn wallet_export<DB: Blockstore>(
     params: Params<'_>,
@@ -85,6 +79,7 @@ pub async fn wallet_export<DB: Blockstore>(
     Ok(key_info.into())
 }
 
+pub const WALLET_HAS: &str = "Filecoin.WalletHas";
 /// Return whether or not a Key is in the Wallet
 pub async fn wallet_has<DB: Blockstore>(
     params: Params<'_>,
@@ -100,6 +95,7 @@ pub async fn wallet_has<DB: Blockstore>(
     Ok(key)
 }
 
+pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
 /// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
 pub async fn wallet_import<DB: Blockstore>(
     params: Params<'_>,
@@ -126,6 +122,7 @@ pub async fn wallet_import<DB: Blockstore>(
     }
 }
 
+pub const WALLET_LIST: &str = "Filecoin.WalletList";
 /// List all Addresses in the Wallet
 pub async fn wallet_list<DB: Blockstore>(
     _params: Params<'_>,
@@ -135,6 +132,7 @@ pub async fn wallet_list<DB: Blockstore>(
     Ok(crate::key_management::list_addrs(&keystore)?.into())
 }
 
+pub const WALLET_NEW: &str = "Filecoin.WalletNew";
 /// Generate a new Address that is stored in the Wallet
 pub async fn wallet_new<DB: Blockstore>(
     params: Params<'_>,
@@ -155,6 +153,7 @@ pub async fn wallet_new<DB: Blockstore>(
     Ok(key.address.to_string())
 }
 
+pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
 /// Set the default Address for the Wallet
 pub async fn wallet_set_default<DB: Blockstore>(
     params: Params<'_>,
@@ -171,6 +170,7 @@ pub async fn wallet_set_default<DB: Blockstore>(
     Ok(())
 }
 
+pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
 /// Sign a vector of bytes
 pub async fn wallet_sign<DB>(
     params: Params<'_>,
@@ -204,6 +204,7 @@ where
     Ok(sig.into())
 }
 
+pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
 /// Validates whether a given string can be decoded as a well-formed address
 pub(in crate::rpc) async fn wallet_validate_address(
     params: Params<'_>,
@@ -214,6 +215,7 @@ pub(in crate::rpc) async fn wallet_validate_address(
     Ok(addr.into())
 }
 
+pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
 /// Verify a Signature, true if verified, false otherwise
 pub async fn wallet_verify(params: Params<'_>) -> Result<bool, ServerError> {
     let LotusJson((address, msg, sig)): LotusJson<(Address, Vec<u8>, Signature)> =
@@ -222,6 +224,7 @@ pub async fn wallet_verify(params: Params<'_>) -> Result<bool, ServerError> {
     Ok(sig.verify(&msg, &address).is_ok())
 }
 
+pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
 /// Deletes a wallet given its address.
 pub async fn wallet_delete<DB: Blockstore>(
     params: Params<'_>,
