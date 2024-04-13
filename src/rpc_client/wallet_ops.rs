@@ -50,7 +50,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_import_req(key: Vec<KeyInfo>) -> RpcRequest<String> {
-        RpcRequest::new(WALLET_IMPORT, key)
+        todo!()
     }
 
     pub async fn wallet_list(&self) -> Result<Vec<Address>, ServerError> {

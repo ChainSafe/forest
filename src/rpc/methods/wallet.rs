@@ -107,30 +107,26 @@ impl RpcMethod<1> for WalletHas {
     }
 }
 
-pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-/// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
-pub async fn wallet_import<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let params: LotusJson<Vec<KeyInfo>> = params.parse()?;
+pub enum WalletImport {}
+impl RpcMethod<1> for WalletImport {
+    const NAME: &'static str = "Filecoin.WalletImport";
+    const PARAM_NAMES: [&'static str; 1] = ["key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let key_info = params
-        .into_inner()
-        .into_iter()
-        .next()
-        .context("empty vector")?;
+    type Params = (LotusJson<KeyInfo>,);
+    type Ok = LotusJson<Address>;
 
-    let key = Key::try_from(key_info)?;
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(key_info),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let key = Key::try_from(key_info)?;
 
-    let addr = format!("wallet-{}", key.address);
+        let addr = format!("wallet-{}", key.address);
 
-    let mut keystore = data.keystore.write().await;
-
-    if let Err(error) = keystore.put(&addr, key.key_info) {
-        Err(error.into())
-    } else {
-        Ok(key.address.to_string())
+        let mut keystore = ctx.keystore.write().await;
+        keystore.put(&addr, key.key_info)?;
+        Ok(LotusJson(key.address))
     }
 }
 
