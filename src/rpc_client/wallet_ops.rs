@@ -94,7 +94,7 @@ impl ApiInfo {
     }
 
     pub fn wallet_validate_address_req(address: String) -> RpcRequest<Address> {
-        RpcRequest::new(WALLET_VALIDATE_ADDRESS, (address,))
+        todo!()
     }
 
     pub async fn wallet_verify(

@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::any::Any;
 use std::{convert::TryFrom, str::FromStr};
 
 use crate::key_management::{Key, KeyInfo};
@@ -231,15 +232,21 @@ impl RpcMethod<2> for WalletSign {
     }
 }
 
-pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
-/// Validates whether a given string can be decoded as a well-formed address
-pub(in crate::rpc) async fn wallet_validate_address(
-    params: Params<'_>,
-) -> Result<LotusJson<Address>, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletValidateAddress {}
+impl RpcMethod<1> for WalletValidateAddress {
+    const NAME: &'static str = "Filecoin.WalletValidateAddress";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let addr = Address::from_str(&addr_str)?;
-    Ok(addr.into())
+    type Params = (LotusJson<Address>,);
+    type Ok = LotusJson<Address>;
+
+    async fn handle(
+        _: Ctx<impl Any>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(address.into())
+    }
 }
 
 pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";

@@ -224,9 +224,6 @@ where
     module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
     module.register_async_method(SYNC_STATE, |_, state| sync_state::<DB>(state))?;
     // Wallet API
-    module.register_async_method(WALLET_VALIDATE_ADDRESS, |params, _| {
-        wallet_validate_address(params)
-    })?;
     module.register_async_method(WALLET_VERIFY, |params, _| wallet_verify(params))?;
     module.register_async_method(WALLET_DELETE, wallet_delete::<DB>)?;
     // State API
