@@ -33,7 +33,8 @@ impl ApiInfo {
     }
 
     pub fn wallet_balance_req(address: String) -> RpcRequest<String> {
-        RpcRequest::new(WALLET_BALANCE, (address,))
+        // RpcRequest::new(WALLET_BALANCE, (address,))
+        todo!()
     }
 
     pub async fn wallet_export(&self, address: String) -> Result<KeyInfo, ServerError> {

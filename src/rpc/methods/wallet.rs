@@ -5,8 +5,10 @@ use std::{convert::TryFrom, str::FromStr};
 
 use crate::key_management::{Key, KeyInfo};
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::ServerError;
-use crate::rpc::Ctx;
+use crate::rpc::{
+    reflect::SelfDescribingRpcModule, ApiVersion, Ctx, RPCState, RpcMethod, RpcMethodExt as _,
+    ServerError,
+};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
@@ -18,36 +20,37 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 use num_traits::Zero;
+use schemars::JsonSchema;
 
 macro_rules! for_each_method {
-    ($callback:ident) => {};
+    ($callback:ident) => {
+        $callback!(crate::rpc::wallet::WalletBalance);
+    };
 }
 pub(crate) use for_each_method;
 
-pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-/// Return the balance from `StateManager` for a given `Address`
-pub async fn wallet_balance<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletBalance {}
+impl RpcMethod<1> for WalletBalance {
+    const NAME: &'static str = "Filecoin.WalletBalance";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let address = Address::from_str(&addr_str)?;
+    type Params = (LotusJson<Address>,);
+    type Ok = LotusJson<TokenAmount>;
 
-    let heaviest_ts = data.state_manager.chain_store().heaviest_tipset();
-    let cid = heaviest_ts.parent_state();
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let heaviest_ts = ctx.state_manager.chain_store().heaviest_tipset();
+        let cid = heaviest_ts.parent_state();
 
-    let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), cid)?;
-    match state.get_actor(&address) {
-        Ok(act) => {
-            if let Some(actor) = act {
-                let actor_balance = &actor.balance;
-                Ok(actor_balance.atto().to_string())
-            } else {
-                Ok(TokenAmount::zero().atto().to_string())
-            }
-        }
-        Err(e) => Err(e.into()),
+        Ok(LotusJson(
+            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), cid)?
+                .get_actor(&address)?
+                .map(|it| it.balance.clone().into())
+                .unwrap_or_default(),
+        ))
     }
 }
 
