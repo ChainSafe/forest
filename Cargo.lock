@@ -3258,6 +3258,7 @@ dependencies = [
  "fvm_shared 4.1.2",
  "gethostname",
  "git-version",
+ "glob",
  "group",
  "hex",
  "http 0.2.12",
@@ -3271,7 +3272,6 @@ dependencies = [
  "indicatif",
  "insta",
  "integer-encoding",
- "io-extra",
  "is-terminal",
  "itertools 0.12.1",
  "jsonrpsee",
@@ -4902,12 +4902,6 @@ checksum = "b694dc9f70c3bda874626d2aed13b780f137aab435f4e9814121955cf706122e"
 dependencies = [
  "memoffset 0.9.1",
 ]
-
-[[package]]
-name = "io-extra"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b66cf557b0b9e9e047036b063bea7829984a66bf44574d27a52e38cecffed7c3"
 
 [[package]]
 name = "io-lifetimes"

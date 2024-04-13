@@ -37,62 +37,27 @@
 
 mod lints;
 
-use std::{
-    fs::File,
-    io::{self, Write as _},
-    ops::Range,
-    os::fd::{AsRawFd, FromRawFd},
-    process::{Command, Output, Stdio},
-    sync::Arc,
-    thread,
-};
+use std::{fs, ops::Range};
 
-use anyhow::{anyhow, Context};
 use ariadne::{Color, ReportKind, Source};
-use cargo_metadata::{
-    camino::{Utf8Path, Utf8PathBuf},
-    Message, Metadata,
-};
-use io_extra::{context, with, IoErrorExt};
-use itertools::Itertools as _;
+use cargo_metadata::camino::{Utf8Path, Utf8PathBuf};
 use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
-use tracing::{debug, debug_span, info, level_filters::LevelFilter, trace};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
+use tracing::{info, level_filters::LevelFilter};
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 #[test]
 fn lint() {
-    let lint_log_json = File::create("lint-log.ndjson")
-        .unwrap_or_else(|_| unsafe { File::from_raw_fd(io::stdout().as_raw_fd()) });
-    let _guard = tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .json()
-                .with_writer(lint_log_json)
-                .with_filter(LevelFilter::TRACE),
-        )
-        .with(
-            tracing_subscriber::fmt::layer()
-                .without_time()
-                .with_filter(LevelFilter::INFO),
-        )
+    let _guard = tracing_subscriber::fmt()
+        .without_time()
+        .with_max_level(LevelFilter::INFO)
         .set_default();
-    match LintRunner::new() {
-        Ok(it) => {
-            it.run::<lints::NoTestsWithReturn>()
-                .run::<lints::SpecializedAssertions>()
-                .run_comment_linter()
-                .finish();
-        }
-        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/3665
-        //                  investigate flakiness
-        Err(e) => {
-            println!("skipping running linter: {:?}", e);
-            // https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-a-warning-message
-            println!("::warning title=flaky-linter::{}", e);
-        }
-    }
+    LintRunner::new()
+        .run::<lints::NoTestsWithReturn>()
+        .run::<lints::SpecializedAssertions>()
+        .run_comment_linter()
+        .finish();
 }
 
 #[must_use = "you must drive the runner to completion"]
@@ -103,154 +68,40 @@ struct LintRunner {
 
 impl LintRunner {
     /// Performs source file discovery and parsing.
-    ///
-    /// Returns [`Err`] if any of the `cargo` commands fail, while we investigate
-    /// flakiness in this test - see <https://github.com/ChainSafe/forest/issues/3665>
-    ///
-    /// # Panics
-    /// - freely
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> Self {
         info!("collecting source files...");
 
-        // 1. get the package ids (there is only one in this case)
-        let output = run(
-            Command::new("cargo").arg("metadata").args([
-                "--all-features",
-                "--no-deps",
-                "--verbose",
-                "--format-version=1",
-            ]),
-            io::sink(),
-            io::stderr(),
-        )?;
-        let metadata = serde_json::from_slice::<Metadata>(&output.stdout)?;
-        // note: we need
-        //           `forest-filecoin 0.13.0 (path+file:///home/aatif/chainsafe/forest)`
-        //       as returned by `cargo metadata`, not
-        //           `file:///home/aatif/chainsafe/forest#forest-filecoin@0.13.0`
-        //       as returned by `cargo pkgid`
-        let all_pkg_ids = metadata
-            .packages
-            .iter()
-            .map(|it| &it.id)
-            .collect::<Vec<_>>();
-        debug!(collected_package_ids = all_pkg_ids.iter().join(", "));
+        // The initial implementation here tried to ask `cargo` and `rustc`
+        // what the source files were, but it was flaky.
+        //
+        // So just go for a simple globbing of well-known directories.
 
-        // 2. get all the final artifacts
-        let output = run(
-            Command::new("cargo").args([
-                "check",
-                "--workspace", // fwd-compatibility
-                "--message-format=json",
-                "--all-targets",
-                "--all-features",
-            ]),
-            io::sink(),
-            io::stderr(),
-        )?;
-
-        let artifacts = Message::parse_stream(output.stdout.as_slice())
-            .map(Result::unwrap)
-            .filter_map(|msg| match msg {
-                Message::CompilerArtifact(artifact)
-                    if all_pkg_ids.contains(&&artifact.package_id) =>
-                {
-                    debug!(source_file = %artifact.target.src_path);
-                    Some(artifact)
-                }
-                Message::CompilerMessage(msg) => {
-                    if let Some(it) = msg.message.rendered {
-                        eprintln!("{}", it)
-                    }
-                    None
-                }
-                Message::BuildScriptExecuted(_)
-                | Message::BuildFinished(_)
-                | Message::TextLine(_) => None,
-                _ => None,
-            });
-
-        // 3. get depfiles
-        let depfiles = artifacts
-            .flat_map(|artifact| {
-                match artifact
-                    .target
-                    .kind // there could be bugs here - see documentation on field
-                    .iter()
-                    .map(String::as_str)
-                    .collect::<Vec<_>>()
-                    .as_slice()
-                {
-                    // target/debug/build/forest-filecoin-63ff492e456e0923/build-script-build
-                    // -> target/debug/build/forest-filecoin-63ff492e456e0923/build_script_build-63ff492e456e0923.d
-                    ["custom-build"] => {
-                        assert_eq!(artifact.filenames.len(), 1);
-                        let filename = &artifact.filenames[0];
-                        let file_stem = filename.file_stem().unwrap();
-                        assert_eq!(file_stem, "build-script-build");
-                        let (_, hash) = filename
-                            .parent()
-                            .and_then(|it| {
-                                it.components().last().and_then(|it| {
-                                    it.as_str().rsplit_once(|c| !char::is_alphanumeric(c))
-                                })
-                            })
-                            .unwrap();
-                        vec![filename.with_file_name(format!("build_script_build-{}.d", hash))]
-                    }
-                    // target/debug/deps/libforest_wallet-fa26ebcb4b76d710.rmeta
-                    // -> target/debug/deps/forest_wallet-fa26ebcb4b76d710.d
-                    ["bin"] | ["example"] | ["test"] | ["bench"] | ["lib"] => artifact
-                        .filenames
-                        .iter()
-                        .map(|it| {
-                            assert_eq!(it.extension().unwrap(), "rmeta");
-                            let new_file_name = it
-                                .with_extension("d")
-                                .file_name()
-                                .unwrap()
-                                .replacen("lib", "", 1);
-                            it.with_file_name(new_file_name)
-                        })
-                        .collect::<Vec<_>>(),
-                    other => panic!("unexpected artifact.target.kind: {}", other.join(", ")),
-                }
-            })
-            .inspect(|it| debug!(depfile = %it))
-            .map(std::fs::read_to_string)
-            .map(Result::unwrap);
-
-        // 4. Collect all source files by parsing the depfiles
-        let all_source_files = depfiles
-            .flat_map(|depfile| {
-                let dependencies = depfile
-                    .lines()
-                    .filter(|it| !(it.starts_with('#') || it.is_empty()))
-                    .map(|it| {
-                        let (target, _precursors) = it.split_once(':').unwrap();
-                        Utf8PathBuf::from(target)
-                    })
-                    .collect::<Vec<_>>();
-                trace!(dependencies = %dependencies.iter().join(", "));
-                dependencies
-            })
-            .unique();
-
-        // 5. Load all the source files, skipping non-existent or non-rust files
-        let files = all_source_files
-            .flat_map(|path| {
-                let plaintext = std::fs::read_to_string(&path).ok()?;
-                let all = SourceFile::try_from(plaintext).ok()?;
-                Some((path, all))
-            })
-            .collect::<Cache>();
+        let files = [
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/**/*.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/**/*.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/benches/**/*.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/examples/**/*.rs"),
+        ]
+        .into_iter()
+        .map(glob::glob)
+        .map(Result::unwrap) // PatternError
+        .flatten()
+        .map(Result::unwrap) // GlobError
+        .flat_map(|path| {
+            // skip files we can't read or aren't syntactically valid
+            let path = Utf8PathBuf::from_path_buf(path).ok()?;
+            let s = fs::read_to_string(&path).ok()?;
+            let s = SourceFile::try_from(s).ok()?;
+            Some((path, s))
+        })
+        .collect::<Cache>();
 
         info!(num_source_files = files.map.len());
 
-        Ok(Self {
+        Self {
             files,
             num_violations: 0,
-        })
+        }
     }
 
     /// Run the given linter.
@@ -390,91 +241,6 @@ impl LintRunner {
         }
         self.num_violations += num_violations;
         self
-    }
-}
-
-/// - captures and forwards stdio
-/// - converts error statuses to [`Err`]
-fn run<O, E>(cmd: &mut Command, stdout: O, stderr: E) -> anyhow::Result<Output>
-where
-    O: Send + io::Write,
-    E: Send + io::Write,
-{
-    let command = cmd.get_program().to_owned();
-    let args = cmd.get_args().map(ToOwned::to_owned).collect::<Vec<_>>();
-    debug_span!("running command", ?command, ?args).in_scope(|| {
-        thread::scope(|cx| {
-            let mut child = cmd
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()?;
-            let stderr = cx.spawn({
-                let src = child.stderr.take().unwrap();
-                move || tee1(io::BufReader::new(src), stderr)
-            });
-            let stdout = cx.spawn({
-                let src = child.stdout.take().unwrap();
-                move || tee1(io::BufReader::new(src), stdout)
-            });
-            let res = child.wait();
-            let (stderr, e1) = stderr.join().unwrap();
-            let (stdout, e2) = stdout.join().unwrap();
-            debug!(?res, "joined command");
-            trace!(stderr = %bstr::BStr::new(&stderr), stdout = %bstr::BStr::new(&stdout));
-            match (
-                res.context("failed to join command"),
-                e1.map(|it| it.context("failed to forward stderr").into()),
-                e2.map(|it| it.context("failed to forward stdout").into()),
-            ) {
-                (Ok(status), None, None) => match status.success() {
-                    true => Ok(Output {
-                        status,
-                        stdout,
-                        stderr,
-                    }),
-                    false => Err(anyhow!(
-                        "command `{:?}` with arguments `{:?}` failed: {:?}",
-                        command,
-                        args,
-                        status
-                    )),
-                },
-                (Err(e), _, _) | (_, Some(e), _) | (_, _, Some(e)) => Err(e),
-            }
-        })
-    })
-}
-
-fn tee1(mut src: impl io::BufRead, mut fwd: impl io::Write) -> (Vec<u8>, Option<io::Error>) {
-    let mut cap = Vec::new();
-    let err = loop {
-        let consumed = match src.fill_buf() {
-            Ok(&[]) => break Ok(()),
-            Ok(it) => {
-                cap.write_all(it)
-                    .expect("<Vec<u8> as io::Write> is infallible");
-                match fwd.write_all(it).map_err(with("failed to forward output")) {
-                    Ok(()) => it.len(),
-                    Err(e) => break Err(e),
-                }
-            }
-            Err(e) => break Err(context(e, "failed to read source")),
-        };
-        src.consume(consumed); // borrowck
-    }
-    .err();
-    (cap, err)
-}
-
-struct RepeatErr(Arc<io::Error>);
-impl io::Write for RepeatErr {
-    fn write(&mut self, _: &[u8]) -> io::Result<usize> {
-        Err(io::Error::new(self.0.kind(), Arc::clone(&self.0)))
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Err(io::Error::new(self.0.kind(), Arc::clone(&self.0)))
     }
 }
 

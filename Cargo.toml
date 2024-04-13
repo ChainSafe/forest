@@ -222,9 +222,9 @@ cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
+glob = "0.3.1"
 http-range-header = "0.4.0"
 insta = { version = "1", features = ["yaml"] }
-io-extra = "0.3.0"
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
 petgraph = "0.6.4"
