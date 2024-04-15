@@ -44,14 +44,14 @@ use cargo_metadata::camino::{Utf8Path, Utf8PathBuf};
 use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
-use tracing::{info, level_filters::LevelFilter};
+use tracing::{debug, info, level_filters::LevelFilter};
 use tracing_subscriber::util::SubscriberInitExt as _;
 
 #[test]
 fn lint() {
     let _guard = tracing_subscriber::fmt()
         .without_time()
-        .with_max_level(LevelFilter::INFO)
+        .with_max_level(LevelFilter::DEBUG)
         .set_default();
     LintRunner::new()
         .run::<lints::NoTestsWithReturn>()
@@ -77,6 +77,7 @@ impl LintRunner {
         // So just go for a simple globbing of well-known directories.
 
         let files = [
+            concat!(env!("CARGO_MANIFEST_DIR"), "/build.rs"),
             concat!(env!("CARGO_MANIFEST_DIR"), "/src/**/*.rs"),
             concat!(env!("CARGO_MANIFEST_DIR"), "/tests/**/*.rs"),
             concat!(env!("CARGO_MANIFEST_DIR"), "/benches/**/*.rs"),
@@ -84,14 +85,17 @@ impl LintRunner {
         ]
         .into_iter()
         .map(glob::glob)
-        .flat_map(Result::unwrap) // PatternError
-        .map(Result::unwrap) // GlobError
-        .flat_map(|path| {
+        .flat_map(|it| {
+            it.expect("patterns above are valid")
+                .map(|it| it.expect("couldn't compare globbed path with pattern"))
+        })
+        .map(|path| {
+            debug!(?path, "import file");
             // skip files we can't read or aren't syntactically valid
-            let path = Utf8PathBuf::from_path_buf(path).ok()?;
-            let s = fs::read_to_string(&path).ok()?;
-            let s = SourceFile::try_from(s).ok()?;
-            Some((path, s))
+            let path = Utf8PathBuf::from_path_buf(path).unwrap();
+            let s = fs::read_to_string(&path).expect("couldn't read file");
+            let s = SourceFile::try_from(s).expect("couldn't parse file");
+            (path, s)
         })
         .collect::<Cache>();
 
