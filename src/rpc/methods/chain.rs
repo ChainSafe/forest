@@ -653,7 +653,8 @@ impl RpcMethod<1> for ChainTipSetWeight {
         (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        unimplemented!()
+        let weight = crate::fil_cns::weight(ctx.chain_store.blockstore(), &tsk)?;
+        Ok(LotusJson(weight))
     }
 }
 
