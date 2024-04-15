@@ -9,7 +9,7 @@ use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
-    crypto::{Signature, SignatureType},
+    crypto::{Signature, SignatureType, SECP_SIG_LEN},
     econ::{TokenAmount, BLOCK_GAS_LIMIT},
     message::Message,
 };
@@ -216,7 +216,7 @@ where
     let mut chain_msg = match from_a.protocol() {
         Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
             msg,
-            Signature::new_secp256k1(vec![0; 65]),
+            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
         )),
         Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
             msg,
