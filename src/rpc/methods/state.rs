@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
@@ -52,48 +51,9 @@ pub(crate) use for_each_method;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
-pub const STATE_CALL: &str = "Filecoin.StateCall";
-pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
-pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
-pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
-pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
-pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
-pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
-pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
-pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
-pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
-pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
-pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
-pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
-pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
-pub const STATE_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.StateGetRandomnessFromTickets";
-pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
-pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
-pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
-pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
-pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
-pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
 pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
-pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
-pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
-pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";
-pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
-pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
-pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
-pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str = "Filecoin.StateVMCirculatingSupplyInternal";
-pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
-pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
-    "Filecoin.StateDealProviderCollateralBounds";
-pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
-pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
-pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
-pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
 
+pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
 pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -110,6 +70,8 @@ pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
         .await
         .map(|info| Ok(LotusJson(info)))?
 }
+
+pub const STATE_CALL: &str = "Filecoin.StateCall";
 /// runs the given message and returns its result without any persisted changes.
 pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -127,6 +89,7 @@ pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     Ok(state_manager.call(&message, Some(tipset))?)
 }
 
+pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
 /// returns the result of executing the indicated message, assuming it was
 /// executed in the indicated tipset.
 pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
@@ -149,6 +112,7 @@ pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
     })
 }
 
+pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
 /// gets network name from state manager
 pub async fn state_network_name<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
     let state_manager = &data.state_manager;
@@ -159,6 +123,7 @@ pub async fn state_network_name<DB: Blockstore>(data: Ctx<DB>) -> Result<String,
         .map_err(|e| e.into())
 }
 
+pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
 pub async fn state_get_network_version<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -169,6 +134,7 @@ pub async fn state_get_network_version<DB: Blockstore>(
     Ok(data.state_manager.get_network_version(ts.epoch()))
 }
 
+pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
 /// gets the public key address of the given ID address
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateAccountKey>
 pub async fn state_account_key<DB: Blockstore>(
@@ -190,6 +156,7 @@ where
     ))
 }
 
+pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
 /// retrieves the ID address of the given address
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateLookupID>
 pub async fn state_lookup_id<DB: Blockstore>(
@@ -211,6 +178,7 @@ where
     Ok(LotusJson(ret))
 }
 
+pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
 pub(crate) async fn state_get_actor<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -223,6 +191,7 @@ pub(crate) async fn state_get_actor<DB: Blockstore>(
     state.map(Into::into).map_err(|e| e.into())
 }
 
+pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
 /// looks up the Escrow and Locked balances of the given address in the Storage
 /// Market
 pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
@@ -241,6 +210,7 @@ pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
         .map_err(|e| e.into())
 }
 
+pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
 pub async fn state_market_deals<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -278,6 +248,7 @@ pub async fn state_market_deals<DB: Blockstore>(
     Ok(out)
 }
 
+pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
 /// looks up the miner info of the given address.
 pub async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -293,6 +264,7 @@ pub async fn state_miner_info<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(data.state_manager.miner_info(&address, &tipset)?))
 }
 
+pub const STATE_MINER_ACTIVE_SECTORS: &str = "Filecoin.StateMinerActiveSectors";
 pub async fn state_miner_active_sectors<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -327,6 +299,7 @@ pub async fn state_miner_active_sectors<DB: Blockstore>(
     Ok(LotusJson(sectors))
 }
 
+pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
 // Return all partitions in the specified deadline
 pub async fn state_miner_partitions<DB: Blockstore>(
     params: Params<'_>,
@@ -359,6 +332,7 @@ pub async fn state_miner_partitions<DB: Blockstore>(
     Ok(LotusJson(all_partitions))
 }
 
+pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
 pub async fn state_miner_sectors<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -386,6 +360,7 @@ pub async fn state_miner_sectors<DB: Blockstore>(
     Ok(LotusJson(sectors_info))
 }
 
+pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
 // Returns the number of sectors in a miner's sector set and proving set
 pub async fn state_miner_sector_count<DB: Blockstore>(
     params: Params<'_>,
@@ -422,6 +397,7 @@ pub async fn state_miner_sector_count<DB: Blockstore>(
     )))
 }
 
+pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
 /// looks up the miner power of the given address.
 pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -441,6 +417,7 @@ pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
         .map_err(|e| e.into())
 }
 
+pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
 pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -467,6 +444,7 @@ pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(res))
 }
 
+pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
 pub async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -485,6 +463,7 @@ pub async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static
     Ok(LotusJson(state.deadline_info(policy, ts.epoch())))
 }
 
+pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
 /// looks up the miner power of the given address.
 pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -504,6 +483,7 @@ pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
         .map(|r| r.into())
 }
 
+pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
 pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -522,6 +502,7 @@ pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
         .map(|r| r.into())
 }
 
+pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
 pub async fn state_miner_available_balance<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -570,6 +551,7 @@ pub async fn state_miner_available_balance<DB: Blockstore + Send + Sync + 'stati
     Ok(LotusJson(vested + available))
 }
 
+pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
 /// returns the message receipt for the given message
 pub async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -587,6 +569,8 @@ pub async fn state_get_receipt<DB: Blockstore + Send + Sync + 'static>(
         .map(|s| s.into())
         .map_err(|e| e.into())
 }
+
+pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
 pub async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
@@ -610,6 +594,7 @@ pub async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
     })
 }
 
+pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsg>
 pub async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
@@ -635,6 +620,7 @@ pub async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
     })
 }
 
+pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 /// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsgLimited>
 pub async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
@@ -662,6 +648,7 @@ pub async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
     })
 }
 
+pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
 // Sample CIDs (useful for testing):
 //   Mainnet:
 //     1,594,681 bafy2bzaceaclaz3jvmbjg3piazaq5dcesoyv26cdpoozlkzdiwnsvdvm2qoqm OhSnap upgrade
@@ -837,6 +824,7 @@ fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
     mutex.lock().pop()
 }
 
+pub const STATE_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.StateGetRandomnessFromTickets";
 /// Get randomness from tickets
 pub async fn state_get_randomness_from_tickets<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -864,6 +852,7 @@ pub async fn state_get_randomness_from_tickets<DB: Blockstore + Send + Sync + 's
     Ok(LotusJson(value.to_vec()))
 }
 
+pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
 /// Get randomness from beacon
 pub async fn state_get_randomness_from_beacon<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -891,6 +880,7 @@ pub async fn state_get_randomness_from_beacon<DB: Blockstore + Send + Sync + 'st
     Ok(LotusJson(value.to_vec()))
 }
 
+pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
 /// Get read state
 pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -917,6 +907,7 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
     )))
 }
 
+pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
 pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -942,6 +933,8 @@ pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(supply))
 }
 
+pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
+
 pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -962,6 +955,7 @@ pub async fn msig_get_available_balance<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(avail_balance))
 }
 
+pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
 pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -991,6 +985,7 @@ pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(txns))
 }
 
+pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
 /// Get state sector info using sector no
 pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -1011,6 +1006,7 @@ pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
     ))
 }
 
+pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
 pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -1021,7 +1017,7 @@ pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send +
     let status = data.state_manager.verified_client_status(&addr, &ts)?;
     Ok(status.into())
 }
-
+pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str = "Filecoin.StateVMCirculatingSupplyInternal";
 pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
     DB: Blockstore + Send + Sync + 'static,
 >(
@@ -1041,6 +1037,7 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
     )?))
 }
 
+pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";
 /// Looks back and returns all messages with a matching to or from address, stopping at the given height.
 pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -1104,6 +1101,7 @@ pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + '
     Ok(LotusJson(out))
 }
 
+pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
 pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -1130,6 +1128,7 @@ pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(miners))
 }
 
+pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
 pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -1156,6 +1155,8 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
     Ok(MarketDeal { proposal, state }.into())
 }
 
+pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
+    "Filecoin.StateDealProviderCollateralBounds";
 pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
