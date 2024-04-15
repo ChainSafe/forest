@@ -221,7 +221,7 @@ pub enum WalletCommands {
     /// Get account balance
     Balance {
         /// The address of the account to check
-        address: Address,
+        address: String,
     },
     /// Get the default address of the wallet
     Default,
@@ -327,6 +327,8 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Balance { address } => {
+                let StrictAddress(address) = StrictAddress::from_str(&address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
                 let balance = WalletBalance::call(&backend.remote, (address.into(),))
                     .await?
                     .into_inner();
