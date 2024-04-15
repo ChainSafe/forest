@@ -182,6 +182,7 @@ macro_rules! decl_and_test {
 pub(crate) use decl_and_test;
 
 decl_and_test!(
+    actor_state for crate::shim::state_tree::ActorState,
     address for crate::shim::address::Address,
     beacon_entry for crate::beacon::BeaconEntry,
     big_int for num::BigInt,
@@ -194,8 +195,8 @@ decl_and_test!(
     registered_po_st_proof for crate::shim::sector::RegisteredPoStProof,
     registered_seal_proof for crate::shim::sector::RegisteredSealProof,
     sector_info for crate::shim::sector::SectorInfo,
-    signature for crate::shim::crypto::Signature,
     signature_type for crate::shim::crypto::SignatureType,
+    signature for crate::shim::crypto::Signature,
     signed_message for  crate::message::SignedMessage,
     sync_stage for crate::chain_sync::SyncStage,
     ticket for crate::blocks::Ticket,

@@ -509,52 +509,6 @@ impl HasLotusJson for MinerPower {
     }
 }
 
-/// State of all actor implementations.
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ActorStateJson {
-    #[serde(with = "crate::lotus_json")]
-    /// Link to code for the actor.
-    pub code: Cid,
-    #[serde(with = "crate::lotus_json")]
-    /// Link to the state of the actor.
-    pub head: Cid,
-    /// Sequence of the actor.
-    pub nonce: u64,
-    #[serde(with = "crate::lotus_json")]
-    /// Tokens available to the actor.
-    pub balance: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    /// The actor's "delegated" address, if assigned.
-    /// This field is set on actor creation and never modified.
-    pub address: Option<Address>,
-}
-
-impl HasLotusJson for ActorState {
-    type LotusJson = ActorStateJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ActorStateJson {
-            code: self.code,
-            head: self.state,
-            nonce: self.sequence,
-            balance: self.balance.clone().into(),
-            address: self.delegated_address.map(|a| a.into()),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        ActorState::new(
-            lotus_json.code,
-            lotus_json.head,
-            lotus_json.balance,
-            lotus_json.nonce,
-            lotus_json.address,
-        )
-    }
-}
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
