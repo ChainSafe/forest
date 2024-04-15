@@ -433,12 +433,14 @@ impl From<Tx> for TxArgs {
     }
 }
 
-#[allow(clippy::indexing_slicing)]
 fn format_u64(value: u64) -> BytesMut {
     if value != 0 {
         let i = (value.leading_zeros() / 8) as usize;
         let bytes = value.to_be_bytes();
-        bytes[i..].into()
+        // `leading_zeros` for a positive `u64` returns a number in the range [1-63]
+        // `i` is in the range [1-7], and `bytes` is an array of size 8
+        // therefore, getting the slice from `i` to end should never fail
+        bytes.get(i..).expect("failed to get slice").into()
     } else {
         // If all bytes are zero, return an empty slice
         BytesMut::new()
