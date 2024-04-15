@@ -778,6 +778,11 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     shared_tipset.key().into(),
                 )));
             }
+
+            tests.push(RpcTest::identity(ApiInfo::state_market_balance_req(
+                block.miner_address,
+                tipset.key().into(),
+            )));
         }
 
         // Get deals
