@@ -126,8 +126,6 @@ impl PendingSubscriptionSink {
         );
         let success = response.is_success();
 
-        // TODO: #1052
-        //
         // Ideally the message should be sent only once.
         //
         // The same message is sent twice here because one is sent directly to the transport layer and
