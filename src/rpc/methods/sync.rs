@@ -72,7 +72,8 @@ impl RpcMethod<0> for SyncState {
 #[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
-    #[schemars(with = "LotusJson<Vec<crate::chain_sync::SyncState>>")]
+<<<<<<< HEAD
+    #[schemars(with = "Vec<LotusJson<crate::chain_sync::SyncState>>")]
     pub active_syncs: LotusJson<NonEmpty<crate::chain_sync::SyncState>>,
 }
 

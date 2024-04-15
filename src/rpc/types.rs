@@ -465,28 +465,6 @@ pub struct MinerPowerLotusJson {
     has_min_power: bool,
 }
 
-// Note: kept the name in line with Lotus implementation for cross-referencing simplicity.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct MiningBaseInfo {
-    #[serde(with = "crate::lotus_json")]
-    pub miner_power: crate::shim::sector::StoragePower,
-    #[serde(with = "crate::lotus_json")]
-    pub network_power: fvm_shared2::sector::StoragePower,
-    #[serde(with = "crate::lotus_json")]
-    pub sectors: Vec<SectorInfo>,
-    #[serde(with = "crate::lotus_json")]
-    pub worker_key: Address,
-    pub sector_size: fvm_shared2::sector::SectorSize,
-    #[serde(with = "crate::lotus_json")]
-    pub prev_beacon_entry: BeaconEntry,
-    #[serde(with = "crate::lotus_json")]
-    pub beacon_entries: Vec<BeaconEntry>,
-    pub eligible_for_mining: bool,
-}
-
-lotus_json_with_self!(MiningBaseInfo);
-
 impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
     #[cfg(test)]

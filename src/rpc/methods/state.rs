@@ -38,6 +38,8 @@ use nonempty::{nonempty, NonEmpty};
 use num_bigint::BigInt;
 use num_traits::Euclid;
 use parking_lot::Mutex;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
@@ -78,6 +80,20 @@ impl RpcMethod<3> for MinerGetBaseInfo {
             .await?;
         Ok(info.map(LotusJson))
     }
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfo {
+    pub miner_power: LotusJson<crate::shim::sector::StoragePower>,
+    pub network_power: LotusJson<fvm_shared2::sector::StoragePower>,
+    pub sectors: LotusJson<Vec<crate::shim::sector::SectorInfo>>,
+    pub worker_key: LotusJson<Address>,
+    #[schemars(with = "u64")]
+    pub sector_size: fvm_shared2::sector::SectorSize,
+    pub prev_beacon_entry: LotusJson<crate::beacon::BeaconEntry>,
+    pub beacon_entries: LotusJson<Vec<crate::beacon::BeaconEntry>>,
+    pub eligible_for_mining: bool,
 }
 
 pub enum StateCall {}
