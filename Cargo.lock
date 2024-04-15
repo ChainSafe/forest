@@ -1370,9 +1370,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.37"
+version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a0d04d43504c61aa6c7531f1871dd0d418d91130162063b789da00fd7057a5e"
+checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -7477,15 +7477,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea1fe375ad2709106a5f4b7d0285c0f69be6e018a7a34f1c2d513b8723529951"
+checksum = "49a75499b0a492d668cd9869333c25842fa15fb3a683e2c9dcb9becd8c0eb5ee"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1118887a6bbbdbf7c026dcf4eeb11f41ff7fa31c940a7c3173b1e8b8b59b45e2"
+checksum = "6046eda2d474299c3f904a324b4546f109d5c61991c753ebd0ada570e8b58a41"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7495,9 +7495,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0bea57c716f826cde973eab1d2f7a16b446a883eed7ae3b7615e9a41d33536c"
+checksum = "817c0fe8267d6e81b36b257daa21c03b62f477bc38aaf9813bc140f460f0a0eb"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7510,9 +7510,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ddc76305c3990e835c274c8a1e30f17cb8afa8c9af846a57fb5b59106f4ead1"
+checksum = "242b4c72a7412c428c290c1217ddd8e68d29d6a5f6a95e6dd9ad44d6c6b4c0bf"
 dependencies = [
  "cov-mark",
  "either",
@@ -7532,9 +7532,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83d1e0eeade877b6b3d4773997d1289a06106a939a52cb465b4c080aa1655b91"
+checksum = "83f7ec839098a0595144e63cd668741133070362e7304b5518484bc70d75a23d"
 dependencies = [
  "itertools 0.12.1",
  "text-size",
