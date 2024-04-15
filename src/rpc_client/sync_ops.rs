@@ -9,26 +9,26 @@ use super::{ApiInfo, RpcRequest, ServerError};
 
 impl ApiInfo {
     pub async fn sync_check_bad(&self, cid: Cid) -> Result<String, ServerError> {
-        self.call(Self::sync_check_bad_req(cid)).await
+        todo!()
     }
 
     pub fn sync_check_bad_req(cid: Cid) -> RpcRequest<String> {
-        RpcRequest::new(SYNC_CHECK_BAD, (cid,))
+        todo!()
     }
 
     pub async fn sync_mark_bad(&self, cid: Cid) -> Result<(), ServerError> {
-        self.call(Self::sync_mark_bad_req(cid)).await
+        todo!()
     }
 
     pub fn sync_mark_bad_req(cid: Cid) -> RpcRequest<()> {
-        RpcRequest::new(SYNC_MARK_BAD, (cid,))
+        todo!()
     }
 
     pub async fn sync_status(&self) -> Result<RPCSyncState, ServerError> {
-        self.call(Self::sync_status_req()).await
+        todo!()
     }
 
     pub fn sync_status_req() -> RpcRequest<RPCSyncState> {
-        RpcRequest::new(SYNC_STATE, ())
+        todo!()
     }
 }

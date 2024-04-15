@@ -44,12 +44,13 @@ pub mod prelude {
     auth::for_each_method!(export);
     beacon::for_each_method!(export);
     chain::for_each_method!(export);
-    mpool::for_each_method!(export);
     common::for_each_method!(export);
     gas::for_each_method!(export);
-    wallet::for_each_method!(export);
+    mpool::for_each_method!(export);
     net::for_each_method!(export);
     state::for_each_method!(export);
+    sync::for_each_method!(export);
+    wallet::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -201,15 +202,16 @@ where
             <$ty>::register(&mut module);
         };
     }
-    chain::for_each_method!(register);
-    mpool::for_each_method!(register);
     auth::for_each_method!(register);
     beacon::for_each_method!(register);
+    chain::for_each_method!(register);
     common::for_each_method!(register);
     gas::for_each_method!(register);
-    wallet::for_each_method!(register);
+    mpool::for_each_method!(register);
     net::for_each_method!(register);
     state::for_each_method!(register);
+    sync::for_each_method!(register);
+    wallet::for_each_method!(register);
     module.finish()
 }
 

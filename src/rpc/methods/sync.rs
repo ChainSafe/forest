@@ -14,10 +14,14 @@ use jsonrpsee::types::Params;
 use nonempty::nonempty;
 use parking_lot::RwLock;
 
-pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-pub const SYNC_STATE: &str = "Filecoin.SyncState";
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        //
+    };
+}
+pub(crate) use for_each_method;
 
+pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
 /// Checks if a given block is marked as bad.
 pub async fn sync_check_bad<DB: Blockstore>(
     params: Params<'_>,
@@ -28,6 +32,7 @@ pub async fn sync_check_bad<DB: Blockstore>(
     Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
 }
 
+pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
 /// Marks a block as bad, meaning it will never be synced.
 pub async fn sync_mark_bad<DB: Blockstore>(
     params: Params<'_>,
@@ -40,14 +45,15 @@ pub async fn sync_mark_bad<DB: Blockstore>(
     Ok(())
 }
 
-async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
-    state.read().clone()
-}
-
+pub const SYNC_STATE: &str = "Filecoin.SyncState";
 /// Returns the current status of the `ChainSync` process.
 pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, ServerError> {
     let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
     Ok(RPCSyncState { active_syncs })
+}
+
+async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
+    state.read().clone()
 }
 
 #[cfg(test)]
