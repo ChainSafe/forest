@@ -21,6 +21,7 @@ CARv2/SM
 CBOR
 CID/SM
 CIDs
+ChainSafe/M
 CLI
 Cloudflare
 clonable
@@ -76,6 +77,7 @@ param/SM
 ParityDb
 ParityDB
 parsable
+performant
 PoC
 pointer/SM
 PoSt
@@ -102,6 +104,7 @@ tipset/SM
 tipsetkey/S
 TOML
 trie
+truthy
 TTY
 uncompress
 unrepresentable

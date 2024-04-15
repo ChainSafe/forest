@@ -33,7 +33,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
 use crate::utils::{
-    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
+    monitoring::MemStatsTracker, proofs_api::ensure_params_downloaded,
     version::FOREST_VERSION_STRING,
 };
 use anyhow::{bail, Context as _};
@@ -336,7 +336,7 @@ pub(super) async fn start(
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
 
-    {
+    if config.client.enable_health_check {
         let forest_state = crate::health::ForestState {
             config: config.clone(),
             chain_config: chain_config.clone(),
@@ -398,9 +398,7 @@ pub(super) async fn start(
 
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-        &config.client.data_dir,
-    );
+    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;

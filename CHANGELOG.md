@@ -27,16 +27,26 @@
 
 ### Breaking
 
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Rename environment
+  variable `TRUST_PARAMS` to `FOREST_FORCE_TRUST_PARAMS`.
+
+- [#4184](https://github.com/ChainSafe/forest/pull/4184) Removed short form
+  flags from `forest` binary.
+
 ### Added
 
 - [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
   `Filecoin.StateDealProviderCollateralBounds` RPC method.
+
 - [#3949](https://github.com/ChainSafe/forest/issues/3949) Added healthcheck
   endpoints `/healthz`, `/readyz`, and `/livez`. By default, the healthcheck
   endpoint is enabled on port 2346.
 
 - [#4166](https://github.com/ChainSafe/forest/issues/4166) Add support for the
   `Filecoin.Web3ClientVersion` RPC method.
+
+- [#4184](https://github.com/ChainSafe/forest/pull/4184) Added
+  `--no-healthcheck` flag to `forest` to disable the healthcheck endpoint.
 
 ### Changed
 
@@ -47,6 +57,9 @@
 ### Removed
 
 ### Fixed
+
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Fixed a bug where the
+  environment variable `IPFS_GATEWAY` was not used to change the IPFS gateway.
 
 ## Forest 0.17.2 "Dovakhin"
 
