@@ -132,7 +132,7 @@ impl Address {
             // This is a masked ID address.
             let arr = self.0.as_fixed_bytes();
             let bytes = [
-                arr[PREFIX_LEN + 0],
+                arr[PREFIX_LEN],
                 arr[PREFIX_LEN + 1],
                 arr[PREFIX_LEN + 2],
                 arr[PREFIX_LEN + 3],
