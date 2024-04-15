@@ -35,9 +35,8 @@ use itertools::Itertools;
 use jsonrpsee::types::Params;
 use keccak_hash::keccak;
 use nonempty::nonempty;
-use num_bigint;
-use num_bigint::Sign;
-use num_traits::Zero as _;
+use num_bigint::{self, Sign};
+use num_traits::{Signed as _, Zero as _};
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
@@ -392,7 +391,7 @@ pub struct Tx {
 }
 
 impl Tx {
-    pub fn eth_hash(&self) -> Hash {
+    pub fn eth_hash(&self) -> Result<Hash> {
         let eth_tx_args: TxArgs = self.clone().into();
         eth_tx_args.hash()
     }
@@ -446,17 +445,20 @@ fn format_u64(value: u64) -> BytesMut {
 }
 
 #[allow(clippy::indexing_slicing)]
-fn format_bigint(value: &BigInt) -> BytesMut {
+fn format_bigint(value: &BigInt) -> Result<BytesMut> {
+    if value.0.is_negative() {
+        bail!("can't format a negative number");
+    }
     let (_, bytes) = value.0.to_bytes_be();
     let first_non_zero = bytes.iter().position(|&b| b != 0);
 
-    match first_non_zero {
+    Ok(match first_non_zero {
         Some(i) => bytes[i..].into(),
         None => {
             // If all bytes are zero, return an empty slice
             BytesMut::new()
         }
-    }
+    })
 }
 
 fn format_address(value: &Option<Address>) -> BytesMut {
@@ -468,26 +470,26 @@ fn format_address(value: &Option<Address>) -> BytesMut {
 }
 
 impl TxArgs {
-    pub fn hash(&self) -> Hash {
-        Hash(keccak(self.rlp_signed_message()))
+    pub fn hash(&self) -> Result<Hash> {
+        Ok(Hash(keccak(self.rlp_signed_message()?)))
     }
 
-    pub fn rlp_signed_message(&self) -> Vec<u8> {
+    pub fn rlp_signed_message(&self) -> Result<Vec<u8>> {
         let mut stream = RlpStream::new_list(12); // THIS IS IMPORTANT
         stream.append(&format_u64(self.chain_id));
         stream.append(&format_u64(self.nonce));
-        stream.append(&format_bigint(&self.max_priority_fee_per_gas));
-        stream.append(&format_bigint(&self.max_fee_per_gas));
+        stream.append(&format_bigint(&self.max_priority_fee_per_gas)?);
+        stream.append(&format_bigint(&self.max_fee_per_gas)?);
         stream.append(&format_u64(self.gas_limit));
         stream.append(&format_address(&self.to));
-        stream.append(&format_bigint(&self.value));
+        stream.append(&format_bigint(&self.value)?);
         stream.append(&self.input);
         let access_list: &[u8] = &[];
         stream.append_list(access_list);
 
-        stream.append(&format_bigint(&self.v));
-        stream.append(&format_bigint(&self.r));
-        stream.append(&format_bigint(&self.s));
+        stream.append(&format_bigint(&self.v)?);
+        stream.append(&format_bigint(&self.r)?);
+        stream.append(&format_bigint(&self.s)?);
 
         let mut rlp = stream.out()[..].to_vec();
         let mut bytes: Vec<u8> = vec![0x02];
@@ -500,7 +502,7 @@ impl TxArgs {
             .join("");
         tracing::trace!("rlp: {}", &hex);
 
-        bytes
+        Ok(bytes)
     }
 }
 
@@ -1059,7 +1061,7 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     let (tx, hash) = if smsg.is_delegated() {
         // This is an eth tx
         let tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-        let hash = tx.eth_hash();
+        let hash = tx.eth_hash()?;
         (tx, hash)
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
@@ -1158,7 +1160,8 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use num_traits::FromBytes;
+    use num_bigint;
+    use num_traits::{FromBytes, Signed};
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
 
@@ -1223,7 +1226,7 @@ mod test {
             )
             .unwrap(),
         );
-        assert_eq!(expected_hash, eth_tx_args.hash());
+        assert_eq!(expected_hash, eth_tx_args.hash().unwrap());
     }
 
     #[quickcheck]
@@ -1245,19 +1248,27 @@ mod test {
     }
 
     #[quickcheck]
-    fn bigint_roundtrip(bi: num_bigint::BigUint) {
+    fn bigint_roundtrip(bi: num_bigint::BigInt) {
         let eth_bi = BigInt(bi.clone().into());
-        let bm = format_bigint(&eth_bi);
 
-        if eth_bi.0.is_zero() {
-            assert!(bm.is_empty());
-        } else {
-            // check that buffer doesn't start with zero
-            let freezed = bm.freeze();
-            assert!(!freezed.starts_with(&[0]));
+        match format_bigint(&eth_bi) {
+            Ok(bm) => {
+                if eth_bi.0.is_zero() {
+                    assert!(bm.is_empty());
+                } else {
+                    // check that buffer doesn't start with zero
+                    let freezed = bm.freeze();
+                    assert!(!freezed.starts_with(&[0]));
 
-            // roundtrip
-            assert_eq!(bi, num_bigint::BigUint::from_be_bytes(&freezed.slice(..)));
+                    // roundtrip
+                    let unsigned = num_bigint::BigUint::from_be_bytes(&freezed.slice(..));
+                    assert_eq!(bi, unsigned.try_into().unwrap());
+                }
+            }
+            Err(_) => {
+                // fails in case of negative number
+                assert!(eth_bi.0.is_negative());
+            }
         }
     }
 }
