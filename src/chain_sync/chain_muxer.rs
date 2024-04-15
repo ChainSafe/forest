@@ -1027,6 +1027,6 @@ where
 // expectedHeight := int64(sinceGenesis.Seconds()) / int64(build.BlockDelaySecs)
 // ```
 // See <https://github.com/filecoin-project/lotus/blob/b27c861485695d3f5bb92bcb281abc95f4d90fb6/chain/sync.go#L180>
-fn get_now_epoch(now_timestamp: i64, genesis_timestamp: i64, block_delay: i64) -> i64 {
+pub fn get_now_epoch(now_timestamp: i64, genesis_timestamp: i64, block_delay: i64) -> i64 {
     now_timestamp.saturating_sub(genesis_timestamp) / block_delay
 }

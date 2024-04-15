@@ -46,6 +46,7 @@ pub mod prelude {
     chain::for_each_method!(export);
     mpool::for_each_method!(export);
     common::for_each_method!(export);
+    state::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -200,6 +201,7 @@ where
     auth::for_each_method!(register);
     beacon::for_each_method!(register);
     common::for_each_method!(register);
+    state::for_each_method!(register);
     module.finish()
 }
 
