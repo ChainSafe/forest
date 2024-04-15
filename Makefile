@@ -51,9 +51,7 @@ clean:
 lint-all: lint audit spellcheck
 
 audit:
-	# https://rustsec.org/advisories/RUSTSEC-2024-0320
-	# https://github.com/ChainSafe/forest/issues/4109
-	cargo audit --ignore RUSTSEC-2024-0320 || (echo "See .config/audit.toml"; false)
+	cargo audit || (echo "See .config/audit.toml"; false)
 
 spellcheck:
 	cargo spellcheck --code 1 || (echo "See .config/spellcheck.md for tips"; false)
@@ -105,7 +103,7 @@ test-all: test test-release
 
 go-mod:
 	(cd $(PWD)/src/libp2p_bitswap/tests/go-app && go mod vendor && go build -o /tmp/forest-go-compat-test) || \
-	(echo "Some tests require Go 1.20.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
+	(echo "Some tests require Go 1.21.x to be installed, follow instructions at https://go.dev/dl/" && exit 1)
 
 # Checks if all headers are present and adds if not
 license:

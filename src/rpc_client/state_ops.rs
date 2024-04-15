@@ -4,9 +4,11 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::rpc::types::*;
+use crate::state_manager::MarketBalance;
 use crate::{
     blocks::TipsetKey,
-    rpc_api::{data_types::*, state_api::*},
+    rpc::state::*,
     shim::{
         address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::Message,
         message::MethodNum, state_tree::ActorState, version::NetworkVersion,
@@ -16,17 +18,18 @@ use cid::Cid;
 use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
+use fvm_shared2::piece::PaddedPieceSize;
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 
-use super::{ApiInfo, JsonRpcError, RpcRequest};
+use super::{ApiInfo, RpcRequest, ServerError};
 
 impl ApiInfo {
     pub async fn state_get_actor(
         &self,
         address: Address,
         head: TipsetKey,
-    ) -> Result<Option<ActorState>, JsonRpcError> {
+    ) -> Result<Option<ActorState>, ServerError> {
         self.call(Self::state_get_actor_req(address, head)).await
     }
 
@@ -37,11 +40,18 @@ impl ApiInfo {
         RpcRequest::new(STATE_GET_ACTOR, (address, head))
     }
 
+    pub fn state_market_balance_req(
+        miner: Address,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<MarketBalance> {
+        RpcRequest::new(STATE_MARKET_BALANCE, (miner, tsk))
+    }
+
     pub async fn state_fetch_root(
         &self,
         root: Cid,
         opt_path: Option<PathBuf>,
-    ) -> Result<String, JsonRpcError> {
+    ) -> Result<String, ServerError> {
         self.call(Self::state_fetch_root_req(root, opt_path)).await
     }
 
@@ -49,7 +59,7 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub async fn state_network_name(&self) -> Result<String, JsonRpcError> {
+    pub async fn state_network_name(&self) -> Result<String, ServerError> {
         self.call(Self::state_network_name_req()).await
     }
 
@@ -212,6 +222,14 @@ impl ApiInfo {
 
     pub fn state_list_miners_req(tsk: ApiTipsetKey) -> RpcRequest<Vec<Address>> {
         RpcRequest::new(STATE_LIST_MINERS, (tsk,))
+    }
+
+    pub fn state_deal_provider_collateral_bounds_req(
+        size: PaddedPieceSize,
+        verified: bool,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<DealCollateralBounds> {
+        RpcRequest::new(STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, (size, verified, tsk))
     }
 
     pub fn state_list_messages_req(

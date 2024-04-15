@@ -3,15 +3,16 @@
 #![allow(clippy::unused_async)]
 
 use crate::blocks::TipsetKey;
-use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET, MINIMUM_BASE_FEE};
+use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::lotus_json::LotusJson;
-use crate::message::{ChainMessage, Message as MessageTrait};
-use crate::rpc::error::JsonRpcError;
-use crate::rpc::Ctx;
-use crate::rpc_api::data_types::*;
-use crate::shim::address::Address;
-use crate::shim::econ::BLOCK_GAS_LIMIT;
-use crate::shim::{econ::TokenAmount, message::Message};
+use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
+use crate::rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod};
+use crate::shim::{
+    address::{Address, Protocol},
+    crypto::{Signature, SignatureType, SECP_SIG_LEN},
+    econ::{TokenAmount, BLOCK_GAS_LIMIT},
+    message::Message,
+};
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 use num::BigInt;
@@ -22,11 +23,23 @@ use anyhow::{Context, Result};
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
+pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
+pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
+pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
+pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
+
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::gas::GasEstimateGasLimit);
+    };
+}
+pub(crate) use for_each_method;
+
 /// Estimate the fee cap
 pub async fn gas_estimate_fee_cap<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, ApiTipsetKey)> =
         params.parse()?;
 
@@ -38,7 +51,7 @@ fn estimate_fee_cap<DB: Blockstore>(
     msg: Message,
     max_queue_blks: i64,
     _: ApiTipsetKey,
-) -> Result<TokenAmount, JsonRpcError> {
+) -> Result<TokenAmount, ServerError> {
     let ts = data.state_manager.chain_store().heaviest_tipset();
 
     let parent_base_fee = &ts.block_headers().first().parent_base_fee;
@@ -57,7 +70,7 @@ fn estimate_fee_cap<DB: Blockstore>(
 pub async fn gas_estimate_gas_premium<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<String, JsonRpcError> {
+) -> Result<String, ServerError> {
     let LotusJson((nblocksincl, _sender, _gas_limit, _)): LotusJson<(
         u64,
         Address,
@@ -73,7 +86,7 @@ pub async fn gas_estimate_gas_premium<DB: Blockstore>(
 pub async fn estimate_gas_premium<DB: Blockstore>(
     data: &Ctx<DB>,
     mut nblocksincl: u64,
-) -> Result<TokenAmount, JsonRpcError> {
+) -> Result<TokenAmount, ServerError> {
     if nblocksincl == 0 {
         nblocksincl = 1;
     }
@@ -152,33 +165,40 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
     Ok(premium)
 }
 
-/// Estimate the gas limit
-pub async fn gas_estimate_gas_limit<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<i64, JsonRpcError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((msg, tsk)): LotusJson<(Message, ApiTipsetKey)> = params.parse()?;
+pub enum GasEstimateGasLimit {}
+impl RpcMethod<2> for GasEstimateGasLimit {
+    const NAME: &'static str = "Filecoin.GasEstimateGasLimit";
+    const PARAM_NAMES: [&'static str; 2] = ["msg", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    estimate_gas_limit::<DB>(&data, msg, tsk).await
+    type Params = (LotusJson<Message>, LotusJson<ApiTipsetKey>);
+    type Ok = i64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(msg), LotusJson(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        estimate_gas_limit(&ctx, msg, tsk).await
+    }
 }
 
 async fn estimate_gas_limit<DB>(
     data: &Ctx<DB>,
     msg: Message,
-    _: ApiTipsetKey,
-) -> Result<i64, JsonRpcError>
+    ApiTipsetKey(tsk): ApiTipsetKey,
+) -> Result<i64, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     let mut msg = msg;
     msg.set_gas_limit(BLOCK_GAS_LIMIT);
-    msg.set_gas_fee_cap(TokenAmount::from_atto(MINIMUM_BASE_FEE + 1));
-    msg.set_gas_premium(TokenAmount::from_atto(1));
+    msg.set_gas_fee_cap(TokenAmount::from_atto(0));
+    msg.set_gas_premium(TokenAmount::from_atto(0));
 
-    let curr_ts = data.state_manager.chain_store().heaviest_tipset();
+    let curr_ts = data
+        .state_manager
+        .chain_store()
+        .load_required_tipset_or_heaviest(&tsk)?;
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)
@@ -190,19 +210,33 @@ where
         .unwrap_or_default();
 
     let ts = data.mpool.cur_tipset.lock().clone();
+    // Pretend that the message is signed. This has an influence on the gas
+    // cost. We obviously can't generate a valid signature. Instead, we just
+    // fill the signature with zeros. The validity is not checked.
+    let mut chain_msg = match from_a.protocol() {
+        Protocol::Secp256k1 => ChainMessage::Signed(SignedMessage::new_unchecked(
+            msg,
+            Signature::new_secp256k1(vec![0; SECP_SIG_LEN]),
+        )),
+        Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
+            msg,
+            // In Lotus, delegated signatures have the same length as SECP256k1.
+            // This may or may not change in the future.
+            Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
+        )),
+        _ => ChainMessage::Unsigned(msg),
+    };
+
     let res = data
         .state_manager
-        .call_with_gas(&mut ChainMessage::Unsigned(msg), &prior_messages, Some(ts))
+        .call_with_gas(&mut chain_msg, &prior_messages, Some(ts))
         .await?;
     match res.msg_rct {
         Some(rct) => {
             if rct.exit_code().value() != 0 {
                 return Ok(-1);
             }
-            // TODO(forest): https://github.com/ChainSafe/forest/issues/901
-            //               Figure out why we always under estimate the gas
-            //               calculation so we dont need to add 200000
-            Ok(rct.gas_used() as i64 + 200000)
+            Ok(rct.gas_used() as i64)
         }
         None => Ok(-1),
     }
@@ -212,7 +246,7 @@ where
 pub async fn gas_estimate_message_gas<DB>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<Message>, JsonRpcError>
+) -> Result<LotusJson<Message>, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
@@ -229,7 +263,7 @@ pub async fn estimate_message_gas<DB>(
     msg: Message,
     _spec: Option<MessageSendSpec>,
     tsk: ApiTipsetKey,
-) -> Result<Message, JsonRpcError>
+) -> Result<Message, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
 {

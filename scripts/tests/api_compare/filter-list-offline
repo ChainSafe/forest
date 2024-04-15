@@ -1,15 +1,12 @@
 # This list contains potentially broken methods (or tests) that are ignored.
 # They should be considered bugged, and not used until the root cause is resolved.
 !Filecoin.ChainGetPath
-!Filecoin.ChainGetTipSetAfterHeight
 !Filecoin.MinerGetBaseInfo
+# Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619314467/job/23624081698
+!Filecoin.MpoolGetNonce
 !Filecoin.StateCall
 !Filecoin.StateListMessages
 !Filecoin.StateSectorGetInfo
-!Filecoin.ChainGetTipSetByHeight
-!Filecoin.ChainHead
-!Filecoin.EthBlockNumber
-!Filecoin.EthGetBalance
 !Filecoin.EthSyncing
 !Filecoin.NetAddrsListen
 !Filecoin.NetAgentVersion

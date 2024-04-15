@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
-use crate::rpc_api::data_types::CirculatingSupply;
+use crate::rpc::types::CirculatingSupply;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
@@ -69,7 +69,11 @@ impl GenesisInfo {
         }
     }
 
-    // Allows generation of the current circulating supply
+    /// Calculate total FIL circulating supply based on Genesis configuration and state of particular
+    /// actors at a given height and state root.
+    ///
+    /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_state_circulating_supply`], that's being
+    /// calculated differently.
     pub fn get_vm_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
@@ -81,6 +85,8 @@ impl GenesisInfo {
         Ok(detailed.fil_circulating)
     }
 
+    /// Calculate total FIL circulating supply based on Genesis configuration and state of particular
+    /// actors at a given height and state root.
     pub fn get_vm_circulating_supply_detailed<DB: Blockstore>(
         &self,
         height: ChainEpoch,
@@ -112,8 +118,12 @@ impl GenesisInfo {
         })
     }
 
-    // This can be a lengthy operation
-    pub fn get_circulating_supply<DB: Blockstore>(
+    /// Calculate total FIL circulating supply based on state, traversing the state tree and
+    /// checking Actor types. This can be a lengthy operation.
+    ///
+    /// IMPORTANT: Easy to mistake for [`GenesisInfo::get_vm_circulating_supply`], that's being
+    /// calculated differently.
+    pub fn get_state_circulating_supply<DB: Blockstore>(
         &self,
         height: ChainEpoch,
         db: &Arc<DB>,

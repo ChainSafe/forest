@@ -116,6 +116,6 @@ async fn test_non_resumable_get() {
     assert_eq!(RANDOM_BYTES[0..data.len()], data);
     let item = stream.next().await.unwrap();
     let err = item.unwrap_err();
-    assert!(err.is_body());
+    assert!(err.is_decode(), "{err}");
     assert!(stream.next().await.is_none());
 }

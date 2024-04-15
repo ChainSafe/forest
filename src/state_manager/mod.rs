@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
+pub mod circulating_supply;
 mod errors;
 mod metrics;
 pub mod utils;
-pub mod vm_circ_supply;
 pub use self::errors::*;
 use self::utils::structured;
 
@@ -21,10 +21,11 @@ use crate::interpreter::{
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -42,6 +43,7 @@ use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
+pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
@@ -67,7 +69,6 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 pub use utils::is_valid_for_sending;
-pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -199,12 +200,15 @@ pub struct InvocResult {
 type StateCallResult = Result<InvocResult, Error>;
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
+    #[serde(with = "crate::lotus_json")]
     escrow: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     locked: TokenAmount,
 }
+lotus_json_with_self!(MarketBalance);
 
 /// State manager handles all interactions with the internal Filecoin actors
 /// state. This encapsulates the [`ChainStore`] functionality, which only
@@ -691,7 +695,7 @@ where
     /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking(
-        self: &Arc<Self>,
+        &self,
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
@@ -1053,11 +1057,7 @@ where
     }
 
     /// Retrieves miner info.
-    pub fn miner_info(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerInfo, Error> {
+    pub fn miner_info(&self, addr: &Address, ts: &Tipset) -> Result<MinerInfo, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
@@ -1065,25 +1065,19 @@ where
 
         Ok(state.info(self.blockstore())?)
     }
+
     /// Retrieves miner faults.
-    pub fn miner_faults(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_faults(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
+
     /// Retrieves miner recoveries.
-    pub fn miner_recoveries(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_recoveries(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
         ts: &Arc<Tipset>,
         get_sector: impl Fn(Partition<'_>) -> BitField,
@@ -1111,11 +1105,7 @@ where
     }
 
     /// Retrieves miner power.
-    pub fn miner_power(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerPower, Error> {
+    pub fn miner_power(&self, addr: &Address, ts: &Tipset) -> Result<MinerPower, Error> {
         if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
             return Ok(MinerPower {
                 miner_power,
@@ -1172,7 +1162,7 @@ where
         let prev_beacon = self
             .chain_store()
             .chain_index
-            .latest_beacon_entry(&tipset)?;
+            .latest_beacon_entry(tipset.clone())?;
 
         let entries: Vec<BeaconEntry> = beacon_schedule
             .beacon_entries_for_block(

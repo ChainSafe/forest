@@ -1,15 +1,16 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+//! Types that are shared _between_ APIs.
+//!
+//! If a type here is used by only one API, it should be relocated.
 
 use crate::beacon::BeaconEntry;
-use crate::blocks::{CachingBlockHeader, TipsetKey};
+use crate::blocks::TipsetKey;
 use crate::chain_sync::SyncState;
 pub use crate::libp2p::Multiaddr;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
-use crate::message::signed_message::SignedMessage;
 use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
@@ -39,8 +40,11 @@ use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use nonempty::NonEmpty;
 use num_bigint::BigInt;
+use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+#[cfg(test)]
 use serde_json::Value;
+use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -52,23 +56,11 @@ pub struct RPCSyncState {
 lotus_json_with_self!(RPCSyncState);
 
 // Chain API
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct BlockMessages {
-    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
-    pub bls_msg: Vec<Message>,
-    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
-    pub secp_msg: Vec<SignedMessage>,
-    #[serde(rename = "Cids", with = "crate::lotus_json")]
-    pub cids: Vec<Cid>,
-}
 
-lotus_json_with_self!(BlockMessages);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    #[serde(with = "crate::lotus_json")]
-    max_fee: TokenAmount,
+    max_fee: LotusJson<TokenAmount>,
 }
 
 lotus_json_with_self!(MessageSendSpec);
@@ -184,7 +176,8 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-// TODO: remove Clone. Tracking issue: https://github.com/ChainSafe/fil-actor-states/issues/255
+// TODO(elmattic): https://github.com/ChainSafe/fil-actor-states/issues/255
+//                 Remove this impl
 impl Clone for MarketDeal {
     fn clone(&self) -> Self {
         Self {
@@ -236,68 +229,6 @@ lotus_json_with_self!(AddrInfo);
 #[derive(Serialize, Deserialize)]
 pub struct PeerID {
     pub multihash: Multihash,
-}
-
-/// Represents the current version of the API.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct APIVersion {
-    pub version: String,
-    #[serde(rename = "APIVersion")]
-    pub api_version: Version,
-    pub block_delay: u64,
-}
-
-lotus_json_with_self!(APIVersion);
-
-/// Integer based value on version information. Highest order bits for Major,
-/// Mid order for Minor and lowest for Patch.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Version(u32);
-
-impl Version {
-    pub const fn new(major: u64, minor: u64, patch: u64) -> Self {
-        Self((major as u32) << 16 | (minor as u32) << 8 | (patch as u32))
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct ApiMessage {
-    cid: Cid,
-    message: Message,
-}
-
-impl ApiMessage {
-    pub fn new(cid: Cid, message: Message) -> Self {
-        Self { cid, message }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiMessageLotusJson {
-    cid: LotusJson<Cid>,
-    message: LotusJson<Message>,
-}
-
-impl HasLotusJson for ApiMessage {
-    type LotusJson = ApiMessageLotusJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ApiMessageLotusJson {
-            cid: LotusJson(self.cid),
-            message: LotusJson(self.message),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        ApiMessage {
-            cid: lotus_json.cid.into_inner(),
-            message: lotus_json.message.into_inner(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Eq, PartialEq)]
@@ -549,23 +480,6 @@ impl HasLotusJson for PendingBeneficiaryChange {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiReceipt {
-    // Exit status of message execution
-    pub exit_code: ExitCode,
-    // `Return` value if the exit code is zero
-    #[serde(rename = "Return")]
-    #[serde(with = "crate::lotus_json")]
-    pub return_data: RawBytes,
-    // Non-negative value of GasUsed
-    pub gas_used: u64,
-    #[serde(with = "crate::lotus_json")]
-    pub events_root: Option<Cid>,
-}
-
-lotus_json_with_self!(ApiReceipt);
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPowerLotusJson {
@@ -617,41 +531,6 @@ impl HasLotusJson for MinerPower {
         }
     }
 }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiscoverResult {
-    info: DiscoverInfo,
-    methods: Vec<DiscoverMethod>,
-    openrpc: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiscoverMethod {
-    deprecated: bool,
-    description: String,
-    external_docs: DiscoverDocs,
-    name: String,
-    param_structure: String,
-    params: Value,
-    // Missing 'result' field. Tracking issue:
-    // https://github.com/ChainSafe/forest/issues/3585
-    summary: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiscoverDocs {
-    description: String,
-    url: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct DiscoverInfo {
-    title: String,
-    version: String,
-}
-
-lotus_json_with_self!(DiscoverResult, DiscoverMethod, DiscoverDocs, DiscoverInfo);
 
 /// State of all actor implementations.
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -1055,16 +934,16 @@ pub struct Transaction {
 
 lotus_json_with_self!(Transaction);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct ApiHeadChange {
-    #[serde(rename = "Type")]
-    pub change: String,
-    #[serde(rename = "Val", with = "crate::lotus_json")]
-    pub headers: Vec<CachingBlockHeader>,
+pub struct DealCollateralBounds {
+    #[serde(with = "crate::lotus_json")]
+    pub min: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
+    pub max: TokenAmount,
 }
 
-lotus_json_with_self!(ApiHeadChange);
+lotus_json_with_self!(DealCollateralBounds);
 
 #[cfg(test)]
 mod tests {

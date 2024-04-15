@@ -15,7 +15,12 @@ where
     ArgT: Into<OsString> + Clone,
 {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::parse_from(args);
+    let Cli {
+        opts,
+        remote_wallet,
+        encrypt,
+        cmd,
+    } = Cli::parse_from(args);
 
     let api = ApiInfo::from_env()?.set_token(opts.token.clone());
 
@@ -29,6 +34,6 @@ where
                 CurrentNetwork::set_global(Network::Testnet);
             }
             // Run command
-            cmd.run(api).await
+            cmd.run(api, remote_wallet, encrypt).await
         })
 }

@@ -1,12 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_api::node_api::{NodeStatus, NODE_STATUS};
+use crate::rpc::node::{NodeStatus, NODE_STATUS};
 
-use super::{ApiInfo, JsonRpcError, RpcRequest};
+use super::{ApiInfo, RpcRequest, ServerError};
 
 impl ApiInfo {
-    pub async fn node_status(&self) -> Result<NodeStatus, JsonRpcError> {
+    pub async fn node_status(&self) -> Result<NodeStatus, ServerError> {
         self.call(Self::node_status_req()).await
     }
 

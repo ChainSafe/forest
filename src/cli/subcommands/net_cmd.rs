@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::libp2p::{Multiaddr, Protocol};
-use crate::rpc_api::data_types::AddrInfo;
+use crate::rpc::types::AddrInfo;
 use crate::rpc_client::ApiInfo;
 use ahash::{HashMap, HashSet};
 use cid::multibase;
@@ -71,7 +71,7 @@ impl NetCommands {
                     )
                     .await
                     .into_iter()
-                    .collect::<Result<Vec<_>, _>>()?;
+                    .map(|res| res.unwrap_or_else(|_| "<agent unknown>".to_owned()));
 
                     HashMap::from_iter(
                         addrs

@@ -3,7 +3,7 @@
 
 use std::str::FromStr as _;
 
-use crate::rpc_client::ApiInfo;
+use crate::rpc::{self, prelude::*};
 use crate::shim::address::{Address, StrictAddress};
 use crate::shim::econ::TokenAmount;
 use crate::shim::message::{Message, METHOD_SEND};
@@ -31,15 +31,20 @@ pub struct SendCommand {
 }
 
 impl SendCommand {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let from: Address =
-            if let Some(from) = &self.from {
-                StrictAddress::from_str(from)?.into()
-            } else {
-                Address::from_str(&api.wallet_default_address().await?.context(
-                    "No default wallet address selected. Please set a default address.",
-                )?)?
-            };
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
+        eprintln!(
+            "This command has been deprecated and will be removed in the future.\n\
+             Please use the 'forest-wallet' executable instead."
+        );
+
+        let from: Address = if let Some(from) = &self.from {
+            StrictAddress::from_str(from)?.into()
+        } else {
+            WalletDefaultAddress::call(&client, ())
+                .await?
+                .into_inner()
+                .context("No default wallet address selected. Please set a default address.")?
+        };
 
         let message = Message {
             from,
@@ -53,7 +58,9 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = api.mpool_push_message(message, None).await?;
+        let signed_msg = MpoolPushMessage::call(&client, (message.into(), None))
+            .await?
+            .into_inner();
 
         println!("{}", signed_msg.cid().unwrap());
 

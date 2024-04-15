@@ -295,6 +295,10 @@ impl PeerManager {
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
     }
+
+    pub fn peer_count(&self) -> usize {
+        self.peers.read().full_peers.len()
+    }
 }
 
 fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) -> bool {

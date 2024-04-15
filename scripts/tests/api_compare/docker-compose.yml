@@ -1,5 +1,4 @@
 # Docker compose file to run Forest and Lotus API tests.
-version: "3.8"
 
 services:
   init: 
@@ -42,7 +41,7 @@ services:
         set -euxo pipefail
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
-          --height=-20 \
+          --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
       test: [ "CMD", "forest-cli", "chain", "head" ]
@@ -69,7 +68,7 @@ services:
       - |
         set -euxo pipefail
         forest-tool api serve $(ls /data/*.car.zst | tail -n 1) \
-          --chain calibnet --height=-20 --port ${FOREST_OFFLINE_RPC_PORT}
+          --chain calibnet --height=-50 --port ${FOREST_OFFLINE_RPC_PORT}
   lotus:
     depends_on:
       init:
@@ -115,7 +114,7 @@ services:
         # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
         lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
-        lotus chain sethead --epoch $(($(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) - 20))
+        lotus chain sethead --epoch $(($(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) - 50))
         # wait for 30s to make sure the re-validation starts
         sleep 30
         lotus sync wait
@@ -160,7 +159,7 @@ services:
           --forest "/dns/api-serve/tcp/$FOREST_OFFLINE_RPC_PORT/http" \
           --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
           --n-tipsets 10 \
-          --filter-file /data/filter-list-offline || true # Fixme
+          --filter-file /data/filter-list-offline
   post-setup:
     depends_on:
       api-compare:

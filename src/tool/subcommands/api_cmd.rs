@@ -9,30 +9,34 @@ use crate::daemon::db_util::download_to;
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
-use crate::lotus_json::HasLotusJson;
+use crate::lotus_json::{HasLotusJson, LotusJson};
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
-use crate::rpc::{start_rpc, RPCState};
-use crate::rpc_api::{
-    data_types::{MessageFilter, MessageLookup},
-    eth_api::{Address as EthAddress, *},
-};
-use crate::rpc_client::{ApiInfo, CommunicationProtocol, JsonRpcError, RpcRequest, DEFAULT_PORT};
+use crate::rpc::beacon::BeaconGetEntry;
+use crate::rpc::eth::Address as EthAddress;
+use crate::rpc::eth::*;
+use crate::rpc::gas::GasEstimateGasLimit;
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
+use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
+use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
+    econ::TokenAmount,
+    message::{Message, METHOD_SEND},
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
-use crate::utils::version::FOREST_VERSION_STRING;
 use ahash::HashMap;
-use anyhow::{bail, Context as _};
+use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
+use fvm_shared2::piece::PaddedPieceSize;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
@@ -52,9 +56,10 @@ use tokio::{
     sync::{mpsc, RwLock, Semaphore},
     task::JoinSet,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum ApiCommands {
     // Serve
     Serve {
@@ -71,7 +76,7 @@ pub enum ApiCommands {
         auto_download_snapshot: bool,
         /// Validate snapshot at given EPOCH, use a negative value -N to validate
         /// the last N EPOCH(s) starting at HEAD.
-        #[arg(long, default_value_t = -20)]
+        #[arg(long, default_value_t = -50)]
         height: i64,
     },
     /// Compare
@@ -185,7 +190,7 @@ enum EndpointStatus {
 }
 
 impl EndpointStatus {
-    fn from_json_error(err: JsonRpcError) -> Self {
+    fn from_json_error(err: ServerError) -> Self {
         match err.known_code() {
             ErrorCode::ParseError => Self::InvalidResponse,
             ErrorCode::OversizedRequest => Self::InvalidRequest,
@@ -206,61 +211,85 @@ struct RpcTest {
     ignore: Option<&'static str>,
 }
 
+/// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
+/// should be removed when <https://github.com/ChainSafe/forest/issues/4032> is
+/// completed.
 impl RpcTest {
-    // Check that an endpoint exist and that both the Lotus and Forest JSON
-    // response follows the same schema.
-    fn basic<T>(request: RpcRequest<T>) -> RpcTest
+    /// Check that an endpoint exists and that both the Lotus and Forest JSON
+    /// response follows the same schema.
+    fn basic<T>(request: RpcRequest<T>) -> Self
     where
         T: HasLotusJson,
     {
-        RpcTest {
-            request: request.lower(),
-            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+        Self::basic_raw(request.map_ty::<T::LotusJson>())
+    }
+    /// See [Self::basic], and note on this `impl` block.
+    fn basic_raw<T: DeserializeOwned>(request: RpcRequest<T>) -> Self {
+        Self {
+            request: request.map_ty(),
+            check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
+                Ok(_) => true,
+                Err(e) => {
+                    debug!(?e);
+                    false
+                }
+            }),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
         }
     }
-
-    // Check that an endpoint exist, has the same JSON schema, and do custom
-    // validation over both responses.
-    fn validate<T>(
+    /// Check that an endpoint exists, has the same JSON schema, and do custom
+    /// validation over both responses.
+    fn validate<T: HasLotusJson>(
         request: RpcRequest<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
-    ) -> RpcTest
-    where
-        T: HasLotusJson,
-        T::LotusJson: DeserializeOwned,
-    {
-        RpcTest {
-            request: request.lower(),
-            check_syntax: Arc::new(|value| serde_json::from_value::<T::LotusJson>(value).is_ok()),
+    ) -> Self {
+        Self::validate_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
+            validate(T::from_lotus_json(l), T::from_lotus_json(r))
+        })
+    }
+    /// See [Self::validate], and note on this `impl` block.
+    fn validate_raw<T: DeserializeOwned>(
+        request: RpcRequest<T>,
+        validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            request: request.map_ty(),
+            check_syntax: Arc::new(|value| match serde_json::from_value::<T>(value) {
+                Ok(_) => true,
+                Err(e) => {
+                    debug!("{e}");
+                    false
+                }
+            }),
             check_semantics: Arc::new(move |forest_json, lotus_json| {
-                serde_json::from_value::<T::LotusJson>(forest_json).is_ok_and(|forest| {
-                    serde_json::from_value::<T::LotusJson>(lotus_json).is_ok_and(|lotus| {
-                        validate(
-                            HasLotusJson::from_lotus_json(forest),
-                            HasLotusJson::from_lotus_json(lotus),
-                        )
-                    })
-                })
+                match (
+                    serde_json::from_value::<T>(forest_json),
+                    serde_json::from_value::<T>(lotus_json),
+                ) {
+                    (Ok(forest), Ok(lotus)) => validate(forest, lotus),
+                    (forest, lotus) => {
+                        if let Err(e) = forest {
+                            debug!("[forest] invalid json: {e}");
+                        }
+                        if let Err(e) = lotus {
+                            debug!("[lotus] invalid json: {e}");
+                        }
+                        false
+                    }
+                }
             }),
             ignore: None,
         }
     }
-
-    fn ignore(mut self, msg: &'static str) -> Self {
-        self.ignore = Some(msg);
-        self
+    /// Check that an endpoint exists and that Forest returns exactly the same
+    /// JSON as Lotus.
+    fn identity<T: PartialEq + HasLotusJson>(request: RpcRequest<T>) -> RpcTest {
+        Self::validate(request, |forest, lotus| forest == lotus)
     }
-
-    // Check that an endpoint exist and that Forest returns exactly the same
-    // JSON as Lotus.
-    fn identity<T: PartialEq>(request: RpcRequest<T>) -> RpcTest
-    where
-        T: HasLotusJson,
-        T::LotusJson: DeserializeOwned,
-    {
-        RpcTest::validate(request, |forest, lotus| forest == lotus)
+    /// See [Self::identity], and note on this `impl` block.
+    fn identity_raw<T: PartialEq + DeserializeOwned>(request: RpcRequest<T>) -> Self {
+        Self::validate_raw(request, |l, r| l == r)
     }
 
     fn with_timeout(mut self, timeout: Duration) -> Self {
@@ -268,23 +297,18 @@ impl RpcTest {
         self
     }
 
+    fn ignore(mut self, msg: &'static str) -> Self {
+        self.ignore = Some(msg);
+        self
+    }
+
     async fn run(
         &self,
         forest_api: &ApiInfo,
         lotus_api: &ApiInfo,
-        use_websocket: bool,
     ) -> (EndpointStatus, EndpointStatus) {
-        let (forest_resp, lotus_resp) = if use_websocket {
-            (
-                forest_api.ws_call(self.request.clone()).await,
-                lotus_api.ws_call(self.request.clone()).await,
-            )
-        } else {
-            (
-                forest_api.call(self.request.clone()).await,
-                lotus_api.call(self.request.clone()).await,
-            )
-        };
+        let forest_resp = forest_api.call(self.request.clone()).await;
+        let lotus_resp = lotus_api.call(self.request.clone()).await;
 
         match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
@@ -327,10 +351,9 @@ impl RpcTest {
 
 fn common_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(ApiInfo::version_req()),
-        RpcTest::basic(ApiInfo::start_time_req()),
-        RpcTest::basic(ApiInfo::discover_req()).ignore("Not implemented yet"),
-        RpcTest::basic(ApiInfo::session_req()),
+        RpcTest::basic_raw(Version::request(()).unwrap()),
+        RpcTest::basic_raw(StartTime::request(()).unwrap()),
+        RpcTest::basic_raw(Session::request(()).unwrap()),
     ]
 }
 
@@ -341,43 +364,50 @@ fn auth_tests() -> Vec<RpcTest> {
 }
 
 fn beacon_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity(ApiInfo::beacon_get_entry_req(10101))]
+    vec![RpcTest::identity_raw(
+        BeaconGetEntry::request((10101,)).unwrap(),
+    )]
 }
 
 fn chain_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::validate(ApiInfo::chain_head_req(), |forest, lotus| {
-            forest.epoch().abs_diff(lotus.epoch()) < 10
-        }),
-        RpcTest::identity(ApiInfo::chain_get_genesis_req()),
+        RpcTest::basic_raw(ChainHead::request(()).unwrap()),
+        RpcTest::identity_raw(ChainGetGenesis::request(()).unwrap()),
     ]
 }
 
 fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block = shared_tipset.min_ticket_block();
+    let shared_block_cid = (*shared_tipset.min_ticket_block().cid()).into();
 
     vec![
-        RpcTest::identity(ApiInfo::chain_get_block_req(*shared_block.cid())),
-        RpcTest::identity(ApiInfo::chain_get_tipset_by_height_req(
-            shared_tipset.epoch(),
-            Default::default(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_tipset_after_height_req(
-            shared_tipset.epoch(),
-            Default::default(),
-        )),
-        RpcTest::identity(ApiInfo::chain_get_tipset_req(shared_tipset.key().clone())),
-        RpcTest::identity(ApiInfo::chain_read_obj_req(*shared_block.cid())),
-        RpcTest::identity(ApiInfo::chain_has_obj_req(*shared_block.cid())),
-        RpcTest::identity(ApiInfo::chain_get_path_req(
-            shared_tipset.key().clone(),
-            shared_tipset.parents().clone(),
-        )),
+        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(ChainGetBlock::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity_raw(
+            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
+                .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
+                .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetTipSet::request((LotusJson(shared_tipset.key().clone().into()),)).unwrap(),
+        ),
+        RpcTest::identity_raw(
+            ChainGetPath::request((
+                shared_tipset.key().clone().into(),
+                shared_tipset.parents().clone().into(),
+            ))
+            .unwrap(),
+        ),
     ]
 }
 
 fn mpool_tests() -> Vec<RpcTest> {
-    vec![RpcTest::basic(ApiInfo::mpool_pending_req(vec![]))]
+    vec![RpcTest::basic_raw(
+        MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap(),
+    )]
 }
 
 fn net_tests() -> Vec<RpcTest> {
@@ -489,11 +519,11 @@ fn wallet_tests() -> Vec<RpcTest> {
     };
 
     vec![
-        RpcTest::identity(ApiInfo::wallet_balance_req(known_wallet.to_string())),
-        RpcTest::identity(ApiInfo::wallet_validate_address_req(
-            known_wallet.to_string(),
-        )),
-        RpcTest::identity(ApiInfo::wallet_verify_req(known_wallet, text, signature)),
+        RpcTest::identity_raw(WalletBalance::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity_raw(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
+        RpcTest::identity_raw(
+            WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
+        ),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),
         // RpcTest::basic(ApiInfo::wallet_list_req()),
@@ -504,13 +534,7 @@ fn wallet_tests() -> Vec<RpcTest> {
 fn eth_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::validate(ApiInfo::eth_block_number_req(), |forest, lotus| {
-            fn parse_hex(inp: &str) -> i64 {
-                let without_prefix = inp.trim_start_matches("0x");
-                i64::from_str_radix(without_prefix, 16).unwrap_or_default()
-            }
-            parse_hex(&forest).abs_diff(parse_hex(&lotus)) < 10
-        }),
+        RpcTest::basic(ApiInfo::eth_block_number_req()),
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
@@ -523,6 +547,7 @@ fn eth_tests() -> Vec<RpcTest> {
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Pending),
         )),
+        RpcTest::basic(ApiInfo::web3_client_version_req()),
     ]
 }
 
@@ -539,15 +564,46 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
+fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    // This is a testnet address with a few FILs. The private key has been
+    // discarded. If calibnet is reset, a new address should be created.
+    let addr = Address::from_str("t15ydyu3d65gznpp2qxwpkjsgz4waubeunn6upvla").unwrap();
+    let message = Message {
+        from: addr,
+        to: addr,
+        value: TokenAmount::from_whole(1),
+        method_num: METHOD_SEND,
+        ..Default::default()
+    };
+
+    // The tipset is only used for resolving the 'from' address and not when
+    // computing the gas cost. This means that the `GasEstimateGasLimit` method
+    // is inherently non-deterministic but I'm fairly sure we're compensated for
+    // everything. If not, this test will be flaky. Instead of disabling it, we
+    // should relax the verification requirement.
+    vec![RpcTest::identity_raw(
+        GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
+            .unwrap(),
+    )]
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
-    let shared_tipset = store.heaviest_tipset()?;
-    let root_tsk = shared_tipset.key();
+    // shared_tipset in the snapshot might not be finalized for the offline RPC server
+    // use heaviest - 10 instead
+    let shared_tipset = store
+        .heaviest_tipset()?
+        .chain(&store)
+        .take(10)
+        .last()
+        .expect("Infallible");
+    let shared_tipset_key = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
+    tests.extend(gas_tests_with_tipset(&shared_tipset));
 
     // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
     // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
@@ -562,32 +618,39 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     )));
 
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
+        tests.push(RpcTest::identity_raw(ChainGetMessagesInTipset::request((
+            tipset.key().clone().into(),
+        ))?));
         tests.push(RpcTest::identity(
-            ApiInfo::chain_get_messages_in_tipset_req(tipset.key().clone()),
+            ApiInfo::state_deal_provider_collateral_bounds_req(
+                PaddedPieceSize(1),
+                true,
+                tipset.key().into(),
+            ),
         ));
+        tests.push(RpcTest::identity_raw(ChainTipSetWeight::request((
+            LotusJson(tipset.key().into()),
+        ))?));
         for block in tipset.block_headers() {
-            tests.push(RpcTest::identity(ApiInfo::chain_get_block_messages_req(
-                *block.cid(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_messages_req(
-                *block.cid(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::chain_get_parent_receipts_req(
-                *block.cid(),
-            )));
+            let block_cid = (*block.cid()).into();
+            tests.extend([
+                RpcTest::identity_raw(ChainGetBlockMessages::request((block_cid,))?),
+                RpcTest::identity_raw(ChainGetParentMessages::request((block_cid,))?),
+                RpcTest::identity_raw(ChainGetParentReceipts::request((block_cid,))?),
+            ]);
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
-                root_tsk.into(),
+                shared_tipset_key.into(),
             )));
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages.into_iter().unique() {
-                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                    msg.cid()?,
-                )));
+                tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
+                    .cid()?
+                    .into(),))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
@@ -595,7 +658,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(
                     validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -612,7 +675,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: Some(msg.from()),
                         to: Some(msg.to()),
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
                 tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
@@ -623,12 +686,12 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 ));
             }
             for msg in secp_messages.into_iter().unique() {
-                tests.push(RpcTest::identity(ApiInfo::chain_get_message_req(
-                    msg.cid()?,
-                )));
+                tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
+                    .cid()?
+                    .into(),))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
@@ -636,7 +699,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
                     msg.from(),
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                 )));
                 tests.push(
                     validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
@@ -648,13 +711,15 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(validate_message_lookup(
                     ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                 ));
-                tests.push(RpcTest::basic(ApiInfo::mpool_get_nonce_req(msg.from())));
+                tests.push(RpcTest::basic(
+                    MpoolGetNonce::request((msg.from().into(),)).unwrap(),
+                ));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
                     MessageFilter {
                         from: None,
                         to: Some(msg.to()),
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -662,7 +727,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: Some(msg.from()),
                         to: None,
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
                 tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
@@ -670,7 +735,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         from: None,
                         to: None,
                     },
-                    root_tsk.into(),
+                    shared_tipset_key.into(),
                     shared_tipset.epoch(),
                 )));
 
@@ -679,7 +744,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                             msg.to(),
                             msg.method_num(),
                             msg.params().to_vec(),
-                            root_tsk.into(),
+                            shared_tipset_key.into(),
                         )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
                 }
             }
@@ -743,6 +808,11 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     shared_tipset.key().into(),
                 )));
             }
+
+            tests.push(RpcTest::identity(ApiInfo::state_market_balance_req(
+                block.miner_address,
+                tipset.key().into(),
+            )));
         }
 
         // Get deals
@@ -777,21 +847,6 @@ fn websocket_tests() -> Vec<RpcTest> {
     vec![test]
 }
 
-fn derive_protocol(forest: &ApiInfo, lotus: &ApiInfo) -> anyhow::Result<CommunicationProtocol> {
-    let a = forest.multiaddr.clone().pop().map(|p| p.tag());
-    let b = lotus.multiaddr.clone().pop().map(|p| p.tag());
-
-    // Both `ApiInfo` should end with the same tag to be valid, and the protocol should be supported
-    match (a, b) {
-        (Some(x), Some(y)) if x == y => Ok(x.try_into()?),
-        _ => bail!(
-            "communication protocols mismatch: {:?} (Forest) is different from {:?} (Lotus)",
-            a,
-            b
-        ),
-    }
-}
-
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,
 /// but other nodes may be used (such as `venus`). The `lotus` node is assumed
 /// to be correct and the `forest` node will be marked as incorrect if it
@@ -816,8 +871,6 @@ async fn compare_apis(
     snapshot_files: Vec<PathBuf>,
     config: ApiTestFlags,
 ) -> anyhow::Result<()> {
-    let communication = derive_protocol(&forest, &lotus)?;
-
     let mut tests = vec![];
 
     tests.extend(common_tests());
@@ -835,14 +888,13 @@ async fn compare_apis(
         tests.extend(snapshot_tests(store, config.n_tipsets)?);
     }
 
-    let use_websocket = communication == CommunicationProtocol::Ws;
-    if use_websocket {
-        tests.extend(websocket_tests());
+    if matches!(forest.scheme(), "ws" | "wss") && matches!(lotus.scheme(), "ws" | "wss") {
+        tests.extend(websocket_tests())
     }
 
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, &config, use_websocket).await
+    run_tests(tests, &forest, &lotus, &config).await
 }
 
 async fn start_offline_server(
@@ -889,8 +941,11 @@ async fn start_offline_server(
         snapshot_files
     };
     db.read_only_files(snapshot_files.iter().cloned())?;
-
+    info!("Using chain config for {chain}");
     let chain_config = Arc::new(ChainConfig::from_chain(&chain));
+    if chain_config.is_testnet() {
+        CurrentNetwork::set_global(Network::Testnet);
+    }
     let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
@@ -935,12 +990,10 @@ async fn start_offline_server(
         -height
     } as usize;
     if n_ts_to_validate > 0 {
-        if let Err(e) =
-            state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))
-        {
-            warn!("{e}");
-        }
+        state_manager.validate_tipsets(head_ts.chain_arc(&db).take(n_ts_to_validate))?;
     }
+
+    let (shutdown, shutdown_recv) = mpsc::channel(1);
 
     let rpc_state = RPCState {
         state_manager,
@@ -953,25 +1006,28 @@ async fn start_offline_server(
         start_time: chrono::Utc::now(),
         chain_store,
         beacon,
+        shutdown,
     };
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
-    start_offline_rpc(rpc_state, rpc_port).await?;
+    start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;
 
     Ok(())
 }
 
-pub async fn start_offline_rpc<DB>(state: RPCState<DB>, rpc_port: u16) -> anyhow::Result<()>
+async fn start_offline_rpc<DB>(
+    state: RPCState<DB>,
+    rpc_port: u16,
+    mut shutdown_recv: mpsc::Receiver<()>,
+) -> anyhow::Result<()>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
     info!("Starting offline RPC Server");
     let rpc_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), rpc_port);
-    let forest_version = FOREST_VERSION_STRING.as_str();
-    let (shutdown_send, mut shutdown_recv) = mpsc::channel(1);
     let mut terminate = signal(SignalKind::terminate())?;
 
     let result = tokio::select! {
-        ret = start_rpc(state, rpc_address, forest_version, shutdown_send) => ret,
+        ret = start_rpc(state, rpc_address) => ret,
         _ = ctrl_c() => {
             info!("Keyboard interrupt.");
             Ok(())
@@ -994,7 +1050,6 @@ async fn run_tests(
     forest: &ApiInfo,
     lotus: &ApiInfo,
     config: &ApiTestFlags,
-    use_websocket: bool,
 ) -> anyhow::Result<()> {
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
@@ -1024,7 +1079,7 @@ async fn run_tests(
         let forest = forest.clone();
         let lotus = lotus.clone();
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus, use_websocket).await;
+            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
             drop(permit); // Release the permit after test execution
             (test.request.method_name, forest_status, lotus_status)
         });
@@ -1103,7 +1158,7 @@ fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {
-        // FIXME: https://github.com/ChainSafe/forest/issues/3784
+        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         if let Some(json) = forest.as_mut() {
             json.return_dec = Ipld::Null;
         }
@@ -1232,30 +1287,5 @@ mod tests {
             .allow("Chain".to_string())
             .reject("Chain".to_string());
         assert!(!list.authorize("Filecoin.ChainGetBlock"));
-    }
-
-    #[test]
-    fn test_derive_protocol() {
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible");
-        assert!(matches!(
-            derive_protocol(&forest, &lotus),
-            Ok(CommunicationProtocol::Http)
-        ));
-
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/ws").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/ws").expect("infallible");
-        assert!(matches!(
-            derive_protocol(&forest, &lotus),
-            Ok(CommunicationProtocol::Ws)
-        ));
-
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/ws").expect("infallible");
-        assert!(derive_protocol(&forest, &lotus).is_err());
-
-        let forest = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/wss").expect("infallible");
-        let lotus = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/wss").expect("infallible");
-        assert!(derive_protocol(&forest, &lotus).is_err());
     }
 }

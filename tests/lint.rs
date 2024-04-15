@@ -37,27 +37,21 @@
 
 mod lints;
 
-use std::{io, ops::Range, process::Command};
+use std::{fs, ops::Range};
 
 use ariadne::{Color, ReportKind, Source};
-use cargo_metadata::{
-    camino::{Utf8Path, Utf8PathBuf},
-    Message, MetadataCommand,
-};
-use itertools::Itertools as _;
+use cargo_metadata::camino::{Utf8Path, Utf8PathBuf};
 use lints::{Lint, Violation};
 use proc_macro2::{LineColumn, Span};
 use syn::visit::Visit;
-use tracing::{debug, info, trace};
+use tracing::{debug, info, level_filters::LevelFilter};
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 #[test]
-#[ignore = "https://github.com/ChainSafe/forest/issues/3665"]
 fn lint() {
-    use tracing_subscriber::{filter::LevelFilter, util::SubscriberInitExt as _};
     let _guard = tracing_subscriber::fmt()
-        .with_test_writer()
-        .with_max_level(LevelFilter::INFO)
-        .with_writer(io::stderr)
+        .without_time()
+        .with_max_level(LevelFilter::DEBUG)
         .set_default();
     LintRunner::new()
         .run::<lints::NoTestsWithReturn>()
@@ -74,127 +68,36 @@ struct LintRunner {
 
 impl LintRunner {
     /// Performs source file discovery and parsing.
-    ///
-    /// # Panics
-    /// - freely
     pub fn new() -> Self {
         info!("collecting source files...");
 
-        // 1. get the package ids (there is only one in this case)
-        let metadata = MetadataCommand::new().no_deps().exec().unwrap();
-        // note: we need
-        //           `forest-filecoin 0.13.0 (path+file:///home/aatif/chainsafe/forest)`
-        //       as returned by `cargo metadata`, not
-        //           `file:///home/aatif/chainsafe/forest#forest-filecoin@0.13.0`
-        //       as returned by `cargo pkgid`
-        let all_pkg_ids = metadata
-            .packages
-            .iter()
-            .map(|it| &it.id)
-            .collect::<Vec<_>>();
-        debug!(collected_package_ids = all_pkg_ids.iter().join(", "));
+        // The initial implementation here tried to ask `cargo` and `rustc`
+        // what the source files were, but it was flaky.
+        //
+        // So just go for a simple globbing of well-known directories.
 
-        // 2. get all the final artifacts
-        let output = Command::new("cargo")
-            .args([
-                "check",
-                "--workspace", // fwd-compatibility
-                "--message-format=json",
-                "--quiet",
-                "--all-targets",
-                "--all-features",
-            ])
-            .output()
-            .unwrap();
-
-        assert!(output.status.success());
-
-        let artifacts = Message::parse_stream(output.stdout.as_slice())
-            .map(Result::unwrap)
-            .filter_map(|msg| match msg {
-                Message::CompilerArtifact(artifact)
-                    if all_pkg_ids.contains(&&artifact.package_id) =>
-                {
-                    debug!(source_file = %artifact.target.src_path);
-                    Some(artifact)
-                }
-                _ => None,
-            });
-
-        // 3. get depfiles
-        let depfiles = artifacts
-            .flat_map(|artifact| {
-                match artifact
-                    .target
-                    .kind // there could be bugs here - see documentation on field
-                    .iter()
-                    .map(String::as_str)
-                    .collect::<Vec<_>>()
-                    .as_slice()
-                {
-                    // target/debug/build/forest-filecoin-63ff492e456e0923/build-script-build
-                    // -> target/debug/build/forest-filecoin-63ff492e456e0923/build_script_build-63ff492e456e0923.d
-                    ["custom-build"] => {
-                        assert_eq!(artifact.filenames.len(), 1);
-                        let filename = &artifact.filenames[0];
-                        let file_stem = filename.file_stem().unwrap();
-                        assert_eq!(file_stem, "build-script-build");
-                        let (_, hash) = filename
-                            .parent()
-                            .and_then(|it| {
-                                it.components().last().and_then(|it| {
-                                    it.as_str().rsplit_once(|c| !char::is_alphanumeric(c))
-                                })
-                            })
-                            .unwrap();
-                        vec![filename.with_file_name(format!("build_script_build-{}.d", hash))]
-                    }
-                    // target/debug/deps/libforest_wallet-fa26ebcb4b76d710.rmeta
-                    // -> target/debug/deps/forest_wallet-fa26ebcb4b76d710.d
-                    ["bin"] | ["example"] | ["test"] | ["bench"] | ["lib"] => artifact
-                        .filenames
-                        .iter()
-                        .map(|it| {
-                            assert_eq!(it.extension().unwrap(), "rmeta");
-                            let new_file_name = it
-                                .with_extension("d")
-                                .file_name()
-                                .unwrap()
-                                .replacen("lib", "", 1);
-                            it.with_file_name(new_file_name)
-                        })
-                        .collect::<Vec<_>>(),
-                    other => panic!("unexpected artifact.target.kind: {}", other.join(", ")),
-                }
-            })
-            .inspect(|it| debug!(depfile = %it))
-            .map(std::fs::read_to_string)
-            .map(Result::unwrap);
-
-        // 4. Collect all source files by parsing the depfiles
-        let all_source_files = depfiles
-            .flat_map(|depfile| {
-                let dependencies = depfile
-                    .lines()
-                    .filter(|it| !(it.starts_with('#') || it.is_empty()))
-                    .map(|it| {
-                        let (target, _precursors) = it.split_once(':').unwrap();
-                        Utf8PathBuf::from(target)
-                    })
-                    .collect::<Vec<_>>();
-                trace!(dependencies = %dependencies.iter().join(", "));
-                dependencies
-            })
-            .unique();
-
-        // 5. Load all the source files, skipping non-existent or non-rust files
-        let files = all_source_files
-            .flat_map(|path| {
-                let plaintext = std::fs::read_to_string(&path).ok()?;
-                let all = SourceFile::try_from(plaintext).ok()?;
-                Some((path, all))
-            })
-            .collect::<Cache>();
+        let files = [
+            concat!(env!("CARGO_MANIFEST_DIR"), "/build.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/src/**/*.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/tests/**/*.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/benches/**/*.rs"),
+            concat!(env!("CARGO_MANIFEST_DIR"), "/examples/**/*.rs"),
+        ]
+        .into_iter()
+        .map(glob::glob)
+        .flat_map(|it| {
+            it.expect("patterns above are valid")
+                .map(|it| it.expect("couldn't compare globbed path with pattern"))
+        })
+        .map(|path| {
+            debug!(?path, "import file");
+            // skip files we can't read or aren't syntactically valid
+            let path = Utf8PathBuf::from_path_buf(path).unwrap();
+            let s = fs::read_to_string(&path).expect("couldn't read file");
+            let s = SourceFile::try_from(s).expect("couldn't parse file");
+            (path, s)
+        })
+        .collect::<Cache>();
 
         info!(num_source_files = files.map.len());
 
@@ -285,8 +188,7 @@ impl LintRunner {
         info!("linting comments");
         let mut all_violations = vec![];
         let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();
-        let checker =
-            Regex::new(r"TODO\(.*\): https://github.com/ChainSafe/forest/issues/\d+").unwrap();
+        let checker = Regex::new(r"TODO\(.*\): https://github.com/").unwrap();
         for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
             for comment in ra_ap_syntax::SourceFile::parse(plaintext)
                 .tree()
