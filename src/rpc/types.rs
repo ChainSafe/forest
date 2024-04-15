@@ -176,7 +176,8 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-// TODO: remove Clone. Tracking issue: https://github.com/ChainSafe/fil-actor-states/issues/255
+// TODO(elmattic): https://github.com/ChainSafe/fil-actor-states/issues/255
+//                 Remove this impl
 impl Clone for MarketDeal {
     fn clone(&self) -> Self {
         Self {

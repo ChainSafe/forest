@@ -433,6 +433,21 @@ methods:
       schema:
         type: string
       required: true
+  - name: Filecoin.ChainTipSetWeight
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainTipSetWeight::Result"
+      schema:
+        type: string
+      required: true
   - name: Filecoin.MpoolGetNonce
     params:
       - name: address
@@ -658,6 +673,59 @@ methods:
       schema:
         type: string
         format: date-time
+      required: true
+  - name: Filecoin.GasEstimateGasLimit
+    params:
+      - name: msg
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              $ref: "#/components/schemas/uint64"
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              $ref: "#/components/schemas/uint64"
+            Nonce:
+              $ref: "#/components/schemas/uint64"
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              $ref: "#/components/schemas/uint64"
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.GasEstimateGasLimit::Result"
+      schema:
+        type: integer
+        format: int64
       required: true
 components:
   schemas:

@@ -149,8 +149,9 @@ mod tests {
 
         let path = Path::new("cthulhuazathoh.dagon");
         let ret = check_parameter_file(path, &param_data).await;
-        assert!(
-            ret.unwrap_err().downcast_ref::<io::Error>().unwrap().kind() == io::ErrorKind::NotFound
+        assert_eq!(
+            ret.unwrap_err().downcast_ref::<io::Error>().unwrap().kind(),
+            io::ErrorKind::NotFound
         );
     }
 }
