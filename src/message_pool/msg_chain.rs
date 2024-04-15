@@ -44,7 +44,6 @@ pub(in crate::message_pool) struct Chains {
     pub key_vec: Vec<NodeKey>,
 }
 
-#[cfg(test)]
 impl Chains {
     // Sort by effective perf with cmp_effective
     pub(in crate::message_pool) fn sort_effective(&mut self) {
@@ -324,7 +323,6 @@ impl MsgChainNode {
     }
 }
 
-#[cfg(test)]
 impl MsgChainNode {
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
         if self.merged && !other.merged

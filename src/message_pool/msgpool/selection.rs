@@ -531,7 +531,6 @@ where
     }
 }
 
-#[cfg(test)]
 /// Returns merged and trimmed messages with the gas limit
 fn merge_and_trim(
     chains: &mut Chains,
@@ -627,7 +626,6 @@ fn merge_and_trim(
 /// It simulates a head change call.
 // This logic should probably be implemented in the ChainStore. It handles
 // reorgs.
-#[cfg(test)]
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,
