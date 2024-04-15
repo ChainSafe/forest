@@ -638,6 +638,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tipset.key().into(),
             ),
         ));
+        tests.push(RpcTest::identity_raw(ChainTipSetWeight::request((
+            LotusJson(tipset.key().into()),
+        ))?));
         for block in tipset.block_headers() {
             let block_cid = (*block.cid()).into();
             tests.extend([
