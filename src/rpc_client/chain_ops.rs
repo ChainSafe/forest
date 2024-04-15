@@ -5,12 +5,12 @@ use super::{ApiInfo, RpcRequest};
 use crate::rpc::{types::*, RpcMethod as _};
 use num::BigInt;
 
+/// Client calls should use [`crate::rpc::RpcMethod`]'s way of constructing [`RpcRequest`].
+/// `Filecoin.ChainNotify` is an exception because it is a subscription method, so falls outside
+/// of that abstraction.
+/// See <https://github.com/ChainSafe/forest/issues/4032> for more information.
 impl ApiInfo {
     pub fn chain_notify_req() -> RpcRequest<()> {
         RpcRequest::new(crate::rpc::chain::CHAIN_NOTIFY, ())
-    }
-
-    pub fn chain_tipset_weight_req(tsk: ApiTipsetKey) -> RpcRequest<BigInt> {
-        RpcRequest::new(crate::rpc::chain::ChainTipSetWeight::NAME, (tsk,))
     }
 }
