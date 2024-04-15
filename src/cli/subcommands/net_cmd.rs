@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::libp2p::{Multiaddr, Protocol};
-use crate::rpc::types::AddrInfo;
+use crate::rpc::net::AddrInfo;
 use crate::rpc_client::ApiInfo;
 use ahash::{HashMap, HashSet};
 use cid::multibase;

@@ -5,25 +5,34 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::error::ServerError;
-use crate::rpc::{types::AddrInfo, Ctx};
+use crate::rpc::Ctx;
+use crate::rpc::{ApiVersion, RPCState, RpcMethodExt as _, ServerError};
 use anyhow::Result;
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
+use libp2p::Multiaddr;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-pub const NET_PEERS: &str = "Filecoin.NetPeers";
-pub const NET_LISTENING: &str = "Filecoin.NetListening";
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        //
+    };
+}
+pub(crate) use for_each_method;
 
-pub const NET_INFO: &str = "Filecoin.NetInfo";
-pub const NET_CONNECT: &str = "Filecoin.NetConnect";
-pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
-pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
-pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
-pub const NET_VERSION: &str = "Filecoin.NetVersion";
+// Net API
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct AddrInfo {
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub addrs: ahash::HashSet<Multiaddr>,
+}
+
+lotus_json_with_self!(AddrInfo);
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct NetInfoResult {
@@ -88,6 +97,7 @@ impl From<libp2p::autonat::NatStatus> for NatStatusResult {
     }
 }
 
+pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
 pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
@@ -103,6 +113,7 @@ pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo,
     })
 }
 
+pub const NET_PEERS: &str = "Filecoin.NetPeers";
 pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
@@ -124,10 +135,12 @@ pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, S
 }
 
 // NET_LISTENING always returns true.
+pub const NET_LISTENING: &str = "Filecoin.NetListening"; // V1
 pub async fn net_listening() -> Result<bool, ServerError> {
     Ok(true)
 }
 
+pub const NET_INFO: &str = "Filecoin.NetInfo";
 pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, ServerError> {
     let (tx, rx) = oneshot::channel();
     let req = NetworkMessage::JSONRPCRequest {
@@ -138,6 +151,7 @@ pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, Se
     Ok(rx.await?)
 }
 
+pub const NET_CONNECT: &str = "Filecoin.NetConnect";
 pub async fn net_connect<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -162,6 +176,7 @@ pub async fn net_connect<DB: Blockstore>(
     }
 }
 
+pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
 pub async fn net_disconnect<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -181,6 +196,7 @@ pub async fn net_disconnect<DB: Blockstore>(
     Ok(())
 }
 
+pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
 pub async fn net_agent_version<DB: Blockstore>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -202,6 +218,7 @@ pub async fn net_agent_version<DB: Blockstore>(
     }
 }
 
+pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
 pub async fn net_auto_nat_status<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
@@ -215,6 +232,7 @@ pub async fn net_auto_nat_status<DB: Blockstore>(
     Ok(nat_status.into())
 }
 
+pub const NET_VERSION: &str = "Filecoin.NetVersion"; // V1
 pub async fn net_version<DB: Blockstore>(
     _params: Params<'_>,
     data: Ctx<DB>,
