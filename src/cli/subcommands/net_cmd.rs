@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::libp2p::{Multiaddr, Protocol};
-use crate::rpc::net::AddrInfo;
-use crate::rpc_client::ApiInfo;
+use crate::rpc::{self, net::AddrInfo, prelude::*};
 use ahash::{HashMap, HashSet};
 use cid::multibase;
 use clap::Subcommand;
@@ -38,10 +37,10 @@ pub enum NetCommands {
 }
 
 impl NetCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Listen => {
-                let info = api.net_addrs_listen().await?;
+                let info = NetAddrsListen::call(&client, ()).await?;
                 let addresses: Vec<String> = info
                     .addrs
                     .iter()
@@ -51,7 +50,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Info => {
-                let info = api.net_info().await?;
+                let info = NetInfo::call(&client, ()).await?;
                 println!("forest libp2p swarm info:");
                 println!("num peers: {}", info.num_peers);
                 println!("num connections: {}", info.num_connections);
@@ -62,12 +61,12 @@ impl NetCommands {
                 Ok(())
             }
             Self::Peers { agent } => {
-                let addrs = api.net_peers().await?;
+                let addrs = NetPeers::call(&client, ()).await?;
                 let peer_to_agents: HashMap<String, String> = if agent {
                     let agents = futures::future::join_all(
                         addrs
                             .iter()
-                            .map(|info| api.net_agent_version(info.id.to_owned())),
+                            .map(|info| NetAgentVersion::call(&client, (info.id.clone(),))),
                     )
                     .await
                     .into_iter()
@@ -149,17 +148,17 @@ impl NetCommands {
                     addrs,
                 };
 
-                api.net_connect(addr_info).await?;
+                NetConnect::call(&client, (addr_info,)).await?;
                 println!("connect {id}: success");
                 Ok(())
             }
             Self::Disconnect { id } => {
-                api.net_disconnect(id.to_owned()).await?;
+                NetDisconnect::call(&client, (id.clone(),)).await?;
                 println!("disconnect {id}: success");
                 Ok(())
             }
             Self::Reachability => {
-                let nat_status = api.net_auto_nat_status().await?;
+                let nat_status = NetAutoNatStatus::call(&client, ()).await?;
                 println!("AutoNAT status:  {}", nat_status.reachability_as_str());
                 if let Some(public_addrs) = nat_status.public_addrs {
                     if !public_addrs.is_empty() {

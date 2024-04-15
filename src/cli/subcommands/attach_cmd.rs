@@ -324,12 +324,6 @@ impl AttachCommand {
         set_module(context);
 
         bind_request!(context, api,
-                // Net API
-                "net_addrs_listen" => |()| ApiInfo::net_addrs_listen_req(),
-                "net_peers"        => |()| ApiInfo::net_peers_req(),
-                "net_disconnect"   => ApiInfo::net_disconnect_req,
-                "net_connect"      => ApiInfo::net_connect_req,
-
                 // Node API
                 "node_status" => |()| ApiInfo::node_status_req(),
 
