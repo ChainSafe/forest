@@ -27,6 +27,7 @@ use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
+use num::BigInt;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -57,6 +58,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::chain::ChainGetTipSet);
         $callback!(crate::rpc::chain::ChainSetHead);
         $callback!(crate::rpc::chain::ChainGetMinBaseFee);
+        $callback!(crate::rpc::chain::ChainTipSetWeight);
     };
 }
 pub(crate) use for_each_method;
@@ -634,6 +636,24 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
         }
 
         Ok(min_base_fee.atto().to_string())
+    }
+}
+
+pub enum ChainTipSetWeight {}
+impl RpcMethod<1> for ChainTipSetWeight {
+    const NAME: &'static str = "Filecoin.ChainTipSetWeight";
+    const PARAM_NAMES: [&'static str; 1] = ["tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<ApiTipsetKey>,);
+    type Ok = LotusJson<BigInt>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tsk = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        unimplemented!()
     }
 }
 
