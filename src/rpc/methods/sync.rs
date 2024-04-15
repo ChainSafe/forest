@@ -1,14 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
-use crate::chain_sync::SyncState;
+// use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::RPCSyncState;
-use crate::rpc::Ctx;
+use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 
 use anyhow::Result;
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::types::Params;
 use nonempty::nonempty;
@@ -21,39 +21,55 @@ macro_rules! for_each_method {
 }
 pub(crate) use for_each_method;
 
-pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-/// Checks if a given block is marked as bad.
-pub async fn sync_check_bad<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((cid,)) = params.parse()?;
+pub enum SyncCheckBad {}
+impl RpcMethod<1> for SyncCheckBad {
+    const NAME: &'static str = "Filecoin.SyncCheckBad";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
+    type Params = (LotusJson<Cid>,);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.bad_blocks.peek(&cid).unwrap_or_default())
+    }
 }
 
-pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-/// Marks a block as bad, meaning it will never be synced.
-pub async fn sync_mark_bad<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let LotusJson((cid,)) = params.parse()?;
+pub enum SyncMarkBad {}
+impl RpcMethod<1> for SyncMarkBad {
+    const NAME: &'static str = "Filecoin.SyncMarkBad";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    data.bad_blocks
-        .put(cid, "Marked bad manually through RPC API".to_string());
-    Ok(())
+    type Params = (LotusJson<Cid>,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        ctx.bad_blocks
+            .put(cid, "Marked bad manually through RPC API".to_string());
+        Ok(())
+    }
 }
 
-pub const SYNC_STATE: &str = "Filecoin.SyncState";
-/// Returns the current status of the `ChainSync` process.
-pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, ServerError> {
-    let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
-    Ok(RPCSyncState { active_syncs })
-}
+pub enum SyncState {}
+impl RpcMethod<0> for SyncState {
+    const NAME: &'static str = "Filecoin.SyncState";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
-    state.read().clone()
+    type Params = ();
+    type Ok = RPCSyncState;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let active_syncs = nonempty![ctx.sync_state.as_ref().read().clone()];
+        Ok(RPCSyncState { active_syncs })
+    }
 }
 
 #[cfg(test)]
