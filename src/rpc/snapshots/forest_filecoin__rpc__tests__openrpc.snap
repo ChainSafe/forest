@@ -433,6 +433,21 @@ methods:
       schema:
         type: string
       required: true
+  - name: Filecoin.ChainTipSetWeight
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainTipSetWeight::Result"
+      schema:
+        type: string
+      required: true
   - name: Filecoin.MpoolGetNonce
     params:
       - name: address
