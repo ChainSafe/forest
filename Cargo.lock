@@ -3256,6 +3256,7 @@ dependencies = [
  "fvm_shared 4.1.2",
  "gethostname",
  "git-version",
+ "glob",
  "group",
  "hex",
  "http 0.2.12",
@@ -9694,12 +9695,15 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "regex",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log 0.2.0",
+ "tracing-serde",
 ]
 
 [[package]]

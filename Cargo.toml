@@ -201,7 +201,7 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 uuid = { version = "1.7", features = ["v4", "serde"] }
@@ -221,6 +221,7 @@ cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
+glob = "0.3"
 http-range-header = "0.4.0"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"
