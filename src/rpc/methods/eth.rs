@@ -447,20 +447,15 @@ fn format_u64(value: u64) -> BytesMut {
     }
 }
 
-#[allow(clippy::indexing_slicing)]
 fn format_bigint(value: &BigInt) -> Result<BytesMut> {
-    if value.0.is_negative() {
-        bail!("can't format a negative number");
-    }
-    let (_, bytes) = value.0.to_bytes_be();
-    let first_non_zero = bytes.iter().position(|&b| b != 0);
-
-    Ok(match first_non_zero {
-        Some(i) => bytes[i..].into(),
-        None => {
-            // If all bytes are zero, return an empty slice
-            BytesMut::new()
+    Ok(if value.0.is_positive() {
+        BytesMut::from_iter(value.0.to_bytes_be().1.iter())
+    } else {
+        if value.0.is_negative() {
+            bail!("can't format a negative number");
         }
+        // If all bytes are zero, return an empty slice
+        BytesMut::new()
     })
 }
 
