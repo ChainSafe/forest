@@ -87,7 +87,8 @@ use tracing::info;
 
 use self::reflect::openrpc_types::ParamStructure;
 
-const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
+const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
+const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
@@ -141,6 +142,7 @@ where
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
             // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+            .max_request_body_size(MAX_REQUEST_BODY_SIZE)
             .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
             .to_service_builder(),
         keystore,
