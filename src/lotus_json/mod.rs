@@ -341,11 +341,10 @@ pub mod hexify_vec_bytes {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        #[allow(clippy::indexing_slicing)]
-        if s.len() >= 2 && &s[..2] == "0x" {
+        if (s.len() >= 2 && s.len() % 2 == 0) && s.get(..2).expect("failed to get prefix") == "0x" {
             let result: Result<Vec<u8>, _> = (2..s.len())
                 .step_by(2)
-                .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+                .map(|i| u8::from_str_radix(s.get(i..i + 2).expect("failed to get slice"), 16))
                 .collect();
             result.map_err(serde::de::Error::custom)
         } else {
