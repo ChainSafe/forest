@@ -216,7 +216,6 @@ where
 {
     use eth::*;
     use gas::*;
-    use net::*;
     use node::*;
     use sync::*;
 

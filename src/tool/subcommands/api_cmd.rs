@@ -424,14 +424,14 @@ fn net_tests() -> Vec<RpcTest> {
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
-        RpcTest::basic(ApiInfo::net_addrs_listen_req()),
-        RpcTest::basic(ApiInfo::net_peers_req()),
-        RpcTest::identity(ApiInfo::net_listening_req()),
-        RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
-        RpcTest::basic(ApiInfo::net_info_req())
+        RpcTest::basic_raw(NetAddrsListen::request(()).unwrap()),
+        RpcTest::basic_raw(NetPeers::request(()).unwrap()),
+        RpcTest::identity_raw(NetListening::request(()).unwrap()),
+        RpcTest::basic_raw(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic_raw(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
-        RpcTest::basic(ApiInfo::net_auto_nat_status_req()),
-        RpcTest::identity(ApiInfo::net_version_req()),
+        RpcTest::basic_raw(NetAutoNatStatus::request(()).unwrap()),
+        RpcTest::identity_raw(NetVersion::request(()).unwrap()),
     ]
 }
 

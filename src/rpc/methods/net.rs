@@ -5,14 +5,12 @@ use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
-use crate::rpc::{ApiVersion, RPCState, RpcMethodExt as _, ServerError};
+use crate::rpc::{ApiVersion, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
 use libp2p::Multiaddr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -64,7 +62,7 @@ impl RpcMethod<0> for NetPeers {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = LotusJson<Vec<AddrInfo>>;
+    type Ok = Vec<AddrInfo>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = oneshot::channel();
@@ -83,7 +81,7 @@ impl RpcMethod<0> for NetPeers {
             })
             .collect();
 
-        Ok(LotusJson(connections))
+        Ok(connections)
     }
 }
 
@@ -255,6 +253,7 @@ pub struct AddrInfo {
 #[derive(JsonSchema)]
 #[schemars(rename = "AddrInfo")]
 #[serde(rename_all = "PascalCase")]
+#[allow(unused)]
 struct Helper {
     #[serde(rename = "ID")]
     id: String,
