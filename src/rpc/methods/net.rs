@@ -4,9 +4,9 @@
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
-use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::Ctx;
+use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, RPCState, RpcMethodExt as _, ServerError};
+use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;
 use futures::channel::oneshot;
@@ -97,82 +97,124 @@ impl From<libp2p::autonat::NatStatus> for NatStatusResult {
     }
 }
 
-pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::AddrsListen(tx),
-    };
+pub enum NetAddrsListen {}
+impl RpcMethod<0> for NetAddrsListen {
+    const NAME: &'static str = "Filecoin.NetAddrsListen";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    data.network_send.send_async(req).await?;
-    let (id, addrs) = rx.await?;
+    type Params = ();
+    type Ok = AddrInfo;
 
-    Ok(AddrInfo {
-        id: id.to_string(),
-        addrs,
-    })
-}
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::AddrsListen(tx),
+        };
 
-pub const NET_PEERS: &str = "Filecoin.NetPeers";
-pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Peers(tx),
-    };
+        ctx.network_send.send_async(req).await?;
+        let (id, addrs) = rx.await?;
 
-    data.network_send.send_async(req).await?;
-    let peer_addresses = rx.await?;
-
-    let connections = peer_addresses
-        .into_iter()
-        .map(|(id, addrs)| AddrInfo {
+        Ok(AddrInfo {
             id: id.to_string(),
             addrs,
         })
-        .collect();
-
-    Ok(connections)
+    }
 }
 
-// NET_LISTENING always returns true.
-pub const NET_LISTENING: &str = "Filecoin.NetListening"; // V1
-pub async fn net_listening() -> Result<bool, ServerError> {
-    Ok(true)
+pub enum NetPeers {}
+impl RpcMethod<0> for NetPeers {
+    const NAME: &'static str = "Filecoin.NetPeers";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = LotusJson<Vec<AddrInfo>>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Peers(tx),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        let peer_addresses = rx.await?;
+
+        let connections = peer_addresses
+            .into_iter()
+            .map(|(id, addrs)| AddrInfo {
+                id: id.to_string(),
+                addrs,
+            })
+            .collect();
+
+        Ok(LotusJson(connections))
+    }
 }
 
-pub const NET_INFO: &str = "Filecoin.NetInfo";
-pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Info(tx),
-    };
+pub enum NetListening {}
+impl RpcMethod<0> for NetListening {
+    const NAME: &'static str = "Filecoin.NetListening";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    data.network_send.send_async(req).await?;
-    Ok(rx.await?)
+    type Params = ();
+    type Ok = bool;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(true)
+    }
 }
 
-pub const NET_CONNECT: &str = "Filecoin.NetConnect";
-pub async fn net_connect<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let (AddrInfo { id, addrs },) = params.parse()?;
+pub enum NetInfo {}
+impl RpcMethod<0> for NetInfo {
+    const NAME: &'static str = "Filecoin.NetInfo";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
-    let peer_id = PeerId::from_bytes(&id)?;
+    type Params = ();
+    type Ok = NetInfoResult;
 
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Connect(tx, peer_id, addrs),
-    };
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Info(tx),
+        };
 
-    data.network_send.send_async(req).await?;
-    let success = rx.await?;
+        ctx.network_send.send_async(req).await?;
+        Ok(rx.await?)
+    }
+}
 
-    if success {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!("Peer could not be dialed from any address provided").into())
+pub enum NetConnect {}
+impl RpcMethod<1> for NetConnect {
+    const NAME: &'static str = "Filecoin.NetConnect";
+    const PARAM_NAMES: [&'static str; 1] = ["info"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (AddrInfo,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (AddrInfo { id, addrs },): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
+        let peer_id = PeerId::from_bytes(&id)?;
+
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Connect(tx, peer_id, addrs),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        let success = rx.await?;
+
+        if success {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Peer could not be dialed from any address provided").into())
+        }
     }
 }
 
