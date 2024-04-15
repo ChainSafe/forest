@@ -133,8 +133,9 @@ pub fn run_migration<DB>(
 where
     DB: Blockstore + Send + Sync,
 {
-    assert!(
-        chain_config.network == NetworkChain::Calibnet,
+    assert_eq!(
+        chain_config.network,
+        NetworkChain::Calibnet,
         "NV22fix only supported on Calibnet"
     );
 

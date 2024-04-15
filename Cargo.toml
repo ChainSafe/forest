@@ -53,18 +53,18 @@ dialoguer = "0.11"
 digest = "0.10.5"
 directories = "5"
 ethereum-types = "0.14.1"
-fil_actor_account_state = { version = "11.0.0" }
-fil_actor_cron_state = { version = "11.0.0" }
-fil_actor_datacap_state = { version = "11.0.0" }
-fil_actor_init_state = { version = "11.0.0" }
-fil_actor_interface = { version = "11.0.0" }
-fil_actor_market_state = { version = "11.0.0" }
-fil_actor_miner_state = { version = "11.0.0" }
-fil_actor_power_state = { version = "11.0.0" }
-fil_actor_reward_state = { version = "11.0.0" }
-fil_actor_system_state = { version = "11.0.0" }
-fil_actor_verifreg_state = { version = "11.0.0" }
-fil_actors_shared = { version = "11.0.0", features = ["json"] }
+fil_actor_account_state = { version = "11.1.0" }
+fil_actor_cron_state = { version = "11.1.0" }
+fil_actor_datacap_state = { version = "11.1.0" }
+fil_actor_init_state = { version = "11.1.0" }
+fil_actor_interface = { version = "11.1.0" }
+fil_actor_market_state = { version = "11.1.0" }
+fil_actor_miner_state = { version = "11.1.0" }
+fil_actor_power_state = { version = "11.1.0" }
+fil_actor_reward_state = { version = "11.1.0" }
+fil_actor_system_state = { version = "11.1.0" }
+fil_actor_verifreg_state = { version = "11.1.0" }
+fil_actors_shared = { version = "11.1.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 frc46_token = "10.0.0"
@@ -203,7 +203,7 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-chrome = "0.7"
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"] }
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
 url = { version = "2.3", features = ["serde"] }
 uuid = { version = "1.7", features = ["v4", "serde"] }
@@ -223,6 +223,7 @@ cs_serde_bytes = "0.12.2"
 derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
+glob = "0.3"
 http-range-header = "0.4.0"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"

@@ -433,6 +433,21 @@ methods:
       schema:
         type: string
       required: true
+  - name: Filecoin.ChainTipSetWeight
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainTipSetWeight::Result"
+      schema:
+        type: string
+      required: true
   - name: Filecoin.MpoolGetNonce
     params:
       - name: address
@@ -658,6 +673,247 @@ methods:
       schema:
         type: string
         format: date-time
+      required: true
+  - name: Filecoin.GasEstimateGasLimit
+    params:
+      - name: msg
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              $ref: "#/components/schemas/uint64"
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              $ref: "#/components/schemas/uint64"
+            Nonce:
+              $ref: "#/components/schemas/uint64"
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              $ref: "#/components/schemas/uint64"
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.GasEstimateGasLimit::Result"
+      schema:
+        type: integer
+        format: int64
+      required: true
+  - name: Filecoin.WalletBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletBalance::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletDefaultAddress
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletDefaultAddress::Result"
+      schema:
+        $ref: "#/components/schemas/String"
+        nullable: true
+      required: true
+  - name: Filecoin.WalletExport
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletExport::Result"
+      schema:
+        type: object
+        required:
+          - PrivateKey
+          - Type
+        properties:
+          PrivateKey:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Type:
+            $ref: "#/components/schemas/SignatureTypeLotusJson"
+      required: true
+  - name: Filecoin.WalletHas
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletHas::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.WalletImport
+    params:
+      - name: key
+        schema:
+          type: object
+          required:
+            - PrivateKey
+            - Type
+          properties:
+            PrivateKey:
+              $ref: "#/components/schemas/VecU8LotusJson2"
+            Type:
+              $ref: "#/components/schemas/SignatureTypeLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletImport::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletList
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletList::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/String"
+        nullable: true
+      required: true
+  - name: Filecoin.WalletNew
+    params:
+      - name: signature_type
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/SignatureType"
+            - $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletNew::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletSetDefault
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletSetDefault::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.WalletSign
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: message
+        schema:
+          $ref: "#/components/schemas/encoded binary"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletSign::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Type
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Type:
+            $ref: "#/components/schemas/SignatureTypeLotusJson"
+      required: true
+  - name: Filecoin.WalletValidateAddress
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletValidateAddress::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletVerify
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: message
+        schema:
+          $ref: "#/components/schemas/encoded binary"
+          nullable: true
+        required: true
+      - name: signature
+        schema:
+          type: object
+          required:
+            - Data
+            - Type
+          properties:
+            Data:
+              $ref: "#/components/schemas/VecU8LotusJson2"
+            Type:
+              $ref: "#/components/schemas/SignatureTypeLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletVerify::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.WalletDelete
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletDelete::Result"
+      schema:
+        type: "null"
       required: true
 components:
   schemas:

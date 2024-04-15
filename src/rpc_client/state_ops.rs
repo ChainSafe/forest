@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::rpc::types::*;
+use crate::state_manager::MarketBalance;
 use crate::{
     blocks::TipsetKey,
     rpc::state::*,
@@ -37,6 +38,13 @@ impl ApiInfo {
         head: TipsetKey,
     ) -> RpcRequest<Option<ActorState>> {
         RpcRequest::new(STATE_GET_ACTOR, (address, head))
+    }
+
+    pub fn state_market_balance_req(
+        miner: Address,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<MarketBalance> {
+        RpcRequest::new(STATE_MARKET_BALANCE, (miner, tsk))
     }
 
     pub async fn state_fetch_root(
