@@ -153,7 +153,7 @@ impl InfoCommand {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
         let client = rpc::Client::from(api.clone());
         let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
-            api.node_status().map_err(ClientError::from),
+            NodeStatus::call(&client, ()),
             ChainHead::call(&client, ()),
             api.state_network_name().map_err(ClientError::from),
             StartTime::call(&client, ()),
