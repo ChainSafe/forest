@@ -46,6 +46,7 @@ pub mod prelude {
     chain::for_each_method!(export);
     mpool::for_each_method!(export);
     common::for_each_method!(export);
+    gas::for_each_method!(export);
     state::for_each_method!(export);
 }
 
@@ -201,6 +202,7 @@ where
     auth::for_each_method!(register);
     beacon::for_each_method!(register);
     common::for_each_method!(register);
+    gas::for_each_method!(register);
     state::for_each_method!(register);
     module.finish()
 }
@@ -300,7 +302,6 @@ where
     module.register_async_method(MSIG_GET_PENDING, msig_get_pending::<DB>)?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
-    module.register_async_method(GAS_ESTIMATE_GAS_LIMIT, gas_estimate_gas_limit::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
     // Net API
@@ -351,6 +352,8 @@ mod tests {
 
     // TODO(forest): https://github.com/ChainSafe/forest/issues/4047
     //               `tokio` shouldn't be necessary
+    // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
+    // `cargo insta review`
     #[tokio::test]
     async fn openrpc() {
         let (_, spec) = create_module(Arc::new(RPCState::calibnet()));

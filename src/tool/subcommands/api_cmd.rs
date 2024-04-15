@@ -16,6 +16,7 @@ use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::eth::*;
+use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
@@ -23,6 +24,8 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
+    econ::TokenAmount,
+    message::{Message, METHOD_SEND},
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
@@ -571,6 +574,29 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
+fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    // This is a testnet address with a few FILs. The private key has been
+    // discarded. If calibnet is reset, a new address should be created.
+    let addr = Address::from_str("t15ydyu3d65gznpp2qxwpkjsgz4waubeunn6upvla").unwrap();
+    let message = Message {
+        from: addr,
+        to: addr,
+        value: TokenAmount::from_whole(1),
+        method_num: METHOD_SEND,
+        ..Default::default()
+    };
+
+    // The tipset is only used for resolving the 'from' address and not when
+    // computing the gas cost. This means that the `GasEstimateGasLimit` method
+    // is inherently non-deterministic but I'm fairly sure we're compensated for
+    // everything. If not, this test will be flaky. Instead of disabling it, we
+    // should relax the verification requirement.
+    vec![RpcTest::identity_raw(
+        GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
+            .unwrap(),
+    )]
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
@@ -587,6 +613,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     tests.extend(chain_tests_with_tipset(&shared_tipset));
     tests.extend(state_tests_with_tipset(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
+    tests.extend(gas_tests_with_tipset(&shared_tipset));
 
     // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
     // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
