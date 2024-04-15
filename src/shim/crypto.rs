@@ -3,7 +3,9 @@
 use std::borrow::Cow;
 
 use super::fvm_shared_latest::{self, commcid::Commitment};
-pub use super::fvm_shared_latest::{IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK};
+pub use super::fvm_shared_latest::{
+    crypto::signature::SECP_SIG_LEN, IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK,
+};
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
 use fvm_ipld_encoding::{
