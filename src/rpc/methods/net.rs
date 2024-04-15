@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
@@ -18,84 +19,18 @@ use serde::{Deserialize, Serialize};
 
 macro_rules! for_each_method {
     ($callback:ident) => {
-        //
+        $callback!(crate::rpc::net::NetAddrsListen);
+        $callback!(crate::rpc::net::NetPeers);
+        $callback!(crate::rpc::net::NetListening);
+        $callback!(crate::rpc::net::NetInfo);
+        $callback!(crate::rpc::net::NetConnect);
+        $callback!(crate::rpc::net::NetDisconnect);
+        $callback!(crate::rpc::net::NetAgentVersion);
+        $callback!(crate::rpc::net::NetAutoNatStatus);
+        $callback!(crate::rpc::net::NetVersion);
     };
 }
 pub(crate) use for_each_method;
-
-// Net API
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct AddrInfo {
-    #[serde(rename = "ID")]
-    pub id: String,
-    pub addrs: ahash::HashSet<Multiaddr>,
-}
-
-lotus_json_with_self!(AddrInfo);
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
-pub struct NetInfoResult {
-    pub num_peers: usize,
-    pub num_connections: u32,
-    pub num_pending: u32,
-    pub num_pending_incoming: u32,
-    pub num_pending_outgoing: u32,
-    pub num_established: u32,
-}
-lotus_json_with_self!(NetInfoResult);
-
-impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
-    fn from(i: libp2p::swarm::NetworkInfo) -> Self {
-        let counters = i.connection_counters();
-        Self {
-            num_peers: i.num_peers(),
-            num_connections: counters.num_connections(),
-            num_pending: counters.num_pending(),
-            num_pending_incoming: counters.num_pending_incoming(),
-            num_pending_outgoing: counters.num_pending_outgoing(),
-            num_established: counters.num_established(),
-        }
-    }
-}
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct NatStatusResult {
-    pub reachability: i32,
-    pub public_addrs: Option<Vec<String>>,
-}
-lotus_json_with_self!(NatStatusResult);
-
-impl NatStatusResult {
-    // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>
-    pub fn reachability_as_str(&self) -> &'static str {
-        match self.reachability {
-            0 => "Unknown",
-            1 => "Public",
-            2 => "Private",
-            _ => "(unrecognized)",
-        }
-    }
-}
-
-impl From<libp2p::autonat::NatStatus> for NatStatusResult {
-    fn from(nat: libp2p::autonat::NatStatus) -> Self {
-        use libp2p::autonat::NatStatus;
-
-        // See <https://github.com/libp2p/go-libp2p/blob/91e1025f04519a5560361b09dfccd4b5239e36e6/core/network/network.go#L77>
-        let (reachability, public_addrs) = match &nat {
-            NatStatus::Unknown => (0, None),
-            NatStatus::Public(addr) => (1, Some(vec![addr.to_string()])),
-            NatStatus::Private => (2, None),
-        };
-
-        NatStatusResult {
-            reachability,
-            public_addrs,
-        }
-    }
-}
 
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
@@ -161,7 +96,7 @@ impl RpcMethod<0> for NetListening {
     type Params = ();
     type Ok = bool;
 
-    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+    async fn handle(_: Ctx<impl Any>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(true)
     }
 }
@@ -218,69 +153,181 @@ impl RpcMethod<1> for NetConnect {
     }
 }
 
-pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
-pub async fn net_disconnect<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let (id,): (String,) = params.parse()?;
+pub enum NetDisconnect {}
+impl RpcMethod<1> for NetDisconnect {
+    const NAME: &'static str = "Filecoin.NetDisconnect";
+    const PARAM_NAMES: [&'static str; 1] = ["id"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let peer_id = PeerId::from_str(&id)?;
+    type Params = (String,);
+    type Ok = ();
 
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Disconnect(tx, peer_id),
-    };
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let peer_id = PeerId::from_str(&id)?;
 
-    data.network_send.send_async(req).await?;
-    rx.await?;
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Disconnect(tx, peer_id),
+        };
 
-    Ok(())
-}
+        ctx.network_send.send_async(req).await?;
+        rx.await?;
 
-pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
-pub async fn net_agent_version<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let (id,): (String,) = params.parse()?;
-
-    let peer_id = PeerId::from_str(&id)?;
-
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::AgentVersion(tx, peer_id),
-    };
-
-    data.network_send.send_async(req).await?;
-    if let Some(agent_version) = rx.await? {
-        Ok(agent_version)
-    } else {
-        Err(anyhow::anyhow!("item not found").into())
+        Ok(())
     }
 }
 
-pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
-pub async fn net_auto_nat_status<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<NatStatusResult, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::AutoNATStatus(tx),
-    };
-    data.network_send.send_async(req).await?;
-    let nat_status = rx.await?;
-    Ok(nat_status.into())
+pub enum NetAgentVersion {}
+impl RpcMethod<1> for NetAgentVersion {
+    const NAME: &'static str = "Filecoin.NetAgentVersion";
+    const PARAM_NAMES: [&'static str; 1] = ["id"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (String,);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let peer_id = PeerId::from_str(&id)?;
+
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::AgentVersion(tx, peer_id),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        if let Some(agent_version) = rx.await? {
+            Ok(agent_version)
+        } else {
+            Err(anyhow::anyhow!("item not found").into())
+        }
+    }
 }
 
-pub const NET_VERSION: &str = "Filecoin.NetVersion"; // V1
-pub async fn net_version<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    Ok(format!(
-        "{}",
-        data.state_manager.chain_config().eth_chain_id
-    ))
+pub enum NetAutoNatStatus {}
+impl RpcMethod<0> for NetAutoNatStatus {
+    const NAME: &'static str = "Filecoin.NetAutoNatStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = NatStatusResult;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::AutoNATStatus(tx),
+        };
+        ctx.network_send.send_async(req).await?;
+        let nat_status = rx.await?;
+        Ok(nat_status.into())
+    }
+}
+
+pub enum NetVersion {}
+impl RpcMethod<0> for NetVersion {
+    const NAME: &'static str = "Filecoin.NetVersion";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.state_manager.chain_config().eth_chain_id.to_string())
+    }
+}
+
+// Net API
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct AddrInfo {
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub addrs: ahash::HashSet<Multiaddr>,
+}
+
+#[derive(JsonSchema)]
+#[schemars(rename = "AddrInfo")]
+#[serde(rename_all = "PascalCase")]
+struct Helper {
+    #[serde(rename = "ID")]
+    id: String,
+    addrs: ahash::HashSet<String>,
+}
+
+impl JsonSchema for AddrInfo {
+    fn schema_name() -> String {
+        Helper::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        Helper::json_schema(gen)
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
+pub struct NetInfoResult {
+    pub num_peers: usize,
+    pub num_connections: u32,
+    pub num_pending: u32,
+    pub num_pending_incoming: u32,
+    pub num_pending_outgoing: u32,
+    pub num_established: u32,
+}
+
+impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
+    fn from(i: libp2p::swarm::NetworkInfo) -> Self {
+        let counters = i.connection_counters();
+        Self {
+            num_peers: i.num_peers(),
+            num_connections: counters.num_connections(),
+            num_pending: counters.num_pending(),
+            num_pending_incoming: counters.num_pending_incoming(),
+            num_pending_outgoing: counters.num_pending_outgoing(),
+            num_established: counters.num_established(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct NatStatusResult {
+    pub reachability: i32,
+    pub public_addrs: Option<Vec<String>>,
+}
+
+impl NatStatusResult {
+    // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>
+    pub fn reachability_as_str(&self) -> &'static str {
+        match self.reachability {
+            0 => "Unknown",
+            1 => "Public",
+            2 => "Private",
+            _ => "(unrecognized)",
+        }
+    }
+}
+
+impl From<libp2p::autonat::NatStatus> for NatStatusResult {
+    fn from(nat: libp2p::autonat::NatStatus) -> Self {
+        use libp2p::autonat::NatStatus;
+
+        // See <https://github.com/libp2p/go-libp2p/blob/91e1025f04519a5560361b09dfccd4b5239e36e6/core/network/network.go#L77>
+        let (reachability, public_addrs) = match &nat {
+            NatStatus::Unknown => (0, None),
+            NatStatus::Public(addr) => (1, Some(vec![addr.to_string()])),
+            NatStatus::Private => (2, None),
+        };
+
+        NatStatusResult {
+            reachability,
+            public_addrs,
+        }
+    }
 }

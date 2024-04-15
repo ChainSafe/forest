@@ -290,16 +290,6 @@ where
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
-    // Net API
-    module.register_async_method(NET_ADDRS_LISTEN, |_, state| net_addrs_listen::<DB>(state))?;
-    module.register_async_method(NET_PEERS, |_, state| net_peers::<DB>(state))?;
-    module.register_async_method(NET_LISTENING, |_, _| net_listening())?;
-    module.register_async_method(NET_INFO, |_, state| net_info::<DB>(state))?;
-    module.register_async_method(NET_CONNECT, net_connect::<DB>)?;
-    module.register_async_method(NET_DISCONNECT, net_disconnect::<DB>)?;
-    module.register_async_method(NET_AGENT_VERSION, net_agent_version::<DB>)?;
-    module.register_async_method(NET_AUTO_NAT_STATUS, net_auto_nat_status::<DB>)?;
-    module.register_async_method(NET_VERSION, net_version::<DB>)?;
     // Node API
     module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API
