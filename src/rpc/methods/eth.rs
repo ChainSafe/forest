@@ -803,18 +803,22 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
         bail!("signature should be 65 bytes long, but got {len} bytes");
     }
 
-    let bytes = sig.bytes();
+    let r = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(0..32).expect("failed to get slice"),
+    );
 
-    #[allow(clippy::indexing_slicing)]
-    {
-        let r = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[0..32]);
+    let s = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(32..64).expect("failed to get slice"),
+    );
 
-        let s = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[32..64]);
+    let v = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(64..65).expect("failed to get slice"),
+    );
 
-        let v = num_bigint::BigInt::from_bytes_be(Sign::Plus, &bytes[64..65]);
-
-        Ok((BigInt(r), BigInt(s), BigInt(v)))
-    }
+    Ok((BigInt(r), BigInt(s), BigInt(v)))
 }
 
 /// `eth_tx_from_signed_eth_message` does NOT populate:
@@ -1283,4 +1287,20 @@ mod test {
             assert_eq!(addr, fil_addr)
         }
     }
+
+    // func TestEthAddr(t *testing.T) {
+    //     testcases := []string{
+    //         strings.ToLower(`"0xd4c5fb16488Aa48081296299d54b0c648C9333dA"`),
+    //         strings.ToLower(`"0x2C2EC67e3e1FeA8e4A39601cB3A3Cd44f5fa830d"`),
+    //         strings.ToLower(`"0x01184F793982104363F9a8a5845743f452dE0586"`),
+    //     }
+
+    //     for _, addr := range testcases {
+    //         var a EthAddress
+    //         err := a.UnmarshalJSON([]byte(addr))
+
+    //         require.Nil(t, err)
+    //         require.Equal(t, a.String(), strings.Replace(addr, `"`, "", -1))
+    //     }
+    // }
 }
