@@ -37,7 +37,7 @@ static GLOBAL_NETWORK: AtomicU8 = AtomicU8::new(Network::Mainnet as u8);
 
 thread_local! {
     // Thread local network identifier. Defaults to value in GLOBAL_NETWORK.
-    static LOCAL_NETWORK: AtomicU8 = AtomicU8::new(GLOBAL_NETWORK.load(Ordering::Relaxed));
+    static LOCAL_NETWORK: AtomicU8 = AtomicU8::new(GLOBAL_NETWORK.load(Ordering::Acquire));
 }
 
 /// For user safety, Filecoin has different addresses for its mainnet and test networks: Mainnet
@@ -52,16 +52,16 @@ thread_local! {
 pub struct CurrentNetwork();
 impl CurrentNetwork {
     pub fn get() -> Network {
-        FromPrimitive::from_u8(LOCAL_NETWORK.with(|ident| ident.load(Ordering::Relaxed)))
+        FromPrimitive::from_u8(LOCAL_NETWORK.with(|ident| ident.load(Ordering::Acquire)))
             .unwrap_or(Network::Mainnet)
     }
 
     pub fn set(network: Network) {
-        LOCAL_NETWORK.with(|ident| ident.store(network as u8, Ordering::Relaxed));
+        LOCAL_NETWORK.with(|ident| ident.store(network as u8, Ordering::Release));
     }
 
     pub fn set_global(network: Network) {
-        GLOBAL_NETWORK.store(network as u8, Ordering::Relaxed);
+        GLOBAL_NETWORK.store(network as u8, Ordering::Release);
         CurrentNetwork::set(network);
     }
 
@@ -75,7 +75,7 @@ impl CurrentNetwork {
 
     #[cfg(test)]
     fn get_global() -> Network {
-        FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Relaxed)).unwrap_or(Network::Mainnet)
+        FromPrimitive::from_u8(GLOBAL_NETWORK.load(Ordering::Acquire)).unwrap_or(Network::Mainnet)
     }
 }
 
