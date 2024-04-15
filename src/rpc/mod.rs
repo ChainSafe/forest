@@ -223,12 +223,7 @@ where
     use eth::*;
     use gas::*;
     use node::*;
-    use sync::*;
 
-    // Sync API
-    module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
-    module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
-    module.register_async_method(SYNC_STATE, |_, state| sync_state::<DB>(state))?;
     // State API
     module.register_async_method(STATE_CALL, state_call::<DB>)?;
     module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;

@@ -1,8 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc::sync::RPCSyncState;
 use crate::rpc::sync::*;
-use crate::rpc::types::RPCSyncState;
 use cid::Cid;
 
 use super::{ApiInfo, RpcRequest, ServerError};

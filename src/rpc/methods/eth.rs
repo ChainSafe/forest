@@ -9,8 +9,6 @@ use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::rpc::error::ServerError;
-// use crate::rpc::sync::sync_state;
-use crate::rpc::types::RPCSyncState;
 use crate::rpc::{Ctx, RpcMethod};
 use crate::shim::address::Address as FilecoinAddress;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
@@ -324,11 +322,11 @@ pub async fn eth_syncing<DB: Blockstore + Sync + Send + 'static>(
     _params: Params<'_>,
     data: Ctx<DB>,
 ) -> Result<LotusJson<EthSyncingResult>, ServerError> {
-    let RPCSyncState { active_syncs } =
+    let crate::rpc::sync::RPCSyncState { active_syncs } =
         crate::rpc::sync::SyncState::handle(data.clone(), ()).await?;
     match active_syncs
-        .iter()
-        .rev()
+        .into_inner()
+        .into_iter()
         .find_or_first(|ss| ss.stage() != SyncStage::Idle)
     {
         Some(sync_state) => match (sync_state.base(), sync_state.target()) {
