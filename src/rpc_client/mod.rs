@@ -8,7 +8,6 @@ mod net_ops;
 mod node_ops;
 mod state_ops;
 mod sync_ops;
-mod wallet_ops;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;

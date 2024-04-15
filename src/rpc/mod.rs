@@ -47,6 +47,7 @@ pub mod prelude {
     mpool::for_each_method!(export);
     common::for_each_method!(export);
     gas::for_each_method!(export);
+    wallet::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -202,6 +203,7 @@ where
     beacon::for_each_method!(register);
     common::for_each_method!(register);
     gas::for_each_method!(register);
+    wallet::for_each_method!(register);
     module.finish()
 }
 
@@ -215,27 +217,11 @@ where
     use net::*;
     use node::*;
     use sync::*;
-    use wallet::*;
 
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
     module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
     module.register_async_method(SYNC_STATE, |_, state| sync_state::<DB>(state))?;
-    // Wallet API
-    module.register_async_method(WALLET_BALANCE, wallet_balance::<DB>)?;
-    module.register_async_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB>)?;
-    module.register_async_method(WALLET_EXPORT, wallet_export::<DB>)?;
-    module.register_async_method(WALLET_HAS, wallet_has::<DB>)?;
-    module.register_async_method(WALLET_IMPORT, wallet_import::<DB>)?;
-    module.register_async_method(WALLET_LIST, wallet_list::<DB>)?;
-    module.register_async_method(WALLET_NEW, wallet_new::<DB>)?;
-    module.register_async_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)?;
-    module.register_async_method(WALLET_SIGN, wallet_sign::<DB>)?;
-    module.register_async_method(WALLET_VALIDATE_ADDRESS, |params, _| {
-        wallet_validate_address(params)
-    })?;
-    module.register_async_method(WALLET_VERIFY, |params, _| wallet_verify(params))?;
-    module.register_async_method(WALLET_DELETE, wallet_delete::<DB>)?;
     // State API
     module.register_async_method(STATE_CALL, state_call::<DB>)?;
     module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;

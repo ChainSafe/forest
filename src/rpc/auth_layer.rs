@@ -77,19 +77,18 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(sync::SYNC_STATE, Access::Read);
 
     // Wallet API
-    access.insert(wallet::WALLET_BALANCE, Access::Write);
-    access.insert(wallet::WALLET_BALANCE, Access::Read);
-    access.insert(wallet::WALLET_DEFAULT_ADDRESS, Access::Read);
-    access.insert(wallet::WALLET_EXPORT, Access::Admin);
-    access.insert(wallet::WALLET_HAS, Access::Write);
-    access.insert(wallet::WALLET_IMPORT, Access::Admin);
-    access.insert(wallet::WALLET_LIST, Access::Write);
-    access.insert(wallet::WALLET_NEW, Access::Write);
-    access.insert(wallet::WALLET_SET_DEFAULT, Access::Write);
-    access.insert(wallet::WALLET_SIGN, Access::Sign);
-    access.insert(wallet::WALLET_VALIDATE_ADDRESS, Access::Read);
-    access.insert(wallet::WALLET_VERIFY, Access::Read);
-    access.insert(wallet::WALLET_DELETE, Access::Write);
+    access.insert(wallet::WalletBalance::NAME, Access::Read);
+    access.insert(wallet::WalletDefaultAddress::NAME, Access::Read);
+    access.insert(wallet::WalletExport::NAME, Access::Admin);
+    access.insert(wallet::WalletHas::NAME, Access::Write);
+    access.insert(wallet::WalletImport::NAME, Access::Admin);
+    access.insert(wallet::WalletList::NAME, Access::Write);
+    access.insert(wallet::WalletNew::NAME, Access::Write);
+    access.insert(wallet::WalletSetDefault::NAME, Access::Write);
+    access.insert(wallet::WalletSign::NAME, Access::Sign);
+    access.insert(wallet::WalletValidateAddress::NAME, Access::Read);
+    access.insert(wallet::WalletVerify::NAME, Access::Read);
+    access.insert(wallet::WalletDelete::NAME, Access::Write);
 
     // State API
     access.insert(state::STATE_CALL, Access::Read);
