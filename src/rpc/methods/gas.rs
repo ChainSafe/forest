@@ -220,7 +220,9 @@ where
         )),
         Protocol::Delegated => ChainMessage::Signed(SignedMessage::new_unchecked(
             msg,
-            Signature::new(SignatureType::Delegated, vec![0; 65]),
+            // In Lotus, delegated signatures have the same length as SECP256k1.
+            // This may or may not change in the future.
+            Signature::new(SignatureType::Delegated, vec![0; SECP_SIG_LEN]),
         )),
         _ => ChainMessage::Unsigned(msg),
     };
