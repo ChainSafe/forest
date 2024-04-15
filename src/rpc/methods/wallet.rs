@@ -241,14 +241,11 @@ impl RpcMethod<1> for WalletValidateAddress {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (String,);
     type Ok = LotusJson<Address>;
 
-    async fn handle(
-        _: Ctx<impl Any>,
-        (LotusJson(address),): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        Ok(address.into())
+    async fn handle(_: Ctx<impl Any>, (s,): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(LotusJson(s.parse()?))
     }
 }
 

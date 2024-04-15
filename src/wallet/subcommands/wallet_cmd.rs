@@ -269,7 +269,7 @@ pub enum WalletCommands {
     /// Validates whether a given string can be decoded as a well-formed address
     ValidateAddress {
         /// The address to be validated
-        address: Address,
+        address: String,
     },
     /// Verify the signature of a message. Returns true if the signature matches
     /// the message and address
@@ -455,7 +455,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::ValidateAddress { address } => {
-                let response = WalletValidateAddress::call(&backend.remote, (address.into(),))
+                let response = WalletValidateAddress::call(&backend.remote, (address,))
                     .await?
                     .into_inner();
                 println!("{response}");

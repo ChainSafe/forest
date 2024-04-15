@@ -520,7 +520,7 @@ fn wallet_tests() -> Vec<RpcTest> {
 
     vec![
         RpcTest::identity_raw(WalletBalance::request((known_wallet.into(),)).unwrap()),
-        RpcTest::identity_raw(WalletValidateAddress::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity_raw(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
         RpcTest::identity_raw(
             WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
         ),
