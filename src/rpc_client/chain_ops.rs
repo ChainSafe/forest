@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::{ApiInfo, RpcRequest};
-use crate::rpc::{types::*, RpcMethod as _};
-use num::BigInt;
 
 /// Client calls should use [`crate::rpc::RpcMethod`]'s way of constructing [`RpcRequest`].
 /// `Filecoin.ChainNotify` is an exception because it is a subscription method, so falls outside
