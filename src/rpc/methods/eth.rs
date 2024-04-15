@@ -177,13 +177,14 @@ impl Address {
         self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
     }
 
-    #[allow(clippy::indexing_slicing)]
     fn from_actor_id(id: u64) -> Self {
-        let mut payload = ethereum_types::H160::default();
-        payload.as_bytes_mut()[0] = 0xff;
-        payload.as_bytes_mut()[12..20].copy_from_slice(&id.to_be_bytes());
+        let arr = id.to_be_bytes();
+        let payload = [
+            0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+            arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7],
+        ];
 
-        Self(payload)
+        Self(ethereum_types::H160(payload))
     }
 }
 
@@ -1269,6 +1270,20 @@ mod test {
                 // fails in case of negative number
                 assert!(eth_bi.0.is_negative());
             }
+        }
+    }
+
+    #[test]
+    fn test_id_address_roundtrip() {
+        let test_cases = [1u64, 2, 3, 100, 101];
+
+        for id in test_cases {
+            let addr = FilecoinAddress::new_id(id);
+
+            // roundtrip
+            let eth_addr = Address::from_filecoin_address(&addr).unwrap();
+            let fil_addr = eth_addr.to_filecoin_address().unwrap();
+            assert_eq!(addr, fil_addr)
         }
     }
 }
