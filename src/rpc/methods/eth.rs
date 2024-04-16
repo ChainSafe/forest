@@ -921,7 +921,7 @@ fn encode_filecoin_returns_as_abi(
 
 /// Round to the next multiple of `EVM` word length.
 fn round_up_word(value: usize) -> usize {
-    (value + (EVM_WORD_LENGTH - 1)) / EVM_WORD_LENGTH * EVM_WORD_LENGTH
+    ((value + (EVM_WORD_LENGTH - 1)) / EVM_WORD_LENGTH) * EVM_WORD_LENGTH
 }
 
 /// Format two numbers followed by an arbitrary byte array as solidity ABI.
@@ -1275,7 +1275,7 @@ mod test {
 
     #[quickcheck]
     fn bigint_roundtrip(bi: num_bigint::BigInt) {
-        let eth_bi = BigInt(bi.clone().into());
+        let eth_bi = BigInt(bi.clone());
 
         match format_bigint(&eth_bi) {
             Ok(bm) => {
@@ -1288,7 +1288,7 @@ mod test {
 
                     // roundtrip
                     let unsigned = num_bigint::BigUint::from_be_bytes(&freezed.slice(..));
-                    assert_eq!(bi, unsigned.try_into().unwrap());
+                    assert_eq!(bi, unsigned.into());
                 }
             }
             Err(_) => {
