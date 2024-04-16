@@ -101,7 +101,7 @@ impl RpcMethod<0> for NetListening {
 
 pub enum NetInfo {}
 impl RpcMethod<0> for NetInfo {
-    const NAME: &'static str = "Filecoin.NetInfo";
+    const NAME: &'static str = "Forest.NetInfo";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
