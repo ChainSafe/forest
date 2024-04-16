@@ -6,6 +6,7 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
+#[cfg(feature = "attach")]
 mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
@@ -29,11 +30,13 @@ use clap::Parser;
 use serde::Serialize;
 use tracing::error;
 
+#[cfg(feature = "attach")]
+pub(super) use self::attach_cmd::AttachCommand;
 pub(super) use self::{
-    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    config_cmd::ConfigCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
-    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands,
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
+    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
+    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -92,6 +95,7 @@ pub enum Subcommand {
     Info(InfoCommand),
 
     /// Attach to daemon via a JavaScript console
+    #[cfg(feature = "attach")]
     Attach(AttachCommand),
 
     /// Shutdown Forest

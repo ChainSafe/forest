@@ -13,8 +13,8 @@ forest_init
 echo "Verifying the non calibnet snapshot (./test-snapshots/chain4.car) is being served properly."
 $FOREST_CLI_PATH chain read-obj -c bafy2bzacedjrqan2fwfvhfopi64yickki7miiksecglpeiavf7xueytnzevlu
 
-echo "Testing js console"
-$FOREST_CLI_PATH attach --exec 'showPeers()'
+# echo "Testing js console"
+# $FOREST_CLI_PATH attach --exec 'showPeers()'
 
 echo "Test dev commands (which could brick the node/cause subsequent snapshots to fail)"
 

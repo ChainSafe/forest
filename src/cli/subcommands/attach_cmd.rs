@@ -241,7 +241,7 @@ macro_rules! bind_request {
         bind_async($context, &$api, $name, move |args, api| {
             // Some of the closures are redundant, others are not.
             #[allow(clippy::redundant_closure_call)]
-            let rpc = $req(args).lower();
+            let rpc: crate::rpc_client::RpcRequest = $req(args).map_ty();
             async move { Ok(api.call(rpc).await?) }
         });
     )*

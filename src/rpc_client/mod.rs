@@ -175,10 +175,6 @@ impl<T> RpcRequest<T> {
             timeout: self.timeout,
         }
     }
-    /// Discard type information about the response.
-    pub fn lower(self) -> RpcRequest {
-        self.map_ty()
-    }
 }
 
 impl<T> ToRpcParams for RpcRequest<T> {
