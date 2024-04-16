@@ -952,11 +952,11 @@ methods:
       schema:
         type: boolean
       required: true
-  - name: Filecoin.NetInfo
+  - name: Forest.NetInfo
     params: []
     paramStructure: by-position
     result:
-      name: "Filecoin.NetInfo::Result"
+      name: "Forest.NetInfo::Result"
       schema:
         type: object
         required:
