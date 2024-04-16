@@ -919,8 +919,12 @@ fn encode_filecoin_returns_as_abi(
     encode_as_abi_helper(exit_code, codec, data)
 }
 
+/// Round to the next multiple of `EVM` word length.
+fn round_up_word(value: usize) -> usize {
+    (value + (EVM_WORD_LENGTH - 1)) / EVM_WORD_LENGTH * EVM_WORD_LENGTH
+}
+
 /// Format two numbers followed by an arbitrary byte array as solidity ABI.
-#[allow(clippy::indexing_slicing)]
 fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
     // The first two params are "static" numbers. Then, we record the offset of the "data" arg,
     // then, at that offset, we record the length of the data.
@@ -933,27 +937,20 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
         (EVM_WORD_LENGTH * 3) as u64,
         data.len() as u64,
     ];
-    // We always pad out to the next EVM "word" (32 bytes).
-    let total_words = static_args.len()
-        + (data.len() / EVM_WORD_LENGTH)
-        + if (data.len() % EVM_WORD_LENGTH) != 0 {
-            1
-        } else {
-            0
-        };
-    let len = total_words * EVM_WORD_LENGTH;
-    let mut buf = vec![0u8; len];
-    let mut offset = 0;
-    // Below, we use copy instead of "appending" to preserve all the zero padding.
-    for arg in static_args.iter() {
-        // Write each "arg" into the last 8 bytes of each 32 byte word.
-        offset += EVM_WORD_LENGTH;
-        let start = offset - 8;
-        buf[start..offset].copy_from_slice(&arg.to_be_bytes());
-    }
-
-    // Finally, we copy in the data.
-    buf[offset..(offset + data.len())].copy_from_slice(data);
+    let padding = [0u8; 24];
+    let buf: Vec<u8> = padding
+        .iter() // Right pad
+        .chain(static_args[0].to_be_bytes().iter()) // Copy u64
+        .chain(padding.iter())
+        .chain(static_args[1].to_be_bytes().iter())
+        .chain(padding.iter())
+        .chain(static_args[2].to_be_bytes().iter())
+        .chain(padding.iter())
+        .chain(static_args[3].to_be_bytes().iter())
+        .chain(data.iter()) // Finally, we copy in the data
+        .chain(std::iter::repeat(&0u8).take(round_up_word(data.len()) - data.len())) // Left pad
+        .cloned()
+        .collect();
 
     buf
 }
