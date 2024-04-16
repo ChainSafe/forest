@@ -21,7 +21,6 @@ use crate::{
 use crate::{
     key_management::{Key, KeyInfo},
     rpc_client::ApiInfo,
-    utils::io::read_file_to_string,
 };
 use crate::{lotus_json::LotusJson, KeyStore};
 use crate::{
@@ -372,7 +371,7 @@ impl WalletCommands {
             }
             Self::Import { path } => {
                 let key = match path {
-                    Some(path) => read_file_to_string(&PathBuf::from(path))?,
+                    Some(path) => std::fs::read_to_string(path)?,
                     _ => {
                         tokio::task::spawn_blocking(|| {
                             Password::with_theme(&ColorfulTheme::default())
