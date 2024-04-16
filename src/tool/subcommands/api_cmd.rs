@@ -215,7 +215,8 @@ struct TestDump {
 
 impl std::fmt::Display for TestDump {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Request: {:?}", self.request)?;
+        writeln!(f, "Request dump: {:?}", self.request)?;
+        writeln!(f, "Request params JSON: {}", self.request.params)?;
         if let (Some(forest_response), Some(lotus_response)) =
             (&self.forest_response, &self.lotus_response)
         {
