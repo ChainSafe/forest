@@ -167,6 +167,30 @@ impl Receipt {
         let receipts = amt.get(i)?;
         Ok(receipts.cloned().map(Receipt::V2))
     }
+
+    pub fn get_parent_receipts(
+        db: &impl Blockstore,
+        receipts: Cid,
+    ) -> anyhow::Result<Vec<Receipt>> {
+        let mut parent_receipts = Vec::new();
+
+        // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
+        if let Ok(amt) = Amtv0::<fvm_shared4::receipt::Receipt, _>::load(&receipts, db) {
+            amt.for_each(|_, receipt| {
+                parent_receipts.push(Receipt::V4(receipt.clone()));
+                Ok(())
+            })?;
+        } else {
+            // Fallback to Receipt_v2.
+            let amt = Amtv0::<fvm_shared2::receipt::Receipt, _>::load(&receipts, db)?;
+            amt.for_each(|_, receipt| {
+                parent_receipts.push(Receipt::V2(receipt.clone()));
+                Ok(())
+            })?;
+        }
+
+        Ok(parent_receipts)
+    }
 }
 
 impl From<Receipt_v3> for Receipt {

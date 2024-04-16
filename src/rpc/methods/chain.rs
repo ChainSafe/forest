@@ -17,6 +17,7 @@ use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
+use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
@@ -890,56 +891,31 @@ quickcheck::quickcheck! {
     }
 }
 
-pub async fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
+pub fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     message_receipts: Cid,
 ) -> Result<Vec<ApiReceipt>> {
     let store = data.state_manager.blockstore();
 
-    let mut receipts = Vec::new();
+    let receipts = Receipt::get_parent_receipts(store, message_receipts).map_err(|_| {
+        ErrorObjectOwned::owned::<()>(
+            1,
+            format!("failed to root: ipld: could not find {message_receipts}"),
+            None,
+        )
+    })?;
 
-    // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
-    if let Ok(amt) = Amt::<fvm_shared4::receipt::Receipt, _>::load(&message_receipts, store)
-        .map_err(|_| {
-            ErrorObjectOwned::owned::<()>(
-                1,
-                format!("failed to root: ipld: could not find {message_receipts}"),
-                None,
-            )
+    let api_receipts = receipts
+        .iter()
+        .map(|receipt| ApiReceipt {
+            exit_code: receipt.exit_code().into(),
+            return_data: LotusJson(receipt.return_data().clone()),
+            gas_used: receipt.gas_used(),
+            events_root: LotusJson(receipt.events_root()),
         })
-    {
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: LotusJson(receipt.return_data.clone()),
-                gas_used: receipt.gas_used,
-                events_root: LotusJson(receipt.events_root),
-            });
-            Ok(())
-        })?;
-    } else {
-        // Fallback to Receipt_v2.
-        let amt = Amt::<fvm_shared2::receipt::Receipt, _>::load(&message_receipts, store).map_err(
-            |_| {
-                ErrorObjectOwned::owned::<()>(
-                    1,
-                    format!("failed to root: ipld: could not find {message_receipts}"),
-                    None,
-                )
-            },
-        )?;
-        amt.for_each(|_, receipt| {
-            receipts.push(ApiReceipt {
-                exit_code: receipt.exit_code.into(),
-                return_data: LotusJson(receipt.return_data.clone()),
-                gas_used: receipt.gas_used as _,
-                events_root: LotusJson(None),
-            });
-            Ok(())
-        })?;
-    }
+        .collect();
 
-    Ok(receipts)
+    Ok(api_receipts)
 }
 
 #[cfg(test)]

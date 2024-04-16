@@ -735,7 +735,7 @@ async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
 
     let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
 
-    let receipts = get_parent_receipts(data, receipt_root).await?;
+    let receipts = get_parent_receipts(data, receipt_root)?;
 
     if msgs.len() != receipts.len() {
         bail!(
