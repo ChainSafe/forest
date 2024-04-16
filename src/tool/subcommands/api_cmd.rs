@@ -41,6 +41,7 @@ use fvm_shared2::piece::PaddedPieceSize;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
+use similar::{ChangeTag, TextDiff};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::{Path, PathBuf},
@@ -205,6 +206,55 @@ impl EndpointStatus {
         }
     }
 }
+
+/// Data about a failed test. Used for debugging.
+struct TestDump {
+    request: RpcRequest,
+    forest_response: Option<String>,
+    lotus_response: Option<String>,
+}
+
+impl std::fmt::Display for TestDump {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Request dump: {:?}", self.request)?;
+        writeln!(f, "Request params JSON: {}", self.request.params)?;
+        if let (Some(forest_response), Some(lotus_response)) =
+            (&self.forest_response, &self.lotus_response)
+        {
+            let diff = TextDiff::from_lines(forest_response, lotus_response);
+            let mut print_diff = Vec::new();
+            for change in diff.iter_all_changes() {
+                let sign = match change.tag() {
+                    ChangeTag::Delete => "-",
+                    ChangeTag::Insert => "+",
+                    ChangeTag::Equal => " ",
+                };
+                print_diff.push(format!("{sign}{change}"));
+            }
+            writeln!(f, "Forest response: {}", forest_response)?;
+            writeln!(f, "Lotus response: {}", lotus_response)?;
+            writeln!(f, "Diff: {}", print_diff.join("\n"))?;
+        } else {
+            if let Some(forest_response) = &self.forest_response {
+                writeln!(f, "Forest response: {}", forest_response)?;
+            }
+            if let Some(lotus_response) = &self.lotus_response {
+                writeln!(f, "Lotus response: {}", lotus_response)?;
+            }
+        };
+        Ok(())
+    }
+}
+
+struct TestResult {
+    /// Forest result after calling the RPC method.
+    forest_status: EndpointStatus,
+    /// Lotus result after calling the RPC method.
+    lotus_status: EndpointStatus,
+    /// Optional data dump if either status was invalid.
+    test_dump: Option<TestDump>,
+}
+
 struct RpcTest {
     request: RpcRequest,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
@@ -303,15 +353,23 @@ impl RpcTest {
         self
     }
 
-    async fn run(
-        &self,
-        forest_api: &ApiInfo,
-        lotus_api: &ApiInfo,
-    ) -> (EndpointStatus, EndpointStatus) {
+    async fn run(&self, forest_api: &ApiInfo, lotus_api: &ApiInfo) -> TestResult {
         let forest_resp = forest_api.call(self.request.clone()).await;
         let lotus_resp = lotus_api.call(self.request.clone()).await;
 
-        match (forest_resp, lotus_resp) {
+        let forest_json_str = if let Ok(forest_resp) = forest_resp.as_ref() {
+            serde_json::to_string_pretty(forest_resp).ok()
+        } else {
+            None
+        };
+
+        let lotus_json_str = if let Ok(lotus_resp) = lotus_resp.as_ref() {
+            serde_json::to_string_pretty(lotus_resp).ok()
+        } else {
+            None
+        };
+
+        let (forest_status, lotus_status) = match (forest_resp, lotus_resp) {
             (Ok(forest), Ok(lotus))
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
@@ -321,10 +379,6 @@ impl RpcTest {
                     EndpointStatus::InvalidResponse
                 };
                 (forest_status, EndpointStatus::Valid)
-            }
-            (Err(forest_err), Err(lotus_err)) if forest_err == lotus_err => {
-                // Both Forest and Lotus have the same error, consider it as valid
-                (EndpointStatus::Valid, EndpointStatus::Valid)
             }
             (forest_resp, lotus_resp) => {
                 let forest_status =
@@ -345,6 +399,24 @@ impl RpcTest {
                     });
 
                 (forest_status, lotus_status)
+            }
+        };
+
+        if forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid {
+            TestResult {
+                forest_status,
+                lotus_status,
+                test_dump: None,
+            }
+        } else {
+            TestResult {
+                forest_status,
+                lotus_status,
+                test_dump: Some(TestDump {
+                    request: self.request.clone(),
+                    forest_response: forest_json_str,
+                    lotus_response: lotus_json_str,
+                }),
             }
         }
     }
@@ -1104,9 +1176,9 @@ async fn run_tests(
         let forest = forest.clone();
         let lotus = lotus.clone();
         let future = tokio::spawn(async move {
-            let (forest_status, lotus_status) = test.run(&forest, &lotus).await;
+            let test_result = test.run(&forest, &lotus).await;
             drop(permit); // Release the permit after test execution
-            (test.request.method_name, forest_status, lotus_status)
+            (test.request.method_name, test_result)
         });
 
         futures.push(future);
@@ -1114,7 +1186,10 @@ async fn run_tests(
 
     let mut success_results = HashMap::default();
     let mut failed_results = HashMap::default();
-    while let Some(Ok((method_name, forest_status, lotus_status))) = futures.next().await {
+    let mut fail_details = Vec::new();
+    while let Some(Ok((method_name, test_result))) = futures.next().await {
+        let forest_status = test_result.forest_status;
+        let lotus_status = test_result.lotus_status;
         let result_entry = (method_name, forest_status, lotus_status);
         if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
             || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
@@ -1124,6 +1199,9 @@ async fn run_tests(
                 .and_modify(|v| *v += 1)
                 .or_insert(1u32);
         } else {
+            if let Some(test_result) = test_result.test_dump {
+                fail_details.push(test_result);
+            }
             failed_results
                 .entry(result_entry)
                 .and_modify(|v| *v += 1)
@@ -1134,12 +1212,19 @@ async fn run_tests(
             break;
         }
     }
+    print_error_details(&fail_details);
     print_test_results(&success_results, &failed_results);
 
     if failed_results.is_empty() {
         Ok(())
     } else {
         Err(anyhow::Error::msg("Some tests failed"))
+    }
+}
+
+fn print_error_details(fail_details: &[TestDump]) {
+    for dump in fail_details {
+        println!("{dump}")
     }
 }
 
