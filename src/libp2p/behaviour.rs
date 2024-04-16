@@ -33,11 +33,13 @@ use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo}
 /// for a Filecoin node.
 #[derive(NetworkBehaviour)]
 pub(in crate::libp2p) struct ForestBehaviour {
-    gossipsub: gossipsub::Behaviour,
-    pub(super) discovery: DiscoveryBehaviour,
-    ping: ping::Behaviour,
+    // Behaviours that manage connections should come first, to get rid of some panics in debug build.
+    // See <https://github.com/libp2p/rust-libp2p/issues/4773#issuecomment-2042676966>
     connection_limits: connection_limits::Behaviour,
     pub(super) blocked_peers: allow_block_list::Behaviour<allow_block_list::BlockedPeers>,
+    pub(super) discovery: DiscoveryBehaviour,
+    ping: ping::Behaviour,
+    gossipsub: gossipsub::Behaviour,
     pub(super) hello: HelloBehaviour,
     pub(super) chain_exchange: ChainExchangeBehaviour,
     pub(super) bitswap: BitswapBehaviour,
