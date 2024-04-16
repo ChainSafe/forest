@@ -327,6 +327,7 @@ pub async fn eth_syncing<DB: Blockstore + Sync + Send + 'static>(
     match active_syncs
         .into_inner()
         .into_iter()
+        .rev()
         .find_or_first(|ss| ss.stage() != SyncStage::Idle)
     {
         Some(sync_state) => match (sync_state.base(), sync_state.target()) {
