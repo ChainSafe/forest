@@ -126,7 +126,7 @@ fn compute_stats(
             .insert(msg.sequence, msg.to_owned());
     }
 
-    let mut stats: Vec<MpStat> = Vec::new();
+    let mut stats: Vec<MpStat> = Vec::with_capacity(buckets.len());
 
     for (address, bucket) in buckets {
         let actor_sequence = *actor_sequences.get(&address).expect("get must succeed");

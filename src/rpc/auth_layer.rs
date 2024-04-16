@@ -144,15 +144,15 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(common::StartTime::NAME, Access::Read);
 
     // Net API
-    access.insert(net::NET_ADDRS_LISTEN, Access::Read);
-    access.insert(net::NET_PEERS, Access::Read);
-    access.insert(net::NET_LISTENING, Access::Read);
-    access.insert(net::NET_INFO, Access::Read);
-    access.insert(net::NET_CONNECT, Access::Write);
-    access.insert(net::NET_DISCONNECT, Access::Write);
-    access.insert(net::NET_AGENT_VERSION, Access::Read);
-    access.insert(net::NET_AUTO_NAT_STATUS, Access::Read);
-    access.insert(net::NET_VERSION, Access::Read);
+    access.insert(net::NetAddrsListen::NAME, Access::Read);
+    access.insert(net::NetPeers::NAME, Access::Read);
+    access.insert(net::NetListening::NAME, Access::Read);
+    access.insert(net::NetInfo::NAME, Access::Read);
+    access.insert(net::NetConnect::NAME, Access::Write);
+    access.insert(net::NetDisconnect::NAME, Access::Write);
+    access.insert(net::NetAgentVersion::NAME, Access::Read);
+    access.insert(net::NetAutoNatStatus::NAME, Access::Read);
+    access.insert(net::NetVersion::NAME, Access::Read);
 
     // Node API
     access.insert(node::NODE_STATUS, Access::Read);

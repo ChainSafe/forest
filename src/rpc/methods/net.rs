@@ -1,31 +1,276 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
-use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::error::ServerError;
-use crate::rpc::{types::AddrInfo, Ctx};
+use crate::rpc::{ApiVersion, ServerError};
+use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
+use libp2p::Multiaddr;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub const NET_ADDRS_LISTEN: &str = "Filecoin.NetAddrsListen";
-pub const NET_PEERS: &str = "Filecoin.NetPeers";
-pub const NET_LISTENING: &str = "Filecoin.NetListening";
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::net::NetAddrsListen);
+        $callback!(crate::rpc::net::NetPeers);
+        $callback!(crate::rpc::net::NetListening);
+        $callback!(crate::rpc::net::NetInfo);
+        $callback!(crate::rpc::net::NetConnect);
+        $callback!(crate::rpc::net::NetDisconnect);
+        $callback!(crate::rpc::net::NetAgentVersion);
+        $callback!(crate::rpc::net::NetAutoNatStatus);
+        $callback!(crate::rpc::net::NetVersion);
+    };
+}
+pub(crate) use for_each_method;
 
-pub const NET_INFO: &str = "Filecoin.NetInfo";
-pub const NET_CONNECT: &str = "Filecoin.NetConnect";
-pub const NET_DISCONNECT: &str = "Filecoin.NetDisconnect";
-pub const NET_AGENT_VERSION: &str = "Filecoin.NetAgentVersion";
-pub const NET_AUTO_NAT_STATUS: &str = "Filecoin.NetAutoNatStatus";
-pub const NET_VERSION: &str = "Filecoin.NetVersion";
+pub enum NetAddrsListen {}
+impl RpcMethod<0> for NetAddrsListen {
+    const NAME: &'static str = "Filecoin.NetAddrsListen";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+    type Params = ();
+    type Ok = AddrInfo;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::AddrsListen(tx),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        let (id, addrs) = rx.await?;
+
+        Ok(AddrInfo {
+            id: id.to_string(),
+            addrs,
+        })
+    }
+}
+
+pub enum NetPeers {}
+impl RpcMethod<0> for NetPeers {
+    const NAME: &'static str = "Filecoin.NetPeers";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = Vec<AddrInfo>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Peers(tx),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        let peer_addresses = rx.await?;
+
+        let connections = peer_addresses
+            .into_iter()
+            .map(|(id, addrs)| AddrInfo {
+                id: id.to_string(),
+                addrs,
+            })
+            .collect();
+
+        Ok(connections)
+    }
+}
+
+pub enum NetListening {}
+impl RpcMethod<0> for NetListening {
+    const NAME: &'static str = "Filecoin.NetListening";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = ();
+    type Ok = bool;
+
+    async fn handle(_: Ctx<impl Any>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(true)
+    }
+}
+
+pub enum NetInfo {}
+impl RpcMethod<0> for NetInfo {
+    const NAME: &'static str = "Filecoin.NetInfo";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = NetInfoResult;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Info(tx),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        Ok(rx.await?)
+    }
+}
+
+pub enum NetConnect {}
+impl RpcMethod<1> for NetConnect {
+    const NAME: &'static str = "Filecoin.NetConnect";
+    const PARAM_NAMES: [&'static str; 1] = ["info"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (AddrInfo,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (AddrInfo { id, addrs },): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
+        let peer_id = PeerId::from_bytes(&id)?;
+
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Connect(tx, peer_id, addrs),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        let success = rx.await?;
+
+        if success {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Peer could not be dialed from any address provided").into())
+        }
+    }
+}
+
+pub enum NetDisconnect {}
+impl RpcMethod<1> for NetDisconnect {
+    const NAME: &'static str = "Filecoin.NetDisconnect";
+    const PARAM_NAMES: [&'static str; 1] = ["id"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (String,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let peer_id = PeerId::from_str(&id)?;
+
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::Disconnect(tx, peer_id),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        rx.await?;
+
+        Ok(())
+    }
+}
+
+pub enum NetAgentVersion {}
+impl RpcMethod<1> for NetAgentVersion {
+    const NAME: &'static str = "Filecoin.NetAgentVersion";
+    const PARAM_NAMES: [&'static str; 1] = ["id"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (String,);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let peer_id = PeerId::from_str(&id)?;
+
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::AgentVersion(tx, peer_id),
+        };
+
+        ctx.network_send.send_async(req).await?;
+        if let Some(agent_version) = rx.await? {
+            Ok(agent_version)
+        } else {
+            Err(anyhow::anyhow!("item not found").into())
+        }
+    }
+}
+
+pub enum NetAutoNatStatus {}
+impl RpcMethod<0> for NetAutoNatStatus {
+    const NAME: &'static str = "Filecoin.NetAutoNatStatus";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = NatStatusResult;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let (tx, rx) = oneshot::channel();
+        let req = NetworkMessage::JSONRPCRequest {
+            method: NetRPCMethods::AutoNATStatus(tx),
+        };
+        ctx.network_send.send_async(req).await?;
+        let nat_status = rx.await?;
+        Ok(nat_status.into())
+    }
+}
+
+pub enum NetVersion {}
+impl RpcMethod<0> for NetVersion {
+    const NAME: &'static str = "Filecoin.NetVersion";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.state_manager.chain_config().eth_chain_id.to_string())
+    }
+}
+
+// Net API
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "PascalCase")]
+pub struct AddrInfo {
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub addrs: ahash::HashSet<Multiaddr>,
+}
+
+#[derive(JsonSchema)]
+#[schemars(rename = "AddrInfo")]
+#[serde(rename_all = "PascalCase")]
+#[allow(unused)]
+struct Helper {
+    #[serde(rename = "ID")]
+    id: String,
+    addrs: ahash::HashSet<String>,
+}
+
+impl JsonSchema for AddrInfo {
+    fn schema_name() -> String {
+        Helper::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        Helper::json_schema(gen)
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct NetInfoResult {
     pub num_peers: usize,
     pub num_connections: u32,
@@ -34,7 +279,6 @@ pub struct NetInfoResult {
     pub num_pending_outgoing: u32,
     pub num_established: u32,
 }
-lotus_json_with_self!(NetInfoResult);
 
 impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
     fn from(i: libp2p::swarm::NetworkInfo) -> Self {
@@ -50,13 +294,12 @@ impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct NatStatusResult {
     pub reachability: i32,
     pub public_addrs: Option<Vec<String>>,
 }
-lotus_json_with_self!(NatStatusResult);
 
 impl NatStatusResult {
     // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>
@@ -86,141 +329,4 @@ impl From<libp2p::autonat::NatStatus> for NatStatusResult {
             public_addrs,
         }
     }
-}
-
-pub async fn net_addrs_listen<DB: Blockstore>(data: Ctx<DB>) -> Result<AddrInfo, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::AddrsListen(tx),
-    };
-
-    data.network_send.send_async(req).await?;
-    let (id, addrs) = rx.await?;
-
-    Ok(AddrInfo {
-        id: id.to_string(),
-        addrs,
-    })
-}
-
-pub async fn net_peers<DB: Blockstore>(data: Ctx<DB>) -> Result<Vec<AddrInfo>, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Peers(tx),
-    };
-
-    data.network_send.send_async(req).await?;
-    let peer_addresses = rx.await?;
-
-    let connections = peer_addresses
-        .into_iter()
-        .map(|(id, addrs)| AddrInfo {
-            id: id.to_string(),
-            addrs,
-        })
-        .collect();
-
-    Ok(connections)
-}
-
-// NET_LISTENING always returns true.
-pub async fn net_listening() -> Result<bool, ServerError> {
-    Ok(true)
-}
-
-pub async fn net_info<DB: Blockstore>(data: Ctx<DB>) -> Result<NetInfoResult, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Info(tx),
-    };
-
-    data.network_send.send_async(req).await?;
-    Ok(rx.await?)
-}
-
-pub async fn net_connect<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let (AddrInfo { id, addrs },) = params.parse()?;
-
-    let (_, id) = multibase::decode(format!("{}{}", "z", id))?;
-    let peer_id = PeerId::from_bytes(&id)?;
-
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Connect(tx, peer_id, addrs),
-    };
-
-    data.network_send.send_async(req).await?;
-    let success = rx.await?;
-
-    if success {
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!("Peer could not be dialed from any address provided").into())
-    }
-}
-
-pub async fn net_disconnect<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let (id,): (String,) = params.parse()?;
-
-    let peer_id = PeerId::from_str(&id)?;
-
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::Disconnect(tx, peer_id),
-    };
-
-    data.network_send.send_async(req).await?;
-    rx.await?;
-
-    Ok(())
-}
-
-pub async fn net_agent_version<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let (id,): (String,) = params.parse()?;
-
-    let peer_id = PeerId::from_str(&id)?;
-
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::AgentVersion(tx, peer_id),
-    };
-
-    data.network_send.send_async(req).await?;
-    if let Some(agent_version) = rx.await? {
-        Ok(agent_version)
-    } else {
-        Err(anyhow::anyhow!("item not found").into())
-    }
-}
-
-pub async fn net_auto_nat_status<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<NatStatusResult, ServerError> {
-    let (tx, rx) = oneshot::channel();
-    let req = NetworkMessage::JSONRPCRequest {
-        method: NetRPCMethods::AutoNATStatus(tx),
-    };
-    data.network_send.send_async(req).await?;
-    let nat_status = rx.await?;
-    Ok(nat_status.into())
-}
-
-pub async fn net_version<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    Ok(format!(
-        "{}",
-        data.state_manager.chain_config().eth_chain_id
-    ))
 }
