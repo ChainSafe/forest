@@ -540,6 +540,10 @@ fn merge_and_trim(
     gas_limit: u64,
     min_gas: u64,
 ) -> (Vec<SignedMessage>, u64) {
+    if chains.is_empty() {
+        return (result, gas_limit);
+    }
+
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
