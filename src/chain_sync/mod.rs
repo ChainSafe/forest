@@ -12,7 +12,7 @@ mod validation;
 
 pub use self::{
     bad_block_cache::BadBlockCache,
-    chain_muxer::{get_now_epoch, ChainMuxer, SyncConfig},
+    chain_muxer::{ChainMuxer, SyncConfig},
     consensus::collect_errs,
     sync_state::{SyncStage, SyncState},
 };

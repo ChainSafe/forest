@@ -1172,18 +1172,18 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         ctx: Ctx<impl Blockstore>,
         (LotusJson(epoch),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        loop {
-            let genesis_timestamp = ctx.chain_store.genesis_block_header().timestamp;
-            let block_delay = ctx.state_manager.chain_config().block_delay_secs;
-            let now_epoch = crate::chain_sync::get_now_epoch(
-                chrono::Utc::now().timestamp(),
-                genesis_timestamp as _,
-                ctx.state_manager.chain_config().block_delay_secs as _,
-            );
-            if epoch <= now_epoch {
-                break;
-            }
-            tokio::time::sleep(Duration::from_secs(block_delay as _)).await;
+        {
+            let genesis_timestamp = ctx.chain_store.genesis_block_header().timestamp as i64;
+            let block_delay = ctx.state_manager.chain_config().block_delay_secs as i64;
+            // Give it a 1s clock drift buffer
+            let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
+            let now_timestamp = chrono::Utc::now().timestamp();
+            match epoch_timestamp.saturating_sub(now_timestamp) {
+                diff if diff > 0 => {
+                    tokio::time::sleep(Duration::from_secs(diff as u64)).await;
+                }
+                _ => {}
+            };
         }
 
         let (_, beacon) = ctx.beacon.beacon_for_epoch(epoch)?;
