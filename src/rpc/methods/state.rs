@@ -91,6 +91,7 @@ pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
     "Filecoin.StateDealProviderCollateralBounds";
 pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
 pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
+pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
 
 pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -323,6 +324,33 @@ pub async fn state_miner_active_sectors<DB: Blockstore>(
         .collect::<Vec<_>>();
 
     Ok(LotusJson(sectors))
+}
+
+pub async fn state_miner_sectors<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Vec<SectorOnChainInfo>>, ServerError> {
+    let LotusJson((miner, sectors, ApiTipsetKey(tsk))): LotusJson<(
+        Address,
+        BitField,
+        ApiTipsetKey,
+    )> = params.parse()?;
+
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .context("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+
+    let sectors_info = miner_state
+        .load_sectors(bs, Some(&sectors))?
+        .into_iter()
+        .map(SectorOnChainInfo::from)
+        .collect::<Vec<_>>();
+
+    Ok(LotusJson(sectors_info))
 }
 
 // Returns the number of sectors in a miner's sector set and proving set

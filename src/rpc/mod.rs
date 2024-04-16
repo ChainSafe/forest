@@ -47,6 +47,7 @@ pub mod prelude {
     mpool::for_each_method!(export);
     common::for_each_method!(export);
     gas::for_each_method!(export);
+    wallet::for_each_method!(export);
     state::for_each_method!(export);
 }
 
@@ -89,7 +90,8 @@ use tracing::info;
 
 use self::reflect::openrpc_types::ParamStructure;
 
-const MAX_RESPONSE_BODY_SIZE: u32 = 16 * 1024 * 1024;
+const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
+const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;
 
 /// This is where you store persistent data, or at least access to stateful
 /// data.
@@ -143,6 +145,7 @@ where
         stop_handle: stop_handle.clone(),
         svc_builder: Server::builder()
             // Default size (10 MiB) is not enough for methods like `Filecoin.StateMinerActiveSectors`
+            .max_request_body_size(MAX_REQUEST_BODY_SIZE)
             .max_response_body_size(MAX_RESPONSE_BODY_SIZE)
             .to_service_builder(),
         keystore,
@@ -203,6 +206,7 @@ where
     beacon::for_each_method!(register);
     common::for_each_method!(register);
     gas::for_each_method!(register);
+    wallet::for_each_method!(register);
     state::for_each_method!(register);
     module.finish()
 }
@@ -217,27 +221,11 @@ where
     use net::*;
     use node::*;
     use sync::*;
-    use wallet::*;
 
     // Sync API
     module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
     module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
     module.register_async_method(SYNC_STATE, |_, state| sync_state::<DB>(state))?;
-    // Wallet API
-    module.register_async_method(WALLET_BALANCE, wallet_balance::<DB>)?;
-    module.register_async_method(WALLET_DEFAULT_ADDRESS, wallet_default_address::<DB>)?;
-    module.register_async_method(WALLET_EXPORT, wallet_export::<DB>)?;
-    module.register_async_method(WALLET_HAS, wallet_has::<DB>)?;
-    module.register_async_method(WALLET_IMPORT, wallet_import::<DB>)?;
-    module.register_async_method(WALLET_LIST, wallet_list::<DB>)?;
-    module.register_async_method(WALLET_NEW, wallet_new::<DB>)?;
-    module.register_async_method(WALLET_SET_DEFAULT, wallet_set_default::<DB>)?;
-    module.register_async_method(WALLET_SIGN, wallet_sign::<DB>)?;
-    module.register_async_method(WALLET_VALIDATE_ADDRESS, |params, _| {
-        wallet_validate_address(params)
-    })?;
-    module.register_async_method(WALLET_VERIFY, |params, _| wallet_verify(params))?;
-    module.register_async_method(WALLET_DELETE, wallet_delete::<DB>)?;
     // State API
     module.register_async_method(STATE_CALL, state_call::<DB>)?;
     module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;
@@ -253,6 +241,7 @@ where
     module.register_async_method(STATE_MINER_INFO, state_miner_info::<DB>)?;
     module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
     module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
+    module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
     module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
     module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;

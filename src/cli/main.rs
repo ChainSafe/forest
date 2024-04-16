@@ -41,7 +41,7 @@ where
                 Subcommand::Mpool(cmd) => cmd.run(api).await,
                 Subcommand::State(cmd) => cmd.run(api).await,
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
-                Subcommand::Send(cmd) => cmd.run(api).await,
+                Subcommand::Send(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Info(cmd) => cmd.run(api).await,
                 Subcommand::Snapshot(cmd) => cmd.run(api).await,
                 Subcommand::Attach(cmd) => cmd.run(api),

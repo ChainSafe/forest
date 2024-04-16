@@ -33,6 +33,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
+use fil_actors_shared::fvm_ipld_bitfield::bitfield;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -500,6 +501,11 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             101,
             shared_tipset.key().into(),
         )),
+        RpcTest::identity(ApiInfo::state_miner_sectors_req(
+            shared_block.miner_address,
+            bitfield![101],
+            shared_tipset.key().into(),
+        )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
@@ -529,11 +535,11 @@ fn wallet_tests() -> Vec<RpcTest> {
     };
 
     vec![
-        RpcTest::identity(ApiInfo::wallet_balance_req(known_wallet.to_string())),
-        RpcTest::identity(ApiInfo::wallet_validate_address_req(
-            known_wallet.to_string(),
-        )),
-        RpcTest::identity(ApiInfo::wallet_verify_req(known_wallet, text, signature)),
+        RpcTest::identity_raw(WalletBalance::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity_raw(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
+        RpcTest::identity_raw(
+            WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
+        ),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),
         // RpcTest::basic(ApiInfo::wallet_list_req()),
