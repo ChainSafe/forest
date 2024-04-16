@@ -131,16 +131,8 @@ impl Address {
             const PREFIX_LEN: usize = MASKED_ID_PREFIX.len();
             // This is a masked ID address.
             let arr = self.0.as_fixed_bytes();
-            let bytes = [
-                arr[PREFIX_LEN],
-                arr[PREFIX_LEN + 1],
-                arr[PREFIX_LEN + 2],
-                arr[PREFIX_LEN + 3],
-                arr[PREFIX_LEN + 4],
-                arr[PREFIX_LEN + 5],
-                arr[PREFIX_LEN + 6],
-                arr[PREFIX_LEN + 7],
-            ];
+            let mut bytes = [0; 8];
+            bytes.copy_from_slice(&arr[PREFIX_LEN..]);
             Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
         } else {
             // Otherwise, translate the address into an address controlled by the
