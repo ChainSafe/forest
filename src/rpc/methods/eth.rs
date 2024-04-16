@@ -1317,19 +1317,22 @@ mod test {
         }
     }
 
-    // func TestEthAddr(t *testing.T) {
-    //     testcases := []string{
-    //         strings.ToLower(`"0xd4c5fb16488Aa48081296299d54b0c648C9333dA"`),
-    //         strings.ToLower(`"0x2C2EC67e3e1FeA8e4A39601cB3A3Cd44f5fa830d"`),
-    //         strings.ToLower(`"0x01184F793982104363F9a8a5845743f452dE0586"`),
-    //     }
+    #[test]
+    fn test_addr_serde_roundtrip() {
+        let test_cases = [
+            r#""0xd4c5fb16488Aa48081296299d54b0c648C9333dA""#,
+            r#""0x2C2EC67e3e1FeA8e4A39601cB3A3Cd44f5fa830d""#,
+            r#""0x01184F793982104363F9a8a5845743f452dE0586""#,
+        ];
 
-    //     for _, addr := range testcases {
-    //         var a EthAddress
-    //         err := a.UnmarshalJSON([]byte(addr))
+        for addr in test_cases {
+            let eth_addr: Address = serde_json::from_str(addr).unwrap();
 
-    //         require.Nil(t, err)
-    //         require.Equal(t, a.String(), strings.Replace(addr, `"`, "", -1))
-    //     }
-    // }
+            let encoded = serde_json::to_string(&eth_addr).unwrap();
+            assert_eq!(encoded, addr.to_lowercase());
+
+            let decoded: Address = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(eth_addr, decoded);
+        }
+    }
 }
