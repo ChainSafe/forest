@@ -465,6 +465,29 @@ methods:
           $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
         nullable: true
       required: true
+  - name: Filecoin.MpoolSelect
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+      - name: tq
+        schema:
+          type: number
+          format: double
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolSelect::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+        nullable: true
+      required: true
   - name: Filecoin.MpoolPush
     params:
       - name: msg
