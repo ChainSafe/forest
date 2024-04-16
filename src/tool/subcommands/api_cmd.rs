@@ -33,6 +33,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
+use fil_actors_shared::fvm_ipld_bitfield::bitfield;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -424,14 +425,14 @@ fn net_tests() -> Vec<RpcTest> {
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
-        RpcTest::basic(ApiInfo::net_addrs_listen_req()),
-        RpcTest::basic(ApiInfo::net_peers_req()),
-        RpcTest::identity(ApiInfo::net_listening_req()),
-        RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
-        RpcTest::basic(ApiInfo::net_info_req())
+        RpcTest::basic_raw(NetAddrsListen::request(()).unwrap()),
+        RpcTest::basic_raw(NetPeers::request(()).unwrap()),
+        RpcTest::identity_raw(NetListening::request(()).unwrap()),
+        RpcTest::basic_raw(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic_raw(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
-        RpcTest::basic(ApiInfo::net_auto_nat_status_req()),
-        RpcTest::identity(ApiInfo::net_version_req()),
+        RpcTest::basic_raw(NetAutoNatStatus::request(()).unwrap()),
+        RpcTest::identity_raw(NetVersion::request(()).unwrap()),
     ]
 }
 
@@ -443,7 +444,14 @@ fn node_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+fn state_tests() -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity_raw(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+        RpcTest::identity_raw(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+    ]
+}
+
+fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
@@ -493,6 +501,11 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             101,
             shared_tipset.key().into(),
         )),
+        RpcTest::identity(ApiInfo::state_miner_sectors_req(
+            shared_block.miner_address,
+            bitfield![101],
+            shared_tipset.key().into(),
+        )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
@@ -501,6 +514,9 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
         )),
+        RpcTest::identity_raw(
+            StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap(),
+        ),
     ]
 }
 
@@ -609,7 +625,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .expect("Infallible");
     let shared_tipset_key = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
-    tests.extend(state_tests(&shared_tipset));
+    tests.extend(state_tests_with_tipset(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
     tests.extend(gas_tests_with_tipset(&shared_tipset));
 
@@ -890,6 +906,7 @@ async fn compare_apis(
     tests.extend(node_tests());
     tests.extend(wallet_tests());
     tests.extend(eth_tests());
+    tests.extend(state_tests());
 
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);

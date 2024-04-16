@@ -4,7 +4,6 @@
 mod chain_ops;
 mod eth_ops;
 mod gas_ops;
-mod net_ops;
 mod node_ops;
 mod state_ops;
 mod sync_ops;

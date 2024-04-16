@@ -36,7 +36,7 @@ where
             match cmd {
                 Subcommand::Chain(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Auth(cmd) => cmd.run(api).await,
-                Subcommand::Net(cmd) => cmd.run(api).await,
+                Subcommand::Net(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Sync(cmd) => cmd.run(api).await,
                 Subcommand::Mpool(cmd) => cmd.run(api).await,
                 Subcommand::State(cmd) => cmd.run(api).await,

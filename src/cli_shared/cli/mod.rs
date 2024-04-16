@@ -11,7 +11,6 @@ use std::{
 
 use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
-use crate::utils::io::read_file_to_string;
 use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
@@ -321,7 +320,7 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     // `config` has been loaded successfully from toml file in `path` so we can
     // always serialize it back to a valid TOML value or get the TOML value from
     // `path`
-    let file = read_file_to_string(path).unwrap();
+    let file = std::fs::read_to_string(path).unwrap();
     let value = file.parse::<toml::Value>().unwrap();
 
     let config_file = toml::to_string(config).unwrap();

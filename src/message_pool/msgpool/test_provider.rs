@@ -190,7 +190,7 @@ impl Provider for TestApi {
 
     fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
         let (us, s) = self.messages_for_block(h.block_headers().first())?;
-        let mut msgs = Vec::new();
+        let mut msgs = Vec::with_capacity(us.len() + s.len());
 
         for msg in us {
             msgs.push(ChainMessage::Unsigned(msg));
