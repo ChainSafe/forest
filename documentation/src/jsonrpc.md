@@ -1,10 +1,3 @@
-<style>
-.notImp {background-color: #1f1fff; padding: 0 5px;}
-.partSupp {background-color: #9d00ec; padding: 0 5px;}
-.supp {background-color: #0c7326; padding: 0 5px;}
-.plan {background-color: #ce4d00; padding: 0 5px;}
-</style>
-
 # JSON-RPC API
 
 <div class="warning">
@@ -12,8 +5,8 @@
 This API is still a WIP, with more methods being added continuously.
 
 Need a specific method? Let us know on
-[Github](https://github.com/ChainSafe/forest/issues) or Filecoin Slack (`#fil-forest-help`)
-🙏
+[Github](https://github.com/ChainSafe/forest/issues) or Filecoin Slack
+(`#fil-forest-help`) 🙏
 
 </div>
 
