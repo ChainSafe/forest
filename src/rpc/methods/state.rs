@@ -5,9 +5,6 @@
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::ServerError;
-use crate::rpc::types::*;
-use crate::rpc::Ctx;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
@@ -16,6 +13,10 @@ use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
+use crate::{
+    beacon::BeaconEntry,
+    rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod},
+};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use anyhow::Result;
@@ -41,6 +42,13 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
+
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::state::StateGetBeaconEntry);
+    };
+}
+pub(crate) use for_each_method;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
@@ -1114,6 +1122,7 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
 
     Ok(MarketDeal { proposal, state }.into())
 }
+
 pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -1175,4 +1184,40 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
         max: max.into(),
         min: TokenAmount::from_atto(min),
     })
+}
+
+pub enum StateGetBeaconEntry {}
+
+impl RpcMethod<1> for StateGetBeaconEntry {
+    const NAME: &'static str = "Filecoin.StateGetBeaconEntry";
+    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = (LotusJson<ChainEpoch>,);
+    type Ok = LotusJson<BeaconEntry>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(epoch),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        {
+            let genesis_timestamp = ctx.chain_store.genesis_block_header().timestamp as i64;
+            let block_delay = ctx.state_manager.chain_config().block_delay_secs as i64;
+            // Give it a 1s clock drift buffer
+            let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
+            let now_timestamp = chrono::Utc::now().timestamp();
+            match epoch_timestamp.saturating_sub(now_timestamp) {
+                diff if diff > 0 => {
+                    tokio::time::sleep(Duration::from_secs(diff as u64)).await;
+                }
+                _ => {}
+            };
+        }
+
+        let (_, beacon) = ctx.beacon.beacon_for_epoch(epoch)?;
+        let network_version = ctx.state_manager.get_network_version(epoch);
+        let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
+        let entry = beacon.entry(round).await?;
+        Ok(LotusJson(entry))
+    }
 }

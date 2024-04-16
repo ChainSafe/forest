@@ -49,6 +49,7 @@ pub mod prelude {
     gas::for_each_method!(export);
     wallet::for_each_method!(export);
     net::for_each_method!(export);
+    state::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -208,6 +209,7 @@ where
     gas::for_each_method!(register);
     wallet::for_each_method!(register);
     net::for_each_method!(register);
+    state::for_each_method!(register);
     module.finish()
 }
 

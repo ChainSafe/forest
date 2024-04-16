@@ -444,7 +444,14 @@ fn node_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+fn state_tests() -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity_raw(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+        RpcTest::identity_raw(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+    ]
+}
+
+fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
@@ -507,6 +514,9 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
         )),
+        RpcTest::identity_raw(
+            StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap(),
+        ),
     ]
 }
 
@@ -607,7 +617,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .expect("Infallible");
     let shared_tipset_key = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
-    tests.extend(state_tests(&shared_tipset));
+    tests.extend(state_tests_with_tipset(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
     tests.extend(gas_tests_with_tipset(&shared_tipset));
 
@@ -888,6 +898,7 @@ async fn compare_apis(
     tests.extend(node_tests());
     tests.extend(wallet_tests());
     tests.extend(eth_tests());
+    tests.extend(state_tests());
 
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
