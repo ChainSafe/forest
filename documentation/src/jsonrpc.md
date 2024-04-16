@@ -12,7 +12,7 @@
 This API is still a WIP, with more methods being added continuously.
 
 Need a specific method? Let us know on
-[Github](https://github.com/ChainSafe/forest/issues) or Slack (#fil-forest-help)
+[Github](https://github.com/ChainSafe/forest/issues) or Filecoin Slack (`#fil-forest-help`)
 🙏
 
 </div>
