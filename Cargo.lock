@@ -661,7 +661,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.3.0",
  "hyper-util",
  "itoa",
  "matchit",
@@ -1370,9 +1370,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.37"
+version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a0d04d43504c61aa6c7531f1871dd0d418d91130162063b789da00fd7057a5e"
+checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -3256,6 +3256,7 @@ dependencies = [
  "fvm_shared 4.1.2",
  "gethostname",
  "git-version",
+ "glob",
  "group",
  "hex",
  "http 0.2.12",
@@ -4471,9 +4472,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.2.0"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "186548d73ac615b32a73aafe38fb4f56c0d340e110e5a200bcadbaf2e199263a"
+checksum = "9f24ce812868d86d19daa79bf3bf9175bc44ea323391147a5e3abde2a283871b"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -4513,7 +4514,7 @@ checksum = "a0bea761b46ae2b24eb4aef630d8d1c398157b6fc29e6350ecf090a0b70c952c"
 dependencies = [
  "futures-util",
  "http 1.1.0",
- "hyper 1.2.0",
+ "hyper 1.3.0",
  "hyper-util",
  "rustls 0.22.3",
  "rustls-pki-types",
@@ -4545,7 +4546,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
- "hyper 1.2.0",
+ "hyper 1.3.0",
  "pin-project-lite",
  "socket2 0.5.6",
  "tokio",
@@ -7476,15 +7477,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea1fe375ad2709106a5f4b7d0285c0f69be6e018a7a34f1c2d513b8723529951"
+checksum = "49a75499b0a492d668cd9869333c25842fa15fb3a683e2c9dcb9becd8c0eb5ee"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1118887a6bbbdbf7c026dcf4eeb11f41ff7fa31c940a7c3173b1e8b8b59b45e2"
+checksum = "6046eda2d474299c3f904a324b4546f109d5c61991c753ebd0ada570e8b58a41"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7494,9 +7495,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0bea57c716f826cde973eab1d2f7a16b446a883eed7ae3b7615e9a41d33536c"
+checksum = "817c0fe8267d6e81b36b257daa21c03b62f477bc38aaf9813bc140f460f0a0eb"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7509,9 +7510,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ddc76305c3990e835c274c8a1e30f17cb8afa8c9af846a57fb5b59106f4ead1"
+checksum = "242b4c72a7412c428c290c1217ddd8e68d29d6a5f6a95e6dd9ad44d6c6b4c0bf"
 dependencies = [
  "cov-mark",
  "either",
@@ -7531,9 +7532,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.210"
+version = "0.0.211"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83d1e0eeade877b6b3d4773997d1289a06106a939a52cb465b4c080aa1655b91"
+checksum = "83f7ec839098a0595144e63cd668741133070362e7304b5518484bc70d75a23d"
 dependencies = [
  "itertools 0.12.1",
  "text-size",
@@ -7802,7 +7803,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.2.0",
+ "hyper 1.3.0",
  "hyper-rustls 0.26.0",
  "hyper-util",
  "ipnet",
@@ -9694,12 +9695,15 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "regex",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log 0.2.0",
+ "tracing-serde",
 ]
 
 [[package]]
@@ -10309,9 +10313,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.15"
+version = "0.7.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89beec544f246e679fc25490e3f8e08003bc4bf612068f325120dad4cea02c1c"
+checksum = "81a1851a719f11d1d2fea40e15c72f6c00de8c142d7ac47c1441cc7e4d0d5bc6"
 dependencies = [
  "bytemuck",
  "safe_arch",

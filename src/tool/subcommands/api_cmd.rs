@@ -16,6 +16,7 @@ use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::eth::*;
+use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
@@ -23,6 +24,8 @@ use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
+    econ::TokenAmount,
+    message::{Message, METHOD_SEND},
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
@@ -30,6 +33,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
+use fil_actors_shared::fvm_ipld_bitfield::bitfield;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -421,14 +425,14 @@ fn net_tests() -> Vec<RpcTest> {
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
-        RpcTest::basic(ApiInfo::net_addrs_listen_req()),
-        RpcTest::basic(ApiInfo::net_peers_req()),
-        RpcTest::identity(ApiInfo::net_listening_req()),
-        RpcTest::basic(ApiInfo::net_agent_version_req(peer_id)),
-        RpcTest::basic(ApiInfo::net_info_req())
+        RpcTest::basic_raw(NetAddrsListen::request(()).unwrap()),
+        RpcTest::basic_raw(NetPeers::request(()).unwrap()),
+        RpcTest::identity_raw(NetListening::request(()).unwrap()),
+        RpcTest::basic_raw(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic_raw(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
-        RpcTest::basic(ApiInfo::net_auto_nat_status_req()),
-        RpcTest::identity(ApiInfo::net_version_req()),
+        RpcTest::basic_raw(NetAutoNatStatus::request(()).unwrap()),
+        RpcTest::identity_raw(NetVersion::request(()).unwrap()),
     ]
 }
 
@@ -440,7 +444,14 @@ fn node_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
+fn state_tests() -> Vec<RpcTest> {
+    vec![
+        RpcTest::identity_raw(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+        RpcTest::identity_raw(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+    ]
+}
+
+fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
@@ -490,6 +501,11 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             101,
             shared_tipset.key().into(),
         )),
+        RpcTest::identity(ApiInfo::state_miner_sectors_req(
+            shared_block.miner_address,
+            bitfield![101],
+            shared_tipset.key().into(),
+        )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
@@ -498,6 +514,9 @@ fn state_tests(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
         )),
+        RpcTest::identity_raw(
+            StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap(),
+        ),
     ]
 }
 
@@ -516,11 +535,11 @@ fn wallet_tests() -> Vec<RpcTest> {
     };
 
     vec![
-        RpcTest::identity(ApiInfo::wallet_balance_req(known_wallet.to_string())),
-        RpcTest::identity(ApiInfo::wallet_validate_address_req(
-            known_wallet.to_string(),
-        )),
-        RpcTest::identity(ApiInfo::wallet_verify_req(known_wallet, text, signature)),
+        RpcTest::identity_raw(WalletBalance::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity_raw(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
+        RpcTest::identity_raw(
+            WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
+        ),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),
         // RpcTest::basic(ApiInfo::wallet_list_req()),
@@ -561,6 +580,29 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     ]
 }
 
+fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    // This is a testnet address with a few FILs. The private key has been
+    // discarded. If calibnet is reset, a new address should be created.
+    let addr = Address::from_str("t15ydyu3d65gznpp2qxwpkjsgz4waubeunn6upvla").unwrap();
+    let message = Message {
+        from: addr,
+        to: addr,
+        value: TokenAmount::from_whole(1),
+        method_num: METHOD_SEND,
+        ..Default::default()
+    };
+
+    // The tipset is only used for resolving the 'from' address and not when
+    // computing the gas cost. This means that the `GasEstimateGasLimit` method
+    // is inherently non-deterministic but I'm fairly sure we're compensated for
+    // everything. If not, this test will be flaky. Instead of disabling it, we
+    // should relax the verification requirement.
+    vec![RpcTest::identity_raw(
+        GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
+            .unwrap(),
+    )]
+}
+
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
 fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
@@ -575,8 +617,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .expect("Infallible");
     let shared_tipset_key = shared_tipset.key();
     tests.extend(chain_tests_with_tipset(&shared_tipset));
-    tests.extend(state_tests(&shared_tipset));
+    tests.extend(state_tests_with_tipset(&shared_tipset));
     tests.extend(eth_tests_with_tipset(&shared_tipset));
+    tests.extend(gas_tests_with_tipset(&shared_tipset));
 
     // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
     // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
@@ -601,6 +644,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tipset.key().into(),
             ),
         ));
+        tests.push(RpcTest::identity_raw(ChainTipSetWeight::request((
+            LotusJson(tipset.key().into()),
+        ))?));
         for block in tipset.block_headers() {
             let block_cid = (*block.cid()).into();
             tests.extend([
@@ -852,6 +898,7 @@ async fn compare_apis(
     tests.extend(node_tests());
     tests.extend(wallet_tests());
     tests.extend(eth_tests());
+    tests.extend(state_tests());
 
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
@@ -1128,7 +1175,7 @@ fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {
-        // FIXME: https://github.com/ChainSafe/forest/issues/3784
+        // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         if let Some(json) = forest.as_mut() {
             json.return_dec = Ipld::Null;
         }

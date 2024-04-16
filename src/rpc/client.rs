@@ -22,7 +22,7 @@ use serde::de::DeserializeOwned;
 use tracing::{debug, Instrument, Level};
 use url::Url;
 
-use super::ApiVersion;
+use super::{ApiVersion, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc_client::RpcRequest`]
 /// or a [`crate::rpc::RpcMethod`] to a single URL.
@@ -174,12 +174,16 @@ impl UrlClient {
                 jsonrpsee::ws_client::WsClientBuilder::new()
                     .set_headers(headers)
                     .request_timeout(timeout)
+                    .max_request_size(MAX_REQUEST_BODY_SIZE)
+                    .max_response_size(MAX_RESPONSE_BODY_SIZE)
                     .build(&url)
                     .await?,
             ),
             "http" | "https" => OneClientInner::Https(
                 jsonrpsee::http_client::HttpClientBuilder::new()
                     .set_headers(headers)
+                    .max_request_size(MAX_REQUEST_BODY_SIZE)
+                    .max_response_size(MAX_RESPONSE_BODY_SIZE)
                     .request_timeout(timeout)
                     .build(&url)?,
             ),

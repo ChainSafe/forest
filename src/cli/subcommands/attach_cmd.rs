@@ -324,12 +324,6 @@ impl AttachCommand {
         set_module(context);
 
         bind_request!(context, api,
-                // Net API
-                "net_addrs_listen" => |()| ApiInfo::net_addrs_listen_req(),
-                "net_peers"        => |()| ApiInfo::net_peers_req(),
-                "net_disconnect"   => ApiInfo::net_disconnect_req,
-                "net_connect"      => ApiInfo::net_connect_req,
-
                 // Node API
                 "node_status" => |()| ApiInfo::node_status_req(),
 
@@ -337,18 +331,6 @@ impl AttachCommand {
                 "sync_check_bad" => ApiInfo::sync_check_bad_req,
                 "sync_mark_bad"  => ApiInfo::sync_mark_bad_req,
                 "sync_status"    => |()| ApiInfo::sync_status_req(),
-
-                // Wallet API
-                // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3575
-                //                 bind wallet_sign, wallet_verify
-                "wallet_new"         => ApiInfo::wallet_new_req,
-                "wallet_default"     => |()| ApiInfo::wallet_default_address_req(),
-                "wallet_balance"     => ApiInfo::wallet_balance_req,
-                "wallet_export"      => ApiInfo::wallet_export_req,
-                "wallet_import"      => ApiInfo::wallet_import_req,
-                "wallet_list"        => |()| ApiInfo::wallet_list_req(),
-                "wallet_has"         => ApiInfo::wallet_has_req,
-                "wallet_set_default" => ApiInfo::wallet_set_default_req,
         );
 
         // Bind send_message, sleep, sleep_tipsets

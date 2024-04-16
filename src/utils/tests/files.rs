@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::utils::io::{read_file_to_string, read_file_to_vec, read_toml, write_to_file};
+use crate::utils::io::{read_toml, write_to_file};
 use serde::Deserialize;
 
 // Please use with caution, remove_dir_all will completely delete a directory
@@ -50,7 +50,7 @@ fn read_from_file_vec() {
     let file_name = "out.keystore";
     write_to_file(msg, &path, file_name).unwrap();
 
-    match read_file_to_vec(&path.join(file_name)) {
+    match std::fs::read(path.join(file_name)) {
         Ok(contents) => {
             cleanup_file(&path);
             assert_eq!(contents, msg)
@@ -69,7 +69,7 @@ fn read_from_file_string() {
     let file_name = "out.keystore";
 
     write_to_file(msg.as_bytes(), &path, file_name).unwrap();
-    match read_file_to_string(&path.join(file_name)) {
+    match std::fs::read_to_string(path.join(file_name)) {
         Ok(contents) => {
             cleanup_file(&path);
             assert_eq!(contents, msg)

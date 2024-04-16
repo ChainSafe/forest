@@ -3,10 +3,7 @@
 
 use tracing::{debug, info, trace};
 
-use crate::{
-    libp2p::Keypair,
-    utils::io::{read_file_to_vec, write_to_file},
-};
+use crate::{libp2p::Keypair, utils::io::write_to_file};
 use std::{fs, path::Path};
 
 const KEYPAIR_FILE: &str = "keypair";
@@ -44,7 +41,7 @@ fn create_and_save_keypair(path: &Path) -> anyhow::Result<Keypair> {
 
 // Fetch key-pair from disk, returning none if it cannot be decoded.
 pub fn get_keypair(path_to_file: &Path) -> Option<Keypair> {
-    match read_file_to_vec(path_to_file) {
+    match std::fs::read(path_to_file) {
         Err(e) => {
             info!("Networking keystore not found!");
             trace!("Error {e}");

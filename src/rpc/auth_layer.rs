@@ -56,6 +56,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(chain::ChainGetTipSet::NAME, Access::Read);
     access.insert(chain::ChainSetHead::NAME, Access::Admin);
     access.insert(chain::ChainGetMinBaseFee::NAME, Access::Admin);
+    access.insert(chain::ChainTipSetWeight::NAME, Access::Read);
     access.insert(chain::ChainGetMessagesInTipset::NAME, Access::Read);
     access.insert(chain::ChainGetParentMessages::NAME, Access::Read);
     access.insert(chain::CHAIN_NOTIFY, Access::Read);
@@ -76,19 +77,18 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(sync::SYNC_STATE, Access::Read);
 
     // Wallet API
-    access.insert(wallet::WALLET_BALANCE, Access::Write);
-    access.insert(wallet::WALLET_BALANCE, Access::Read);
-    access.insert(wallet::WALLET_DEFAULT_ADDRESS, Access::Read);
-    access.insert(wallet::WALLET_EXPORT, Access::Admin);
-    access.insert(wallet::WALLET_HAS, Access::Write);
-    access.insert(wallet::WALLET_IMPORT, Access::Admin);
-    access.insert(wallet::WALLET_LIST, Access::Write);
-    access.insert(wallet::WALLET_NEW, Access::Write);
-    access.insert(wallet::WALLET_SET_DEFAULT, Access::Write);
-    access.insert(wallet::WALLET_SIGN, Access::Sign);
-    access.insert(wallet::WALLET_VALIDATE_ADDRESS, Access::Read);
-    access.insert(wallet::WALLET_VERIFY, Access::Read);
-    access.insert(wallet::WALLET_DELETE, Access::Write);
+    access.insert(wallet::WalletBalance::NAME, Access::Read);
+    access.insert(wallet::WalletDefaultAddress::NAME, Access::Read);
+    access.insert(wallet::WalletExport::NAME, Access::Admin);
+    access.insert(wallet::WalletHas::NAME, Access::Write);
+    access.insert(wallet::WalletImport::NAME, Access::Admin);
+    access.insert(wallet::WalletList::NAME, Access::Write);
+    access.insert(wallet::WalletNew::NAME, Access::Write);
+    access.insert(wallet::WalletSetDefault::NAME, Access::Write);
+    access.insert(wallet::WalletSign::NAME, Access::Sign);
+    access.insert(wallet::WalletValidateAddress::NAME, Access::Read);
+    access.insert(wallet::WalletVerify::NAME, Access::Read);
+    access.insert(wallet::WalletDelete::NAME, Access::Write);
 
     // State API
     access.insert(state::STATE_CALL, Access::Read);
@@ -122,12 +122,14 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_LIST_MESSAGES, Access::Read);
     access.insert(state::STATE_LIST_MINERS, Access::Read);
     access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
+    access.insert(state::STATE_MINER_SECTORS, Access::Read);
     access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
     access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
     access.insert(state::STATE_VM_CIRCULATING_SUPPLY_INTERNAL, Access::Read);
     access.insert(state::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
     access.insert(state::MSIG_GET_PENDING, Access::Read);
     access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
+    access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
 
     // Gas API
     access.insert(gas::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
@@ -142,15 +144,15 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(common::StartTime::NAME, Access::Read);
 
     // Net API
-    access.insert(net::NET_ADDRS_LISTEN, Access::Read);
-    access.insert(net::NET_PEERS, Access::Read);
-    access.insert(net::NET_LISTENING, Access::Read);
-    access.insert(net::NET_INFO, Access::Read);
-    access.insert(net::NET_CONNECT, Access::Write);
-    access.insert(net::NET_DISCONNECT, Access::Write);
-    access.insert(net::NET_AGENT_VERSION, Access::Read);
-    access.insert(net::NET_AUTO_NAT_STATUS, Access::Read);
-    access.insert(net::NET_VERSION, Access::Read);
+    access.insert(net::NetAddrsListen::NAME, Access::Read);
+    access.insert(net::NetPeers::NAME, Access::Read);
+    access.insert(net::NetListening::NAME, Access::Read);
+    access.insert(net::NetInfo::NAME, Access::Read);
+    access.insert(net::NetConnect::NAME, Access::Write);
+    access.insert(net::NetDisconnect::NAME, Access::Write);
+    access.insert(net::NetAgentVersion::NAME, Access::Read);
+    access.insert(net::NetAutoNatStatus::NAME, Access::Read);
+    access.insert(net::NetVersion::NAME, Access::Read);
 
     // Node API
     access.insert(node::NODE_STATUS, Access::Read);

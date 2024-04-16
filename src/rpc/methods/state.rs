@@ -5,9 +5,6 @@
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::ServerError;
-use crate::rpc::types::*;
-use crate::rpc::Ctx;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
@@ -16,6 +13,10 @@ use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::state_manager::{InvocResult, MarketBalance};
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
+use crate::{
+    beacon::BeaconEntry,
+    rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod},
+};
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;
 use anyhow::Result;
@@ -42,6 +43,13 @@ use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
 
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::state::StateGetBeaconEntry);
+    };
+}
+pub(crate) use for_each_method;
+
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
 pub const STATE_CALL: &str = "Filecoin.StateCall";
@@ -61,7 +69,7 @@ pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadli
 pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
 pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
 pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
-pub const STATE_FETCH_ROOT: &str = "Filecoin.StateFetchRoot";
+pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
 pub const STATE_GET_RANDOMNESS_FROM_TICKETS: &str = "Filecoin.StateGetRandomnessFromTickets";
 pub const STATE_GET_RANDOMNESS_FROM_BEACON: &str = "Filecoin.StateGetRandomnessFromBeacon";
 pub const STATE_READ_STATE: &str = "Filecoin.StateReadState";
@@ -83,6 +91,7 @@ pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
     "Filecoin.StateDealProviderCollateralBounds";
 pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
 pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
+pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
 
 pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -315,6 +324,33 @@ pub async fn state_miner_active_sectors<DB: Blockstore>(
         .collect::<Vec<_>>();
 
     Ok(LotusJson(sectors))
+}
+
+pub async fn state_miner_sectors<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Vec<SectorOnChainInfo>>, ServerError> {
+    let LotusJson((miner, sectors, ApiTipsetKey(tsk))): LotusJson<(
+        Address,
+        BitField,
+        ApiTipsetKey,
+    )> = params.parse()?;
+
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .context("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+
+    let sectors_info = miner_state
+        .load_sectors(bs, Some(&sectors))?
+        .into_iter()
+        .map(SectorOnChainInfo::from)
+        .collect::<Vec<_>>();
+
+    Ok(LotusJson(sectors_info))
 }
 
 // Returns the number of sectors in a miner's sector set and proving set
@@ -1086,6 +1122,7 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
 
     Ok(MarketDeal { proposal, state }.into())
 }
+
 pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -1147,4 +1184,40 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
         max: max.into(),
         min: TokenAmount::from_atto(min),
     })
+}
+
+pub enum StateGetBeaconEntry {}
+
+impl RpcMethod<1> for StateGetBeaconEntry {
+    const NAME: &'static str = "Filecoin.StateGetBeaconEntry";
+    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = (LotusJson<ChainEpoch>,);
+    type Ok = LotusJson<BeaconEntry>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(epoch),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        {
+            let genesis_timestamp = ctx.chain_store.genesis_block_header().timestamp as i64;
+            let block_delay = ctx.state_manager.chain_config().block_delay_secs as i64;
+            // Give it a 1s clock drift buffer
+            let epoch_timestamp = genesis_timestamp + block_delay * epoch + 1;
+            let now_timestamp = chrono::Utc::now().timestamp();
+            match epoch_timestamp.saturating_sub(now_timestamp) {
+                diff if diff > 0 => {
+                    tokio::time::sleep(Duration::from_secs(diff as u64)).await;
+                }
+                _ => {}
+            };
+        }
+
+        let (_, beacon) = ctx.beacon.beacon_for_epoch(epoch)?;
+        let network_version = ctx.state_manager.get_network_version(epoch);
+        let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
+        let entry = beacon.entry(round).await?;
+        Ok(LotusJson(entry))
+    }
 }

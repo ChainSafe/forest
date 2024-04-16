@@ -7,19 +7,21 @@ use std::{
     str::{self, FromStr},
 };
 
+use crate::rpc::{self, prelude::*};
 use crate::{
     cli::humantoken,
     message::SignedMessage,
     rpc::{
         mpool::{MpoolGetNonce, MpoolPush, MpoolPushMessage},
         types::ApiTipsetKey,
-        RpcMethodExt as _,
     },
     shim::address::Address,
     ENCRYPTED_KEYSTORE_NAME,
 };
-use crate::{key_management::Key, utils::io::read_file_to_string};
-use crate::{key_management::KeyInfo, rpc_client::ApiInfo};
+use crate::{
+    key_management::{Key, KeyInfo},
+    rpc_client::ApiInfo,
+};
 use crate::{lotus_json::LotusJson, KeyStore};
 use crate::{
     shim::{
@@ -35,7 +37,6 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{arg, Subcommand};
 use dialoguer::{console::Term, theme::ColorfulTheme, Password};
 use directories::ProjectDirs;
-use num::BigInt;
 use num::Zero as _;
 
 use crate::cli::humantoken::TokenAmountPretty as _;
@@ -45,19 +46,19 @@ use crate::cli::humantoken::TokenAmountPretty as _;
 // local wallet is available, no sensitive information will be sent to the
 // remote Filecoin node.
 struct WalletBackend {
-    pub remote: ApiInfo,
+    pub remote: rpc::Client,
     pub local: Option<KeyStore>,
 }
 
 impl WalletBackend {
-    fn new_remote(api: ApiInfo) -> Self {
+    fn new_remote(client: rpc::Client) -> Self {
         WalletBackend {
-            remote: api,
+            remote: client,
             local: None,
         }
     }
 
-    fn new_local(api: ApiInfo, want_encryption: bool) -> anyhow::Result<Self> {
+    fn new_local(client: rpc::Client, want_encryption: bool) -> anyhow::Result<Self> {
         let Some(dir) = ProjectDirs::from("com", "ChainSafe", "Forest-Wallet") else {
             bail!("Failed to find wallet directory");
         };
@@ -75,7 +76,7 @@ impl WalletBackend {
         };
 
         Ok(WalletBackend {
-            remote: api,
+            remote: client,
             local: Some(keystore),
         })
     }
@@ -84,7 +85,7 @@ impl WalletBackend {
         if let Some(keystore) = &self.local {
             Ok(crate::key_management::list_addrs(keystore)?)
         } else {
-            Ok(self.remote.wallet_list().await?)
+            Ok(WalletList::call(&self.remote, ()).await?.into_inner())
         }
     }
 
@@ -92,7 +93,9 @@ impl WalletBackend {
         if let Some(keystore) = &self.local {
             Ok(crate::key_management::export_key_info(&address, keystore)?)
         } else {
-            Ok(self.remote.wallet_export(address.to_string()).await?)
+            Ok(WalletExport::call(&self.remote, (address.into(),))
+                .await?
+                .into_inner())
         }
     }
 
@@ -104,7 +107,10 @@ impl WalletBackend {
             keystore.put(&addr, key.key_info)?;
             Ok(key.address.to_string())
         } else {
-            Ok(self.remote.wallet_import(vec![key_info]).await?)
+            Ok(WalletImport::call(&self.remote, (key_info.into(),))
+                .await?
+                .into_inner()
+                .to_string())
         }
     }
 
@@ -112,7 +118,7 @@ impl WalletBackend {
         if let Some(keystore) = &self.local {
             Ok(crate::key_management::find_key(&address, keystore).is_ok())
         } else {
-            Ok(self.remote.wallet_has(address.to_string()).await?)
+            Ok(WalletHas::call(&self.remote, (address.into(),)).await?)
         }
     }
 
@@ -120,7 +126,7 @@ impl WalletBackend {
         if let Some(keystore) = &mut self.local {
             Ok(crate::key_management::remove_key(&address, keystore)?)
         } else {
-            Ok(self.remote.wallet_delete(address.to_string()).await?)
+            Ok(WalletDelete::call(&self.remote, (address.into(),)).await?)
         }
     }
 
@@ -137,7 +143,10 @@ impl WalletBackend {
 
             Ok(key.address.to_string())
         } else {
-            Ok(self.remote.wallet_new(signature_type).await?)
+            Ok(WalletNew::call(&self.remote, (signature_type.into(),))
+                .await?
+                .into_inner()
+                .to_string())
         }
     }
 
@@ -145,7 +154,10 @@ impl WalletBackend {
         if let Some(keystore) = &self.local {
             Ok(crate::key_management::get_default(keystore)?.map(|s| s.to_string()))
         } else {
-            Ok(self.remote.wallet_default_address().await?)
+            Ok(WalletDefaultAddress::call(&self.remote, ())
+                .await?
+                .into_inner()
+                .map(|it| it.to_string()))
         }
     }
 
@@ -157,7 +169,7 @@ impl WalletBackend {
             keystore.put("default", key_info)?;
             Ok(())
         } else {
-            Ok(self.remote.wallet_set_default(address).await?)
+            Ok(WalletSetDefault::call(&self.remote, (address.into(),)).await?)
         }
     }
 
@@ -171,10 +183,11 @@ impl WalletBackend {
                 &BASE64_STANDARD.decode(message)?,
             )?)
         } else {
-            Ok(self
-                .remote
-                .wallet_sign(address, message.into_bytes())
-                .await?)
+            Ok(
+                WalletSign::call(&self.remote, (address.into(), message.into_bytes().into()))
+                    .await?
+                    .into_inner(),
+            )
         }
     }
 
@@ -188,7 +201,10 @@ impl WalletBackend {
             Ok(signature.verify(&msg, &address).is_ok())
         } else {
             // Relying on a remote server to validate signatures is not secure but it's useful for testing.
-            Ok(self.remote.wallet_verify(address, msg, signature).await?)
+            Ok(
+                WalletVerify::call(&self.remote, (address.into(), msg.into(), signature.into()))
+                    .await?,
+            )
         }
     }
 }
@@ -292,10 +308,11 @@ pub enum WalletCommands {
 }
 impl WalletCommands {
     pub async fn run(self, api: ApiInfo, remote_wallet: bool, encrypt: bool) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         let mut backend = if remote_wallet {
-            WalletBackend::new_remote(api)
+            WalletBackend::new_remote(client)
         } else {
-            WalletBackend::new_local(api, encrypt)?
+            WalletBackend::new_local(client, encrypt)?
         };
         match self {
             Self::New { signature_type } => {
@@ -309,7 +326,11 @@ impl WalletCommands {
                 Ok(())
             }
             Self::Balance { address } => {
-                let balance = backend.remote.wallet_balance(address.to_string()).await?;
+                let StrictAddress(address) = StrictAddress::from_str(&address)
+                    .with_context(|| format!("Invalid address: {address}"))?;
+                let balance = WalletBalance::call(&backend.remote, (address.into(),))
+                    .await?
+                    .into_inner();
                 println!("{balance}");
                 Ok(())
             }
@@ -350,7 +371,7 @@ impl WalletCommands {
             }
             Self::Import { path } => {
                 let key = match path {
-                    Some(path) => read_file_to_string(&PathBuf::from(path))?,
+                    Some(path) => std::fs::read_to_string(path)?,
                     _ => {
                         tokio::task::spawn_blocking(|| {
                             Password::with_theme(&ColorfulTheme::default())
@@ -389,17 +410,16 @@ impl WalletCommands {
                 println!("{title_address:41} {title_default_mark:7} {title_balance}");
 
                 for address in key_pairs {
-                    let addr = address.to_string();
-                    let default_address_mark = if default.as_ref() == Some(&addr) {
+                    let default_address_mark = if default.as_ref() == Some(&address.to_string()) {
                         "X"
                     } else {
                         ""
                     };
 
-                    let balance_string = backend.remote.wallet_balance(addr.clone()).await?;
-
                     let balance_token_amount =
-                        TokenAmount::from_atto(balance_string.parse::<BigInt>()?);
+                        WalletBalance::call(&backend.remote, (address.into(),))
+                            .await?
+                            .into_inner();
 
                     let balance_string = match (no_round, no_abbrev) {
                         // no_round, absolute
@@ -412,7 +432,7 @@ impl WalletCommands {
                         (false, false) => format!("{:.4}", balance_token_amount.pretty()),
                     };
 
-                    println!("{addr:41}  {default_address_mark:7}  {balance_string}");
+                    println!("{address:41}  {default_address_mark:7}  {balance_string}");
                 }
                 Ok(())
             }
@@ -434,10 +454,9 @@ impl WalletCommands {
                 Ok(())
             }
             Self::ValidateAddress { address } => {
-                let response = backend
-                    .remote
-                    .wallet_validate_address(address.to_string())
-                    .await?;
+                let response = WalletValidateAddress::call(&backend.remote, (address,))
+                    .await?
+                    .into_inner();
                 println!("{response}");
                 Ok(())
             }
@@ -493,8 +512,7 @@ impl WalletCommands {
 
                 let signed_msg = if let Some(keystore) = &backend.local {
                     let spec = None;
-                    let mut message = backend
-                        .remote
+                    let mut message = api
                         .gas_estimate_message_gas(message, spec, ApiTipsetKey(None))
                         .await?;
 
@@ -502,11 +520,8 @@ impl WalletCommands {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    message.sequence = MpoolGetNonce::call(
-                        &crate::rpc::Client::from(backend.remote.clone()),
-                        (LotusJson(from),),
-                    )
-                    .await?;
+                    message.sequence =
+                        MpoolGetNonce::call(&backend.remote, (LotusJson(from),)).await?;
 
                     let key = crate::key_management::find_key(&from, keystore)?;
                     let sig = crate::key_management::sign(
@@ -517,19 +532,12 @@ impl WalletCommands {
 
                     let smsg = SignedMessage::new_from_parts(message, sig)?;
 
-                    MpoolPush::call(
-                        &crate::rpc::Client::from(backend.remote.clone()),
-                        (LotusJson(smsg.clone()),),
-                    )
-                    .await?;
+                    MpoolPush::call(&backend.remote, (LotusJson(smsg.clone()),)).await?;
                     smsg
                 } else {
-                    MpoolPushMessage::call(
-                        &crate::rpc::Client::from(backend.remote.clone()),
-                        (LotusJson(message), None),
-                    )
-                    .await?
-                    .into_inner()
+                    MpoolPushMessage::call(&backend.remote, (LotusJson(message), None))
+                        .await?
+                        .into_inner()
                 };
 
                 println!("{}", signed_msg.cid().unwrap());
