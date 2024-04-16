@@ -24,6 +24,7 @@ use futures::{
     try_join, StreamExt,
 };
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -230,20 +231,22 @@ where
         chain_store: Arc<ChainStore<DB>>,
         tipset_keys: TipsetKey,
     ) -> Result<FullTipset, ChainMuxerError> {
-        let mut blocks = Vec::new();
         // Retrieve tipset from store based on passed in TipsetKey
         let ts = chain_store.chain_index.load_required_tipset(&tipset_keys)?;
-        for header in ts.block_headers() {
-            // Retrieve bls and secp messages from specified BlockHeader
-            let (bls_msgs, secp_msgs) =
-                crate::chain::block_messages(chain_store.blockstore(), header)?;
-            // Construct a full block
-            blocks.push(Block {
-                header: header.clone(),
-                bls_messages: bls_msgs,
-                secp_messages: secp_msgs,
-            });
-        }
+
+        let blocks: Vec<_> = ts
+            .block_headers()
+            .iter()
+            .map(|header| -> Result<Block, ChainMuxerError> {
+                let (bls_msgs, secp_msgs) =
+                    crate::chain::block_messages(chain_store.blockstore(), header)?;
+                Ok(Block {
+                    header: header.clone(),
+                    bls_messages: bls_msgs,
+                    secp_messages: secp_msgs,
+                })
+            })
+            .try_collect()?;
 
         // Construct FullTipset
         let fts = FullTipset::new(blocks)?;

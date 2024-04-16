@@ -190,11 +190,12 @@ impl LintRunner {
         let finder = Regex::new("(TODO)|(XXX)|(FIXME)").unwrap();
         let checker = Regex::new(r"TODO\(.*\): https://github.com/").unwrap();
         for (path, SourceFile { plaintext, .. }) in self.files.map.iter() {
-            for comment in ra_ap_syntax::SourceFile::parse(plaintext)
-                .tree()
-                .syntax() // downcast from AST to untyped syntax tree
-                .descendants_with_tokens() // comments are tokens
-                .filter_map(|it| it.into_token().and_then(ast::Comment::cast))
+            for comment in
+                ra_ap_syntax::SourceFile::parse(plaintext, ra_ap_syntax::Edition::Edition2021)
+                    .tree()
+                    .syntax() // downcast from AST to untyped syntax tree
+                    .descendants_with_tokens() // comments are tokens
+                    .filter_map(|it| it.into_token().and_then(ast::Comment::cast))
             {
                 let haystack = comment.text();
                 for found in finder.find_iter(haystack) {

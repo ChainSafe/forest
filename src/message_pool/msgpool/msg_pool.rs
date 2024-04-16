@@ -27,6 +27,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
@@ -381,12 +382,14 @@ where
         if mset.msgs.is_empty() {
             return None;
         }
-        let mut msg_vec = Vec::new();
-        for (_, item) in mset.msgs.iter() {
-            msg_vec.push(item.clone());
-        }
-        msg_vec.sort_by_key(|value| value.message().sequence);
-        Some(msg_vec)
+
+        Some(
+            mset.msgs
+                .values()
+                .cloned()
+                .sorted_by_key(|v| v.message().sequence)
+                .collect(),
+        )
     }
 
     /// Return Vector of signed messages given a block header for self.

@@ -727,8 +727,381 @@ methods:
         type: integer
         format: int64
       required: true
+  - name: Filecoin.WalletBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletBalance::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletDefaultAddress
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletDefaultAddress::Result"
+      schema:
+        $ref: "#/components/schemas/String"
+        nullable: true
+      required: true
+  - name: Filecoin.WalletExport
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletExport::Result"
+      schema:
+        type: object
+        required:
+          - PrivateKey
+          - Type
+        properties:
+          PrivateKey:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Type:
+            $ref: "#/components/schemas/SignatureTypeLotusJson"
+      required: true
+  - name: Filecoin.WalletHas
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletHas::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.WalletImport
+    params:
+      - name: key
+        schema:
+          type: object
+          required:
+            - PrivateKey
+            - Type
+          properties:
+            PrivateKey:
+              $ref: "#/components/schemas/VecU8LotusJson2"
+            Type:
+              $ref: "#/components/schemas/SignatureTypeLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletImport::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletList
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletList::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/String"
+        nullable: true
+      required: true
+  - name: Filecoin.WalletNew
+    params:
+      - name: signature_type
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/SignatureType"
+            - $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletNew::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletSetDefault
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletSetDefault::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.WalletSign
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: message
+        schema:
+          $ref: "#/components/schemas/encoded binary"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletSign::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Type
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Type:
+            $ref: "#/components/schemas/SignatureTypeLotusJson"
+      required: true
+  - name: Filecoin.WalletValidateAddress
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletValidateAddress::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletVerify
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: message
+        schema:
+          $ref: "#/components/schemas/encoded binary"
+          nullable: true
+        required: true
+      - name: signature
+        schema:
+          type: object
+          required:
+            - Data
+            - Type
+          properties:
+            Data:
+              $ref: "#/components/schemas/VecU8LotusJson2"
+            Type:
+              $ref: "#/components/schemas/SignatureTypeLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletVerify::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.WalletDelete
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletDelete::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.NetAddrsListen
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetAddrsListen::Result"
+      schema:
+        type: object
+        required:
+          - Addrs
+          - ID
+        properties:
+          Addrs:
+            type: array
+            items:
+              type: string
+            uniqueItems: true
+          ID:
+            type: string
+      required: true
+  - name: Filecoin.NetPeers
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetPeers::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/AddrInfo"
+      required: true
+  - name: Filecoin.NetListening
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetListening::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Forest.NetInfo
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Forest.NetInfo::Result"
+      schema:
+        type: object
+        required:
+          - num_connections
+          - num_established
+          - num_peers
+          - num_pending
+          - num_pending_incoming
+          - num_pending_outgoing
+        properties:
+          num_connections:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_established:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_peers:
+            type: integer
+            format: uint
+            minimum: 0
+          num_pending:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_pending_incoming:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_pending_outgoing:
+            type: integer
+            format: uint32
+            minimum: 0
+      required: true
+  - name: Filecoin.NetConnect
+    params:
+      - name: info
+        schema:
+          type: object
+          required:
+            - Addrs
+            - ID
+          properties:
+            Addrs:
+              type: array
+              items:
+                type: string
+              uniqueItems: true
+            ID:
+              type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetConnect::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.NetDisconnect
+    params:
+      - name: id
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetDisconnect::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.NetAgentVersion
+    params:
+      - name: id
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetAgentVersion::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.NetAutoNatStatus
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetAutoNatStatus::Result"
+      schema:
+        type: object
+        required:
+          - Reachability
+        properties:
+          PublicAddrs:
+            type: array
+            items:
+              type: string
+            nullable: true
+          Reachability:
+            type: integer
+            format: int32
+      required: true
+  - name: Filecoin.NetVersion
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetVersion::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateGetBeaconEntry
+    params:
+      - name: epoch
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateGetBeaconEntry::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Round
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          Round:
+            $ref: "#/components/schemas/uint64"
+      required: true
 components:
   schemas:
+    AddrInfo:
+      type: object
+      required:
+        - Addrs
+        - ID
+      properties:
+        Addrs:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        ID:
+          type: string
     ApiMessageLotusJson:
       type: object
       required:

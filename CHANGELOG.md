@@ -33,6 +33,10 @@
 - [#4184](https://github.com/ChainSafe/forest/pull/4184) Removed short form
   flags from `forest` binary.
 
+- [#4215](https://github.com/ChainSafe/forest/pull/4215) Changed the prefix for
+  Forest-specific RPC methods to `Forest`; `Filecoin.NetInfo` and
+  `Filecoin.StateFetchRoot` to `Forest.NetInfo` and `Forest.StateFetchRoot`.
+
 ### Added
 
 - [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the

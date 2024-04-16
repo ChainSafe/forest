@@ -1,238 +1,288 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
-use std::{convert::TryFrom, str::FromStr};
+use std::any::Any;
 
 use crate::key_management::{Key, KeyInfo};
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::ServerError;
-use crate::rpc::Ctx;
+use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
     state_tree::StateTree,
 };
-use anyhow::{Context, Result};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
-use num_traits::Zero;
 
-pub const WALLET_BALANCE: &str = "Filecoin.WalletBalance";
-pub const WALLET_DEFAULT_ADDRESS: &str = "Filecoin.WalletDefaultAddress";
-pub const WALLET_EXPORT: &str = "Filecoin.WalletExport";
-pub const WALLET_HAS: &str = "Filecoin.WalletHas";
-pub const WALLET_IMPORT: &str = "Filecoin.WalletImport";
-pub const WALLET_LIST: &str = "Filecoin.WalletList";
-pub const WALLET_NEW: &str = "Filecoin.WalletNew";
-pub const WALLET_SET_DEFAULT: &str = "Filecoin.WalletSetDefault";
-pub const WALLET_SIGN: &str = "Filecoin.WalletSign";
-pub const WALLET_VALIDATE_ADDRESS: &str = "Filecoin.WalletValidateAddress";
-pub const WALLET_VERIFY: &str = "Filecoin.WalletVerify";
-pub const WALLET_DELETE: &str = "Filecoin.WalletDelete";
-
-/// Return the balance from `StateManager` for a given `Address`
-pub async fn wallet_balance<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
-
-    let address = Address::from_str(&addr_str)?;
-
-    let heaviest_ts = data.state_manager.chain_store().heaviest_tipset();
-    let cid = heaviest_ts.parent_state();
-
-    let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), cid)?;
-    match state.get_actor(&address) {
-        Ok(act) => {
-            if let Some(actor) = act {
-                let actor_balance = &actor.balance;
-                Ok(actor_balance.atto().to_string())
-            } else {
-                Ok(TokenAmount::zero().atto().to_string())
-            }
-        }
-        Err(e) => Err(e.into()),
-    }
-}
-
-/// Get the default Address for the Wallet
-pub async fn wallet_default_address<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<Option<String>, ServerError> {
-    let keystore = data.keystore.read().await;
-
-    let addr = crate::key_management::get_default(&keystore)?;
-    Ok(addr.map(|s| s.to_string()))
-}
-
-/// Export `KeyInfo` from the Wallet given its address
-pub async fn wallet_export<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<KeyInfo>, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
-
-    let addr = Address::from_str(&addr_str)?;
-
-    let keystore = data.keystore.read().await;
-
-    let key_info = crate::key_management::export_key_info(&addr, &keystore)?;
-    Ok(key_info.into())
-}
-
-/// Return whether or not a Key is in the Wallet
-pub async fn wallet_has<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<bool, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
-
-    let addr = Address::from_str(&addr_str)?;
-
-    let keystore = data.keystore.read().await;
-
-    let key = crate::key_management::find_key(&addr, &keystore).is_ok();
-    Ok(key)
-}
-
-/// Import `KeyInfo` to the Wallet, return the Address that corresponds to it
-pub async fn wallet_import<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let params: LotusJson<Vec<KeyInfo>> = params.parse()?;
-
-    let key_info = params
-        .into_inner()
-        .into_iter()
-        .next()
-        .context("empty vector")?;
-
-    let key = Key::try_from(key_info)?;
-
-    let addr = format!("wallet-{}", key.address);
-
-    let mut keystore = data.keystore.write().await;
-
-    if let Err(error) = keystore.put(&addr, key.key_info) {
-        Err(error.into())
-    } else {
-        Ok(key.address.to_string())
-    }
-}
-
-/// List all Addresses in the Wallet
-pub async fn wallet_list<DB: Blockstore>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<Address>>, ServerError> {
-    let keystore = data.keystore.read().await;
-    Ok(crate::key_management::list_addrs(&keystore)?.into())
-}
-
-/// Generate a new Address that is stored in the Wallet
-pub async fn wallet_new<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((sig_raw,)): LotusJson<(SignatureType,)> = params.parse()?;
-
-    let mut keystore = data.keystore.write().await;
-    let key = crate::key_management::generate_key(sig_raw)?;
-
-    let addr = format!("wallet-{}", key.address);
-    keystore.put(&addr, key.key_info.clone())?;
-    let value = keystore.get("default");
-    if value.is_err() {
-        keystore.put("default", key.key_info)?
-    }
-
-    Ok(key.address.to_string())
-}
-
-/// Set the default Address for the Wallet
-pub async fn wallet_set_default<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let LotusJson((address,)): LotusJson<(Address,)> = params.parse()?;
-
-    let mut keystore = data.keystore.write().await;
-
-    let addr_string = format!("wallet-{}", address);
-    let key_info = keystore.get(&addr_string)?;
-    keystore.remove("default")?; // This line should unregister current default key then continue
-    keystore.put("default", key_info)?;
-    Ok(())
-}
-
-/// Sign a vector of bytes
-pub async fn wallet_sign<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Signature>, ServerError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((address, msg_string)): LotusJson<(Address, Vec<u8>)> = params.parse()?;
-
-    let state_manager = &data.state_manager;
-    let heaviest_tipset = data.state_manager.chain_store().heaviest_tipset();
-    let key_addr = state_manager
-        .resolve_to_key_addr(&address, &heaviest_tipset)
-        .await?;
-    let keystore = &mut *data.keystore.write().await;
-    let key = match crate::key_management::find_key(&key_addr, keystore) {
-        Ok(key) => key,
-        Err(_) => {
-            let key_info = crate::key_management::try_find(&key_addr, keystore)?;
-            Key::try_from(key_info)?
-        }
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::wallet::WalletBalance);
+        $callback!(crate::rpc::wallet::WalletDefaultAddress);
+        $callback!(crate::rpc::wallet::WalletExport);
+        $callback!(crate::rpc::wallet::WalletHas);
+        $callback!(crate::rpc::wallet::WalletImport);
+        $callback!(crate::rpc::wallet::WalletList);
+        $callback!(crate::rpc::wallet::WalletNew);
+        $callback!(crate::rpc::wallet::WalletSetDefault);
+        $callback!(crate::rpc::wallet::WalletSign);
+        $callback!(crate::rpc::wallet::WalletValidateAddress);
+        $callback!(crate::rpc::wallet::WalletVerify);
+        $callback!(crate::rpc::wallet::WalletDelete);
     };
+}
+pub(crate) use for_each_method;
 
-    let sig = crate::key_management::sign(
-        *key.key_info.key_type(),
-        key.key_info.private_key(),
-        &BASE64_STANDARD.decode(msg_string)?,
-    )?;
+pub enum WalletBalance {}
+impl RpcMethod<1> for WalletBalance {
+    const NAME: &'static str = "Filecoin.WalletBalance";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    Ok(sig.into())
+    type Params = (LotusJson<Address>,);
+    type Ok = LotusJson<TokenAmount>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let heaviest_ts = ctx.state_manager.chain_store().heaviest_tipset();
+        let cid = heaviest_ts.parent_state();
+
+        Ok(LotusJson(
+            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), cid)?
+                .get_actor(&address)?
+                .map(|it| it.balance.clone().into())
+                .unwrap_or_default(),
+        ))
+    }
 }
 
-/// Validates whether a given string can be decoded as a well-formed address
-pub(in crate::rpc) async fn wallet_validate_address(
-    params: Params<'_>,
-) -> Result<LotusJson<Address>, ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletDefaultAddress {}
+impl RpcMethod<0> for WalletDefaultAddress {
+    const NAME: &'static str = "Filecoin.WalletDefaultAddress";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let addr = Address::from_str(&addr_str)?;
-    Ok(addr.into())
+    type Params = ();
+    type Ok = LotusJson<Option<Address>>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+        Ok(LotusJson(crate::key_management::get_default(&keystore)?))
+    }
 }
 
-/// Verify a Signature, true if verified, false otherwise
-pub async fn wallet_verify(params: Params<'_>) -> Result<bool, ServerError> {
-    let LotusJson((address, msg, sig)): LotusJson<(Address, Vec<u8>, Signature)> =
-        params.parse()?;
+pub enum WalletExport {}
+impl RpcMethod<1> for WalletExport {
+    const NAME: &'static str = "Filecoin.WalletExport";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    Ok(sig.verify(&msg, &address).is_ok())
+    type Params = (LotusJson<Address>,);
+    type Ok = LotusJson<KeyInfo>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+
+        let key_info = crate::key_management::export_key_info(&address, &keystore)?;
+        Ok(key_info.into())
+    }
 }
 
-/// Deletes a wallet given its address.
-pub async fn wallet_delete<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let (addr_str,): (String,) = params.parse()?;
+pub enum WalletHas {}
+impl RpcMethod<1> for WalletHas {
+    const NAME: &'static str = "Filecoin.WalletHas";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let mut keystore = data.keystore.write().await;
-    let addr = Address::from_str(&addr_str)?;
-    crate::key_management::remove_key(&addr, &mut keystore)?;
-    Ok(())
+    type Params = (LotusJson<Address>,);
+    type Ok = bool;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+        Ok(crate::key_management::find_key(&address, &keystore).is_ok())
+    }
+}
+
+pub enum WalletImport {}
+impl RpcMethod<1> for WalletImport {
+    const NAME: &'static str = "Filecoin.WalletImport";
+    const PARAM_NAMES: [&'static str; 1] = ["key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<KeyInfo>,);
+    type Ok = LotusJson<Address>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(key_info),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let key = Key::try_from(key_info)?;
+
+        let addr = format!("wallet-{}", key.address);
+
+        let mut keystore = ctx.keystore.write().await;
+        keystore.put(&addr, key.key_info)?;
+        Ok(LotusJson(key.address))
+    }
+}
+
+pub enum WalletList {}
+impl RpcMethod<0> for WalletList {
+    const NAME: &'static str = "Filecoin.WalletList";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = LotusJson<Vec<Address>>;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let keystore = ctx.keystore.read().await;
+        Ok(crate::key_management::list_addrs(&keystore)?.into())
+    }
+}
+
+pub enum WalletNew {}
+impl RpcMethod<1> for WalletNew {
+    const NAME: &'static str = "Filecoin.WalletNew";
+    const PARAM_NAMES: [&'static str; 1] = ["signature_type"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<SignatureType>,);
+    type Ok = LotusJson<Address>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(signature_type),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut keystore = ctx.keystore.write().await;
+        let key = crate::key_management::generate_key(signature_type)?;
+
+        let addr = format!("wallet-{}", key.address);
+        keystore.put(&addr, key.key_info.clone())?;
+        let value = keystore.get("default");
+        if value.is_err() {
+            keystore.put("default", key.key_info)?
+        }
+
+        Ok(key.address.into())
+    }
+}
+
+pub enum WalletSetDefault {}
+impl RpcMethod<1> for WalletSetDefault {
+    const NAME: &'static str = "Filecoin.WalletSetDefault";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Address>,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut keystore = ctx.keystore.write().await;
+        let addr_string = format!("wallet-{}", address);
+        let key_info = keystore.get(&addr_string)?;
+        keystore.remove("default")?; // This line should unregister current default key then continue
+        keystore.put("default", key_info)?;
+        Ok(())
+    }
+}
+
+pub enum WalletSign {}
+impl RpcMethod<2> for WalletSign {
+    const NAME: &'static str = "Filecoin.WalletSign";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Address>, LotusJson<Vec<u8>>);
+    type Ok = LotusJson<Signature>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(address), LotusJson(message)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let key_addr = state_manager
+            .resolve_to_key_addr(&address, &heaviest_tipset)
+            .await?;
+        let keystore = &mut *ctx.keystore.write().await;
+        let key = match crate::key_management::find_key(&key_addr, keystore) {
+            Ok(key) => key,
+            Err(_) => {
+                let key_info = crate::key_management::try_find(&key_addr, keystore)?;
+                Key::try_from(key_info)?
+            }
+        };
+
+        let sig = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            &BASE64_STANDARD.decode(message)?,
+        )?;
+
+        Ok(sig.into())
+    }
+}
+
+pub enum WalletValidateAddress {}
+impl RpcMethod<1> for WalletValidateAddress {
+    const NAME: &'static str = "Filecoin.WalletValidateAddress";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (String,);
+    type Ok = LotusJson<Address>;
+
+    async fn handle(_: Ctx<impl Any>, (s,): Self::Params) -> Result<Self::Ok, ServerError> {
+        Ok(LotusJson(s.parse()?))
+    }
+}
+
+pub enum WalletVerify {}
+impl RpcMethod<3> for WalletVerify {
+    const NAME: &'static str = "Filecoin.WalletVerify";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "message", "signature"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Address>, LotusJson<Vec<u8>>, LotusJson<Signature>);
+    type Ok = bool;
+
+    async fn handle(
+        _: Ctx<impl Any>,
+        (LotusJson(address), LotusJson(message), LotusJson(signature)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(signature.verify(&message, &address).is_ok())
+    }
+}
+
+pub enum WalletDelete {}
+impl RpcMethod<1> for WalletDelete {
+    const NAME: &'static str = "Filecoin.WalletDelete";
+    const PARAM_NAMES: [&'static str; 1] = ["address"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Address>,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(address),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut keystore = ctx.keystore.write().await;
+        crate::key_management::remove_key(&address, &mut keystore)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

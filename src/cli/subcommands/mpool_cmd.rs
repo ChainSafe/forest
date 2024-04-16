@@ -126,7 +126,7 @@ fn compute_stats(
             .insert(msg.sequence, msg.to_owned());
     }
 
-    let mut stats: Vec<MpStat> = Vec::new();
+    let mut stats: Vec<MpStat> = Vec::with_capacity(buckets.len());
 
     for (address, bucket) in buckets {
         let actor_sequence = *actor_sequences.get(&address).expect("get must succeed");
@@ -219,7 +219,7 @@ impl MpoolCommands {
                     .into_inner();
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?.into_inner();
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -255,7 +255,7 @@ impl MpoolCommands {
                     .into_inner();
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?.into_inner();
                     Some(HashSet::from_iter(response))
                 } else {
                     None
