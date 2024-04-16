@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo make install-deps
       - name: Cargo Install
-        run: make install-minimum
+        run: make install-slim
         env:
           # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
           RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld -C opt-level=1 -C lto=false"

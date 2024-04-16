@@ -13,8 +13,8 @@ install-daemon:
 install:
 	cargo install --locked --path . --force
 
-install-minimum:
-	cargo install --no-default-features --features minimum --locked --path . --force
+install-slim:
+	cargo install --no-default-features --features slim --locked --path . --force
 
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
@@ -70,7 +70,7 @@ lint: license clean lint-clippy
 # --quiet: don't show build logs
 lint-clippy:
 	cargo clippy --all-targets --quiet --no-deps -- --deny=warnings
-	cargo clippy --all-targets --no-default-features --features minimum --quiet --no-deps -- --deny=warnings
+	cargo clippy --all-targets --no-default-features --features slim --quiet --no-deps -- --deny=warnings
 	cargo clippy --benches --features benchmark-private --quiet --no-deps -- --deny=warnings
 
 DOCKERFILES=$(wildcard Dockerfile*)
