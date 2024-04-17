@@ -1233,7 +1233,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Address>, LotusJson<u64>, LotusJson<ApiTipsetKey>);
-    type Ok = LotusJson<SectorPreCommitOnChainInfo>;
+    type Ok = SectorPreCommitOnChainInfo;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -1247,29 +1247,27 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        Ok(LotusJson(
-            match state {
-                miner::State::V8(s) => s
-                    .get_precommitted_sector(ctx.store(), sector_number)?
-                    .map(SectorPreCommitOnChainInfo::from),
-                miner::State::V9(s) => s
-                    .get_precommitted_sector(ctx.store(), sector_number)?
-                    .map(SectorPreCommitOnChainInfo::from),
-                miner::State::V10(s) => s
-                    .get_precommitted_sector(ctx.store(), sector_number)?
-                    .map(SectorPreCommitOnChainInfo::from),
-                miner::State::V11(s) => s
-                    .get_precommitted_sector(ctx.store(), sector_number)?
-                    .map(SectorPreCommitOnChainInfo::from),
-                miner::State::V12(s) => s
-                    .get_precommitted_sector(ctx.store(), sector_number)?
-                    .map(SectorPreCommitOnChainInfo::from),
-                miner::State::V13(s) => s
-                    .get_precommitted_sector(ctx.store(), sector_number)?
-                    .map(SectorPreCommitOnChainInfo::from),
-            }
-            .context("SectorPreCommitOnChainInfo not found")?,
-        ))
+        Ok(match state {
+            miner::State::V8(s) => s
+                .get_precommitted_sector(ctx.store(), sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            miner::State::V9(s) => s
+                .get_precommitted_sector(ctx.store(), sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            miner::State::V10(s) => s
+                .get_precommitted_sector(ctx.store(), sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            miner::State::V11(s) => s
+                .get_precommitted_sector(ctx.store(), sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            miner::State::V12(s) => s
+                .get_precommitted_sector(ctx.store(), sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            miner::State::V13(s) => s
+                .get_precommitted_sector(ctx.store(), sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+        }
+        .context("SectorPreCommitOnChainInfo not found")?)
     }
 }
 

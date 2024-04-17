@@ -338,8 +338,12 @@ lotus_json_with_self!(SectorOnChainInfo);
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitOnChainInfo {
-    pub info: LotusJson<SectorPreCommitInfo>,
-    pub pre_commit_deposit: LotusJson<TokenAmount>,
+    #[schemars(with = "LotusJson<SectorPreCommitInfo>")]
+    #[serde(with = "crate::lotus_json")]
+    pub info: SectorPreCommitInfo,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    pub pre_commit_deposit: TokenAmount,
     pub pre_commit_epoch: ChainEpoch,
 }
 
@@ -348,15 +352,21 @@ lotus_json_with_self!(SectorPreCommitOnChainInfo);
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitInfo {
-    pub seal_proof: LotusJson<RegisteredSealProof>,
+    #[schemars(with = "LotusJson<RegisteredSealProof>")]
+    #[serde(with = "crate::lotus_json")]
+    pub seal_proof: RegisteredSealProof,
     pub sector_number: SectorNumber,
-    #[serde(rename = "SealedCID")]
-    pub sealed_cid: LotusJson<Cid>,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(rename = "SealedCID", with = "crate::lotus_json")]
+    pub sealed_cid: Cid,
     pub seal_rand_epoch: ChainEpoch,
-    #[serde(rename = "DealIDs")]
-    pub deal_ids: LotusJson<Vec<DealID>>,
+    #[schemars(with = "LotusJson<Vec<DealID>>")]
+    #[serde(rename = "DealIDs", with = "crate::lotus_json")]
+    pub deal_ids: Vec<DealID>,
     pub expiration: ChainEpoch,
-    pub unsealed_cid: LotusJson<Option<Cid>>,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(with = "crate::lotus_json")]
+    pub unsealed_cid: Option<Cid>,
 }
 
 lotus_json_with_self!(SectorPreCommitInfo);

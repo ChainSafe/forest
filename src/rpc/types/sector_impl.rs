@@ -33,8 +33,8 @@ impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
 impl From<fil_actor_miner_state::v8::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v8::SectorPreCommitOnChainInfo) -> Self {
         Self {
-            info: LotusJson(i.info.into()),
-            pre_commit_deposit: LotusJson(i.pre_commit_deposit.into()),
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
             pre_commit_epoch: i.pre_commit_epoch,
         }
     }
@@ -43,8 +43,8 @@ impl From<fil_actor_miner_state::v8::SectorPreCommitOnChainInfo> for SectorPreCo
 impl From<fil_actor_miner_state::v9::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v9::SectorPreCommitOnChainInfo) -> Self {
         Self {
-            info: LotusJson(i.info.into()),
-            pre_commit_deposit: LotusJson(i.pre_commit_deposit.into()),
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
             pre_commit_epoch: i.pre_commit_epoch,
         }
     }
@@ -53,8 +53,8 @@ impl From<fil_actor_miner_state::v9::SectorPreCommitOnChainInfo> for SectorPreCo
 impl From<fil_actor_miner_state::v10::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v10::SectorPreCommitOnChainInfo) -> Self {
         Self {
-            info: LotusJson(i.info.into()),
-            pre_commit_deposit: LotusJson(i.pre_commit_deposit.into()),
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
             pre_commit_epoch: i.pre_commit_epoch,
         }
     }
@@ -63,8 +63,8 @@ impl From<fil_actor_miner_state::v10::SectorPreCommitOnChainInfo> for SectorPreC
 impl From<fil_actor_miner_state::v11::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v11::SectorPreCommitOnChainInfo) -> Self {
         Self {
-            info: LotusJson(i.info.into()),
-            pre_commit_deposit: LotusJson(i.pre_commit_deposit.into()),
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
             pre_commit_epoch: i.pre_commit_epoch,
         }
     }
@@ -73,8 +73,8 @@ impl From<fil_actor_miner_state::v11::SectorPreCommitOnChainInfo> for SectorPreC
 impl From<fil_actor_miner_state::v12::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v12::SectorPreCommitOnChainInfo) -> Self {
         Self {
-            info: LotusJson(i.info.into()),
-            pre_commit_deposit: LotusJson(i.pre_commit_deposit.into()),
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
             pre_commit_epoch: i.pre_commit_epoch,
         }
     }
@@ -83,8 +83,8 @@ impl From<fil_actor_miner_state::v12::SectorPreCommitOnChainInfo> for SectorPreC
 impl From<fil_actor_miner_state::v13::SectorPreCommitOnChainInfo> for SectorPreCommitOnChainInfo {
     fn from(i: fil_actor_miner_state::v13::SectorPreCommitOnChainInfo) -> Self {
         Self {
-            info: LotusJson(i.info.into()),
-            pre_commit_deposit: LotusJson(i.pre_commit_deposit.into()),
+            info: i.info.into(),
+            pre_commit_deposit: i.pre_commit_deposit.into(),
             pre_commit_epoch: i.pre_commit_epoch,
         }
     }
@@ -93,13 +93,13 @@ impl From<fil_actor_miner_state::v13::SectorPreCommitOnChainInfo> for SectorPreC
 impl From<fil_actor_miner_state::v8::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v8::SectorPreCommitInfo) -> Self {
         Self {
-            seal_proof: LotusJson(i.seal_proof.into()),
+            seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,
-            sealed_cid: LotusJson(i.sealed_cid),
+            sealed_cid: i.sealed_cid,
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: LotusJson(i.deal_ids),
+            deal_ids: i.deal_ids,
             expiration: i.expiration,
-            unsealed_cid: LotusJson(None),
+            unsealed_cid: None,
         }
     }
 }
@@ -107,13 +107,13 @@ impl From<fil_actor_miner_state::v8::SectorPreCommitInfo> for SectorPreCommitInf
 impl From<fil_actor_miner_state::v9::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v9::SectorPreCommitInfo) -> Self {
         Self {
-            seal_proof: LotusJson(i.seal_proof.into()),
+            seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,
-            sealed_cid: LotusJson(i.sealed_cid),
+            sealed_cid: i.sealed_cid,
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: LotusJson(i.deal_ids),
+            deal_ids: i.deal_ids,
             expiration: i.expiration,
-            unsealed_cid: LotusJson(i.unsealed_cid.0),
+            unsealed_cid: i.unsealed_cid.0,
         }
     }
 }
@@ -121,13 +121,13 @@ impl From<fil_actor_miner_state::v9::SectorPreCommitInfo> for SectorPreCommitInf
 impl From<fil_actor_miner_state::v10::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v10::SectorPreCommitInfo) -> Self {
         Self {
-            seal_proof: LotusJson(i.seal_proof.into()),
+            seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,
-            sealed_cid: LotusJson(i.sealed_cid),
+            sealed_cid: i.sealed_cid,
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: LotusJson(i.deal_ids),
+            deal_ids: i.deal_ids,
             expiration: i.expiration,
-            unsealed_cid: LotusJson(i.unsealed_cid.0),
+            unsealed_cid: i.unsealed_cid.0,
         }
     }
 }
@@ -135,13 +135,13 @@ impl From<fil_actor_miner_state::v10::SectorPreCommitInfo> for SectorPreCommitIn
 impl From<fil_actor_miner_state::v11::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v11::SectorPreCommitInfo) -> Self {
         Self {
-            seal_proof: LotusJson(i.seal_proof.into()),
+            seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,
-            sealed_cid: LotusJson(i.sealed_cid),
+            sealed_cid: i.sealed_cid,
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: LotusJson(i.deal_ids),
+            deal_ids: i.deal_ids,
             expiration: i.expiration,
-            unsealed_cid: LotusJson(i.unsealed_cid.0),
+            unsealed_cid: i.unsealed_cid.0,
         }
     }
 }
@@ -149,13 +149,13 @@ impl From<fil_actor_miner_state::v11::SectorPreCommitInfo> for SectorPreCommitIn
 impl From<fil_actor_miner_state::v12::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v12::SectorPreCommitInfo) -> Self {
         Self {
-            seal_proof: LotusJson(i.seal_proof.into()),
+            seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,
-            sealed_cid: LotusJson(i.sealed_cid),
+            sealed_cid: i.sealed_cid,
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: LotusJson(i.deal_ids),
+            deal_ids: i.deal_ids,
             expiration: i.expiration,
-            unsealed_cid: LotusJson(i.unsealed_cid.0),
+            unsealed_cid: i.unsealed_cid.0,
         }
     }
 }
@@ -163,13 +163,13 @@ impl From<fil_actor_miner_state::v12::SectorPreCommitInfo> for SectorPreCommitIn
 impl From<fil_actor_miner_state::v13::SectorPreCommitInfo> for SectorPreCommitInfo {
     fn from(i: fil_actor_miner_state::v13::SectorPreCommitInfo) -> Self {
         Self {
-            seal_proof: LotusJson(i.seal_proof.into()),
+            seal_proof: i.seal_proof.into(),
             sector_number: i.sector_number,
-            sealed_cid: LotusJson(i.sealed_cid),
+            sealed_cid: i.sealed_cid,
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: LotusJson(i.deal_ids),
+            deal_ids: i.deal_ids,
             expiration: i.expiration,
-            unsealed_cid: LotusJson(i.unsealed_cid.0),
+            unsealed_cid: i.unsealed_cid.0,
         }
     }
 }
