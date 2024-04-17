@@ -860,6 +860,36 @@ impl MinerSectors {
 
 lotus_json_with_self!(MinerSectors);
 
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct MinerPartitions {
+    all_sectors: BitField,
+    faulty_sectors: BitField,
+    recovering_sectors: BitField,
+    live_sectors: BitField,
+    active_sectors: BitField,
+}
+
+impl MinerPartitions {
+    pub fn new(
+        all_sectors: &BitField,
+        faulty_sectors: &BitField,
+        recovering_sectors: &BitField,
+        live_sectors: BitField,
+        active_sectors: BitField,
+    ) -> Self {
+        Self {
+            all_sectors: all_sectors.clone(),
+            faulty_sectors: faulty_sectors.clone(),
+            recovering_sectors: recovering_sectors.clone(),
+            live_sectors: live_sectors.clone(),
+            active_sectors: active_sectors.clone(),
+        }
+    }
+}
+
+lotus_json_with_self!(MinerPartitions);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageFilter {
