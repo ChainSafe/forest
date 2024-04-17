@@ -888,35 +888,42 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
 fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
     state: &StateTree<DB>,
-) -> Result<Address> {
+) -> Result<Option<Address>> {
     // Attempt to convert directly, if it's an f4 address.
     if let Ok(eth_addr) = Address::from_filecoin_address(addr) {
         if !eth_addr.is_masked_id() {
-            return Ok(eth_addr);
+            return Ok(Some(eth_addr));
         }
     }
 
     // Otherwise, resolve the ID addr.
-    let id_addr = state.lookup_id(addr)?;
+    let id_addr = match state.lookup_id(addr)? {
+        Some(id) => id,
+        _ => return Ok(None),
+    };
 
     // Lookup on the target actor and try to get an f410 address.
-    if let Some(actor_state) = state.get_actor(addr)? {
+    let result = state.get_actor(addr);
+    if let Ok(Some(actor_state)) = result {
         if let Some(addr) = actor_state.delegated_address {
             if let Ok(eth_addr) = Address::from_filecoin_address(&addr.into()) {
                 if !eth_addr.is_masked_id() {
                     // Conversable into an eth address, use it.
-                    return Ok(eth_addr);
+                    return Ok(Some(eth_addr));
                 }
             }
         } else {
             // No delegated address -> use a masked ID address
         }
-    } else {
+    } else if let Ok(None) = result {
         // Not found -> use a masked ID address
+    } else {
+        // Any other error -> fail.
+        result?;
     }
 
     // Otherwise, use the masked address.
-    Ok(Address::from_actor_id(id_addr.unwrap()))
+    Ok(Some(Address::from_actor_id(id_addr)))
 }
 
 /// See https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector-and-argument-encoding
@@ -1009,26 +1016,22 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     chain_id: u32,
 ) -> Result<Tx> {
     // Lookup the from address. This must succeed.
-    let from = lookup_eth_address(&msg.from(), state).with_context(|| {
-        format!(
+    let from = match lookup_eth_address(&msg.from(), state) {
+        Ok(Some(from)) => from,
+        _ => bail!(
             "failed to lookup sender address {} when converting a native message to an eth txn",
             msg.from()
-        )
-    })?;
+        ),
+    };
     // Lookup the to address. If the recipient doesn't exist, we replace the address with a
     // known sentinel address.
     let mut to = match lookup_eth_address(&msg.to(), state) {
-        Ok(addr) => Some(addr),
-        Err(_err) => {
-            // TODO: bail in case of not "actor not found" errors
-            Some(Address(ethereum_types::H160::from_str(
-                REVERTED_ETH_ADDRESS,
-            )?))
-
-            // bail!(
-            //     "failed to lookup receiver address {} when converting a native message to an eth txn",
-            //     msg.to()
-            // )
+        Ok(Some(addr)) => Some(addr),
+        Ok(None) => Some(Address(
+            ethereum_types::H160::from_str(REVERTED_ETH_ADDRESS).unwrap(),
+        )),
+        Err(err) => {
+            bail!(err)
         }
     };
 
