@@ -871,7 +871,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 tipset.key().into(),
             )));
-            tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
+            tests.push(RpcTest::identity_raw(ApiInfo::state_miner_deadlines_req(
                 block.miner_address,
                 tipset.key().into(),
             )));
@@ -908,7 +908,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().into(),
         )));
-        tests.push(RpcTest::identity(
+        tests.push(RpcTest::identity_raw(
             ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().into()),
         ));
 

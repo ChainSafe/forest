@@ -84,7 +84,7 @@ async fn get_actor_sequence(
 ) -> Option<u64> {
     let address = message.from;
     let get_actor_result = StateGetActor::call(
-        &client,
+        client,
         (address.into(), LotusJson(tipset.key().clone().into())),
     )
     .await;
