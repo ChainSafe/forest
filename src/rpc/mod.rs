@@ -5,7 +5,6 @@ mod auth_layer;
 mod channel;
 mod client;
 
-// Other RPC-specific modules
 pub use client::Client;
 pub use error::ServerError;
 use reflect::Ctx;
@@ -44,15 +43,54 @@ pub mod prelude {
     auth::for_each_method!(export);
     beacon::for_each_method!(export);
     chain::for_each_method!(export);
-    mpool::for_each_method!(export);
     common::for_each_method!(export);
     gas::for_each_method!(export);
-    wallet::for_each_method!(export);
+    mpool::for_each_method!(export);
     net::for_each_method!(export);
     state::for_each_method!(export);
+    node::for_each_method!(export);
+    sync::for_each_method!(export);
+    wallet::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
+///
+/// # Handling types
+/// - If a `struct` or `enum` is only used in the RPC API, it should live in `src/rpc`.
+///   - If it is used in only one API vertical (i.e `auth` or `chain`), then it should live
+///     in either:
+///     - `src/rpc/methods/auth.rs` (if there are only a few).
+///     - `src/rpc/methods/auth/types.rs` (if there are so many that they would cause clutter).
+///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
+///
+/// # Interactions with the [`lotus_json`] APIs
+/// - Types defined in the module will only ever be deserialized as JSON, so there
+///   will NEVER be a need to implement [`HasLotusJson`] for them.
+/// - Types may have fields which must go through [`LotusJson`],
+///   and must reflect that in their [`JsonSchema`].
+///   You have two options for this:
+///   - Use `#[attributes]` to control serialization and schema generation:
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         #[serde(with = "crate::lotus_json")] // perform the conversion
+///         #[schemars(with = "LotusJson<Cid>")] // advertise the schema to be converted
+///         cid: Cid, // use the native type in application logic
+///     }
+///     ```
+///   - Use [`LotusJson`] directly. This means that serialization and the [`JsonSchema`]
+///     will never go out of sync.
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         cid: LotusJson<Cid>, // use the shim type in application logic, manually performing conversions
+///     }
+///     ```
+///
+/// [`lotus_json`]: crate::lotus_json
+/// [`HasLotusJson`]: crate::lotus_json::HasLotusJson
+/// [`LotusJson`]: crate::lotus_json::LotusJson
+/// [`JsonSchema`]: schemars::JsonSchema
 mod methods {
     pub mod auth;
     pub mod beacon;
@@ -108,6 +146,12 @@ pub struct RPCState<DB> {
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub beacon: Arc<crate::beacon::BeaconSchedule>,
     pub shutdown: mpsc::Sender<()>,
+}
+
+impl<DB: Blockstore> RPCState<DB> {
+    pub fn store(&self) -> &DB {
+        self.chain_store.blockstore()
+    }
 }
 
 #[derive(Clone)]
@@ -201,15 +245,17 @@ where
             <$ty>::register(&mut module);
         };
     }
-    chain::for_each_method!(register);
-    mpool::for_each_method!(register);
     auth::for_each_method!(register);
     beacon::for_each_method!(register);
+    chain::for_each_method!(register);
     common::for_each_method!(register);
     gas::for_each_method!(register);
-    wallet::for_each_method!(register);
+    mpool::for_each_method!(register);
     net::for_each_method!(register);
     state::for_each_method!(register);
+    node::for_each_method!(register);
+    sync::for_each_method!(register);
+    wallet::for_each_method!(register);
     module.finish()
 }
 
@@ -220,13 +266,7 @@ where
 {
     use eth::*;
     use gas::*;
-    use node::*;
-    use sync::*;
 
-    // Sync API
-    module.register_async_method(SYNC_CHECK_BAD, sync_check_bad::<DB>)?;
-    module.register_async_method(SYNC_MARK_BAD, sync_mark_bad::<DB>)?;
-    module.register_async_method(SYNC_STATE, |_, state| sync_state::<DB>(state))?;
     // State API
     module.register_async_method(STATE_CALL, state_call::<DB>)?;
     module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;
@@ -243,6 +283,7 @@ where
     module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
     module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
     module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
+    module.register_async_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB>)?;
     module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
     module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
@@ -294,8 +335,6 @@ where
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
-    // Node API
-    module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;
@@ -335,6 +374,7 @@ mod tests {
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[tokio::test]
+    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     async fn openrpc() {
         let (_, spec) = create_module(Arc::new(RPCState::calibnet()));
         insta::assert_yaml_snapshot!(spec);

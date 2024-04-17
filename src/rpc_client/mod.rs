@@ -4,9 +4,7 @@
 mod chain_ops;
 mod eth_ops;
 mod gas_ops;
-mod node_ops;
 mod state_ops;
-mod sync_ops;
 
 use crate::libp2p::{Multiaddr, Protocol};
 use crate::lotus_json::HasLotusJson;
@@ -174,10 +172,6 @@ impl<T> RpcRequest<T> {
             api_version: self.api_version,
             timeout: self.timeout,
         }
-    }
-    /// Discard type information about the response.
-    pub fn lower(self) -> RpcRequest {
-        self.map_ty()
     }
 }
 

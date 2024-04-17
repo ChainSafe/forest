@@ -141,7 +141,7 @@ mod lotus_json {
     #[cfg(test)]
     use serde_json::json;
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, schemars::JsonSchema)]
     #[serde(rename_all = "PascalCase")]
     pub struct SyncStateLotusJson {
         #[serde(skip_serializing_if = "LotusJson::is_none", default)]

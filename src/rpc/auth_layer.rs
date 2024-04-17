@@ -65,6 +65,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Message Pool API
     access.insert(mpool::MpoolGetNonce::NAME, Access::Read);
     access.insert(mpool::MpoolPending::NAME, Access::Read);
+    access.insert(mpool::MpoolSelect::NAME, Access::Read);
     // Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
     // can always be pushed over the p2p protocol, limiting the RPC doesn't
     // improve security.
@@ -72,9 +73,9 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(mpool::MpoolPushMessage::NAME, Access::Sign);
 
     // Sync API
-    access.insert(sync::SYNC_CHECK_BAD, Access::Read);
-    access.insert(sync::SYNC_MARK_BAD, Access::Admin);
-    access.insert(sync::SYNC_STATE, Access::Read);
+    access.insert(sync::SyncCheckBad::NAME, Access::Read);
+    access.insert(sync::SyncMarkBad::NAME, Access::Admin);
+    access.insert(sync::SyncState::NAME, Access::Read);
 
     // Wallet API
     access.insert(wallet::WalletBalance::NAME, Access::Read);
@@ -123,6 +124,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_LIST_MINERS, Access::Read);
     access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
     access.insert(state::STATE_MINER_SECTORS, Access::Read);
+    access.insert(state::STATE_MINER_PARTITIONS, Access::Read);
     access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
     access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
     access.insert(state::STATE_VM_CIRCULATING_SUPPLY_INTERNAL, Access::Read);
@@ -130,6 +132,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::MSIG_GET_PENDING, Access::Read);
     access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
     access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
+    access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
     // Gas API
     access.insert(gas::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
@@ -155,7 +158,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net::NetVersion::NAME, Access::Read);
 
     // Node API
-    access.insert(node::NODE_STATUS, Access::Read);
+    access.insert(node::NodeStatus::NAME, Access::Read);
 
     // Eth API
     access.insert(eth::ETH_ACCOUNTS, Access::Read);

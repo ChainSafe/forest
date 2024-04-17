@@ -35,6 +35,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
+      - RUST_LOG=info,forest_filecoin::rpc=debug
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
@@ -63,6 +64,7 @@ services:
       - api-tests
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
+      - RUST_LOG=info,forest_filecoin::rpc=debug
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
@@ -128,6 +130,8 @@ services:
       - ./filter-list:/data/filter-list
     networks:
       - api-tests
+    environment:
+      - RUST_LOG=info,forest_filecoin::tool::subcommands=debug
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
@@ -149,6 +153,8 @@ services:
       - ./filter-list-offline:/data/filter-list-offline
     networks:
       - api-tests
+    environment:
+      - RUST_LOG=info,forest_filecoin::tool::subcommands=debug
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |

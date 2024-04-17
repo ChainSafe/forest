@@ -1,53 +1,79 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
-use crate::chain_sync::SyncState;
 use crate::lotus_json::LotusJson;
-use crate::rpc::error::ServerError;
-use crate::rpc::types::RPCSyncState;
-use crate::rpc::Ctx;
-
-use anyhow::Result;
+use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
-use nonempty::nonempty;
-use parking_lot::RwLock;
+use nonempty::{nonempty, NonEmpty};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-pub const SYNC_CHECK_BAD: &str = "Filecoin.SyncCheckBad";
-pub const SYNC_MARK_BAD: &str = "Filecoin.SyncMarkBad";
-pub const SYNC_STATE: &str = "Filecoin.SyncState";
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::sync::SyncCheckBad);
+        $callback!(crate::rpc::sync::SyncMarkBad);
+        $callback!(crate::rpc::sync::SyncState);
+    };
+}
+pub(crate) use for_each_method;
 
-/// Checks if a given block is marked as bad.
-pub async fn sync_check_bad<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((cid,)) = params.parse()?;
+pub enum SyncCheckBad {}
+impl RpcMethod<1> for SyncCheckBad {
+    const NAME: &'static str = "Filecoin.SyncCheckBad";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    Ok(data.bad_blocks.peek(&cid).unwrap_or_default())
+    type Params = (LotusJson<Cid>,);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(ctx.bad_blocks.peek(&cid).unwrap_or_default())
+    }
 }
 
-/// Marks a block as bad, meaning it will never be synced.
-pub async fn sync_mark_bad<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<(), ServerError> {
-    let LotusJson((cid,)) = params.parse()?;
+pub enum SyncMarkBad {}
+impl RpcMethod<1> for SyncMarkBad {
+    const NAME: &'static str = "Filecoin.SyncMarkBad";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    data.bad_blocks
-        .put(cid, "Marked bad manually through RPC API".to_string());
-    Ok(())
+    type Params = (LotusJson<Cid>,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(cid),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        ctx.bad_blocks
+            .put(cid, "Marked bad manually through RPC API".to_string());
+        Ok(())
+    }
 }
 
-async fn clone_state(state: &RwLock<SyncState>) -> SyncState {
-    state.read().clone()
+pub enum SyncState {}
+impl RpcMethod<0> for SyncState {
+    const NAME: &'static str = "Filecoin.SyncState";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = RPCSyncState;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let active_syncs = LotusJson(nonempty![ctx.sync_state.as_ref().read().clone()]);
+        Ok(RPCSyncState { active_syncs })
+    }
 }
 
-/// Returns the current status of the `ChainSync` process.
-pub async fn sync_state<DB: Blockstore>(data: Ctx<DB>) -> Result<RPCSyncState, ServerError> {
-    let active_syncs = nonempty![clone_state(data.sync_state.as_ref()).await];
-    Ok(RPCSyncState { active_syncs })
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct RPCSyncState {
+    #[schemars(with = "LotusJson<Vec<crate::chain_sync::SyncState>>")]
+    pub active_syncs: LotusJson<NonEmpty<crate::chain_sync::SyncState>>,
 }
 
 #[cfg(test)]
@@ -68,7 +94,6 @@ mod tests {
     use crate::shim::address::Address;
     use crate::state_manager::StateManager;
     use crate::utils::encoding::from_slice_with_fallback;
-    use jsonrpsee::types::params::Params;
     use tokio::sync::mpsc;
     use tokio::{sync::RwLock, task::JoinSet};
 
@@ -76,7 +101,7 @@ mod tests {
 
     const TEST_NET_NAME: &str = "test";
 
-    fn state_setup() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
+    fn ctx() -> (Arc<RPCState<MemoryDB>>, flume::Receiver<NetworkMessage>) {
         let beacon = Arc::new(BeaconSchedule(vec![BeaconPoint {
             height: 0,
             beacon: Box::<MockBeacon>::default(),
@@ -151,51 +176,49 @@ mod tests {
 
     #[tokio::test]
     async fn set_check_bad() {
-        let (state, _) = state_setup();
+        let (ctx, _) = ctx();
 
-        let cid = r#"[{"/":"bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"}]"#;
+        let cid = "bafy2bzacea3wsdh6y3a36tb3skempjoxqpuyompjbmfeyf34fi3uy6uue42v4"
+            .parse::<Cid>()
+            .unwrap();
 
-        match sync_check_bad(Params::new(Some(cid)), state.clone()).await {
-            Ok(reason) => assert_eq!(reason, ""),
-            Err(e) => std::panic::panic_any(e),
-        }
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
+            .await
+            .unwrap();
+        assert_eq!(reason, "");
 
         // Mark that block as bad manually and check again to verify
-        assert!(sync_mark_bad(Params::new(Some(cid)), state.clone())
+        SyncMarkBad::handle(ctx.clone(), (cid.into(),))
             .await
-            .is_ok());
-        match sync_check_bad(Params::new(Some(cid)), state.clone()).await {
-            Ok(reason) => assert_eq!(reason, "Marked bad manually through RPC API"),
-            Err(e) => std::panic::panic_any(e),
-        }
+            .unwrap();
+
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
+            .await
+            .unwrap();
+        assert_eq!(reason, "Marked bad manually through RPC API");
     }
 
     #[tokio::test]
     async fn sync_state_test() {
-        let (state, _) = state_setup();
+        let (ctx, _) = ctx();
 
-        let st_copy = state.sync_state.clone();
+        let st_copy = ctx.sync_state.clone();
 
-        match sync_state(state.clone()).await {
-            Ok(ret) => assert_eq!(
-                ret.active_syncs,
-                nonempty![clone_state(st_copy.as_ref()).await]
-            ),
-            Err(e) => std::panic::panic_any(e),
-        }
+        let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
+        assert_eq!(
+            ret.active_syncs,
+            nonempty![st_copy.as_ref().read().clone()].into()
+        );
 
         // update cloned state
         st_copy.write().set_stage(SyncStage::Messages);
         st_copy.write().set_epoch(4);
 
-        match sync_state(state.clone()).await {
-            Ok(ret) => {
-                assert_eq!(
-                    ret.active_syncs,
-                    nonempty![clone_state(st_copy.as_ref()).await]
-                );
-            }
-            Err(e) => std::panic::panic_any(e),
-        }
+        let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
+
+        assert_eq!(
+            ret.active_syncs,
+            nonempty![st_copy.as_ref().read().clone()].into()
+        );
     }
 }

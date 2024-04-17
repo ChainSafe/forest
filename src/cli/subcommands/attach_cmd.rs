@@ -275,17 +275,18 @@ async fn sleep(params: SleepParams, _api: ApiInfo) -> anyhow::Result<SleepResult
 }
 
 async fn sleep_tipsets(epochs: ChainEpochDelta, api: ApiInfo) -> anyhow::Result<()> {
+    let client = rpc::Client::from(api);
     let mut epoch = None;
     loop {
-        let state = api.sync_status().await?;
-        if state.active_syncs.first().stage() == SyncStage::Complete {
+        let state = SyncState::call(&client, ()).await?;
+        if state.active_syncs.as_ref().first().stage() == SyncStage::Complete {
             if let Some(prev) = epoch {
-                let curr = state.active_syncs.first().epoch();
+                let curr = state.active_syncs.as_ref().first().epoch();
                 if (curr - prev) >= epochs {
                     return Ok(());
                 }
             } else {
-                epoch = Some(state.active_syncs.first().epoch());
+                epoch = Some(state.active_syncs.as_ref().first().epoch());
             }
         }
         time::sleep(time::Duration::from_secs(1)).await;
@@ -323,15 +324,7 @@ impl AttachCommand {
         // Add custom object that mimics `module.exports`
         set_module(context);
 
-        bind_request!(context, api,
-                // Node API
-                "node_status" => |()| ApiInfo::node_status_req(),
-
-                // Sync API
-                "sync_check_bad" => ApiInfo::sync_check_bad_req,
-                "sync_mark_bad"  => ApiInfo::sync_mark_bad_req,
-                "sync_status"    => |()| ApiInfo::sync_status_req(),
-        );
+        bind_request!(context, api,);
 
         // Bind send_message, sleep, sleep_tipsets
         bind_async(context, &api, "send_message", send_message);
