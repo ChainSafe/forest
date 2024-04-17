@@ -374,6 +374,7 @@ mod tests {
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[tokio::test]
+    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     async fn openrpc() {
         let (_, spec) = create_module(Arc::new(RPCState::calibnet()));
         insta::assert_yaml_snapshot!(spec);
