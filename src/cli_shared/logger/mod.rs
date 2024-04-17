@@ -40,8 +40,11 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
         ));
     }
 
-    #[cfg(feature = "tokio-console")]
     if opts.tokio_console {
+        #[cfg(not(feature = "tokio-console"))]
+        tracing::warn!("`tokio-console` is unavailable, forest binaries need to be recompiled with `tokio-console` feature");
+
+        #[cfg(feature = "tokio-console")]
         layers.push(Box::new(
             console_subscriber::ConsoleLayer::builder()
                 .with_default_env()
@@ -49,42 +52,56 @@ pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
         ));
     }
 
-    #[cfg(feature = "tracing-loki")]
     if opts.loki {
-        let (layer, task) = tracing_loki::layer(
-            tracing_loki::url::Url::parse(&opts.loki_endpoint)
-                .map_err(|e| format!("Unable to parse loki endpoint {}: {e}", &opts.loki_endpoint))
-                .unwrap(),
-            vec![(
-                "host".into(),
-                gethostname::gethostname()
-                    .to_str()
-                    .unwrap_or_default()
-                    .into(),
-            )]
-            .into_iter()
-            .collect(),
-            Default::default(),
-        )
-        .map_err(|e| format!("Unable to create loki layer: {e}"))
-        .unwrap();
-        background_tasks.push(Box::pin(task));
-        layers.push(Box::new(
-            layer.with_filter(tracing_subscriber::filter::LevelFilter::DEBUG),
-        ));
+        #[cfg(not(feature = "tracing-loki"))]
+        tracing::warn!("`tracing-loki` is unavailable, forest binaries need to be recompiled with `tracing-loki` feature");
+
+        #[cfg(feature = "tracing-loki")]
+        {
+            let (layer, task) = tracing_loki::layer(
+                tracing_loki::url::Url::parse(&opts.loki_endpoint)
+                    .map_err(|e| {
+                        format!("Unable to parse loki endpoint {}: {e}", &opts.loki_endpoint)
+                    })
+                    .unwrap(),
+                vec![(
+                    "host".into(),
+                    gethostname::gethostname()
+                        .to_str()
+                        .unwrap_or_default()
+                        .into(),
+                )]
+                .into_iter()
+                .collect(),
+                Default::default(),
+            )
+            .map_err(|e| format!("Unable to create loki layer: {e}"))
+            .unwrap();
+            background_tasks.push(Box::pin(task));
+            layers.push(Box::new(
+                layer.with_filter(tracing_subscriber::filter::LevelFilter::DEBUG),
+            ));
+        }
     }
 
     // Go to <https://ui.perfetto.dev> to browse trace files.
     // You may want to call ChromeLayerBuilder::trace_style as appropriate
-    #[cfg(feature = "tracing-chrome")]
-    if let Some((layer, guard)) =
-        std::env::var_os("CHROME_TRACE_FILE").map(|path| match path.is_empty() {
-            true => tracing_chrome::ChromeLayerBuilder::new().build(),
-            false => tracing_chrome::ChromeLayerBuilder::new().file(path).build(),
-        })
-    {
-        guards.tracing_chrome = Some(guard);
-        layers.push(Box::new(layer));
+    if let Some(_chrome_trace_file) = std::env::var_os("CHROME_TRACE_FILE") {
+        #[cfg(not(feature = "tracing-chrome"))]
+        tracing::warn!("`tracing-chrome` is unavailable, forest binaries need to be recompiled with `tracing-chrome` feature");
+
+        #[cfg(feature = "tracing-chrome")]
+        {
+            let (layer, guard) = match _chrome_trace_file.is_empty() {
+                true => tracing_chrome::ChromeLayerBuilder::new().build(),
+                false => tracing_chrome::ChromeLayerBuilder::new()
+                    .file(_chrome_trace_file)
+                    .build(),
+            };
+
+            guards.tracing_chrome = Some(guard);
+            layers.push(Box::new(layer));
+        }
     }
 
     tracing_subscriber::registry().with(layers).init();

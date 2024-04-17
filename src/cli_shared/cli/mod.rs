@@ -125,15 +125,12 @@ pub struct CliOpts {
     pub color: LoggingColor,
     /// Turn on tokio-console support for debugging.
     /// Memory leak, see <https://github.com/tokio-rs/console/pull/501>.
-    #[cfg(feature = "tokio-console")]
     #[arg(long)]
     pub tokio_console: bool,
     /// Send telemetry to `grafana loki`
-    #[cfg(feature = "tracing-loki")]
     #[arg(long)]
     pub loki: bool,
     /// Endpoint of `grafana loki`
-    #[cfg(feature = "tracing-loki")]
     #[arg(long, default_value = "http://127.0.0.1:3100")]
     pub loki_endpoint: String,
     /// Specify a directory into which rolling log files should be appended
