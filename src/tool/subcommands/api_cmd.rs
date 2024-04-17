@@ -738,6 +738,15 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 shared_tipset_key.into(),
             )));
+            for sector in
+                StateSectorPreCommitInfo::get_sectors(&store, &block.miner_address, &tipset)?
+            {
+                tests.push(RpcTest::identity_raw(StateSectorPreCommitInfo::request((
+                    block.miner_address.into(),
+                    sector.into(),
+                    LotusJson(tipset.key().into()),
+                ))?));
+            }
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages.into_iter().unique() {

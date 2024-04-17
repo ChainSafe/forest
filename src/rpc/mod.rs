@@ -111,6 +111,12 @@ pub struct RPCState<DB> {
     pub shutdown: mpsc::Sender<()>,
 }
 
+impl<DB: Blockstore> RPCState<DB> {
+    pub fn store(&self) -> &DB {
+        self.chain_store.blockstore()
+    }
+}
+
 #[derive(Clone)]
 struct PerConnection<RpcMiddleware, HttpMiddleware> {
     methods: Methods,
