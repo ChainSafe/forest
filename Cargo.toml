@@ -199,11 +199,11 @@ walkdir = "2"
 zstd = "0.13"
 
 # Optional deps
-## memory leak, see https://github.com/tokio-rs/console/pull/501
 boa_engine = { version = "0.18", optional = true }
 boa_interner = { version = "0.18", optional = true }
 boa_parser = { version = "0.18", optional = true }
 boa_runtime = { version = "0.18", optional = true }
+## memory leak, see https://github.com/tokio-rs/console/pull/501
 console-subscriber = { version = "0.2", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1.39", optional = true, default-features = false }
 tikv-jemallocator = { version = "0.5", optional = true }
