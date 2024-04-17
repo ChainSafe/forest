@@ -54,6 +54,43 @@ pub mod prelude {
 }
 
 /// All the methods live in their own folder
+///
+/// # Handling types
+/// - If a `struct` or `enum` is only used in the RPC API, it should live in `src/rpc`.
+///   - If it is used in only one API vertical (i.e `auth` or `chain`), then it should live
+///     in either:
+///     - `src/rpc/methods/auth.rs` (if there are only a few).
+///     - `src/rpc/methods/auth/types.rs` (if there are so many that they would cause clutter).
+///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
+///
+/// # Interactions with the [`lotus_json`] APIs
+/// - Types defined in the module will only ever be deserialized as JSON, so there
+///   will NEVER be a need to implement [`HasLotusJson`] for them.
+/// - Types may have fields which must go through [`LotusJson`],
+///   and must reflect that in their [`JsonSchema`].
+///   You have two options for this:
+///   - Use `#[attributes]` to control serialization and schema generation:
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         #[serde(with = "crate::lotus_json")] // perform the conversion
+///         #[schemars(with = "LotusJson<Cid>")] // advertise the schema to be converted
+///         cid: Cid, // use the native type in application logic
+///     }
+///     ```
+///   - Use [`LotusJson`] directly. This means that serialization and the [`JsonSchema`]
+///     will never go out of sync.
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         cid: LotusJson<Cid>, // use the shim type in application logic, manually performing conversions
+///     }
+///     ```
+///
+/// [`lotus_json`]: crate::lotus_json
+/// [`HasLotusJson`]: crate::lotus_json::HasLotusJson
+/// [`LotusJson`]: crate::lotus_json::LotusJson
+/// [`JsonSchema`]: schemars::JsonSchema
 mod methods {
     pub mod auth;
     pub mod beacon;
