@@ -1347,4 +1347,15 @@ mod test {
             assert_eq!(eth_addr, decoded);
         }
     }
+
+    #[quickcheck]
+    fn test_fil_address_roundtrip(addr: FilecoinAddress) {
+        if let Ok(eth_addr) = Address::from_filecoin_address(&addr) {
+            let fil_addr = eth_addr.to_filecoin_address().unwrap();
+
+            let protocol = addr.protocol();
+            assert!(protocol == Protocol::ID || protocol == Protocol::Delegated);
+            assert_eq!(addr, fil_addr);
+        }
+    }
 }
