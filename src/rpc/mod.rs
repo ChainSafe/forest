@@ -246,6 +246,7 @@ where
     module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
     module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
     module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
+    module.register_async_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB>)?;
     module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
     module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;

@@ -95,6 +95,7 @@ pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
 pub const MSIG_GET_AVAILABLE_BALANCE: &str = "Filecoin.MsigGetAvailableBalance";
 pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
 pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
+pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
 
 pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
@@ -327,6 +328,38 @@ pub async fn state_miner_active_sectors<DB: Blockstore>(
         .collect::<Vec<_>>();
 
     Ok(LotusJson(sectors))
+}
+
+// Return all partitions in the specified deadline
+pub async fn state_miner_partitions<DB: Blockstore>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<Vec<MinerPartitions>>, ServerError> {
+    let LotusJson((miner, dl_idx, ApiTipsetKey(tsk))): LotusJson<(Address, u64, ApiTipsetKey)> =
+        params.parse()?;
+
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+    let policy = &data.state_manager.chain_config().policy;
+    let actor = data
+        .state_manager
+        .get_actor(&miner, *ts.parent_state())?
+        .context("Miner actor address could not be resolved")?;
+    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+    let deadline = miner_state.load_deadline(policy, bs, dl_idx)?;
+    let mut all_partitions = Vec::new();
+    deadline.for_each(bs, |_partidx, partition| {
+        all_partitions.push(MinerPartitions::new(
+            partition.all_sectors(),
+            partition.faulty_sectors(),
+            partition.recovering_sectors(),
+            partition.live_sectors(),
+            partition.active_sectors(),
+        ));
+        Ok(())
+    })?;
+
+    Ok(LotusJson(all_partitions))
 }
 
 pub async fn state_miner_sectors<DB: Blockstore>(
