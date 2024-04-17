@@ -44,7 +44,6 @@ where
                 Subcommand::Send(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Info(cmd) => cmd.run(api).await,
                 Subcommand::Snapshot(cmd) => cmd.run(api).await,
-                #[cfg(feature = "attach")]
                 Subcommand::Attach(cmd) => cmd.run(api),
                 Subcommand::Shutdown(cmd) => cmd.run(rpc::Client::from(api)).await,
             }
