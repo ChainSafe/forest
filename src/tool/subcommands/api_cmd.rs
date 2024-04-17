@@ -581,6 +581,11 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             sectors,
             shared_tipset.key().into(),
         )),
+        RpcTest::identity(ApiInfo::state_miner_partitions_req(
+            shared_block.miner_address,
+            0,
+            shared_tipset.key().into(),
+        )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
@@ -733,6 +738,15 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 shared_tipset_key.into(),
             )));
+            for sector in
+                StateSectorPreCommitInfo::get_sectors(&store, &block.miner_address, &tipset)?
+            {
+                tests.push(RpcTest::identity_raw(StateSectorPreCommitInfo::request((
+                    block.miner_address.into(),
+                    sector.into(),
+                    LotusJson(tipset.key().into()),
+                ))?));
+            }
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages.into_iter().unique() {
