@@ -4,8 +4,9 @@
 use std::sync::Arc;
 
 use crate::chain::*;
+use crate::lotus_json::LotusJson;
 use crate::networks::{ChainConfig, Height};
-use crate::rpc::types::CirculatingSupply;
+use crate::rpc::state::CirculatingSupply;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
@@ -82,7 +83,7 @@ impl GenesisInfo {
     ) -> Result<TokenAmount, anyhow::Error> {
         let detailed = self.get_vm_circulating_supply_detailed(height, db, root)?;
 
-        Ok(detailed.fil_circulating)
+        Ok(detailed.fil_circulating.into_inner())
     }
 
     /// Calculate total FIL circulating supply based on Genesis configuration and state of particular
@@ -95,19 +96,22 @@ impl GenesisInfo {
     ) -> anyhow::Result<CirculatingSupply> {
         let state_tree = StateTree::new_from_root(Arc::clone(db), root)?;
 
-        let fil_vested = get_fil_vested(self, height);
-        let fil_mined = get_fil_mined(&state_tree)?;
-        let fil_burnt = get_fil_burnt(&state_tree)?;
-        let fil_locked = get_fil_locked(&state_tree)?;
+        let fil_vested = LotusJson(get_fil_vested(self, height));
+        let fil_mined = LotusJson(get_fil_mined(&state_tree)?);
+        let fil_burnt = LotusJson(get_fil_burnt(&state_tree)?);
+        let fil_locked = LotusJson(get_fil_locked(&state_tree)?);
         let fil_reserve_disbursed = if height > self.actors_v2_height {
-            get_fil_reserve_disbursed(&state_tree)?
+            LotusJson(get_fil_reserve_disbursed(&state_tree)?)
         } else {
-            TokenAmount::default()
+            Default::default()
         };
         let fil_circulating = TokenAmount::max(
-            &fil_vested + &fil_mined + &fil_reserve_disbursed - &fil_burnt - &fil_locked,
+            fil_vested.as_ref() + fil_mined.as_ref() + fil_reserve_disbursed.as_ref()
+                - fil_burnt.as_ref()
+                - fil_locked.as_ref(),
             TokenAmount::default(),
-        );
+        )
+        .into();
         Ok(CirculatingSupply {
             fil_vested,
             fil_mined,

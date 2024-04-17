@@ -529,11 +529,14 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let mut sectors = BitField::new();
     sectors.set(101);
     vec![
-        RpcTest::identity(ApiInfo::state_network_name_req()),
-        RpcTest::identity(ApiInfo::state_get_actor_req(
-            Address::SYSTEM_ACTOR,
-            shared_tipset.key().clone(),
-        )),
+        RpcTest::identity_raw(StateNetworkName::request(()).unwrap()),
+        RpcTest::identity_raw(
+            StateGetActor::request((
+                Address::SYSTEM_ACTOR.into(),
+                LotusJson(shared_tipset.key().into()),
+            ))
+            .unwrap(),
+        ),
         RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
             shared_tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,

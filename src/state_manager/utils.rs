@@ -244,7 +244,7 @@ mod test {
 
 /// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
-    use crate::rpc::types::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
+    use crate::rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
     use std::collections::VecDeque;
 
     use crate::shim::{
@@ -395,7 +395,7 @@ pub mod structured {
                             Either::Left(_cid) => None,
                             Either::Right(actor) => Some(ActorTrace {
                                 id: actor.id,
-                                state: actor.state,
+                                state: actor.state.into(),
                             }),
                         };
                         None
@@ -427,11 +427,11 @@ pub mod structured {
     fn to_message_trace(call: Call) -> MessageTrace {
         let (bytes, codec) = to_bytes_codec(call.params);
         MessageTrace {
-            from: Address::new_id(call.from),
-            to: call.to,
-            value: call.value,
+            from: Address::new_id(call.from).into(),
+            to: call.to.into(),
+            value: call.value.into(),
             method: call.method_num,
-            params: bytes,
+            params: bytes.into(),
             params_codec: codec,
             gas_limit: call.gas_limit,
             read_only: call.read_only,
@@ -445,18 +445,18 @@ pub mod structured {
                 let (bytes, codec) = to_bytes_codec(return_code.data);
                 ReturnTrace {
                     exit_code,
-                    r#return: bytes,
+                    r#return: bytes.into(),
                     return_codec: codec,
                 }
             }
             CallTreeReturn::Abort(exit_code) => ReturnTrace {
                 exit_code,
-                r#return: RawBytes::default(),
+                r#return: Default::default(),
                 return_codec: 0,
             },
             CallTreeReturn::Error(_syscall_error) => ReturnTrace {
                 exit_code: ExitCode::from(0),
-                r#return: RawBytes::default(),
+                r#return: Default::default(),
                 return_codec: 0,
             },
         }

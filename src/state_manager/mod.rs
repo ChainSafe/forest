@@ -25,22 +25,21 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc::{
-    state::MiningBaseInfo,
-    types::{ApiInvocResult, MessageGasCost},
-};
-use crate::shim::{
-    address::{Address, Payload, Protocol},
-    clock::ChainEpoch,
-    econ::TokenAmount,
-    executor::{ApplyRet, Receipt},
-    message::Message,
-    randomness::Randomness,
-    state_tree::{ActorState, StateTree},
-    version::NetworkVersion,
-};
 use crate::state_manager::chain_rand::draw_randomness;
 use crate::state_migration::run_state_migrations;
+use crate::{
+    rpc::state::{ApiInvocResult, MessageGasCost, MiningBaseInfo},
+    shim::{
+        address::{Address, Payload, Protocol},
+        clock::ChainEpoch,
+        econ::TokenAmount,
+        executor::{ApplyRet, Receipt},
+        message::Message,
+        randomness::Randomness,
+        state_tree::{ActorState, StateTree},
+        version::NetworkVersion,
+    },
+};
 use ahash::{HashMap, HashMapExt};
 use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
@@ -189,12 +188,14 @@ impl TipsetStateCache {
 }
 
 /// Type to represent invocation of state call results.
-#[derive(PartialEq, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, schemars::JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "crate::lotus_json::LotusJson<Message>")]
     pub msg: Message,
     #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "crate::lotus_json::LotusJson<Receipt>")]
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
@@ -475,9 +476,12 @@ where
         let (apply_ret, duration) = vm.apply_implicit_message(&msg)?;
 
         Ok(ApiInvocResult {
-            msg: msg.clone(),
-            msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            msg: msg.clone().into(),
+            msg_rct: Some(apply_ret.msg_receipt()).into(),
+            msg_cid: msg
+                .cid()
+                .map_err(|err| Error::Other(err.to_string()))?
+                .into(),
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
             gas_cost: MessageGasCost::default(),

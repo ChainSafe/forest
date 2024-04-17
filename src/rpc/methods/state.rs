@@ -128,6 +128,116 @@ impl RpcMethod<2> for StateCall {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ApiInvocResult {
+    pub msg: LotusJson<Message>,
+    pub msg_cid: LotusJson<Cid>,
+    pub msg_rct: LotusJson<Option<Receipt>>,
+    pub error: String,
+    pub duration: u64,
+    pub gas_cost: MessageGasCost,
+    pub execution_trace: Option<ExecutionTrace>,
+}
+
+impl PartialEq for ApiInvocResult {
+    /// Ignore [`Self::duration`] as it is implementation-dependent
+    fn eq(&self, other: &Self) -> bool {
+        self.msg == other.msg
+            && self.msg_cid == other.msg_cid
+            && self.msg_rct == other.msg_rct
+            && self.error == other.error
+            && self.gas_cost == other.gas_cost
+            && self.execution_trace == other.execution_trace
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageGasCost {
+    pub message: LotusJson<Option<Cid>>,
+    pub gas_used: LotusJson<TokenAmount>,
+    pub base_fee_burn: LotusJson<TokenAmount>,
+    pub over_estimation_burn: LotusJson<TokenAmount>,
+    pub miner_penalty: LotusJson<TokenAmount>,
+    pub miner_tip: LotusJson<TokenAmount>,
+    pub refund: LotusJson<TokenAmount>,
+    pub total_cost: LotusJson<TokenAmount>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ExecutionTrace {
+    pub msg: MessageTrace,
+    pub msg_rct: ReturnTrace,
+    pub invoked_actor: Option<ActorTrace>,
+    pub gas_charges: Vec<GasTrace>,
+    pub subcalls: Vec<ExecutionTrace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MessageTrace {
+    pub from: LotusJson<Address>,
+    pub to: LotusJson<Address>,
+    pub value: LotusJson<TokenAmount>,
+    pub method: u64,
+    pub params: LotusJson<fvm_ipld_encoding::RawBytes>,
+    pub params_codec: u64,
+    pub gas_limit: Option<u64>,
+    pub read_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ActorTrace {
+    pub id: crate::shim::state_tree::ActorID,
+    pub state: LotusJson<ActorState>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ReturnTrace {
+    pub exit_code: crate::shim::error::ExitCode,
+    pub r#return: LotusJson<fvm_ipld_encoding::RawBytes>,
+    pub return_codec: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct GasTrace {
+    pub name: String,
+    #[serde(rename = "tg")]
+    pub total_gas: u64,
+    #[serde(rename = "cg")]
+    pub compute_gas: u64,
+    #[serde(rename = "sg")]
+    pub storage_gas: u64,
+    #[serde(rename = "tt")]
+    pub time_taken: u64,
+}
+
+impl PartialEq for GasTrace {
+    /// Ignore [`Self::total_gas`] as it is implementation-dependent
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.total_gas == other.total_gas
+            && self.compute_gas == other.compute_gas
+            && self.storage_gas == other.storage_gas
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct CirculatingSupply {
+    pub fil_vested: LotusJson<TokenAmount>,
+    pub fil_mined: LotusJson<TokenAmount>,
+    pub fil_burnt: LotusJson<TokenAmount>,
+    pub fil_locked: LotusJson<TokenAmount>,
+    pub fil_circulating: LotusJson<TokenAmount>,
+    pub fil_reserve_disbursed: LotusJson<TokenAmount>,
+}
+
 pub enum StateReplay {}
 impl RpcMethod<2> for StateReplay {
     const NAME: &'static str = "Filecoin.StateReplay";
@@ -484,10 +594,15 @@ pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
 }
 
 pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should return `LotusJson<Vec<ApiDeadline>>`
+//                  so that empty vectors may be `null`, but LotusJson<Vec<T>>
+//                  is currently recursive - it would require ApiDeadline: LotusJson,
+//                  which is not appropriate
 pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiDeadline>>, ServerError> {
+) -> Result<Vec<ApiDeadline>, ServerError> {
     let LotusJson((addr, ApiTipsetKey(tsk))): LotusJson<(Address, ApiTipsetKey)> =
         params.parse()?;
 
@@ -507,7 +622,7 @@ pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
         });
         Ok(())
     })?;
-    Ok(LotusJson(res))
+    Ok(res)
 }
 
 pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
@@ -1089,18 +1204,18 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
 >(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<CirculatingSupply>, ServerError> {
+) -> Result<CirculatingSupply, ServerError> {
     let LotusJson((ApiTipsetKey(tsk),)) = params.parse()?;
 
     let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
 
     let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
 
-    Ok(LotusJson(genesis_info.get_vm_circulating_supply_detailed(
+    Ok(genesis_info.get_vm_circulating_supply_detailed(
         ts.epoch(),
         &data.state_manager.blockstore_owned(),
         ts.parent_state(),
-    )?))
+    )?)
 }
 
 pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";

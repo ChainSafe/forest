@@ -507,7 +507,7 @@ mod structured {
                 "Refund": LotusJson(apply_ret.refund()),
                 "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
             },
-            "ExecutionTrace": LotusJson(structured::parse_events(apply_ret.exec_trace())?),
+            "ExecutionTrace": structured::parse_events(apply_ret.exec_trace())?,
             "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
         }))
     }
