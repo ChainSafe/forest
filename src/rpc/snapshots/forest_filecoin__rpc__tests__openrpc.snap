@@ -899,6 +899,43 @@ methods:
           Round:
             $ref: "#/components/schemas/uint64"
       required: true
+  - name: Filecoin.StateSectorPreCommitInfo
+    params:
+      - name: miner_address
+        schema:
+          type: string
+        required: true
+      - name: sector_number
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateSectorPreCommitInfo::Result"
+      schema:
+        type: object
+        required:
+          - Info
+          - PreCommitDeposit
+          - PreCommitEpoch
+        properties:
+          Info:
+            $ref: "#/components/schemas/SectorPreCommitInfo"
+          PreCommitDeposit:
+            $ref: "#/components/schemas/String"
+          PreCommitEpoch:
+            type: integer
+            format: int64
+      required: true
   - name: Filecoin.SyncCheckBad
     params:
       - name: cid
@@ -1278,6 +1315,35 @@ components:
             apply:
               $ref: "#/components/schemas/TipsetLotusJson"
           additionalProperties: false
+    SectorPreCommitInfo:
+      type: object
+      required:
+        - DealIDs
+        - Expiration
+        - SealProof
+        - SealRandEpoch
+        - SealedCID
+        - SectorNumber
+        - UnsealedCid
+      properties:
+        DealIDs:
+          $ref: "#/components/schemas/u64"
+        Expiration:
+          type: integer
+          format: int64
+        SealProof:
+          $ref: "#/components/schemas/int64"
+        SealRandEpoch:
+          type: integer
+          format: int64
+        SealedCID:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        SectorNumber:
+          type: integer
+          format: uint64
+          minimum: 0
+        UnsealedCid:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
     ShiftingVersion:
       description: "Integer based value on version information. Highest order bits for Major, Mid order for Minor and lowest for Patch."
       type: integer
@@ -1384,6 +1450,13 @@ components:
     int64:
       type: integer
       format: int64
+    u64:
+      type: array
+      items:
+        type: integer
+        format: uint64
+        minimum: 0
+      nullable: true
     uint64:
       type: integer
       format: uint64
