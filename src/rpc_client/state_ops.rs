@@ -159,6 +159,14 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_SECTORS, (actor, sectors, tsk))
     }
 
+    pub fn state_miner_partitions_req(
+        actor: Address,
+        dl_idx: u64,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<Vec<MinerPartitions>> {
+        RpcRequest::new(STATE_MINER_PARTITIONS, (actor, dl_idx, tsk))
+    }
+
     pub fn state_miner_sector_count_req(
         actor: Address,
         tsk: ApiTipsetKey,

@@ -581,6 +581,11 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             sectors,
             shared_tipset.key().into(),
         )),
+        RpcTest::identity(ApiInfo::state_miner_partitions_req(
+            shared_block.miner_address,
+            0,
+            shared_tipset.key().into(),
+        )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
