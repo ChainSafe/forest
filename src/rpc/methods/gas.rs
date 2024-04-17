@@ -270,7 +270,8 @@ where
     let mut msg = msg;
     if msg.gas_limit == 0 {
         let gl = estimate_gas_limit::<DB>(data, msg.clone(), tsk.clone()).await?;
-        msg.set_gas_limit(gl as u64);
+        let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;
+        msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }
     if msg.gas_premium.is_zero() {
         let gp = estimate_gas_premium(data, 10).await?;
@@ -280,8 +281,5 @@ where
         let gfp = estimate_fee_cap(data, msg.clone(), 20, tsk)?;
         msg.set_gas_fee_cap(gfp);
     }
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/901
-    //               Figure out why we always under estimate the gas
-    //               calculation so we dont need to add 200000
     Ok(msg)
 }
