@@ -6,6 +6,7 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
+#![allow(clippy::indexing_slicing)]
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use crate::blocks::Tipset;
@@ -531,7 +532,6 @@ where
     }
 }
 
-#[cfg(test)]
 /// Returns merged and trimmed messages with the gas limit
 fn merge_and_trim(
     chains: &mut Chains,
@@ -540,6 +540,10 @@ fn merge_and_trim(
     gas_limit: u64,
     min_gas: u64,
 ) -> (Vec<SignedMessage>, u64) {
+    if chains.is_empty() {
+        return (result, gas_limit);
+    }
+
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
@@ -627,7 +631,6 @@ fn merge_and_trim(
 /// It simulates a head change call.
 // This logic should probably be implemented in the ChainStore. It handles
 // reorgs.
-#[cfg(test)]
 pub(in crate::message_pool) fn run_head_change<T>(
     api: &T,
     pending: &RwLock<HashMap<Address, MsgSet>>,
