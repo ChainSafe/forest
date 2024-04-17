@@ -72,9 +72,9 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(mpool::MpoolPushMessage::NAME, Access::Sign);
 
     // Sync API
-    access.insert(sync::SYNC_CHECK_BAD, Access::Read);
-    access.insert(sync::SYNC_MARK_BAD, Access::Admin);
-    access.insert(sync::SYNC_STATE, Access::Read);
+    access.insert(sync::SyncCheckBad::NAME, Access::Read);
+    access.insert(sync::SyncMarkBad::NAME, Access::Admin);
+    access.insert(sync::SyncState::NAME, Access::Read);
 
     // Wallet API
     access.insert(wallet::WalletBalance::NAME, Access::Read);
