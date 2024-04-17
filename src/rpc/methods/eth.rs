@@ -51,17 +51,25 @@ pub const WEB3_CLIENT_VERSION: &str = "Filecoin.Web3ClientVersion";
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
+/// Ethereum Bloom filter size in bits.
+/// Bloom filter is used in Ethereum to minimize the number of block queries.
 const BLOOM_SIZE: usize = 2048;
 
+/// Ethereum Bloom filter size in bytes.
 const BLOOM_SIZE_IN_BYTES: usize = BLOOM_SIZE / 8;
 
+/// Ethereum Bloom filter with all bits set to 1.
 const FULL_BLOOM: [u8; BLOOM_SIZE_IN_BYTES] = [0xff; BLOOM_SIZE_IN_BYTES];
 
+/// Ethereum address size in bytes.
 const ADDRESS_LENGTH: usize = 20;
 
+/// Ethereum Virtual Machine word size in bytes.
 const EVM_WORD_LENGTH: usize = 32;
 
-/// Keccak-256 of an RLP of an empty array
+/// Keccak-256 of an RLP of an empty array.
+/// In Filecoin, we don't have the concept of uncle blocks but rather use tipsets to reward miners
+/// who craft blocks.
 const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
 const EIP_1559_TX_TYPE: u64 = 2;
