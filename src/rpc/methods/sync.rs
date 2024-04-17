@@ -69,27 +69,11 @@ impl RpcMethod<0> for SyncState {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
+    #[schemars(with = "LotusJson<Vec<crate::chain_sync::SyncState>>")]
     pub active_syncs: LotusJson<NonEmpty<crate::chain_sync::SyncState>>,
-}
-
-#[derive(JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-#[allow(unused)]
-struct Helper {
-    pub active_syncs: LotusJson<Vec<crate::chain_sync::SyncState>>,
-}
-
-impl JsonSchema for RPCSyncState {
-    fn schema_name() -> String {
-        Helper::schema_name()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        Helper::json_schema(gen)
-    }
 }
 
 #[cfg(test)]
