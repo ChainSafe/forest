@@ -156,7 +156,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net::NetVersion::NAME, Access::Read);
 
     // Node API
-    access.insert(node::NODE_STATUS, Access::Read);
+    access.insert(node::NodeStatus::NAME, Access::Read);
 
     // Eth API
     access.insert(eth::ETH_ACCOUNTS, Access::Read);

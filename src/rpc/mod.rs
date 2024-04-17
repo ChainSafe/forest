@@ -5,7 +5,6 @@ mod auth_layer;
 mod channel;
 mod client;
 
-// Other RPC-specific modules
 pub use client::Client;
 pub use error::ServerError;
 use reflect::Ctx;
@@ -49,6 +48,7 @@ pub mod prelude {
     mpool::for_each_method!(export);
     net::for_each_method!(export);
     state::for_each_method!(export);
+    node::for_each_method!(export);
     sync::for_each_method!(export);
     wallet::for_each_method!(export);
 }
@@ -210,6 +210,7 @@ where
     mpool::for_each_method!(register);
     net::for_each_method!(register);
     state::for_each_method!(register);
+    node::for_each_method!(register);
     sync::for_each_method!(register);
     wallet::for_each_method!(register);
     module.finish()
@@ -222,7 +223,6 @@ where
 {
     use eth::*;
     use gas::*;
-    use node::*;
 
     // State API
     module.register_async_method(STATE_CALL, state_call::<DB>)?;
@@ -292,8 +292,6 @@ where
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
-    // Node API
-    module.register_async_method(NODE_STATUS, |_, state| node_status::<DB>(state))?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;
