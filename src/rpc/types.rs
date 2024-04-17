@@ -7,7 +7,6 @@
 
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
-use crate::chain_sync::SyncState;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::shim::sector::SectorInfo;
@@ -43,15 +42,6 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
 use serde_json::Value;
 use std::str::FromStr;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct RPCSyncState {
-    #[serde(with = "crate::lotus_json")]
-    pub active_syncs: NonEmpty<SyncState>,
-}
-
-lotus_json_with_self!(RPCSyncState);
 
 // Chain API
 

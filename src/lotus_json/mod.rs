@@ -449,6 +449,9 @@ impl<T> LotusJson<T> {
     pub fn into_inner(self) -> T {
         self.0
     }
+    pub fn as_ref(&self) -> &T {
+        &self.0
+    }
 }
 
 impl<T> LotusJson<Option<T>> {

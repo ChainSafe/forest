@@ -11,9 +11,7 @@ use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::chain::{get_parent_receipts, ApiReceipt};
 use crate::rpc::error::ServerError;
-use crate::rpc::sync::sync_state;
-use crate::rpc::types::RPCSyncState;
-use crate::rpc::Ctx;
+use crate::rpc::{Ctx, RpcMethod};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -648,13 +646,15 @@ pub async fn eth_get_balance<DB: Blockstore>(
     Ok(BigInt(actor.balance.atto().clone()))
 }
 
-pub async fn eth_syncing<DB: Blockstore>(
+pub async fn eth_syncing<DB: Blockstore + Sync + Send + 'static>(
     _params: Params<'_>,
     data: Ctx<DB>,
 ) -> Result<LotusJson<EthSyncingResult>, ServerError> {
-    let RPCSyncState { active_syncs } = sync_state(data).await?;
+    let crate::rpc::sync::RPCSyncState { active_syncs } =
+        crate::rpc::sync::SyncState::handle(data.clone(), ()).await?;
     match active_syncs
-        .iter()
+        .into_inner()
+        .into_iter()
         .rev()
         .find_or_first(|ss| ss.stage() != SyncStage::Idle)
     {
