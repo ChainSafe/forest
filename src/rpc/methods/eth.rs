@@ -72,6 +72,11 @@ const EVM_WORD_LENGTH: usize = 32;
 /// who craft blocks.
 const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
+/// Ethereum Improvement Proposals 1559 transaction type. This EIP changed Ethereum’s fee market mechanism.
+/// Transaction type can have 3 distinct values:
+/// - 0 for legacy transactions
+/// - 1 for transactions introduced in EIP-2930
+/// - 2 for transactions introduced in EIP-1559
 const EIP_1559_TX_TYPE: u64 = 2;
 
 /// The address used in messages to actors that have since been deleted.
