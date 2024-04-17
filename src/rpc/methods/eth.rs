@@ -985,7 +985,6 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 /// Decodes the payload using the given codec.
 fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<Bytes> {
     match codec {
-        // TODO: handle IDENTITY?
         DAG_CBOR | CBOR => {
             let result: Result<Vec<u8>, _> = serde_ipld_dagcbor::de::from_reader(payload.reader());
             match result {
