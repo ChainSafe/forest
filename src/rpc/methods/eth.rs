@@ -916,6 +916,8 @@ fn lookup_eth_address<DB: Blockstore>(
     Ok(Address::from_actor_id(id_addr.unwrap()))
 }
 
+/// See https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector-and-argument-encoding
+/// for ABI specification
 fn encode_filecoin_params_as_abi(
     method: MethodNum,
     codec: u64,
