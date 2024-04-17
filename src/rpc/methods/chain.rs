@@ -7,7 +7,6 @@ use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
-use crate::lotus_json::lotus_json_with_self;
 use crate::lotus_json::HasLotusJson;
 use crate::lotus_json::LotusJson;
 #[cfg(test)]
@@ -95,7 +94,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = LotusJson<Vec<ApiMessage>>;
+    type Ok = Vec<ApiMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -106,11 +105,11 @@ impl RpcMethod<1> for ChainGetParentMessages {
             .get_cbor(&block_cid)?
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
         if block_header.epoch == 0 {
-            Ok(LotusJson(vec![]))
+            Ok(vec![])
         } else {
             let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
             let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
-            Ok(LotusJson(messages))
+            Ok(messages)
         }
     }
 }
@@ -122,7 +121,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = LotusJson<Vec<ApiReceipt>>;
+    type Ok = Vec<ApiReceipt>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -134,7 +133,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
         let mut receipts = Vec::new();
         if block_header.epoch == 0 {
-            return Ok(LotusJson(vec![]));
+            return Ok(vec![]);
         }
 
         // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
@@ -154,9 +153,9 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             amt.for_each(|_, receipt| {
                 receipts.push(ApiReceipt {
                     exit_code: receipt.exit_code.into(),
-                    return_data: receipt.return_data.clone().into(),
+                    return_data: receipt.return_data.clone(),
                     gas_used: receipt.gas_used,
-                    events_root: receipt.events_root.into(),
+                    events_root: receipt.events_root,
                 });
                 Ok(())
             })?;
@@ -179,15 +178,15 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             amt.for_each(|_, receipt| {
                 receipts.push(ApiReceipt {
                     exit_code: receipt.exit_code.into(),
-                    return_data: receipt.return_data.clone().into(),
+                    return_data: receipt.return_data.clone(),
                     gas_used: receipt.gas_used as _,
-                    events_root: None.into(),
+                    events_root: None,
                 });
                 Ok(())
             })?;
         }
 
-        Ok(LotusJson(receipts))
+        Ok(receipts)
     }
 }
 
@@ -198,7 +197,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<TipsetKey>,);
-    type Ok = LotusJson<Vec<ApiMessage>>;
+    type Ok = Vec<ApiMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -207,7 +206,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
         let store = ctx.chain_store.blockstore();
         let tipset = Tipset::load_required(store, &tsk)?;
         let messages = load_api_messages_from_tipset(store, &tipset)?;
-        Ok(LotusJson(messages))
+        Ok(messages)
     }
 }
 
@@ -348,15 +347,11 @@ impl RpcMethod<1> for ChainGetBlockMessages {
             &unsigned_cids,
             &signed_cids,
         )?;
-        let cids = unsigned_cids
-            .into_iter()
-            .chain(signed_cids)
-            .collect::<Vec<_>>()
-            .into();
+        let cids = unsigned_cids.into_iter().chain(signed_cids).collect();
 
         let ret = BlockMessages {
-            bls_msg: bls_msg.into(),
-            secp_msg: secp_msg.into(),
+            bls_msg,
+            secp_msg,
             cids,
         };
         Ok(ret)
@@ -705,14 +700,20 @@ fn load_api_messages_from_tipset(
         for msg in block.bls_msgs() {
             let cid = msg.cid()?;
             if seen.insert(cid) {
-                messages.push(ApiMessage::new(cid, msg.clone()));
+                messages.push(ApiMessage {
+                    cid,
+                    message: msg.clone(),
+                });
             }
         }
 
         for msg in block.secp_msgs() {
             let cid = msg.cid()?;
             if seen.insert(cid) {
-                messages.push(ApiMessage::new(cid, msg.message.clone()));
+                messages.push(ApiMessage {
+                    cid,
+                    message: msg.message.clone(),
+                });
             }
         }
     }
@@ -722,15 +723,16 @@ fn load_api_messages_from_tipset(
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct BlockMessages {
-    #[serde(rename = "BlsMessages")]
-    pub bls_msg: LotusJson<Vec<Message>>,
-    #[serde(rename = "SecpkMessages")]
-    pub secp_msg: LotusJson<Vec<SignedMessage>>,
-    #[serde(rename = "Cids")]
-    pub cids: LotusJson<Vec<Cid>>,
+    #[serde(rename = "BlsMessages", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<Message>>")]
+    pub bls_msg: Vec<Message>,
+    #[serde(rename = "SecpkMessages", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<SignedMessage>>")]
+    pub secp_msg: Vec<SignedMessage>,
+    #[serde(rename = "Cids", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<Cid>>")]
+    pub cids: Vec<Cid>,
 }
-
-lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -738,52 +740,25 @@ pub struct ApiReceipt {
     // Exit status of message execution
     pub exit_code: ExitCode,
     // `Return` value if the exit code is zero
-    #[serde(rename = "Return")]
-    pub return_data: LotusJson<RawBytes>,
+    #[serde(rename = "Return", with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<RawBytes>")]
+    pub return_data: RawBytes,
     // Non-negative value of GasUsed
     pub gas_used: u64,
-    pub events_root: LotusJson<Option<Cid>>,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    pub events_root: Option<Cid>,
 }
 
-lotus_json_with_self!(ApiReceipt);
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct ApiMessage {
-    cid: Cid,
-    message: Message,
-}
-
-impl ApiMessage {
-    pub fn new(cid: Cid, message: Message) -> Self {
-        Self { cid, message }
-    }
-}
-
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "PascalCase")]
-pub struct ApiMessageLotusJson {
-    cid: LotusJson<Cid>,
-    message: LotusJson<Message>,
-}
-
-impl HasLotusJson for ApiMessage {
-    type LotusJson = ApiMessageLotusJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ApiMessageLotusJson {
-            cid: LotusJson(self.cid),
-            message: LotusJson(self.message),
-        }
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        ApiMessage {
-            cid: lotus_json.cid.into_inner(),
-            message: lotus_json.message.into_inner(),
-        }
-    }
+pub struct ApiMessage {
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Cid>")]
+    pub cid: Cid,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Message>")]
+    pub message: Message,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -796,8 +771,6 @@ pub struct ChainExportParams {
     pub dry_run: bool,
 }
 
-lotus_json_with_self!(ChainExportParams);
-
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiHeadChange {
@@ -806,8 +779,6 @@ pub struct ApiHeadChange {
     #[serde(rename = "Val", with = "crate::lotus_json")]
     pub headers: Vec<CachingBlockHeader>,
 }
-
-lotus_json_with_self!(ApiHeadChange);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
