@@ -74,6 +74,7 @@ fvm3 = { package = "fvm", default-features = false, version = "~3.8", features =
 fvm4 = { package = "fvm", default-features = false, version = "~4.1.2", features = ["arb"] }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_encoding = "0.4"
+fvm_ipld_hamt = "0.9"
 fvm_shared2 = { package = "fvm_shared", version = "~2.6" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", features = ["testing", "proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.1.2", features = ["testing", "proofs"] }

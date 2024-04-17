@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
+use crate::shim::state_tree::StateTree;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
     state_tree::ActorState, version::NetworkVersion,
@@ -46,6 +48,7 @@ use tokio::task::JoinSet;
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::state::StateGetBeaconEntry);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
     };
 }
 pub(crate) use for_each_method;
@@ -1226,7 +1229,7 @@ pub enum StateSectorPreCommitInfo {}
 
 impl RpcMethod<3> for StateSectorPreCommitInfo {
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_number", "tipset_key"];
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Address>, LotusJson<u64>, LotusJson<ApiTipsetKey>);
@@ -1234,7 +1237,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(address), LotusJson(sector_number), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (LotusJson(miner_address), LotusJson(sector_number), LotusJson(ApiTipsetKey(tsk))): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -1242,7 +1245,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
             .load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
+            .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         Ok(LotusJson(
             match state {
@@ -1267,5 +1270,87 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
             }
             .context("SectorPreCommitOnChainInfo not found")?,
         ))
+    }
+}
+
+impl StateSectorPreCommitInfo {
+    pub fn get_sectors(
+        store: &Arc<impl Blockstore>,
+        miner_address: &Address,
+        tipset: &Tipset,
+    ) -> anyhow::Result<Vec<u64>> {
+        let mut sectors = vec![];
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_actor(miner_address)?.with_context(|| {
+            format!(
+                "Failed to load actor with addr={miner_address}, state_cid={}",
+                tipset.parent_state()
+            )
+        })?;
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        match &state {
+            miner::State::V8(s) => {
+                let precommitted = fil_actors_shared::v8::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    sectors.push(v.info.sector_number);
+                    Ok(())
+                })
+            }
+            miner::State::V9(s) => {
+                let precommitted = fil_actors_shared::v9::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    sectors.push(v.info.sector_number);
+                    Ok(())
+                })
+            }
+            miner::State::V10(s) => {
+                let precommitted = fil_actors_shared::v10::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v10::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    sectors.push(v.info.sector_number);
+                    Ok(())
+                })
+            }
+            miner::State::V11(s) => {
+                let precommitted = fil_actors_shared::v11::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v11::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    sectors.push(v.info.sector_number);
+                    Ok(())
+                })
+            }
+            miner::State::V12(s) => {
+                let precommitted = fil_actors_shared::v12::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v12::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    sectors.push(v.info.sector_number);
+                    Ok(())
+                })
+            }
+            miner::State::V13(s) => {
+                let precommitted = fil_actors_shared::v13::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v13::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    sectors.push(v.info.sector_number);
+                    Ok(())
+                })
+            }
+        }?;
+
+        Ok(sectors)
     }
 }

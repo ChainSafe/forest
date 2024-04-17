@@ -263,6 +263,8 @@ pub struct ApiActorState {
     state: ApiState,
 }
 
+lotus_json_with_self!(ApiActorState);
+
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct ApiState {
@@ -272,7 +274,6 @@ struct ApiState {
 }
 
 lotus_json_with_self!(ApiState);
-lotus_json_with_self!(ApiActorState);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
@@ -334,11 +335,31 @@ pub struct SectorOnChainInfo {
 
 lotus_json_with_self!(SectorOnChainInfo);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
-pub struct SectorPreCommitOnChainInfo {}
+pub struct SectorPreCommitOnChainInfo {
+    pub info: LotusJson<SectorPreCommitInfo>,
+    pub pre_commit_deposit: LotusJson<TokenAmount>,
+    pub pre_commit_epoch: ChainEpoch,
+}
 
 lotus_json_with_self!(SectorPreCommitOnChainInfo);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorPreCommitInfo {
+    pub seal_proof: LotusJson<RegisteredSealProof>,
+    pub sector_number: SectorNumber,
+    #[serde(rename = "SealedCID")]
+    pub sealed_cid: LotusJson<Cid>,
+    pub seal_rand_epoch: ChainEpoch,
+    #[serde(rename = "DealIDs")]
+    pub deal_ids: Option<Vec<DealID>>,
+    pub expiration: ChainEpoch,
+    pub unsealed_cid: LotusJson<Option<Cid>>,
+}
+
+lotus_json_with_self!(SectorPreCommitInfo);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]

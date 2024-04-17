@@ -97,6 +97,7 @@ from2internal! {
     std::io::Error,
     std::time::SystemTimeError,
     tokio::task::JoinError,
+    fvm_ipld_hamt::Error,
 }
 
 impl From<ServerError> for ClientError {
