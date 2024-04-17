@@ -23,6 +23,12 @@ install-slim:
 install-slim-quick:
 	cargo install --profile quick --no-default-features --features slim --locked --path . --force
 
+install-minimum:
+	cargo install --no-default-features --locked --path . --force
+
+install-minimum-quick:
+	cargo install --profile quick --no-default-features --locked --path . --force
+
 # Installs Forest binaries with default rust global allocator
 install-with-rustalloc:
 	cargo install --locked --path . --force --no-default-features --features rustalloc
