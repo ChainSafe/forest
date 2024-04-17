@@ -129,8 +129,7 @@ methods:
       schema:
         type: array
         items:
-          $ref: "#/components/schemas/ApiMessageLotusJson"
-        nullable: true
+          $ref: "#/components/schemas/ApiMessage"
       required: true
   - name: Filecoin.ChainGetParentReceipts
     params:
@@ -150,7 +149,6 @@ methods:
         type: array
         items:
           $ref: "#/components/schemas/ApiReceipt"
-        nullable: true
       required: true
   - name: Filecoin.ChainGetMessagesInTipset
     params:
@@ -164,8 +162,7 @@ methods:
       schema:
         type: array
         items:
-          $ref: "#/components/schemas/ApiMessageLotusJson"
-        nullable: true
+          $ref: "#/components/schemas/ApiMessage"
       required: true
   - name: Filecoin.ChainExport
     params:
@@ -1228,7 +1225,7 @@ components:
           uniqueItems: true
         ID:
           type: string
-    ApiMessageLotusJson:
+    ApiMessage:
       type: object
       required:
         - Cid

@@ -153,9 +153,9 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             amt.for_each(|_, receipt| {
                 receipts.push(ApiReceipt {
                     exit_code: receipt.exit_code.into(),
-                    return_data: receipt.return_data.clone().into(),
+                    return_data: receipt.return_data.clone(),
                     gas_used: receipt.gas_used,
-                    events_root: receipt.events_root.into(),
+                    events_root: receipt.events_root,
                 });
                 Ok(())
             })?;
@@ -178,9 +178,9 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             amt.for_each(|_, receipt| {
                 receipts.push(ApiReceipt {
                     exit_code: receipt.exit_code.into(),
-                    return_data: receipt.return_data.clone().into(),
+                    return_data: receipt.return_data.clone(),
                     gas_used: receipt.gas_used as _,
-                    events_root: None.into(),
+                    events_root: None,
                 });
                 Ok(())
             })?;
@@ -347,15 +347,11 @@ impl RpcMethod<1> for ChainGetBlockMessages {
             &unsigned_cids,
             &signed_cids,
         )?;
-        let cids = unsigned_cids
-            .into_iter()
-            .chain(signed_cids)
-            .collect::<Vec<_>>()
-            .into();
+        let cids = unsigned_cids.into_iter().chain(signed_cids).collect();
 
         let ret = BlockMessages {
-            bls_msg: bls_msg.into(),
-            secp_msg: secp_msg.into(),
+            bls_msg,
+            secp_msg,
             cids,
         };
         Ok(ret)
