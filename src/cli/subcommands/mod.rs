@@ -29,12 +29,11 @@ use clap::Parser;
 use serde::Serialize;
 use tracing::error;
 
-pub(super) use self::attach_cmd::AttachCommand;
 pub(super) use self::{
-    auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands,
+    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
+    config_cmd::ConfigCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
