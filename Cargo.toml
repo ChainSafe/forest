@@ -261,7 +261,7 @@ overflow-checks = true
 # These should be refactored (probably removed) in #2984
 [features]
 default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "attach"]
-slim = ["jemalloc"]
+slim = ["rustalloc"]
 doctest-private = []                                                                # see lib.rs::doctest_private
 benchmark-private = []                                                              # see lib.rs::benchmark_private
 
