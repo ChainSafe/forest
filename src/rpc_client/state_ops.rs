@@ -164,7 +164,7 @@ impl ApiInfo {
         dl_idx: u64,
         tsk: ApiTipsetKey,
     ) -> RpcRequest<Vec<MinerPartitions>> {
-        RpcRequest::new(&STATE_MINER_PARTITIONS, (actor, dl_idx, tsk))
+        RpcRequest::new(STATE_MINER_PARTITIONS, (actor, dl_idx, tsk))
     }
 
     pub fn state_miner_sector_count_req(
