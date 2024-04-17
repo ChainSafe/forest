@@ -936,6 +936,25 @@ methods:
             type: integer
             format: int64
       required: true
+  - name: Filecoin.NodeStatus
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NodeStatus::Result"
+      schema:
+        type: object
+        required:
+          - chain_status
+          - peer_status
+          - sync_status
+        properties:
+          chain_status:
+            $ref: "#/components/schemas/NodeChainStatus"
+          peer_status:
+            $ref: "#/components/schemas/NodePeerStatus"
+          sync_status:
+            $ref: "#/components/schemas/NodeSyncStatus"
+      required: true
   - name: Filecoin.SyncCheckBad
     params:
       - name: cid
@@ -1284,6 +1303,46 @@ components:
       properties:
         MaxFee:
           $ref: "#/components/schemas/String"
+    NodeChainStatus:
+      type: object
+      required:
+        - blocks_per_tipset_last_100
+        - blocks_per_tipset_last_finality
+      properties:
+        blocks_per_tipset_last_100:
+          type: number
+          format: double
+        blocks_per_tipset_last_finality:
+          type: number
+          format: double
+    NodePeerStatus:
+      type: object
+      required:
+        - peers_to_publish_blocks
+        - peers_to_publish_msgs
+      properties:
+        peers_to_publish_blocks:
+          type: integer
+          format: uint32
+          minimum: 0
+        peers_to_publish_msgs:
+          type: integer
+          format: uint32
+          minimum: 0
+    NodeSyncStatus:
+      type: object
+      required:
+        - behind
+        - epoch
+      properties:
+        behind:
+          type: integer
+          format: uint64
+          minimum: 0
+        epoch:
+          type: integer
+          format: uint64
+          minimum: 0
     Nullable_CidLotusJsonGeneric_for_64:
       $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
       nullable: true
