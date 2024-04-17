@@ -65,6 +65,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Message Pool API
     access.insert(mpool::MpoolGetNonce::NAME, Access::Read);
     access.insert(mpool::MpoolPending::NAME, Access::Read);
+    access.insert(mpool::MpoolSelect::NAME, Access::Read);
     // Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
     // can always be pushed over the p2p protocol, limiting the RPC doesn't
     // improve security.
@@ -155,7 +156,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(net::NetVersion::NAME, Access::Read);
 
     // Node API
-    access.insert(node::NODE_STATUS, Access::Read);
+    access.insert(node::NodeStatus::NAME, Access::Read);
 
     // Eth API
     access.insert(eth::ETH_ACCOUNTS, Access::Read);

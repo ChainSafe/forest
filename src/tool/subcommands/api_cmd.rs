@@ -33,7 +33,7 @@ use ahash::HashMap;
 use anyhow::Context as _;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
-use fil_actors_shared::fvm_ipld_bitfield::bitfield;
+use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -478,9 +478,10 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn mpool_tests() -> Vec<RpcTest> {
-    vec![RpcTest::basic_raw(
-        MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap(),
-    )]
+    vec![
+        RpcTest::basic_raw(MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap()),
+        RpcTest::basic_raw(MpoolSelect::request((LotusJson(ApiTipsetKey(None)), 0.9_f64)).unwrap()),
+    ]
 }
 
 fn net_tests() -> Vec<RpcTest> {
@@ -525,6 +526,8 @@ fn state_tests() -> Vec<RpcTest> {
 
 fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block = shared_tipset.min_ticket_block();
+    let mut sectors = BitField::new();
+    sectors.set(101);
     vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
@@ -575,7 +578,7 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         )),
         RpcTest::identity(ApiInfo::state_miner_sectors_req(
             shared_block.miner_address,
-            bitfield![101],
+            sectors,
             shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(

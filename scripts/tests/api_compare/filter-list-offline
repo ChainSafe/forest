@@ -12,5 +12,3 @@
 !Filecoin.NetAgentVersion
 !Filecoin.NetAutoNatStatus
 !Filecoin.NetPeers
-# Internal Server Error on Forest and Lotus: https://github.com/ChainSafe/forest/actions/runs/8702364320/job/23866696397
-!Filecoin.StateMinerSectors

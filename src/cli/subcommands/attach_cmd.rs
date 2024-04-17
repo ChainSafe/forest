@@ -324,10 +324,7 @@ impl AttachCommand {
         // Add custom object that mimics `module.exports`
         set_module(context);
 
-        bind_request!(context, api,
-                // Node API
-                "node_status" => |()| ApiInfo::node_status_req(),
-        );
+        bind_request!(context, api,);
 
         // Bind send_message, sleep, sleep_tipsets
         bind_async(context, &api, "send_message", send_message);
