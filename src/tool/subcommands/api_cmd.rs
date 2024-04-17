@@ -561,18 +561,24 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_block.miner_address,
             shared_tipset.key().into(),
         )),
-        RpcTest::identity(ApiInfo::state_lookup_id_req(
-            shared_block.miner_address,
-            shared_tipset.key().into(),
-        )),
+        RpcTest::identity_raw(
+            StateLookupID::request((
+                shared_block.miner_address.into(),
+                LotusJson(shared_tipset.key().into()),
+            ))
+            .unwrap(),
+        ),
         // This should return `Address::new_id(0xdeadbeef)`
-        RpcTest::identity(ApiInfo::state_lookup_id_req(
-            Address::new_id(0xdeadbeef),
-            shared_tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::state_network_version_req(
-            shared_tipset.key().into(),
-        )),
+        RpcTest::identity_raw(
+            StateLookupID::request((
+                Address::new_id(0xdeadbeef).into(),
+                LotusJson(shared_tipset.key().into()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity_raw(
+            StateNetworkVersion::request((LotusJson(shared_tipset.key().into()),)).unwrap(),
+        ),
         RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().into())),
         RpcTest::identity(ApiInfo::state_sector_get_info_req(
             shared_block.miner_address,
@@ -747,18 +753,23 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
                     .cid()?
                     .into(),))?));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    Default::default(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
+                tests.push(RpcTest::identity_raw(
+                    StateAccountKey::request((
+                        msg.from().into(),
+                        LotusJson(shared_tipset_key.into()),
+                    ))
+                    .unwrap(),
+                ));
+                tests.push(RpcTest::identity_raw(
+                    StateAccountKey::request((msg.from().into(), Default::default())).unwrap(),
+                ));
+                tests.push(RpcTest::identity_raw(
+                    StateLookupID::request((
+                        msg.from().into(),
+                        LotusJson(shared_tipset_key.into()),
+                    ))
+                    .unwrap(),
+                ));
                 tests.push(
                     validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                         .with_timeout(Duration::from_secs(30)),
@@ -788,18 +799,23 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
                     .cid()?
                     .into(),))?));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    Default::default(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
+                tests.push(RpcTest::identity_raw(
+                    StateAccountKey::request((
+                        msg.from().into(),
+                        LotusJson(shared_tipset_key.into()),
+                    ))
+                    .unwrap(),
+                ));
+                tests.push(RpcTest::identity_raw(
+                    StateAccountKey::request((msg.from().into(), Default::default())).unwrap(),
+                ));
+                tests.push(RpcTest::identity_raw(
+                    StateLookupID::request((
+                        msg.from().into(),
+                        LotusJson(shared_tipset_key.into()),
+                    ))
+                    .unwrap(),
+                ));
                 tests.push(
                     validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
                         .with_timeout(Duration::from_secs(30)),
@@ -872,11 +888,14 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 tipset.key().into(),
             )));
-            tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
-                block.miner_address,
-                block.epoch,
-                tipset.key().into(),
-            )));
+            tests.push(RpcTest::identity_raw(
+                MinerGetBaseInfo::request((
+                    block.miner_address.into(),
+                    block.epoch,
+                    LotusJson(tipset.key().into()),
+                ))
+                .unwrap(),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
                 block.miner_address,
                 tipset.key().into(),
@@ -889,8 +908,8 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().into(),
         )));
-        tests.push(RpcTest::identity(
-            ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().into()),
+        tests.push(RpcTest::identity_raw(
+            StateVmCirculatingSupplyInternal::request((tipset.key().into())).unwrap(),
         ));
 
         for block in tipset.block_headers() {
