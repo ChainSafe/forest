@@ -478,9 +478,10 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 }
 
 fn mpool_tests() -> Vec<RpcTest> {
-    vec![RpcTest::basic_raw(
-        MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap(),
-    )]
+    vec![
+        RpcTest::basic_raw(MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap()),
+        RpcTest::basic_raw(MpoolSelect::request((LotusJson(ApiTipsetKey(None)), 0.9_f64)).unwrap()),
+    ]
 }
 
 fn net_tests() -> Vec<RpcTest> {
