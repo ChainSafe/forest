@@ -6,6 +6,10 @@ use super::*;
 pub struct VecLotusJson<T>(Vec<T>); // need a struct to handle the serialization of an empty vec as null
 
 impl<T> HasLotusJson for Vec<T>
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  This shouldn't recurse - LotusJson<Vec<T>> should only handle
+//                  the OUTER issue of serializing an empty Vec as null, and
+//                  shouldn't be interested in the inner representation.
 where
     T: HasLotusJson,
 {
