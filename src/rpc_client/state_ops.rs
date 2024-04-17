@@ -1,17 +1,14 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use crate::rpc::types::*;
 use crate::state_manager::MarketBalance;
 use crate::{
-    blocks::TipsetKey,
     rpc::state::*,
     shim::{
-        address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::Message,
-        message::MethodNum, state_tree::ActorState, version::NetworkVersion,
+        address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::MethodNum,
     },
 };
 use cid::Cid;
@@ -25,21 +22,6 @@ use num_bigint::BigInt;
 use super::{ApiInfo, RpcRequest, ServerError};
 
 impl ApiInfo {
-    pub async fn state_get_actor(
-        &self,
-        address: Address,
-        head: TipsetKey,
-    ) -> Result<Option<ActorState>, ServerError> {
-        self.call(Self::state_get_actor_req(address, head)).await
-    }
-
-    pub fn state_get_actor_req(
-        address: Address,
-        head: TipsetKey,
-    ) -> RpcRequest<Option<ActorState>> {
-        RpcRequest::new(STATE_GET_ACTOR, (address, head))
-    }
-
     pub fn state_market_balance_req(
         miner: Address,
         tsk: ApiTipsetKey,
@@ -59,28 +41,8 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub async fn state_network_name(&self) -> Result<String, ServerError> {
-        self.call(Self::state_network_name_req()).await
-    }
-
-    pub fn state_network_name_req() -> RpcRequest<String> {
-        RpcRequest::new(STATE_NETWORK_NAME, ())
-    }
-
     pub fn state_miner_info_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<MinerInfo> {
         RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
-    }
-
-    pub fn miner_get_base_info_req(
-        miner: Address,
-        epoch: ChainEpoch,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<Option<MiningBaseInfo>> {
-        RpcRequest::new(MINER_GET_BASE_INFO, (miner, epoch, tsk))
-    }
-
-    pub fn state_call_req(message: Message, tsk: ApiTipsetKey) -> RpcRequest<ApiInvocResult> {
-        RpcRequest::new(STATE_CALL, (message, tsk))
     }
 
     pub fn state_miner_faults_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<BitField> {
@@ -172,18 +134,6 @@ impl ApiInfo {
         tsk: ApiTipsetKey,
     ) -> RpcRequest<MinerSectors> {
         RpcRequest::new(STATE_MINER_SECTOR_COUNT, (actor, tsk))
-    }
-
-    pub fn state_lookup_id_req(addr: Address, tsk: ApiTipsetKey) -> RpcRequest<Option<Address>> {
-        RpcRequest::new(STATE_LOOKUP_ID, (addr, tsk))
-    }
-
-    pub fn state_network_version_req(tsk: ApiTipsetKey) -> RpcRequest<NetworkVersion> {
-        RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
-    }
-
-    pub fn state_account_key_req(addr: Address, tsk: ApiTipsetKey) -> RpcRequest<Address> {
-        RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
     }
 
     pub fn state_verified_client_status(

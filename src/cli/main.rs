@@ -7,7 +7,10 @@ use crate::cli::subcommands::Cli;
 use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
 use crate::shim::address::{CurrentNetwork, Network};
-use crate::{rpc, rpc_client::ApiInfo};
+use crate::{
+    rpc::{self, prelude::*},
+    rpc_client::ApiInfo,
+};
 use clap::Parser;
 
 use super::subcommands::Subcommand;
@@ -27,7 +30,7 @@ where
         .unwrap()
         .block_on(async {
             logger::setup_logger(&crate::cli_shared::cli::CliOpts::default());
-            if let Ok(name) = api.state_network_name().await {
+            if let Ok(name) = StateNetworkName::call(&rpc::Client::from(api.clone()), ()).await {
                 if get_actual_chain_name(&name) != "mainnet" {
                     CurrentNetwork::set_global(Network::Testnet);
                 }
@@ -43,7 +46,7 @@ where
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
                 Subcommand::Send(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Info(cmd) => cmd.run(api).await,
-                Subcommand::Snapshot(cmd) => cmd.run(api).await,
+                Subcommand::Snapshot(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Attach(cmd) => cmd.run(api),
                 Subcommand::Shutdown(cmd) => cmd.run(rpc::Client::from(api)).await,
             }

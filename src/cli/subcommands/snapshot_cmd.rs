@@ -6,7 +6,6 @@ use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, chain::ChainExportParams, prelude::*};
-use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
@@ -39,8 +38,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api.clone());
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,
@@ -53,7 +51,7 @@ impl SnapshotCommands {
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let raw_network_name = api.state_network_name().await?;
+                let raw_network_name = StateNetworkName::call(&client, ()).await?;
                 let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
                 let tipset = ChainGetTipSetByHeight::call(&client, (epoch, Default::default()))
@@ -114,7 +112,7 @@ impl SnapshotCommands {
                 });
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = api
+                let hash_result = client
                     .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 
