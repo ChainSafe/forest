@@ -487,7 +487,10 @@ impl TxArgs {
     }
 
     pub fn rlp_signed_message(&self) -> Result<Vec<u8>> {
-        let mut stream = RlpStream::new_list(12); // THIS IS IMPORTANT
+        // An item is either an item list or bytes.
+        const MSG_ITEMS: usize = 12;
+
+        let mut stream = RlpStream::new_list(MSG_ITEMS);
         stream.append(&format_u64(self.chain_id));
         stream.append(&format_u64(self.nonce));
         stream.append(&format_bigint(&self.max_priority_fee_per_gas)?);
