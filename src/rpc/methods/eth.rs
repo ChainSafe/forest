@@ -179,9 +179,11 @@ impl Address {
     }
 
     fn from_actor_id(id: u64) -> Self {
+        let pfx = MASKED_ID_PREFIX;
         let arr = id.to_be_bytes();
         let payload = [
-            0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+            pfx[0], pfx[1], pfx[2], pfx[3], pfx[4], pfx[5], pfx[6], pfx[7], //
+            pfx[8], pfx[9], pfx[10], pfx[11], //
             arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7],
         ];
 
