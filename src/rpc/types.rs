@@ -887,8 +887,8 @@ impl MinerPartitions {
             all_sectors: all_sectors.clone(),
             faulty_sectors: faulty_sectors.clone(),
             recovering_sectors: recovering_sectors.clone(),
-            live_sectors: live_sectors.clone(),
-            active_sectors: active_sectors.clone(),
+            live_sectors,
+            active_sectors,
         }
     }
 }
