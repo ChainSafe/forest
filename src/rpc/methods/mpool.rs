@@ -20,6 +20,7 @@ macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::mpool::MpoolGetNonce);
         $callback!(crate::rpc::mpool::MpoolPending);
+        $callback!(crate::rpc::mpool::MpoolSelect);
         $callback!(crate::rpc::mpool::MpoolPush);
         $callback!(crate::rpc::mpool::MpoolPushMessage);
     };
@@ -116,6 +117,29 @@ impl RpcMethod<1> for MpoolPending {
                 .load_required_tipset(ts.parents())?;
         }
         Ok(pending.into_iter().collect::<Vec<_>>().into())
+    }
+}
+
+/// Return `Vec` of pending messages for inclusion in the next block
+pub enum MpoolSelect {}
+impl RpcMethod<2> for MpoolSelect {
+    const NAME: &'static str = "Filecoin.MpoolSelect";
+    const PARAM_NAMES: [&'static str; 2] = ["tsk", "tq"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<ApiTipsetKey>, f64);
+    type Ok = LotusJson<Vec<SignedMessage>>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(ApiTipsetKey(tsk)), tq): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+
+        Ok(LotusJson(ctx.mpool.select_messages(&ts, tq)?))
     }
 }
 
