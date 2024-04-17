@@ -92,13 +92,17 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet::WalletDelete::NAME, Access::Write);
 
     // State API
-    access.insert(state::STATE_CALL, Access::Read);
-    access.insert(state::STATE_REPLAY, Access::Read);
-    access.insert(state::STATE_GET_ACTOR, Access::Read);
+    access.insert(state::StateCall::NAME, Access::Read);
+    access.insert(state::StateReplay::NAME, Access::Read);
+    access.insert(state::StateGetActor::NAME, Access::Read);
+    access.insert(state::MinerGetBaseInfo::NAME, Access::Read);
+    access.insert(state::StateNetworkName::NAME, Access::Read);
+    access.insert(state::StateNetworkVersion::NAME, Access::Read);
+    access.insert(state::StateAccountKey::NAME, Access::Read);
+    access.insert(state::StateLookupID::NAME, Access::Read);
     access.insert(state::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state::STATE_MARKET_DEALS, Access::Read);
     access.insert(state::STATE_MINER_INFO, Access::Read);
-    access.insert(state::MINER_GET_BASE_INFO, Access::Read);
     access.insert(state::STATE_MINER_ACTIVE_SECTORS, Access::Read);
     access.insert(state::STATE_MINER_FAULTS, Access::Read);
     access.insert(state::STATE_MINER_RECOVERIES, Access::Read);
@@ -110,10 +114,6 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_WAIT_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG_LIMITED, Access::Read);
-    access.insert(state::STATE_NETWORK_NAME, Access::Read);
-    access.insert(state::STATE_NETWORK_VERSION, Access::Read);
-    access.insert(state::STATE_ACCOUNT_KEY, Access::Read);
-    access.insert(state::STATE_LOOKUP_ID, Access::Read);
     access.insert(state::STATE_FETCH_ROOT, Access::Read);
     access.insert(state::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(state::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);

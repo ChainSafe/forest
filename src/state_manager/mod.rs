@@ -25,7 +25,10 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc::types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::{
+    state::MiningBaseInfo,
+    types::{ApiInvocResult, MessageGasCost},
+};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -1220,13 +1223,13 @@ where
         let eligible = self.eligible_to_mine(&addr, &tipset, &lb_tipset)?;
 
         Ok(Some(MiningBaseInfo {
-            miner_power: miner_power.quality_adj_power,
-            network_power: total_power.quality_adj_power,
-            sectors,
-            worker_key,
+            miner_power: miner_power.quality_adj_power.into(),
+            network_power: total_power.quality_adj_power.into(),
+            sectors: sectors.into(),
+            worker_key: worker_key.into(),
             sector_size: info.sector_size,
-            prev_beacon_entry: prev_beacon,
-            beacon_entries: entries,
+            prev_beacon_entry: prev_beacon.into(),
+            beacon_entries: entries.into(),
             eligible_for_mining: eligible,
         }))
     }

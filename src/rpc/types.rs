@@ -5,11 +5,9 @@
 //!
 //! If a type here is used by only one API, it should be relocated.
 
-use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
-use crate::shim::sector::SectorInfo;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,

@@ -47,7 +47,15 @@ use tokio::task::JoinSet;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
+        $callback!(crate::rpc::state::MinerGetBaseInfo);
+        $callback!(crate::rpc::state::StateAccountKey);
+        $callback!(crate::rpc::state::StateCall);
+        $callback!(crate::rpc::state::StateGetActor);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
+        $callback!(crate::rpc::state::StateLookupID);
+        $callback!(crate::rpc::state::StateNetworkName);
+        $callback!(crate::rpc::state::StateNetworkVersion);
+        $callback!(crate::rpc::state::StateReplay);
     };
 }
 pub(crate) use for_each_method;
@@ -63,7 +71,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Address>, ChainEpoch, LotusJson<ApiTipsetKey>);
-    type Ok = Option<LotusJson<MiningBaseInfo>>;
+    type Ok = Option<MiningBaseInfo>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -78,7 +86,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
             .state_manager
             .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
             .await?;
-        Ok(info.map(LotusJson))
+        Ok(info)
     }
 }
 
