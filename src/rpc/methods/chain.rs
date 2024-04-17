@@ -7,10 +7,9 @@ use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
-use crate::lotus_json::HasLotusJson;
-use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
+use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
@@ -94,7 +93,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = Vec<ApiMessage>;
+    type Ok = LotusJson<Vec<ApiMessage>>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -104,13 +103,13 @@ impl RpcMethod<1> for ChainGetParentMessages {
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
-        if block_header.epoch == 0 {
-            Ok(vec![])
+        Ok(if block_header.epoch == 0 {
+            vec![]
         } else {
             let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-            let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
-            Ok(messages)
+            load_api_messages_from_tipset(store, &parent_tipset)?
         }
+        .into())
     }
 }
 
@@ -121,7 +120,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = Vec<ApiReceipt>;
+    type Ok = LotusJson<Vec<ApiReceipt>>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -133,7 +132,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
         let mut receipts = Vec::new();
         if block_header.epoch == 0 {
-            return Ok(vec![]);
+            return Ok(vec![].into());
         }
 
         // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
@@ -186,7 +185,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
             })?;
         }
 
-        Ok(receipts)
+        Ok(receipts.into())
     }
 }
 
@@ -197,7 +196,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<TipsetKey>,);
-    type Ok = Vec<ApiMessage>;
+    type Ok = LotusJson<Vec<ApiMessage>>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -206,7 +205,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
         let store = ctx.chain_store.blockstore();
         let tipset = Tipset::load_required(store, &tsk)?;
         let messages = load_api_messages_from_tipset(store, &tipset)?;
-        Ok(messages)
+        Ok(messages.into())
     }
 }
 
@@ -750,6 +749,8 @@ pub struct ApiReceipt {
     pub events_root: Option<Cid>,
 }
 
+lotus_json_with_self!(ApiReceipt);
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiMessage {
@@ -760,6 +761,8 @@ pub struct ApiMessage {
     #[schemars(with = "LotusJson<Message>")]
     pub message: Message,
 }
+
+lotus_json_with_self!(ApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {

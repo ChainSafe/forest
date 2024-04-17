@@ -5,12 +5,14 @@ use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::Itertools as _;
 use libp2p::Multiaddr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -62,7 +64,7 @@ impl RpcMethod<0> for NetPeers {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = Vec<AddrInfo>;
+    type Ok = LotusJson<Vec<AddrInfo>>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = oneshot::channel();
@@ -79,9 +81,9 @@ impl RpcMethod<0> for NetPeers {
                 id: id.to_string(),
                 addrs,
             })
-            .collect();
+            .collect_vec();
 
-        Ok(connections)
+        Ok(connections.into())
     }
 }
 
@@ -250,6 +252,8 @@ pub struct AddrInfo {
     #[schemars(with = "ahash::HashSet<String>")]
     pub addrs: ahash::HashSet<Multiaddr>,
 }
+
+lotus_json_with_self!(AddrInfo);
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct NetInfoResult {

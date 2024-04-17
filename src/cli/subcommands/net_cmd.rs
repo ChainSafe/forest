@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::libp2p::{Multiaddr, Protocol};
+use crate::lotus_json::LotusJson;
 use crate::rpc::{self, net::AddrInfo, prelude::*};
 use ahash::{HashMap, HashSet};
 use cid::multibase;
@@ -61,7 +62,7 @@ impl NetCommands {
                 Ok(())
             }
             Self::Peers { agent } => {
-                let addrs = NetPeers::call(&client, ()).await?;
+                let LotusJson(addrs) = NetPeers::call(&client, ()).await?;
                 let peer_to_agents: HashMap<String, String> = if agent {
                     let agents = futures::future::join_all(
                         addrs
