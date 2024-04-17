@@ -97,7 +97,7 @@ impl From<fil_actor_miner_state::v8::SectorPreCommitInfo> for SectorPreCommitInf
             sector_number: i.sector_number,
             sealed_cid: LotusJson(i.sealed_cid),
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: Some(i.deal_ids),
+            deal_ids: LotusJson(i.deal_ids),
             expiration: i.expiration,
             unsealed_cid: LotusJson(None),
         }
@@ -111,7 +111,7 @@ impl From<fil_actor_miner_state::v9::SectorPreCommitInfo> for SectorPreCommitInf
             sector_number: i.sector_number,
             sealed_cid: LotusJson(i.sealed_cid),
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: Some(i.deal_ids),
+            deal_ids: LotusJson(i.deal_ids),
             expiration: i.expiration,
             unsealed_cid: LotusJson(i.unsealed_cid.0),
         }
@@ -125,7 +125,7 @@ impl From<fil_actor_miner_state::v10::SectorPreCommitInfo> for SectorPreCommitIn
             sector_number: i.sector_number,
             sealed_cid: LotusJson(i.sealed_cid),
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: Some(i.deal_ids),
+            deal_ids: LotusJson(i.deal_ids),
             expiration: i.expiration,
             unsealed_cid: LotusJson(i.unsealed_cid.0),
         }
@@ -139,7 +139,7 @@ impl From<fil_actor_miner_state::v11::SectorPreCommitInfo> for SectorPreCommitIn
             sector_number: i.sector_number,
             sealed_cid: LotusJson(i.sealed_cid),
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: Some(i.deal_ids),
+            deal_ids: LotusJson(i.deal_ids),
             expiration: i.expiration,
             unsealed_cid: LotusJson(i.unsealed_cid.0),
         }
@@ -153,7 +153,7 @@ impl From<fil_actor_miner_state::v12::SectorPreCommitInfo> for SectorPreCommitIn
             sector_number: i.sector_number,
             sealed_cid: LotusJson(i.sealed_cid),
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: Some(i.deal_ids),
+            deal_ids: LotusJson(i.deal_ids),
             expiration: i.expiration,
             unsealed_cid: LotusJson(i.unsealed_cid.0),
         }
@@ -167,7 +167,7 @@ impl From<fil_actor_miner_state::v13::SectorPreCommitInfo> for SectorPreCommitIn
             sector_number: i.sector_number,
             sealed_cid: LotusJson(i.sealed_cid),
             seal_rand_epoch: i.seal_rand_epoch,
-            deal_ids: Some(i.deal_ids),
+            deal_ids: LotusJson(i.deal_ids),
             expiration: i.expiration,
             unsealed_cid: LotusJson(i.unsealed_cid.0),
         }

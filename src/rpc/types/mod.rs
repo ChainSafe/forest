@@ -354,7 +354,7 @@ pub struct SectorPreCommitInfo {
     pub sealed_cid: LotusJson<Cid>,
     pub seal_rand_epoch: ChainEpoch,
     #[serde(rename = "DealIDs")]
-    pub deal_ids: Option<Vec<DealID>>,
+    pub deal_ids: LotusJson<Vec<DealID>>,
     pub expiration: ChainEpoch,
     pub unsealed_cid: LotusJson<Option<Cid>>,
 }
