@@ -5,14 +5,13 @@ use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
-use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::{ApiVersion, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;
 use futures::channel::oneshot;
 use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools as _;
 use libp2p::Multiaddr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -64,7 +63,7 @@ impl RpcMethod<0> for NetPeers {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = LotusJson<Vec<AddrInfo>>;
+    type Ok = Vec<AddrInfo>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let (tx, rx) = oneshot::channel();
@@ -81,9 +80,9 @@ impl RpcMethod<0> for NetPeers {
                 id: id.to_string(),
                 addrs,
             })
-            .collect_vec();
+            .collect();
 
-        Ok(connections.into())
+        Ok(connections)
     }
 }
 
@@ -264,6 +263,7 @@ pub struct NetInfoResult {
     pub num_pending_outgoing: u32,
     pub num_established: u32,
 }
+lotus_json_with_self!(NetInfoResult);
 
 impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
     fn from(i: libp2p::swarm::NetworkInfo) -> Self {
@@ -285,6 +285,7 @@ pub struct NatStatusResult {
     pub reachability: i32,
     pub public_addrs: Option<Vec<String>>,
 }
+lotus_json_with_self!(NatStatusResult);
 
 impl NatStatusResult {
     // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>

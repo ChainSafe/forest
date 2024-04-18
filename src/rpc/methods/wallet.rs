@@ -40,7 +40,7 @@ impl RpcMethod<1> for WalletBalance {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Address>,);
-    type Ok = LotusJson<TokenAmount>;
+    type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -49,12 +49,12 @@ impl RpcMethod<1> for WalletBalance {
         let heaviest_ts = ctx.state_manager.chain_store().heaviest_tipset();
         let cid = heaviest_ts.parent_state();
 
-        Ok(LotusJson(
+        Ok(
             StateTree::new_from_root(ctx.state_manager.blockstore_owned(), cid)?
                 .get_actor(&address)?
                 .map(|it| it.balance.clone().into())
                 .unwrap_or_default(),
-        ))
+        )
     }
 }
 
@@ -65,11 +65,11 @@ impl RpcMethod<0> for WalletDefaultAddress {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = LotusJson<Option<Address>>;
+    type Ok = Option<Address>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read().await;
-        Ok(LotusJson(crate::key_management::get_default(&keystore)?))
+        Ok(crate::key_management::get_default(&keystore)?)
     }
 }
 
@@ -80,16 +80,15 @@ impl RpcMethod<1> for WalletExport {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Address>,);
-    type Ok = LotusJson<KeyInfo>;
+    type Ok = KeyInfo;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(address),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read().await;
-
         let key_info = crate::key_management::export_key_info(&address, &keystore)?;
-        Ok(key_info.into())
+        Ok(key_info)
     }
 }
 
@@ -118,7 +117,7 @@ impl RpcMethod<1> for WalletImport {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<KeyInfo>,);
-    type Ok = LotusJson<Address>;
+    type Ok = Address;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -130,7 +129,7 @@ impl RpcMethod<1> for WalletImport {
 
         let mut keystore = ctx.keystore.write().await;
         keystore.put(&addr, key.key_info)?;
-        Ok(LotusJson(key.address))
+        Ok(key.address)
     }
 }
 
@@ -141,11 +140,11 @@ impl RpcMethod<0> for WalletList {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = LotusJson<Vec<Address>>;
+    type Ok = Vec<Address>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read().await;
-        Ok(crate::key_management::list_addrs(&keystore)?.into())
+        Ok(crate::key_management::list_addrs(&keystore)?)
     }
 }
 
@@ -156,7 +155,7 @@ impl RpcMethod<1> for WalletNew {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<SignatureType>,);
-    type Ok = LotusJson<Address>;
+    type Ok = Address;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -172,7 +171,7 @@ impl RpcMethod<1> for WalletNew {
             keystore.put("default", key.key_info)?
         }
 
-        Ok(key.address.into())
+        Ok(key.address)
     }
 }
 
@@ -205,7 +204,7 @@ impl RpcMethod<2> for WalletSign {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Address>, LotusJson<Vec<u8>>);
-    type Ok = LotusJson<Signature>;
+    type Ok = Signature;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -231,7 +230,7 @@ impl RpcMethod<2> for WalletSign {
             &BASE64_STANDARD.decode(message)?,
         )?;
 
-        Ok(sig.into())
+        Ok(sig)
     }
 }
 
@@ -242,10 +241,10 @@ impl RpcMethod<1> for WalletValidateAddress {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (String,);
-    type Ok = LotusJson<Address>;
+    type Ok = Address;
 
     async fn handle(_: Ctx<impl Any>, (s,): Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(LotusJson(s.parse()?))
+        Ok(s.parse()?)
     }
 }
 

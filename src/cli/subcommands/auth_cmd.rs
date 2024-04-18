@@ -55,18 +55,14 @@ impl AuthCommands {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let res = AuthNew::call(&client, (AuthNewParams { perms, token_exp },))
-                    .await?
-                    .into_inner();
+                let res = AuthNew::call(&client, (AuthNewParams { perms, token_exp },)).await?;
                 print_rpc_res_bytes(res)
             }
             Self::ApiInfo { perm, expire_in } => {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let token = AuthNew::call(&client, (AuthNewParams { perms, token_exp },))
-                    .await?
-                    .into_inner();
+                let token = AuthNew::call(&client, (AuthNewParams { perms, token_exp },)).await?;
                 let new_api = api.set_token(Some(String::from_utf8(token)?));
                 println!("FULLNODE_API_INFO=\"{}\"", new_api);
                 Ok(())

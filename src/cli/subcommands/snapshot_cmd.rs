@@ -49,16 +49,15 @@ impl SnapshotCommands {
                 tipset,
                 depth,
             } => {
-                let chain_head = ChainHead::call(&client, ()).await?.into_inner();
+                let chain_head = ChainHead::call(&client, ()).await?;
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
                 let raw_network_name = api.state_network_name().await?;
                 let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
-                let tipset = ChainGetTipSetByHeight::call(&client, (epoch, Default::default()))
-                    .await?
-                    .into_inner();
+                let tipset =
+                    ChainGetTipSetByHeight::call(&client, (epoch, Default::default())).await?;
 
                 let output_path = match output_path.is_dir() {
                     true => output_path.join(snapshot::filename(
