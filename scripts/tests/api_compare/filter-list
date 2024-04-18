@@ -6,4 +6,3 @@
 !Filecoin.MpoolGetNonce
 !Filecoin.StateCall
 !Filecoin.StateListMessages
-!Filecoin.StateSectorGetInfo
