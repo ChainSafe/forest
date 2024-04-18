@@ -634,10 +634,10 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
         ts.parent_state(),
     )?;
     let initial_pledge = reward_state.initial_pledge_for_power(
-        sector_weigth,
+        &sector_weigth,
         pledge_collateral,
         power_smoothed,
-        circ_supply.fil_circulating.into(),
+        &circ_supply.fil_circulating.into(),
     )?;
 
     let (q, _) = (initial_pledge * 110).div_rem(110);
