@@ -268,7 +268,6 @@ where
     use gas::*;
 
     // State API
-    module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;
     module.register_async_method(STATE_NETWORK_NAME, |_, state| {
         state_network_name::<DB>(state)
     })?;

@@ -203,3 +203,4 @@ pub struct InvocResult {
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
+lotus_json_with_self!(InvocResult);
