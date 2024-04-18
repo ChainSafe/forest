@@ -9,6 +9,7 @@ use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
+use crate::shim::message::Message;
 use crate::shim::state_tree::StateTree;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
@@ -51,6 +52,7 @@ use tokio::task::JoinSet;
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::state::MinerGetBaseInfo);
+        $callback!(crate::rpc::state::StateCall);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateListMessages);
         $callback!(crate::rpc::state::StateSectorGetInfo);
@@ -61,7 +63,6 @@ pub(crate) use for_each_method;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
-pub const STATE_CALL: &str = "Filecoin.StateCall";
 pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
 pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
 pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
@@ -125,21 +126,28 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     }
 }
 
-/// runs the given message and returns its result without any persisted changes.
-pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<ApiInvocResult, ServerError> {
-    let LotusJson((message, ApiTipsetKey(key))) = params.parse()?;
+pub enum StateCall {}
+impl RpcMethod<2> for StateCall {
+    const NAME: &'static str = "Filecoin.StateCall";
+    const PARAM_NAMES: [&'static str; 2] = ["message", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let state_manager = &data.state_manager;
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
-    // Handle expensive fork error?
-    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
-    Ok(state_manager.call(&message, Some(tipset))?)
+    type Params = (LotusJson<Message>, LotusJson<ApiTipsetKey>);
+    type Ok = ApiInvocResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(message), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let tipset = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        // Handle expensive fork error?
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+        Ok(state_manager.call(&message, Some(tipset))?)
+    }
 }
 
 /// returns the result of executing the indicated message, assuming it was

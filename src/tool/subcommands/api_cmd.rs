@@ -928,16 +928,19 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         for block in tipset.block_headers() {
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
-                tests.push(RpcTest::identity(ApiInfo::state_call_req(
-                    msg.message().clone(),
-                    shared_tipset.key().into(),
-                )));
+                tests.push(RpcTest::identity(
+                    StateCall::request((
+                        msg.message().clone().into(),
+                        LotusJson(shared_tipset.key().into()),
+                    ))
+                    .unwrap(),
+                ));
             }
             for msg in bls_messages {
-                tests.push(RpcTest::identity(ApiInfo::state_call_req(
-                    msg.clone(),
-                    shared_tipset.key().into(),
-                )));
+                tests.push(RpcTest::identity(
+                    StateCall::request((msg.clone().into(), LotusJson(shared_tipset.key().into())))
+                        .unwrap(),
+                ));
             }
 
             tests.push(RpcTest::identity(ApiInfo::state_market_balance_req(
