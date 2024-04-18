@@ -132,6 +132,7 @@ use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializ
 #[cfg(test)]
 use serde_json::json;
 use std::{fmt::Display, str::FromStr};
+use uuid::Uuid;
 #[cfg(test)]
 use {pretty_assertions::assert_eq, quickcheck::quickcheck};
 
@@ -449,9 +450,6 @@ impl<T> LotusJson<T> {
     pub fn into_inner(self) -> T {
         self.0
     }
-    pub fn as_ref(&self) -> &T {
-        &self.0
-    }
 }
 
 impl<T> LotusJson<Option<T>> {
@@ -479,6 +477,12 @@ impl<T> JsonSchema for Stringify<T> {
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
         String::json_schema(gen)
+    }
+}
+
+impl<T: Clone> Clone for Stringify<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }
 
@@ -515,6 +519,7 @@ lotus_json_with_self!(
     bool,
     DeadlineInfo,
     PaddedPieceSize,
+    Uuid,
 );
 
 #[derive(Default, Debug, Serialize, Deserialize)]

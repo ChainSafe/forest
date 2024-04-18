@@ -53,7 +53,7 @@ impl RpcMethod<1> for MpoolPending {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<ApiTipsetKey>,);
-    type Ok = LotusJson<Vec<SignedMessage>>;
+    type Ok = Vec<SignedMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -72,7 +72,7 @@ impl RpcMethod<1> for MpoolPending {
         }
 
         if mpts.epoch() > ts.epoch() {
-            return Ok(pending.into_iter().collect::<Vec<_>>().into());
+            return Ok(pending.into_iter().collect::<Vec<_>>());
         }
 
         loop {
@@ -116,7 +116,7 @@ impl RpcMethod<1> for MpoolPending {
                 .chain_index
                 .load_required_tipset(ts.parents())?;
         }
-        Ok(pending.into_iter().collect::<Vec<_>>().into())
+        Ok(pending.into_iter().collect::<Vec<_>>())
     }
 }
 
@@ -128,7 +128,7 @@ impl RpcMethod<2> for MpoolSelect {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<ApiTipsetKey>, f64);
-    type Ok = LotusJson<Vec<SignedMessage>>;
+    type Ok = Vec<SignedMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -139,7 +139,7 @@ impl RpcMethod<2> for MpoolSelect {
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
 
-        Ok(LotusJson(ctx.mpool.select_messages(&ts, tq)?))
+        Ok(ctx.mpool.select_messages(&ts, tq)?)
     }
 }
 
@@ -151,14 +151,14 @@ impl RpcMethod<1> for MpoolPush {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<SignedMessage>,);
-    type Ok = LotusJson<Cid>;
+    type Ok = Cid;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (LotusJson(msg),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let cid = ctx.mpool.as_ref().push(msg).await?;
-        Ok(cid.into())
+        Ok(cid)
     }
 }
 
@@ -170,7 +170,7 @@ impl RpcMethod<2> for MpoolPushMessage {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Message>, Option<MessageSendSpec>);
-    type Ok = LotusJson<SignedMessage>;
+    type Ok = SignedMessage;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -218,6 +218,6 @@ impl RpcMethod<2> for MpoolPushMessage {
 
         ctx.mpool.as_ref().push(smsg.clone()).await?;
 
-        Ok(smsg.into())
+        Ok(smsg)
     }
 }

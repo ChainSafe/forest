@@ -5,6 +5,7 @@ use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::{ApiVersion, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
@@ -251,6 +252,8 @@ pub struct AddrInfo {
     pub addrs: ahash::HashSet<Multiaddr>,
 }
 
+lotus_json_with_self!(AddrInfo);
+
 #[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct NetInfoResult {
     pub num_peers: usize,
@@ -260,6 +263,7 @@ pub struct NetInfoResult {
     pub num_pending_outgoing: u32,
     pub num_established: u32,
 }
+lotus_json_with_self!(NetInfoResult);
 
 impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
     fn from(i: libp2p::swarm::NetworkInfo) -> Self {
@@ -281,6 +285,7 @@ pub struct NatStatusResult {
     pub reachability: i32,
     pub public_addrs: Option<Vec<String>>,
 }
+lotus_json_with_self!(NatStatusResult);
 
 impl NatStatusResult {
     // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>

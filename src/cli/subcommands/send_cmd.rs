@@ -42,7 +42,6 @@ impl SendCommand {
         } else {
             WalletDefaultAddress::call(&client, ())
                 .await?
-                .into_inner()
                 .context("No default wallet address selected. Please set a default address.")?
         };
 
@@ -58,9 +57,7 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = MpoolPushMessage::call(&client, (message.into(), None))
-            .await?
-            .into_inner();
+        let signed_msg = MpoolPushMessage::call(&client, (message.into(), None)).await?;
 
         println!("{}", signed_msg.cid().unwrap());
 

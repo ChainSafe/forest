@@ -159,16 +159,13 @@ impl InfoCommand {
             StartTime::call(&client, ()),
             WalletDefaultAddress::call(&client, ()),
         )?;
-        let default_wallet_address = default_wallet_address.into_inner();
 
         let cur_duration: Duration = SystemTime::now().duration_since(UNIX_EPOCH)?;
         let blocks_per_tipset_last_finality =
             node_status.chain_status.blocks_per_tipset_last_finality;
 
         let default_wallet_address_balance = if let Some(def_addr) = default_wallet_address {
-            let balance = WalletBalance::call(&client, (def_addr.into(),))
-                .await?
-                .into_inner();
+            let balance = WalletBalance::call(&client, (def_addr.into(),)).await?;
             Some(balance)
         } else {
             None
@@ -177,7 +174,7 @@ impl InfoCommand {
         let node_status_info = NodeStatusInfo::new(
             cur_duration,
             blocks_per_tipset_last_finality,
-            &head.into_inner(),
+            &head,
             start_time,
             network,
             default_wallet_address,
