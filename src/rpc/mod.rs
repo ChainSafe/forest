@@ -319,7 +319,6 @@ where
     )?;
     module.register_async_method(STATE_READ_STATE, state_read_state::<DB>)?;
     module.register_async_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)?;
-    module.register_async_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)?;
     module.register_async_method(
         STATE_VERIFIED_CLIENT_STATUS,
         state_verified_client_status::<DB>,
