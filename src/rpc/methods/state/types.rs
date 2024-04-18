@@ -192,12 +192,14 @@ pub struct MiningBaseInfo {
 
 lotus_json_with_self!(MiningBaseInfo);
 
-#[derive(PartialEq, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct InvocResult {
     #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Message>")]
     pub msg: Message,
     #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Option<Receipt>>")]
     pub msg_rct: Option<Receipt>,
     pub error: Option<String>,
 }
