@@ -279,11 +279,7 @@ mod inner {
             Address::from_str(&to)?,
             humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
         );
-        Ok(
-            MpoolPushMessage::call(&rpc::Client::from(api), (message.into(), None))
-                .await?
-                .into_inner(),
-        )
+        Ok(MpoolPushMessage::call(&rpc::Client::from(api), (message.into(), None)).await?)
     }
 
     type SleepParams = (u64,);
@@ -300,14 +296,14 @@ mod inner {
         let mut epoch = None;
         loop {
             let state = SyncState::call(&client, ()).await?;
-            if state.active_syncs.as_ref().first().stage() == SyncStage::Complete {
+            if state.active_syncs.first().stage() == SyncStage::Complete {
                 if let Some(prev) = epoch {
-                    let curr = state.active_syncs.as_ref().first().epoch();
+                    let curr = state.active_syncs.first().epoch();
                     if (curr - prev) >= epochs {
                         return Ok(());
                     }
                 } else {
-                    epoch = Some(state.active_syncs.as_ref().first().epoch());
+                    epoch = Some(state.active_syncs.first().epoch());
                 }
             }
             time::sleep(time::Duration::from_secs(1)).await;

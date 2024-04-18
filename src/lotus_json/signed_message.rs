@@ -7,7 +7,7 @@ use ::cid::Cid;
 
 use super::*;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SignedMessageLotusJson {
     message: LotusJson<Message>,

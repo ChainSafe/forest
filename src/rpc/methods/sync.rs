@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::lotus_json::LotusJson;
+use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
@@ -64,7 +64,7 @@ impl RpcMethod<0> for SyncState {
     type Ok = RPCSyncState;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let active_syncs = LotusJson(nonempty![ctx.sync_state.as_ref().read().clone()]);
+        let active_syncs = nonempty![ctx.sync_state.as_ref().read().clone()];
         Ok(RPCSyncState { active_syncs })
     }
 }
@@ -73,8 +73,10 @@ impl RpcMethod<0> for SyncState {
 #[serde(rename_all = "PascalCase")]
 pub struct RPCSyncState {
     #[schemars(with = "LotusJson<Vec<crate::chain_sync::SyncState>>")]
-    pub active_syncs: LotusJson<NonEmpty<crate::chain_sync::SyncState>>,
+    #[serde(with = "crate::lotus_json")]
+    pub active_syncs: NonEmpty<crate::chain_sync::SyncState>,
 }
+lotus_json_with_self!(RPCSyncState);
 
 #[cfg(test)]
 mod tests {
@@ -205,10 +207,7 @@ mod tests {
         let st_copy = ctx.sync_state.clone();
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
-        assert_eq!(
-            ret.active_syncs,
-            nonempty![st_copy.as_ref().read().clone()].into()
-        );
+        assert_eq!(ret.active_syncs, nonempty![st_copy.as_ref().read().clone()]);
 
         // update cloned state
         st_copy.write().set_stage(SyncStage::Messages);
@@ -216,9 +215,6 @@ mod tests {
 
         let ret = SyncState::handle(ctx.clone(), ()).await.unwrap();
 
-        assert_eq!(
-            ret.active_syncs,
-            nonempty![st_copy.as_ref().read().clone()].into()
-        );
+        assert_eq!(ret.active_syncs, nonempty![st_copy.as_ref().read().clone()]);
     }
 }

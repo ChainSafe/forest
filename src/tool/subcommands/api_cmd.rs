@@ -338,10 +338,6 @@ impl RpcTest {
     fn identity<T: PartialEq + HasLotusJson>(request: RpcRequest<T>) -> RpcTest {
         Self::validate(request, |forest, lotus| forest == lotus)
     }
-    /// See [Self::identity], and note on this `impl` block.
-    fn identity_raw<T: PartialEq + DeserializeOwned>(request: RpcRequest<T>) -> Self {
-        Self::validate_raw(request, |l, r| l == r)
-    }
 
     fn with_timeout(mut self, timeout: Duration) -> Self {
         self.request.set_timeout(timeout);
@@ -424,9 +420,9 @@ impl RpcTest {
 
 fn common_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic_raw(Version::request(()).unwrap()),
-        RpcTest::basic_raw(StartTime::request(()).unwrap()),
-        RpcTest::basic_raw(Session::request(()).unwrap()),
+        RpcTest::basic(Version::request(()).unwrap()),
+        RpcTest::basic(StartTime::request(()).unwrap()),
+        RpcTest::basic(Session::request(()).unwrap()),
     ]
 }
 
@@ -437,15 +433,15 @@ fn auth_tests() -> Vec<RpcTest> {
 }
 
 fn beacon_tests() -> Vec<RpcTest> {
-    vec![RpcTest::identity_raw(
+    vec![RpcTest::identity(
         BeaconGetEntry::request((10101,)).unwrap(),
     )]
 }
 
 fn chain_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic_raw(ChainHead::request(()).unwrap()),
-        RpcTest::identity_raw(ChainGetGenesis::request(()).unwrap()),
+        RpcTest::basic(ChainHead::request(()).unwrap()),
+        RpcTest::identity(ChainGetGenesis::request(()).unwrap()),
     ]
 }
 
@@ -453,21 +449,21 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let shared_block_cid = (*shared_tipset.min_ticket_block().cid()).into();
 
     vec![
-        RpcTest::identity_raw(ChainReadObj::request((shared_block_cid,)).unwrap()),
-        RpcTest::identity_raw(ChainHasObj::request((shared_block_cid,)).unwrap()),
-        RpcTest::identity_raw(ChainGetBlock::request((shared_block_cid,)).unwrap()),
-        RpcTest::identity_raw(
+        RpcTest::identity(ChainReadObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity(ChainHasObj::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity(ChainGetBlock::request((shared_block_cid,)).unwrap()),
+        RpcTest::identity(
             ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
                 .unwrap(),
         ),
-        RpcTest::identity_raw(
+        RpcTest::identity(
             ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
                 .unwrap(),
         ),
-        RpcTest::identity_raw(
+        RpcTest::identity(
             ChainGetTipSet::request((LotusJson(shared_tipset.key().clone().into()),)).unwrap(),
         ),
-        RpcTest::identity_raw(
+        RpcTest::identity(
             ChainGetPath::request((
                 shared_tipset.key().clone().into(),
                 shared_tipset.parents().clone().into(),
@@ -479,8 +475,8 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic_raw(MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap()),
-        RpcTest::basic_raw(MpoolSelect::request((LotusJson(ApiTipsetKey(None)), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((LotusJson(ApiTipsetKey(None)), 0.9_f64)).unwrap()),
     ]
 }
 
@@ -498,14 +494,14 @@ fn net_tests() -> Vec<RpcTest> {
     // More net commands should be tested. Tracking issue:
     // https://github.com/ChainSafe/forest/issues/3639
     vec![
-        RpcTest::basic_raw(NetAddrsListen::request(()).unwrap()),
-        RpcTest::basic_raw(NetPeers::request(()).unwrap()),
-        RpcTest::identity_raw(NetListening::request(()).unwrap()),
-        RpcTest::basic_raw(NetAgentVersion::request((peer_id,)).unwrap()),
-        RpcTest::basic_raw(NetInfo::request(()).unwrap())
+        RpcTest::basic(NetAddrsListen::request(()).unwrap()),
+        RpcTest::basic(NetPeers::request(()).unwrap()),
+        RpcTest::identity(NetListening::request(()).unwrap()),
+        RpcTest::basic(NetAgentVersion::request((peer_id,)).unwrap()),
+        RpcTest::basic(NetInfo::request(()).unwrap())
             .ignore("Not implemented in Lotus. Why do we even have this method?"),
-        RpcTest::basic_raw(NetAutoNatStatus::request(()).unwrap()),
-        RpcTest::identity_raw(NetVersion::request(()).unwrap()),
+        RpcTest::basic(NetAutoNatStatus::request(()).unwrap()),
+        RpcTest::identity(NetVersion::request(()).unwrap()),
     ]
 }
 
@@ -519,8 +515,8 @@ fn node_tests() -> Vec<RpcTest> {
 
 fn state_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::identity_raw(StateGetBeaconEntry::request((0.into(),)).unwrap()),
-        RpcTest::identity_raw(StateGetBeaconEntry::request((1.into(),)).unwrap()),
+        RpcTest::identity(StateGetBeaconEntry::request((0.into(),)).unwrap()),
+        RpcTest::identity(StateGetBeaconEntry::request((1.into(),)).unwrap()),
     ]
 }
 
@@ -589,9 +585,7 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
         )),
-        RpcTest::identity_raw(
-            StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap(),
-        ),
+        RpcTest::identity(StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap()),
     ]
 }
 
@@ -610,9 +604,9 @@ fn wallet_tests() -> Vec<RpcTest> {
     };
 
     vec![
-        RpcTest::identity_raw(WalletBalance::request((known_wallet.into(),)).unwrap()),
-        RpcTest::identity_raw(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
-        RpcTest::identity_raw(
+        RpcTest::identity(WalletBalance::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
+        RpcTest::identity(
             WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
         ),
         // These methods require write access in Lotus. Not sure why.
@@ -672,7 +666,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     // is inherently non-deterministic but I'm fairly sure we're compensated for
     // everything. If not, this test will be flaky. Instead of disabling it, we
     // should relax the verification requirement.
-    vec![RpcTest::identity_raw(
+    vec![RpcTest::identity(
         GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
             .unwrap(),
     )]
@@ -709,7 +703,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     )));
 
     for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
-        tests.push(RpcTest::identity_raw(ChainGetMessagesInTipset::request((
+        tests.push(RpcTest::identity(ChainGetMessagesInTipset::request((
             tipset.key().clone().into(),
         ))?));
         tests.push(RpcTest::identity(
@@ -719,15 +713,15 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tipset.key().into(),
             ),
         ));
-        tests.push(RpcTest::identity_raw(ChainTipSetWeight::request((
-            LotusJson(tipset.key().into()),
-        ))?));
+        tests.push(RpcTest::identity(ChainTipSetWeight::request((LotusJson(
+            tipset.key().into(),
+        ),))?));
         for block in tipset.block_headers() {
             let block_cid = (*block.cid()).into();
             tests.extend([
-                RpcTest::identity_raw(ChainGetBlockMessages::request((block_cid,))?),
-                RpcTest::identity_raw(ChainGetParentMessages::request((block_cid,))?),
-                RpcTest::identity_raw(ChainGetParentReceipts::request((block_cid,))?),
+                RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
+                RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
+                RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
             ]);
             tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
                 block.miner_address,
@@ -737,7 +731,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 .into_iter()
                 .take(5)
             {
-                tests.push(RpcTest::identity_raw(StateSectorGetInfo::request((
+                tests.push(RpcTest::identity(StateSectorGetInfo::request((
                     block.miner_address.into(),
                     sector.into(),
                     LotusJson(tipset.key().into()),
@@ -748,7 +742,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     .into_iter()
                     .take(5)
             {
-                tests.push(RpcTest::identity_raw(StateSectorPreCommitInfo::request((
+                tests.push(RpcTest::identity(StateSectorPreCommitInfo::request((
                     block.miner_address.into(),
                     sector.into(),
                     LotusJson(tipset.key().into()),
@@ -757,7 +751,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages.into_iter().unique() {
-                tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
+                tests.push(RpcTest::identity(ChainGetMessage::request((msg
                     .cid()?
                     .into(),))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
@@ -798,7 +792,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 ));
             }
             for msg in secp_messages.into_iter().unique() {
-                tests.push(RpcTest::identity_raw(ChainGetMessage::request((msg
+                tests.push(RpcTest::identity(ChainGetMessage::request((msg
                     .cid()?
                     .into(),))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(

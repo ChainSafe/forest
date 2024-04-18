@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
-use crate::{beacon::BeaconEntry, lotus_json::LotusJson, shim::clock::ChainEpoch};
+use crate::{beacon::BeaconEntry, shim::clock::ChainEpoch};
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 
@@ -23,7 +23,7 @@ impl RpcMethod<1> for BeaconGetEntry {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (ChainEpoch,);
-    type Ok = LotusJson<BeaconEntry>;
+    type Ok = BeaconEntry;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -33,6 +33,6 @@ impl RpcMethod<1> for BeaconGetEntry {
         let rr =
             beacon.max_beacon_round_for_epoch(ctx.state_manager.get_network_version(first), first);
         let e = beacon.entry(rr).await?;
-        Ok(e.into())
+        Ok(e)
     }
 }

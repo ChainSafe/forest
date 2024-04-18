@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::econ::TokenAmount;
 use num::BigInt;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)] // name the field for clarity
 pub struct TokenAmountLotusJson {
     attos: LotusJson<BigInt>,
