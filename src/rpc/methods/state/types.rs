@@ -1,18 +1,21 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::beacon::BeaconEntry;
 use crate::lotus_json::lotus_json_with_self;
-
-use crate::shim::{address::Address, econ::TokenAmount, executor::Receipt, message::Message};
 use crate::shim::{
+    address::Address,
+    econ::TokenAmount,
     error::ExitCode,
+    executor::Receipt,
+    message::Message,
+    sector::SectorInfo,
     state_tree::{ActorID, ActorState},
 };
 use cid::Cid;
-
 use fvm_ipld_encoding::RawBytes;
-
 use serde::{Deserialize, Serialize};
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiInvocResult {
@@ -149,3 +152,24 @@ impl PartialEq for GasTrace {
             && self.storage_gas == other.storage_gas
     }
 }
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfo {
+    #[serde(with = "crate::lotus_json")]
+    pub miner_power: crate::shim::sector::StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    pub network_power: fvm_shared2::sector::StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    pub sectors: Vec<SectorInfo>,
+    #[serde(with = "crate::lotus_json")]
+    pub worker_key: Address,
+    pub sector_size: fvm_shared2::sector::SectorSize,
+    #[serde(with = "crate::lotus_json")]
+    pub prev_beacon_entry: BeaconEntry,
+    #[serde(with = "crate::lotus_json")]
+    pub beacon_entries: Vec<BeaconEntry>,
+    pub eligible_for_mining: bool,
+}
+
+lotus_json_with_self!(MiningBaseInfo);
