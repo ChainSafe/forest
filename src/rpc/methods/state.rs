@@ -30,6 +30,7 @@ use fil_actor_interface::{
     miner::{MinerInfo, MinerPower},
     multisig, power, reward,
 };
+use fil_actor_miner_state::v10::qa_power_for_weight;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -594,30 +595,30 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
 
     let state = *ts.parent_state();
 
-    let sector_size = pci.seal_proof.sector_size();
+    let sector_size = pci
+        .seal_proof
+        .sector_size()
+        .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
     let actor = data
         .state_manager
         .get_actor(&Address::MARKET_ACTOR, state)?
         .context("Market actor address could not be resolved")?;
     let market_state = market::State::load(bs, actor.code, actor.state)?;
-
-    let w = market_state.verify_deals_for_activation(
+    let (w, vw) = market_state.verify_deals_for_activation(
         maddr.into(),
         pci.deal_ids,
         ts.epoch(),
         pci.expiration,
     )?;
-
     let duration = pci.expiration - ts.epoch();
-    let sector_weigth = todo!();
+    let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
 
     let actor = data
         .state_manager
         .get_actor(&Address::POWER_ACTOR, state)?
         .context("Power actor address could not be resolved")?;
     let power_state = power::State::load(bs, actor.code, actor.state)?;
-
     let power_smoothed = power_state.total_power_smoothed();
     let pledge_collateral = power_state.total_locked();
 
@@ -626,14 +627,12 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
         .get_actor(&Address::REWARD_ACTOR, state)?
         .context("Reward actor address could not be resolved")?;
     let reward_state = reward::State::load(bs, actor.code, actor.state)?;
-
     let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
     let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
         ts.epoch(),
         &Arc::new(bs),
         ts.parent_state(),
     )?;
-
     let initial_pledge = reward_state.initial_pledge_for_power(
         sector_weigth,
         pledge_collateral,
