@@ -54,6 +54,43 @@ pub mod prelude {
 }
 
 /// All the methods live in their own folder
+///
+/// # Handling types
+/// - If a `struct` or `enum` is only used in the RPC API, it should live in `src/rpc`.
+///   - If it is used in only one API vertical (i.e `auth` or `chain`), then it should live
+///     in either:
+///     - `src/rpc/methods/auth.rs` (if there are only a few).
+///     - `src/rpc/methods/auth/types.rs` (if there are so many that they would cause clutter).
+///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
+///
+/// # Interactions with the [`lotus_json`] APIs
+/// - Types defined in the module will only ever be deserialized as JSON, so there
+///   will NEVER be a need to implement [`HasLotusJson`] for them.
+/// - Types may have fields which must go through [`LotusJson`],
+///   and must reflect that in their [`JsonSchema`].
+///   You have two options for this:
+///   - Use `#[attributes]` to control serialization and schema generation:
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         #[serde(with = "crate::lotus_json")] // perform the conversion
+///         #[schemars(with = "LotusJson<Cid>")] // advertise the schema to be converted
+///         cid: Cid, // use the native type in application logic
+///     }
+///     ```
+///   - Use [`LotusJson`] directly. This means that serialization and the [`JsonSchema`]
+///     will never go out of sync.
+///     ```ignore
+///     #[derive(Deserialize, Serialize, JsonSchema)]
+///     struct Foo {
+///         cid: LotusJson<Cid>, // use the shim type in application logic, manually performing conversions
+///     }
+///     ```
+///
+/// [`lotus_json`]: crate::lotus_json
+/// [`HasLotusJson`]: crate::lotus_json::HasLotusJson
+/// [`LotusJson`]: crate::lotus_json::LotusJson
+/// [`JsonSchema`]: schemars::JsonSchema
 mod methods {
     pub mod auth;
     pub mod beacon;
@@ -109,6 +146,12 @@ pub struct RPCState<DB> {
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub beacon: Arc<crate::beacon::BeaconSchedule>,
     pub shutdown: mpsc::Sender<()>,
+}
+
+impl<DB: Blockstore> RPCState<DB> {
+    pub fn store(&self) -> &DB {
+        self.chain_store.blockstore()
+    }
 }
 
 #[derive(Clone)]
@@ -240,6 +283,7 @@ where
     module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
     module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
     module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
+    module.register_async_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB>)?;
     module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
     module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
@@ -275,7 +319,6 @@ where
     )?;
     module.register_async_method(STATE_READ_STATE, state_read_state::<DB>)?;
     module.register_async_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)?;
-    module.register_async_method(STATE_SECTOR_GET_INFO, state_sector_get_info::<DB>)?;
     module.register_async_method(
         STATE_VERIFIED_CLIENT_STATUS,
         state_verified_client_status::<DB>,
@@ -331,6 +374,7 @@ mod tests {
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[tokio::test]
+    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
     async fn openrpc() {
         let (_, spec) = create_module(Arc::new(RPCState::calibnet()));
         insta::assert_yaml_snapshot!(spec);

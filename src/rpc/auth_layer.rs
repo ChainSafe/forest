@@ -65,6 +65,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     // Message Pool API
     access.insert(mpool::MpoolGetNonce::NAME, Access::Read);
     access.insert(mpool::MpoolPending::NAME, Access::Read);
+    access.insert(mpool::MpoolSelect::NAME, Access::Read);
     // Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
     // can always be pushed over the p2p protocol, limiting the RPC doesn't
     // improve security.
@@ -118,11 +119,12 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
     access.insert(state::STATE_READ_STATE, Access::Read);
     access.insert(state::STATE_CIRCULATING_SUPPLY, Access::Read);
-    access.insert(state::STATE_SECTOR_GET_INFO, Access::Read);
+    access.insert(state::StateSectorGetInfo::NAME, Access::Read);
     access.insert(state::STATE_LIST_MESSAGES, Access::Read);
     access.insert(state::STATE_LIST_MINERS, Access::Read);
     access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
     access.insert(state::STATE_MINER_SECTORS, Access::Read);
+    access.insert(state::STATE_MINER_PARTITIONS, Access::Read);
     access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
     access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
     access.insert(state::STATE_VM_CIRCULATING_SUPPLY_INTERNAL, Access::Read);
@@ -130,6 +132,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::MSIG_GET_PENDING, Access::Read);
     access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
     access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
+    access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
     // Gas API
     access.insert(gas::GAS_ESTIMATE_GAS_LIMIT, Access::Read);

@@ -276,6 +276,14 @@ where
         state.get_actor(addr)
     }
 
+    /// Gets required actor from given [`Cid`].
+    pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        state.get_actor(addr)?.with_context(|| {
+            format!("Failed to load actor with addr={addr}, state_cid={state_cid}")
+        })
+    }
+
     /// Returns a reference to the state manager's [`Blockstore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()

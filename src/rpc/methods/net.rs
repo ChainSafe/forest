@@ -242,32 +242,13 @@ impl RpcMethod<0> for NetVersion {
 }
 
 // Net API
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
     pub id: String,
+    #[schemars(with = "ahash::HashSet<String>")]
     pub addrs: ahash::HashSet<Multiaddr>,
-}
-
-#[derive(JsonSchema)]
-#[schemars(rename = "AddrInfo")]
-#[serde(rename_all = "PascalCase")]
-#[allow(unused)]
-struct Helper {
-    #[serde(rename = "ID")]
-    id: String,
-    addrs: ahash::HashSet<String>,
-}
-
-impl JsonSchema for AddrInfo {
-    fn schema_name() -> String {
-        Helper::schema_name()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        Helper::json_schema(gen)
-    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]

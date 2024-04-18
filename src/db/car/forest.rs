@@ -242,12 +242,10 @@ where
 
 fn decode_zstd_single_frame<ReaderT: Read>(reader: ReaderT) -> io::Result<BytesMut> {
     let mut zstd_frame = vec![];
-
     zstd::Decoder::new(reader)?
         .single_frame()
         .read_to_end(&mut zstd_frame)?;
-    // This unnecessarily copies the zstd frame. :(
-    Ok(BytesMut::from(zstd_frame.as_slice()))
+    Ok(zstd_frame.into_iter().collect())
 }
 
 pub struct Encoder {}
