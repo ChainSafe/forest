@@ -275,21 +275,22 @@ struct ApiState {
 
 lotus_json_with_self!(ApiState);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
     pub sector_number: SectorNumber,
 
+    #[schemars(with = "i64")]
     /// The seal proof type implies the PoSt proofs
     pub seal_proof: RegisteredSealProof,
 
-    #[serde(with = "crate::lotus_json")]
-    #[serde(rename = "SealedCID")]
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json", rename = "SealedCID")]
     /// `CommR`
     pub sealed_cid: Cid,
 
-    #[serde(rename = "DealIDs")]
-    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<DealID>>")]
+    #[serde(with = "crate::lotus_json", rename = "DealIDs")]
     pub deal_ids: Vec<DealID>,
 
     /// Epoch during which the sector proof was accepted
@@ -298,23 +299,28 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
 
+    #[schemars(with = "LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]
     /// Integral of active deals over sector lifetime
     pub deal_weight: BigInt,
 
+    #[schemars(with = "LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]
     /// Integral of active verified deals over sector lifetime
     pub verified_deal_weight: BigInt,
 
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     /// Pledge collected to commit this sector
     pub initial_pledge: TokenAmount,
 
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     /// Expected one day projection of reward for sector computed at activation
     /// time
     pub expected_day_reward: TokenAmount,
 
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     /// Expected twenty day projection of reward for sector computed at
     /// activation time
@@ -322,11 +328,12 @@ pub struct SectorOnChainInfo {
 
     pub replaced_sector_age: ChainEpoch,
 
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub replaced_day_reward: TokenAmount,
 
-    #[serde(with = "crate::lotus_json")]
-    #[serde(rename = "SectorKeyCID")]
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(with = "crate::lotus_json", rename = "SectorKeyCID")]
     pub sector_key_cid: Option<Cid>,
 
     #[serde(rename = "SimpleQAPower")]
