@@ -17,7 +17,7 @@ use crate::shim::{
 };
 use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::{InvocResult, MarketBalance};
+use crate::state_manager::MarketBalance;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
