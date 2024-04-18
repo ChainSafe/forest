@@ -5,7 +5,6 @@
 //!
 //! If a type here is used by only one API, it should be relocated.
 
-mod actor_impl;
 mod address_impl;
 mod beneficiary_impl;
 mod deal_impl;
@@ -26,12 +25,10 @@ use crate::shim::{
     clock::ChainEpoch,
     deal::DealID,
     econ::TokenAmount,
-    error::ExitCode,
     executor::Receipt,
     fvm_shared_latest::MethodNum,
     message::Message,
     sector::{RegisteredSealProof, SectorNumber},
-    state_tree::{ActorID, ActorState},
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
@@ -53,6 +50,28 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
 use serde_json::Value;
 use std::str::FromStr;
+
+/// Lotus de/serializes empty Arrays as `null`.
+///
+/// This should be preferred over [`LotusJson<Vec<T>>`]
+pub struct NullableVec<T>(pub Vec<T>);
+
+impl<T> Serialize for NullableVec<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let v = &self.0;
+        match v.is_empty() {
+            true => None,
+            false => Some(v),
+        }
+        .serialize(serializer)
+    }
+}
 
 // Chain API
 
@@ -231,46 +250,23 @@ pub struct MiningBaseInfo {
 
 lotus_json_with_self!(MiningBaseInfo);
 
-/// State of all actor implementations.
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ActorStateJson {
-    #[serde(with = "crate::lotus_json")]
-    /// Link to code for the actor.
-    pub code: Cid,
-    #[serde(with = "crate::lotus_json")]
-    /// Link to the state of the actor.
-    pub head: Cid,
-    /// Sequence of the actor.
-    pub nonce: u64,
-    #[serde(with = "crate::lotus_json")]
-    /// Tokens available to the actor.
-    pub balance: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    /// The actor's "delegated" address, if assigned.
-    /// This field is set on actor creation and never modified.
-    pub address: Option<Address>,
-}
-
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
     #[serde(with = "crate::lotus_json")]
-    balance: TokenAmount,
+    pub balance: TokenAmount,
     #[serde(with = "crate::lotus_json")]
-    code: Cid,
-    #[serde(with = "crate::lotus_json")]
-    state: ApiState,
+    pub code: Cid,
+    pub state: ApiState,
 }
 
 lotus_json_with_self!(ApiActorState);
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
-struct ApiState {
-    #[serde(rename = "BuiltinActors")]
+pub struct ApiState {
     #[serde(with = "crate::lotus_json")]
-    state: Ipld,
+    pub builtin_actors: Ipld,
 }
 
 lotus_json_with_self!(ApiState);
@@ -388,142 +384,6 @@ pub struct ApiDeadline {
 }
 
 lotus_json_with_self!(ApiDeadline);
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiInvocResult {
-    #[serde(with = "crate::lotus_json")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    pub msg_cid: Cid,
-    #[serde(with = "crate::lotus_json")]
-    pub msg_rct: Option<Receipt>,
-    pub error: String,
-    pub duration: u64,
-    #[serde(with = "crate::lotus_json")]
-    pub gas_cost: MessageGasCost,
-    #[serde(with = "crate::lotus_json")]
-    pub execution_trace: Option<ExecutionTrace>,
-}
-
-lotus_json_with_self!(ApiInvocResult);
-
-impl PartialEq for ApiInvocResult {
-    /// Ignore [`Self::duration`] as it is implementation-dependent
-    fn eq(&self, other: &Self) -> bool {
-        self.msg == other.msg
-            && self.msg_cid == other.msg_cid
-            && self.msg_rct == other.msg_rct
-            && self.error == other.error
-            && self.gas_cost == other.gas_cost
-            && self.execution_trace == other.execution_trace
-    }
-}
-
-#[derive(Default, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct MessageGasCost {
-    #[serde(with = "crate::lotus_json")]
-    pub message: Option<Cid>,
-    #[serde(with = "crate::lotus_json")]
-    pub gas_used: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub base_fee_burn: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub over_estimation_burn: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub miner_penalty: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub miner_tip: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub refund: TokenAmount,
-    #[serde(with = "crate::lotus_json")]
-    pub total_cost: TokenAmount,
-}
-
-lotus_json_with_self!(MessageGasCost);
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ExecutionTrace {
-    #[serde(with = "crate::lotus_json")]
-    pub msg: MessageTrace,
-    #[serde(with = "crate::lotus_json")]
-    pub msg_rct: ReturnTrace,
-    #[serde(with = "crate::lotus_json")]
-    pub invoked_actor: Option<ActorTrace>,
-    #[serde(with = "crate::lotus_json")]
-    pub gas_charges: Vec<GasTrace>,
-    #[serde(with = "crate::lotus_json")]
-    pub subcalls: Vec<ExecutionTrace>,
-}
-
-lotus_json_with_self!(ExecutionTrace);
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct MessageTrace {
-    #[serde(with = "crate::lotus_json")]
-    pub from: Address,
-    #[serde(with = "crate::lotus_json")]
-    pub to: Address,
-    #[serde(with = "crate::lotus_json")]
-    pub value: TokenAmount,
-    pub method: u64,
-    #[serde(with = "crate::lotus_json")]
-    pub params: RawBytes,
-    pub params_codec: u64,
-    pub gas_limit: Option<u64>,
-    pub read_only: Option<bool>,
-}
-
-lotus_json_with_self!(MessageTrace);
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ActorTrace {
-    pub id: ActorID,
-    #[serde(with = "crate::lotus_json")]
-    pub state: ActorState,
-}
-
-lotus_json_with_self!(ActorTrace);
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ReturnTrace {
-    pub exit_code: ExitCode,
-    #[serde(with = "crate::lotus_json")]
-    pub r#return: RawBytes,
-    pub return_codec: u64,
-}
-
-lotus_json_with_self!(ReturnTrace);
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct GasTrace {
-    pub name: String,
-    #[serde(rename = "tg")]
-    pub total_gas: u64,
-    #[serde(rename = "cg")]
-    pub compute_gas: u64,
-    #[serde(rename = "sg")]
-    pub storage_gas: u64,
-    #[serde(rename = "tt")]
-    pub time_taken: u64,
-}
-
-lotus_json_with_self!(GasTrace);
-
-impl PartialEq for GasTrace {
-    /// Ignore [`Self::total_gas`] as it is implementation-dependent
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.total_gas == other.total_gas
-            && self.compute_gas == other.compute_gas
-            && self.storage_gas == other.storage_gas
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]

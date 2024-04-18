@@ -141,6 +141,8 @@ impl BlockNumberOrHash {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this shouldn't exist
 impl HasLotusJson for BlockNumberOrHash {
     type LotusJson = String;
 
@@ -199,6 +201,8 @@ pub enum EthSyncingResultLotusJson {
     },
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this shouldn't exist
 impl HasLotusJson for EthSyncingResult {
     type LotusJson = EthSyncingResultLotusJson;
 
