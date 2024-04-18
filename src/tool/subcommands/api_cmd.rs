@@ -567,11 +567,6 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             shared_tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().into())),
-        RpcTest::identity(ApiInfo::state_sector_get_info_req(
-            shared_block.miner_address,
-            101,
-            shared_tipset.key().into(),
-        )),
         RpcTest::identity(ApiInfo::state_miner_sectors_req(
             shared_block.miner_address,
             sectors,
@@ -732,8 +727,20 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 shared_tipset_key.into(),
             )));
+            for sector in StateSectorGetInfo::get_sectors(&store, &block.miner_address, &tipset)?
+                .into_iter()
+                .take(5)
+            {
+                tests.push(RpcTest::identity(StateSectorGetInfo::request((
+                    block.miner_address.into(),
+                    sector.into(),
+                    LotusJson(tipset.key().into()),
+                ))?));
+            }
             for sector in
                 StateSectorPreCommitInfo::get_sectors(&store, &block.miner_address, &tipset)?
+                    .into_iter()
+                    .take(5)
             {
                 tests.push(RpcTest::identity(StateSectorPreCommitInfo::request((
                     block.miner_address.into(),
