@@ -454,4 +454,3 @@ jobs:
             $SHELL_IMAGE \
             sh -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  
