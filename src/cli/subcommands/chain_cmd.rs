@@ -62,12 +62,10 @@ impl ChainCommands {
             Self::Block { cid } => {
                 print_pretty_json(ChainGetBlock::call(&client, (cid.into(),)).await?)
             }
-            Self::Genesis => print_pretty_json(ChainGetGenesis::call(&client, ()).await?),
-            Self::Head => print_rpc_res_cids(ChainHead::call(&client, ()).await?.into_inner()),
+            Self::Genesis => print_pretty_json(ChainGetGenesis::call_raw(&client, ()).await?),
+            Self::Head => print_rpc_res_cids(ChainHead::call(&client, ()).await?),
             Self::Message { cid } => {
-                let bytes = ChainReadObj::call(&client, (cid.into(),))
-                    .await?
-                    .into_inner();
+                let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
                     ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
                     ChainMessage::Signed(m) => {
@@ -77,9 +75,7 @@ impl ChainCommands {
                 }
             }
             Self::ReadObj { cid } => {
-                let bytes = ChainReadObj::call(&client, (cid.into(),))
-                    .await?
-                    .into_inner();
+                let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
                 println!("{}", hex::encode(bytes));
                 Ok(())
             }
@@ -122,18 +118,17 @@ async fn tipset_by_epoch_or_offset(
     client: &rpc::Client,
     epoch_or_offset: i64,
 ) -> Result<Tipset, jsonrpsee::core::ClientError> {
-    let current_head = ChainHead::call(client, ()).await?.into_inner();
+    let current_head = ChainHead::call(client, ()).await?;
 
     let target_epoch = match epoch_or_offset.is_negative() {
         true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
-    Ok(ChainGetTipSetByHeight::call(
+    ChainGetTipSetByHeight::call(
         client,
         (target_epoch, LotusJson(current_head.key().clone().into())),
     )
-    .await?
-    .into_inner())
+    .await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

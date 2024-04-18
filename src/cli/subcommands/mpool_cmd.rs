@@ -214,12 +214,11 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),))
-                    .await?
-                    .into_inner();
+                let messages =
+                    MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),)).await?;
 
                 let local_addrs = if local {
-                    let response = WalletList::call(&client, ()).await?.into_inner();
+                    let response = WalletList::call(&client, ()).await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -244,18 +243,17 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = ChainHead::call(&client, ()).await?.into_inner();
+                let tipset = ChainHead::call(&client, ()).await?;
                 let curr_base_fee = tipset.block_headers().first().parent_base_fee.to_owned();
 
                 let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),))
-                    .await?
-                    .into_inner();
+                let messages =
+                    MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),)).await?;
 
                 let local_addrs = if local {
-                    let response = WalletList::call(&client, ()).await?.into_inner();
+                    let response = WalletList::call(&client, ()).await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None

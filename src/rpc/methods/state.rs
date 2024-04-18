@@ -50,6 +50,7 @@ macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
+        $callback!(crate::rpc::state::StateSectorGetInfo);
     };
 }
 pub(crate) use for_each_method;
@@ -84,7 +85,6 @@ pub const STATE_LOOKUP_ID: &str = "Filecoin.StateLookupID";
 pub const STATE_ACCOUNT_KEY: &str = "Filecoin.StateAccountKey";
 pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
 pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-pub const STATE_SECTOR_GET_INFO: &str = "Filecoin.StateSectorGetInfo";
 pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
 pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";
@@ -1065,26 +1065,6 @@ pub async fn msig_get_pending<DB: Blockstore + Send + Sync + 'static>(
     Ok(LotusJson(txns))
 }
 
-/// Get state sector info using sector no
-pub async fn state_sector_get_info<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<SectorOnChainInfo>, ServerError> {
-    let LotusJson((addr, sector_no, ApiTipsetKey(tsk))): LotusJson<(Address, u64, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-
-    Ok(LotusJson(
-        data.state_manager
-            .get_all_sectors(&addr, &ts)?
-            .into_iter()
-            .find(|info| info.sector_number == sector_no)
-            .map(SectorOnChainInfo::from)
-            .context(format!("Info for sector number {sector_no} not found"))?,
-    ))
-}
-
 pub(in crate::rpc) async fn state_verified_client_status<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
@@ -1301,7 +1281,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     const API_VERSION: ApiVersion = ApiVersion::V1;
 
     type Params = (LotusJson<ChainEpoch>,);
-    type Ok = LotusJson<BeaconEntry>;
+    type Ok = BeaconEntry;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -1325,7 +1305,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
         let entry = beacon.entry(round).await?;
-        Ok(LotusJson(entry))
+        Ok(entry)
     }
 }
 
@@ -1383,12 +1363,7 @@ impl StateSectorPreCommitInfo {
     ) -> anyhow::Result<Vec<u64>> {
         let mut sectors = vec![];
         let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state_tree.get_actor(miner_address)?.with_context(|| {
-            format!(
-                "Failed to load actor with addr={miner_address}, state_cid={}",
-                tipset.parent_state()
-            )
-        })?;
+        let actor = state_tree.get_required_actor(miner_address)?;
         let state = miner::State::load(store, actor.code, actor.state)?;
         match &state {
             miner::State::V8(s) => {
@@ -1454,5 +1429,50 @@ impl StateSectorPreCommitInfo {
         }?;
 
         Ok(sectors)
+    }
+}
+
+pub enum StateSectorGetInfo {}
+
+impl RpcMethod<3> for StateSectorGetInfo {
+    const NAME: &'static str = "Filecoin.StateSectorGetInfo";
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (LotusJson<Address>, LotusJson<u64>, LotusJson<ApiTipsetKey>);
+    type Ok = SectorOnChainInfo;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (LotusJson(miner_address), LotusJson(sector_number), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx
+            .state_manager
+            .get_all_sectors(&miner_address, &ts)?
+            .into_iter()
+            .find(|info| info.sector_number == sector_number)
+            .map(SectorOnChainInfo::from)
+            .context(format!("Info for sector number {sector_number} not found"))?)
+    }
+}
+
+impl StateSectorGetInfo {
+    pub fn get_sectors(
+        store: &Arc<impl Blockstore>,
+        miner_address: &Address,
+        tipset: &Tipset,
+    ) -> anyhow::Result<Vec<u64>> {
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_required_actor(miner_address)?;
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        Ok(state
+            .load_sectors(store, None)?
+            .into_iter()
+            .map(|s| s.sector_number)
+            .collect())
     }
 }

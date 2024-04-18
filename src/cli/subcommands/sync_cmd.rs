@@ -48,7 +48,7 @@ impl SyncCommands {
 
                 for _ in ticker {
                     let resp = SyncState::call(&client, ()).await?;
-                    let active_syncs = resp.active_syncs.as_ref();
+                    let active_syncs = resp.active_syncs;
                     let state = active_syncs
                         .iter()
                         .rev()
@@ -99,7 +99,7 @@ impl SyncCommands {
             }
             Self::Status => {
                 let resp = SyncState::call(&client, ()).await?;
-                let state = resp.active_syncs.as_ref().first();
+                let state = resp.active_syncs.first();
 
                 let base = state.base();
                 let elapsed_time = state.get_elapsed_time();

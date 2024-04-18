@@ -220,14 +220,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_DECODE_PARAMS, (recipient, method_number, params, tsk))
     }
 
-    pub fn state_sector_get_info_req(
-        addr: Address,
-        sector_no: u64,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<SectorOnChainInfo> {
-        RpcRequest::new(STATE_SECTOR_GET_INFO, (addr, sector_no, tsk))
-    }
-
     pub fn state_wait_msg_req(msg_cid: Cid, confidence: i64) -> RpcRequest<Option<MessageLookup>> {
         // This API is meant to be blocking when the message is missing from the blockstore
         RpcRequest::new(STATE_WAIT_MSG, (msg_cid, confidence)).with_timeout(Duration::MAX)

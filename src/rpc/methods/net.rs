@@ -5,6 +5,7 @@ use std::any::Any;
 use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
+use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::{ApiVersion, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
@@ -242,33 +243,16 @@ impl RpcMethod<0> for NetVersion {
 }
 
 // Net API
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct AddrInfo {
     #[serde(rename = "ID")]
     pub id: String,
+    #[schemars(with = "ahash::HashSet<String>")]
     pub addrs: ahash::HashSet<Multiaddr>,
 }
 
-#[derive(JsonSchema)]
-#[schemars(rename = "AddrInfo")]
-#[serde(rename_all = "PascalCase")]
-#[allow(unused)]
-struct Helper {
-    #[serde(rename = "ID")]
-    id: String,
-    addrs: ahash::HashSet<String>,
-}
-
-impl JsonSchema for AddrInfo {
-    fn schema_name() -> String {
-        Helper::schema_name()
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        Helper::json_schema(gen)
-    }
-}
+lotus_json_with_self!(AddrInfo);
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, JsonSchema)]
 pub struct NetInfoResult {
@@ -279,6 +263,7 @@ pub struct NetInfoResult {
     pub num_pending_outgoing: u32,
     pub num_established: u32,
 }
+lotus_json_with_self!(NetInfoResult);
 
 impl From<libp2p::swarm::NetworkInfo> for NetInfoResult {
     fn from(i: libp2p::swarm::NetworkInfo) -> Self {
@@ -300,6 +285,7 @@ pub struct NatStatusResult {
     pub reachability: i32,
     pub public_addrs: Option<Vec<String>>,
 }
+lotus_json_with_self!(NatStatusResult);
 
 impl NatStatusResult {
     // See <https://github.com/libp2p/go-libp2p/blob/164adb40fef9c19774eb5fe6d92afb95c67ba83c/core/network/network.go#L93>
