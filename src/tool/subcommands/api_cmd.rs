@@ -17,10 +17,12 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::eth::*;
 use crate::rpc::gas::GasEstimateGasLimit;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorPreCommitInfo};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
+use crate::shim::sector::RegisteredSealProof;
+use crate::shim::sector::RegisteredSealProofV4::StackedDRG32GiBV1P1_Feat_SyntheticPoRep;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -891,6 +893,31 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 tipset.key().into(),
             )));
+            use libipld::Cid;
+            let info = SectorPreCommitInfo {
+                seal_proof: RegisteredSealProof::from(StackedDRG32GiBV1P1_Feat_SyntheticPoRep),
+                sector_number: 30507,
+                sealed_cid: Cid::try_from(
+                    "bagboea4b5abcb4v2et2tpq5jt2dpwey3y3zyscpamexacervj6gc2qjw7sdb5li4",
+                )
+                .unwrap(),
+                seal_rand_epoch: 1492508,
+                deal_ids: vec![187925],
+                expiration: 2101238,
+                unsealed_cid: Some(
+                    Cid::try_from(
+                        "baga6ea4seaqi5kdcfnteuzvrb2r7pmxdfbisdhfmiti5la3pl5cmfjjmhd6oydy",
+                    )
+                    .unwrap(),
+                ),
+            };
+            tests.push(RpcTest::identity(
+                ApiInfo::state_miner_initial_pledge_collateral_req(
+                    block.miner_address,
+                    info,
+                    tipset.key().into(),
+                ),
+            ));
         }
         tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
             tipset.key().into(),

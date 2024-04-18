@@ -70,6 +70,8 @@ pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
 pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
 pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
 pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
+pub const STATE_MINER_INITIAL_PLEDGE_COLLATERAL: &str =
+    "Filecoin.StateMinerInitialPledgeCollateral";
 pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
 pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
 pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
@@ -571,6 +573,76 @@ pub async fn state_miner_available_balance<DB: Blockstore + Send + Sync + 'stati
     };
 
     Ok(LotusJson(vested + available))
+}
+
+pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync + 'static>(
+    params: Params<'_>,
+    data: Ctx<DB>,
+) -> Result<LotusJson<TokenAmount>, ServerError> {
+    let LotusJson((maddr, pci, ApiTipsetKey(tsk))): LotusJson<(
+        Address,
+        SectorPreCommitInfo,
+        ApiTipsetKey,
+    )> = params.parse()?;
+
+    // dbg!(&maddr);
+    // dbg!(&pci);
+    // dbg!(&tsk);
+
+    let bs = data.state_manager.blockstore();
+    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+
+    let state = *ts.parent_state();
+
+    let sector_size = pci.seal_proof.sector_size();
+
+    let actor = data
+        .state_manager
+        .get_actor(&Address::MARKET_ACTOR, state)?
+        .context("Market actor address could not be resolved")?;
+    let market_state = market::State::load(bs, actor.code, actor.state)?;
+
+    let w = market_state.verify_deals_for_activation(
+        maddr.into(),
+        pci.deal_ids,
+        ts.epoch(),
+        pci.expiration,
+    )?;
+
+    let duration = pci.expiration - ts.epoch();
+    let sector_weigth = todo!();
+
+    let actor = data
+        .state_manager
+        .get_actor(&Address::POWER_ACTOR, state)?
+        .context("Power actor address could not be resolved")?;
+    let power_state = power::State::load(bs, actor.code, actor.state)?;
+
+    let power_smoothed = power_state.total_power_smoothed();
+    let pledge_collateral = power_state.total_locked();
+
+    let actor = data
+        .state_manager
+        .get_actor(&Address::REWARD_ACTOR, state)?
+        .context("Reward actor address could not be resolved")?;
+    let reward_state = reward::State::load(bs, actor.code, actor.state)?;
+
+    let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
+    let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
+        ts.epoch(),
+        &Arc::new(bs),
+        ts.parent_state(),
+    )?;
+
+    let initial_pledge = reward_state.initial_pledge_for_power(
+        sector_weigth,
+        pledge_collateral,
+        power_smoothed,
+        circ_supply.fil_circulating.into(),
+    )?;
+
+    let (q, _) = (initial_pledge * 110).div_rem(110);
+    Ok(LotusJson(q.into()))
 }
 
 /// returns the message receipt for the given message

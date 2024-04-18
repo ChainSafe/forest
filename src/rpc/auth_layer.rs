@@ -106,6 +106,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_MINER_DEADLINES, Access::Read);
     access.insert(state::STATE_MINER_PROVING_DEADLINE, Access::Read);
     access.insert(state::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
+    access.insert(state::STATE_MINER_INITIAL_PLEDGE_COLLATERAL, Access::Read);
     access.insert(state::STATE_GET_RECEIPT, Access::Read);
     access.insert(state::STATE_WAIT_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG, Access::Read);

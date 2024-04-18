@@ -254,6 +254,10 @@ where
         STATE_MINER_AVAILABLE_BALANCE,
         state_miner_available_balance::<DB>,
     )?;
+    module.register_async_method(
+        STATE_MINER_INITIAL_PLEDGE_COLLATERAL,
+        state_miner_initial_pledge_collateral::<DB>,
+    )?;
     module.register_async_method(STATE_MINER_POWER, state_miner_power::<DB>)?;
     module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
     module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;

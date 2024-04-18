@@ -116,6 +116,14 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_AVAILABLE_BALANCE, (miner, tsk))
     }
 
+    pub fn state_miner_initial_pledge_collateral_req(
+        miner: Address,
+        info: SectorPreCommitInfo,
+        tsk: ApiTipsetKey,
+    ) -> RpcRequest<TokenAmount> {
+        RpcRequest::new(STATE_MINER_INITIAL_PLEDGE_COLLATERAL, (miner, info, tsk))
+    }
+
     pub fn state_get_randomness_from_tickets_req(
         tsk: ApiTipsetKey,
         personalization: DomainSeparationTag,
