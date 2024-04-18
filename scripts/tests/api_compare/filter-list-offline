@@ -6,7 +6,6 @@
 !Filecoin.MpoolGetNonce
 !Filecoin.StateCall
 !Filecoin.StateListMessages
-!Filecoin.StateSectorGetInfo
 !Filecoin.EthSyncing
 !Filecoin.NetAddrsListen
 !Filecoin.NetAgentVersion

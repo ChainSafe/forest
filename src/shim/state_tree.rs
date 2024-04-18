@@ -175,6 +175,12 @@ where
         }
     }
 
+    /// Get required actor state from an address. Will be resolved to ID address.
+    pub fn get_required_actor(&self, addr: &Address) -> anyhow::Result<ActorState> {
+        self.get_actor(addr)?
+            .with_context(|| format!("Actor not found: addr={addr}"))
+    }
+
     /// Get actor state from an address. Will be resolved to ID address.
     pub fn get_actor(&self, addr: &Address) -> anyhow::Result<Option<ActorState>> {
         match self {
