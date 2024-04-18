@@ -168,10 +168,7 @@ impl Receipt {
         Ok(receipts.cloned().map(Receipt::V2))
     }
 
-    pub fn get_parent_receipts(
-        db: &impl Blockstore,
-        receipts: Cid,
-    ) -> anyhow::Result<Vec<Receipt>> {
+    pub fn get_receipts(db: &impl Blockstore, receipts: Cid) -> anyhow::Result<Vec<Receipt>> {
         let mut parent_receipts = Vec::new();
 
         // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)

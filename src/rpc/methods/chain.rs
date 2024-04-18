@@ -16,7 +16,6 @@ use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
-use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
@@ -860,33 +859,6 @@ quickcheck::quickcheck! {
     fn quickcheck(val: PathChange) -> () {
         assert_unchanged_via_json(val)
     }
-}
-
-pub fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
-    data: Ctx<DB>,
-    message_receipts: Cid,
-) -> Result<Vec<ApiReceipt>> {
-    let store = data.state_manager.blockstore();
-
-    let receipts = Receipt::get_parent_receipts(store, message_receipts).map_err(|_| {
-        ErrorObjectOwned::owned::<()>(
-            1,
-            format!("failed to root: ipld: could not find {message_receipts}"),
-            None,
-        )
-    })?;
-
-    let api_receipts = receipts
-        .iter()
-        .map(|receipt| ApiReceipt {
-            exit_code: receipt.exit_code().into(),
-            return_data: receipt.return_data(),
-            gas_used: receipt.gas_used(),
-            events_root: receipt.events_root(),
-        })
-        .collect();
-
-    Ok(api_receipts)
 }
 
 #[cfg(test)]

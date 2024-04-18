@@ -9,12 +9,12 @@ use crate::chain_sync::SyncStage;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
-use crate::rpc::chain::{get_parent_receipts, ApiReceipt};
 use crate::rpc::error::ServerError;
 use crate::rpc::{Ctx, RpcMethod};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
+use crate::shim::executor::Receipt;
 use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAddress};
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
@@ -740,12 +740,12 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
     data: Ctx<DB>,
     tipset: &Arc<Tipset>,
-) -> Result<(Cid, Vec<(ChainMessage, ApiReceipt)>)> {
+) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store.messages_for_tipset(tipset)?;
 
     let (state_root, receipt_root) = data.state_manager.tipset_state(tipset).await?;
 
-    let receipts = get_parent_receipts(data, receipt_root)?;
+    let receipts = Receipt::get_receipts(data.state_manager.blockstore(), receipt_root)?;
 
     if msgs.len() != receipts.len() {
         bail!(
@@ -1119,7 +1119,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let mut gas_used = 0;
     for (i, (msg, receipt)) in msgs_and_receipts.iter().enumerate() {
         let ti = Uint64(i as u64);
-        gas_used += receipt.gas_used;
+        gas_used += receipt.gas_used();
         let smsg = match msg {
             ChainMessage::Signed(msg) => msg.clone(),
             ChainMessage::Unsigned(msg) => {
