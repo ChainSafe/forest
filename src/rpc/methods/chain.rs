@@ -880,9 +880,9 @@ pub fn get_parent_receipts<DB: Blockstore + Send + Sync + 'static>(
         .iter()
         .map(|receipt| ApiReceipt {
             exit_code: receipt.exit_code().into(),
-            return_data: LotusJson(receipt.return_data().clone()),
+            return_data: receipt.return_data(),
             gas_used: receipt.gas_used(),
-            events_root: LotusJson(receipt.events_root()),
+            events_root: receipt.events_root(),
         })
         .collect();
 
