@@ -1083,25 +1083,20 @@ async fn sync_messages_check_state<DB: Blockstore + Send + Sync + 'static>(
         .try_for_each(|batch| async {
             for full_tipset in batch {
                 let current_epoch = full_tipset.epoch();
-                let head = chainstore.heaviest_tipset();
-                // To avoid re-validating an unchanged head,
-                // which would fail when the head is from a snapshot that has only 900 most recent state roots.
-                if current_epoch != head.epoch() || full_tipset.key() != head.key() {
-                    let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
-                    validate_tipset(
-                        state_manager.clone(),
-                        &chainstore,
-                        bad_block_cache,
-                        full_tipset.clone(),
-                        genesis,
-                        invalid_block_strategy,
-                    )
-                    .await?;
-                    drop(timer);
-                    chainstore.set_heaviest_tipset(Arc::new(full_tipset.into_tipset()))?;
-                    tracker.write().set_epoch(current_epoch);
-                    metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch);
-                }
+                let timer = metrics::TIPSET_PROCESSING_TIME.start_timer();
+                validate_tipset(
+                    state_manager.clone(),
+                    &chainstore,
+                    bad_block_cache,
+                    full_tipset.clone(),
+                    genesis,
+                    invalid_block_strategy,
+                )
+                .await?;
+                drop(timer);
+                chainstore.set_heaviest_tipset(Arc::new(full_tipset.into_tipset()))?;
+                tracker.write().set_epoch(current_epoch);
+                metrics::LAST_VALIDATED_TIPSET_EPOCH.set(current_epoch);
             }
             Ok(())
         })
