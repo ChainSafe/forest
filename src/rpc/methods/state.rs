@@ -50,10 +50,11 @@ use tokio::task::JoinSet;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
+        $callback!(crate::rpc::state::MinerGetBaseInfo);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
-        $callback!(crate::rpc::state::StateSectorGetInfo);
         $callback!(crate::rpc::state::StateListMessages);
+        $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
     };
 }
 pub(crate) use for_each_method;
@@ -68,7 +69,6 @@ pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
 pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
 pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
 pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
-pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
 pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
 pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
 pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
@@ -100,22 +100,31 @@ pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
 pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
 pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
 
-pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> anyhow::Result<LotusJson<Option<MiningBaseInfo>>, ServerError> {
-    let LotusJson((address, epoch, ApiTipsetKey(tsk))) = params.parse()?;
+pub enum MinerGetBaseInfo {}
+impl RpcMethod<3> for MinerGetBaseInfo {
+    const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+    type Params = (LotusJson<Address>, i64, LotusJson<ApiTipsetKey>);
+    type Ok = Option<MiningBaseInfo>;
 
-    data.state_manager
-        .miner_get_base_info(data.state_manager.beacon_schedule(), ts, address, epoch)
-        .await
-        .map(|info| Ok(LotusJson(info)))?
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(address), epoch, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+
+        Ok(ctx
+            .state_manager
+            .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
+            .await?)
+    }
 }
+
 /// runs the given message and returns its result without any persisted changes.
 pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,

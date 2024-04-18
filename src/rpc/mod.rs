@@ -280,7 +280,6 @@ where
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
     module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
     module.register_async_method(STATE_MINER_INFO, state_miner_info::<DB>)?;
-    module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
     module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
     module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
     module.register_async_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB>)?;
