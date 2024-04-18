@@ -51,28 +51,6 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::str::FromStr;
 
-/// Lotus de/serializes empty Arrays as `null`.
-///
-/// This should be preferred over [`LotusJson<Vec<T>>`]
-pub struct NullableVec<T>(pub Vec<T>);
-
-impl<T> Serialize for NullableVec<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let v = &self.0;
-        match v.is_empty() {
-            true => None,
-            false => Some(v),
-        }
-        .serialize(serializer)
-    }
-}
-
 // Chain API
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
