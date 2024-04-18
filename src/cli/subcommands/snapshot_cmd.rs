@@ -53,7 +53,8 @@ impl SnapshotCommands {
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let raw_network_name = api.state_network_name().await?;
+                let raw_network_name = StateNetworkName::call(&client, ()).await?;
+
                 let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
                 let tipset =

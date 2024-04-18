@@ -55,6 +55,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateCall);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateListMessages);
+        $callback!(crate::rpc::state::StateNetworkName);
         $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
@@ -64,7 +65,6 @@ pub(crate) use for_each_method;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
-pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
 pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
 pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
 pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
@@ -180,14 +180,21 @@ impl RpcMethod<2> for StateReplay {
     }
 }
 
-/// gets network name from state manager
-pub async fn state_network_name<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
-    let state_manager = &data.state_manager;
-    let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+pub enum StateNetworkName {}
+impl RpcMethod<0> for StateNetworkName {
+    const NAME: &'static str = "Filecoin.StateNetworkName";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    state_manager
-        .get_network_name(heaviest_tipset.parent_state())
-        .map_err(|e| e.into())
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+
+        Ok(state_manager.get_network_name(heaviest_tipset.parent_state())?)
+    }
 }
 
 pub async fn state_get_network_version<DB: Blockstore>(

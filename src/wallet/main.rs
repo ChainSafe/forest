@@ -5,6 +5,7 @@ use std::ffi::OsString;
 
 use super::subcommands::Cli;
 use crate::networks::NetworkChain;
+use crate::rpc::{self, prelude::*};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::{CurrentNetwork, Network};
 use clap::Parser;
@@ -28,7 +29,7 @@ where
         .enable_all()
         .build()?
         .block_on(async {
-            let name = api.state_network_name().await?;
+            let name = StateNetworkName::call(&rpc::Client::from(api.clone()), ()).await?;
             let chain = NetworkChain::from_str(&name)?;
             if chain.is_testnet() {
                 CurrentNetwork::set_global(Network::Testnet);

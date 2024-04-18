@@ -268,9 +268,6 @@ where
     use gas::*;
 
     // State API
-    module.register_async_method(STATE_NETWORK_NAME, |_, state| {
-        state_network_name::<DB>(state)
-    })?;
     module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
     module.register_async_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)?;
     module.register_async_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)?;
