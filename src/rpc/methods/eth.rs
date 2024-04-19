@@ -72,6 +72,9 @@ const EVM_WORD_LENGTH: usize = 32;
 /// who craft blocks.
 const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347";
 
+/// Keccak-256 hash of the RLP of null.
+const EMPTY_ROOT_HASH: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
+
 /// Ethereum Improvement Proposals 1559 transaction type. This EIP changed Ethereum’s fee market mechanism.
 /// Transaction type can have 3 distinct values:
 /// - 0 for legacy transactions
@@ -230,6 +233,10 @@ impl Hash {
         let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
         Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
     }
+
+    pub fn empty_root() -> Self {
+        Self(ethereum_types::H256::from_str(EMPTY_ROOT_HASH).unwrap())
+    }
 }
 
 impl FromStr for Hash {
@@ -369,11 +376,16 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn new() -> Self {
+    pub fn new(has_transactions: bool) -> Self {
         Self {
             gas_limit: Uint64(BLOCK_GAS_LIMIT),
             logs_bloom: Bloom(ethereum_types::Bloom(FULL_BLOOM)),
             sha3_uncles: Hash(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap()),
+            transactions_root: if has_transactions {
+                Hash::default()
+            } else {
+                Hash::empty_root()
+            },
             ..Default::default()
         }
     }
@@ -1160,7 +1172,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         } else {
             Transactions::Hash(hash_transactions)
         },
-        ..Block::new()
+        ..Block::new(!msgs_and_receipts.is_empty())
     })
 }
 
