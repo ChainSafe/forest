@@ -255,6 +255,27 @@ struct TestResult {
     test_dump: Option<TestDump>,
 }
 
+/// This struct is the hash-able representation of [`RpcTest`]
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct RpcTestHashable {
+    request: String,
+    ignore: bool,
+}
+
+impl From<&RpcTest> for RpcTestHashable {
+    fn from(t: &RpcTest) -> Self {
+        Self {
+            request: serde_json::to_string(&(
+                t.request.method_name,
+                &t.request.api_version,
+                &t.request.params,
+            ))
+            .unwrap_or_default(),
+            ignore: t.ignore.is_some(),
+        }
+    }
+}
+
 struct RpcTest {
     request: RpcRequest,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
@@ -525,7 +546,7 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let mut sectors = BitField::new();
     sectors.set(101);
     vec![
-        RpcTest::identity(ApiInfo::state_network_name_req()),
+        RpcTest::identity(StateNetworkName::request(()).unwrap()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
             Address::SYSTEM_ACTOR,
             shared_tipset.key().clone(),
@@ -901,11 +922,14 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 tipset.key().into(),
             )));
-            tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
-                block.miner_address,
-                block.epoch,
-                tipset.key().into(),
-            )));
+            tests.push(RpcTest::identity(
+                MinerGetBaseInfo::request((
+                    block.miner_address.into(),
+                    block.epoch,
+                    LotusJson(tipset.key().into()),
+                ))
+                .unwrap(),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
                 block.miner_address,
                 tipset.key().into(),
@@ -925,16 +949,19 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         for block in tipset.block_headers() {
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
-                tests.push(RpcTest::identity(ApiInfo::state_call_req(
-                    msg.message().clone(),
-                    shared_tipset.key().into(),
-                )));
+                tests.push(RpcTest::identity(
+                    StateCall::request((
+                        msg.message().clone().into(),
+                        LotusJson(shared_tipset.key().into()),
+                    ))
+                    .unwrap(),
+                ));
             }
             for msg in bls_messages {
-                tests.push(RpcTest::identity(ApiInfo::state_call_req(
-                    msg.clone(),
-                    shared_tipset.key().into(),
-                )));
+                tests.push(RpcTest::identity(
+                    StateCall::request((msg.clone().into(), LotusJson(shared_tipset.key().into())))
+                        .unwrap(),
+                ));
             }
 
             tests.push(RpcTest::identity(ApiInfo::state_market_balance_req(
@@ -1175,7 +1202,7 @@ where
 }
 
 async fn run_tests(
-    tests: Vec<RpcTest>,
+    tests: impl IntoIterator<Item = RpcTest>,
     forest: &ApiInfo,
     lotus: &ApiInfo,
     config: &ApiTestFlags,
@@ -1189,7 +1216,8 @@ async fn run_tests(
         FilterList::default().allow(config.filter.clone())
     };
 
-    for test in tests.into_iter() {
+    // deduplicate tests by their hash-able representations
+    for test in tests.into_iter().unique_by(|t| RpcTestHashable::from(t)) {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;

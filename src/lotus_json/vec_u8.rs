@@ -9,18 +9,12 @@ use super::*;
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 pub struct VecU8LotusJson(Option<Inner>);
 
-#[derive(Clone, Serialize, Deserialize)]
-struct Inner(#[serde(with = "base64_standard")] Vec<u8>);
-
-impl JsonSchema for Inner {
-    fn schema_name() -> String {
-        String::from("encoded binary")
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
-        String::json_schema(gen)
-    }
-}
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+struct Inner(
+    #[serde(with = "base64_standard")]
+    #[schemars(with = "String")]
+    Vec<u8>,
+);
 
 impl HasLotusJson for Vec<u8> {
     type LotusJson = VecU8LotusJson;

@@ -82,7 +82,7 @@ pub trait RpcMethod<const ARITY: usize> {
 /// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
 ///
 /// This information is important when using [`crate::rpc::client`].
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ApiVersion {
     V0,
     V1,
