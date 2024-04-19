@@ -7,7 +7,6 @@ use std::time::Duration;
 use crate::rpc::types::*;
 use crate::state_manager::MarketBalance;
 use crate::{
-    blocks::TipsetKey,
     rpc::state::*,
     shim::{
         address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::Message,
@@ -28,14 +27,14 @@ impl ApiInfo {
     pub async fn state_get_actor(
         &self,
         address: Address,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> Result<Option<ActorState>, ServerError> {
         self.call(Self::state_get_actor_req(address, head)).await
     }
 
     pub fn state_get_actor_req(
         address: Address,
-        head: TipsetKey,
+        head: ApiTipsetKey,
     ) -> RpcRequest<Option<ActorState>> {
         RpcRequest::new(STATE_GET_ACTOR, (address, head))
     }

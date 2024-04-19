@@ -554,7 +554,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(ApiInfo::state_network_name_req()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
             Address::SYSTEM_ACTOR,
-            tipset.key().clone(),
+            tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
             tipset.key().into(),

@@ -79,7 +79,7 @@ fn filter_messages(
 
 async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -> Option<u64> {
     let address = message.from;
-    let get_actor_result = api.state_get_actor(address, tipset.key().to_owned()).await;
+    let get_actor_result = api.state_get_actor(address, tipset.key().into()).await;
 
     let actor_state = match get_actor_result {
         Ok(maybe_actor) => {
