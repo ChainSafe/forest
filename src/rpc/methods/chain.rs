@@ -7,10 +7,9 @@ use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
-use crate::lotus_json::HasLotusJson;
-use crate::lotus_json::LotusJson;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
+use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
@@ -69,7 +68,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = LotusJson<Message>;
+    type Ok = Message;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -80,10 +79,10 @@ impl RpcMethod<1> for ChainGetMessage {
             .blockstore()
             .get_cbor(&msg_cid)?
             .with_context(|| format!("can't find message with cid {msg_cid}"))?;
-        Ok(LotusJson(match chain_message {
+        Ok(match chain_message {
             ChainMessage::Signed(m) => m.into_message(),
             ChainMessage::Unsigned(m) => m,
-        }))
+        })
     }
 }
 
@@ -108,8 +107,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
             Ok(vec![])
         } else {
             let parent_tipset = Tipset::load_required(store, &block_header.parents)?;
-            let messages = load_api_messages_from_tipset(store, &parent_tipset)?;
-            Ok(messages)
+            load_api_messages_from_tipset(store, &parent_tipset)
         }
     }
 }
@@ -205,8 +203,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.chain_store.blockstore();
         let tipset = Tipset::load_required(store, &tsk)?;
-        let messages = load_api_messages_from_tipset(store, &tipset)?;
-        Ok(messages)
+        load_api_messages_from_tipset(store, &tipset)
     }
 }
 
@@ -289,7 +286,7 @@ impl RpcMethod<1> for ChainReadObj {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = LotusJson<Vec<u8>>;
+    type Ok = Vec<u8>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -300,7 +297,7 @@ impl RpcMethod<1> for ChainReadObj {
             .blockstore()
             .get(&cid)?
             .with_context(|| format!("can't find object with cid={cid}"))?;
-        Ok(LotusJson(bytes))
+        Ok(bytes)
     }
 }
 
@@ -365,15 +362,13 @@ impl RpcMethod<2> for ChainGetPath {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
-    type Ok = LotusJson<Vec<PathChange>>;
+    type Ok = Vec<PathChange>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (LotusJson(from), LotusJson(to)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        impl_chain_get_path(&ctx.chain_store, &from, &to)
-            .map(LotusJson)
-            .map_err(Into::into)
+        impl_chain_get_path(&ctx.chain_store, &from, &to).map_err(Into::into)
     }
 }
 
@@ -443,7 +438,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
-    type Ok = LotusJson<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -458,7 +453,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
             .chain_store()
             .chain_index
             .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
-        Ok((*tss).clone().into())
+        Ok((*tss).clone())
     }
 }
 
@@ -469,7 +464,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const API_VERSION: ApiVersion = ApiVersion::V1;
 
     type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
-    type Ok = LotusJson<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -484,7 +479,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
             .chain_store()
             .chain_index
             .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
-        Ok((*tss).clone().into())
+        Ok((*tss).clone())
     }
 }
 
@@ -495,11 +490,11 @@ impl RpcMethod<0> for ChainGetGenesis {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = Option<LotusJson<Tipset>>;
+    type Ok = Option<Tipset>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let genesis = ctx.state_manager.chain_store().genesis_block_header();
-        Ok(Some(Tipset::from(genesis).into()))
+        Ok(Some(Tipset::from(genesis)))
     }
 }
 
@@ -510,11 +505,11 @@ impl RpcMethod<0> for ChainHead {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = ();
-    type Ok = LotusJson<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
-        Ok((*heaviest).clone().into())
+        Ok((*heaviest).clone())
     }
 }
 
@@ -525,7 +520,7 @@ impl RpcMethod<1> for ChainGetBlock {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<Cid>,);
-    type Ok = LotusJson<CachingBlockHeader>;
+    type Ok = CachingBlockHeader;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -536,7 +531,7 @@ impl RpcMethod<1> for ChainGetBlock {
             .blockstore()
             .get_cbor(&cid)?
             .context("can't find BlockHeader with that cid")?;
-        Ok(blk.into())
+        Ok(blk)
     }
 }
 
@@ -547,7 +542,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<ApiTipsetKey>,);
-    type Ok = LotusJson<Tipset>;
+    type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -557,7 +552,7 @@ impl RpcMethod<1> for ChainGetTipSet {
             .state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        Ok((*ts).clone().into())
+        Ok((*ts).clone())
     }
 }
 
@@ -641,7 +636,7 @@ impl RpcMethod<1> for ChainTipSetWeight {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (LotusJson<ApiTipsetKey>,);
-    type Ok = LotusJson<BigInt>;
+    type Ok = BigInt;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -649,7 +644,7 @@ impl RpcMethod<1> for ChainTipSetWeight {
     ) -> Result<Self::Ok, ServerError> {
         let tsk = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         let weight = crate::fil_cns::weight(ctx.chain_store.blockstore(), &tsk)?;
-        Ok(LotusJson(weight))
+        Ok(weight)
     }
 }
 
@@ -733,6 +728,7 @@ pub struct BlockMessages {
     #[schemars(with = "LotusJson<Vec<Cid>>")]
     pub cids: Vec<Cid>,
 }
+lotus_json_with_self!(BlockMessages);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -750,6 +746,8 @@ pub struct ApiReceipt {
     pub events_root: Option<Cid>,
 }
 
+lotus_json_with_self!(ApiReceipt);
+
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, Eq, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiMessage {
@@ -760,6 +758,8 @@ pub struct ApiMessage {
     #[schemars(with = "LotusJson<Message>")]
     pub message: Message,
 }
+
+lotus_json_with_self!(ApiMessage);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ChainExportParams {

@@ -3,6 +3,8 @@
 
 use super::*;
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should move to src/lotus_json
 impl HasLotusJson for BeneficiaryTerm {
     type LotusJson = BeneficiaryTermLotusJson;
 
@@ -28,6 +30,8 @@ impl HasLotusJson for BeneficiaryTerm {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should move to src/lotus_json
 impl HasLotusJson for PendingBeneficiaryChange {
     type LotusJson = PendingBeneficiaryChangeLotusJson;
 

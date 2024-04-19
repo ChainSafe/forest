@@ -59,7 +59,7 @@ impl ShedCommands {
         match self {
             ShedCommands::SummarizeTipsets { height, ancestors } => {
                 let client = rpc::Client::from(ApiInfo::from_env()?);
-                let head = ChainHead::call(&client, ()).await?.into_inner();
+                let head = ChainHead::call(&client, ()).await?;
                 let end_height = match height {
                     Some(it) => it,
                     None => head
@@ -80,7 +80,7 @@ impl ShedCommands {
                                 LotusJson(ApiTipsetKey(Some(head.key().clone()))),
                             ),
                         )
-                        .map_ok(|LotusJson(tipset)| {
+                        .map_ok(|tipset| {
                             let cids = tipset.block_headers().iter().map(|it| *it.cid());
                             (tipset.epoch(), cids.collect::<Vec<_>>())
                         })

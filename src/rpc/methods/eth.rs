@@ -141,6 +141,8 @@ impl BlockNumberOrHash {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this shouldn't exist
 impl HasLotusJson for BlockNumberOrHash {
     type LotusJson = String;
 
@@ -199,6 +201,8 @@ pub enum EthSyncingResultLotusJson {
     },
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this shouldn't exist
 impl HasLotusJson for EthSyncingResult {
     type LotusJson = EthSyncingResultLotusJson;
 
@@ -325,7 +329,6 @@ pub async fn eth_syncing<DB: Blockstore + Sync + Send + 'static>(
     let crate::rpc::sync::RPCSyncState { active_syncs } =
         crate::rpc::sync::SyncState::handle(data.clone(), ()).await?;
     match active_syncs
-        .into_inner()
         .into_iter()
         .rev()
         .find_or_first(|ss| ss.stage() != SyncStage::Idle)

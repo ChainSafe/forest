@@ -87,7 +87,7 @@ where
     // Run forest as a daemon if no other subcommands are used. Otherwise, run the
     // subcommand.
 
-    let (loki_task, _chrome_flush_guard) = logger::setup_logger(&opts);
+    let (background_tasks, _guards) = logger::setup_logger(&opts);
 
     if let Some(path) = &path {
         match path {
@@ -127,9 +127,10 @@ where
                 .enable_all()
                 .build()?;
 
-            if let Some(loki_task) = loki_task {
-                rt.spawn(loki_task);
+            for task in background_tasks {
+                rt.spawn(task);
             }
+
             let ret = rt.block_on(super::start_interruptable(opts, cfg));
             info!("Shutting down tokio...");
             rt.shutdown_timeout(Duration::from_secs_f32(0.5));

@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+mod types;
+pub use types::*;
+
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
@@ -50,6 +53,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
         $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateListMessages);
     };
 }
 pub(crate) use for_each_method;
@@ -84,7 +88,6 @@ pub const STATE_CIRCULATING_SUPPLY: &str = "Filecoin.StateCirculatingSupply";
 pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
 pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
 pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
-pub const STATE_LIST_MESSAGES: &str = "Filecoin.StateListMessages";
 pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
 pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
 pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
@@ -209,8 +212,7 @@ where
         .load_required_tipset_or_heaviest(&tipset_keys.0)?;
     let ret = data
         .state_manager
-        .lookup_id(&address, ts.as_ref())?
-        .with_context(|| format!("Failed to lookup the id address for address: {address} and tipset keys: {tipset_keys}"))?;
+        .lookup_required_id(&address, ts.as_ref())?;
     Ok(LotusJson(ret))
 }
 
@@ -913,11 +915,13 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
         .context("Failed to get block from blockstore")?;
     let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
 
-    Ok(LotusJson(ApiActorState::new(
-        actor.balance.clone().into(),
-        actor.code,
-        Ipld::Link(state),
-    )))
+    Ok(LotusJson(ApiActorState {
+        balance: actor.balance.clone().into(),
+        code: actor.code,
+        state: crate::rpc::types::ApiState {
+            builtin_actors: Ipld::Link(state),
+        },
+    }))
 }
 
 pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
@@ -1022,69 +1026,6 @@ pub(in crate::rpc) async fn state_vm_circulating_supply_internal<
         &data.state_manager.blockstore_owned(),
         ts.parent_state(),
     )?))
-}
-
-/// Looks back and returns all messages with a matching to or from address, stopping at the given height.
-pub(in crate::rpc) async fn state_list_messages<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<Cid>>, ServerError> {
-    let LotusJson((from_to, tsk, max_height)): LotusJson<(MessageFilter, ApiTipsetKey, i64)> =
-        params.parse()?;
-
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk.0)?;
-
-    if from_to.is_empty() {
-        return Err(ErrorObject::owned(
-            1,
-            "must specify at least To or From in message filter",
-            Some(from_to),
-        )
-        .into());
-    } else if let Some(to) = from_to.to {
-        // this is following lotus logic, it probably should be `if let` instead of `else if let`
-        // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
-        data.state_manager
-            .lookup_id(&to, ts.as_ref())?
-            .with_context(|| {
-                format!("Failed to lookup the id address for address: {to} and tipset keys: {tsk}")
-            })?;
-    } else if let Some(from) = from_to.from {
-        data.state_manager
-            .lookup_id(&from, ts.as_ref())?
-            .with_context(|| {
-                format!(
-                    "Failed to lookup the id address for address: {from} and tipset keys: {tsk}"
-                )
-            })?;
-    }
-
-    let mut out = Vec::new();
-    let mut cur_ts = ts.clone();
-
-    while cur_ts.epoch() >= max_height {
-        let msgs = data.chain_store.messages_for_tipset(&cur_ts)?;
-
-        for msg in msgs {
-            if from_to.matches(msg.message()) {
-                out.push(msg.cid()?);
-            }
-        }
-
-        if cur_ts.epoch() == 0 {
-            break;
-        }
-
-        let next = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_tipset(cur_ts.parents())?
-            .context("failed to load next tipset")?;
-        cur_ts = next;
-    }
-
-    Ok(LotusJson(out))
 }
 
 pub async fn state_list_miners<DB: Blockstore + Send + Sync + 'static>(
@@ -1210,7 +1151,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     const API_VERSION: ApiVersion = ApiVersion::V1;
 
     type Params = (LotusJson<ChainEpoch>,);
-    type Ok = LotusJson<BeaconEntry>;
+    type Ok = BeaconEntry;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -1234,7 +1175,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
         let entry = beacon.entry(round).await?;
-        Ok(LotusJson(entry))
+        Ok(entry)
     }
 }
 
@@ -1403,5 +1344,74 @@ impl StateSectorGetInfo {
             .into_iter()
             .map(|s| s.sector_number)
             .collect())
+    }
+}
+
+/// Looks back and returns all messages with a matching to or from address, stopping at the given height.
+pub enum StateListMessages {}
+
+impl RpcMethod<3> for StateListMessages {
+    const NAME: &'static str = "Filecoin.StateListMessages";
+    const PARAM_NAMES: [&'static str; 3] = ["message_filter", "tipset_key", "max_height"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (
+        LotusJson<MessageFilter>,
+        LotusJson<ApiTipsetKey>,
+        LotusJson<i64>,
+    );
+    type Ok = Vec<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(from_to), LotusJson(ApiTipsetKey(tsk)), LotusJson(max_height)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        if from_to.is_empty() {
+            return Err(ErrorObject::owned(
+                1,
+                "must specify at least To or From in message filter",
+                Some(from_to),
+            )
+            .into());
+        } else if let Some(to) = from_to.to {
+            // this is following lotus logic, it probably should be `if let` instead of `else if let`
+            // see <https://github.com/ChainSafe/forest/pull/3827#discussion_r1462691005>
+            if ctx.state_manager.lookup_id(&to, ts.as_ref())?.is_none() {
+                return Ok(vec![]);
+            }
+        } else if let Some(from) = from_to.from {
+            if ctx.state_manager.lookup_id(&from, ts.as_ref())?.is_none() {
+                return Ok(vec![]);
+            }
+        }
+
+        let mut out = Vec::new();
+        let mut cur_ts = ts.clone();
+
+        while cur_ts.epoch() >= max_height {
+            let msgs = ctx.chain_store.messages_for_tipset(&cur_ts)?;
+
+            for msg in msgs {
+                if from_to.matches(msg.message()) {
+                    out.push(msg.cid()?);
+                }
+            }
+
+            if cur_ts.epoch() == 0 {
+                break;
+            }
+
+            let next = ctx
+                .chain_store
+                .chain_index
+                .load_required_tipset(cur_ts.parents())?;
+            cur_ts = next;
+        }
+
+        Ok(out)
     }
 }
