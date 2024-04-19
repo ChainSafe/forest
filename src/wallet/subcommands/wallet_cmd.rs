@@ -508,8 +508,7 @@ impl WalletCommands {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")
                     }
 
-                    message.sequence =
-                        MpoolGetNonce::call(&backend.remote, (LotusJson(from),)).await?;
+                    message.sequence = MpoolGetNonce::call(&backend.remote, (from,)).await?;
 
                     let key = crate::key_management::find_key(&from, keystore)?;
                     let sig = crate::key_management::sign(
@@ -520,10 +519,10 @@ impl WalletCommands {
 
                     let smsg = SignedMessage::new_from_parts(message, sig)?;
 
-                    MpoolPush::call(&backend.remote, (LotusJson(smsg.clone()),)).await?;
+                    MpoolPush::call(&backend.remote, (smsg.clone(),)).await?;
                     smsg
                 } else {
-                    MpoolPushMessage::call(&backend.remote, (LotusJson(message), None)).await?
+                    MpoolPushMessage::call(&backend.remote, (message, None)).await?
                 };
 
                 println!("{}", signed_msg.cid().unwrap());

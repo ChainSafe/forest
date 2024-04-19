@@ -9,7 +9,7 @@ use crate::daemon::db_util::download_to;
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
-use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::lotus_json::HasLotusJson;
 use crate::message::Message as _;
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
@@ -460,9 +460,7 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
                 .unwrap(),
         ),
-        RpcTest::identity(
-            ChainGetTipSet::request((LotusJson(shared_tipset.key().clone().into()),)).unwrap(),
-        ),
+        RpcTest::identity(ChainGetTipSet::request((shared_tipset.key().clone().into(),)).unwrap()),
         RpcTest::identity(
             ChainGetPath::request((
                 shared_tipset.key().clone().into(),
@@ -475,8 +473,8 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((LotusJson(ApiTipsetKey(None)), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), 0.9_f64)).unwrap()),
     ]
 }
 
@@ -667,8 +665,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     // everything. If not, this test will be flaky. Instead of disabling it, we
     // should relax the verification requirement.
     vec![RpcTest::identity(
-        GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
-            .unwrap(),
+        GasEstimateGasLimit::request((message.into(), shared_tipset.key().into())).unwrap(),
     )]
 }
 
@@ -713,9 +710,9 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tipset.key().into(),
             ),
         ));
-        tests.push(RpcTest::identity(ChainTipSetWeight::request((LotusJson(
-            tipset.key().into(),
-        ),))?));
+        tests.push(RpcTest::identity(ChainTipSetWeight::request((tipset
+            .key()
+            .into(),))?));
         for block in tipset.block_headers() {
             let block_cid = (*block.cid()).into();
             tests.extend([
@@ -734,7 +731,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(RpcTest::identity(StateSectorGetInfo::request((
                     block.miner_address.into(),
                     sector.into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                 ))?));
             }
             for sector in
@@ -745,7 +742,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(RpcTest::identity(StateSectorPreCommitInfo::request((
                     block.miner_address.into(),
                     sector.into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                 ))?));
             }
 
@@ -782,7 +779,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         to: Some(msg.to()),
                     }
                     .into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                     tipset.epoch().into(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
@@ -791,7 +788,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         to: None,
                     }
                     .into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                     tipset.epoch().into(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
@@ -800,7 +797,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         to: Some(msg.to()),
                     }
                     .into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                     tipset.epoch().into(),
                 ))?));
                 tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
@@ -845,7 +842,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         to: Some(msg.to()),
                     }
                     .into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                     tipset.epoch().into(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
@@ -854,7 +851,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         to: None,
                     }
                     .into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                     tipset.epoch().into(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
@@ -863,7 +860,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                         to: Some(msg.to()),
                     }
                     .into(),
-                    LotusJson(tipset.key().into()),
+                    tipset.key().into(),
                     tipset.epoch().into(),
                 ))?));
 

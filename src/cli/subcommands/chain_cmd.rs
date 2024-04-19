@@ -87,7 +87,7 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
                 let tipset = tipset_by_epoch_or_offset(&client, epoch).await?;
-                ChainSetHead::call(&client, (LotusJson(tipset.key().into()),)).await?;
+                ChainSetHead::call(&client, (tipset.key().into(),)).await?;
                 Ok(())
             }
             Self::SetHead {
@@ -98,12 +98,10 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 ChainSetHead::call(
                     &client,
-                    (LotusJson(
-                        TipsetKey::from(
-                            NonEmpty::from_vec(cids).expect("empty vec disallowed by clap"),
-                        )
-                        .into(),
-                    ),),
+                    (TipsetKey::from(
+                        NonEmpty::from_vec(cids).expect("empty vec disallowed by clap"),
+                    )
+                    .into(),),
                 )
                 .await?;
                 Ok(())
@@ -124,11 +122,7 @@ async fn tipset_by_epoch_or_offset(
         true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
-    ChainGetTipSetByHeight::call(
-        client,
-        (target_epoch, LotusJson(current_head.key().clone().into())),
-    )
-    .await
+    ChainGetTipSetByHeight::call(client, (target_epoch, current_head.key().clone().into())).await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

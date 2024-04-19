@@ -24,12 +24,12 @@ impl RpcMethod<1> for SyncCheckBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = String;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.bad_blocks.peek(&cid).unwrap_or_default())
     }
@@ -41,12 +41,12 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         ctx.bad_blocks
             .put(cid, "Marked bad manually through RPC API".to_string());

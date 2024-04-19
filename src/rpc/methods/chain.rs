@@ -67,12 +67,12 @@ impl RpcMethod<1> for ChainGetMessage {
     const PARAM_NAMES: [&'static str; 1] = ["msg_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = Message;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(msg_cid),): Self::Params,
+        (msg_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let chain_message: ChainMessage = ctx
             .state_manager
@@ -92,12 +92,12 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(block_cid),): Self::Params,
+        (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.state_manager.blockstore();
         let block_header: CachingBlockHeader = store
@@ -118,12 +118,12 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = Vec<ApiReceipt>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(block_cid),): Self::Params,
+        (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.state_manager.blockstore();
         let block_header: CachingBlockHeader = store
@@ -194,16 +194,15 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<TipsetKey>,);
+    type Params = (ApiTipsetKey,);
     type Ok = Vec<ApiMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(tsk),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.chain_store.blockstore();
-        let tipset = Tipset::load_required(store, &tsk)?;
-        load_api_messages_from_tipset(store, &tipset)
+        let tipset = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        load_api_messages_from_tipset(ctx.store(), &tipset)
     }
 }
 
@@ -285,12 +284,12 @@ impl RpcMethod<1> for ChainReadObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = Vec<u8>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let bytes = ctx
             .state_manager
@@ -307,12 +306,12 @@ impl RpcMethod<1> for ChainHasObj {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = bool;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
     }
@@ -324,12 +323,12 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = BlockMessages;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx
             .state_manager
@@ -361,12 +360,12 @@ impl RpcMethod<2> for ChainGetPath {
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<TipsetKey>, LotusJson<TipsetKey>);
+    type Params = (TipsetKey, TipsetKey);
     type Ok = Vec<PathChange>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(from), LotusJson(to)): Self::Params,
+        (from, to): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         impl_chain_get_path(&ctx.chain_store, &from, &to).map_err(Into::into)
     }
@@ -437,12 +436,12 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
+    type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (height, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -463,12 +462,12 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    type Params = (ChainEpoch, LotusJson<ApiTipsetKey>);
+    type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (height, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (height, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -519,12 +518,12 @@ impl RpcMethod<1> for ChainGetBlock {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = CachingBlockHeader;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let blk: CachingBlockHeader = ctx
             .state_manager
@@ -541,12 +540,12 @@ impl RpcMethod<1> for ChainGetTipSet {
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<ApiTipsetKey>,);
+    type Params = (ApiTipsetKey,);
     type Ok = Tipset;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -562,12 +561,12 @@ impl RpcMethod<1> for ChainSetHead {
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<ApiTipsetKey>,);
+    type Params = (ApiTipsetKey,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         // This is basically a port of the reference implementation at
         // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
@@ -635,12 +634,12 @@ impl RpcMethod<1> for ChainTipSetWeight {
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<ApiTipsetKey>,);
+    type Params = (ApiTipsetKey,);
     type Ok = BigInt;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let tsk = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         let weight = crate::fil_cns::weight(ctx.chain_store.blockstore(), &tsk)?;
@@ -770,6 +769,7 @@ pub struct ChainExportParams {
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
+lotus_json_with_self!(ChainExportParams);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "PascalCase")]

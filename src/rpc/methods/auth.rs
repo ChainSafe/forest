@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
+use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use anyhow::Result;
 use chrono::Duration;
@@ -57,10 +58,11 @@ impl RpcMethod<1> for AuthVerify {
 }
 
 #[serde_as]
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Clone, Deserialize, Serialize, JsonSchema)]
 pub struct AuthNewParams {
     pub perms: Vec<String>,
     #[serde_as(as = "DurationSeconds<i64>")]
     #[schemars(with = "i64")]
     pub token_exp: Duration,
 }
+lotus_json_with_self!(AuthNewParams);
