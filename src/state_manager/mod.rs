@@ -1021,11 +1021,17 @@ where
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("{e:?}"))?;
         Ok(state_tree
             .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
+    }
+
+    /// Looks up required ID [Address] from the state at the given [Tipset].
+    pub fn lookup_required_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        self.lookup_id(addr, ts)?
+            .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
     }
 
     /// Retrieves market balance in escrow and locked tables.
