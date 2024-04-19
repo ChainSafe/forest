@@ -79,22 +79,22 @@ MSG_REMOTE=$($FOREST_WALLET_PATH --remote-wallet send "$ADDR_THREE" "$FIL_AMT")
 
 ADDR_TWO_BALANCE=0
 i=0
-while [[ $i != 20 && $ADDR_TWO_BALANCE == 0 ]]; do
+while [[ $i != 20 && $ADDR_TWO_BALANCE == "0 FIL" ]]; do
   i=$((i+1))
   
   : "Checking balance $i/20"
   sleep 30s
-  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO")
+  ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" -e)
 done
 
 ADDR_THREE_BALANCE=0
 i=0
-while [[ $i != 20 && $ADDR_THREE_BALANCE == 0 ]]; do
+while [[ $i != 20 && $ADDR_THREE_BALANCE == "0 FIL" ]]; do
   i=$((i+1))
 
   : "Checking balance $i/20"
   sleep 30s
-  ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_TWO")
+  ADDR_THREE_BALANCE=$($FOREST_WALLET_PATH --remote-wallet balance "$ADDR_TWO" -e)
 done
 
 # wallet list should contain address two with transfered FIL amount
