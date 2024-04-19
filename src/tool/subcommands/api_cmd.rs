@@ -255,10 +255,25 @@ struct TestResult {
     test_dump: Option<TestDump>,
 }
 
+/// This struct is the hash-able representation of [`RpcTest`]
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct RpcTestHashable {
     request: String,
     ignore: bool,
+}
+
+impl From<&RpcTest> for RpcTestHashable {
+    fn from(t: &RpcTest) -> Self {
+        Self {
+            request: serde_json::to_string(&(
+                t.request.method_name,
+                &t.request.api_version,
+                &t.request.params,
+            ))
+            .unwrap_or_default(),
+            ignore: t.ignore.is_some(),
+        }
+    }
 }
 
 struct RpcTest {
@@ -353,19 +368,6 @@ impl RpcTest {
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
-    }
-
-    fn hashable(&self) -> RpcTestHashable {
-        let request = &self.request;
-        RpcTestHashable {
-            request: serde_json::to_string(&(
-                request.method_name,
-                &request.api_version,
-                &request.params,
-            ))
-            .unwrap_or_default(),
-            ignore: self.ignore.is_some(),
-        }
     }
 
     async fn run(&self, forest_api: &ApiInfo, lotus_api: &ApiInfo) -> TestResult {
@@ -1208,7 +1210,8 @@ async fn run_tests(
         FilterList::default().allow(config.filter.clone())
     };
 
-    for test in tests.into_iter().unique_by(RpcTest::hashable) {
+    // deduplicate tests by their hash-able representations
+    for test in tests.into_iter().unique_by(|t| RpcTestHashable::from(t)) {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
