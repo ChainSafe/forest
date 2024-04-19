@@ -12,9 +12,7 @@ use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
-use futures::TryFutureExt as _;
 use humantime::format_duration;
-use jsonrpsee::core::ClientError;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -155,7 +153,7 @@ impl InfoCommand {
         let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
             NodeStatus::call(&client, ()),
             ChainHead::call(&client, ()),
-            api.state_network_name().map_err(ClientError::from),
+            StateNetworkName::call(&client, ()),
             StartTime::call(&client, ()),
             WalletDefaultAddress::call(&client, ()),
         )?;

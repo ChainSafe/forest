@@ -2,10 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+mod types;
+pub use types::*;
+
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
+use crate::shim::message::Message;
 use crate::shim::state_tree::StateTree;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
@@ -13,7 +17,7 @@ use crate::shim::{
 };
 use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::{InvocResult, MarketBalance};
+use crate::state_manager::MarketBalance;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
@@ -47,25 +51,25 @@ use tokio::task::JoinSet;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
+        $callback!(crate::rpc::state::MinerGetBaseInfo);
+        $callback!(crate::rpc::state::StateCall);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
-        $callback!(crate::rpc::state::StateSectorGetInfo);
         $callback!(crate::rpc::state::StateListMessages);
+        $callback!(crate::rpc::state::StateNetworkName);
+        $callback!(crate::rpc::state::StateReplay);
+        $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
     };
 }
 pub(crate) use for_each_method;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
-pub const STATE_CALL: &str = "Filecoin.StateCall";
-pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
 pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
 pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
 pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
 pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
 pub const STATE_MINER_INFO: &str = "Filecoin.StateMinerInfo";
-pub const MINER_GET_BASE_INFO: &str = "Filecoin.MinerGetBaseInfo";
 pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
 pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
 pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
@@ -97,69 +101,100 @@ pub const MSIG_GET_PENDING: &str = "Filecoin.MsigGetPending";
 pub const STATE_MINER_SECTORS: &str = "Filecoin.StateMinerSectors";
 pub const STATE_MINER_PARTITIONS: &str = "Filecoin.StateMinerPartitions";
 
-pub async fn miner_get_base_info<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> anyhow::Result<LotusJson<Option<MiningBaseInfo>>, ServerError> {
-    let LotusJson((address, epoch, ApiTipsetKey(tsk))) = params.parse()?;
+pub enum MinerGetBaseInfo {}
+impl RpcMethod<3> for MinerGetBaseInfo {
+    const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+    type Params = (LotusJson<Address>, i64, LotusJson<ApiTipsetKey>);
+    type Ok = Option<MiningBaseInfo>;
 
-    data.state_manager
-        .miner_get_base_info(data.state_manager.beacon_schedule(), ts, address, epoch)
-        .await
-        .map(|info| Ok(LotusJson(info)))?
-}
-/// runs the given message and returns its result without any persisted changes.
-pub async fn state_call<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<ApiInvocResult, ServerError> {
-    let LotusJson((message, ApiTipsetKey(key))) = params.parse()?;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(address), epoch, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
 
-    let state_manager = &data.state_manager;
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
-    // Handle expensive fork error?
-    // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
-    Ok(state_manager.call(&message, Some(tipset))?)
+        Ok(ctx
+            .state_manager
+            .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
+            .await?)
+    }
 }
 
-/// returns the result of executing the indicated message, assuming it was
-/// executed in the indicated tipset.
-pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<InvocResult, ServerError> {
-    let LotusJson((cid, ApiTipsetKey(key))) = params.parse()?;
+pub enum StateCall {}
+impl RpcMethod<2> for StateCall {
+    const NAME: &'static str = "Filecoin.StateCall";
+    const PARAM_NAMES: [&'static str; 2] = ["message", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let state_manager = &data.state_manager;
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
-    let (msg, ret) = state_manager.replay(&tipset, cid).await?;
+    type Params = (LotusJson<Message>, LotusJson<ApiTipsetKey>);
+    type Ok = ApiInvocResult;
 
-    Ok(InvocResult {
-        msg,
-        msg_rct: Some(ret.msg_receipt()),
-        error: ret.failure_info(),
-    })
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(message), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let tipset = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        // Handle expensive fork error?
+        // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
+        Ok(state_manager.call(&message, Some(tipset))?)
+    }
 }
 
-/// gets network name from state manager
-pub async fn state_network_name<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
-    let state_manager = &data.state_manager;
-    let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+pub enum StateReplay {}
+impl RpcMethod<2> for StateReplay {
+    const NAME: &'static str = "Filecoin.StateReplay";
+    const PARAM_NAMES: [&'static str; 2] = ["cid", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    state_manager
-        .get_network_name(heaviest_tipset.parent_state())
-        .map_err(|e| e.into())
+    type Params = (LotusJson<Cid>, LotusJson<ApiTipsetKey>);
+    type Ok = InvocResult;
+
+    /// returns the result of executing the indicated message, assuming it was
+    /// executed in the indicated tipset.
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (LotusJson(cid), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let tipset = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let (msg, ret) = state_manager.replay(&tipset, cid).await?;
+
+        Ok(InvocResult {
+            msg,
+            msg_rct: Some(ret.msg_receipt()),
+            error: ret.failure_info(),
+        })
+    }
+}
+
+pub enum StateNetworkName {}
+impl RpcMethod<0> for StateNetworkName {
+    const NAME: &'static str = "Filecoin.StateNetworkName";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+
+        Ok(state_manager.get_network_name(heaviest_tipset.parent_state())?)
+    }
 }
 
 pub async fn state_get_network_version<DB: Blockstore>(
@@ -912,11 +947,13 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
         .context("Failed to get block from blockstore")?;
     let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
 
-    Ok(LotusJson(ApiActorState::new(
-        actor.balance.clone().into(),
-        actor.code,
-        Ipld::Link(state),
-    )))
+    Ok(LotusJson(ApiActorState {
+        balance: actor.balance.clone().into(),
+        code: actor.code,
+        state: crate::rpc::types::ApiState {
+            builtin_actors: Ipld::Link(state),
+        },
+    }))
 }
 
 pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(
