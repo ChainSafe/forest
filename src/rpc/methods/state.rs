@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
+mod types;
+pub use types::*;
+
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
@@ -912,11 +915,13 @@ pub async fn state_read_state<DB: Blockstore + Send + Sync + 'static>(
         .context("Failed to get block from blockstore")?;
     let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
 
-    Ok(LotusJson(ApiActorState::new(
-        actor.balance.clone().into(),
-        actor.code,
-        Ipld::Link(state),
-    )))
+    Ok(LotusJson(ApiActorState {
+        balance: actor.balance.clone().into(),
+        code: actor.code,
+        state: crate::rpc::types::ApiState {
+            builtin_actors: Ipld::Link(state),
+        },
+    }))
 }
 
 pub async fn state_circulating_supply<DB: Blockstore + Send + Sync + 'static>(

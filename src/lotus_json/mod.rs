@@ -121,11 +121,8 @@
 //! - use [`proptest`](https://docs.rs/proptest/) to test the parser pipeline
 //! - use a derive macro for simple compound structs
 
-use crate::ipld::{json::IpldJson, Ipld};
 use derive_more::From;
-use fil_actor_interface::{miner::DeadlineInfo, power::Claim};
-use fil_actors_shared::fvm_ipld_bitfield::json::BitFieldJson;
-use fil_actors_shared::fvm_ipld_bitfield::BitField;
+use fil_actor_interface::miner::DeadlineInfo;
 use fvm_shared2::piece::PaddedPieceSize;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
@@ -183,6 +180,7 @@ macro_rules! decl_and_test {
 pub(crate) use decl_and_test;
 
 decl_and_test!(
+    actor_state for crate::shim::state_tree::ActorState,
     address for crate::shim::address::Address,
     beacon_entry for crate::beacon::BeaconEntry,
     big_int for num::BigInt,
@@ -206,7 +204,10 @@ decl_and_test!(
     vrf_proof for crate::blocks::VRFProof,
 );
 
+mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod cid; // can't make snapshots of generic type
+mod claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
+mod ipld; // NaN != NaN
 mod nonempty;
 mod opt; // can't make snapshots of generic type
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
@@ -419,6 +420,8 @@ impl<T> LotusJson<T> {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  This shouldn't be needed, we only want non-recursive definitions now
 impl<T> LotusJson<Option<T>> {
     // don't want to impl Deref<T> for LotusJson<T>
     pub fn is_none(&self) -> bool {
@@ -490,138 +493,87 @@ lotus_json_with_self!(
     Uuid,
 );
 
-#[derive(Default, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ClaimLotusJson {
-    /// Sum of raw byte power for a miner's sectors.
-    pub raw_byte_power: LotusJson<num::BigInt>,
-    /// Sum of quality adjusted power for a miner's sectors.
-    pub quality_adj_power: LotusJson<num::BigInt>,
-}
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  remove this impls
+mod fixme {
+    use super::*;
 
-impl HasLotusJson for Claim {
-    type LotusJson = ClaimLotusJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        ClaimLotusJson {
-            raw_byte_power: LotusJson(self.raw_byte_power),
-            quality_adj_power: LotusJson(self.quality_adj_power),
+    impl<T: HasLotusJson> HasLotusJson for (T,) {
+        type LotusJson = (T::LotusJson,);
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+        }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            (self.0.into_lotus_json(),)
+        }
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            (HasLotusJson::from_lotus_json(lotus_json.0),)
         }
     }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Claim {
-            raw_byte_power: lotus_json.raw_byte_power.into_inner(),
-            quality_adj_power: lotus_json.quality_adj_power.into_inner(),
+
+    impl<A: HasLotusJson, B: HasLotusJson> HasLotusJson for (A, B) {
+        type LotusJson = (A::LotusJson, B::LotusJson);
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+        }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            (self.0.into_lotus_json(), self.1.into_lotus_json())
+        }
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            (
+                HasLotusJson::from_lotus_json(lotus_json.0),
+                HasLotusJson::from_lotus_json(lotus_json.1),
+            )
         }
     }
-}
 
-impl<T: HasLotusJson> HasLotusJson for (T,) {
-    type LotusJson = (T::LotusJson,);
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+    impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson> HasLotusJson for (A, B, C) {
+        type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson);
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+        }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            (
+                self.0.into_lotus_json(),
+                self.1.into_lotus_json(),
+                self.2.into_lotus_json(),
+            )
+        }
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            (
+                HasLotusJson::from_lotus_json(lotus_json.0),
+                HasLotusJson::from_lotus_json(lotus_json.1),
+                HasLotusJson::from_lotus_json(lotus_json.2),
+            )
+        }
     }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        (self.0.into_lotus_json(),)
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        (HasLotusJson::from_lotus_json(lotus_json.0),)
-    }
-}
 
-impl<A: HasLotusJson, B: HasLotusJson> HasLotusJson for (A, B) {
-    type LotusJson = (A::LotusJson, B::LotusJson);
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        (self.0.into_lotus_json(), self.1.into_lotus_json())
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        (
-            HasLotusJson::from_lotus_json(lotus_json.0),
-            HasLotusJson::from_lotus_json(lotus_json.1),
-        )
-    }
-}
-
-impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson> HasLotusJson for (A, B, C) {
-    type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson);
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        (
-            self.0.into_lotus_json(),
-            self.1.into_lotus_json(),
-            self.2.into_lotus_json(),
-        )
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        (
-            HasLotusJson::from_lotus_json(lotus_json.0),
-            HasLotusJson::from_lotus_json(lotus_json.1),
-            HasLotusJson::from_lotus_json(lotus_json.2),
-        )
-    }
-}
-
-impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson, D: HasLotusJson> HasLotusJson
-    for (A, B, C, D)
-{
-    type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson, D::LotusJson);
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        (
-            self.0.into_lotus_json(),
-            self.1.into_lotus_json(),
-            self.2.into_lotus_json(),
-            self.3.into_lotus_json(),
-        )
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        (
-            HasLotusJson::from_lotus_json(lotus_json.0),
-            HasLotusJson::from_lotus_json(lotus_json.1),
-            HasLotusJson::from_lotus_json(lotus_json.2),
-            HasLotusJson::from_lotus_json(lotus_json.3),
-        )
-    }
-}
-
-impl HasLotusJson for Ipld {
-    type LotusJson = IpldJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        IpldJson(self)
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        lotus_json.0
-    }
-}
-
-impl HasLotusJson for BitField {
-    type LotusJson = BitFieldJson;
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
-    }
-    fn into_lotus_json(self) -> Self::LotusJson {
-        BitFieldJson(self)
-    }
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        lotus_json.0
+    impl<A: HasLotusJson, B: HasLotusJson, C: HasLotusJson, D: HasLotusJson> HasLotusJson
+        for (A, B, C, D)
+    {
+        type LotusJson = (A::LotusJson, B::LotusJson, C::LotusJson, D::LotusJson);
+        #[cfg(test)]
+        fn snapshots() -> Vec<(serde_json::Value, Self)> {
+            unimplemented!("tests are trivial for HasLotusJson<LotusJson = Self>")
+        }
+        fn into_lotus_json(self) -> Self::LotusJson {
+            (
+                self.0.into_lotus_json(),
+                self.1.into_lotus_json(),
+                self.2.into_lotus_json(),
+                self.3.into_lotus_json(),
+            )
+        }
+        fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+            (
+                HasLotusJson::from_lotus_json(lotus_json.0),
+                HasLotusJson::from_lotus_json(lotus_json.1),
+                HasLotusJson::from_lotus_json(lotus_json.2),
+                HasLotusJson::from_lotus_json(lotus_json.3),
+            )
+        }
     }
 }
