@@ -13,6 +13,13 @@ impl ApiInfo {
         RpcRequest::new_v1(ETH_BLOCK_NUMBER, ())
     }
 
+    pub fn eth_get_block_by_number_req(
+        block_param: BlockNumberOrHash,
+        full_tx_info: bool,
+    ) -> RpcRequest<Block> {
+        RpcRequest::new_v1(ETH_GET_BLOCK_BY_NUMBER, (block_param, full_tx_info))
+    }
+
     pub fn eth_chain_id_req() -> RpcRequest<String> {
         RpcRequest::new_v1(ETH_CHAIN_ID, ())
     }

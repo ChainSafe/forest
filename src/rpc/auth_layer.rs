@@ -168,6 +168,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth::ETH_GAS_PRICE, Access::Read);
     access.insert(eth::ETH_GET_BALANCE, Access::Read);
     access.insert(eth::ETH_SYNCING, Access::Read);
+    access.insert(eth::ETH_GET_BLOCK_BY_NUMBER, Access::Read);
     access.insert(eth::WEB3_CLIENT_VERSION, Access::Read);
 
     // Pubsub API
