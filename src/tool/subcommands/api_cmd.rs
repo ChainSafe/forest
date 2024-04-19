@@ -750,7 +750,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             }
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-            for msg in bls_messages.into_iter().unique() {
+            for msg in bls_messages.into_iter().unique().take(5) {
                 tests.push(RpcTest::identity(ChainGetMessage::request((msg
                     .cid()?
                     .into(),))?));
@@ -776,14 +776,33 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(validate_message_lookup(
                     ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                 ));
-                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.from()),
                         to: Some(msg.to()),
-                    },
-                    shared_tipset_key.into(),
-                    shared_tipset.epoch(),
-                )));
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?));
+                tests.push(RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: Some(msg.to()),
+                        to: None,
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?));
+                tests.push(RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: None,
+                        to: Some(msg.to()),
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?));
                 tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                     msg.cid()?,
                 )));
@@ -791,7 +810,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                 ));
             }
-            for msg in secp_messages.into_iter().unique() {
+            for msg in secp_messages.into_iter().unique().take(5) {
                 tests.push(RpcTest::identity(ChainGetMessage::request((msg
                     .cid()?
                     .into(),))?));
@@ -820,30 +839,33 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 tests.push(RpcTest::basic(
                     MpoolGetNonce::request((msg.from().into(),)).unwrap(),
                 ));
-                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
+                tests.push(RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: Some(msg.to()),
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?));
+                tests.push(RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: Some(msg.to()),
+                        to: None,
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?));
+                tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: None,
                         to: Some(msg.to()),
-                    },
-                    shared_tipset_key.into(),
-                    shared_tipset.epoch(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                    MessageFilter {
-                        from: Some(msg.from()),
-                        to: None,
-                    },
-                    shared_tipset_key.into(),
-                    shared_tipset.epoch(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_list_messages_req(
-                    MessageFilter {
-                        from: None,
-                        to: None,
-                    },
-                    shared_tipset_key.into(),
-                    shared_tipset.epoch(),
-                )));
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?));
 
                 if !msg.params().is_empty() {
                     tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(

@@ -599,11 +599,14 @@ impl MinerPartitions {
 
 lotus_json_with_self!(MinerPartitions);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageFilter {
+    #[schemars(with = "LotusJson<Option<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub from: Option<Address>,
+
+    #[schemars(with = "LotusJson<Option<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub to: Option<Address>,
 }
