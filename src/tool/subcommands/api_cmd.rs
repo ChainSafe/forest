@@ -10,7 +10,7 @@ use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::{HasLotusJson, LotusJson};
-use crate::message::Message as _;
+use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
@@ -31,6 +31,7 @@ use crate::shim::{
 use crate::state_manager::StateManager;
 use ahash::HashMap;
 use anyhow::Context as _;
+use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -59,6 +60,8 @@ use tokio::{
     task::JoinSet,
 };
 use tracing::{debug, info, warn};
+
+const COLLECTION_SAMPLE_SIZE: usize = 5;
 
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
@@ -104,7 +107,7 @@ pub enum ApiCommands {
         /// Cancel test run on the first failure
         #[arg(long)]
         fail_fast: bool,
-        #[arg(short, long, default_value = "20")]
+        #[arg(short, long, default_value = "10")]
         /// The number of tipsets to use to generate test cases.
         n_tipsets: usize,
         #[arg(long, value_enum, default_value_t = RunIgnored::Default)]
@@ -466,32 +469,55 @@ fn chain_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block_cid = (*shared_tipset.min_ticket_block().cid()).into();
+fn chain_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![
+        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+            tipset.epoch(),
+            Default::default(),
+        ))?),
+        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+            tipset.epoch(),
+            Default::default(),
+        ))?),
+        RpcTest::identity(ChainGetTipSet::request((LotusJson(
+            tipset.key().clone().into(),
+        ),))?),
+        RpcTest::identity(ChainGetPath::request((
+            tipset.key().clone().into(),
+            tipset.parents().clone().into(),
+        ))?),
+        RpcTest::identity(ChainGetMessagesInTipset::request((tipset
+            .key()
+            .clone()
+            .into(),))?),
+        RpcTest::identity(ChainTipSetWeight::request((LotusJson(
+            tipset.key().into(),
+        ),))?),
+    ];
 
-    vec![
-        RpcTest::identity(ChainReadObj::request((shared_block_cid,)).unwrap()),
-        RpcTest::identity(ChainHasObj::request((shared_block_cid,)).unwrap()),
-        RpcTest::identity(ChainGetBlock::request((shared_block_cid,)).unwrap()),
-        RpcTest::identity(
-            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetTipSetAfterHeight::request((shared_tipset.epoch(), Default::default()))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetTipSet::request((LotusJson(shared_tipset.key().clone().into()),)).unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetPath::request((
-                shared_tipset.key().clone().into(),
-                shared_tipset.parents().clone().into(),
-            ))
-            .unwrap(),
-        ),
-    ]
+    for block in tipset.block_headers() {
+        let block_cid = *block.cid();
+        tests.extend([
+            RpcTest::identity(ChainReadObj::request((block_cid.into(),))?),
+            RpcTest::identity(ChainHasObj::request((block_cid.into(),))?),
+            RpcTest::identity(ChainGetBlock::request((block_cid.into(),))?),
+            RpcTest::identity(ChainGetBlockMessages::request((block_cid.into(),))?),
+            RpcTest::identity(ChainGetParentMessages::request((block_cid.into(),))?),
+            RpcTest::identity(ChainGetParentReceipts::request((block_cid.into(),))?),
+        ]);
+
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
+        for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([RpcTest::identity(ChainGetMessage::request((
+                msg_cid.into(),
+            ))?)]);
+        }
+    }
+
+    Ok(tests)
 }
 
 fn mpool_tests() -> Vec<RpcTest> {
@@ -541,73 +567,261 @@ fn state_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block = shared_tipset.min_ticket_block();
-    let mut sectors = BitField::new();
-    sectors.set(101);
-    vec![
-        RpcTest::identity(StateNetworkName::request(()).unwrap()),
+fn state_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    tipset: &Tipset,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![
+        RpcTest::identity(StateNetworkName::request(())?),
         RpcTest::identity(ApiInfo::state_get_actor_req(
             Address::SYSTEM_ACTOR,
-            shared_tipset.key().clone(),
+            tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
-            shared_tipset.key().into(),
+            tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
-            shared_tipset.epoch(),
+            tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
         RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
-            shared_tipset.key().into(),
+            tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
-            shared_tipset.epoch(),
+            tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
-            shared_tipset.key().into(),
+            tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::state_read_state_req(
             Address::SYSTEM_ACTOR,
             Default::default(),
         )),
-        RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-            shared_block.miner_address,
-            shared_tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::state_lookup_id_req(
-            shared_block.miner_address,
-            shared_tipset.key().into(),
-        )),
         // This should return `Address::new_id(0xdeadbeef)`
         RpcTest::identity(ApiInfo::state_lookup_id_req(
             Address::new_id(0xdeadbeef),
-            shared_tipset.key().into(),
+            tipset.key().into(),
         )),
-        RpcTest::identity(ApiInfo::state_network_version_req(
-            shared_tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::state_list_miners_req(shared_tipset.key().into())),
-        RpcTest::identity(ApiInfo::state_miner_sectors_req(
-            shared_block.miner_address,
-            sectors,
-            shared_tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::state_miner_partitions_req(
-            shared_block.miner_address,
-            0,
-            shared_tipset.key().into(),
-        )),
+        RpcTest::identity(ApiInfo::state_network_version_req(tipset.key().into())),
+        RpcTest::identity(ApiInfo::state_list_miners_req(tipset.key().into())),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
             Address::new_id(18101), // msig address id
-            shared_tipset.key().into(),
+            tipset.key().into(),
         )),
         RpcTest::identity(ApiInfo::msig_get_pending_req(
             Address::new_id(18101), // msig address id
-            shared_tipset.key().into(),
+            tipset.key().into(),
         )),
-        RpcTest::identity(StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap()),
-    ]
+        RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch().into(),))?),
+        // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
+        // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
+        // for API compatibility verification.
+        RpcTest::identity(ApiInfo::state_verified_client_status(
+            Address::VERIFIED_REGISTRY_ACTOR,
+            tipset.key().into(),
+        )),
+        RpcTest::identity(ApiInfo::state_verified_client_status(
+            Address::DATACAP_TOKEN_ACTOR,
+            tipset.key().into(),
+        )),
+        RpcTest::identity(ApiInfo::state_deal_provider_collateral_bounds_req(
+            PaddedPieceSize(1),
+            true,
+            tipset.key().into(),
+        )),
+        RpcTest::identity(ApiInfo::state_circulating_supply_req(tipset.key().into())),
+        RpcTest::identity(ApiInfo::state_vm_circulating_supply_internal_req(
+            tipset.key().into(),
+        )),
+    ];
+
+    // Get deals
+    let deals = {
+        let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state
+            .get_actor(&Address::MARKET_ACTOR)?
+            .context("Market actor not found")?;
+        let market_state = market::State::load(&store, actor.code, actor.state)?;
+        let proposals = market_state.proposals(&store)?;
+        let mut deals = vec![];
+        proposals.for_each(|deal_id, _| {
+            deals.push(deal_id);
+            Ok(())
+        })?;
+        deals
+    };
+
+    // Take 5 deals from each tipset
+    for deal in deals.into_iter().take(COLLECTION_SAMPLE_SIZE) {
+        tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+            deal,
+            tipset.key().into(),
+        )));
+    }
+
+    for block in tipset.block_headers() {
+        tests.extend([
+            RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_lookup_id_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_sectors_req(
+                block.miner_address,
+                None,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_partitions_req(
+                block.miner_address,
+                0,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_market_balance_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_info_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_power_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_deadlines_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_proving_deadline_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_available_balance_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_faults_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(MinerGetBaseInfo::request((
+                block.miner_address.into(),
+                block.epoch,
+                LotusJson(tipset.key().into()),
+            ))?),
+            RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+            RpcTest::identity(ApiInfo::state_miner_sector_count_req(
+                block.miner_address,
+                tipset.key().into(),
+            )),
+        ]);
+
+        for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?
+            .into_iter()
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([
+                RpcTest::identity(StateSectorGetInfo::request((
+                    block.miner_address.into(),
+                    sector.into(),
+                    LotusJson(tipset.key().into()),
+                ))?),
+                RpcTest::identity(ApiInfo::state_miner_sectors_req(
+                    block.miner_address,
+                    {
+                        let mut bf = BitField::new();
+                        bf.set(sector);
+                        Some(bf)
+                    },
+                    tipset.key().into(),
+                )),
+            ]);
+        }
+        for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
+            .into_iter()
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateSectorPreCommitInfo::request((
+                block.miner_address.into(),
+                sector.into(),
+                LotusJson(tipset.key().into()),
+            ))?)]);
+        }
+
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
+        for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([
+                validate_message_lookup(ApiInfo::state_wait_msg_req(msg_cid, 0))
+                    .with_timeout(Duration::from_secs(30)),
+                validate_message_lookup(ApiInfo::state_search_msg_req(msg_cid)),
+                validate_message_lookup(ApiInfo::state_search_msg_limited_req(msg_cid, 800)),
+            ]);
+        }
+        for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            tests.extend([
+                RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    tipset.key().into(),
+                )),
+                RpcTest::identity(ApiInfo::state_account_key_req(
+                    msg.from(),
+                    Default::default(),
+                )),
+                RpcTest::identity(ApiInfo::state_lookup_id_req(
+                    msg.from(),
+                    tipset.key().into(),
+                )),
+                RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: Some(msg.to()),
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?),
+                RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: Some(msg.from()),
+                        to: None,
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?),
+                RpcTest::identity(StateListMessages::request((
+                    MessageFilter {
+                        from: None,
+                        to: Some(msg.to()),
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?),
+                RpcTest::identity(StateCall::request((
+                    msg.clone().into(),
+                    LotusJson(tipset.key().into()),
+                ))?),
+            ]);
+            if !msg.params().is_empty() {
+                tests.extend([RpcTest::identity(ApiInfo::state_decode_params_req(
+                        msg.to(),
+                        msg.method_num(),
+                        msg.params().to_vec(),
+                        tipset.key().into(),
+                    )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769")
+                ]);
+            }
+        }
+    }
+
+    Ok(tests)
 }
 
 fn wallet_tests() -> Vec<RpcTest> {
@@ -705,294 +919,11 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .take(10)
         .last()
         .expect("Infallible");
-    let shared_tipset_key = shared_tipset.key();
-    tests.extend(chain_tests_with_tipset(&shared_tipset));
-    tests.extend(state_tests_with_tipset(&shared_tipset));
-    tests.extend(eth_tests_with_tipset(&shared_tipset));
-    tests.extend(gas_tests_with_tipset(&shared_tipset));
-
-    // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
-    // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
-    // for API compatibility verification.
-    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
-        Address::VERIFIED_REGISTRY_ACTOR,
-        shared_tipset.key().into(),
-    )));
-    tests.push(RpcTest::identity(ApiInfo::state_verified_client_status(
-        Address::DATACAP_TOKEN_ACTOR,
-        shared_tipset.key().into(),
-    )));
-
-    for tipset in shared_tipset.clone().chain(&store).take(n_tipsets) {
-        tests.push(RpcTest::identity(ChainGetMessagesInTipset::request((
-            tipset.key().clone().into(),
-        ))?));
-        tests.push(RpcTest::identity(
-            ApiInfo::state_deal_provider_collateral_bounds_req(
-                PaddedPieceSize(1),
-                true,
-                tipset.key().into(),
-            ),
-        ));
-        tests.push(RpcTest::identity(ChainTipSetWeight::request((LotusJson(
-            tipset.key().into(),
-        ),))?));
-        for block in tipset.block_headers() {
-            let block_cid = (*block.cid()).into();
-            tests.extend([
-                RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
-                RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
-                RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
-            ]);
-            tests.push(RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
-                block.miner_address,
-                shared_tipset_key.into(),
-            )));
-            for sector in StateSectorGetInfo::get_sectors(&store, &block.miner_address, &tipset)?
-                .into_iter()
-                .take(5)
-            {
-                tests.push(RpcTest::identity(StateSectorGetInfo::request((
-                    block.miner_address.into(),
-                    sector.into(),
-                    LotusJson(tipset.key().into()),
-                ))?));
-            }
-            for sector in
-                StateSectorPreCommitInfo::get_sectors(&store, &block.miner_address, &tipset)?
-                    .into_iter()
-                    .take(5)
-            {
-                tests.push(RpcTest::identity(StateSectorPreCommitInfo::request((
-                    block.miner_address.into(),
-                    sector.into(),
-                    LotusJson(tipset.key().into()),
-                ))?));
-            }
-
-            let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-            for msg in bls_messages.into_iter().unique().take(5) {
-                tests.push(RpcTest::identity(ChainGetMessage::request((msg
-                    .cid()?
-                    .into(),))?));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    Default::default(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
-                tests.push(
-                    validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
-                        .with_timeout(Duration::from_secs(30)),
-                );
-                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                    msg.cid()?,
-                )));
-                tests.push(validate_message_lookup(
-                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                ));
-                tests.push(RpcTest::identity(StateListMessages::request((
-                    MessageFilter {
-                        from: Some(msg.from()),
-                        to: Some(msg.to()),
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
-                ))?));
-                tests.push(RpcTest::identity(StateListMessages::request((
-                    MessageFilter {
-                        from: Some(msg.to()),
-                        to: None,
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
-                ))?));
-                tests.push(RpcTest::identity(StateListMessages::request((
-                    MessageFilter {
-                        from: None,
-                        to: Some(msg.to()),
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
-                ))?));
-                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                    msg.cid()?,
-                )));
-                tests.push(validate_message_lookup(
-                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                ));
-            }
-            for msg in secp_messages.into_iter().unique().take(5) {
-                tests.push(RpcTest::identity(ChainGetMessage::request((msg
-                    .cid()?
-                    .into(),))?));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    Default::default(),
-                )));
-                tests.push(RpcTest::identity(ApiInfo::state_lookup_id_req(
-                    msg.from(),
-                    shared_tipset_key.into(),
-                )));
-                tests.push(
-                    validate_message_lookup(ApiInfo::state_wait_msg_req(msg.cid()?, 0))
-                        .with_timeout(Duration::from_secs(30)),
-                );
-                tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
-                    msg.cid()?,
-                )));
-                tests.push(validate_message_lookup(
-                    ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
-                ));
-                tests.push(RpcTest::basic(
-                    MpoolGetNonce::request((msg.from().into(),)).unwrap(),
-                ));
-                tests.push(RpcTest::identity(StateListMessages::request((
-                    MessageFilter {
-                        from: Some(msg.from()),
-                        to: Some(msg.to()),
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
-                ))?));
-                tests.push(RpcTest::identity(StateListMessages::request((
-                    MessageFilter {
-                        from: Some(msg.to()),
-                        to: None,
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
-                ))?));
-                tests.push(RpcTest::identity(StateListMessages::request((
-                    MessageFilter {
-                        from: None,
-                        to: Some(msg.to()),
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
-                ))?));
-
-                if !msg.params().is_empty() {
-                    tests.push(RpcTest::identity(ApiInfo::state_decode_params_req(
-                            msg.to(),
-                            msg.method_num(),
-                            msg.params().to_vec(),
-                            shared_tipset_key.into(),
-                        )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769"));
-                }
-            }
-            tests.push(RpcTest::identity(ApiInfo::state_miner_info_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::state_miner_power_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::state_miner_deadlines_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-            tests.push(RpcTest::identity(
-                ApiInfo::state_miner_proving_deadline_req(block.miner_address, tipset.key().into()),
-            ));
-            tests.push(RpcTest::identity(
-                ApiInfo::state_miner_available_balance_req(
-                    block.miner_address,
-                    tipset.key().into(),
-                ),
-            ));
-            tests.push(RpcTest::identity(ApiInfo::state_miner_faults_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-            tests.push(RpcTest::identity(
-                MinerGetBaseInfo::request((
-                    block.miner_address.into(),
-                    block.epoch,
-                    LotusJson(tipset.key().into()),
-                ))
-                .unwrap(),
-            ));
-            tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-            tests.push(RpcTest::identity(ApiInfo::state_miner_sector_count_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-        }
-        tests.push(RpcTest::identity(ApiInfo::state_circulating_supply_req(
-            tipset.key().into(),
-        )));
-        tests.push(RpcTest::identity(
-            ApiInfo::state_vm_circulating_supply_internal_req(tipset.key().into()),
-        ));
-
-        for block in tipset.block_headers() {
-            let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
-            for msg in secp_messages {
-                tests.push(RpcTest::identity(
-                    StateCall::request((
-                        msg.message().clone().into(),
-                        LotusJson(shared_tipset.key().into()),
-                    ))
-                    .unwrap(),
-                ));
-            }
-            for msg in bls_messages {
-                tests.push(RpcTest::identity(
-                    StateCall::request((msg.clone().into(), LotusJson(shared_tipset.key().into())))
-                        .unwrap(),
-                ));
-            }
-
-            tests.push(RpcTest::identity(ApiInfo::state_market_balance_req(
-                block.miner_address,
-                tipset.key().into(),
-            )));
-        }
-
-        // Get deals
-        let deals = {
-            let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-            let actor = state
-                .get_actor(&Address::MARKET_ACTOR)?
-                .context("Market actor not found")?;
-            let market_state = market::State::load(&store, actor.code, actor.state)?;
-            let proposals = market_state.proposals(&store)?;
-            let mut deals = vec![];
-            proposals.for_each(|deal_id, _| {
-                deals.push(deal_id);
-                Ok(())
-            })?;
-            deals
-        };
-
-        // Take 5 deals from each tipset
-        for deal in deals.into_iter().take(5) {
-            tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
-                deal,
-                tipset.key().into(),
-            )));
-        }
+    for tipset in shared_tipset.chain(&store).take(n_tipsets) {
+        tests.extend(chain_tests_with_tipset(&store, &tipset)?);
+        tests.extend(state_tests_with_tipset(&store, &tipset)?);
+        tests.extend(eth_tests_with_tipset(&tipset));
+        tests.extend(gas_tests_with_tipset(&tipset));
     }
     Ok(tests)
 }
@@ -1000,6 +931,39 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
 fn websocket_tests() -> Vec<RpcTest> {
     let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
     vec![test]
+}
+
+fn sample_message_cids<'a>(
+    bls_messages: impl Iterator<Item = &'a Message> + 'a,
+    secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
+) -> impl Iterator<Item = Cid> + 'a {
+    bls_messages
+        .filter_map(|m| m.cid().ok())
+        .unique()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .chain(
+            secp_messages
+                .filter_map(|m| m.cid().ok())
+                .unique()
+                .take(COLLECTION_SAMPLE_SIZE),
+        )
+        .unique()
+}
+
+fn sample_messages<'a>(
+    bls_messages: impl Iterator<Item = &'a Message> + 'a,
+    secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
+) -> impl Iterator<Item = &'a Message> + 'a {
+    bls_messages
+        .unique()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .chain(
+            secp_messages
+                .map(SignedMessage::message)
+                .unique()
+                .take(COLLECTION_SAMPLE_SIZE),
+        )
+        .unique()
 }
 
 /// Compare two RPC providers. The providers are labeled `forest` and `lotus`,

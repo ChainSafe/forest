@@ -402,7 +402,7 @@ pub async fn state_miner_sectors<DB: Blockstore>(
 ) -> Result<LotusJson<Vec<SectorOnChainInfo>>, ServerError> {
     let LotusJson((miner, sectors, ApiTipsetKey(tsk))): LotusJson<(
         Address,
-        BitField,
+        Option<BitField>,
         ApiTipsetKey,
     )> = params.parse()?;
 
@@ -415,7 +415,7 @@ pub async fn state_miner_sectors<DB: Blockstore>(
     let miner_state = miner::State::load(bs, actor.code, actor.state)?;
 
     let sectors_info = miner_state
-        .load_sectors(bs, Some(&sectors))?
+        .load_sectors(bs, sectors.as_ref())?
         .into_iter()
         .map(SectorOnChainInfo::from)
         .collect::<Vec<_>>();
