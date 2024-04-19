@@ -59,14 +59,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub async fn state_network_name(&self) -> Result<String, ServerError> {
-        self.call(Self::state_network_name_req()).await
-    }
-
-    pub fn state_network_name_req() -> RpcRequest<String> {
-        RpcRequest::new(STATE_NETWORK_NAME, ())
-    }
-
     pub fn state_miner_info_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<MinerInfo> {
         RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
     }
