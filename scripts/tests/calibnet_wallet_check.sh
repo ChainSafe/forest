@@ -28,6 +28,9 @@ forest_init
 # Amount to send to 2nd address (note: `send` command defaults to FIL if no units are specified)
 FIL_AMT="500 atto FIL"
 
+# Amount for an empty wallet
+FIL_ZERO="0 FIL"
+
 $FOREST_WALLET_PATH import preloaded_wallet.key
 $FOREST_WALLET_PATH --remote-wallet import preloaded_wallet.key
 
@@ -77,9 +80,9 @@ MSG=$($FOREST_WALLET_PATH send "$ADDR_TWO" "$FIL_AMT")
 MSG_REMOTE=$($FOREST_WALLET_PATH --remote-wallet send "$ADDR_THREE" "$FIL_AMT")
 : "$MSG_REMOTE"
 
-ADDR_TWO_BALANCE=0
+ADDR_TWO_BALANCE=$FIL_ZERO
 i=0
-while [[ $i != 20 && $ADDR_TWO_BALANCE == "0 FIL" ]]; do
+while [[ $i != 20 && $ADDR_TWO_BALANCE == $FIL_ZERO ]]; do
   i=$((i+1))
   
   : "Checking balance $i/20"
@@ -87,9 +90,9 @@ while [[ $i != 20 && $ADDR_TWO_BALANCE == "0 FIL" ]]; do
   ADDR_TWO_BALANCE=$($FOREST_WALLET_PATH balance "$ADDR_TWO" -e)
 done
 
-ADDR_THREE_BALANCE=0
+ADDR_THREE_BALANCE=$FIL_ZERO
 i=0
-while [[ $i != 20 && $ADDR_THREE_BALANCE == "0 FIL" ]]; do
+while [[ $i != 20 && $ADDR_THREE_BALANCE == $FIL_ZERO ]]; do
   i=$((i+1))
 
   : "Checking balance $i/20"
