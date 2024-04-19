@@ -52,6 +52,10 @@
 - [#4184](https://github.com/ChainSafe/forest/pull/4184) Added
   `--no-healthcheck` flag to `forest` to disable the healthcheck endpoint.
 
+- [#4240](https://github.com/ChainSafe/forest/pull/4240) Added `--fixed-unit`
+  and `--exact-balance` flags to `forest-wallet balance` similarly to
+  `forest-wallet list` subcommand.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
