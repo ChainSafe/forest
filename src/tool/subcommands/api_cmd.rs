@@ -541,7 +541,7 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     let mut sectors = BitField::new();
     sectors.set(101);
     vec![
-        RpcTest::identity(ApiInfo::state_network_name_req()),
+        RpcTest::identity(StateNetworkName::request(()).unwrap()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
             Address::SYSTEM_ACTOR,
             shared_tipset.key().clone(),

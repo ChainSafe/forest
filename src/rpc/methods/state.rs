@@ -17,7 +17,7 @@ use crate::shim::{
 };
 use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
-use crate::state_manager::{InvocResult, MarketBalance};
+use crate::state_manager::MarketBalance;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
@@ -55,6 +55,8 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateCall);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateListMessages);
+        $callback!(crate::rpc::state::StateNetworkName);
+        $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
     };
@@ -63,8 +65,6 @@ pub(crate) use for_each_method;
 
 type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 
-pub const STATE_REPLAY: &str = "Filecoin.StateReplay";
-pub const STATE_NETWORK_NAME: &str = "Filecoin.StateNetworkName";
 pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
 pub const STATE_GET_ACTOR: &str = "Filecoin.StateGetActor";
 pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
@@ -150,36 +150,51 @@ impl RpcMethod<2> for StateCall {
     }
 }
 
-/// returns the result of executing the indicated message, assuming it was
-/// executed in the indicated tipset.
-pub async fn state_replay<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<InvocResult, ServerError> {
-    let LotusJson((cid, ApiTipsetKey(key))) = params.parse()?;
+pub enum StateReplay {}
+impl RpcMethod<2> for StateReplay {
+    const NAME: &'static str = "Filecoin.StateReplay";
+    const PARAM_NAMES: [&'static str; 2] = ["cid", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let state_manager = &data.state_manager;
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
-    let (msg, ret) = state_manager.replay(&tipset, cid).await?;
+    type Params = (Cid, ApiTipsetKey);
+    type Ok = InvocResult;
 
-    Ok(InvocResult {
-        msg,
-        msg_rct: Some(ret.msg_receipt()),
-        error: ret.failure_info(),
-    })
+    /// returns the result of executing the indicated message, assuming it was
+    /// executed in the indicated tipset.
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (cid, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let tipset = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let (msg, ret) = state_manager.replay(&tipset, cid).await?;
+
+        Ok(InvocResult {
+            msg,
+            msg_rct: Some(ret.msg_receipt()),
+            error: ret.failure_info(),
+        })
+    }
 }
 
-/// gets network name from state manager
-pub async fn state_network_name<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
-    let state_manager = &data.state_manager;
-    let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+pub enum StateNetworkName {}
+impl RpcMethod<0> for StateNetworkName {
+    const NAME: &'static str = "Filecoin.StateNetworkName";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    state_manager
-        .get_network_name(heaviest_tipset.parent_state())
-        .map_err(|e| e.into())
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
+        let state_manager = &ctx.state_manager;
+        let heaviest_tipset = state_manager.chain_store().heaviest_tipset();
+
+        Ok(state_manager.get_network_name(heaviest_tipset.parent_state())?)
+    }
 }
 
 pub async fn state_get_network_version<DB: Blockstore>(
