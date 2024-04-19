@@ -21,16 +21,9 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(shim_from_v2, fvm2_success.into());
 /// assert_eq!(shim_from_v3, fvm3_success.into());
 /// ```
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ExitCode(ExitCodeV3);
-impl JsonSchema for ExitCode {
-    fn schema_name() -> String {
-        "ExitCode".into()
-    }
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        u32::json_schema(gen)
-    }
-}
+#[derive(PartialEq, Eq, Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+pub struct ExitCode(#[schemars(with = "u32")] ExitCodeV3);
+
 impl ExitCode {
     /// The lowest exit code that an actor may abort with.
     pub const FIRST_USER_EXIT_CODE: u32 = ExitCodeV3::FIRST_USER_EXIT_CODE;

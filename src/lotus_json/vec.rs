@@ -36,7 +36,7 @@ impl<T: Clone> Clone for VecLotusJson<T> {
 }
 
 #[test]
-fn shapshots() {
+fn snapshots() {
     assert_one_snapshot(json!([{"/": "baeaaaaa"}]), vec![::cid::Cid::default()]);
 }
 

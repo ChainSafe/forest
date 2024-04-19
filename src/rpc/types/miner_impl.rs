@@ -3,6 +3,8 @@
 
 use super::*;
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should move to src/lotus_json
 impl HasLotusJson for MinerInfo {
     type LotusJson = MinerInfoLotusJson;
     #[cfg(test)]
@@ -61,6 +63,8 @@ impl HasLotusJson for MinerInfo {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should move to src/lotus_json
 impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
     #[cfg(test)]

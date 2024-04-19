@@ -9,10 +9,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::ipld::json::{IpldJson, IpldJsonRef};
-use crate::shim::{
-    address::Address,
-    state_tree::{ActorState, StateTree},
+use crate::{
+    lotus_json::LotusJson,
+    shim::{
+        address::Address,
+        state_tree::{ActorState, StateTree},
+    },
 };
 use ahash::HashMap;
 use cid::Cid;
@@ -35,7 +37,8 @@ struct ActorStateResolved {
     code: Cid,
     sequence: u64,
     balance: String,
-    state: IpldJson,
+    #[serde(with = "crate::lotus_json")]
+    state: Ipld,
 }
 
 fn actor_to_resolved(
@@ -46,7 +49,7 @@ fn actor_to_resolved(
     let resolved =
         resolve_cids_recursive(bs, &actor.state, depth).unwrap_or(Ipld::Link(actor.state));
     ActorStateResolved {
-        state: IpldJson(resolved),
+        state: resolved,
         code: actor.code,
         balance: actor.balance.to_string(),
         sequence: actor.sequence,
@@ -210,8 +213,8 @@ where
         let expected = resolve_cids_recursive(bs, expected_root, depth)?;
         let actual = resolve_cids_recursive(bs, root, depth)?;
 
-        let expected_json = serde_json::to_string_pretty(&IpldJsonRef(&expected))?;
-        let actual_json = serde_json::to_string_pretty(&IpldJsonRef(&actual))?;
+        let expected_json = serde_json::to_string_pretty(&LotusJson(expected))?;
+        let actual_json = serde_json::to_string_pretty(&LotusJson(actual))?;
 
         let diffs = TextDiff::from_lines(&expected_json, &actual_json);
 
