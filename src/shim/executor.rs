@@ -172,21 +172,21 @@ impl Receipt {
         let mut receipts = Vec::new();
 
         // Try Receipt_v4 first. (Receipt_v4 and Receipt_v3 are identical, use v4 here)
-        if let Ok(amt) = Amtv0::<fvm_shared4::receipt::Receipt, _>::load(&receipts, db) {
+        if let Ok(amt) = Amtv0::<fvm_shared4::receipt::Receipt, _>::load(&receipts_cid, db) {
             amt.for_each(|_, receipt| {
-                parent_receipts.push(Receipt::V4(receipt.clone()));
+                receipts.push(Receipt::V4(receipt.clone()));
                 Ok(())
             })?;
         } else {
             // Fallback to Receipt_v2.
-            let amt = Amtv0::<fvm_shared2::receipt::Receipt, _>::load(&receipts, db)?;
+            let amt = Amtv0::<fvm_shared2::receipt::Receipt, _>::load(&receipts_cid, db)?;
             amt.for_each(|_, receipt| {
-                parent_receipts.push(Receipt::V2(receipt.clone()));
+                receipts.push(Receipt::V2(receipt.clone()));
                 Ok(())
             })?;
         }
 
-        Ok(parent_receipts)
+        Ok(receipts)
     }
 }
 
