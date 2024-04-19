@@ -756,30 +756,33 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     msg.from(),
                     tipset.key().into(),
                 )),
-                RpcTest::identity(ApiInfo::state_list_messages_req(
+                RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.from()),
                         to: Some(msg.to()),
-                    },
-                    tipset.key().into(),
-                    tipset.epoch(),
-                )),
-                RpcTest::identity(ApiInfo::state_list_messages_req(
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?),
+                RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.from()),
                         to: None,
-                    },
-                    tipset.key().into(),
-                    tipset.epoch(),
-                )),
-                RpcTest::identity(ApiInfo::state_list_messages_req(
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?),
+                RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: None,
                         to: Some(msg.to()),
-                    },
-                    tipset.key().into(),
-                    tipset.epoch(),
-                )),
+                    }
+                    .into(),
+                    LotusJson(tipset.key().into()),
+                    tipset.epoch().into(),
+                ))?),
                 RpcTest::identity(ApiInfo::state_call_req(msg.clone(), tipset.key().into())),
             ]);
             if !msg.params().is_empty() {
@@ -892,7 +895,6 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .take(10)
         .last()
         .expect("Infallible");
-
     for tipset in shared_tipset.chain(&store).take(n_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
