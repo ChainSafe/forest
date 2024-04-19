@@ -467,7 +467,7 @@ fn chain_tests() -> Vec<RpcTest> {
 }
 
 fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let shared_block_cid = (*shared_tipset.min_ticket_block().cid()).into();
+    let shared_block_cid = *shared_tipset.min_ticket_block().cid();
 
     vec![
         RpcTest::identity(ChainReadObj::request((shared_block_cid,)).unwrap()),
@@ -483,11 +483,8 @@ fn chain_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ),
         RpcTest::identity(ChainGetTipSet::request((shared_tipset.key().clone().into(),)).unwrap()),
         RpcTest::identity(
-            ChainGetPath::request((
-                shared_tipset.key().clone().into(),
-                shared_tipset.parents().clone().into(),
-            ))
-            .unwrap(),
+            ChainGetPath::request((shared_tipset.key().clone(), shared_tipset.parents().clone()))
+                .unwrap(),
         ),
     ]
 }
@@ -604,7 +601,7 @@ fn state_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             Address::new_id(18101), // msig address id
             shared_tipset.key().into(),
         )),
-        RpcTest::identity(StateGetBeaconEntry::request((shared_tipset.epoch().into(),)).unwrap()),
+        RpcTest::identity(StateGetBeaconEntry::request((shared_tipset.epoch(),)).unwrap()),
     ]
 }
 
@@ -623,11 +620,9 @@ fn wallet_tests() -> Vec<RpcTest> {
     };
 
     vec![
-        RpcTest::identity(WalletBalance::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity(WalletBalance::request((known_wallet,)).unwrap()),
         RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
-        RpcTest::identity(
-            WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
-        ),
+        RpcTest::identity(WalletVerify::request((known_wallet, text, signature)).unwrap()),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),
         // RpcTest::basic(ApiInfo::wallet_list_req()),
@@ -686,7 +681,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     // everything. If not, this test will be flaky. Instead of disabling it, we
     // should relax the verification requirement.
     vec![RpcTest::identity(
-        GasEstimateGasLimit::request((message.into(), shared_tipset.key().into())).unwrap(),
+        GasEstimateGasLimit::request((message, shared_tipset.key().into())).unwrap(),
     )]
 }
 
@@ -735,7 +730,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
             .key()
             .into(),))?));
         for block in tipset.block_headers() {
-            let block_cid = (*block.cid()).into();
+            let block_cid = *block.cid();
             tests.extend([
                 RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
                 RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
@@ -750,8 +745,8 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 .take(5)
             {
                 tests.push(RpcTest::identity(StateSectorGetInfo::request((
-                    block.miner_address.into(),
-                    sector.into(),
+                    block.miner_address,
+                    sector,
                     tipset.key().into(),
                 ))?));
             }
@@ -761,17 +756,15 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     .take(5)
             {
                 tests.push(RpcTest::identity(StateSectorPreCommitInfo::request((
-                    block.miner_address.into(),
-                    sector.into(),
+                    block.miner_address,
+                    sector,
                     tipset.key().into(),
                 ))?));
             }
 
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in bls_messages.into_iter().unique().take(5) {
-                tests.push(RpcTest::identity(ChainGetMessage::request((msg
-                    .cid()?
-                    .into(),))?));
+                tests.push(RpcTest::identity(ChainGetMessage::request((msg.cid()?,))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
                     shared_tipset_key.into(),
@@ -798,28 +791,25 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     MessageFilter {
                         from: Some(msg.from()),
                         to: Some(msg.to()),
-                    }
-                    .into(),
+                    },
                     tipset.key().into(),
-                    tipset.epoch().into(),
+                    tipset.epoch(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.to()),
                         to: None,
-                    }
-                    .into(),
+                    },
                     tipset.key().into(),
-                    tipset.epoch().into(),
+                    tipset.epoch(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: None,
                         to: Some(msg.to()),
-                    }
-                    .into(),
+                    },
                     tipset.key().into(),
-                    tipset.epoch().into(),
+                    tipset.epoch(),
                 ))?));
                 tests.push(validate_message_lookup(ApiInfo::state_search_msg_req(
                     msg.cid()?,
@@ -829,9 +819,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 ));
             }
             for msg in secp_messages.into_iter().unique().take(5) {
-                tests.push(RpcTest::identity(ChainGetMessage::request((msg
-                    .cid()?
-                    .into(),))?));
+                tests.push(RpcTest::identity(ChainGetMessage::request((msg.cid()?,))?));
                 tests.push(RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
                     shared_tipset_key.into(),
@@ -855,34 +843,31 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                     ApiInfo::state_search_msg_limited_req(msg.cid()?, 800),
                 ));
                 tests.push(RpcTest::basic(
-                    MpoolGetNonce::request((msg.from().into(),)).unwrap(),
+                    MpoolGetNonce::request((msg.from(),)).unwrap(),
                 ));
                 tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.from()),
                         to: Some(msg.to()),
-                    }
-                    .into(),
+                    },
                     tipset.key().into(),
-                    tipset.epoch().into(),
+                    tipset.epoch(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.to()),
                         to: None,
-                    }
-                    .into(),
+                    },
                     tipset.key().into(),
-                    tipset.epoch().into(),
+                    tipset.epoch(),
                 ))?));
                 tests.push(RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: None,
                         to: Some(msg.to()),
-                    }
-                    .into(),
+                    },
                     tipset.key().into(),
-                    tipset.epoch().into(),
+                    tipset.epoch(),
                 ))?));
 
                 if !msg.params().is_empty() {

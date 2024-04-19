@@ -165,7 +165,7 @@ impl InfoCommand {
             node_status.chain_status.blocks_per_tipset_last_finality;
 
         let default_wallet_address_balance = if let Some(def_addr) = default_wallet_address {
-            let balance = WalletBalance::call(&client, (def_addr.into(),)).await?;
+            let balance = WalletBalance::call(&client, (def_addr,)).await?;
             Some(balance)
         } else {
             None

@@ -59,13 +59,11 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => {
-                print_pretty_json(ChainGetBlock::call(&client, (cid.into(),)).await?)
-            }
+            Self::Block { cid } => print_pretty_json(ChainGetBlock::call(&client, (cid,)).await?),
             Self::Genesis => print_pretty_json(ChainGetGenesis::call_raw(&client, ()).await?),
             Self::Head => print_rpc_res_cids(ChainHead::call(&client, ()).await?),
             Self::Message { cid } => {
-                let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
+                let bytes = ChainReadObj::call(&client, (cid,)).await?;
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
                     ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
                     ChainMessage::Signed(m) => {
@@ -75,7 +73,7 @@ impl ChainCommands {
                 }
             }
             Self::ReadObj { cid } => {
-                let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
+                let bytes = ChainReadObj::call(&client, (cid,)).await?;
                 println!("{}", hex::encode(bytes));
                 Ok(())
             }

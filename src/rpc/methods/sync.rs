@@ -184,19 +184,13 @@ mod tests {
             .parse::<Cid>()
             .unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
         assert_eq!(reason, "");
 
         // Mark that block as bad manually and check again to verify
-        SyncMarkBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        SyncMarkBad::handle(ctx.clone(), (cid,)).await.unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
         assert_eq!(reason, "Marked bad manually through RPC API");
     }
 
