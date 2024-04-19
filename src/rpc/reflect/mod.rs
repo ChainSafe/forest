@@ -24,6 +24,8 @@ pub mod openrpc_types;
 mod parser;
 mod util;
 
+use crate::lotus_json::HasLotusJson;
+
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
@@ -66,7 +68,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
-    type Ok;
+    type Ok: HasLotusJson;
     /// Logic for this method.
     fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -115,7 +117,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         calling_convention: ParamStructure,
     ) -> Result<Method, ParamListError>
     where
-        Self::Ok: JsonSchema + Deserialize<'de>,
+        <Self::Ok as HasLotusJson>::LotusJson: JsonSchema + Deserialize<'de>,
     {
         Ok(Method {
             name: String::from(Self::NAME),
@@ -131,8 +133,8 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             param_structure: calling_convention,
             result: Some(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
-                schema: Self::Ok::json_schema(gen),
-                required: !Self::Ok::optional(),
+                schema: <Self::Ok as HasLotusJson>::LotusJson::json_schema(gen),
+                required: !<Self::Ok as HasLotusJson>::LotusJson::optional(),
             }),
         })
     }
@@ -142,7 +144,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         calling_convention: ParamStructure,
     ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
     where
-        Self::Ok: Serialize + Clone + 'static,
+        <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
         module.register_async_method(Self::NAME, move |params, ctx| async move {
             let raw = params
@@ -152,7 +154,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 .map_err(|e| Error::invalid_params(e, None))?;
             let params = Self::Params::parse(raw, Self::PARAM_NAMES, calling_convention)?;
             let ok = Self::handle(ctx, params).await?;
-            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok)
+            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
         })
     }
     /// Register this method and generate a schema entry for it in a [`SelfDescribingRpcModule`].
@@ -161,8 +163,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>,
         >,
     ) where
-        Self::Ok: Serialize + Clone + 'static,
-        Self::Ok: JsonSchema + Deserialize<'de>,
+        <Self::Ok as HasLotusJson>::LotusJson: Clone + JsonSchema + Deserialize<'de> + 'static,
     {
         Self::register_raw(&mut module.inner, module.calling_convention).unwrap();
         module
@@ -209,13 +210,12 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             timeout: crate::rpc_client::DEFAULT_TIMEOUT,
         })
     }
-    fn call(
+    fn call_raw(
         client: &crate::rpc::client::Client,
         params: Self::Params,
-    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>>
+    ) -> impl Future<Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>>
     where
         Self::Params: Serialize,
-        Self::Ok: DeserializeOwned,
     {
         async {
             // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
@@ -223,6 +223,19 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             //                  bound, work around it for now.
             let json = client.call(Self::request(params)?.map_ty()).await?;
             Ok(serde_json::from_value(json)?)
+        }
+    }
+    fn call(
+        client: &crate::rpc::client::Client,
+        params: Self::Params,
+    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>>
+    where
+        Self::Params: Serialize,
+    {
+        async {
+            Self::call_raw(client, params)
+                .await
+                .map(Self::Ok::from_lotus_json)
         }
     }
 }

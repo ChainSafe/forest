@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::auth::*;
-use crate::lotus_json::LotusJson;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use anyhow::Result;
 use chrono::Duration;
@@ -26,7 +25,7 @@ impl RpcMethod<1> for AuthNew {
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     type Params = (AuthNewParams,);
-    type Ok = LotusJson<Vec<u8>>;
+    type Ok = Vec<u8>;
     async fn handle(
         ctx: Ctx<impl Blockstore>,
         (params,): Self::Params,
@@ -34,7 +33,7 @@ impl RpcMethod<1> for AuthNew {
         let ks = ctx.keystore.read().await;
         let ki = ks.get(JWT_IDENTIFIER)?;
         let token = create_token(params.perms, ki.private_key(), params.token_exp)?;
-        Ok(LotusJson(token.as_bytes().to_vec()))
+        Ok(token.as_bytes().to_vec())
     }
 }
 

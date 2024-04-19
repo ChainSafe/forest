@@ -3,7 +3,10 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::{
+    lotus_json::lotus_json_with_self,
+    rpc::{ApiVersion, Ctx, RpcMethod, ServerError},
+};
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -77,18 +80,21 @@ pub struct NodeSyncStatus {
     pub epoch: u64,
     pub behind: u64,
 }
+lotus_json_with_self!(NodeSyncStatus);
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 pub struct NodePeerStatus {
     pub peers_to_publish_msgs: u32,
     pub peers_to_publish_blocks: u32,
 }
+lotus_json_with_self!(NodePeerStatus);
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, JsonSchema)]
 pub struct NodeChainStatus {
     pub blocks_per_tipset_last_100: f64,
     pub blocks_per_tipset_last_finality: f64,
 }
+lotus_json_with_self!(NodeChainStatus);
 
 #[derive(Debug, Deserialize, Default, Serialize, Clone, JsonSchema)]
 pub struct NodeStatusResult {
@@ -96,3 +102,4 @@ pub struct NodeStatusResult {
     pub peer_status: NodePeerStatus,
     pub chain_status: NodeChainStatus,
 }
+lotus_json_with_self!(NodeStatusResult);

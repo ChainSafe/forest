@@ -1210,7 +1210,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     const API_VERSION: ApiVersion = ApiVersion::V1;
 
     type Params = (LotusJson<ChainEpoch>,);
-    type Ok = LotusJson<BeaconEntry>;
+    type Ok = BeaconEntry;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -1234,7 +1234,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
         let entry = beacon.entry(round).await?;
-        Ok(LotusJson(entry))
+        Ok(entry)
     }
 }
 
