@@ -248,14 +248,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, (size, verified, tsk))
     }
 
-    pub fn state_list_messages_req(
-        from_to: MessageFilter,
-        tsk: ApiTipsetKey,
-        max_height: i64,
-    ) -> RpcRequest<Vec<Cid>> {
-        RpcRequest::new(STATE_LIST_MESSAGES, (from_to, tsk, max_height))
-    }
-
     pub fn state_market_storage_deal_req(
         deal_id: DealID,
         tsk: ApiTipsetKey,
