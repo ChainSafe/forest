@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::GossipBlock;
+use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use cid::Cid;
@@ -19,8 +21,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::sync::SyncSubmitBlock);
     };
 }
-use crate::blocks::GossipBlock;
-use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
+
 pub(crate) use for_each_method;
 
 pub enum SyncCheckBad {}
