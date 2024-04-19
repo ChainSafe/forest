@@ -453,23 +453,28 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
-        RpcTest::identity(
-            ChainGetTipSetAfterHeight::request((tipset.epoch(), Default::default())).unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetTipSetAfterHeight::request((tipset.epoch(), Default::default())).unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetTipSet::request((LotusJson(tipset.key().clone().into()),)).unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetPath::request((tipset.key().clone().into(), tipset.parents().clone().into()))
-                .unwrap(),
-        ),
-        RpcTest::identity(
-            ChainGetMessagesInTipset::request((tipset.key().clone().into(),)).unwrap(),
-        ),
-        RpcTest::identity(ChainTipSetWeight::request((LotusJson(tipset.key().into()),)).unwrap()),
+        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+            tipset.epoch(),
+            Default::default(),
+        ))?),
+        RpcTest::identity(ChainGetTipSetAfterHeight::request((
+            tipset.epoch(),
+            Default::default(),
+        ))?),
+        RpcTest::identity(ChainGetTipSet::request((LotusJson(
+            tipset.key().clone().into(),
+        ),))?),
+        RpcTest::identity(ChainGetPath::request((
+            tipset.key().clone().into(),
+            tipset.parents().clone().into(),
+        ))?),
+        RpcTest::identity(ChainGetMessagesInTipset::request((tipset
+            .key()
+            .clone()
+            .into(),))?),
+        RpcTest::identity(ChainTipSetWeight::request((LotusJson(
+            tipset.key().into(),
+        ),))?),
     ];
 
     for block in tipset.block_headers() {
@@ -545,9 +550,6 @@ fn state_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
-    let mut sectors = BitField::new();
-    sectors.set(101);
-
     let mut tests = vec![
         RpcTest::identity(ApiInfo::state_network_name_req()),
         RpcTest::identity(ApiInfo::state_get_actor_req(
@@ -589,7 +591,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(18101), // msig address id
             tipset.key().into(),
         )),
-        RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch().into(),)).unwrap()),
+        RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch().into(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
         // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
         // for API compatibility verification.
@@ -648,7 +650,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             )),
             RpcTest::identity(ApiInfo::state_miner_sectors_req(
                 block.miner_address,
-                sectors.clone(),
+                None,
                 tipset.key().into(),
             )),
             RpcTest::identity(ApiInfo::state_miner_partitions_req(
@@ -703,21 +705,32 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .into_iter()
             .take(COLLECTION_SAMPLE_SIZE)
         {
-            tests.push(RpcTest::identity(StateSectorGetInfo::request((
-                block.miner_address.into(),
-                sector.into(),
-                LotusJson(tipset.key().into()),
-            ))?));
+            tests.extend([
+                RpcTest::identity(StateSectorGetInfo::request((
+                    block.miner_address.into(),
+                    sector.into(),
+                    LotusJson(tipset.key().into()),
+                ))?),
+                RpcTest::identity(ApiInfo::state_miner_sectors_req(
+                    block.miner_address,
+                    {
+                        let mut bf = BitField::new();
+                        bf.set(sector);
+                        Some(bf)
+                    },
+                    tipset.key().into(),
+                )),
+            ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
             .into_iter()
             .take(COLLECTION_SAMPLE_SIZE)
         {
-            tests.push(RpcTest::identity(StateSectorPreCommitInfo::request((
+            tests.extend([RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address.into(),
                 sector.into(),
                 LotusJson(tipset.key().into()),
-            ))?));
+            ))?)]);
         }
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
@@ -729,19 +742,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 validate_message_lookup(ApiInfo::state_search_msg_limited_req(msg_cid, 800)),
             ]);
         }
-        for msg in bls_messages
-            .iter()
-            .unique()
-            .take(COLLECTION_SAMPLE_SIZE)
-            .chain(
-                secp_messages
-                    .iter()
-                    .map(SignedMessage::message)
-                    .unique()
-                    .take(COLLECTION_SAMPLE_SIZE),
-            )
-            .unique()
-        {
+        for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
                 RpcTest::identity(ApiInfo::state_account_key_req(
                     msg.from(),
@@ -917,6 +918,22 @@ fn sample_message_cids<'a>(
         .chain(
             secp_messages
                 .filter_map(|m| m.cid().ok())
+                .unique()
+                .take(COLLECTION_SAMPLE_SIZE),
+        )
+        .unique()
+}
+
+fn sample_messages<'a>(
+    bls_messages: impl Iterator<Item = &'a Message> + 'a,
+    secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
+) -> impl Iterator<Item = &'a Message> + 'a {
+    bls_messages
+        .unique()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .chain(
+            secp_messages
+                .map(SignedMessage::message)
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )

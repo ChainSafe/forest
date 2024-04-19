@@ -153,7 +153,7 @@ impl ApiInfo {
 
     pub fn state_miner_sectors_req(
         actor: Address,
-        sectors: BitField,
+        sectors: Option<BitField>,
         tsk: ApiTipsetKey,
     ) -> RpcRequest<Vec<SectorOnChainInfo>> {
         RpcRequest::new(STATE_MINER_SECTORS, (actor, sectors, tsk))
