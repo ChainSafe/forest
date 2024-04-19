@@ -922,11 +922,14 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
                 block.miner_address,
                 tipset.key().into(),
             )));
-            tests.push(RpcTest::identity(ApiInfo::miner_get_base_info_req(
-                block.miner_address,
-                block.epoch,
-                tipset.key().into(),
-            )));
+            tests.push(RpcTest::identity(
+                MinerGetBaseInfo::request((
+                    block.miner_address.into(),
+                    block.epoch,
+                    LotusJson(tipset.key().into()),
+                ))
+                .unwrap(),
+            ));
             tests.push(RpcTest::identity(ApiInfo::state_miner_recoveries_req(
                 block.miner_address,
                 tipset.key().into(),
@@ -946,16 +949,19 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         for block in tipset.block_headers() {
             let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
             for msg in secp_messages {
-                tests.push(RpcTest::identity(ApiInfo::state_call_req(
-                    msg.message().clone(),
-                    shared_tipset.key().into(),
-                )));
+                tests.push(RpcTest::identity(
+                    StateCall::request((
+                        msg.message().clone().into(),
+                        LotusJson(shared_tipset.key().into()),
+                    ))
+                    .unwrap(),
+                ));
             }
             for msg in bls_messages {
-                tests.push(RpcTest::identity(ApiInfo::state_call_req(
-                    msg.clone(),
-                    shared_tipset.key().into(),
-                )));
+                tests.push(RpcTest::identity(
+                    StateCall::request((msg.clone().into(), LotusJson(shared_tipset.key().into())))
+                        .unwrap(),
+                ));
             }
 
             tests.push(RpcTest::identity(ApiInfo::state_market_balance_req(
