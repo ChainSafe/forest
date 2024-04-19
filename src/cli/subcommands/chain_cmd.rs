@@ -10,7 +10,7 @@ use cid::Cid;
 use clap::Subcommand;
 use nonempty::NonEmpty;
 
-use super::{print_pretty_json, print_rpc_res_cids};
+use super::{print_pretty_lotus_json, print_rpc_res_cids};
 
 #[derive(Debug, Subcommand)]
 pub enum ChainCommands {
@@ -60,17 +60,21 @@ impl ChainCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Block { cid } => {
-                print_pretty_json(ChainGetBlock::call(&client, (cid.into(),)).await?)
+                print_pretty_lotus_json(ChainGetBlock::call(&client, (cid.into(),)).await?)
             }
-            Self::Genesis => print_pretty_json(ChainGetGenesis::call_raw(&client, ()).await?),
+            Self::Genesis => print_pretty_lotus_json(ChainGetGenesis::call(&client, ()).await?),
             Self::Head => print_rpc_res_cids(ChainHead::call(&client, ()).await?),
             Self::Message { cid } => {
                 let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
-                    ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
+                    ChainMessage::Unsigned(m) => print_pretty_lotus_json(m),
                     ChainMessage::Signed(m) => {
                         let cid = m.cid()?;
-                        print_pretty_json(m.into_lotus_json().with_cid(cid))
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&m.into_lotus_json().with_cid(cid))?
+                        );
+                        Ok(())
                     }
                 }
             }

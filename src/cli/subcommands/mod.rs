@@ -21,12 +21,11 @@ mod sync_cmd;
 
 use std::io::Write;
 
-use crate::blocks::Tipset;
 pub(crate) use crate::cli_shared::cli::Config;
 use crate::cli_shared::cli::HELP_MESSAGE;
 use crate::utils::version::FOREST_VERSION_STRING;
+use crate::{blocks::Tipset, lotus_json::HasLotusJson};
 use clap::Parser;
-use serde::Serialize;
 use tracing::error;
 
 pub(super) use self::{
@@ -111,8 +110,8 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 }
 
 /// Prints a pretty HTTP JSON-RPC response result
-pub(super) fn print_pretty_json<T: Serialize>(obj: T) -> anyhow::Result<()> {
-    println!("{}", serde_json::to_string_pretty(&obj)?);
+pub(super) fn print_pretty_lotus_json<T: HasLotusJson>(obj: T) -> anyhow::Result<()> {
+    println!("{}", serde_json::to_string_pretty(&obj.into_lotus_json())?);
     Ok(())
 }
 
