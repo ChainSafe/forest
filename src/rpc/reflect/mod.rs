@@ -97,10 +97,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn build_params(
         params: Self::Params,
         calling_convention: ConcreteCallingConvention,
-    ) -> Result<RequestParameters, serde_json::Error>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> Result<RequestParameters, serde_json::Error> {
         let args = params.unparse()?;
         match calling_convention {
             ConcreteCallingConvention::ByPosition => {
@@ -177,7 +174,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
     where
-        Self::Params: Serialize,
         Self::Ok: DeserializeOwned + Clone + Send,
     {
         // stay on current thread so don't require `Self::Params: Send`
@@ -193,10 +189,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(
         params: Self::Params,
-    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error> {
         // hardcode calling convention because lotus is by-position only
         let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
             RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
@@ -214,8 +207,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         client: &crate::rpc::client::Client,
         params: Self::Params,
     ) -> impl Future<Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>>
-    where
-        Self::Params: Serialize,
     {
         async {
             // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
@@ -228,10 +219,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn call(
         client: &crate::rpc::client::Client,
         params: Self::Params,
-    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>> {
         async {
             Self::call_raw(client, params)
                 .await
