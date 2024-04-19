@@ -325,7 +325,6 @@ pub async fn eth_syncing<DB: Blockstore + Sync + Send + 'static>(
     let crate::rpc::sync::RPCSyncState { active_syncs } =
         crate::rpc::sync::SyncState::handle(data.clone(), ()).await?;
     match active_syncs
-        .into_inner()
         .into_iter()
         .rev()
         .find_or_first(|ss| ss.stage() != SyncStage::Idle)

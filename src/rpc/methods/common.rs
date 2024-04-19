@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::error::ServerError;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 use fvm_ipld_blockstore::Blockstore;
@@ -94,6 +95,7 @@ pub struct PublicVersion {
     pub api_version: ShiftingVersion,
     pub block_delay: u32,
 }
+lotus_json_with_self!(PublicVersion);
 
 /// Integer based value on version information. Highest order bits for Major,
 /// Mid order for Minor and lowest for Patch.

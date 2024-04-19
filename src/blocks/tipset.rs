@@ -513,6 +513,7 @@ mod lotus_json {
 
     use super::TipsetKey;
 
+    #[derive(Clone)]
     pub struct TipsetLotusJson(Tipset);
 
     impl JsonSchema for TipsetLotusJson {

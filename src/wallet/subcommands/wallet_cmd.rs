@@ -85,7 +85,7 @@ impl WalletBackend {
         if let Some(keystore) = &self.local {
             Ok(crate::key_management::list_addrs(keystore)?)
         } else {
-            Ok(WalletList::call(&self.remote, ()).await?.into_inner())
+            Ok(WalletList::call(&self.remote, ()).await?)
         }
     }
 
@@ -93,9 +93,7 @@ impl WalletBackend {
         if let Some(keystore) = &self.local {
             Ok(crate::key_management::export_key_info(&address, keystore)?)
         } else {
-            Ok(WalletExport::call(&self.remote, (address.into(),))
-                .await?
-                .into_inner())
+            Ok(WalletExport::call(&self.remote, (address.into(),)).await?)
         }
     }
 
@@ -109,7 +107,6 @@ impl WalletBackend {
         } else {
             Ok(WalletImport::call(&self.remote, (key_info.into(),))
                 .await?
-                .into_inner()
                 .to_string())
         }
     }
@@ -145,7 +142,6 @@ impl WalletBackend {
         } else {
             Ok(WalletNew::call(&self.remote, (signature_type.into(),))
                 .await?
-                .into_inner()
                 .to_string())
         }
     }
@@ -156,7 +152,6 @@ impl WalletBackend {
         } else {
             Ok(WalletDefaultAddress::call(&self.remote, ())
                 .await?
-                .into_inner()
                 .map(|it| it.to_string()))
         }
     }
@@ -185,8 +180,7 @@ impl WalletBackend {
         } else {
             Ok(
                 WalletSign::call(&self.remote, (address.into(), message.into_bytes().into()))
-                    .await?
-                    .into_inner(),
+                    .await?,
             )
         }
     }
@@ -341,9 +335,7 @@ impl WalletCommands {
             } => {
                 let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
-                let balance = WalletBalance::call(&backend.remote, (address.into(),))
-                    .await?
-                    .into_inner();
+                let balance = WalletBalance::call(&backend.remote, (address.into(),)).await?;
                 println!("{}", format_balance(&balance, no_round, no_abbrev));
                 Ok(())
             }
@@ -430,9 +422,7 @@ impl WalletCommands {
                     };
 
                     let balance_token_amount =
-                        WalletBalance::call(&backend.remote, (address.into(),))
-                            .await?
-                            .into_inner();
+                        WalletBalance::call(&backend.remote, (address.into(),)).await?;
 
                     let balance_string = format_balance(&balance_token_amount, no_round, no_abbrev);
 
@@ -458,9 +448,7 @@ impl WalletCommands {
                 Ok(())
             }
             Self::ValidateAddress { address } => {
-                let response = WalletValidateAddress::call(&backend.remote, (address,))
-                    .await?
-                    .into_inner();
+                let response = WalletValidateAddress::call(&backend.remote, (address,)).await?;
                 println!("{response}");
                 Ok(())
             }
@@ -539,9 +527,7 @@ impl WalletCommands {
                     MpoolPush::call(&backend.remote, (LotusJson(smsg.clone()),)).await?;
                     smsg
                 } else {
-                    MpoolPushMessage::call(&backend.remote, (LotusJson(message), None))
-                        .await?
-                        .into_inner()
+                    MpoolPushMessage::call(&backend.remote, (LotusJson(message), None)).await?
                 };
 
                 println!("{}", signed_msg.cid().unwrap());
