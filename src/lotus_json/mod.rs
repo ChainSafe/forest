@@ -322,6 +322,39 @@ pub mod hexify_bytes {
     }
 }
 
+pub mod hexify_vec_bytes {
+    use super::*;
+    use std::fmt::Write;
+
+    pub fn serialize<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = String::with_capacity(2 + value.len() * 2);
+        s.push_str("0x");
+        for b in value {
+            write!(s, "{:02x}", b).expect("failed to write to string");
+        }
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if (s.len() >= 2 && s.len() % 2 == 0) && s.get(..2).expect("failed to get prefix") == "0x" {
+            let result: Result<Vec<u8>, _> = (2..s.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(s.get(i..i + 2).expect("failed to get slice"), 16))
+                .collect();
+            result.map_err(serde::de::Error::custom)
+        } else {
+            Err(serde::de::Error::custom("Invalid hex"))
+        }
+    }
+}
+
 /// Usage: `#[serde(with = "hexify")]`
 pub mod hexify {
     use super::*;
