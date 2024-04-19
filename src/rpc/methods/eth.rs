@@ -1374,4 +1374,13 @@ mod test {
             assert_eq!(addr, fil_addr);
         }
     }
+
+    #[test]
+    fn test_block_constructor() {
+        let block = Block::new(false);
+        assert_eq!(block.transactions_root, Hash::empty_root());
+
+        let block = Block::new(true);
+        assert_eq!(block.transactions_root, Hash::default());
+    }
 }
