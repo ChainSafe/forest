@@ -39,6 +39,9 @@
 
 ### Added
 
+- [#4246](https://github.com/ChainSafe/forest/pull/4246) Add support for the
+  `Filecoin.SyncSubmitBlock` RPC method.
+
 - [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
   `Filecoin.StateDealProviderCollateralBounds` RPC method.
 
