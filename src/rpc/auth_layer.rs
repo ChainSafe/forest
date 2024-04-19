@@ -92,13 +92,13 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(wallet::WalletDelete::NAME, Access::Write);
 
     // State API
-    access.insert(state::STATE_CALL, Access::Read);
+    access.insert(state::MinerGetBaseInfo::NAME, Access::Read);
+    access.insert(state::StateCall::NAME, Access::Read);
     access.insert(state::STATE_REPLAY, Access::Read);
     access.insert(state::STATE_GET_ACTOR, Access::Read);
     access.insert(state::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state::STATE_MARKET_DEALS, Access::Read);
     access.insert(state::STATE_MINER_INFO, Access::Read);
-    access.insert(state::MINER_GET_BASE_INFO, Access::Read);
     access.insert(state::STATE_MINER_ACTIVE_SECTORS, Access::Read);
     access.insert(state::STATE_MINER_FAULTS, Access::Read);
     access.insert(state::STATE_MINER_RECOVERIES, Access::Read);
