@@ -120,7 +120,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_READ_STATE, Access::Read);
     access.insert(state::STATE_CIRCULATING_SUPPLY, Access::Read);
     access.insert(state::StateSectorGetInfo::NAME, Access::Read);
-    access.insert(state::STATE_LIST_MESSAGES, Access::Read);
+    access.insert(state::StateListMessages::NAME, Access::Read);
     access.insert(state::STATE_LIST_MINERS, Access::Read);
     access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
     access.insert(state::STATE_MINER_SECTORS, Access::Read);
