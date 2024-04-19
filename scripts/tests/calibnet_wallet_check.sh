@@ -82,7 +82,7 @@ MSG_REMOTE=$($FOREST_WALLET_PATH --remote-wallet send "$ADDR_THREE" "$FIL_AMT")
 
 ADDR_TWO_BALANCE=$FIL_ZERO
 i=0
-while [[ $i != 20 && $ADDR_TWO_BALANCE == $FIL_ZERO ]]; do
+while [[ $i != 20 && $ADDR_TWO_BALANCE == "$FIL_ZERO" ]]; do
   i=$((i+1))
   
   : "Checking balance $i/20"
@@ -92,7 +92,7 @@ done
 
 ADDR_THREE_BALANCE=$FIL_ZERO
 i=0
-while [[ $i != 20 && $ADDR_THREE_BALANCE == $FIL_ZERO ]]; do
+while [[ $i != 20 && $ADDR_THREE_BALANCE == "$FIL_ZERO" ]]; do
   i=$((i+1))
 
   : "Checking balance $i/20"
