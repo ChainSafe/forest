@@ -293,7 +293,6 @@ where
     )?;
     module.register_async_method(STATE_MINER_POWER, state_miner_power::<DB>)?;
     module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
-    module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
     module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
     module.register_async_method(
         STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
