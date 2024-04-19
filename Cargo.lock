@@ -3274,6 +3274,7 @@ dependencies = [
  "itertools 0.12.1",
  "jsonrpsee",
  "jsonwebtoken",
+ "keccak-hash",
  "kubert-prometheus-process",
  "libc",
  "libipld",
@@ -3322,6 +3323,7 @@ dependencies = [
  "regex-automata 0.4.6",
  "reqwest 0.12.3",
  "rlimit",
+ "rlp",
  "rs-car-ipfs",
  "rustyline",
  "schemars",
@@ -5168,6 +5170,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecc2af9a1119c51f12a14607e783cb977bde58bc069ff0c3da1095e635d70654"
 dependencies = [
  "cpufeatures",
+]
+
+[[package]]
+name = "keccak-hash"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b286e6b663fb926e1eeb68528e69cb70ed46c6d65871a21b2215ae8154c6d3c"
+dependencies = [
+ "primitive-types",
+ "tiny-keccak",
 ]
 
 [[package]]

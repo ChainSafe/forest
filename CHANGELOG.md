@@ -39,6 +39,9 @@
 
 ### Added
 
+- [#4246](https://github.com/ChainSafe/forest/pull/4246) Add support for the
+  `Filecoin.SyncSubmitBlock` RPC method.
+
 - [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
   `Filecoin.StateDealProviderCollateralBounds` RPC method.
 
@@ -51,6 +54,9 @@
 
 - [#4184](https://github.com/ChainSafe/forest/pull/4184) Added
   `--no-healthcheck` flag to `forest` to disable the healthcheck endpoint.
+
+- [#4183](https://github.com/ChainSafe/forest/issues/4183) Add support for the
+  `Filecoin.EthGetBlockByNumber` RPC method.
 
 - [#4240](https://github.com/ChainSafe/forest/pull/4240) Added `--fixed-unit`
   and `--exact-balance` flags to `forest-wallet balance` similarly to
