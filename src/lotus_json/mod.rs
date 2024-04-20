@@ -514,6 +514,7 @@ lotus_json_with_self!(
     u32,
     u64,
     i64,
+    f64,
     String,
     chrono::DateTime<chrono::Utc>,
     serde_json::Value,

@@ -59,13 +59,11 @@ pub enum ChainCommands {
 impl ChainCommands {
     pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
-            Self::Block { cid } => {
-                print_pretty_json(ChainGetBlock::call(&client, (cid.into(),)).await?)
-            }
+            Self::Block { cid } => print_pretty_json(ChainGetBlock::call(&client, (cid,)).await?),
             Self::Genesis => print_pretty_json(ChainGetGenesis::call_raw(&client, ()).await?),
             Self::Head => print_rpc_res_cids(ChainHead::call(&client, ()).await?),
             Self::Message { cid } => {
-                let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
+                let bytes = ChainReadObj::call(&client, (cid,)).await?;
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
                     ChainMessage::Unsigned(m) => print_pretty_json(LotusJson(m)),
                     ChainMessage::Signed(m) => {
@@ -75,7 +73,7 @@ impl ChainCommands {
                 }
             }
             Self::ReadObj { cid } => {
-                let bytes = ChainReadObj::call(&client, (cid.into(),)).await?;
+                let bytes = ChainReadObj::call(&client, (cid,)).await?;
                 println!("{}", hex::encode(bytes));
                 Ok(())
             }
@@ -87,7 +85,7 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 assert!(cids.is_empty(), "should be disallowed by clap");
                 let tipset = tipset_by_epoch_or_offset(&client, epoch).await?;
-                ChainSetHead::call(&client, (LotusJson(tipset.key().into()),)).await?;
+                ChainSetHead::call(&client, (tipset.key().into(),)).await?;
                 Ok(())
             }
             Self::SetHead {
@@ -98,12 +96,10 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 ChainSetHead::call(
                     &client,
-                    (LotusJson(
-                        TipsetKey::from(
-                            NonEmpty::from_vec(cids).expect("empty vec disallowed by clap"),
-                        )
-                        .into(),
-                    ),),
+                    (TipsetKey::from(
+                        NonEmpty::from_vec(cids).expect("empty vec disallowed by clap"),
+                    )
+                    .into(),),
                 )
                 .await?;
                 Ok(())
@@ -124,11 +120,7 @@ async fn tipset_by_epoch_or_offset(
         true => current_head.epoch() + epoch_or_offset, // adding negative number
         false => epoch_or_offset,
     };
-    ChainGetTipSetByHeight::call(
-        client,
-        (target_epoch, LotusJson(current_head.key().clone().into())),
-    )
-    .await
+    ChainGetTipSetByHeight::call(client, (target_epoch, current_head.key().clone().into())).await
 }
 
 const SET_HEAD_CONFIRMATION_MESSAGE: &str =

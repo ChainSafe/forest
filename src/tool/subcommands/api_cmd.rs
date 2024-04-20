@@ -9,7 +9,7 @@ use crate::daemon::db_util::download_to;
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
-use crate::lotus_json::{HasLotusJson, LotusJson};
+use crate::lotus_json::HasLotusJson;
 use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
@@ -482,38 +482,32 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             tipset.epoch(),
             Default::default(),
         ))?),
-        RpcTest::identity(ChainGetTipSet::request((LotusJson(
-            tipset.key().clone().into(),
-        ),))?),
+        RpcTest::identity(ChainGetTipSet::request((tipset.key().clone().into(),))?),
         RpcTest::identity(ChainGetPath::request((
-            tipset.key().clone().into(),
-            tipset.parents().clone().into(),
+            tipset.key().clone(),
+            tipset.parents().clone(),
         ))?),
         RpcTest::identity(ChainGetMessagesInTipset::request((tipset
             .key()
             .clone()
             .into(),))?),
-        RpcTest::identity(ChainTipSetWeight::request((LotusJson(
-            tipset.key().into(),
-        ),))?),
+        RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
     ];
 
     for block in tipset.block_headers() {
         let block_cid = *block.cid();
         tests.extend([
-            RpcTest::identity(ChainReadObj::request((block_cid.into(),))?),
-            RpcTest::identity(ChainHasObj::request((block_cid.into(),))?),
-            RpcTest::identity(ChainGetBlock::request((block_cid.into(),))?),
-            RpcTest::identity(ChainGetBlockMessages::request((block_cid.into(),))?),
-            RpcTest::identity(ChainGetParentMessages::request((block_cid.into(),))?),
-            RpcTest::identity(ChainGetParentReceipts::request((block_cid.into(),))?),
+            RpcTest::identity(ChainReadObj::request((block_cid,))?),
+            RpcTest::identity(ChainHasObj::request((block_cid,))?),
+            RpcTest::identity(ChainGetBlock::request((block_cid,))?),
+            RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
+            RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
+            RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
         ]);
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
-            tests.extend([RpcTest::identity(ChainGetMessage::request((
-                msg_cid.into(),
-            ))?)]);
+            tests.extend([RpcTest::identity(ChainGetMessage::request((msg_cid,))?)]);
         }
     }
 
@@ -522,8 +516,8 @@ fn chain_tests_with_tipset<DB: Blockstore>(
 
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::basic(MpoolPending::request((LotusJson(ApiTipsetKey(None)),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((LotusJson(ApiTipsetKey(None)), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), 0.9_f64)).unwrap()),
     ]
 }
 
@@ -612,7 +606,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(18101), // msig address id
             tipset.key().into(),
         )),
-        RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch().into(),))?),
+        RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
         // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
         // for API compatibility verification.
@@ -708,9 +702,9 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 tipset.key().into(),
             )),
             RpcTest::identity(MinerGetBaseInfo::request((
-                block.miner_address.into(),
+                block.miner_address,
                 block.epoch,
-                LotusJson(tipset.key().into()),
+                tipset.key().into(),
             ))?),
             RpcTest::identity(ApiInfo::state_miner_recoveries_req(
                 block.miner_address,
@@ -728,9 +722,9 @@ fn state_tests_with_tipset<DB: Blockstore>(
         {
             tests.extend([
                 RpcTest::identity(StateSectorGetInfo::request((
-                    block.miner_address.into(),
-                    sector.into(),
-                    LotusJson(tipset.key().into()),
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
                 ))?),
                 RpcTest::identity(ApiInfo::state_miner_sectors_req(
                     block.miner_address,
@@ -748,9 +742,9 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .take(COLLECTION_SAMPLE_SIZE)
         {
             tests.extend([RpcTest::identity(StateSectorPreCommitInfo::request((
-                block.miner_address.into(),
-                sector.into(),
-                LotusJson(tipset.key().into()),
+                block.miner_address,
+                sector,
+                tipset.key().into(),
             ))?)]);
         }
 
@@ -781,33 +775,27 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     MessageFilter {
                         from: Some(msg.from()),
                         to: Some(msg.to()),
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
+                    },
+                    tipset.key().into(),
+                    tipset.epoch(),
                 ))?),
                 RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.from()),
                         to: None,
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
+                    },
+                    tipset.key().into(),
+                    tipset.epoch(),
                 ))?),
                 RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: None,
                         to: Some(msg.to()),
-                    }
-                    .into(),
-                    LotusJson(tipset.key().into()),
-                    tipset.epoch().into(),
+                    },
+                    tipset.key().into(),
+                    tipset.epoch(),
                 ))?),
-                RpcTest::identity(StateCall::request((
-                    msg.clone().into(),
-                    LotusJson(tipset.key().into()),
-                ))?),
+                RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
             ]);
             if !msg.params().is_empty() {
                 tests.extend([RpcTest::identity(ApiInfo::state_decode_params_req(
@@ -839,11 +827,9 @@ fn wallet_tests() -> Vec<RpcTest> {
     };
 
     vec![
-        RpcTest::identity(WalletBalance::request((known_wallet.into(),)).unwrap()),
+        RpcTest::identity(WalletBalance::request((known_wallet,)).unwrap()),
         RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
-        RpcTest::identity(
-            WalletVerify::request((known_wallet.into(), text.into(), signature.into())).unwrap(),
-        ),
+        RpcTest::identity(WalletVerify::request((known_wallet, text, signature)).unwrap()),
         // These methods require write access in Lotus. Not sure why.
         // RpcTest::basic(ApiInfo::wallet_default_address_req()),
         // RpcTest::basic(ApiInfo::wallet_list_req()),
@@ -910,8 +896,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     // everything. If not, this test will be flaky. Instead of disabling it, we
     // should relax the verification requirement.
     vec![RpcTest::identity(
-        GasEstimateGasLimit::request((message.into(), LotusJson(shared_tipset.key().into())))
-            .unwrap(),
+        GasEstimateGasLimit::request((message, shared_tipset.key().into())).unwrap(),
     )]
 }
 
