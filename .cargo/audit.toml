@@ -11,6 +11,7 @@ ignore = [
   # https://github.com/filecoin-project/ref-fvm/issues/1843
   "RUSTSEC-2020-0168", # mach is unmaintained
   "RUSTSEC-2022-0061", # parity-wasm is deprecated
+  "RUSTSEC-2024-0336", # rustls 0.21.10 has a vulnerability, latest reqwest and other libs need it still
 ]
 
 [output]
