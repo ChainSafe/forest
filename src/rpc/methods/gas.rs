@@ -171,12 +171,12 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     const PARAM_NAMES: [&'static str; 2] = ["msg", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Message>, LotusJson<ApiTipsetKey>);
+    type Params = (Message, ApiTipsetKey);
     type Ok = i64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(msg), LotusJson(tsk)): Self::Params,
+        (msg, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         estimate_gas_limit(&ctx, msg, tsk).await
     }

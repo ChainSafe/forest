@@ -107,12 +107,12 @@ impl RpcMethod<3> for MinerGetBaseInfo {
     const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>, i64, LotusJson<ApiTipsetKey>);
+    type Params = (Address, i64, ApiTipsetKey);
     type Ok = Option<MiningBaseInfo>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(address), epoch, LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (address, epoch, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -132,12 +132,12 @@ impl RpcMethod<2> for StateCall {
     const PARAM_NAMES: [&'static str; 2] = ["message", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Message>, LotusJson<ApiTipsetKey>);
+    type Params = (Message, ApiTipsetKey);
     type Ok = ApiInvocResult;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(message), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (message, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let state_manager = &ctx.state_manager;
         let tipset = ctx
@@ -156,14 +156,14 @@ impl RpcMethod<2> for StateReplay {
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>, LotusJson<ApiTipsetKey>);
+    type Params = (Cid, ApiTipsetKey);
     type Ok = InvocResult;
 
     /// returns the result of executing the indicated message, assuming it was
     /// executed in the indicated tipset.
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(cid), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (cid, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let state_manager = &ctx.state_manager;
         let tipset = ctx
@@ -1182,12 +1182,12 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    type Params = (LotusJson<ChainEpoch>,);
+    type Params = (ChainEpoch,);
     type Ok = BeaconEntry;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(epoch),): Self::Params,
+        (epoch,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         {
             let genesis_timestamp = ctx.chain_store.genesis_block_header().timestamp as i64;
@@ -1218,12 +1218,12 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>, LotusJson<u64>, LotusJson<ApiTipsetKey>);
+    type Params = (Address, u64, ApiTipsetKey);
     type Ok = SectorPreCommitOnChainInfo;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(miner_address), LotusJson(sector_number), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -1341,12 +1341,12 @@ impl RpcMethod<3> for StateSectorGetInfo {
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>, LotusJson<u64>, LotusJson<ApiTipsetKey>);
+    type Params = (Address, u64, ApiTipsetKey);
     type Ok = SectorOnChainInfo;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(miner_address), LotusJson(sector_number), LotusJson(ApiTipsetKey(tsk))): Self::Params,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -1387,16 +1387,12 @@ impl RpcMethod<3> for StateListMessages {
     const PARAM_NAMES: [&'static str; 3] = ["message_filter", "tipset_key", "max_height"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (
-        LotusJson<MessageFilter>,
-        LotusJson<ApiTipsetKey>,
-        LotusJson<i64>,
-    );
+    type Params = (MessageFilter, ApiTipsetKey, i64);
     type Ok = Vec<Cid>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(from_to), LotusJson(ApiTipsetKey(tsk)), LotusJson(max_height)): Self::Params,
+        (from_to, ApiTipsetKey(tsk), max_height): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager

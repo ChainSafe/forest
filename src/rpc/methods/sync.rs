@@ -30,12 +30,12 @@ impl RpcMethod<1> for SyncCheckBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = String;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.bad_blocks.peek(&cid).unwrap_or_default())
     }
@@ -47,12 +47,12 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         ctx.bad_blocks
             .put(cid, "Marked bad manually through RPC API".to_string());
@@ -81,14 +81,14 @@ impl RpcMethod<1> for SyncSubmitBlock {
     const PARAM_NAMES: [&'static str; 1] = ["blk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<GossipBlock>,);
+    type Params = (GossipBlock,);
     type Ok = ();
 
     // NOTE: This currently skips all the sanity-checks and directly passes the message onto the
     // swarm.
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(block_msg),): Self::Params,
+        (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let encoded_message = to_vec(&block_msg)?;
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, ctx.network_name);
@@ -216,19 +216,13 @@ mod tests {
             .parse::<Cid>()
             .unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
         assert_eq!(reason, "");
 
         // Mark that block as bad manually and check again to verify
-        SyncMarkBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        SyncMarkBad::handle(ctx.clone(), (cid,)).await.unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
         assert_eq!(reason, "Marked bad manually through RPC API");
     }
 

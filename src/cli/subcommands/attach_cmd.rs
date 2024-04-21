@@ -279,7 +279,7 @@ mod inner {
             Address::from_str(&to)?,
             humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
         );
-        Ok(MpoolPushMessage::call(&rpc::Client::from(api), (message.into(), None)).await?)
+        Ok(MpoolPushMessage::call(&rpc::Client::from(api), (message, None)).await?)
     }
 
     type SleepParams = (u64,);

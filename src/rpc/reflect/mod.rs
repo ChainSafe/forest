@@ -97,10 +97,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn build_params(
         params: Self::Params,
         calling_convention: ConcreteCallingConvention,
-    ) -> Result<RequestParameters, serde_json::Error>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> Result<RequestParameters, serde_json::Error> {
         let args = params.unparse()?;
         match calling_convention {
             ConcreteCallingConvention::ByPosition => {
@@ -177,7 +174,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
     where
-        Self::Params: Serialize,
         Self::Ok: DeserializeOwned + Clone + Send,
     {
         // stay on current thread so don't require `Self::Params: Send`
@@ -193,10 +189,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(
         params: Self::Params,
-    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error> {
         // hardcode calling convention because lotus is by-position only
         let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
             RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
@@ -214,8 +207,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         client: &crate::rpc::client::Client,
         params: Self::Params,
     ) -> impl Future<Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>>
-    where
-        Self::Params: Serialize,
     {
         async {
             // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
@@ -228,10 +219,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn call(
         client: &crate::rpc::client::Client,
         params: Self::Params,
-    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>> {
         async {
             Self::call_raw(client, params)
                 .await
@@ -244,7 +232,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 /// A tuple of `ARITY` arguments.
 ///
 /// This should NOT be manually implemented.
-pub trait Params<const ARITY: usize> {
+pub trait Params<const ARITY: usize>: HasLotusJson {
     /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
     /// pair for argument, in-order.
     fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
@@ -260,11 +248,8 @@ pub trait Params<const ARITY: usize> {
     /// Convert from an argument tuple to un-typed JSON.
     ///
     /// Exposes de-serialization errors, or mis-implementation of this trait.
-    fn unparse(&self) -> Result<[serde_json::Value; ARITY], serde_json::Error>
-    where
-        Self: Serialize,
-    {
-        match serde_json::to_value(self) {
+    fn unparse(self) -> Result<[serde_json::Value; ARITY], serde_json::Error> {
+        match serde_json::to_value(self.into_lotus_json()) {
             Ok(serde_json::Value::Array(args)) => match args.try_into() {
                 Ok(it) => Ok(it),
                 Err(_) => Err(serde_json::Error::custom("ARITY mismatch")),
@@ -305,7 +290,7 @@ macro_rules! do_impls {
 
         impl<$($arg),*> Params<$arity> for ($($arg,)*)
         where
-            $($arg: DeserializeOwned + Serialize + JsonSchema),*
+            $($arg: HasLotusJson + Clone, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
         {
             fn parse(
                 raw: Option<RequestParameters>,
@@ -313,10 +298,10 @@ macro_rules! do_impls {
                 calling_convention: ParamStructure,
             ) -> Result<Self, Error> {
                 let mut _parser = Parser::new(raw, &arg_names, calling_convention)?;
-                Ok(($(_parser.parse::<$arg>()?,)*))
+                Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
             fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {
-                [$(($arg::json_schema(_gen), $arg::optional())),*]
+                [$(($arg::LotusJson::json_schema(_gen), $arg::LotusJson::optional())),*]
             }
         }
     };
@@ -326,13 +311,13 @@ do_impls!(0);
 do_impls!(1, T0);
 do_impls!(2, T0, T1);
 do_impls!(3, T0, T1, T2);
-do_impls!(4, T0, T1, T2, T3);
-do_impls!(5, T0, T1, T2, T3, T4);
-do_impls!(6, T0, T1, T2, T3, T4, T5);
-do_impls!(7, T0, T1, T2, T3, T4, T5, T6);
-do_impls!(8, T0, T1, T2, T3, T4, T5, T6, T7);
-do_impls!(9, T0, T1, T2, T3, T4, T5, T6, T7, T8);
-do_impls!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+// do_impls!(4, T0, T1, T2, T3);
+// do_impls!(5, T0, T1, T2, T3, T4);
+// do_impls!(6, T0, T1, T2, T3, T4, T5);
+// do_impls!(7, T0, T1, T2, T3, T4, T5, T6);
+// do_impls!(8, T0, T1, T2, T3, T4, T5, T6, T7);
+// do_impls!(9, T0, T1, T2, T3, T4, T5, T6, T7, T8);
+// do_impls!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
 
 pub struct SelfDescribingRpcModule<Ctx> {
     inner: jsonrpsee::server::RpcModule<Ctx>,
