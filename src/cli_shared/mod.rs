@@ -6,7 +6,7 @@ pub mod logger;
 
 use crate::cli_shared::cli::{find_config_path, Config, ConfigPath};
 use crate::networks::NetworkChain;
-use crate::utils::io::{read_file_to_string, read_toml};
+use crate::utils::io::read_toml;
 use std::path::PathBuf;
 
 #[cfg(feature = "mimalloc")]
@@ -26,7 +26,7 @@ pub fn read_config(
     let (path, mut config) = match find_config_path(config_path_opt) {
         Some(path) => {
             // Read from config file
-            let toml = read_file_to_string(path.to_path_buf())?;
+            let toml = std::fs::read_to_string(path.to_path_buf())?;
             // Parse and return the configuration file
             (Some(path), read_toml(&toml)?)
         }

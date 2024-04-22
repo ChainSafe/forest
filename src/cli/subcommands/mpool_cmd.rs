@@ -1,10 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use crate::blocks::Tipset;
 use crate::message::SignedMessage;
+use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::rpc_client::ApiInfo;
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
@@ -77,7 +78,7 @@ fn filter_messages(
 
 async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -> Option<u64> {
     let address = message.from;
-    let get_actor_result = api.state_get_actor(address, tipset.key().to_owned()).await;
+    let get_actor_result = api.state_get_actor(address, tipset.key().into()).await;
 
     let actor_state = match get_actor_result {
         Ok(maybe_actor) => {
@@ -124,7 +125,7 @@ fn compute_stats(
             .insert(msg.sequence, msg.to_owned());
     }
 
-    let mut stats: Vec<MpStat> = Vec::new();
+    let mut stats: Vec<MpStat> = Vec::with_capacity(buckets.len());
 
     for (address, bucket) in buckets {
         let actor_sequence = *actor_sequences.get(&address).expect("get must succeed");
@@ -204,6 +205,7 @@ fn print_stats(stats: &[MpStat], basefee_lookback: u32) {
 
 impl MpoolCommands {
     pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+        let client = rpc::Client::from(api.clone());
         match self {
             Self::Pending {
                 local,
@@ -211,10 +213,10 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages = api.mpool_pending(vec![]).await?;
+                let messages = MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None
@@ -239,16 +241,16 @@ impl MpoolCommands {
                 basefee_lookback,
                 local,
             } => {
-                let tipset = api.chain_head().await?;
+                let tipset = ChainHead::call(&client, ()).await?;
                 let curr_base_fee = tipset.block_headers().first().parent_base_fee.to_owned();
 
-                let atto_str = api.chain_get_min_base_fee(basefee_lookback).await?;
+                let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages = api.mpool_pending(vec![]).await?;
+                let messages = MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
-                    let response = api.wallet_list().await?;
+                    let response = WalletList::call(&client, ()).await?;
                     Some(HashSet::from_iter(response))
                 } else {
                     None

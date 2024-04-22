@@ -24,10 +24,10 @@ pub mod openrpc_types;
 mod parser;
 mod util;
 
-use self::{jsonrpc_types::RequestParameters, util::Optional as _};
-use super::error::JsonRpcError as Error;
+use crate::lotus_json::HasLotusJson;
 
-use futures::future::Either;
+use self::{jsonrpc_types::RequestParameters, util::Optional as _};
+use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::{MethodsError, RpcModule};
 use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};
@@ -43,11 +43,10 @@ use serde::{
     Deserialize,
 };
 use std::{future::Future, sync::Arc};
+use tokio_util::either::Either;
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
-/// Type to be used by [`SelfDescribingRpcModule`] and [`RpcModule`].
-type ModuleState<T> = crate::rpc::RPCState<T>;
 
 /// A definition of an RPC method handler which can be registered with a
 /// [`SelfDescribingRpcModule`].
@@ -64,15 +63,29 @@ pub trait RpcMethod<const ARITY: usize> {
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
+    /// See [`ApiVersion`].
+    const API_VERSION: ApiVersion;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
-    type Ok;
+    type Ok: HasLotusJson;
     /// Logic for this method.
     fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
+}
+
+/// Lotus groups methods into API versions.
+///
+/// These are significant because they are expressed in the URL path against which
+/// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
+///
+/// This information is important when using [`crate::rpc::client`].
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum ApiVersion {
+    V0,
+    V1,
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
@@ -84,10 +97,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn build_params(
         params: Self::Params,
         calling_convention: ConcreteCallingConvention,
-    ) -> Result<RequestParameters, serde_json::Error>
-    where
-        Self::Params: Serialize,
-    {
+    ) -> Result<RequestParameters, serde_json::Error> {
         let args = params.unparse()?;
         match calling_convention {
             ConcreteCallingConvention::ByPosition => {
@@ -104,7 +114,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         calling_convention: ParamStructure,
     ) -> Result<Method, ParamListError>
     where
-        Self::Ok: JsonSchema + Deserialize<'de>,
+        <Self::Ok as HasLotusJson>::LotusJson: JsonSchema + Deserialize<'de>,
     {
         Ok(Method {
             name: String::from(Self::NAME),
@@ -120,18 +130,18 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             param_structure: calling_convention,
             result: Some(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
-                schema: Self::Ok::json_schema(gen),
-                required: !Self::Ok::optional(),
+                schema: <Self::Ok as HasLotusJson>::LotusJson::json_schema(gen),
+                required: !<Self::Ok as HasLotusJson>::LotusJson::optional(),
             }),
         })
     }
     /// Register this method with an [`RpcModule`].
     fn register_raw(
-        module: &mut RpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
+        module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
         calling_convention: ParamStructure,
     ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
     where
-        Self::Ok: Serialize + Clone + 'static,
+        <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
         module.register_async_method(Self::NAME, move |params, ctx| async move {
             let raw = params
@@ -141,15 +151,16 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 .map_err(|e| Error::invalid_params(e, None))?;
             let params = Self::Params::parse(raw, Self::PARAM_NAMES, calling_convention)?;
             let ok = Self::handle(ctx, params).await?;
-            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok)
+            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
         })
     }
     /// Register this method and generate a schema entry for it in a [`SelfDescribingRpcModule`].
     fn register<'de>(
-        module: &mut SelfDescribingRpcModule<ModuleState<impl Blockstore + Send + Sync + 'static>>,
+        module: &mut SelfDescribingRpcModule<
+            crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>,
+        >,
     ) where
-        Self::Ok: Serialize + Clone + 'static,
-        Self::Ok: JsonSchema + Deserialize<'de>,
+        <Self::Ok as HasLotusJson>::LotusJson: Clone + JsonSchema + Deserialize<'de> + 'static,
     {
         Self::register_raw(&mut module.inner, module.calling_convention).unwrap();
         module
@@ -157,38 +168,62 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             .push(Self::openrpc(&mut module.schema_generator, module.calling_convention).unwrap());
     }
     /// Call this method on an [`RpcModule`].
+    #[allow(unused)] // included for completeness
     fn call_module(
         module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
         params: Self::Params,
-        calling_convention: ConcreteCallingConvention,
     ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
     where
-        Self::Params: Serialize,
         Self::Ok: DeserializeOwned + Clone + Send,
     {
-        macro_rules! tri {
-            ($expr:expr) => {
-                match $expr {
-                    Ok(it) => it,
-                    Err(e) => return Either::Left(futures::future::ready(Err(e.into()))),
-                }
-            };
+        // stay on current thread so don't require `Self::Params: Send`
+        // hardcode calling convention because lotus is by-position only
+        let params = Self::build_params(params, ConcreteCallingConvention::ByPosition);
+        async {
+            match params2params(params?)? {
+                Either::Left(it) => module.call(Self::NAME, it).await,
+                Either::Right(it) => module.call(Self::NAME, it).await,
+            }
         }
-        match tri!(Self::build_params(params, calling_convention)) {
-            RequestParameters::ByPosition(args) => {
-                let mut builder = jsonrpsee::core::params::ArrayParams::new();
-                for arg in args {
-                    tri!(builder.insert(arg))
-                }
-                Either::Right(Either::Left(module.call(Self::NAME, builder)))
-            }
-            RequestParameters::ByName(args) => {
-                let mut builder = jsonrpsee::core::params::ObjectParams::new();
-                for (name, value) in args {
-                    tri!(builder.insert(&name, value));
-                }
-                Either::Right(Either::Right(module.call(Self::NAME, builder)))
-            }
+    }
+    /// Returns [`Err`] if any of the parameters fail to serialize.
+    fn request(
+        params: Self::Params,
+    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error> {
+        // hardcode calling convention because lotus is by-position only
+        let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
+            RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
+            RequestParameters::ByName(it) => serde_json::Value::Object(it),
+        };
+        Ok(crate::rpc_client::RpcRequest {
+            method_name: Self::NAME,
+            params,
+            result_type: std::marker::PhantomData,
+            api_version: Self::API_VERSION,
+            timeout: crate::rpc_client::DEFAULT_TIMEOUT,
+        })
+    }
+    fn call_raw(
+        client: &crate::rpc::client::Client,
+        params: Self::Params,
+    ) -> impl Future<Output = Result<<Self::Ok as HasLotusJson>::LotusJson, jsonrpsee::core::ClientError>>
+    {
+        async {
+            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+            //                  Client::call has an inappropriate HasLotusJson
+            //                  bound, work around it for now.
+            let json = client.call(Self::request(params)?.map_ty()).await?;
+            Ok(serde_json::from_value(json)?)
+        }
+    }
+    fn call(
+        client: &crate::rpc::client::Client,
+        params: Self::Params,
+    ) -> impl Future<Output = Result<Self::Ok, jsonrpsee::core::ClientError>> {
+        async {
+            Self::call_raw(client, params)
+                .await
+                .map(Self::Ok::from_lotus_json)
         }
     }
 }
@@ -197,7 +232,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 /// A tuple of `ARITY` arguments.
 ///
 /// This should NOT be manually implemented.
-pub trait Params<const ARITY: usize> {
+pub trait Params<const ARITY: usize>: HasLotusJson {
     /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
     /// pair for argument, in-order.
     fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
@@ -213,15 +248,15 @@ pub trait Params<const ARITY: usize> {
     /// Convert from an argument tuple to un-typed JSON.
     ///
     /// Exposes de-serialization errors, or mis-implementation of this trait.
-    fn unparse(&self) -> Result<[serde_json::Value; ARITY], serde_json::Error>
-    where
-        Self: Serialize,
-    {
-        match serde_json::to_value(self) {
+    fn unparse(self) -> Result<[serde_json::Value; ARITY], serde_json::Error> {
+        match serde_json::to_value(self.into_lotus_json()) {
             Ok(serde_json::Value::Array(args)) => match args.try_into() {
                 Ok(it) => Ok(it),
                 Err(_) => Err(serde_json::Error::custom("ARITY mismatch")),
             },
+            Ok(serde_json::Value::Null) if ARITY == 0 => {
+                Ok(std::array::from_fn(|_ix| Default::default()))
+            }
             Ok(it) => Err(serde_json::Error::invalid_type(
                 unexpected(&it),
                 &"a Vec with an item for each argument",
@@ -231,8 +266,6 @@ pub trait Params<const ARITY: usize> {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
-#[allow(unused)]
 fn unexpected(v: &serde_json::Value) -> Unexpected<'_> {
     match v {
         serde_json::Value::Null => Unexpected::Unit,
@@ -257,7 +290,7 @@ macro_rules! do_impls {
 
         impl<$($arg),*> Params<$arity> for ($($arg,)*)
         where
-            $($arg: DeserializeOwned + Serialize + JsonSchema),*
+            $($arg: HasLotusJson + Clone, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
         {
             fn parse(
                 raw: Option<RequestParameters>,
@@ -265,10 +298,10 @@ macro_rules! do_impls {
                 calling_convention: ParamStructure,
             ) -> Result<Self, Error> {
                 let mut _parser = Parser::new(raw, &arg_names, calling_convention)?;
-                Ok(($(_parser.parse::<$arg>()?,)*))
+                Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
             fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {
-                [$(($arg::json_schema(_gen), $arg::optional())),*]
+                [$(($arg::LotusJson::json_schema(_gen), $arg::LotusJson::optional())),*]
             }
         }
     };
@@ -278,13 +311,13 @@ do_impls!(0);
 do_impls!(1, T0);
 do_impls!(2, T0, T1);
 do_impls!(3, T0, T1, T2);
-do_impls!(4, T0, T1, T2, T3);
-do_impls!(5, T0, T1, T2, T3, T4);
-do_impls!(6, T0, T1, T2, T3, T4, T5);
-do_impls!(7, T0, T1, T2, T3, T4, T5, T6);
-do_impls!(8, T0, T1, T2, T3, T4, T5, T6, T7);
-do_impls!(9, T0, T1, T2, T3, T4, T5, T6, T7, T8);
-do_impls!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+// do_impls!(4, T0, T1, T2, T3);
+// do_impls!(5, T0, T1, T2, T3, T4);
+// do_impls!(6, T0, T1, T2, T3, T4, T5);
+// do_impls!(7, T0, T1, T2, T3, T4, T5, T6);
+// do_impls!(8, T0, T1, T2, T3, T4, T5, T6, T7);
+// do_impls!(9, T0, T1, T2, T3, T4, T5, T6, T7, T8);
+// do_impls!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
 
 pub struct SelfDescribingRpcModule<Ctx> {
     inner: jsonrpsee::server::RpcModule<Ctx>,
@@ -321,11 +354,34 @@ impl<Ctx> SelfDescribingRpcModule<Ctx> {
     }
 }
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4066
-#[allow(unused)]
 /// [`openrpc_types::ParamStructure`] describes accepted param format.
 /// This is an actual param format, used to decide how to construct arguments.
 pub enum ConcreteCallingConvention {
     ByPosition,
+    #[allow(unused)] // included for completeness
     ByName,
+}
+
+fn params2params(
+    ours: RequestParameters,
+) -> Result<
+    Either<jsonrpsee::core::params::ArrayParams, jsonrpsee::core::params::ObjectParams>,
+    serde_json::Error,
+> {
+    match ours {
+        RequestParameters::ByPosition(args) => {
+            let mut builder = jsonrpsee::core::params::ArrayParams::new();
+            for arg in args {
+                builder.insert(arg)?
+            }
+            Ok(Either::Left(builder))
+        }
+        RequestParameters::ByName(args) => {
+            let mut builder = jsonrpsee::core::params::ObjectParams::new();
+            for (name, value) in args {
+                builder.insert(&name, value)?
+            }
+            Ok(Either::Right(builder))
+        }
+    }
 }

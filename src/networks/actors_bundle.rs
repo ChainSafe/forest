@@ -70,6 +70,7 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
         "bafy2bzacebl4w5ptfvuw6746w7ev562idkbf5ppq72e6zub22435ws2rukzru" @ "v12.0.0-rc.2" for "calibrationnet",
         "bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca" @ "v12.0.0" for "calibrationnet",
         "bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi" @ "v13.0.0-rc.3" for "calibrationnet",
+        "bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs" @ "v13.0.0" for "calibrationnet",
         "bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq" @ "v12.0.0" for "butterflynet",
         "bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu" @ "v13.0.0" for "butterflynet",
         "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk" @ "v9.0.3" for "devnet",
@@ -144,7 +145,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use http0::StatusCode;
+    use http::StatusCode;
     use reqwest::Response;
     use std::time::Duration;
 

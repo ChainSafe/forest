@@ -235,6 +235,17 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 ),
             },
         ),
+        (
+            Height::DragonFix,
+            HeightInfo {
+                // Wed Apr  3 11:00:00 AM UTC 2024
+                epoch: 1_493_854,
+                bundle: Some(
+                    Cid::try_from("bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs")
+                        .unwrap(),
+                ),
+            },
+        ),
     ])
 });
 

@@ -3,9 +3,11 @@
 
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
-use crate::rpc::CANCEL_METHOD_NAME;
-use crate::rpc_api::*;
-
+use crate::rpc::{
+    auth, beacon, chain, common, eth, gas, mpool, net, node, state, sync, wallet, RpcMethod as _,
+    CANCEL_METHOD_NAME,
+};
+use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use hyper::header::{HeaderValue, AUTHORIZATION};
@@ -13,13 +15,11 @@ use hyper::HeaderMap;
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
+use once_cell::sync::Lazy;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower::Layer;
 use tracing::debug;
-
-use ahash::{HashMap, HashMapExt as _};
-use once_cell::sync::Lazy;
-use std::sync::Arc;
 
 /// Access levels to be checked against JWT claims
 enum Access {
@@ -35,134 +35,143 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
     // Auth API
-    access.insert(auth_api::AUTH_NEW, Access::Admin);
-    access.insert(auth_api::AUTH_VERIFY, Access::Read);
+    access.insert(auth::AuthNew::NAME, Access::Admin);
+    access.insert(auth::AuthVerify::NAME, Access::Read);
 
     // Beacon API
-    access.insert(beacon_api::BEACON_GET_ENTRY, Access::Read);
+    access.insert(beacon::BeaconGetEntry::NAME, Access::Read);
 
     // Chain API
-    access.insert(chain_api::CHAIN_GET_MESSAGE, Access::Read);
-    access.insert(chain_api::CHAIN_EXPORT, Access::Read);
-    access.insert(chain_api::CHAIN_READ_OBJ, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PATH, Access::Read);
-    access.insert(chain_api::CHAIN_HAS_OBJ, Access::Read);
-    access.insert(chain_api::CHAIN_GET_BLOCK_MESSAGES, Access::Read);
-    access.insert(chain_api::CHAIN_GET_TIPSET_BY_HEIGHT, Access::Read);
-    access.insert(chain_api::CHAIN_GET_TIPSET_AFTER_HEIGHT, Access::Read);
-    access.insert(chain_api::CHAIN_GET_GENESIS, Access::Read);
-    access.insert(chain_api::CHAIN_HEAD, Access::Read);
-    access.insert(chain_api::CHAIN_GET_BLOCK, Access::Read);
-    access.insert(chain_api::CHAIN_GET_TIPSET, Access::Read);
-    access.insert(chain_api::CHAIN_SET_HEAD, Access::Admin);
-    access.insert(chain_api::CHAIN_GET_MIN_BASE_FEE, Access::Admin);
-    access.insert(chain_api::CHAIN_GET_MESSAGES_IN_TIPSET, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PARENT_MESSAGES, Access::Read);
-    access.insert(chain_api::CHAIN_NOTIFY, Access::Read);
-    access.insert(chain_api::CHAIN_GET_PARENT_RECEIPTS, Access::Read);
+    access.insert(chain::ChainGetMessage::NAME, Access::Read);
+    access.insert(chain::ChainExport::NAME, Access::Read);
+    access.insert(chain::ChainReadObj::NAME, Access::Read);
+    access.insert(chain::ChainGetPath::NAME, Access::Read);
+    access.insert(chain::ChainHasObj::NAME, Access::Read);
+    access.insert(chain::ChainGetBlockMessages::NAME, Access::Read);
+    access.insert(chain::ChainGetTipSetByHeight::NAME, Access::Read);
+    access.insert(chain::ChainGetTipSetAfterHeight::NAME, Access::Read);
+    access.insert(chain::ChainGetGenesis::NAME, Access::Read);
+    access.insert(chain::ChainHead::NAME, Access::Read);
+    access.insert(chain::ChainGetBlock::NAME, Access::Read);
+    access.insert(chain::ChainGetTipSet::NAME, Access::Read);
+    access.insert(chain::ChainSetHead::NAME, Access::Admin);
+    access.insert(chain::ChainGetMinBaseFee::NAME, Access::Admin);
+    access.insert(chain::ChainTipSetWeight::NAME, Access::Read);
+    access.insert(chain::ChainGetMessagesInTipset::NAME, Access::Read);
+    access.insert(chain::ChainGetParentMessages::NAME, Access::Read);
+    access.insert(chain::CHAIN_NOTIFY, Access::Read);
+    access.insert(chain::ChainGetParentReceipts::NAME, Access::Read);
 
     // Message Pool API
-    access.insert(mpool_api::MPOOL_GET_NONCE, Access::Read);
-    access.insert(mpool_api::MPOOL_PENDING, Access::Read);
-    access.insert(mpool_api::MPOOL_PUSH, Access::Write);
-    access.insert(mpool_api::MPOOL_PUSH_MESSAGE, Access::Sign);
+    access.insert(mpool::MpoolGetNonce::NAME, Access::Read);
+    access.insert(mpool::MpoolPending::NAME, Access::Read);
+    access.insert(mpool::MpoolSelect::NAME, Access::Read);
+    // Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
+    // can always be pushed over the p2p protocol, limiting the RPC doesn't
+    // improve security.
+    access.insert(mpool::MpoolPush::NAME, Access::Read);
+    access.insert(mpool::MpoolPushMessage::NAME, Access::Sign);
 
     // Sync API
-    access.insert(sync_api::SYNC_CHECK_BAD, Access::Read);
-    access.insert(sync_api::SYNC_MARK_BAD, Access::Admin);
-    access.insert(sync_api::SYNC_STATE, Access::Read);
+    access.insert(sync::SyncCheckBad::NAME, Access::Read);
+    access.insert(sync::SyncMarkBad::NAME, Access::Admin);
+    access.insert(sync::SyncState::NAME, Access::Read);
+    access.insert(sync::SyncSubmitBlock::NAME, Access::Write);
 
     // Wallet API
-    access.insert(wallet_api::WALLET_BALANCE, Access::Write);
-    access.insert(wallet_api::WALLET_BALANCE, Access::Read);
-    access.insert(wallet_api::WALLET_DEFAULT_ADDRESS, Access::Read);
-    access.insert(wallet_api::WALLET_EXPORT, Access::Admin);
-    access.insert(wallet_api::WALLET_HAS, Access::Write);
-    access.insert(wallet_api::WALLET_IMPORT, Access::Admin);
-    access.insert(wallet_api::WALLET_LIST, Access::Write);
-    access.insert(wallet_api::WALLET_NEW, Access::Write);
-    access.insert(wallet_api::WALLET_SET_DEFAULT, Access::Write);
-    access.insert(wallet_api::WALLET_SIGN, Access::Sign);
-    access.insert(wallet_api::WALLET_VALIDATE_ADDRESS, Access::Read);
-    access.insert(wallet_api::WALLET_VERIFY, Access::Read);
-    access.insert(wallet_api::WALLET_DELETE, Access::Write);
+    access.insert(wallet::WalletBalance::NAME, Access::Read);
+    access.insert(wallet::WalletDefaultAddress::NAME, Access::Read);
+    access.insert(wallet::WalletExport::NAME, Access::Admin);
+    access.insert(wallet::WalletHas::NAME, Access::Write);
+    access.insert(wallet::WalletImport::NAME, Access::Admin);
+    access.insert(wallet::WalletList::NAME, Access::Write);
+    access.insert(wallet::WalletNew::NAME, Access::Write);
+    access.insert(wallet::WalletSetDefault::NAME, Access::Write);
+    access.insert(wallet::WalletSign::NAME, Access::Sign);
+    access.insert(wallet::WalletValidateAddress::NAME, Access::Read);
+    access.insert(wallet::WalletVerify::NAME, Access::Read);
+    access.insert(wallet::WalletDelete::NAME, Access::Write);
 
     // State API
-    access.insert(state_api::STATE_CALL, Access::Read);
-    access.insert(state_api::STATE_REPLAY, Access::Read);
-    access.insert(state_api::STATE_GET_ACTOR, Access::Read);
-    access.insert(state_api::STATE_MARKET_BALANCE, Access::Read);
-    access.insert(state_api::STATE_MARKET_DEALS, Access::Read);
-    access.insert(state_api::STATE_MINER_INFO, Access::Read);
-    access.insert(state_api::MINER_GET_BASE_INFO, Access::Read);
-    access.insert(state_api::STATE_MINER_ACTIVE_SECTORS, Access::Read);
-    access.insert(state_api::STATE_MINER_FAULTS, Access::Read);
-    access.insert(state_api::STATE_MINER_RECOVERIES, Access::Read);
-    access.insert(state_api::STATE_MINER_POWER, Access::Read);
-    access.insert(state_api::STATE_MINER_DEADLINES, Access::Read);
-    access.insert(state_api::STATE_MINER_PROVING_DEADLINE, Access::Read);
-    access.insert(state_api::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
-    access.insert(state_api::STATE_GET_RECEIPT, Access::Read);
-    access.insert(state_api::STATE_WAIT_MSG, Access::Read);
-    access.insert(state_api::STATE_SEARCH_MSG, Access::Read);
-    access.insert(state_api::STATE_SEARCH_MSG_LIMITED, Access::Read);
-    access.insert(state_api::STATE_NETWORK_NAME, Access::Read);
-    access.insert(state_api::STATE_NETWORK_VERSION, Access::Read);
-    access.insert(state_api::STATE_ACCOUNT_KEY, Access::Read);
-    access.insert(state_api::STATE_LOOKUP_ID, Access::Read);
-    access.insert(state_api::STATE_FETCH_ROOT, Access::Read);
-    access.insert(state_api::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
-    access.insert(state_api::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
-    access.insert(state_api::STATE_READ_STATE, Access::Read);
-    access.insert(state_api::STATE_CIRCULATING_SUPPLY, Access::Read);
-    access.insert(state_api::STATE_SECTOR_GET_INFO, Access::Read);
-    access.insert(state_api::STATE_LIST_MESSAGES, Access::Read);
-    access.insert(state_api::STATE_LIST_MINERS, Access::Read);
-    access.insert(state_api::STATE_MINER_SECTOR_COUNT, Access::Read);
-    access.insert(state_api::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
-    access.insert(state_api::STATE_MARKET_STORAGE_DEAL, Access::Read);
-    access.insert(
-        state_api::STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
-        Access::Read,
-    );
-    access.insert(state_api::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
-    access.insert(state_api::MSIG_GET_PENDING, Access::Read);
+    access.insert(state::MinerGetBaseInfo::NAME, Access::Read);
+    access.insert(state::StateCall::NAME, Access::Read);
+    access.insert(state::StateNetworkName::NAME, Access::Read);
+    access.insert(state::StateReplay::NAME, Access::Read);
+    access.insert(state::STATE_GET_ACTOR, Access::Read);
+    access.insert(state::STATE_MARKET_BALANCE, Access::Read);
+    access.insert(state::STATE_MARKET_DEALS, Access::Read);
+    access.insert(state::STATE_MINER_INFO, Access::Read);
+    access.insert(state::STATE_MINER_ACTIVE_SECTORS, Access::Read);
+    access.insert(state::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state::STATE_MINER_RECOVERIES, Access::Read);
+    access.insert(state::STATE_MINER_POWER, Access::Read);
+    access.insert(state::STATE_MINER_DEADLINES, Access::Read);
+    access.insert(state::STATE_MINER_PROVING_DEADLINE, Access::Read);
+    access.insert(state::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
+    access.insert(state::STATE_GET_RECEIPT, Access::Read);
+    access.insert(state::STATE_WAIT_MSG, Access::Read);
+    access.insert(state::STATE_SEARCH_MSG, Access::Read);
+    access.insert(state::STATE_SEARCH_MSG_LIMITED, Access::Read);
+    access.insert(state::STATE_NETWORK_VERSION, Access::Read);
+    access.insert(state::STATE_ACCOUNT_KEY, Access::Read);
+    access.insert(state::STATE_LOOKUP_ID, Access::Read);
+    access.insert(state::STATE_FETCH_ROOT, Access::Read);
+    access.insert(state::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
+    access.insert(state::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
+    access.insert(state::STATE_READ_STATE, Access::Read);
+    access.insert(state::STATE_CIRCULATING_SUPPLY, Access::Read);
+    access.insert(state::StateSectorGetInfo::NAME, Access::Read);
+    access.insert(state::StateListMessages::NAME, Access::Read);
+    access.insert(state::STATE_LIST_MINERS, Access::Read);
+    access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
+    access.insert(state::STATE_MINER_SECTORS, Access::Read);
+    access.insert(state::STATE_MINER_PARTITIONS, Access::Read);
+    access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
+    access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
+    access.insert(state::STATE_VM_CIRCULATING_SUPPLY_INTERNAL, Access::Read);
+    access.insert(state::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
+    access.insert(state::MSIG_GET_PENDING, Access::Read);
+    access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
+    access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
+    access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
     // Gas API
-    access.insert(gas_api::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
-    access.insert(gas_api::GAS_ESTIMATE_GAS_PREMIUM, Access::Read);
-    access.insert(gas_api::GAS_ESTIMATE_FEE_CAP, Access::Read);
-    access.insert(gas_api::GAS_ESTIMATE_MESSAGE_GAS, Access::Read);
+    access.insert(gas::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
+    access.insert(gas::GAS_ESTIMATE_GAS_PREMIUM, Access::Read);
+    access.insert(gas::GAS_ESTIMATE_FEE_CAP, Access::Read);
+    access.insert(gas::GAS_ESTIMATE_MESSAGE_GAS, Access::Read);
 
     // Common API
-    access.insert(common_api::VERSION, Access::Read);
-    access.insert(common_api::SESSION, Access::Read);
-    access.insert(common_api::SHUTDOWN, Access::Admin);
-    access.insert(common_api::START_TIME, Access::Read);
+    access.insert(common::Version::NAME, Access::Read);
+    access.insert(common::Session::NAME, Access::Read);
+    access.insert(common::Shutdown::NAME, Access::Admin);
+    access.insert(common::StartTime::NAME, Access::Read);
 
     // Net API
-    access.insert(net_api::NET_ADDRS_LISTEN, Access::Read);
-    access.insert(net_api::NET_PEERS, Access::Read);
-    access.insert(net_api::NET_LISTENING, Access::Read);
-    access.insert(net_api::NET_INFO, Access::Read);
-    access.insert(net_api::NET_CONNECT, Access::Write);
-    access.insert(net_api::NET_DISCONNECT, Access::Write);
-    access.insert(net_api::NET_AGENT_VERSION, Access::Read);
-    access.insert(net_api::NET_AUTO_NAT_STATUS, Access::Read);
-    access.insert(net_api::NET_VERSION, Access::Read);
+    access.insert(net::NetAddrsListen::NAME, Access::Read);
+    access.insert(net::NetPeers::NAME, Access::Read);
+    access.insert(net::NetListening::NAME, Access::Read);
+    access.insert(net::NetInfo::NAME, Access::Read);
+    access.insert(net::NetConnect::NAME, Access::Write);
+    access.insert(net::NetDisconnect::NAME, Access::Write);
+    access.insert(net::NetAgentVersion::NAME, Access::Read);
+    access.insert(net::NetAutoNatStatus::NAME, Access::Read);
+    access.insert(net::NetVersion::NAME, Access::Read);
 
     // Node API
-    access.insert(node_api::NODE_STATUS, Access::Read);
+    access.insert(node::NodeStatus::NAME, Access::Read);
 
     // Eth API
-    access.insert(eth_api::ETH_ACCOUNTS, Access::Read);
-    access.insert(eth_api::ETH_BLOCK_NUMBER, Access::Read);
-    access.insert(eth_api::ETH_CHAIN_ID, Access::Read);
-    access.insert(eth_api::ETH_GAS_PRICE, Access::Read);
-    access.insert(eth_api::ETH_GET_BALANCE, Access::Read);
-    access.insert(eth_api::ETH_SYNCING, Access::Read);
-    access.insert(eth_api::ETH_SUBSCRIBE, Access::Read);
-    access.insert(eth_api::ETH_UNSUBSCRIBE, Access::Read);
+    access.insert(eth::ETH_ACCOUNTS, Access::Read);
+    access.insert(eth::ETH_BLOCK_NUMBER, Access::Read);
+    access.insert(eth::ETH_CHAIN_ID, Access::Read);
+    access.insert(eth::ETH_GAS_PRICE, Access::Read);
+    access.insert(eth::ETH_GET_BALANCE, Access::Read);
+    access.insert(eth::ETH_SYNCING, Access::Read);
+    access.insert(eth::ETH_GET_BLOCK_BY_NUMBER, Access::Read);
+    access.insert(eth::WEB3_CLIENT_VERSION, Access::Read);
+    access.insert(eth::ETH_SUBSCRIBE, Access::Read);
+    access.insert(eth::ETH_UNSUBSCRIBE, Access::Read);
 
     // Pubsub API
     access.insert(CANCEL_METHOD_NAME, Access::Read);

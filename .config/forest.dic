@@ -21,7 +21,9 @@ CARv2/SM
 CBOR
 CID/SM
 CIDs
+ChainSafe/M
 CLI
+Cloudflare
 clonable
 codebase
 codec
@@ -33,6 +35,7 @@ DB/S
 deserialize/D
 destructuring
 DNS
+durations
 enum
 Enum
 EOF
@@ -46,13 +49,16 @@ GC
 GiB
 HAMT
 hasher
+healthcheck
 implementor/SM
 IPFS
 IPLD
 JSON
 JWT
 Kademlia
+Kubernetes
 libp2p
+liveness
 localhost
 mainnet
 MDNS
@@ -71,9 +77,11 @@ param/SM
 ParityDb
 ParityDB
 parsable
+performant
 PoC
 pointer/SM
 PoSt
+R2
 RPC
 schema/SM
 schemas
@@ -96,6 +104,7 @@ tipset/SM
 tipsetkey/S
 TOML
 trie
+truthy
 TTY
 uncompress
 unrepresentable

@@ -1064,10 +1064,10 @@ pub struct ApiHeadChange {
     pub headers: Vec<CachingBlockHeader>,
 }
 
+lotus_json_with_self!(ApiHeadChange);
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct ApiHeaders(#[serde(with = "crate::lotus_json")] pub Vec<CachingBlockHeader>);
-
-lotus_json_with_self!(ApiHeadChange);
 
 #[cfg(test)]
 mod tests {

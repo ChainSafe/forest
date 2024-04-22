@@ -1,81 +1,111 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use tracing_chrome::{ChromeLayerBuilder, FlushGuard};
-use tracing_subscriber::{filter::LevelFilter, prelude::*, EnvFilter};
+use std::pin::Pin;
+
+use futures::Future;
+use tracing_subscriber::{prelude::*, EnvFilter, Registry};
 
 use crate::cli_shared::cli::CliOpts;
 use crate::utils::misc::LoggingColor;
 
-pub fn setup_logger(opts: &CliOpts) -> (Option<tracing_loki::BackgroundTask>, Option<FlushGuard>) {
-    let mut loki_task = None;
-    let tracing_tokio_console = if opts.tokio_console {
-        Some(
-            console_subscriber::ConsoleLayer::builder()
-                .with_default_env()
-                .spawn(),
-        )
-    } else {
-        None
-    };
-    let tracing_loki = if opts.loki {
-        let (layer, task) = tracing_loki::layer(
-            tracing_loki::url::Url::parse(&opts.loki_endpoint)
-                .map_err(|e| format!("Unable to parse loki endpoint {}: {e}", &opts.loki_endpoint))
-                .unwrap(),
-            vec![(
-                "host".into(),
-                gethostname::gethostname()
-                    .to_str()
-                    .unwrap_or_default()
-                    .into(),
-            )]
-            .into_iter()
-            .collect(),
-            Default::default(),
-        )
-        .map_err(|e| format!("Unable to create loki layer: {e}"))
-        .unwrap();
-        loki_task = Some(task);
-        Some(layer.with_filter(LevelFilter::DEBUG))
-    } else {
-        None
-    };
-    let tracing_rolling_file = if let Some(log_dir) = &opts.log_dir {
+type BackgroundTask = Pin<Box<dyn Future<Output = ()> + Send>>;
+
+#[derive(Default)]
+pub struct Guards {
+    #[cfg(feature = "tracing-chrome")]
+    tracing_chrome: Option<tracing_chrome::FlushGuard>,
+}
+
+#[allow(unused_mut)]
+pub fn setup_logger(opts: &CliOpts) -> (Vec<BackgroundTask>, Guards) {
+    let mut background_tasks: Vec<BackgroundTask> = vec![];
+    let mut guards = Guards::default();
+    let mut layers: Vec<Box<dyn tracing_subscriber::layer::Layer<Registry> + Send + Sync>> =
+        // console logger
+        vec![Box::new(
+            tracing_subscriber::fmt::Layer::new()
+                .with_ansi(opts.color.coloring_enabled())
+                .with_filter(get_env_filter(default_env_filter())),
+        )];
+
+    // file logger
+    if let Some(log_dir) = &opts.log_dir {
         let file_appender = tracing_appender::rolling::hourly(log_dir, "forest.log");
-        Some(
+        layers.push(Box::new(
             tracing_subscriber::fmt::Layer::new()
                 .with_ansi(false)
                 .with_writer(file_appender)
                 .with_filter(get_env_filter(default_env_filter())),
-        )
-    } else {
-        None
-    };
+        ));
+    }
+
+    if opts.tokio_console {
+        #[cfg(not(feature = "tokio-console"))]
+        tracing::warn!("`tokio-console` is unavailable, forest binaries need to be recompiled with `tokio-console` feature");
+
+        #[cfg(feature = "tokio-console")]
+        layers.push(Box::new(
+            console_subscriber::ConsoleLayer::builder()
+                .with_default_env()
+                .spawn(),
+        ));
+    }
+
+    if opts.loki {
+        #[cfg(not(feature = "tracing-loki"))]
+        tracing::warn!("`tracing-loki` is unavailable, forest binaries need to be recompiled with `tracing-loki` feature");
+
+        #[cfg(feature = "tracing-loki")]
+        {
+            let (layer, task) = tracing_loki::layer(
+                tracing_loki::url::Url::parse(&opts.loki_endpoint)
+                    .map_err(|e| {
+                        format!("Unable to parse loki endpoint {}: {e}", &opts.loki_endpoint)
+                    })
+                    .unwrap(),
+                vec![(
+                    "host".into(),
+                    gethostname::gethostname()
+                        .to_str()
+                        .unwrap_or_default()
+                        .into(),
+                )]
+                .into_iter()
+                .collect(),
+                Default::default(),
+            )
+            .map_err(|e| format!("Unable to create loki layer: {e}"))
+            .unwrap();
+            background_tasks.push(Box::pin(task));
+            layers.push(Box::new(
+                layer.with_filter(tracing_subscriber::filter::LevelFilter::DEBUG),
+            ));
+        }
+    }
 
     // Go to <https://ui.perfetto.dev> to browse trace files.
     // You may want to call ChromeLayerBuilder::trace_style as appropriate
-    let (chrome_layer, flush_guard) =
-        match std::env::var_os("CHROME_TRACE_FILE").map(|path| match path.is_empty() {
-            true => ChromeLayerBuilder::new().build(),
-            false => ChromeLayerBuilder::new().file(path).build(),
-        }) {
-            Some((a, b)) => (Some(a), Some(b)),
-            None => (None, None),
-        };
+    if let Some(_chrome_trace_file) = std::env::var_os("CHROME_TRACE_FILE") {
+        #[cfg(not(feature = "tracing-chrome"))]
+        tracing::warn!("`tracing-chrome` is unavailable, forest binaries need to be recompiled with `tracing-chrome` feature");
 
-    tracing_subscriber::registry()
-        .with(tracing_tokio_console)
-        .with(tracing_loki)
-        .with(tracing_rolling_file)
-        .with(chrome_layer)
-        .with(
-            tracing_subscriber::fmt::Layer::new()
-                .with_ansi(opts.color.coloring_enabled())
-                .with_filter(get_env_filter(default_env_filter())),
-        )
-        .init();
-    (loki_task, flush_guard)
+        #[cfg(feature = "tracing-chrome")]
+        {
+            let (layer, guard) = match _chrome_trace_file.is_empty() {
+                true => tracing_chrome::ChromeLayerBuilder::new().build(),
+                false => tracing_chrome::ChromeLayerBuilder::new()
+                    .file(_chrome_trace_file)
+                    .build(),
+            };
+
+            guards.tracing_chrome = Some(guard);
+            layers.push(Box::new(layer));
+        }
+    }
+
+    tracing_subscriber::registry().with(layers).init();
+    (background_tasks, guards)
 }
 
 // Log warnings to stderr

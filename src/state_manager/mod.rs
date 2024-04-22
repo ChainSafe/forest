@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 pub mod chain_rand;
+pub mod circulating_supply;
 mod errors;
 mod metrics;
 pub mod utils;
-pub mod vm_circ_supply;
 pub use self::errors::*;
 use self::utils::structured;
 
@@ -21,10 +21,11 @@ use crate::interpreter::{
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
+use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc_api::data_types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -42,6 +43,7 @@ use anyhow::{bail, Context as _};
 use bls_signatures::{PublicKey as BlsPublicKey, Serialize as _};
 use chain_rand::ChainRand;
 use cid::Cid;
+pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
@@ -67,7 +69,6 @@ use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
 use tracing::{debug, error, info, instrument, warn};
 pub use utils::is_valid_for_sending;
-pub use vm_circ_supply::GenesisInfo;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
 
@@ -184,27 +185,16 @@ impl TipsetStateCache {
     }
 }
 
-/// Type to represent invocation of state call results.
-#[derive(PartialEq, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
-    #[serde(with = "crate::lotus_json")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    pub msg_rct: Option<Receipt>,
-    pub error: Option<String>,
-}
-
-/// An alias Result that represents an `InvocResult` and an Error.
-type StateCallResult = Result<InvocResult, Error>;
-
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
+    #[serde(with = "crate::lotus_json")]
     escrow: TokenAmount,
+    #[serde(with = "crate::lotus_json")]
     locked: TokenAmount,
 }
+lotus_json_with_self!(MarketBalance);
 
 /// State manager handles all interactions with the internal Filecoin actors
 /// state. This encapsulates the [`ChainStore`] functionality, which only
@@ -272,6 +262,14 @@ where
         state.get_actor(addr)
     }
 
+    /// Gets required actor from given [`Cid`].
+    pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
+        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        state.get_actor(addr)?.with_context(|| {
+            format!("Failed to load actor with addr={addr}, state_cid={state_cid}")
+        })
+    }
+
     /// Returns a reference to the state manager's [`Blockstore`].
     pub fn blockstore(&self) -> &DB {
         self.cs.blockstore()
@@ -313,12 +311,12 @@ where
         state_cid: Cid,
         addr: &Address,
     ) -> anyhow::Result<Address, Error> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)
-            .map_err(|e| Error::Other(e.to_string()))?;
+        let state =
+            StateTree::new_from_root(self.blockstore_owned(), &state_cid).map_err(Error::other)?;
 
         let act = state
             .get_actor(addr)
-            .map_err(|e| Error::State(e.to_string()))?
+            .map_err(Error::state)?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
 
         let ms = miner::State::load(self.blockstore(), act.code, act.state)?;
@@ -497,7 +495,7 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<InvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
@@ -691,7 +689,7 @@ where
     /// Blocking version of `compute_tipset_state`
     #[tracing::instrument(skip_all)]
     pub fn compute_tipset_state_blocking(
-        self: &Arc<Self>,
+        &self,
         tipset: Arc<Tipset>,
         callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
@@ -726,11 +724,11 @@ where
             .cs
             .chain_index
             .load_required_tipset(tipset.parents())
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(format!("Failed to load tipset: {err}")))?;
         let messages = self
             .cs
             .messages_for_tipset(&pts)
-            .map_err(|err| Error::Other(err.to_string()))?;
+            .map_err(|err| Error::Other(format!("Failed to load messages for tipset: {err}")))?;
         messages
             .iter()
             .enumerate()
@@ -754,12 +752,13 @@ where
                         message.from(),
                     )))
                 } else {
+                    let block_header = tipset.block_headers().first();
                     crate::chain::get_parent_receipt(
                         self.blockstore(),
-                        tipset.block_headers().first(),
+                        block_header,
                         index,
                     )
-                    .map_err(|err| Error::Other(err.to_string()))
+                    .map_err(|err| Error::Other(format!("Failed to get parent receipt (message_receipts={}, index={index}, error={err})", block_header.message_receipts)))
                 }
             })
             .next()
@@ -975,7 +974,7 @@ where
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
-            .map_err(|err| Error::Other(format!("failed to load message {err:}")))?;
+            .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.cs.heaviest_tipset();
         let maybe_message_reciept = self.tipset_executed_message(&from, &message, true)?;
         if let Some(r) = maybe_message_reciept {
@@ -1008,11 +1007,17 @@ where
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("{e:?}"))?;
         Ok(state_tree
             .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
+    }
+
+    /// Looks up required ID [Address] from the state at the given [Tipset].
+    pub fn lookup_required_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        self.lookup_id(addr, ts)?
+            .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
     }
 
     /// Retrieves market balance in escrow and locked tables.
@@ -1052,11 +1057,7 @@ where
     }
 
     /// Retrieves miner info.
-    pub fn miner_info(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerInfo, Error> {
+    pub fn miner_info(&self, addr: &Address, ts: &Tipset) -> Result<MinerInfo, Error> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
@@ -1064,25 +1065,19 @@ where
 
         Ok(state.info(self.blockstore())?)
     }
+
     /// Retrieves miner faults.
-    pub fn miner_faults(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_faults(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
+
     /// Retrieves miner recoveries.
-    pub fn miner_recoveries(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<BitField, Error> {
+    pub fn miner_recoveries(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
         ts: &Arc<Tipset>,
         get_sector: impl Fn(Partition<'_>) -> BitField,
@@ -1110,11 +1105,7 @@ where
     }
 
     /// Retrieves miner power.
-    pub fn miner_power(
-        self: &Arc<Self>,
-        addr: &Address,
-        ts: &Arc<Tipset>,
-    ) -> Result<MinerPower, Error> {
+    pub fn miner_power(&self, addr: &Address, ts: &Tipset) -> Result<MinerPower, Error> {
         if let Some((miner_power, total_power)) = self.get_power(ts.parent_state(), Some(addr))? {
             return Ok(MinerPower {
                 miner_power,
@@ -1171,7 +1162,7 @@ where
         let prev_beacon = self
             .chain_store()
             .chain_index
-            .latest_beacon_entry(&tipset)?;
+            .latest_beacon_entry(tipset.clone())?;
 
         let entries: Vec<BeaconEntry> = beacon_schedule
             .beacon_entries_for_block(

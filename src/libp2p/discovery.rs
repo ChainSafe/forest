@@ -196,6 +196,8 @@ impl<'a> DiscoveryConfig<'a> {
 
 /// Implementation of `NetworkBehaviour` that discovers the nodes on the
 /// network.
+// Behaviours that manage connections should come first, to get rid of some panics in debug build.
+// See <https://github.com/libp2p/rust-libp2p/issues/4773#issuecomment-2042676966>
 pub struct DiscoveryBehaviour {
     /// Derived discovery discovery.
     discovery: DerivedDiscoveryBehaviour,

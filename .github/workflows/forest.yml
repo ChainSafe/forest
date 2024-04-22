@@ -24,6 +24,7 @@ env:
   CC: sccache clang
   CXX: sccache clang++
   FIL_PROOFS_PARAMETER_CACHE: /var/tmp/filecoin-proof-parameters
+  SHELL_IMAGE: busybox
 jobs:
   build-macos:
     name: Build MacOS
@@ -71,7 +72,10 @@ jobs:
         run: |
           sudo make install-deps
       - name: Cargo Install
-        run: make install
+        env:
+          # To minimize compile times: https://nnethercote.github.io/perf-book/build-configuration.html#minimizing-compile-times
+          RUSTFLAGS: "-C linker=clang -C link-arg=-fuse-ld=lld"
+        run: make install-slim-quick
       - uses: actions/upload-artifact@v4
         with:
           name: 'forest-${{ runner.os }}'
@@ -339,8 +343,8 @@ jobs:
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            ubuntu:focal \
-            bash -c "cp /cache/* /proofs"
+            $SHELL_IMAGE \
+            sh -c "cp /cache/* /proofs"
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
@@ -360,29 +364,48 @@ jobs:
           docker run --rm \
             -v devnet_filecoin-proofs:/proofs \
             -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
-            ubuntu:focal \
-            bash -c "cp /proofs/* /cache"
+            $SHELL_IMAGE \
+            sh -c "cp /proofs/* /cache"
           sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE
-  offline-rpc-check:
+  calibnet-rpc-checks:
     needs:
       - build-ubuntu
-    name: Offline RPC check
+    name: Calibnet RPC checks
     runs-on: ubuntu-latest
+    env:
+      # We use a custom Dockerfile for CI to speed up the build process.
+      FOREST_DOCKERFILE_OVERRIDE: scripts/devnet/forest_ci.dockerfile
     steps:
-      - run: lscpu
-      - name: Checkout Sources
-        uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/cache@v4
+        id: cache
         with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - uses: actions/download-artifact@v4
-        with:
-          name: 'forest-${{ runner.os }}'
-          path: ~/.cargo/bin
-      - name: Set permissions
+          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
+          key: proof-params-keys
+      - name: Load cache into volume
+        if: steps.cache.outputs.cache-hit == 'true'
         run: |
-          chmod +x ~/.cargo/bin/forest*
-      - name: RPC check
-        run: ./scripts/tests/calibnet_offline_rpc_check.sh
+          docker volume create api_compare_filecoin-proofs
+          docker run --rm \
+            -v api_compare_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            $SHELL_IMAGE \
+            sh -c "cp /cache/* /proofs"
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+      - name: Run api compare tests
+        run: ./scripts/tests/api_compare/setup.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+      - name: Dump docker logs
+        if: always()
+        uses: jwalton/gh-docker-logs@v2
+      - name: Prepare cache folder for uploading
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm \
+            -v api_compare_filecoin-proofs:/proofs \
+            -v $FIL_PROOFS_PARAMETER_CACHE:/cache \
+            $SHELL_IMAGE \
+            sh -c "cp /proofs/* /cache"
+          sudo chmod -R 755 $FIL_PROOFS_PARAMETER_CACHE

@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
 use std::{fmt, sync::OnceLock};
 
 use crate::cid_collections::SmallCidNonEmptyVec;
@@ -344,6 +345,19 @@ impl Tipset {
         })
     }
 
+    /// Returns an iterator of all tipsets
+    pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
+        itertools::unfold(Some(self), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = Tipset::load(&store, child.parents())
+                    .ok()
+                    .flatten()
+                    .map(Arc::new);
+                child
+            })
+        })
+    }
+
     /// Fetch the genesis block header for a given tipset.
     pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
         // Scanning through millions of epochs to find the genesis is quite
@@ -499,6 +513,7 @@ mod lotus_json {
 
     use super::TipsetKey;
 
+    #[derive(Clone)]
     pub struct TipsetLotusJson(Tipset);
 
     impl JsonSchema for TipsetLotusJson {

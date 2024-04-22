@@ -6,7 +6,8 @@ use std::{
     time::Duration,
 };
 
-use crate::{chain_sync::SyncStage, rpc_api::data_types::RPCSyncState, rpc_client::*};
+use crate::chain_sync::SyncStage;
+use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
 use itertools::Itertools as _;
@@ -28,25 +29,26 @@ pub enum SyncCommands {
     CheckBad {
         #[arg(short)]
         /// The block CID to check
-        cid: String,
+        cid: Cid,
     },
     /// Mark a given block as bad
     MarkBad {
         /// The block CID to mark as a bad block
         #[arg(short)]
-        cid: String,
+        cid: Cid,
     },
 }
 
 impl SyncCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let RPCSyncState { active_syncs } = api.sync_status().await?;
+                    let resp = SyncState::call(&client, ()).await?;
+                    let active_syncs = resp.active_syncs;
                     let state = active_syncs
                         .iter()
                         .rev()
@@ -96,9 +98,9 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let response = api.sync_status().await?;
+                let resp = SyncState::call(&client, ()).await?;
+                let state = resp.active_syncs.first();
 
-                let state = response.active_syncs.first();
                 let base = state.base();
                 let elapsed_time = state.get_elapsed_time();
                 let target = state.target();
@@ -132,9 +134,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::CheckBad { cid } => {
-                let cid: Cid = cid.parse()?;
-                let response = api.sync_check_bad(cid).await?;
-
+                let response = SyncCheckBad::call(&client, (cid,)).await?;
                 if response.is_empty() {
                     println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
@@ -143,8 +143,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::MarkBad { cid } => {
-                let cid: Cid = cid.parse()?;
-                api.sync_mark_bad(cid).await?;
+                SyncMarkBad::call(&client, (cid,)).await?;
                 println!("OK");
                 Ok(())
             }

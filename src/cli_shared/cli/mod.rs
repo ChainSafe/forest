@@ -11,7 +11,6 @@ use std::{
 
 use crate::cli_shared::read_config;
 use crate::networks::NetworkChain;
-use crate::utils::io::read_file_to_string;
 use crate::utils::misc::LoggingColor;
 use ahash::HashSet;
 use clap::Parser;
@@ -40,16 +39,16 @@ OPTIONS:
 #[derive(Default, Debug, Parser)]
 pub struct CliOpts {
     /// A TOML file containing relevant configurations
-    #[arg(short, long)]
+    #[arg(long)]
     pub config: Option<PathBuf>,
     /// The genesis CAR file
-    #[arg(short, long)]
+    #[arg(long)]
     pub genesis: Option<String>,
     /// Allow RPC to be active or not (default: true)
-    #[arg(short, long)]
+    #[arg(long)]
     pub rpc: Option<bool>,
     /// Disable Metrics endpoint
-    #[arg(short, long)]
+    #[arg(long)]
     pub no_metrics: bool,
     /// Address used for metrics collection server. By defaults binds on
     /// localhost on port 6116.
@@ -58,11 +57,17 @@ pub struct CliOpts {
     /// Address used for RPC. By defaults binds on localhost on port 2345.
     #[arg(long)]
     pub rpc_address: Option<SocketAddr>,
+    /// Disable healthcheck endpoints
+    #[arg(long)]
+    pub no_healthcheck: bool,
+    /// Address used for healthcheck server. By defaults binds on localhost on port 2346.
+    #[arg(long)]
+    pub healthcheck_address: Option<SocketAddr>,
     /// P2P listen addresses, e.g., `--p2p-listen-address /ip4/0.0.0.0/tcp/12345 --p2p-listen-address /ip4/0.0.0.0/tcp/12346`
     #[arg(long)]
     pub p2p_listen_address: Option<Vec<Multiaddr>>,
     /// Allow Kademlia (default: true)
-    #[arg(short, long)]
+    #[arg(long)]
     pub kademlia: Option<bool>,
     /// Allow MDNS (default: false)
     #[arg(long)]
@@ -168,6 +173,15 @@ impl CliOpts {
             }
         } else {
             cfg.client.enable_rpc = false;
+        }
+
+        if self.no_healthcheck {
+            cfg.client.enable_health_check = false;
+        } else {
+            cfg.client.enable_health_check = true;
+            if let Some(healthcheck_address) = self.healthcheck_address {
+                cfg.client.healthcheck_address = healthcheck_address;
+            }
         }
 
         if self.no_metrics {
@@ -306,7 +320,7 @@ pub fn check_for_unknown_keys(path: &Path, config: &Config) {
     // `config` has been loaded successfully from toml file in `path` so we can
     // always serialize it back to a valid TOML value or get the TOML value from
     // `path`
-    let file = read_file_to_string(path).unwrap();
+    let file = std::fs::read_to_string(path).unwrap();
     let value = file.parse::<toml::Value>().unwrap();
 
     let config_file = toml::to_string(config).unwrap();

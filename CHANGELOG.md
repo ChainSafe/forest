@@ -27,6 +27,74 @@
 
 ### Breaking
 
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Rename environment
+  variable `TRUST_PARAMS` to `FOREST_FORCE_TRUST_PARAMS`.
+
+- [#4184](https://github.com/ChainSafe/forest/pull/4184) Removed short form
+  flags from `forest` binary.
+
+- [#4215](https://github.com/ChainSafe/forest/pull/4215) Changed the prefix for
+  Forest-specific RPC methods to `Forest`; `Filecoin.NetInfo` and
+  `Filecoin.StateFetchRoot` to `Forest.NetInfo` and `Forest.StateFetchRoot`.
+
+### Added
+
+- [#4246](https://github.com/ChainSafe/forest/pull/4246) Add support for the
+  `Filecoin.SyncSubmitBlock` RPC method.
+
+- [#4084](https://github.com/ChainSafe/forest/pull/4084) Add support for the
+  `Filecoin.StateDealProviderCollateralBounds` RPC method.
+
+- [#3949](https://github.com/ChainSafe/forest/issues/3949) Added healthcheck
+  endpoints `/healthz`, `/readyz`, and `/livez`. By default, the healthcheck
+  endpoint is enabled on port 2346.
+
+- [#4166](https://github.com/ChainSafe/forest/issues/4166) Add support for the
+  `Filecoin.Web3ClientVersion` RPC method.
+
+- [#4184](https://github.com/ChainSafe/forest/pull/4184) Added
+  `--no-healthcheck` flag to `forest` to disable the healthcheck endpoint.
+
+- [#4183](https://github.com/ChainSafe/forest/issues/4183) Add support for the
+  `Filecoin.EthGetBlockByNumber` RPC method.
+
+### Changed
+
+- [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
+  Filecoin proof parameters source to ChainSafe's hosted Cloudflare R2 bucket.
+  IPFS gateway can still be enforced via `FOREST_PROOFS_ONLY_IPFS_GATEWAY=1`.
+
+### Removed
+
+### Fixed
+
+- [#4177](https://github.com/ChainSafe/forest/pull/4177) Fixed a bug where the
+  environment variable `IPFS_GATEWAY` was not used to change the IPFS gateway.
+
+## Forest 0.17.2 "Dovakhin"
+
+This is a **mandatory** release for all mainnet node operators. It changes the
+NV22 _dragon_ network upgrade epoch to 3855360 (Wed Apr 24 02:00:00 PM UTC
+2024)). All mainnet node **must** be updated to this version before the network
+upgrade epoch to avoid being stuck on a fork.
+
+### Changed
+
+- [#4151](https://github.com/ChainSafe/forest/pull/4151) Changed the Dragon NV22
+  network upgrade epoch to 3855360 (April 24th 2024).
+
+### Fixed
+
+- [#4145](https://github.com/ChainSafe/forest/pull/4145) Fix the
+  `forest-cli net peers --agent` command in case the agent is not available.
+
+## Forest 0.17.1 "Villentretenmerth"
+
+This is a mandatory release that includes scheduled migration for the NV22
+_Dragon_ network upgrade for mainnet and fix for the calibration network.
+Various other fixes and improvements are included as well, see below for
+details.
+
 ### Added
 
 - [#4029](https://github.com/ChainSafe/forest/pull/4029) Add
@@ -47,7 +115,8 @@
 - [#4071](https://github.com/ChainSafe/forest/pull/4071) Add
   `forest-tool net ping` command that pings a peer via its multiaddress.
 
-### Changed
+- [#4119](https://github.com/ChainSafe/forest/pull/4119) Add support for NV22
+  fix for calibration network.
 
 ### Removed
 
@@ -93,6 +162,12 @@ Mandatory release that includes:
 
 - [#3955](https://github.com/ChainSafe/forest/pull/3955) Added support for the
   NV22 _Dragon_ network upgrade, together with the required state migration.
+
+### Changed
+
+- [#3976](https://github.com/ChainSafe/forest/pull/3976) `forest-wallet`
+  defaults to using a local wallet instead of the builtin Forest wallet for
+  greater security.
 
 ### Fixed
 
