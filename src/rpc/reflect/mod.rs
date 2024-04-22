@@ -200,7 +200,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             params,
             result_type: std::marker::PhantomData,
             api_version: Self::API_VERSION,
-            timeout: crate::rpc_client::DEFAULT_TIMEOUT,
+            timeout: *crate::rpc_client::DEFAULT_TIMEOUT,
         })
     }
     fn call_raw(

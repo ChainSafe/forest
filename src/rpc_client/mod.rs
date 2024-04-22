@@ -11,12 +11,21 @@ use crate::lotus_json::HasLotusJson;
 use crate::rpc::{self, ApiVersion, ServerError};
 use anyhow::Context as _;
 use jsonrpsee::core::traits::ToRpcParams;
+use once_cell::sync::Lazy;
 use std::{env, fmt, marker::PhantomData, str::FromStr, time::Duration};
 use url::Url;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_PORT: u16 = 2345;
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Default timeout for RPC requests. Doesn't apply to all requests, e.g., snapshot export which
+/// has no timeout.
+pub static DEFAULT_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
+    std::env::var("FOREST_RPC_DEFAULT_TIMEOUT")
+        .ok()
+        .and_then(|it| Duration::from_secs(it.parse().ok()?).into())
+        .unwrap_or(Duration::from_secs(60))
+});
 
 /// Token and URL for an [`rpc::Client`].
 #[derive(Clone, Debug)]
@@ -136,7 +145,7 @@ impl<T> RpcRequest<T> {
             ),
             result_type: PhantomData,
             api_version: ApiVersion::V0,
-            timeout: DEFAULT_TIMEOUT,
+            timeout: *DEFAULT_TIMEOUT,
         }
     }
 
@@ -150,7 +159,7 @@ impl<T> RpcRequest<T> {
             ),
             result_type: PhantomData,
             api_version: ApiVersion::V1,
-            timeout: DEFAULT_TIMEOUT,
+            timeout: *DEFAULT_TIMEOUT,
         }
     }
 
