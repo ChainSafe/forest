@@ -207,7 +207,7 @@ boa_parser = { version = "0.18", optional = true }
 boa_runtime = { version = "0.18", optional = true }
 ## memory leak, see https://github.com/tokio-rs/console/pull/501
 console-subscriber = { version = "0.2", features = ["parking_lot"], optional = true }
-mimalloc = { version = "0.1.39", optional = true, default-features = false }
+mimalloc = { version = "0.1.40", optional = true, default-features = false }
 tikv-jemallocator = { version = "0.5", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
@@ -236,7 +236,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.211"
+ra_ap_syntax = "0.0.212"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
