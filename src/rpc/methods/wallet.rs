@@ -4,7 +4,6 @@
 use std::any::Any;
 
 use crate::key_management::{Key, KeyInfo};
-use crate::lotus_json::LotusJson;
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::{
     address::Address,
@@ -39,12 +38,12 @@ impl RpcMethod<1> for WalletBalance {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (Address,);
     type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(address),): Self::Params,
+        (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let heaviest_ts = ctx.state_manager.chain_store().heaviest_tipset();
         let cid = heaviest_ts.parent_state();
@@ -79,12 +78,12 @@ impl RpcMethod<1> for WalletExport {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (Address,);
     type Ok = KeyInfo;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(address),): Self::Params,
+        (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read().await;
         let key_info = crate::key_management::export_key_info(&address, &keystore)?;
@@ -98,12 +97,12 @@ impl RpcMethod<1> for WalletHas {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (Address,);
     type Ok = bool;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(address),): Self::Params,
+        (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let keystore = ctx.keystore.read().await;
         Ok(crate::key_management::find_key(&address, &keystore).is_ok())
@@ -116,12 +115,12 @@ impl RpcMethod<1> for WalletImport {
     const PARAM_NAMES: [&'static str; 1] = ["key"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<KeyInfo>,);
+    type Params = (KeyInfo,);
     type Ok = Address;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(key_info),): Self::Params,
+        (key_info,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let key = Key::try_from(key_info)?;
 
@@ -154,12 +153,12 @@ impl RpcMethod<1> for WalletNew {
     const PARAM_NAMES: [&'static str; 1] = ["signature_type"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<SignatureType>,);
+    type Params = (SignatureType,);
     type Ok = Address;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(signature_type),): Self::Params,
+        (signature_type,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write().await;
         let key = crate::key_management::generate_key(signature_type)?;
@@ -181,12 +180,12 @@ impl RpcMethod<1> for WalletSetDefault {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (Address,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(address),): Self::Params,
+        (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write().await;
         let addr_string = format!("wallet-{}", address);
@@ -203,12 +202,12 @@ impl RpcMethod<2> for WalletSign {
     const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>, LotusJson<Vec<u8>>);
+    type Params = (Address, Vec<u8>);
     type Ok = Signature;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(address), LotusJson(message)): Self::Params,
+        (address, message): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let state_manager = &ctx.state_manager;
         let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
@@ -254,12 +253,12 @@ impl RpcMethod<3> for WalletVerify {
     const PARAM_NAMES: [&'static str; 3] = ["address", "message", "signature"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>, LotusJson<Vec<u8>>, LotusJson<Signature>);
+    type Params = (Address, Vec<u8>, Signature);
     type Ok = bool;
 
     async fn handle(
         _: Ctx<impl Any>,
-        (LotusJson(address), LotusJson(message), LotusJson(signature)): Self::Params,
+        (address, message, signature): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(signature.verify(&message, &address).is_ok())
     }
@@ -271,12 +270,12 @@ impl RpcMethod<1> for WalletDelete {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (Address,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(address),): Self::Params,
+        (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let mut keystore = ctx.keystore.write().await;
         crate::key_management::remove_key(&address, &mut keystore)?;

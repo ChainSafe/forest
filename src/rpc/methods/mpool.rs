@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas::estimate_message_gas;
-
-use crate::lotus_json::LotusJson;
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
@@ -34,14 +32,14 @@ impl RpcMethod<1> for MpoolGetNonce {
     const PARAM_NAMES: [&'static str; 1] = ["address"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Address>,);
+    type Params = (Address,);
     type Ok = u64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.mpool.get_sequence(&address.into_inner())?)
+        Ok(ctx.mpool.get_sequence(&address)?)
     }
 }
 
@@ -52,12 +50,12 @@ impl RpcMethod<1> for MpoolPending {
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<ApiTipsetKey>,);
+    type Params = (ApiTipsetKey,);
     type Ok = Vec<SignedMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(ApiTipsetKey(tsk)),): Self::Params,
+        (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let mut ts = ctx
             .state_manager
@@ -127,12 +125,12 @@ impl RpcMethod<2> for MpoolSelect {
     const PARAM_NAMES: [&'static str; 2] = ["tsk", "tq"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<ApiTipsetKey>, f64);
+    type Params = (ApiTipsetKey, f64);
     type Ok = Vec<SignedMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(ApiTipsetKey(tsk)), tq): Self::Params,
+        (ApiTipsetKey(tsk), tq): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
@@ -150,12 +148,12 @@ impl RpcMethod<1> for MpoolPush {
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<SignedMessage>,);
+    type Params = (SignedMessage,);
     type Ok = Cid;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(msg),): Self::Params,
+        (msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let cid = ctx.mpool.as_ref().push(msg).await?;
         Ok(cid)
@@ -169,12 +167,12 @@ impl RpcMethod<2> for MpoolPushMessage {
     const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Message>, Option<MessageSendSpec>);
+    type Params = (Message, Option<MessageSendSpec>);
     type Ok = SignedMessage;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (LotusJson(umsg), spec): Self::Params,
+        (umsg, spec): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let from = umsg.from;
 
