@@ -207,7 +207,7 @@ boa_parser = { version = "0.18", optional = true }
 boa_runtime = { version = "0.18", optional = true }
 ## memory leak, see https://github.com/tokio-rs/console/pull/501
 console-subscriber = { version = "0.2", features = ["parking_lot"], optional = true }
-mimalloc = { version = "0.1.40", optional = true, default-features = false }
+mimalloc = { version = "0.1", optional = true, default-features = false }
 tikv-jemallocator = { version = "0.5", optional = true }
 tracing-chrome = { version = "0.7", optional = true }
 tracing-loki = { version = "0.2", default-features = false, features = ["compat-0-2-1", "rustls"], optional = true }
