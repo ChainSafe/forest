@@ -46,8 +46,8 @@ pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
 pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
 pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
 pub const ETH_GET_BLOCK_BY_NUMBER: &str = "Filecoin.EthGetBlockByNumber";
-pub const ETH_SUBSCRIBE: &str = "Filecoin.EthSubscribe";
 pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
+pub const ETH_SUBSCRIBE: &str = "Filecoin.EthSubscribe";
 pub const ETH_UNSUBSCRIBE: &str = "Filecoin.EthUnsubscribe";
 pub const WEB3_CLIENT_VERSION: &str = "Filecoin.Web3ClientVersion";
 
