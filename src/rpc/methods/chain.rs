@@ -695,6 +695,7 @@ pub(crate) fn new_heads<DB: Blockstore>(data: &crate::rpc::RPCState<DB>) -> Subs
             }
         }
     });
+
     receiver
 }
 
