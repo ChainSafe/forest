@@ -1406,7 +1406,7 @@ mod test {
             gas_fee_cap: TokenAmount::from_atto(1500000120),
             gas_premium: TokenAmount::from_atto(1500000000)
         };
-        let tx_arg = TxArgs {
+        let expected_args = TxArgs {
             chain_id: 0,
             nonce: 4,
             to: None,
@@ -1420,6 +1420,9 @@ mod test {
             s: BigInt(0.into()),
         };
 
-        assert_eq!(eth_tx_args_from_unsigned_eth_message(&msg).unwrap(), tx_arg);
+        assert_eq!(
+            expected_args,
+            eth_tx_args_from_unsigned_eth_message(&msg).unwrap()
+        );
     }
 }
