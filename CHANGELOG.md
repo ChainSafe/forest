@@ -62,6 +62,10 @@
   timeout is now configurable via the `FOREST_RPC_DEFAULT_TIMEOUT` environment
   variable.
 
+- [#4240](https://github.com/ChainSafe/forest/pull/4240) Added `--fixed-unit`
+  and `--exact-balance` flags to `forest-wallet balance` similarly to
+  `forest-wallet list` subcommand.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
