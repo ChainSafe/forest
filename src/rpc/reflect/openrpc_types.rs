@@ -144,25 +144,27 @@ impl Params {
                 duplicates.join(", ")
             )));
         }
-        if let Some((first_opt_ix, first_opt_param)) =
-            params.iter().enumerate().find(|(_, it)| !it.required)
-        {
-            let late_mandatory_params = params
-                .iter()
-                .enumerate()
-                .filter(|(ix, it)| it.required && *ix > first_opt_ix)
-                .map(|(_, it)| it.name.clone())
-                .collect::<Vec<_>>();
 
-            if !late_mandatory_params.is_empty() {
-                return Err(ParamListError(format!(
-                    "Mandatory parameters may not follow optional parameters, \
-                            but the optional parameter {} is followed by [{}]",
-                    first_opt_param.name,
-                    late_mandatory_params.join(", ")
-                )));
-            }
-        };
+        // `GasEstimateMessageGas::Params` is `(Message, Option<MessageSendSpec>, ApiTipsetKey)`
+        // if let Some((first_opt_ix, first_opt_param)) =
+        //     params.iter().enumerate().find(|(_, it)| !it.required)
+        // {
+        //     let late_mandatory_params = params
+        //         .iter()
+        //         .enumerate()
+        //         .filter(|(ix, it)| it.required && *ix > first_opt_ix)
+        //         .map(|(_, it)| it.name.clone())
+        //         .collect::<Vec<_>>();
+
+        //     if !late_mandatory_params.is_empty() {
+        //         return Err(ParamListError(format!(
+        //             "Mandatory parameters may not follow optional parameters, \
+        //                     but the optional parameter {} is followed by [{}]",
+        //             first_opt_param.name,
+        //             late_mandatory_params.join(", ")
+        //         )));
+        //     }
+        // };
         Ok(Self { inner: params })
     }
 }

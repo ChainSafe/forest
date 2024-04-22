@@ -10,7 +10,7 @@ use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::{Ctx, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, RpcMethod};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -36,9 +36,17 @@ use nonempty::nonempty;
 use num_bigint::{self, Sign};
 use num_traits::{Signed as _, Zero as _};
 use rlp::RlpStream;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 use std::{ops::Add, sync::Arc};
+
+macro_rules! for_each_method {
+    ($callback:ident) => {
+        $callback!(crate::rpc::eth::EthSyncing);
+    };
+}
+pub(crate) use for_each_method;
 
 pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
 pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
@@ -46,7 +54,6 @@ pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
 pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
 pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
 pub const ETH_GET_BLOCK_BY_NUMBER: &str = "Filecoin.EthGetBlockByNumber";
-pub const ETH_SYNCING: &str = "Filecoin.EthSyncing";
 pub const WEB3_CLIENT_VERSION: &str = "Filecoin.Web3ClientVersion";
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -551,15 +558,18 @@ pub struct EthSyncingResult {
     pub highest_block: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum EthSyncingResultLotusJson {
     DoneSync(bool),
     Syncing {
+        #[schemars(with = "i64")]
         #[serde(rename = "startingblock", with = "crate::lotus_json::hexify")]
         starting_block: i64,
+        #[schemars(with = "i64")]
         #[serde(rename = "currentblock", with = "crate::lotus_json::hexify")]
         current_block: i64,
+        #[schemars(with = "i64")]
         #[serde(rename = "highestblock", with = "crate::lotus_json::hexify")]
         highest_block: i64,
     },
@@ -684,33 +694,6 @@ pub async fn eth_get_balance<DB: Blockstore>(
         .context("Failed to retrieve actor")?;
 
     Ok(BigInt(actor.balance.atto().clone()))
-}
-
-pub async fn eth_syncing<DB: Blockstore + Sync + Send + 'static>(
-    _params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<EthSyncingResult>, ServerError> {
-    let crate::rpc::sync::RPCSyncState { active_syncs } =
-        crate::rpc::sync::SyncState::handle(data.clone(), ()).await?;
-    match active_syncs
-        .into_iter()
-        .rev()
-        .find_or_first(|ss| ss.stage() != SyncStage::Idle)
-    {
-        Some(sync_state) => match (sync_state.base(), sync_state.target()) {
-            (Some(base), Some(target)) => Ok(LotusJson(EthSyncingResult {
-                done_sync: sync_state.stage() == SyncStage::Complete,
-                current_block: sync_state.epoch(),
-                starting_block: base.epoch(),
-                highest_block: target.epoch(),
-            })),
-            _ => Err(ServerError::internal_error(
-                "missing syncing information, try again",
-                None,
-            )),
-        },
-        None => Err(ServerError::internal_error("sync state not found", None)),
-    }
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
@@ -1200,6 +1183,43 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
     let block = block_from_filecoin_tipset(data, ts, full_tx_info).await?;
 
     Ok(block)
+}
+
+pub enum EthSyncing {}
+impl RpcMethod<0> for EthSyncing {
+    const NAME: &'static str = "Filecoin.EthSyncing";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = ();
+    type Ok = EthSyncingResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let crate::rpc::sync::RPCSyncState { active_syncs } =
+            crate::rpc::sync::SyncState::handle(ctx, ()).await?;
+        match active_syncs
+            .into_iter()
+            .rev()
+            .find_or_first(|ss| ss.stage() != SyncStage::Idle)
+        {
+            Some(sync_state) => match (sync_state.base(), sync_state.target()) {
+                (Some(base), Some(target)) => Ok(EthSyncingResult {
+                    done_sync: sync_state.stage() == SyncStage::Complete,
+                    current_block: sync_state.epoch(),
+                    starting_block: base.epoch(),
+                    highest_block: target.epoch(),
+                }),
+                _ => Err(ServerError::internal_error(
+                    "missing syncing information, try again",
+                    None,
+                )),
+            },
+            None => Err(ServerError::internal_error("sync state not found", None)),
+        }
+    }
 }
 
 #[cfg(test)]

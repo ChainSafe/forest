@@ -97,11 +97,11 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateCall::NAME, Access::Read);
     access.insert(state::StateNetworkName::NAME, Access::Read);
     access.insert(state::StateReplay::NAME, Access::Read);
-    access.insert(state::STATE_GET_ACTOR, Access::Read);
+    access.insert(state::StateGetActor::NAME, Access::Read);
     access.insert(state::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state::STATE_MARKET_DEALS, Access::Read);
-    access.insert(state::STATE_MINER_INFO, Access::Read);
-    access.insert(state::STATE_MINER_ACTIVE_SECTORS, Access::Read);
+    access.insert(state::StateMinerInfo::NAME, Access::Read);
+    access.insert(state::StateMinerActiveSectors::NAME, Access::Read);
     access.insert(state::STATE_MINER_FAULTS, Access::Read);
     access.insert(state::STATE_MINER_RECOVERIES, Access::Read);
     access.insert(state::STATE_MINER_POWER, Access::Read);
@@ -113,8 +113,8 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_SEARCH_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG_LIMITED, Access::Read);
     access.insert(state::STATE_NETWORK_VERSION, Access::Read);
-    access.insert(state::STATE_ACCOUNT_KEY, Access::Read);
-    access.insert(state::STATE_LOOKUP_ID, Access::Read);
+    access.insert(state::StateAccountKey::NAME, Access::Read);
+    access.insert(state::StateLookupID::NAME, Access::Read);
     access.insert(state::STATE_FETCH_ROOT, Access::Read);
     access.insert(state::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
     access.insert(state::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
@@ -124,8 +124,8 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateListMessages::NAME, Access::Read);
     access.insert(state::STATE_LIST_MINERS, Access::Read);
     access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
-    access.insert(state::STATE_MINER_SECTORS, Access::Read);
-    access.insert(state::STATE_MINER_PARTITIONS, Access::Read);
+    access.insert(state::StateMinerSectors::NAME, Access::Read);
+    access.insert(state::StateMinerPartitions::NAME, Access::Read);
     access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
     access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
     access.insert(state::STATE_VM_CIRCULATING_SUPPLY_INTERNAL, Access::Read);
@@ -136,10 +136,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
     // Gas API
-    access.insert(gas::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
+    access.insert(gas::GasEstimateGasLimit::NAME, Access::Read);
     access.insert(gas::GAS_ESTIMATE_GAS_PREMIUM, Access::Read);
     access.insert(gas::GAS_ESTIMATE_FEE_CAP, Access::Read);
-    access.insert(gas::GAS_ESTIMATE_MESSAGE_GAS, Access::Read);
+    access.insert(gas::GasEstimateMessageGas::NAME, Access::Read);
 
     // Common API
     access.insert(common::Version::NAME, Access::Read);
@@ -167,7 +167,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth::ETH_CHAIN_ID, Access::Read);
     access.insert(eth::ETH_GAS_PRICE, Access::Read);
     access.insert(eth::ETH_GET_BALANCE, Access::Read);
-    access.insert(eth::ETH_SYNCING, Access::Read);
+    access.insert(eth::EthSyncing::NAME, Access::Read);
     access.insert(eth::ETH_GET_BLOCK_BY_NUMBER, Access::Read);
     access.insert(eth::WEB3_CLIENT_VERSION, Access::Read);
 

@@ -567,10 +567,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
         RpcTest::identity(StateNetworkName::request(())?),
-        RpcTest::identity(ApiInfo::state_get_actor_req(
+        RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
-        )),
+        ))?),
         RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
             tipset.key().into(),
             DomainSeparationTag::ElectionProofProduction,
@@ -592,10 +592,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Default::default(),
         )),
         // This should return `Address::new_id(0xdeadbeef)`
-        RpcTest::identity(ApiInfo::state_lookup_id_req(
+        RpcTest::identity(StateLookupID::request((
             Address::new_id(0xdeadbeef),
             tipset.key().into(),
-        )),
+        ))?),
         RpcTest::identity(ApiInfo::state_network_version_req(tipset.key().into())),
         RpcTest::identity(ApiInfo::state_list_miners_req(tipset.key().into())),
         RpcTest::identity(ApiInfo::msig_get_available_balance_req(
@@ -655,32 +655,32 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
-            RpcTest::identity(ApiInfo::state_miner_active_sectors_req(
+            RpcTest::identity(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
-            RpcTest::identity(ApiInfo::state_lookup_id_req(
+            ))?),
+            RpcTest::identity(StateLookupID::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
-            RpcTest::identity(ApiInfo::state_miner_sectors_req(
+            ))?),
+            RpcTest::identity(StateMinerSectors::request((
                 block.miner_address,
                 None,
                 tipset.key().into(),
-            )),
-            RpcTest::identity(ApiInfo::state_miner_partitions_req(
+            ))?),
+            RpcTest::identity(StateMinerPartitions::request((
                 block.miner_address,
                 0,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(ApiInfo::state_market_balance_req(
                 block.miner_address,
                 tipset.key().into(),
             )),
-            RpcTest::identity(ApiInfo::state_miner_info_req(
+            RpcTest::identity(StateMinerInfo::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(ApiInfo::state_miner_power_req(
                 block.miner_address,
                 tipset.key().into(),
@@ -726,7 +726,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     sector,
                     tipset.key().into(),
                 ))?),
-                RpcTest::identity(ApiInfo::state_miner_sectors_req(
+                RpcTest::identity(StateMinerSectors::request((
                     block.miner_address,
                     {
                         let mut bf = BitField::new();
@@ -734,7 +734,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                         Some(bf)
                     },
                     tipset.key().into(),
-                )),
+                ))?),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
@@ -759,18 +759,9 @@ fn state_tests_with_tipset<DB: Blockstore>(
         }
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
-                RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    tipset.key().into(),
-                )),
-                RpcTest::identity(ApiInfo::state_account_key_req(
-                    msg.from(),
-                    Default::default(),
-                )),
-                RpcTest::identity(ApiInfo::state_lookup_id_req(
-                    msg.from(),
-                    tipset.key().into(),
-                )),
+                RpcTest::identity(StateAccountKey::request((msg.from(), tipset.key().into()))?),
+                RpcTest::identity(StateAccountKey::request((msg.from(), Default::default()))?),
+                RpcTest::identity(StateLookupID::request((msg.from(), tipset.key().into()))?),
                 RpcTest::identity(StateListMessages::request((
                     MessageFilter {
                         from: Some(msg.from()),
@@ -844,7 +835,7 @@ fn eth_tests() -> Vec<RpcTest> {
         RpcTest::identity(ApiInfo::eth_chain_id_req()),
         // There is randomness in the result of this API
         RpcTest::basic(ApiInfo::eth_gas_price_req()),
-        RpcTest::basic(ApiInfo::eth_syncing_req()),
+        RpcTest::basic(EthSyncing::request(()).unwrap()),
         RpcTest::identity(ApiInfo::eth_get_balance_req(
             EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
             BlockNumberOrHash::from_predefined(Predefined::Latest),

@@ -144,53 +144,69 @@ pub struct ApiTipsetKey(pub Option<TipsetKey>);
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfoLotusJson {
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub owner: Address,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub worker: Address,
+    #[schemars(with = "LotusJson<Option<Address>>")]
     pub new_worker: AddressOrEmpty,
+    #[schemars(with = "LotusJson<Vec<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
+    #[schemars(with = "LotusJson<Option<String>>")]
     #[serde(with = "crate::lotus_json")]
     pub peer_id: Option<String>,
+    #[schemars(with = "LotusJson<Vec<Vec<u8>>>")]
     #[serde(with = "crate::lotus_json")]
     pub multiaddrs: Vec<Vec<u8>>,
+    #[schemars(with = "String")]
     pub window_po_st_proof_type: fvm_shared2::sector::RegisteredPoStProof,
+    #[schemars(with = "u64")]
     pub sector_size: fvm_shared2::sector::SectorSize,
     pub window_po_st_partition_sectors: u64,
     pub consensus_fault_elapsed: ChainEpoch,
+    #[schemars(with = "LotusJson<Option<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub pending_owner_address: Option<Address>,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub beneficiary: Address,
+    #[schemars(with = "LotusJson<BeneficiaryTerm>")]
     #[serde(with = "crate::lotus_json")]
     pub beneficiary_term: BeneficiaryTerm,
+    #[schemars(with = "LotusJson<Option<PendingBeneficiaryChange>>")]
     #[serde(with = "crate::lotus_json")]
     pub pending_beneficiary_term: Option<PendingBeneficiaryChange>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BeneficiaryTermLotusJson {
     /// The total amount the current beneficiary can withdraw. Monotonic, but reset when beneficiary changes.
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub quota: TokenAmount,
     /// The amount of quota the current beneficiary has already withdrawn
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub used_quota: TokenAmount,
     /// The epoch at which the beneficiary's rights expire and revert to the owner
     pub expiration: ChainEpoch,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PendingBeneficiaryChangeLotusJson {
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub new_beneficiary: Address,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub new_quota: TokenAmount,
     pub new_expiration: ChainEpoch,
@@ -384,20 +400,26 @@ impl MinerSectors {
 
 lotus_json_with_self!(MinerSectors);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPartitions {
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     all_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     faulty_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     recovering_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     live_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     active_sectors: BitField,
 }
+lotus_json_with_self!(MinerPartitions);
 
 impl MinerPartitions {
     pub fn new(
@@ -416,8 +438,6 @@ impl MinerPartitions {
         }
     }
 }
-
-lotus_json_with_self!(MinerPartitions);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

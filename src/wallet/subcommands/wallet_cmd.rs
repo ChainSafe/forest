@@ -499,9 +499,11 @@ impl WalletCommands {
 
                 let signed_msg = if let Some(keystore) = &backend.local {
                     let spec = None;
-                    let mut message = api
-                        .gas_estimate_message_gas(message, spec, ApiTipsetKey(None))
-                        .await?;
+                    let mut message = GasEstimateMessageGas::call(
+                        &backend.remote,
+                        (message, spec, ApiTipsetKey(None)),
+                    )
+                    .await?;
 
                     if message.gas_premium > message.gas_fee_cap {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")

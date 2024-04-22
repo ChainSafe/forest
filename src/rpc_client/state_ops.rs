@@ -10,11 +10,11 @@ use crate::{
     rpc::state::*,
     shim::{
         address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::MethodNum,
-        state_tree::ActorState, version::NetworkVersion,
+        version::NetworkVersion,
     },
 };
 use cid::Cid;
-use fil_actor_interface::miner::{DeadlineInfo, MinerInfo, MinerPower};
+use fil_actor_interface::miner::{DeadlineInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_shared2::piece::PaddedPieceSize;
@@ -24,21 +24,6 @@ use num_bigint::BigInt;
 use super::{ApiInfo, RpcRequest, ServerError};
 
 impl ApiInfo {
-    pub async fn state_get_actor(
-        &self,
-        address: Address,
-        head: ApiTipsetKey,
-    ) -> Result<Option<ActorState>, ServerError> {
-        self.call(Self::state_get_actor_req(address, head)).await
-    }
-
-    pub fn state_get_actor_req(
-        address: Address,
-        head: ApiTipsetKey,
-    ) -> RpcRequest<Option<ActorState>> {
-        RpcRequest::new(STATE_GET_ACTOR, (address, head))
-    }
-
     pub fn state_market_balance_req(
         miner: Address,
         tsk: ApiTipsetKey,
@@ -56,10 +41,6 @@ impl ApiInfo {
 
     pub fn state_fetch_root_req(root: Cid, opt_path: Option<PathBuf>) -> RpcRequest<String> {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
-    }
-
-    pub fn state_miner_info_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<MinerInfo> {
-        RpcRequest::new(STATE_MINER_INFO, (miner, tsk))
     }
 
     pub fn state_miner_faults_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<BitField> {
@@ -123,29 +104,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_READ_STATE, (actor, tsk))
     }
 
-    pub fn state_miner_active_sectors_req(
-        actor: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<Vec<SectorOnChainInfo>> {
-        RpcRequest::new(STATE_MINER_ACTIVE_SECTORS, (actor, tsk))
-    }
-
-    pub fn state_miner_sectors_req(
-        actor: Address,
-        sectors: Option<BitField>,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<Vec<SectorOnChainInfo>> {
-        RpcRequest::new(STATE_MINER_SECTORS, (actor, sectors, tsk))
-    }
-
-    pub fn state_miner_partitions_req(
-        actor: Address,
-        dl_idx: u64,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<Vec<MinerPartitions>> {
-        RpcRequest::new(STATE_MINER_PARTITIONS, (actor, dl_idx, tsk))
-    }
-
     pub fn state_miner_sector_count_req(
         actor: Address,
         tsk: ApiTipsetKey,
@@ -153,16 +111,8 @@ impl ApiInfo {
         RpcRequest::new(STATE_MINER_SECTOR_COUNT, (actor, tsk))
     }
 
-    pub fn state_lookup_id_req(addr: Address, tsk: ApiTipsetKey) -> RpcRequest<Option<Address>> {
-        RpcRequest::new(STATE_LOOKUP_ID, (addr, tsk))
-    }
-
     pub fn state_network_version_req(tsk: ApiTipsetKey) -> RpcRequest<NetworkVersion> {
         RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
-    }
-
-    pub fn state_account_key_req(addr: Address, tsk: ApiTipsetKey) -> RpcRequest<Address> {
-        RpcRequest::new(STATE_ACCOUNT_KEY, (addr, tsk))
     }
 
     pub fn state_verified_client_status(

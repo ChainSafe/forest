@@ -5,8 +5,11 @@ use super::*;
 
 use fil_actors_shared::fvm_ipld_bitfield::{json::BitFieldJson, BitField};
 
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct BitFieldLotusJson(#[schemars(with = "Option<Vec<u8>>")] pub BitFieldJson);
+
 impl HasLotusJson for BitField {
-    type LotusJson = BitFieldJson;
+    type LotusJson = BitFieldLotusJson;
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
         vec![
@@ -19,9 +22,9 @@ impl HasLotusJson for BitField {
         ]
     }
     fn into_lotus_json(self) -> Self::LotusJson {
-        BitFieldJson(self)
+        BitFieldLotusJson(BitFieldJson(self))
     }
-    fn from_lotus_json(BitFieldJson(it): Self::LotusJson) -> Self {
+    fn from_lotus_json(BitFieldLotusJson(BitFieldJson(it)): Self::LotusJson) -> Self {
         it
     }
 }

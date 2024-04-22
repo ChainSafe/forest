@@ -5,7 +5,7 @@ use super::*;
 use crate::shim::{address::Address, econ::TokenAmount, state_tree::ActorState};
 use ::cid::Cid;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ActorStateLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
@@ -66,8 +66,7 @@ impl HasLotusJson for ActorState {
             head: state,
             nonce: sequence,
             balance: crate::shim::econ::TokenAmount::from(balance),
-            delegated_address: delegated_address
-                .map(crate::shim::address::Address::from),
+            delegated_address: delegated_address.map(crate::shim::address::Address::from),
         }
     }
 

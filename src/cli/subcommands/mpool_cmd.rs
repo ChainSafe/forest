@@ -77,10 +77,13 @@ fn filter_messages(
     Ok(filtered)
 }
 
-async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -> Option<u64> {
+async fn get_actor_sequence(
+    message: &Message,
+    tipset: &Tipset,
+    client: &rpc::Client,
+) -> Option<u64> {
     let address = message.from;
-    let get_actor_result = api.state_get_actor(address, tipset.key().into()).await;
-
+    let get_actor_result = StateGetActor::call(client, (address, tipset.key().into())).await;
     let actor_state = match get_actor_result {
         Ok(maybe_actor) => {
             if let Some(state) = maybe_actor {
@@ -261,7 +264,7 @@ impl MpoolCommands {
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
-                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &api).await {
+                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &client).await {
                         actor_sequences.insert(msg.from, sequence);
                     }
                 }

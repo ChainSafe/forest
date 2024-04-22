@@ -51,6 +51,7 @@ pub mod prelude {
     node::for_each_method!(export);
     sync::for_each_method!(export);
     wallet::for_each_method!(export);
+    eth::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -256,6 +257,7 @@ where
     node::for_each_method!(register);
     sync::for_each_method!(register);
     wallet::for_each_method!(register);
+    eth::for_each_method!(register);
     module.finish()
 }
 
@@ -269,15 +271,8 @@ where
 
     // State API
     module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
-    module.register_async_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)?;
-    module.register_async_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)?;
-    module.register_async_method(STATE_GET_ACTOR, state_get_actor::<DB>)?;
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
     module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
-    module.register_async_method(STATE_MINER_INFO, state_miner_info::<DB>)?;
-    module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
-    module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
-    module.register_async_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB>)?;
     module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
     module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
@@ -326,7 +321,6 @@ where
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
-    module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;
@@ -334,7 +328,6 @@ where
     module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
     module.register_async_method(ETH_GET_BLOCK_BY_NUMBER, eth_get_block_by_number::<DB>)?;
-    module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
     module.register_method(WEB3_CLIENT_VERSION, move |_, _| {
         crate::utils::version::FOREST_VERSION_STRING.clone()
     })?;
