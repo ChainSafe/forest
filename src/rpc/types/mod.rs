@@ -54,7 +54,9 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    max_fee: LotusJson<TokenAmount>,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    max_fee: TokenAmount,
 }
 
 lotus_json_with_self!(MessageSendSpec);
@@ -196,11 +198,15 @@ pub struct PendingBeneficiaryChangeLotusJson {
     pub approved_by_nominee: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPowerLotusJson {
-    miner_power: LotusJson<Claim>,
-    total_power: LotusJson<Claim>,
+    #[schemars(with = "LotusJson<Claim>")]
+    #[serde(with = "crate::lotus_json")]
+    miner_power: Claim,
+    #[schemars(with = "LotusJson<Claim>")]
+    #[serde(with = "crate::lotus_json")]
+    total_power: Claim,
     has_min_power: bool,
 }
 

@@ -4,6 +4,7 @@
 use std::str::FromStr as _;
 
 use crate::blocks::Tipset;
+use crate::lotus_json::HasLotusJson as _;
 use crate::message::SignedMessage;
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::rpc_client::ApiInfo;
@@ -228,10 +229,7 @@ impl MpoolCommands {
                     if cids {
                         println!("{}", msg.cid().unwrap());
                     } else {
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&crate::lotus_json::LotusJson(msg))?
-                        );
+                        println!("{}", msg.into_lotus_json_string_pretty()?);
                     }
                 }
 

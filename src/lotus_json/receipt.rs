@@ -10,11 +10,14 @@ use crate::shim::executor::Receipt;
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ReceiptLotusJson {
-    exit_code: LotusJson<u32>,
-    r#return: LotusJson<RawBytes>,
-    gas_used: LotusJson<u64>,
-    #[serde(default)] // Lotus still does `"EventsRoot": null`
-    events_root: LotusJson<Option<Cid>>,
+    exit_code: u32,
+    #[schemars(with = "LotusJson<RawBytes>")]
+    #[serde(with = "crate::lotus_json")]
+    r#return: RawBytes,
+    gas_used: u64,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(with = "crate::lotus_json", default)] // Lotus still does `"EventsRoot": null`
+    events_root: Option<Cid>,
 }
 
 impl HasLotusJson for Receipt {
@@ -58,10 +61,10 @@ impl HasLotusJson for Receipt {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         Self::LotusJson {
-            exit_code: self.exit_code().value().into(),
-            r#return: self.return_data().into(),
-            gas_used: self.gas_used().into(),
-            events_root: self.events_root().into(),
+            exit_code: self.exit_code().value(),
+            r#return: self.return_data(),
+            gas_used: self.gas_used(),
+            events_root: self.events_root(),
         }
     }
 
@@ -73,10 +76,10 @@ impl HasLotusJson for Receipt {
             events_root,
         } = lotus_json;
         Self::V3(fvm_shared3::receipt::Receipt {
-            exit_code: fvm_shared3::error::ExitCode::new(exit_code.into_inner()),
-            return_data: r#return.into_inner(),
-            gas_used: gas_used.into_inner(),
-            events_root: events_root.into_inner(),
+            exit_code: fvm_shared3::error::ExitCode::new(exit_code),
+            return_data: r#return,
+            gas_used,
+            events_root,
         })
     }
 }

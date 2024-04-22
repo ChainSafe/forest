@@ -249,7 +249,7 @@ pub trait Params<const ARITY: usize>: HasLotusJson {
     ///
     /// Exposes de-serialization errors, or mis-implementation of this trait.
     fn unparse(self) -> Result<[serde_json::Value; ARITY], serde_json::Error> {
-        match serde_json::to_value(self.into_lotus_json()) {
+        match self.into_lotus_json_value() {
             Ok(serde_json::Value::Array(args)) => match args.try_into() {
                 Ok(it) => Ok(it),
                 Err(_) => Err(serde_json::Error::custom("ARITY mismatch")),

@@ -409,8 +409,12 @@ pub struct Tx {
     pub block_number: Uint64,
     pub transaction_index: Uint64,
     pub from: Address,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    pub to: LotusJson<Option<Address>>,
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    pub to: Option<Address>,
     pub value: BigInt,
     pub r#type: Uint64,
     pub input: Bytes,
@@ -452,7 +456,7 @@ impl From<Tx> for TxArgs {
         Self {
             chain_id: tx.chain_id.0,
             nonce: tx.nonce.0,
-            to: tx.to.0,
+            to: tx.to,
             value: tx.value,
             max_fee_per_gas: tx.max_fee_per_gas,
             max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
@@ -888,7 +892,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
         chain_id: Uint64(chain_id as u64),
-        to: LotusJson(tx_args.to),
+        to: tx_args.to,
         from,
         value: tx_args.value,
         r#type: Uint64(EIP_1559_TX_TYPE),
@@ -1079,7 +1083,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     };
 
     Ok(Tx {
-        to: LotusJson(to),
+        to,
         from,
         input,
         nonce: Uint64(msg.sequence),

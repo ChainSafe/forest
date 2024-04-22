@@ -147,6 +147,15 @@ pub trait HasLotusJson: Sized {
     fn snapshots() -> Vec<(serde_json::Value, Self)>;
     fn into_lotus_json(self) -> Self::LotusJson;
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self;
+    fn into_lotus_json_value(self) -> serde_json::Result<serde_json::Value> {
+        serde_json::to_value(self.into_lotus_json())
+    }
+    fn into_lotus_json_string(self) -> serde_json::Result<String> {
+        serde_json::to_string(&self.into_lotus_json())
+    }
+    fn into_lotus_json_string_pretty(self) -> serde_json::Result<String> {
+        serde_json::to_string_pretty(&self.into_lotus_json())
+    }
 }
 
 macro_rules! decl_and_test {
@@ -232,7 +241,7 @@ where
     T: HasLotusJson + PartialEq + std::fmt::Debug + Clone,
 {
     // T -> T::LotusJson -> lotus_json
-    let serialized = serde_json::to_value(val.clone().into_lotus_json()).unwrap();
+    let serialized = val.clone().into_lotus_json_value().unwrap();
     assert_eq!(
         serialized.to_string(),
         lotus_json.to_string(),
@@ -427,11 +436,15 @@ where
 }
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
-#[derive(
-    Debug, Serialize, Deserialize, From, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy,
-)]
+#[derive(Debug, Serialize, Deserialize, From, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(bound = "T: HasLotusJson + Clone")]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
+
+impl<T: Clone> Clone for LotusJson<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
 impl<T> JsonSchema for LotusJson<T>
 where
@@ -450,15 +463,6 @@ where
 impl<T> LotusJson<T> {
     pub fn into_inner(self) -> T {
         self.0
-    }
-}
-
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  This shouldn't be needed, we only want non-recursive definitions now
-impl<T> LotusJson<Option<T>> {
-    // don't want to impl Deref<T> for LotusJson<T>
-    pub fn is_none(&self) -> bool {
-        self.0.is_none()
     }
 }
 

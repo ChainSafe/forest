@@ -223,7 +223,7 @@ impl RpcMethod<1> for ChainExport {
             epoch,
             recent_roots,
             output_path,
-            tipset_keys: LotusJson(ApiTipsetKey(tsk)),
+            tipset_keys: ApiTipsetKey(tsk),
             skip_checksum,
             dry_run,
         } = params;
@@ -765,7 +765,9 @@ pub struct ChainExportParams {
     pub epoch: ChainEpoch,
     pub recent_roots: i64,
     pub output_path: PathBuf,
-    pub tipset_keys: LotusJson<ApiTipsetKey>,
+    #[schemars(with = "LotusJson<ApiTipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    pub tipset_keys: ApiTipsetKey,
     pub skip_checksum: bool,
     pub dry_run: bool,
 }
