@@ -37,9 +37,14 @@ services:
       - FULLNODE_API_INFO=/dns/forest/tcp/${FOREST_RPC_PORT}/http
       - RUST_LOG=info,forest_filecoin::rpc=debug
     entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
     command:
       - |
         set -euxo pipefail
+        # Perform basic initliazation, including generating the JWT token
+        forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
+          --exit-after-init --save-token /data/forest-token
+
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
           --height=-50 \
@@ -50,6 +55,24 @@ services:
       timeout: 10m
       retries: 3
       start_period: 10m
+  forest-wallet-import:
+    depends_on:
+      forest:
+        condition: service_healthy
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
+    command:
+      - |
+        set -euxo pipefail
+        export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        echo $MINER_WORKER_KEY | forest-wallet --remote-wallet import
   api-serve:
     depends_on:
       init:
@@ -118,6 +141,8 @@ services:
       - |
         set -euxo pipefail
         lotus wait-api --timeout 10m
+        # copy Lotus token to shared volume
+        cp /var/lib/lotus/token /data/lotus-token
         # `sethead` right after `sync wait` to ensure the head is not set in middle of a sync
         lotus sync wait
         FULLNODE_API_INFO="$(cat /var/lib/lotus/token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
@@ -125,12 +150,16 @@ services:
         # wait for 30s to make sure the re-validation starts
         sleep 30
         lotus sync wait
+        # After the sync is done, import the wallet for signing blocks. It might be already there, which will return an error. We ignore it.
+        echo $MINER_WORKER_KEY | lotus wallet import || true
   api-compare:
     depends_on:
       lotus-sync-wait:
         condition: service_completed_successfully
       forest:
         condition: service_healthy
+      forest-wallet-import:
+        condition: service_completed_successfully
     build:
       context: ../../../.
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
@@ -143,12 +172,15 @@ services:
       - RUST_LOG=info,forest_filecoin::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
     entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
     command:
       - |
         set -euxo pipefail
+        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        FOREST_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
-          --forest "/dns/forest/tcp/$FOREST_RPC_PORT/http" \
-          --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
+          --forest $$FOREST_API_INFO \
+          --lotus $$LOTUS_API_INFO \
           --n-tipsets 10 \
           --filter-file /data/filter-list
   api-compare-offline:
@@ -169,12 +201,15 @@ services:
       - RUST_LOG=info,forest_filecoin::tool::subcommands=debug
       - FOREST_RPC_DEFAULT_TIMEOUT=120
     entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
     command:
       - |
         set -euxo pipefail
+        LOTUS_API_INFO="$(cat /data/lotus-token):/dns/lotus/tcp/${LOTUS_RPC_PORT}/http"
+        FOREST_API_INFO="/dns/api-serve/tcp/${FOREST_OFFLINE_RPC_PORT}/http"
         forest-tool api compare $(ls /data/*.car.zst | tail -n 1) \
-          --forest "/dns/api-serve/tcp/$FOREST_OFFLINE_RPC_PORT/http" \
-          --lotus "/dns/lotus/tcp/$LOTUS_RPC_PORT/http" \
+          --forest $$FOREST_API_INFO \
+          --lotus $$LOTUS_API_INFO \
           --n-tipsets 10 \
           --filter-file /data/filter-list-offline
   post-setup:

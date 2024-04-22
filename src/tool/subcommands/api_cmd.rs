@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::Tipset;
+use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
@@ -16,6 +16,7 @@ use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::gas::GasEstimateGasLimit;
+use crate::rpc::miner::BlockTemplate;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
@@ -835,6 +836,21 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
             ]);
         }
+        // TODO can we devise some synthetic, signed bls messages?
+        let block_template = BlockTemplate {
+            miner: Address::from_str("t0111551").unwrap(),
+            parents: tipset.parents().to_owned(),
+            ticket: Ticket::default(),
+            eproof: ElectionProof::default(),
+            beacon_values: Vec::default(),
+            messages: secp_messages.clone(),
+            epoch: tipset.epoch(),
+            timestamp: tipset.min_timestamp(),
+            winning_post_proof: Vec::default(),
+        };
+        tests.push(RpcTest::identity(
+            MinerCreateBlock::request((block_template,)).unwrap(),
+        ));
     }
 
     Ok(tests)

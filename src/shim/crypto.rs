@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::borrow::Cow;
 
-use super::fvm_shared_latest::{self, commcid::Commitment};
 pub use super::fvm_shared_latest::{
     crypto::signature::SECP_SIG_LEN, IPLD_RAW, TICKET_RANDOMNESS_LOOKBACK,
+};
+use super::{
+    fvm_shared_latest::{self, commcid::Commitment},
+    version::NetworkVersion,
 };
 use bls_signatures::{PublicKey as BlsPublicKey, Signature as BlsSignature};
 use cid::Cid;
@@ -105,6 +108,18 @@ impl Signature {
     /// Returns reference to signature bytes.
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
+    }
+
+    /// Checks if the signature is a valid `secp256k1` signature type given the network version.
+    pub fn is_valid_secpk_sig_type(&self, network_version: NetworkVersion) -> bool {
+        if network_version < NetworkVersion::V18 {
+            matches!(self.sig_type, SignatureType::Secp256k1)
+        } else {
+            matches!(
+                self.sig_type,
+                SignatureType::Secp256k1 | SignatureType::Delegated
+            )
+        }
     }
 }
 

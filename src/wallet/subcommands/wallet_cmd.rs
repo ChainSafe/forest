@@ -374,13 +374,21 @@ impl WalletCommands {
                 let key = match path {
                     Some(path) => std::fs::read_to_string(path)?,
                     _ => {
-                        tokio::task::spawn_blocking(|| {
-                            Password::with_theme(&ColorfulTheme::default())
-                                .allow_empty_password(true)
-                                .with_prompt("Enter the private key")
-                                .interact()
-                        })
-                        .await??
+                        // TODO Perhaps it's better to always use stdin and not make it interactive
+                        let term = Term::stderr();
+                        if term.is_term() {
+                            tokio::task::spawn_blocking(|| {
+                                Password::with_theme(&ColorfulTheme::default())
+                                    .allow_empty_password(true)
+                                    .with_prompt("Enter the private key")
+                                    .interact()
+                            })
+                            .await??
+                        } else {
+                            let mut buffer = String::new();
+                            std::io::stdin().read_line(&mut buffer)?;
+                            buffer
+                        }
                     }
                 };
 
