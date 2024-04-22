@@ -789,7 +789,7 @@ fn is_eth_address(addr: &VmAddress) -> bool {
 }
 
 fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
-    let mut to = Some(Address::default());
+    let mut to = None;
     let mut params = vec![];
 
     if msg.version != 0 {
