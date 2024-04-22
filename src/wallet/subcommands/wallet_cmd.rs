@@ -212,6 +212,15 @@ pub enum WalletCommands {
     Balance {
         /// The address of the account to check
         address: String,
+        /// Output is rounded to 4 significant figures by default.
+        /// Do not round
+        // ENHANCE(aatifsyed): add a --round/--no-round argument pair
+        #[arg(long, alias = "exact-balance", short_alias = 'e')]
+        no_round: bool,
+        /// Output may be given an SI prefix like `atto` by default.
+        /// Do not do this, showing whole FIL at all times.
+        #[arg(long, alias = "fixed-unit", short_alias = 'f')]
+        no_abbrev: bool,
     },
     /// Get the default address of the wallet
     Default,
@@ -316,11 +325,15 @@ impl WalletCommands {
                 println!("{addr}");
                 Ok(())
             }
-            Self::Balance { address } => {
+            Self::Balance {
+                address,
+                no_round,
+                no_abbrev,
+            } => {
                 let StrictAddress(address) = StrictAddress::from_str(&address)
                     .with_context(|| format!("Invalid address: {address}"))?;
                 let balance = WalletBalance::call(&backend.remote, (address,)).await?;
-                println!("{balance}");
+                println!("{}", format_balance(&balance, no_round, no_abbrev));
                 Ok(())
             }
             Self::Default => {
@@ -406,16 +419,7 @@ impl WalletCommands {
                     let balance_token_amount =
                         WalletBalance::call(&backend.remote, (address,)).await?;
 
-                    let balance_string = match (no_round, no_abbrev) {
-                        // no_round, absolute
-                        (true, true) => format!("{:#}", balance_token_amount.pretty()),
-                        // no_round, relative
-                        (true, false) => format!("{}", balance_token_amount.pretty()),
-                        // round, absolute
-                        (false, true) => format!("{:#.4}", balance_token_amount.pretty()),
-                        // round, relative
-                        (false, false) => format!("{:.4}", balance_token_amount.pretty()),
-                    };
+                    let balance_string = format_balance(&balance_token_amount, no_round, no_abbrev);
 
                     println!("{address:41}  {default_address_mark:7}  {balance_string}");
                 }
@@ -561,4 +565,17 @@ fn input_password_to_load_encrypted_keystore(data_dir: PathBuf) -> dialoguer::Re
     Ok(keystore
         .into_inner()
         .expect("validation succeeded, so keystore must be emplaced"))
+}
+
+fn format_balance(balance: &TokenAmount, no_round: bool, no_abbrev: bool) -> String {
+    match (no_round, no_abbrev) {
+        // no_round, absolute
+        (true, true) => format!("{:#}", balance.pretty()),
+        // no_round, relative
+        (true, false) => format!("{}", balance.pretty()),
+        // round, absolute
+        (false, true) => format!("{:#.4}", balance.pretty()),
+        // round, relative
+        (false, false) => format!("{:.4}", balance.pretty()),
+    }
 }

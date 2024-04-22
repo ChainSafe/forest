@@ -58,6 +58,10 @@
 - [#4183](https://github.com/ChainSafe/forest/issues/4183) Add support for the
   `Filecoin.EthGetBlockByNumber` RPC method.
 
+- [#4240](https://github.com/ChainSafe/forest/pull/4240) Added `--fixed-unit`
+  and `--exact-balance` flags to `forest-wallet balance` similarly to
+  `forest-wallet list` subcommand.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
