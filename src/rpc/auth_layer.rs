@@ -251,7 +251,10 @@ async fn check_permissions(
 ) -> anyhow::Result<(), ErrorCode> {
     let claims = match auth_header {
         Some(token) => {
-            let token = token.to_str().map_err(|_| ErrorCode::ParseError)?;
+            let token = token
+                .to_str()
+                .map_err(|_| ErrorCode::ParseError)?
+                .trim_start_matches("Bearer ");
 
             debug!("JWT from HTTP Header: {}", token);
 
@@ -273,5 +276,86 @@ async fn check_permissions(
             }
         }
         None => Err(ErrorCode::MethodNotFound),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use self::chain::ChainHead;
+    use super::*;
+    use chrono::Duration;
+
+    #[tokio::test]
+    async fn check_permissions_no_header() {
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+
+        let res = check_permissions(keystore.clone(), None, ChainHead::NAME).await;
+        assert!(res.is_ok());
+
+        let res = check_permissions(keystore.clone(), None, "Cthulhu.InvokeElderGods").await;
+        assert_eq!(res.unwrap_err(), ErrorCode::MethodNotFound);
+
+        let res = check_permissions(keystore.clone(), None, wallet::WalletNew::NAME).await;
+        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+    }
+
+    #[tokio::test]
+    async fn check_permissions_invalid_header() {
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+
+        let auth_header = HeaderValue::from_static("Bearer Azathoth");
+        let res = check_permissions(keystore.clone(), Some(auth_header), ChainHead::NAME).await;
+        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+
+        let auth_header = HeaderValue::from_static("Cthulhu");
+        let res = check_permissions(keystore.clone(), Some(auth_header), ChainHead::NAME).await;
+        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+    }
+
+    #[tokio::test]
+    async fn check_permissions_valid_header() {
+        use crate::auth::*;
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+
+        // generate a key and store it in the keystore
+        let key_info = generate_priv_key();
+        keystore
+            .write()
+            .await
+            .put(JWT_IDENTIFIER, key_info.clone())
+            .unwrap();
+        let token_exp = Duration::hours(1);
+        let token = create_token(
+            ADMIN.iter().map(ToString::to_string).collect(),
+            key_info.private_key(),
+            token_exp,
+        )
+        .unwrap();
+
+        // Should work with the `Bearer` prefix
+        let auth_header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
+        let res =
+            check_permissions(keystore.clone(), Some(auth_header.clone()), ChainHead::NAME).await;
+        assert!(res.is_ok());
+
+        let res = check_permissions(
+            keystore.clone(),
+            Some(auth_header.clone()),
+            wallet::WalletNew::NAME,
+        )
+        .await;
+        assert!(res.is_ok());
+
+        // Should work without the `Bearer` prefix
+        let auth_header = HeaderValue::from_str(&token).unwrap();
+        let res =
+            check_permissions(keystore.clone(), Some(auth_header), wallet::WalletNew::NAME).await;
+        assert!(res.is_ok());
     }
 }
