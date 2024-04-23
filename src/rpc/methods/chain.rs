@@ -789,7 +789,7 @@ pub enum PathChange<T = Arc<Tipset>> {
     Apply(T),
 }
 impl HasLotusJson for PathChange {
-    type LotusJson = PathChange<LotusJson<Tipset>>;
+    type LotusJson = PathChange<<Tipset as HasLotusJson>::LotusJson>;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -825,15 +825,17 @@ impl HasLotusJson for PathChange {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         match self {
-            PathChange::Revert(it) => PathChange::Revert(LotusJson(Tipset::clone(&it))),
-            PathChange::Apply(it) => PathChange::Apply(LotusJson(Tipset::clone(&it))),
+            PathChange::Revert(it) => {
+                PathChange::Revert(Arc::unwrap_or_clone(it).into_lotus_json())
+            }
+            PathChange::Apply(it) => PathChange::Apply(Arc::unwrap_or_clone(it).into_lotus_json()),
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         match lotus_json {
-            PathChange::Revert(it) => PathChange::Revert(it.into_inner().into()),
-            PathChange::Apply(it) => PathChange::Apply(it.into_inner().into()),
+            PathChange::Revert(it) => PathChange::Revert(Tipset::from_lotus_json(it).into()),
+            PathChange::Apply(it) => PathChange::Apply(Tipset::from_lotus_json(it).into()),
         }
     }
 }

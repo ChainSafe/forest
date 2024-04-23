@@ -18,7 +18,7 @@ impl From<&TipsetKey> for ApiTipsetKey {
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
 //                  this shouldn't exist
 impl HasLotusJson for ApiTipsetKey {
-    type LotusJson = LotusJson<Vec<Cid>>;
+    type LotusJson = <Vec<Cid> as HasLotusJson>::LotusJson;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -26,15 +26,14 @@ impl HasLotusJson for ApiTipsetKey {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        LotusJson(
-            self.0
-                .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
-                .unwrap_or_default(),
-        )
+        self.0
+            .map(|ts| ts.into_cids().into_iter().collect::<Vec<Cid>>())
+            .unwrap_or_default()
+            .into_lotus_json()
     }
 
-    fn from_lotus_json(LotusJson(lotus_json): Self::LotusJson) -> Self {
-        Self(NonEmpty::from_vec(lotus_json).map(From::from))
+    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
+        Self(NonEmpty::from_vec(HasLotusJson::from_lotus_json(lotus_json)).map(From::from))
     }
 }
 
