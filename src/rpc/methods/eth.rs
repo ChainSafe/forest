@@ -1202,7 +1202,6 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
 mod test {
     use super::*;
     use ethereum_types::H160;
-    use keccak_hash::H256;
     use num_bigint;
     use num_traits::{FromBytes, Signed};
     use quickcheck_macros::quickcheck;
@@ -1392,9 +1391,10 @@ mod test {
 
     #[test]
     fn test_tx_args_to_address() {
+        // None case
         let msg = Message {
             version: 0,
-            to: FilecoinAddress::from_str("f010").unwrap(),
+            to: FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
             method_num: EAMMethod::CreateExternal as u64,
             ..Message::default()
         };
@@ -1404,6 +1404,7 @@ mod test {
             .to
             .is_none());
 
+        // Some case
         let msg = Message {
             version: 0,
             to: FilecoinAddress::from_str("f410fujiqghwwwr3z4kqlse3ihzyqipmiaavdqchxs2y").unwrap(),
