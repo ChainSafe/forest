@@ -632,9 +632,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
     // Get deals
     let deals = {
         let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
-        let actor = state
-            .get_actor(&Address::MARKET_ACTOR)?
-            .context("Market actor not found")?;
+        let actor = state.get_required_actor(&Address::MARKET_ACTOR)?;
         let market_state = market::State::load(&store, actor.code, actor.state)?;
         let proposals = market_state.proposals(&store)?;
         let mut deals = vec![];

@@ -298,8 +298,7 @@ pub async fn state_market_deals<DB: Blockstore>(
     let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
     let actor = data
         .state_manager
-        .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-        .context("Market actor address could not be resolved")?;
+        .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
     let market_state =
         market::State::load(data.state_manager.blockstore(), actor.code, actor.state)?;
 
@@ -364,8 +363,7 @@ impl RpcMethod<2> for StateMinerActiveSectors {
         let policy = &ctx.state_manager.chain_config().policy;
         let actor = ctx
             .state_manager
-            .get_actor(&address, *ts.parent_state())?
-            .context("Miner actor address could not be resolved")?;
+            .get_required_actor(&address, *ts.parent_state())?;
         let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         // Collect active sectors from each partition in each deadline.
         let mut active_sectors = vec![];
@@ -403,8 +401,7 @@ impl RpcMethod<3> for StateMinerPartitions {
         let policy = &ctx.state_manager.chain_config().policy;
         let actor = ctx
             .state_manager
-            .get_actor(&address, *ts.parent_state())?
-            .context("Miner actor address could not be resolved")?;
+            .get_required_actor(&address, *ts.parent_state())?;
         let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let deadline = miner_state.load_deadline(policy, ctx.store(), dl_idx)?;
         let mut all_partitions = Vec::new();
@@ -439,8 +436,7 @@ impl RpcMethod<3> for StateMinerSectors {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
-            .get_actor(&address, *ts.parent_state())?
-            .context("Miner actor address could not be resolved")?;
+            .get_required_actor(&address, *ts.parent_state())?;
         let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let sectors_info = miner_state
             .load_sectors(ctx.store(), sectors.as_ref())?
@@ -1216,8 +1212,7 @@ pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
     let store = data.state_manager.blockstore();
     let actor = data
         .state_manager
-        .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-        .context("Market actor not found")?;
+        .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
     let market_state = market::State::load(store, actor.code, actor.state)?;
     let proposals = market_state.proposals(store)?;
     let proposal = proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
@@ -1245,13 +1240,11 @@ pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync 
         .chain_store()
         .load_required_tipset_or_heaviest(&tsk)?;
 
-    let power_actor = state_manager
-        .get_actor(&Address::POWER_ACTOR, *ts.parent_state())?
-        .context("Power actor address could not be resolved")?;
+    let power_actor =
+        state_manager.get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
 
-    let reward_actor = state_manager
-        .get_actor(&Address::REWARD_ACTOR, *ts.parent_state())?
-        .context("Power actor address could not be resolved")?;
+    let reward_actor =
+        state_manager.get_required_actor(&Address::REWARD_ACTOR, *ts.parent_state())?;
 
     let store = state_manager.blockstore();
 
