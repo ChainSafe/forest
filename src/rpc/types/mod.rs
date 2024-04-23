@@ -30,7 +30,7 @@ use crate::shim::{
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
-use fil_actor_interface::miner::MinerInfo;
+use fil_actor_interface::miner::{DeadlineInfo, MinerInfo};
 use fil_actor_interface::{
     market::{DealProposal, DealState},
     miner::MinerPower,
@@ -214,7 +214,7 @@ pub struct PendingBeneficiaryChangeLotusJson {
     pub approved_by_nominee: bool,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPowerLotusJson {
     #[schemars(with = "LotusJson<Claim>")]
@@ -350,16 +350,24 @@ pub struct SectorPreCommitInfo {
 
 lotus_json_with_self!(SectorPreCommitInfo);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiDeadline {
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     pub post_submissions: BitField,
-    #[serde(with = "crate::lotus_json")]
     pub disputable_proof_count: u64,
 }
 
 lotus_json_with_self!(ApiDeadline);
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct ApiDeadlineInfo(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub DeadlineInfo,
+);
+lotus_json_with_self!(ApiDeadlineInfo);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -380,13 +388,14 @@ pub struct CirculatingSupply {
 
 lotus_json_with_self!(CirculatingSupply);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerSectors {
     live: u64,
     active: u64,
     faulty: u64,
 }
+lotus_json_with_self!(MinerSectors);
 
 impl MinerSectors {
     pub fn new(live: u64, active: u64, faulty: u64) -> Self {
@@ -397,8 +406,6 @@ impl MinerSectors {
         }
     }
 }
-
-lotus_json_with_self!(MinerSectors);
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

@@ -14,7 +14,6 @@ use crate::{
     },
 };
 use cid::Cid;
-use fil_actor_interface::miner::{DeadlineInfo, MinerPower};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_shared2::piece::PaddedPieceSize;
@@ -43,30 +42,8 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub fn state_miner_faults_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<BitField> {
-        RpcRequest::new(STATE_MINER_FAULTS, (miner, tsk))
-    }
-
     pub fn state_miner_recoveries_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<BitField> {
         RpcRequest::new(STATE_MINER_RECOVERIES, (miner, tsk))
-    }
-
-    pub fn state_miner_power_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<MinerPower> {
-        RpcRequest::new(STATE_MINER_POWER, (miner, tsk))
-    }
-
-    pub fn state_miner_deadlines_req(
-        miner: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<Vec<ApiDeadline>> {
-        RpcRequest::new(STATE_MINER_DEADLINES, (miner, tsk))
-    }
-
-    pub fn state_miner_proving_deadline_req(
-        miner: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<DeadlineInfo> {
-        RpcRequest::new(STATE_MINER_PROVING_DEADLINE, (miner, tsk))
     }
 
     pub fn state_miner_available_balance_req(
@@ -102,13 +79,6 @@ impl ApiInfo {
 
     pub fn state_read_state_req(actor: Address, tsk: ApiTipsetKey) -> RpcRequest<ApiActorState> {
         RpcRequest::new(STATE_READ_STATE, (actor, tsk))
-    }
-
-    pub fn state_miner_sector_count_req(
-        actor: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<MinerSectors> {
-        RpcRequest::new(STATE_MINER_SECTOR_COUNT, (actor, tsk))
     }
 
     pub fn state_network_version_req(tsk: ApiTipsetKey) -> RpcRequest<NetworkVersion> {

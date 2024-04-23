@@ -681,26 +681,26 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            RpcTest::identity(ApiInfo::state_miner_power_req(
+            RpcTest::identity(StateMinerPower::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
-            RpcTest::identity(ApiInfo::state_miner_deadlines_req(
+            ))?),
+            RpcTest::identity(StateMinerDeadlines::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
-            RpcTest::identity(ApiInfo::state_miner_proving_deadline_req(
+            ))?),
+            RpcTest::identity(StateMinerProvingDeadline::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(ApiInfo::state_miner_available_balance_req(
                 block.miner_address,
                 tipset.key().into(),
             )),
-            RpcTest::identity(ApiInfo::state_miner_faults_req(
+            RpcTest::identity(StateMinerFaults::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(MinerGetBaseInfo::request((
                 block.miner_address,
                 block.epoch,
@@ -710,10 +710,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             )),
-            RpcTest::identity(ApiInfo::state_miner_sector_count_req(
+            RpcTest::identity(StateMinerSectorCount::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
         ]);
 
         for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?

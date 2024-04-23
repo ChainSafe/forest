@@ -8,6 +8,12 @@ use fil_actors_shared::fvm_ipld_bitfield::{json::BitFieldJson, BitField};
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct BitFieldLotusJson(#[schemars(with = "Option<Vec<u8>>")] pub BitFieldJson);
 
+impl Clone for BitFieldLotusJson {
+    fn clone(&self) -> Self {
+        Self(BitFieldJson(self.0 .0.clone()))
+    }
+}
+
 impl HasLotusJson for BitField {
     type LotusJson = BitFieldLotusJson;
     #[cfg(test)]

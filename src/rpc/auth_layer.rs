@@ -102,11 +102,11 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::STATE_MARKET_DEALS, Access::Read);
     access.insert(state::StateMinerInfo::NAME, Access::Read);
     access.insert(state::StateMinerActiveSectors::NAME, Access::Read);
-    access.insert(state::STATE_MINER_FAULTS, Access::Read);
+    access.insert(state::StateMinerFaults::NAME, Access::Read);
     access.insert(state::STATE_MINER_RECOVERIES, Access::Read);
-    access.insert(state::STATE_MINER_POWER, Access::Read);
-    access.insert(state::STATE_MINER_DEADLINES, Access::Read);
-    access.insert(state::STATE_MINER_PROVING_DEADLINE, Access::Read);
+    access.insert(state::StateMinerPower::NAME, Access::Read);
+    access.insert(state::StateMinerDeadlines::NAME, Access::Read);
+    access.insert(state::StateMinerProvingDeadline::NAME, Access::Read);
     access.insert(state::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
     access.insert(state::STATE_GET_RECEIPT, Access::Read);
     access.insert(state::STATE_WAIT_MSG, Access::Read);
@@ -123,7 +123,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateSectorGetInfo::NAME, Access::Read);
     access.insert(state::StateListMessages::NAME, Access::Read);
     access.insert(state::STATE_LIST_MINERS, Access::Read);
-    access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
+    access.insert(state::StateMinerSectorCount::NAME, Access::Read);
     access.insert(state::StateMinerSectors::NAME, Access::Read);
     access.insert(state::StateMinerPartitions::NAME, Access::Read);
     access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);

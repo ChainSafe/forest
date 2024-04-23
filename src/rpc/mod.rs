@@ -273,24 +273,15 @@ where
     module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
     module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
-    module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
-    module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
     module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
     module.register_async_method(
         STATE_MINER_AVAILABLE_BALANCE,
         state_miner_available_balance::<DB>,
     )?;
-    module.register_async_method(STATE_MINER_POWER, state_miner_power::<DB>)?;
-    module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
     module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
     module.register_async_method(
         STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
         state_deal_provider_collateral_bounds::<DB>,
-    )?;
-
-    module.register_async_method(
-        STATE_MINER_PROVING_DEADLINE,
-        state_miner_proving_deadline::<DB>,
     )?;
     module.register_async_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)?;
     module.register_async_method(STATE_WAIT_MSG, state_wait_msg::<DB>)?;

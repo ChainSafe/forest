@@ -28,7 +28,6 @@ use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
-use fil_actor_interface::miner::DeadlineInfo;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
@@ -66,6 +65,11 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerActiveSectors);
         $callback!(crate::rpc::state::StateMinerPartitions);
         $callback!(crate::rpc::state::StateMinerSectors);
+        $callback!(crate::rpc::state::StateMinerSectorCount);
+        $callback!(crate::rpc::state::StateMinerPower);
+        $callback!(crate::rpc::state::StateMinerDeadlines);
+        $callback!(crate::rpc::state::StateMinerProvingDeadline);
+        $callback!(crate::rpc::state::StateMinerFaults);
     };
 }
 pub(crate) use for_each_method;
@@ -75,11 +79,7 @@ type RandomnessParams = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
 pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
 pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
 pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-pub const STATE_MINER_FAULTS: &str = "Filecoin.StateMinerFaults";
 pub const STATE_MINER_RECOVERIES: &str = "Filecoin.StateMinerRecoveries";
-pub const STATE_MINER_POWER: &str = "Filecoin.StateMinerPower";
-pub const STATE_MINER_DEADLINES: &str = "Filecoin.StateMinerDeadlines";
-pub const STATE_MINER_PROVING_DEADLINE: &str = "Filecoin.StateMinerProvingDeadline";
 pub const STATE_MINER_AVAILABLE_BALANCE: &str = "Filecoin.StateMinerAvailableBalance";
 pub const STATE_GET_RECEIPT: &str = "Filecoin.StateGetReceipt";
 pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
@@ -92,7 +92,6 @@ pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
 pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
 pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 pub const STATE_LIST_MINERS: &str = "Filecoin.StateListMiners";
-pub const STATE_MINER_SECTOR_COUNT: &str = "Filecoin.StateMinerSectorCount";
 pub const STATE_VERIFIED_CLIENT_STATUS: &str = "Filecoin.StateVerifiedClientStatus";
 pub const STATE_VM_CIRCULATING_SUPPLY_INTERNAL: &str = "Filecoin.StateVMCirculatingSupplyInternal";
 pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
@@ -454,122 +453,142 @@ impl RpcMethod<3> for StateMinerSectors {
     }
 }
 
-// Returns the number of sectors in a miner's sector set and proving set
-pub async fn state_miner_sector_count<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<MinerSectors>, ServerError> {
-    let LotusJson((miner, ApiTipsetKey(tsk))): LotusJson<(Address, ApiTipsetKey)> =
-        params.parse()?;
+/// Returns the number of sectors in a miner's sector set and proving set
+pub enum StateMinerSectorCount {}
 
-    let bs = data.state_manager.blockstore();
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    let policy = &data.state_manager.chain_config().policy;
-    let actor = data
-        .state_manager
-        .get_actor(&miner, *ts.parent_state())?
-        .context("Miner actor address could not be resolved")?;
-    let miner_state = miner::State::load(bs, actor.code, actor.state)?;
+impl RpcMethod<2> for StateMinerSectorCount {
+    const NAME: &'static str = "Filecoin.StateMinerSectorCount";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    // Collect live, active and faulty sectors count from each partition in each deadline.
-    let mut live_count = 0;
-    let mut active_count = 0;
-    let mut faulty_count = 0;
-    miner_state.for_each_deadline(policy, bs, |_dlidx, deadline| {
-        deadline.for_each(bs, |_partidx, partition| {
-            live_count += partition.live_sectors().len();
-            active_count += partition.active_sectors().len();
-            faulty_count += partition.faulty_sectors().len();
+    type Params = (Address, ApiTipsetKey);
+    type Ok = MinerSectors;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.state_manager.chain_config().policy;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&address, *ts.parent_state())?;
+        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        // Collect live, active and faulty sectors count from each partition in each deadline.
+        let mut live_count = 0;
+        let mut active_count = 0;
+        let mut faulty_count = 0;
+        miner_state.for_each_deadline(policy, ctx.store(), |_dlidx, deadline| {
+            deadline.for_each(ctx.store(), |_partidx, partition| {
+                live_count += partition.live_sectors().len();
+                active_count += partition.active_sectors().len();
+                faulty_count += partition.faulty_sectors().len();
+                Ok(())
+            })
+        })?;
+        Ok(MinerSectors::new(live_count, active_count, faulty_count))
+    }
+}
+
+/// looks up the miner power of the given address.
+pub enum StateMinerPower {}
+
+impl RpcMethod<2> for StateMinerPower {
+    const NAME: &'static str = "Filecoin.StateMinerPower";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = MinerPower;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        ctx.state_manager
+            .miner_power(&address, &ts)
+            .map_err(From::from)
+    }
+}
+
+pub enum StateMinerDeadlines {}
+
+impl RpcMethod<2> for StateMinerDeadlines {
+    const NAME: &'static str = "Filecoin.StateMinerDeadlines";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = Vec<ApiDeadline>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.state_manager.chain_config().policy;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&address, *ts.parent_state())?;
+        let store = ctx.state_manager.blockstore();
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        let mut res = Vec::new();
+        state.for_each_deadline(policy, store, |_idx, deadline| {
+            res.push(ApiDeadline {
+                post_submissions: deadline.partitions_posted(),
+                disputable_proof_count: deadline.disputable_proof_count(store)?,
+            });
             Ok(())
-        })
-    })?;
-    Ok(LotusJson(MinerSectors::new(
-        live_count,
-        active_count,
-        faulty_count,
-    )))
+        })?;
+        Ok(res)
+    }
+}
+
+pub enum StateMinerProvingDeadline {}
+
+impl RpcMethod<2> for StateMinerProvingDeadline {
+    const NAME: &'static str = "Filecoin.StateMinerProvingDeadline";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = ApiDeadlineInfo;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let policy = &ctx.state_manager.chain_config().policy;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&address, *ts.parent_state())?;
+        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(ApiDeadlineInfo(state.deadline_info(policy, ts.epoch())))
+    }
 }
 
 /// looks up the miner power of the given address.
-pub async fn state_miner_power<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<MinerPower>, ServerError> {
-    let LotusJson((address, ApiTipsetKey(key))): LotusJson<(Address, ApiTipsetKey)> =
-        params.parse()?;
+pub enum StateMinerFaults {}
 
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
+impl RpcMethod<2> for StateMinerFaults {
+    const NAME: &'static str = "Filecoin.StateMinerFaults";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    data.state_manager
-        .miner_power(&address, &tipset)
-        .map(|res| res.into())
-        .map_err(|e| e.into())
-}
+    type Params = (Address, ApiTipsetKey);
+    type Ok = BitField;
 
-pub async fn state_miner_deadlines<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Vec<ApiDeadline>>, ServerError> {
-    let LotusJson((addr, ApiTipsetKey(tsk))): LotusJson<(Address, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    let policy = &data.state_manager.chain_config().policy;
-    let actor = data
-        .state_manager
-        .get_actor(&addr, *ts.parent_state())?
-        .context("Miner actor address could not be resolved")?;
-    let store = data.state_manager.blockstore();
-    let state = miner::State::load(store, actor.code, actor.state)?;
-    let mut res = Vec::new();
-    state.for_each_deadline(policy, store, |_idx, deadline| {
-        res.push(ApiDeadline {
-            post_submissions: deadline.partitions_posted(),
-            disputable_proof_count: deadline.disputable_proof_count(store)?,
-        });
-        Ok(())
-    })?;
-    Ok(LotusJson(res))
-}
-
-pub async fn state_miner_proving_deadline<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<DeadlineInfo>, ServerError> {
-    let LotusJson((addr, ApiTipsetKey(tsk))): LotusJson<(Address, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    let policy = &data.state_manager.chain_config().policy;
-    let actor = data
-        .state_manager
-        .get_actor(&addr, *ts.parent_state())?
-        .context("Miner actor address could not be resolved")?;
-    let store = data.state_manager.blockstore();
-    let state = miner::State::load(store, actor.code, actor.state)?;
-    Ok(LotusJson(state.deadline_info(policy, ts.epoch())))
-}
-
-/// looks up the miner power of the given address.
-pub async fn state_miner_faults<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<BitField>, ServerError> {
-    let LotusJson((address, ApiTipsetKey(key))): LotusJson<(Address, ApiTipsetKey)> =
-        params.parse()?;
-
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
-
-    data.state_manager
-        .miner_faults(&address, &ts)
-        .map_err(|e| e.into())
-        .map(|r| r.into())
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        ctx.state_manager
+            .miner_faults(&address, &ts)
+            .map_err(From::from)
+    }
 }
 
 pub async fn state_miner_recoveries<DB: Blockstore + Send + Sync + 'static>(
