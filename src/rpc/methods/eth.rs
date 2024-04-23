@@ -1201,6 +1201,8 @@ pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
 #[cfg(test)]
 mod test {
     use super::*;
+    use ethereum_types::H160;
+    use keccak_hash::H256;
     use num_bigint;
     use num_traits::{FromBytes, Signed};
     use quickcheck_macros::quickcheck;
