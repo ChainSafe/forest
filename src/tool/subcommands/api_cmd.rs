@@ -571,62 +571,62 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
         ))?),
-        RpcTest::identity(ApiInfo::state_get_randomness_from_tickets_req(
-            tipset.key().into(),
-            DomainSeparationTag::ElectionProofProduction,
+        RpcTest::identity(StateGetRandomnessFromTickets::request((
+            DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
-        )),
-        RpcTest::identity(ApiInfo::state_get_randomness_from_beacon_req(
             tipset.key().into(),
-            DomainSeparationTag::ElectionProofProduction,
+        ))?),
+        RpcTest::identity(StateGetRandomnessFromBeacon::request((
+            DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),
             "dead beef".as_bytes().to_vec(),
-        )),
-        RpcTest::identity(ApiInfo::state_read_state_req(
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateReadState::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::state_read_state_req(
+        ))?),
+        RpcTest::identity(StateReadState::request((
             Address::SYSTEM_ACTOR,
             Default::default(),
-        )),
+        ))?),
         // This should return `Address::new_id(0xdeadbeef)`
         RpcTest::identity(StateLookupID::request((
             Address::new_id(0xdeadbeef),
             tipset.key().into(),
         ))?),
         RpcTest::identity(ApiInfo::state_network_version_req(tipset.key().into())),
-        RpcTest::identity(ApiInfo::state_list_miners_req(tipset.key().into())),
-        RpcTest::identity(ApiInfo::msig_get_available_balance_req(
+        RpcTest::identity(StateListMiners::request((tipset.key().into(),))?),
+        RpcTest::identity(MsigGetAvailableBalance::request((
             Address::new_id(18101), // msig address id
             tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::msig_get_pending_req(
+        ))?),
+        RpcTest::identity(MsigGetPending::request((
             Address::new_id(18101), // msig address id
             tipset.key().into(),
-        )),
+        ))?),
         RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
         // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
         // for API compatibility verification.
-        RpcTest::identity(ApiInfo::state_verified_client_status(
+        RpcTest::identity(StateVerifiedClientStatus::request((
             Address::VERIFIED_REGISTRY_ACTOR,
             tipset.key().into(),
-        )),
-        RpcTest::identity(ApiInfo::state_verified_client_status(
+        ))?),
+        RpcTest::identity(StateVerifiedClientStatus::request((
             Address::DATACAP_TOKEN_ACTOR,
             tipset.key().into(),
-        )),
+        ))?),
         RpcTest::identity(ApiInfo::state_deal_provider_collateral_bounds_req(
             PaddedPieceSize(1),
             true,
             tipset.key().into(),
         )),
-        RpcTest::identity(ApiInfo::state_circulating_supply_req(tipset.key().into())),
-        RpcTest::identity(ApiInfo::state_vm_circulating_supply_internal_req(
-            tipset.key().into(),
-        )),
+        RpcTest::identity(StateCirculatingSupply::request((tipset.key().into(),))?),
+        RpcTest::identity(StateVMCirculatingSupplyInternal::request((tipset
+            .key()
+            .into(),))?),
     ];
 
     // Get deals
@@ -693,10 +693,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            RpcTest::identity(ApiInfo::state_miner_available_balance_req(
+            RpcTest::identity(StateMinerAvailableBalance::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(StateMinerFaults::request((
                 block.miner_address,
                 tipset.key().into(),
@@ -706,10 +706,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.epoch,
                 tipset.key().into(),
             ))?),
-            RpcTest::identity(ApiInfo::state_miner_recoveries_req(
+            RpcTest::identity(StateMinerRecoveries::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(StateMinerSectorCount::request((
                 block.miner_address,
                 tipset.key().into(),

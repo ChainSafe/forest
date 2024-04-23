@@ -226,21 +226,26 @@ pub struct MinerPowerLotusJson {
     has_min_power: bool,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub balance: TokenAmount,
+    #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub code: Cid,
+    #[schemars(with = "LotusJson<ApiState>")]
+    #[serde(with = "crate::lotus_json")]
     pub state: ApiState,
 }
 
 lotus_json_with_self!(ApiActorState);
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiState {
+    #[schemars(with = "serde_json::Value")]
     #[serde(with = "crate::lotus_json")]
     pub builtin_actors: Ipld,
 }
@@ -369,19 +374,25 @@ pub struct ApiDeadlineInfo(
 );
 lotus_json_with_self!(ApiDeadlineInfo);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct CirculatingSupply {
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_vested: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_mined: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_burnt: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_locked: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_circulating: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_reserve_disbursed: TokenAmount,
 }
@@ -482,18 +493,22 @@ impl MessageFilter {
 
 lotus_json_with_self!(MessageFilter);
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct Transaction {
     #[serde(rename = "ID")]
     pub id: i64,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub to: Address,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub value: TokenAmount,
     pub method: MethodNum,
+    #[schemars(with = "LotusJson<RawBytes>")]
     #[serde(with = "crate::lotus_json")]
     pub params: RawBytes,
+    #[schemars(with = "LotusJson<Vec<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub approved: Vec<Address>,
 }

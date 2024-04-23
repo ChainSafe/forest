@@ -273,42 +273,15 @@ where
     module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
     module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
-    module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
-    module.register_async_method(
-        STATE_MINER_AVAILABLE_BALANCE,
-        state_miner_available_balance::<DB>,
-    )?;
-    module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
     module.register_async_method(
         STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
         state_deal_provider_collateral_bounds::<DB>,
     )?;
-    module.register_async_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)?;
     module.register_async_method(STATE_WAIT_MSG, state_wait_msg::<DB>)?;
     module.register_async_method(STATE_SEARCH_MSG, state_search_msg::<DB>)?;
     module.register_async_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)?;
     module.register_async_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)?;
-    module.register_async_method(
-        STATE_GET_RANDOMNESS_FROM_TICKETS,
-        state_get_randomness_from_tickets::<DB>,
-    )?;
-    module.register_async_method(
-        STATE_GET_RANDOMNESS_FROM_BEACON,
-        state_get_randomness_from_beacon::<DB>,
-    )?;
-    module.register_async_method(STATE_READ_STATE, state_read_state::<DB>)?;
-    module.register_async_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)?;
-    module.register_async_method(
-        STATE_VERIFIED_CLIENT_STATUS,
-        state_verified_client_status::<DB>,
-    )?;
-    module.register_async_method(
-        STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
-        state_vm_circulating_supply_internal::<DB>,
-    )?;
     module.register_async_method(STATE_MARKET_STORAGE_DEAL, state_market_storage_deal::<DB>)?;
-    module.register_async_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)?;
-    module.register_async_method(MSIG_GET_PENDING, msig_get_pending::<DB>)?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;

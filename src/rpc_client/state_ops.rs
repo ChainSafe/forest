@@ -8,17 +8,11 @@ use crate::rpc::types::*;
 use crate::state_manager::MarketBalance;
 use crate::{
     rpc::state::*,
-    shim::{
-        address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, message::MethodNum,
-        version::NetworkVersion,
-    },
+    shim::{address::Address, deal::DealID, message::MethodNum, version::NetworkVersion},
 };
 use cid::Cid;
-use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use fvm_shared2::piece::PaddedPieceSize;
 use libipld_core::ipld::Ipld;
-use num_bigint::BigInt;
 
 use super::{ApiInfo, RpcRequest, ServerError};
 
@@ -42,64 +36,8 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub fn state_miner_recoveries_req(miner: Address, tsk: ApiTipsetKey) -> RpcRequest<BitField> {
-        RpcRequest::new(STATE_MINER_RECOVERIES, (miner, tsk))
-    }
-
-    pub fn state_miner_available_balance_req(
-        miner: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<TokenAmount> {
-        RpcRequest::new(STATE_MINER_AVAILABLE_BALANCE, (miner, tsk))
-    }
-
-    pub fn state_get_randomness_from_tickets_req(
-        tsk: ApiTipsetKey,
-        personalization: DomainSeparationTag,
-        rand_epoch: ChainEpoch,
-        entropy: Vec<u8>,
-    ) -> RpcRequest<Vec<u8>> {
-        RpcRequest::new(
-            STATE_GET_RANDOMNESS_FROM_TICKETS,
-            (personalization as i64, rand_epoch, entropy, tsk),
-        )
-    }
-
-    pub fn state_get_randomness_from_beacon_req(
-        tsk: ApiTipsetKey,
-        personalization: DomainSeparationTag,
-        rand_epoch: ChainEpoch,
-        entropy: Vec<u8>,
-    ) -> RpcRequest<Vec<u8>> {
-        RpcRequest::new(
-            STATE_GET_RANDOMNESS_FROM_BEACON,
-            (personalization as i64, rand_epoch, entropy, tsk),
-        )
-    }
-
-    pub fn state_read_state_req(actor: Address, tsk: ApiTipsetKey) -> RpcRequest<ApiActorState> {
-        RpcRequest::new(STATE_READ_STATE, (actor, tsk))
-    }
-
     pub fn state_network_version_req(tsk: ApiTipsetKey) -> RpcRequest<NetworkVersion> {
         RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
-    }
-
-    pub fn state_verified_client_status(
-        addr: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<Option<BigInt>> {
-        RpcRequest::new(STATE_VERIFIED_CLIENT_STATUS, (addr, tsk))
-    }
-
-    pub fn state_circulating_supply_req(tsk: ApiTipsetKey) -> RpcRequest<TokenAmount> {
-        RpcRequest::new(STATE_CIRCULATING_SUPPLY, (tsk,))
-    }
-
-    pub fn state_vm_circulating_supply_internal_req(
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<CirculatingSupply> {
-        RpcRequest::new(STATE_VM_CIRCULATING_SUPPLY_INTERNAL, (tsk,))
     }
 
     pub fn state_decode_params_req(
@@ -127,10 +65,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_SEARCH_MSG_LIMITED, (msg_cid, limit_epoch))
     }
 
-    pub fn state_list_miners_req(tsk: ApiTipsetKey) -> RpcRequest<Vec<Address>> {
-        RpcRequest::new(STATE_LIST_MINERS, (tsk,))
-    }
-
     pub fn state_deal_provider_collateral_bounds_req(
         size: PaddedPieceSize,
         verified: bool,
@@ -144,16 +78,5 @@ impl ApiInfo {
         tsk: ApiTipsetKey,
     ) -> RpcRequest<ApiMarketDeal> {
         RpcRequest::new(STATE_MARKET_STORAGE_DEAL, (deal_id, tsk))
-    }
-
-    pub fn msig_get_available_balance_req(
-        addr: Address,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<TokenAmount> {
-        RpcRequest::new(MSIG_GET_AVAILABLE_BALANCE, (addr, tsk))
-    }
-
-    pub fn msig_get_pending_req(addr: Address, tsk: ApiTipsetKey) -> RpcRequest<Vec<Transaction>> {
-        RpcRequest::new(MSIG_GET_PENDING, (addr, tsk))
     }
 }

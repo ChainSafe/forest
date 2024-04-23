@@ -311,7 +311,7 @@ do_impls!(0);
 do_impls!(1, T0);
 do_impls!(2, T0, T1);
 do_impls!(3, T0, T1, T2);
-// do_impls!(4, T0, T1, T2, T3);
+do_impls!(4, T0, T1, T2, T3);
 // do_impls!(5, T0, T1, T2, T3, T4);
 // do_impls!(6, T0, T1, T2, T3, T4, T5);
 // do_impls!(7, T0, T1, T2, T3, T4, T5, T6);
