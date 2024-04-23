@@ -1388,9 +1388,8 @@ mod test {
         assert_eq!(block.transactions_root, Hash::default());
     }
 
-    // test the case where `tx_arg.to` is `None`
     #[test]
-    fn test_eth_tx_args_from_unsigned_eth_message() {
+    fn test_tx_args_to_address() {
         let msg = Message {
             version: 0,
             to: FilecoinAddress::from_str("f010").unwrap(),
@@ -1402,5 +1401,20 @@ mod test {
             .unwrap()
             .to
             .is_none());
+
+        let msg = Message {
+            version: 0,
+            to: FilecoinAddress::from_str("f410fujiqghwwwr3z4kqlse3ihzyqipmiaavdqchxs2y").unwrap(),
+            method_num: EVMMethod::InvokeContract as u64,
+            ..Message::default()
+        };
+
+        assert_eq!(
+            eth_tx_args_from_unsigned_eth_message(&msg)
+                .unwrap()
+                .to
+                .unwrap(),
+            Address(H160::from_str("0xa251031ed6b4779e2a0b913683e71043d88002a3").unwrap())
+        );
     }
 }
