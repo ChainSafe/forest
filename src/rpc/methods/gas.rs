@@ -25,12 +25,11 @@ const MIN_GAS_PREMIUM: f64 = 100000.0;
 
 pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
 pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
-pub const GAS_ESTIMATE_GAS_LIMIT: &str = "Filecoin.GasEstimateGasLimit";
-pub const GAS_ESTIMATE_MESSAGE_GAS: &str = "Filecoin.GasEstimateMessageGas";
 
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
+        $callback!(crate::rpc::gas::GasEstimateMessageGas);
     };
 }
 pub(crate) use for_each_method;
@@ -182,6 +181,24 @@ impl RpcMethod<2> for GasEstimateGasLimit {
     }
 }
 
+/// Estimates the gas parameters for a given message
+pub enum GasEstimateMessageGas {}
+impl RpcMethod<3> for GasEstimateMessageGas {
+    const NAME: &'static str = "Filecoin.GasEstimateMessageGas";
+    const PARAM_NAMES: [&'static str; 3] = ["msg", "spec", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);
+    type Ok = Message;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (msg, spec, tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        estimate_message_gas(&ctx, msg, spec, tsk).await
+    }
+}
+
 async fn estimate_gas_limit<DB>(
     data: &Ctx<DB>,
     msg: Message,
@@ -240,22 +257,6 @@ where
         }
         None => Ok(-1),
     }
-}
-
-/// Estimates the gas parameters for a given message
-pub async fn gas_estimate_message_gas<DB>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<LotusJson<Message>, ServerError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    let LotusJson((msg, spec, tsk)): LotusJson<(Message, Option<MessageSendSpec>, ApiTipsetKey)> =
-        params.parse()?;
-
-    estimate_message_gas::<DB>(&data, msg, spec, tsk)
-        .await
-        .map(Into::into)
 }
 
 pub async fn estimate_message_gas<DB>(

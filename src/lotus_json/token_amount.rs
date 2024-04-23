@@ -8,7 +8,9 @@ use num::BigInt;
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)] // name the field for clarity
 pub struct TokenAmountLotusJson {
-    attos: LotusJson<BigInt>,
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    attos: BigInt,
 }
 
 impl HasLotusJson for TokenAmount {
@@ -21,12 +23,12 @@ impl HasLotusJson for TokenAmount {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         Self::LotusJson {
-            attos: self.atto().clone().into(),
+            attos: self.atto().clone(),
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         let Self::LotusJson { attos } = lotus_json;
-        Self::from_atto(attos.into_inner())
+        Self::from_atto(attos)
     }
 }

@@ -3,7 +3,6 @@
 
 mod chain_ops;
 mod eth_ops;
-mod gas_ops;
 mod state_ops;
 
 use crate::libp2p::{Multiaddr, Protocol};
@@ -138,11 +137,11 @@ impl<T> RpcRequest<T> {
     pub fn new<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
         RpcRequest {
             method_name,
-            params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
-                serde_json::Value::String(
+            params: params
+                .into_lotus_json_value()
+                .unwrap_or(serde_json::Value::String(
                     "INTERNAL ERROR: Parameters could not be serialized as JSON".to_string(),
-                ),
-            ),
+                )),
             result_type: PhantomData,
             api_version: ApiVersion::V0,
             timeout: *DEFAULT_TIMEOUT,
@@ -152,11 +151,11 @@ impl<T> RpcRequest<T> {
     pub fn new_v1<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
         RpcRequest {
             method_name,
-            params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
-                serde_json::Value::String(
+            params: params
+                .into_lotus_json_value()
+                .unwrap_or(serde_json::Value::String(
                     "INTERNAL ERROR: Parameters could not be serialized as JSON".to_string(),
-                ),
-            ),
+                )),
             result_type: PhantomData,
             api_version: ApiVersion::V1,
             timeout: *DEFAULT_TIMEOUT,

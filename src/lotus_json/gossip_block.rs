@@ -9,9 +9,15 @@ use ::cid::Cid;
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct GossipBlockLotusJson {
-    header: LotusJson<CachingBlockHeader>,
-    bls_messages: LotusJson<Vec<Cid>>,
-    secpk_messages: LotusJson<Vec<Cid>>,
+    #[schemars(with = "LotusJson<CachingBlockHeader>")]
+    #[serde(with = "crate::lotus_json")]
+    header: CachingBlockHeader,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    bls_messages: Vec<Cid>,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    secpk_messages: Vec<Cid>,
 }
 
 impl HasLotusJson for GossipBlock {
@@ -57,9 +63,9 @@ impl HasLotusJson for GossipBlock {
             secpk_messages,
         } = self;
         Self::LotusJson {
-            header: header.into(),
-            bls_messages: bls_messages.into(),
-            secpk_messages: secpk_messages.into(),
+            header,
+            bls_messages,
+            secpk_messages,
         }
     }
 
@@ -70,9 +76,9 @@ impl HasLotusJson for GossipBlock {
             secpk_messages,
         } = lotus_json;
         Self {
-            header: header.into_inner(),
-            bls_messages: bls_messages.into_inner(),
-            secpk_messages: secpk_messages.into_inner(),
+            header,
+            bls_messages,
+            secpk_messages,
         }
     }
 }
