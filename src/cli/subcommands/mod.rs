@@ -111,7 +111,7 @@ pub fn cli_error_and_die(msg: impl AsRef<str>, code: i32) -> ! {
 
 /// Prints a pretty HTTP JSON-RPC response result
 pub(super) fn print_pretty_lotus_json<T: HasLotusJson>(obj: T) -> anyhow::Result<()> {
-    println!("{}", serde_json::to_string_pretty(&obj.into_lotus_json())?);
+    println!("{}", obj.into_lotus_json_string_pretty()?);
     Ok(())
 }
 

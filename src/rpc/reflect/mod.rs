@@ -200,7 +200,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             params,
             result_type: std::marker::PhantomData,
             api_version: Self::API_VERSION,
-            timeout: crate::rpc_client::DEFAULT_TIMEOUT,
+            timeout: *crate::rpc_client::DEFAULT_TIMEOUT,
         })
     }
     fn call_raw(
@@ -249,7 +249,7 @@ pub trait Params<const ARITY: usize>: HasLotusJson {
     ///
     /// Exposes de-serialization errors, or mis-implementation of this trait.
     fn unparse(self) -> Result<[serde_json::Value; ARITY], serde_json::Error> {
-        match serde_json::to_value(self.into_lotus_json()) {
+        match self.into_lotus_json_value() {
             Ok(serde_json::Value::Array(args)) => match args.try_into() {
                 Ok(it) => Ok(it),
                 Err(_) => Err(serde_json::Error::custom("ARITY mismatch")),
@@ -290,7 +290,7 @@ macro_rules! do_impls {
 
         impl<$($arg),*> Params<$arity> for ($($arg,)*)
         where
-            $($arg: HasLotusJson + Clone, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
+            $($arg: HasLotusJson, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
         {
             fn parse(
                 raw: Option<RequestParameters>,
@@ -311,7 +311,7 @@ do_impls!(0);
 do_impls!(1, T0);
 do_impls!(2, T0, T1);
 do_impls!(3, T0, T1, T2);
-// do_impls!(4, T0, T1, T2, T3);
+do_impls!(4, T0, T1, T2, T3);
 // do_impls!(5, T0, T1, T2, T3, T4);
 // do_impls!(6, T0, T1, T2, T3, T4, T5);
 // do_impls!(7, T0, T1, T2, T3, T4, T5, T6);

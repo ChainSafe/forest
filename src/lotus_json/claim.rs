@@ -8,10 +8,14 @@ use super::*;
 #[derive(Default, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ClaimLotusJson {
+    #[schemars(with = "LotusJson<num::BigInt>")]
+    #[serde(with = "crate::lotus_json")]
     /// Sum of raw byte power for a miner's sectors.
-    pub raw_byte_power: LotusJson<num::BigInt>,
+    pub raw_byte_power: num::BigInt,
+    #[schemars(with = "LotusJson<num::BigInt>")]
+    #[serde(with = "crate::lotus_json")]
     /// Sum of quality adjusted power for a miner's sectors.
-    pub quality_adj_power: LotusJson<num::BigInt>,
+    pub quality_adj_power: num::BigInt,
 }
 
 impl HasLotusJson for Claim {
@@ -33,14 +37,14 @@ impl HasLotusJson for Claim {
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         ClaimLotusJson {
-            raw_byte_power: LotusJson(self.raw_byte_power),
-            quality_adj_power: LotusJson(self.quality_adj_power),
+            raw_byte_power: self.raw_byte_power,
+            quality_adj_power: self.quality_adj_power,
         }
     }
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         Claim {
-            raw_byte_power: lotus_json.raw_byte_power.into_inner(),
-            quality_adj_power: lotus_json.quality_adj_power.into_inner(),
+            raw_byte_power: lotus_json.raw_byte_power,
+            quality_adj_power: lotus_json.quality_adj_power,
         }
     }
 }

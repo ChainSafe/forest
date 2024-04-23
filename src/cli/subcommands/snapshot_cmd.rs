@@ -81,7 +81,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())).into(),
+                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
                     skip_checksum,
                     dry_run,
                 };

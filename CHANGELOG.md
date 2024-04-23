@@ -37,6 +37,11 @@
   Forest-specific RPC methods to `Forest`; `Filecoin.NetInfo` and
   `Filecoin.StateFetchRoot` to `Forest.NetInfo` and `Forest.StateFetchRoot`.
 
+- [#4262](https://github.com/ChainSafe/forest/pull/4262) Added `Bearer` prefix
+  to the `Authorization` header in the Forest RPC API. This is a
+  partially-breaking change - new Forest RPC clients will not work with old
+  Forest nodes. This change is necessary to align with the Lotus RPC API.
+
 ### Added
 
 - [#4246](https://github.com/ChainSafe/forest/pull/4246) Add support for the
@@ -57,6 +62,10 @@
 
 - [#4183](https://github.com/ChainSafe/forest/issues/4183) Add support for the
   `Filecoin.EthGetBlockByNumber` RPC method.
+
+- [#4253](https://github.com/ChainSafe/forest/pull/4253) RPC client default
+  timeout is now configurable via the `FOREST_RPC_DEFAULT_TIMEOUT` environment
+  variable.
 
 - [#4240](https://github.com/ChainSafe/forest/pull/4240) Added `--fixed-unit`
   and `--exact-balance` flags to `forest-wallet balance` similarly to

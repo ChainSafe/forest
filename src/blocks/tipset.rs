@@ -538,9 +538,12 @@ mod lotus_json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
-        cids: LotusJson<TipsetKey>,
-        blocks: LotusJson<NonEmpty<CachingBlockHeader>>,
-        height: LotusJson<i64>,
+        #[serde(with = "crate::lotus_json")]
+        cids: TipsetKey,
+        #[serde(with = "crate::lotus_json")]
+        blocks: NonEmpty<CachingBlockHeader>,
+        #[serde(with = "crate::lotus_json")]
+        height: i64,
     }
 
     impl<'de> Deserialize<'de> for TipsetLotusJson {
@@ -555,7 +558,7 @@ mod lotus_json {
             } = Deserialize::deserialize(deserializer)?;
 
             Ok(Self(Tipset {
-                headers: blocks.into_inner(),
+                headers: blocks,
                 key: Default::default(),
             }))
         }
@@ -568,9 +571,9 @@ mod lotus_json {
         {
             let Self(tipset) = self;
             TipsetLotusJsonInner {
-                cids: tipset.key().clone().into(),
-                blocks: tipset.clone().into_block_headers().into(),
-                height: tipset.epoch().into(),
+                cids: tipset.key().clone(),
+                blocks: tipset.clone().into_block_headers(),
+                height: tipset.epoch(),
             }
             .serialize(serializer)
         }
