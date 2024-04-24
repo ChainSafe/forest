@@ -462,7 +462,7 @@ impl Tx {
 
 lotus_json_with_self!(Tx);
 
-#[derive(Debug, Clone, Default)]
+#[derive(PartialEq, Debug, Clone, Default)]
 struct TxArgs {
     pub chain_id: u64,
     pub nonce: u64,
@@ -863,7 +863,7 @@ fn is_eth_address(addr: &VmAddress) -> bool {
 }
 
 fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
-    let mut to = Some(Address::default());
+    let mut to = None;
     let mut params = vec![];
 
     if msg.version != 0 {
@@ -1317,6 +1317,7 @@ impl RpcMethod<0> for EthSyncing {
 #[cfg(test)]
 mod test {
     use super::*;
+    use ethereum_types::H160;
     use num_bigint;
     use num_traits::{FromBytes, Signed};
     use quickcheck_macros::quickcheck;
@@ -1502,5 +1503,38 @@ mod test {
 
         let block = Block::new(true);
         assert_eq!(block.transactions_root, Hash::default());
+    }
+
+    #[test]
+    fn test_tx_args_to_address_is_none() {
+        let msg = Message {
+            version: 0,
+            to: FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
+            method_num: EAMMethod::CreateExternal as u64,
+            ..Message::default()
+        };
+
+        assert!(eth_tx_args_from_unsigned_eth_message(&msg)
+            .unwrap()
+            .to
+            .is_none());
+    }
+
+    #[test]
+    fn test_tx_args_to_address_is_some() {
+        let msg = Message {
+            version: 0,
+            to: FilecoinAddress::from_str("f410fujiqghwwwr3z4kqlse3ihzyqipmiaavdqchxs2y").unwrap(),
+            method_num: EVMMethod::InvokeContract as u64,
+            ..Message::default()
+        };
+
+        assert_eq!(
+            eth_tx_args_from_unsigned_eth_message(&msg)
+                .unwrap()
+                .to
+                .unwrap(),
+            Address(H160::from_str("0xa251031ed6b4779e2a0b913683e71043d88002a3").unwrap())
+        );
     }
 }
