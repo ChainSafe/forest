@@ -18,6 +18,7 @@ use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;
 use serde::de::DeserializeOwned;
+use std::time::Duration;
 use tracing::{debug, Instrument, Level};
 use url::Url;
 
@@ -152,6 +153,7 @@ impl Debug for UrlClient {
 
 impl UrlClient {
     async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
+        const ONE_DAY: Duration = Duration::from_secs(24 * 3600); // we handle timeouts ourselves.
         let headers = match token.into() {
             Some(token) => HeaderMap::from_iter([(
                 header::AUTHORIZATION,
@@ -172,6 +174,7 @@ impl UrlClient {
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_size(MAX_RESPONSE_BODY_SIZE)
+                    .request_timeout(ONE_DAY)
                     .build(&url)
                     .await?,
             ),
@@ -180,6 +183,7 @@ impl UrlClient {
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_size(MAX_RESPONSE_BODY_SIZE)
+                    .request_timeout(ONE_DAY)
                     .build(&url)?,
             ),
             it => {
