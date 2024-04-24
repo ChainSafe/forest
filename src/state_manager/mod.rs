@@ -25,7 +25,7 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc::types::{ApiInvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost, MiningBaseInfo};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -184,20 +184,6 @@ impl TipsetStateCache {
         });
     }
 }
-
-/// Type to represent invocation of state call results.
-#[derive(PartialEq, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "PascalCase")]
-pub struct InvocResult {
-    #[serde(with = "crate::lotus_json")]
-    pub msg: Message,
-    #[serde(with = "crate::lotus_json")]
-    pub msg_rct: Option<Receipt>,
-    pub error: Option<String>,
-}
-
-/// An alias Result that represents an `InvocResult` and an Error.
-type StateCallResult = Result<InvocResult, Error>;
 
 /// External format for returning market balance from state.
 #[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -509,7 +495,7 @@ where
         message: &mut ChainMessage,
         prior_messages: &[ChainMessage],
         tipset: Option<Arc<Tipset>>,
-    ) -> StateCallResult {
+    ) -> Result<InvocResult, Error> {
         let ts = tipset.unwrap_or_else(|| self.cs.heaviest_tipset());
         let (st, _) = self
             .tipset_state(&ts)
@@ -1021,11 +1007,17 @@ where
     /// Looks up ID [Address] from the state at the given [Tipset].
     pub fn lookup_id(&self, addr: &Address, ts: &Tipset) -> Result<Option<Address>, Error> {
         let state_tree = StateTree::new_from_root(self.blockstore_owned(), ts.parent_state())
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("{e:?}"))?;
         Ok(state_tree
             .lookup_id(addr)
             .map_err(|e| Error::Other(e.to_string()))?
             .map(Address::new_id))
+    }
+
+    /// Looks up required ID [Address] from the state at the given [Tipset].
+    pub fn lookup_required_id(&self, addr: &Address, ts: &Tipset) -> Result<Address, Error> {
+        self.lookup_id(addr, ts)?
+            .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
     }
 
     /// Retrieves market balance in escrow and locked tables.

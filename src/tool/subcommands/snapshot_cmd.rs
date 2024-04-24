@@ -457,10 +457,10 @@ mod structured {
     use cid::Cid;
     use serde_json::json;
 
+    use crate::lotus_json::HasLotusJson as _;
     use crate::state_manager::utils::structured;
     use crate::{
         interpreter::CalledAt,
-        lotus_json::LotusJson,
         message::{ChainMessage, Message as _},
         shim::executor::ApplyRet,
     };
@@ -471,7 +471,7 @@ mod structured {
         contexts: Vec<(ChainMessage, ApplyRet, CalledAt, Duration)>,
     ) -> anyhow::Result<serde_json::Value> {
         Ok(json!({
-        "Root": LotusJson(state_root),
+        "Root": state_root.into_lotus_json(),
         "Trace": contexts
             .into_iter()
             .map(|(message, apply_ret, called_at, duration)| call_json(message, apply_ret, called_at, duration))
@@ -493,21 +493,21 @@ mod structured {
         let unsigned_message_cid = chain_message.message().cid()?;
 
         Ok(json!({
-            "MsgCid": LotusJson(chain_message_cid),
-            "Msg": LotusJson(chain_message.message().clone()),
-            "MsgRct": LotusJson(apply_ret.msg_receipt()),
+            "MsgCid": chain_message_cid.into_lotus_json(),
+            "Msg": chain_message.message().clone().into_lotus_json(),
+            "MsgRct": apply_ret.msg_receipt().into_lotus_json(),
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
-                "Message": is_explicit.then_some(LotusJson(unsigned_message_cid)),
+                "Message": is_explicit.then_some(unsigned_message_cid.into_lotus_json()),
                 "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())).unwrap_or_default(),
-                "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
-                "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
-                "MinerPenalty": LotusJson(apply_ret.penalty()),
-                "MinerTip": LotusJson(apply_ret.miner_tip()),
-                "Refund": LotusJson(apply_ret.refund()),
-                "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
+                "BaseFeeBurn": apply_ret.base_fee_burn().into_lotus_json(),
+                "OverEstimationBurn": apply_ret.over_estimation_burn().into_lotus_json(),
+                "MinerPenalty": apply_ret.penalty().into_lotus_json(),
+                "MinerTip": apply_ret.miner_tip().into_lotus_json(),
+                "Refund": apply_ret.refund().into_lotus_json(),
+                "TotalCost": (chain_message.message().required_funds() - &apply_ret.refund()).into_lotus_json(),
             },
-            "ExecutionTrace": LotusJson(structured::parse_events(apply_ret.exec_trace())?),
+            "ExecutionTrace": structured::parse_events(apply_ret.exec_trace())?.into_lotus_json(),
             "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
         }))
     }

@@ -53,7 +53,8 @@ impl SnapshotCommands {
 
                 let epoch = tipset.unwrap_or(chain_head.epoch());
 
-                let raw_network_name = api.state_network_name().await?;
+                let raw_network_name = StateNetworkName::call(&client, ()).await?;
+
                 let chain_name = crate::daemon::get_actual_chain_name(&raw_network_name);
 
                 let tipset =
@@ -80,7 +81,7 @@ impl SnapshotCommands {
                     epoch,
                     recent_roots: depth.unwrap_or(SyncConfig::default().recent_state_roots),
                     output_path: temp_path.to_path_buf(),
-                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())).into(),
+                    tipset_keys: ApiTipsetKey(Some(chain_head.key().clone())),
                     skip_checksum,
                     dry_run,
                 };

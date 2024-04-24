@@ -1,21 +1,27 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::blocks::GossipBlock;
+use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
+use fvm_ipld_encoding::to_vec;
 use nonempty::{nonempty, NonEmpty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+// Make sure to add any new methods here.
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::sync::SyncCheckBad);
         $callback!(crate::rpc::sync::SyncMarkBad);
         $callback!(crate::rpc::sync::SyncState);
+        $callback!(crate::rpc::sync::SyncSubmitBlock);
     };
 }
+
 pub(crate) use for_each_method;
 
 pub enum SyncCheckBad {}
@@ -24,12 +30,12 @@ impl RpcMethod<1> for SyncCheckBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = String;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.bad_blocks.peek(&cid).unwrap_or_default())
     }
@@ -41,12 +47,12 @@ impl RpcMethod<1> for SyncMarkBad {
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    type Params = (LotusJson<Cid>,);
+    type Params = (Cid,);
     type Ok = ();
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
-        (LotusJson(cid),): Self::Params,
+        (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         ctx.bad_blocks
             .put(cid, "Marked bad manually through RPC API".to_string());
@@ -66,6 +72,32 @@ impl RpcMethod<0> for SyncState {
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         let active_syncs = nonempty![ctx.sync_state.as_ref().read().clone()];
         Ok(RPCSyncState { active_syncs })
+    }
+}
+
+pub enum SyncSubmitBlock {}
+impl RpcMethod<1> for SyncSubmitBlock {
+    const NAME: &'static str = "Filecoin.SyncSubmitBlock";
+    const PARAM_NAMES: [&'static str; 1] = ["blk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (GossipBlock,);
+    type Ok = ();
+
+    // NOTE: This currently skips all the sanity-checks and directly passes the message onto the
+    // swarm.
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (block_msg,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let encoded_message = to_vec(&block_msg)?;
+        let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, ctx.network_name);
+
+        ctx.network_send.send(NetworkMessage::PubsubMessage {
+            topic: IdentTopic::new(pubsub_block_str),
+            message: encoded_message,
+        })?;
+        Ok(())
     }
 }
 
@@ -184,19 +216,13 @@ mod tests {
             .parse::<Cid>()
             .unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
         assert_eq!(reason, "");
 
         // Mark that block as bad manually and check again to verify
-        SyncMarkBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        SyncMarkBad::handle(ctx.clone(), (cid,)).await.unwrap();
 
-        let reason = SyncCheckBad::handle(ctx.clone(), (cid.into(),))
-            .await
-            .unwrap();
+        let reason = SyncCheckBad::handle(ctx.clone(), (cid,)).await.unwrap();
         assert_eq!(reason, "Marked bad manually through RPC API");
     }
 

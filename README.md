@@ -67,12 +67,6 @@ Install [rustup](https://rustup.rs/)
 ### Ubuntu (20.04)
 
 ```
-sudo make install-deps
-```
-
-or
-
-```
 sudo apt install build-essential clang
 ```
 
@@ -101,11 +95,10 @@ apk add git curl make gcc clang clang-dev musl-dev
 git clone --recursive https://github.com/chainsafe/forest
 cd forest
 
-# Install binary to $HOME/.cargo/bin and run node
-# avx2 is enabled by default. To disable it, remove
-# -Ctarget-feature from RUSTFLAGS in .cargo/config.toml
+# Install binary to $HOME/.cargo/bin
 make install
 
+# Run the node on mainnet
 forest
 ```
 

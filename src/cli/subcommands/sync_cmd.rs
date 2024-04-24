@@ -134,7 +134,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::CheckBad { cid } => {
-                let response = SyncCheckBad::call(&client, (cid.into(),)).await?;
+                let response = SyncCheckBad::call(&client, (cid,)).await?;
                 if response.is_empty() {
                     println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
@@ -143,7 +143,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::MarkBad { cid } => {
-                SyncMarkBad::call(&client, (cid.into(),)).await?;
+                SyncMarkBad::call(&client, (cid,)).await?;
                 println!("OK");
                 Ok(())
             }

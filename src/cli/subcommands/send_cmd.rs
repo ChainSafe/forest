@@ -57,7 +57,7 @@ impl SendCommand {
             ..Default::default()
         };
 
-        let signed_msg = MpoolPushMessage::call(&client, (message.into(), None)).await?;
+        let signed_msg = MpoolPushMessage::call(&client, (message, None)).await?;
 
         println!("{}", signed_msg.cid().unwrap());
 

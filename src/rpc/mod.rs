@@ -51,6 +51,7 @@ pub mod prelude {
     node::for_each_method!(export);
     sync::for_each_method!(export);
     wallet::for_each_method!(export);
+    eth::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -256,6 +257,7 @@ where
     node::for_each_method!(register);
     sync::for_each_method!(register);
     wallet::for_each_method!(register);
+    eth::for_each_method!(register);
     module.finish()
 }
 
@@ -268,79 +270,28 @@ where
     use gas::*;
 
     // State API
-    module.register_async_method(STATE_CALL, state_call::<DB>)?;
-    module.register_async_method(STATE_REPLAY, state_replay::<DB>)?;
-    module.register_async_method(STATE_NETWORK_NAME, |_, state| {
-        state_network_name::<DB>(state)
-    })?;
     module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
-    module.register_async_method(STATE_ACCOUNT_KEY, state_account_key::<DB>)?;
-    module.register_async_method(STATE_LOOKUP_ID, state_lookup_id::<DB>)?;
-    module.register_async_method(STATE_GET_ACTOR, state_get_actor::<DB>)?;
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
     module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
-    module.register_async_method(STATE_MINER_INFO, state_miner_info::<DB>)?;
-    module.register_async_method(MINER_GET_BASE_INFO, miner_get_base_info::<DB>)?;
-    module.register_async_method(STATE_MINER_ACTIVE_SECTORS, state_miner_active_sectors::<DB>)?;
-    module.register_async_method(STATE_MINER_SECTORS, state_miner_sectors::<DB>)?;
-    module.register_async_method(STATE_MINER_PARTITIONS, state_miner_partitions::<DB>)?;
-    module.register_async_method(STATE_MINER_SECTOR_COUNT, state_miner_sector_count::<DB>)?;
-    module.register_async_method(STATE_MINER_FAULTS, state_miner_faults::<DB>)?;
-    module.register_async_method(STATE_MINER_RECOVERIES, state_miner_recoveries::<DB>)?;
-    module.register_async_method(
-        STATE_MINER_AVAILABLE_BALANCE,
-        state_miner_available_balance::<DB>,
-    )?;
-    module.register_async_method(STATE_MINER_POWER, state_miner_power::<DB>)?;
-    module.register_async_method(STATE_MINER_DEADLINES, state_miner_deadlines::<DB>)?;
-    module.register_async_method(STATE_LIST_MESSAGES, state_list_messages::<DB>)?;
-    module.register_async_method(STATE_LIST_MINERS, state_list_miners::<DB>)?;
     module.register_async_method(
         STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
         state_deal_provider_collateral_bounds::<DB>,
     )?;
-
-    module.register_async_method(
-        STATE_MINER_PROVING_DEADLINE,
-        state_miner_proving_deadline::<DB>,
-    )?;
-    module.register_async_method(STATE_GET_RECEIPT, state_get_receipt::<DB>)?;
     module.register_async_method(STATE_WAIT_MSG, state_wait_msg::<DB>)?;
     module.register_async_method(STATE_SEARCH_MSG, state_search_msg::<DB>)?;
     module.register_async_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)?;
     module.register_async_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)?;
-    module.register_async_method(
-        STATE_GET_RANDOMNESS_FROM_TICKETS,
-        state_get_randomness_from_tickets::<DB>,
-    )?;
-    module.register_async_method(
-        STATE_GET_RANDOMNESS_FROM_BEACON,
-        state_get_randomness_from_beacon::<DB>,
-    )?;
-    module.register_async_method(STATE_READ_STATE, state_read_state::<DB>)?;
-    module.register_async_method(STATE_CIRCULATING_SUPPLY, state_circulating_supply::<DB>)?;
-    module.register_async_method(
-        STATE_VERIFIED_CLIENT_STATUS,
-        state_verified_client_status::<DB>,
-    )?;
-    module.register_async_method(
-        STATE_VM_CIRCULATING_SUPPLY_INTERNAL,
-        state_vm_circulating_supply_internal::<DB>,
-    )?;
     module.register_async_method(STATE_MARKET_STORAGE_DEAL, state_market_storage_deal::<DB>)?;
-    module.register_async_method(MSIG_GET_AVAILABLE_BALANCE, msig_get_available_balance::<DB>)?;
-    module.register_async_method(MSIG_GET_PENDING, msig_get_pending::<DB>)?;
     // Gas API
     module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
     module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
-    module.register_async_method(GAS_ESTIMATE_MESSAGE_GAS, gas_estimate_message_gas::<DB>)?;
     // Eth API
     module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
     module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;
     module.register_async_method(ETH_CHAIN_ID, |_, state| eth_chain_id::<DB>(state))?;
     module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
     module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
-    module.register_async_method(ETH_SYNCING, eth_syncing::<DB>)?;
+    module.register_async_method(ETH_GET_BLOCK_BY_NUMBER, eth_get_block_by_number::<DB>)?;
     module.register_method(WEB3_CLIENT_VERSION, move |_, _| {
         crate::utils::version::FOREST_VERSION_STRING.clone()
     })?;
