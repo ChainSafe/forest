@@ -1414,8 +1414,7 @@ mod test {
     }
 
     #[test]
-    fn test_tx_args_to_address() {
-        // None case
+    fn test_tx_args_to_address_is_none() {
         let msg = Message {
             version: 0,
             to: FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
@@ -1427,8 +1426,10 @@ mod test {
             .unwrap()
             .to
             .is_none());
+    }
 
-        // Some case
+    #[test]
+    fn test_tx_args_to_address_is_some() {
         let msg = Message {
             version: 0,
             to: FilecoinAddress::from_str("f410fujiqghwwwr3z4kqlse3ihzyqipmiaavdqchxs2y").unwrap(),
