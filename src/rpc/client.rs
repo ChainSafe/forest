@@ -12,7 +12,6 @@
 //! - Support per-request timeouts.
 
 use std::fmt::{self, Debug};
-use std::time::Duration;
 
 use http02::{header, HeaderMap, HeaderValue};
 use jsonrpsee::core::client::ClientT as _;
@@ -153,7 +152,6 @@ impl Debug for UrlClient {
 
 impl UrlClient {
     async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
-        let timeout = Duration::MAX; // we handle timeouts ourselves.
         let headers = match token.into() {
             Some(token) => HeaderMap::from_iter([(
                 header::AUTHORIZATION,
@@ -172,7 +170,6 @@ impl UrlClient {
             "ws" | "wss" => OneClientInner::Ws(
                 jsonrpsee::ws_client::WsClientBuilder::new()
                     .set_headers(headers)
-                    .request_timeout(timeout)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_size(MAX_RESPONSE_BODY_SIZE)
                     .build(&url)
@@ -183,7 +180,6 @@ impl UrlClient {
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
                     .max_response_size(MAX_RESPONSE_BODY_SIZE)
-                    .request_timeout(timeout)
                     .build(&url)?,
             ),
             it => {
