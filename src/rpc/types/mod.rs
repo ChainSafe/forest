@@ -30,7 +30,7 @@ use crate::shim::{
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
-use fil_actor_interface::miner::MinerInfo;
+use fil_actor_interface::miner::{DeadlineInfo, MinerInfo};
 use fil_actor_interface::{
     market::{DealProposal, DealState},
     miner::MinerPower,
@@ -54,7 +54,9 @@ use std::str::FromStr;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageSendSpec {
-    max_fee: LotusJson<TokenAmount>,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    max_fee: TokenAmount,
 }
 
 lotus_json_with_self!(MessageSendSpec);
@@ -142,53 +144,69 @@ pub struct ApiTipsetKey(pub Option<TipsetKey>);
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerInfoLotusJson {
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub owner: Address,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub worker: Address,
+    #[schemars(with = "LotusJson<Option<Address>>")]
     pub new_worker: AddressOrEmpty,
+    #[schemars(with = "LotusJson<Vec<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub control_addresses: Vec<Address>, // Must all be ID addresses.
     pub worker_change_epoch: ChainEpoch,
+    #[schemars(with = "LotusJson<Option<String>>")]
     #[serde(with = "crate::lotus_json")]
     pub peer_id: Option<String>,
+    #[schemars(with = "LotusJson<Vec<Vec<u8>>>")]
     #[serde(with = "crate::lotus_json")]
     pub multiaddrs: Vec<Vec<u8>>,
+    #[schemars(with = "String")]
     pub window_po_st_proof_type: fvm_shared2::sector::RegisteredPoStProof,
+    #[schemars(with = "u64")]
     pub sector_size: fvm_shared2::sector::SectorSize,
     pub window_po_st_partition_sectors: u64,
     pub consensus_fault_elapsed: ChainEpoch,
+    #[schemars(with = "LotusJson<Option<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub pending_owner_address: Option<Address>,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub beneficiary: Address,
+    #[schemars(with = "LotusJson<BeneficiaryTerm>")]
     #[serde(with = "crate::lotus_json")]
     pub beneficiary_term: BeneficiaryTerm,
+    #[schemars(with = "LotusJson<Option<PendingBeneficiaryChange>>")]
     #[serde(with = "crate::lotus_json")]
     pub pending_beneficiary_term: Option<PendingBeneficiaryChange>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BeneficiaryTermLotusJson {
     /// The total amount the current beneficiary can withdraw. Monotonic, but reset when beneficiary changes.
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub quota: TokenAmount,
     /// The amount of quota the current beneficiary has already withdrawn
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub used_quota: TokenAmount,
     /// The epoch at which the beneficiary's rights expire and revert to the owner
     pub expiration: ChainEpoch,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PendingBeneficiaryChangeLotusJson {
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub new_beneficiary: Address,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub new_quota: TokenAmount,
     pub new_expiration: ChainEpoch,
@@ -196,29 +214,38 @@ pub struct PendingBeneficiaryChangeLotusJson {
     pub approved_by_nominee: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPowerLotusJson {
-    miner_power: LotusJson<Claim>,
-    total_power: LotusJson<Claim>,
+    #[schemars(with = "LotusJson<Claim>")]
+    #[serde(with = "crate::lotus_json")]
+    miner_power: Claim,
+    #[schemars(with = "LotusJson<Claim>")]
+    #[serde(with = "crate::lotus_json")]
+    total_power: Claim,
     has_min_power: bool,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiActorState {
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub balance: TokenAmount,
+    #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub code: Cid,
+    #[schemars(with = "LotusJson<ApiState>")]
+    #[serde(with = "crate::lotus_json")]
     pub state: ApiState,
 }
 
 lotus_json_with_self!(ApiActorState);
 
-#[derive(Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiState {
+    #[schemars(with = "serde_json::Value")]
     #[serde(with = "crate::lotus_json")]
     pub builtin_actors: Ipld,
 }
@@ -328,43 +355,58 @@ pub struct SectorPreCommitInfo {
 
 lotus_json_with_self!(SectorPreCommitInfo);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiDeadline {
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     pub post_submissions: BitField,
-    #[serde(with = "crate::lotus_json")]
     pub disputable_proof_count: u64,
 }
 
 lotus_json_with_self!(ApiDeadline);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct ApiDeadlineInfo(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json")]
+    pub DeadlineInfo,
+);
+lotus_json_with_self!(ApiDeadlineInfo);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct CirculatingSupply {
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_vested: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_mined: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_burnt: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_locked: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_circulating: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub fil_reserve_disbursed: TokenAmount,
 }
 
 lotus_json_with_self!(CirculatingSupply);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerSectors {
     live: u64,
     active: u64,
     faulty: u64,
 }
+lotus_json_with_self!(MinerSectors);
 
 impl MinerSectors {
     pub fn new(live: u64, active: u64, faulty: u64) -> Self {
@@ -376,22 +418,26 @@ impl MinerSectors {
     }
 }
 
-lotus_json_with_self!(MinerSectors);
-
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MinerPartitions {
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     all_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     faulty_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     recovering_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     live_sectors: BitField,
+    #[schemars(with = "LotusJson<BitField>")]
     #[serde(with = "crate::lotus_json")]
     active_sectors: BitField,
 }
+lotus_json_with_self!(MinerPartitions);
 
 impl MinerPartitions {
     pub fn new(
@@ -410,8 +456,6 @@ impl MinerPartitions {
         }
     }
 }
-
-lotus_json_with_self!(MinerPartitions);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -449,18 +493,22 @@ impl MessageFilter {
 
 lotus_json_with_self!(MessageFilter);
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct Transaction {
     #[serde(rename = "ID")]
     pub id: i64,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub to: Address,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub value: TokenAmount,
     pub method: MethodNum,
+    #[schemars(with = "LotusJson<RawBytes>")]
     #[serde(with = "crate::lotus_json")]
     pub params: RawBytes,
+    #[schemars(with = "LotusJson<Vec<Address>>")]
     #[serde(with = "crate::lotus_json")]
     pub approved: Vec<Address>,
 }

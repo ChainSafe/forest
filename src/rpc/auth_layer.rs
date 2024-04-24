@@ -97,49 +97,49 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateCall::NAME, Access::Read);
     access.insert(state::StateNetworkName::NAME, Access::Read);
     access.insert(state::StateReplay::NAME, Access::Read);
-    access.insert(state::STATE_GET_ACTOR, Access::Read);
+    access.insert(state::StateGetActor::NAME, Access::Read);
     access.insert(state::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state::STATE_MARKET_DEALS, Access::Read);
-    access.insert(state::STATE_MINER_INFO, Access::Read);
-    access.insert(state::STATE_MINER_ACTIVE_SECTORS, Access::Read);
-    access.insert(state::STATE_MINER_FAULTS, Access::Read);
-    access.insert(state::STATE_MINER_RECOVERIES, Access::Read);
-    access.insert(state::STATE_MINER_POWER, Access::Read);
-    access.insert(state::STATE_MINER_DEADLINES, Access::Read);
-    access.insert(state::STATE_MINER_PROVING_DEADLINE, Access::Read);
-    access.insert(state::STATE_MINER_AVAILABLE_BALANCE, Access::Read);
-    access.insert(state::STATE_GET_RECEIPT, Access::Read);
+    access.insert(state::StateMinerInfo::NAME, Access::Read);
+    access.insert(state::StateMinerActiveSectors::NAME, Access::Read);
+    access.insert(state::StateMinerFaults::NAME, Access::Read);
+    access.insert(state::StateMinerRecoveries::NAME, Access::Read);
+    access.insert(state::StateMinerPower::NAME, Access::Read);
+    access.insert(state::StateMinerDeadlines::NAME, Access::Read);
+    access.insert(state::StateMinerProvingDeadline::NAME, Access::Read);
+    access.insert(state::StateMinerAvailableBalance::NAME, Access::Read);
+    access.insert(state::StateGetReceipt::NAME, Access::Read);
     access.insert(state::STATE_WAIT_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG_LIMITED, Access::Read);
     access.insert(state::STATE_NETWORK_VERSION, Access::Read);
-    access.insert(state::STATE_ACCOUNT_KEY, Access::Read);
-    access.insert(state::STATE_LOOKUP_ID, Access::Read);
+    access.insert(state::StateAccountKey::NAME, Access::Read);
+    access.insert(state::StateLookupID::NAME, Access::Read);
     access.insert(state::STATE_FETCH_ROOT, Access::Read);
-    access.insert(state::STATE_GET_RANDOMNESS_FROM_TICKETS, Access::Read);
-    access.insert(state::STATE_GET_RANDOMNESS_FROM_BEACON, Access::Read);
-    access.insert(state::STATE_READ_STATE, Access::Read);
-    access.insert(state::STATE_CIRCULATING_SUPPLY, Access::Read);
+    access.insert(state::StateGetRandomnessFromTickets::NAME, Access::Read);
+    access.insert(state::StateGetRandomnessFromBeacon::NAME, Access::Read);
+    access.insert(state::StateReadState::NAME, Access::Read);
+    access.insert(state::StateCirculatingSupply::NAME, Access::Read);
     access.insert(state::StateSectorGetInfo::NAME, Access::Read);
     access.insert(state::StateListMessages::NAME, Access::Read);
-    access.insert(state::STATE_LIST_MINERS, Access::Read);
-    access.insert(state::STATE_MINER_SECTOR_COUNT, Access::Read);
-    access.insert(state::STATE_MINER_SECTORS, Access::Read);
-    access.insert(state::STATE_MINER_PARTITIONS, Access::Read);
-    access.insert(state::STATE_VERIFIED_CLIENT_STATUS, Access::Read);
+    access.insert(state::StateListMiners::NAME, Access::Read);
+    access.insert(state::StateMinerSectorCount::NAME, Access::Read);
+    access.insert(state::StateMinerSectors::NAME, Access::Read);
+    access.insert(state::StateMinerPartitions::NAME, Access::Read);
+    access.insert(state::StateVerifiedClientStatus::NAME, Access::Read);
     access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
-    access.insert(state::STATE_VM_CIRCULATING_SUPPLY_INTERNAL, Access::Read);
-    access.insert(state::MSIG_GET_AVAILABLE_BALANCE, Access::Read);
-    access.insert(state::MSIG_GET_PENDING, Access::Read);
+    access.insert(state::StateVMCirculatingSupplyInternal::NAME, Access::Read);
+    access.insert(state::MsigGetAvailableBalance::NAME, Access::Read);
+    access.insert(state::MsigGetPending::NAME, Access::Read);
     access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
     access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
     access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
     // Gas API
-    access.insert(gas::GAS_ESTIMATE_GAS_LIMIT, Access::Read);
+    access.insert(gas::GasEstimateGasLimit::NAME, Access::Read);
     access.insert(gas::GAS_ESTIMATE_GAS_PREMIUM, Access::Read);
     access.insert(gas::GAS_ESTIMATE_FEE_CAP, Access::Read);
-    access.insert(gas::GAS_ESTIMATE_MESSAGE_GAS, Access::Read);
+    access.insert(gas::GasEstimateMessageGas::NAME, Access::Read);
 
     // Common API
     access.insert(common::Version::NAME, Access::Read);
@@ -167,7 +167,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(eth::ETH_CHAIN_ID, Access::Read);
     access.insert(eth::ETH_GAS_PRICE, Access::Read);
     access.insert(eth::ETH_GET_BALANCE, Access::Read);
-    access.insert(eth::ETH_SYNCING, Access::Read);
+    access.insert(eth::EthSyncing::NAME, Access::Read);
     access.insert(eth::ETH_GET_BLOCK_BY_NUMBER, Access::Read);
     access.insert(eth::ETH_SUBSCRIBE, Access::Read);
     access.insert(eth::ETH_UNSUBSCRIBE, Access::Read);
@@ -253,7 +253,10 @@ async fn check_permissions(
 ) -> anyhow::Result<(), ErrorCode> {
     let claims = match auth_header {
         Some(token) => {
-            let token = token.to_str().map_err(|_| ErrorCode::ParseError)?;
+            let token = token
+                .to_str()
+                .map_err(|_| ErrorCode::ParseError)?
+                .trim_start_matches("Bearer ");
 
             debug!("JWT from HTTP Header: {}", token);
 
@@ -275,5 +278,86 @@ async fn check_permissions(
             }
         }
         None => Err(ErrorCode::MethodNotFound),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use self::chain::ChainHead;
+    use super::*;
+    use chrono::Duration;
+
+    #[tokio::test]
+    async fn check_permissions_no_header() {
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+
+        let res = check_permissions(keystore.clone(), None, ChainHead::NAME).await;
+        assert!(res.is_ok());
+
+        let res = check_permissions(keystore.clone(), None, "Cthulhu.InvokeElderGods").await;
+        assert_eq!(res.unwrap_err(), ErrorCode::MethodNotFound);
+
+        let res = check_permissions(keystore.clone(), None, wallet::WalletNew::NAME).await;
+        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+    }
+
+    #[tokio::test]
+    async fn check_permissions_invalid_header() {
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+
+        let auth_header = HeaderValue::from_static("Bearer Azathoth");
+        let res = check_permissions(keystore.clone(), Some(auth_header), ChainHead::NAME).await;
+        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+
+        let auth_header = HeaderValue::from_static("Cthulhu");
+        let res = check_permissions(keystore.clone(), Some(auth_header), ChainHead::NAME).await;
+        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+    }
+
+    #[tokio::test]
+    async fn check_permissions_valid_header() {
+        use crate::auth::*;
+        let keystore = Arc::new(RwLock::new(
+            KeyStore::new(crate::KeyStoreConfig::Memory).unwrap(),
+        ));
+
+        // generate a key and store it in the keystore
+        let key_info = generate_priv_key();
+        keystore
+            .write()
+            .await
+            .put(JWT_IDENTIFIER, key_info.clone())
+            .unwrap();
+        let token_exp = Duration::hours(1);
+        let token = create_token(
+            ADMIN.iter().map(ToString::to_string).collect(),
+            key_info.private_key(),
+            token_exp,
+        )
+        .unwrap();
+
+        // Should work with the `Bearer` prefix
+        let auth_header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
+        let res =
+            check_permissions(keystore.clone(), Some(auth_header.clone()), ChainHead::NAME).await;
+        assert!(res.is_ok());
+
+        let res = check_permissions(
+            keystore.clone(),
+            Some(auth_header.clone()),
+            wallet::WalletNew::NAME,
+        )
+        .await;
+        assert!(res.is_ok());
+
+        // Should work without the `Bearer` prefix
+        let auth_header = HeaderValue::from_str(&token).unwrap();
+        let res =
+            check_permissions(keystore.clone(), Some(auth_header), wallet::WalletNew::NAME).await;
+        assert!(res.is_ok());
     }
 }

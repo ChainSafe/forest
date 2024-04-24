@@ -27,8 +27,7 @@ fn test_api_tipset_key_deserialization_null() {
 }
 
 fn test_api_tipset_key_inner(cids: Vec<Cid>) {
-    let cids_lotus_json = LotusJson(cids.clone());
-    let lotus_json_str = serde_json::to_string_pretty(&cids_lotus_json).unwrap();
+    let lotus_json_str = cids.clone().into_lotus_json_string_pretty().unwrap();
     let api_ts_lotus_json: LotusJson<ApiTipsetKey> = serde_json::from_str(&lotus_json_str).unwrap();
     let api_ts = api_ts_lotus_json.into_inner();
     let cids_from_api_ts = api_ts

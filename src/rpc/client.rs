@@ -155,14 +155,13 @@ impl UrlClient {
     async fn new(url: Url, token: impl Into<Option<String>>) -> Result<Self, ClientError> {
         let timeout = Duration::MAX; // we handle timeouts ourselves.
         let headers = match token.into() {
-            Some(it) => HeaderMap::from_iter([(
+            Some(token) => HeaderMap::from_iter([(
                 header::AUTHORIZATION,
-                match HeaderValue::try_from(it) {
-                    Ok(it) => it,
+                match HeaderValue::try_from(format!("Bearer {token}")) {
+                    Ok(token) => token,
                     Err(e) => {
                         return Err(ClientError::Custom(format!(
-                            "Invalid authorization token: {}",
-                            e
+                            "Invalid authorization token: {e}",
                         )))
                     }
                 },

@@ -7,7 +7,6 @@ use std::{
     str::{self, FromStr},
 };
 
-use crate::rpc::{self, prelude::*};
 use crate::{
     cli::humantoken,
     message::SignedMessage,
@@ -21,6 +20,10 @@ use crate::{
 use crate::{
     key_management::{Key, KeyInfo},
     rpc_client::ApiInfo,
+};
+use crate::{
+    lotus_json::HasLotusJson as _,
+    rpc::{self, prelude::*},
 };
 use crate::{lotus_json::LotusJson, KeyStore};
 use crate::{
@@ -346,10 +349,8 @@ impl WalletCommands {
             } => {
                 let StrictAddress(address) = StrictAddress::from_str(&address_string)
                     .with_context(|| format!("Invalid address: {address_string}"))?;
-
                 let key_info = backend.wallet_export(address).await?;
-
-                let encoded_key = serde_json::to_string(&LotusJson(key_info))?;
+                let encoded_key = key_info.into_lotus_json_string()?;
                 println!("{}", hex::encode(encoded_key));
                 Ok(())
             }
@@ -498,9 +499,11 @@ impl WalletCommands {
 
                 let signed_msg = if let Some(keystore) = &backend.local {
                     let spec = None;
-                    let mut message = api
-                        .gas_estimate_message_gas(message, spec, ApiTipsetKey(None))
-                        .await?;
+                    let mut message = GasEstimateMessageGas::call(
+                        &backend.remote,
+                        (message, spec, ApiTipsetKey(None)),
+                    )
+                    .await?;
 
                     if message.gas_premium > message.gas_fee_cap {
                         anyhow::bail!("After estimation, gas premium is greater than gas fee cap")

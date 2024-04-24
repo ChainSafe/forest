@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    lotus_json::LotusJson,
+    lotus_json::HasLotusJson as _,
     shim::{
         address::Address,
         state_tree::{ActorState, StateTree},
@@ -213,8 +213,8 @@ where
         let expected = resolve_cids_recursive(bs, expected_root, depth)?;
         let actual = resolve_cids_recursive(bs, root, depth)?;
 
-        let expected_json = serde_json::to_string_pretty(&LotusJson(expected))?;
-        let actual_json = serde_json::to_string_pretty(&LotusJson(actual))?;
+        let expected_json = expected.into_lotus_json_string_pretty()?;
+        let actual_json = actual.into_lotus_json_string_pretty()?;
 
         let diffs = TextDiff::from_lines(&expected_json, &actual_json);
 
