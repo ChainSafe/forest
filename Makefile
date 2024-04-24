@@ -37,10 +37,6 @@ install-with-rustalloc:
 install-with-mimalloc:
 	cargo install --locked --path . --force --no-default-features --features mimalloc
 
-install-deps:
-	apt-get update -y
-	apt-get install --no-install-recommends -y build-essential clang
-
 install-lint-tools:
 	cargo install --locked taplo-cli
 	cargo install --locked cargo-audit
