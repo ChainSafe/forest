@@ -10,6 +10,7 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::LotusJson;
 use crate::shim::message::Message;
+use crate::shim::piece::PaddedPieceSize;
 use crate::shim::state_tree::StateTree;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
@@ -82,21 +83,20 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateVerifiedClientStatus);
         $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
         $callback!(crate::rpc::state::StateListMiners);
+        $callback!(crate::rpc::state::StateNetworkVersion);
+        $callback!(crate::rpc::state::StateMarketBalance);
+        $callback!(crate::rpc::state::StateMarketDeals);
+        $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
+        $callback!(crate::rpc::state::StateMarketStorageDeal);
+        $callback!(crate::rpc::state::StateWaitMsg);
+        $callback!(crate::rpc::state::StateSearchMsg);
     };
 }
 pub(crate) use for_each_method;
 
-pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
-pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
-pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
 pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
 pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-pub const STATE_SEARCH_MSG: &str = "Filecoin.StateSearchMsg";
 pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
-pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
-pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
-    "Filecoin.StateDealProviderCollateralBounds";
 
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
@@ -194,14 +194,22 @@ impl RpcMethod<0> for StateNetworkName {
     }
 }
 
-pub async fn state_get_network_version<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<NetworkVersion, ServerError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+pub enum StateNetworkVersion {}
+impl RpcMethod<1> for StateNetworkVersion {
+    const NAME: &'static str = "Filecoin.StateNetworkVersion";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    Ok(data.state_manager.get_network_version(ts.epoch()))
+    type Params = (ApiTipsetKey,);
+    type Ok = NetworkVersion;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_network_version(ts.epoch()))
+    }
 }
 
 /// gets the public key address of the given ID address
@@ -273,56 +281,70 @@ impl RpcMethod<2> for StateGetActor {
 
 /// looks up the Escrow and Locked balances of the given address in the Storage
 /// Market
-pub async fn state_market_balance<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<MarketBalance, ServerError> {
-    let LotusJson((address, ApiTipsetKey(key))): LotusJson<(Address, ApiTipsetKey)> =
-        params.parse()?;
+pub enum StateMarketBalance {}
 
-    let tipset = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&key)?;
-    data.state_manager
-        .market_balance(&address, &tipset)
-        .map_err(|e| e.into())
+impl RpcMethod<2> for StateMarketBalance {
+    const NAME: &'static str = "Filecoin.StateMarketBalance";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = MarketBalance;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        ctx.state_manager
+            .market_balance(&address, &ts)
+            .map_err(From::from)
+    }
 }
 
-pub async fn state_market_deals<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<HashMap<String, MarketDeal>, ServerError> {
-    let LotusJson((ApiTipsetKey(tsk),)): LotusJson<(ApiTipsetKey,)> = params.parse()?;
+pub enum StateMarketDeals {}
 
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-    let actor = data
-        .state_manager
-        .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
-    let market_state =
-        market::State::load(data.state_manager.blockstore(), actor.code, actor.state)?;
+impl RpcMethod<1> for StateMarketDeals {
+    const NAME: &'static str = "Filecoin.StateMarketDeals";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let da = market_state.proposals(data.state_manager.blockstore())?;
-    let sa = market_state.states(data.state_manager.blockstore())?;
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<String, ApiMarketDeal>;
 
-    let mut out = HashMap::new();
-    da.for_each(|deal_id, d| {
-        let s = sa.get(deal_id)?.unwrap_or(market::DealState {
-            sector_start_epoch: -1,
-            last_updated_epoch: -1,
-            slash_epoch: -1,
-            verified_claim: 0,
-        });
-        out.insert(
-            deal_id.to_string(),
-            MarketDeal {
-                proposal: d?,
-                state: s,
-            },
-        );
-        Ok(())
-    })?;
-    Ok(out)
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
+        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+
+        let da = market_state.proposals(ctx.store())?;
+        let sa = market_state.states(ctx.store())?;
+
+        let mut out = HashMap::new();
+        da.for_each(|deal_id, d| {
+            let s = sa.get(deal_id)?.unwrap_or(market::DealState {
+                sector_start_epoch: -1,
+                last_updated_epoch: -1,
+                slash_epoch: -1,
+                verified_claim: 0,
+            });
+            out.insert(
+                deal_id.to_string(),
+                MarketDeal {
+                    proposal: d?,
+                    state: s,
+                }
+                .into(),
+            );
+            Ok(())
+        })?;
+        Ok(out)
+    }
 }
 
 /// looks up the miner info of the given address.
@@ -684,50 +706,67 @@ impl RpcMethod<2> for StateGetReceipt {
 
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
-pub async fn state_wait_msg<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<MessageLookup, ServerError> {
-    let LotusJson((cid, confidence)): LotusJson<(Cid, i64)> = params.parse()?;
+pub enum StateWaitMsg {}
 
-    let state_manager = &data.state_manager;
-    let (tipset, receipt) = state_manager.wait_for_message(cid, confidence).await?;
-    let tipset = tipset.context("wait for msg returned empty tuple")?;
-    let receipt = receipt.context("wait for msg returned empty receipt")?;
-    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+impl RpcMethod<2> for StateWaitMsg {
+    const NAME: &'static str = "Filecoin.StateWaitMsg";
+    const PARAM_NAMES: [&'static str; 2] = ["message_cid", "confidence"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    Ok(MessageLookup {
-        receipt,
-        tipset: tipset.key().clone(),
-        height: tipset.epoch(),
-        message: cid,
-        return_dec: ipld,
-    })
+    type Params = (Cid, i64);
+    type Ok = Option<MessageLookup>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (message_cid, confidence): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let (tipset, receipt) = ctx
+            .state_manager
+            .wait_for_message(message_cid, confidence)
+            .await?;
+        let tipset = tipset.context("wait for msg returned empty tuple")?;
+        let receipt = receipt.context("wait for msg returned empty receipt")?;
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        Ok(Some(MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: message_cid,
+            return_dec: ipld,
+        }))
+    }
 }
 
 /// Searches for a message in the chain, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsg>
-pub async fn state_search_msg<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<MessageLookup, ServerError> {
-    let LotusJson((cid,)): LotusJson<(Cid,)> = params.parse()?;
+pub enum StateSearchMsg {}
 
-    let state_manager = &data.state_manager;
-    let (tipset, receipt) = state_manager
-        .search_for_message(None, cid, None)
-        .await?
-        .with_context(|| format!("message {cid} not found."))?;
+impl RpcMethod<1> for StateSearchMsg {
+    const NAME: &'static str = "Filecoin.StateSearchMsg";
+    const PARAM_NAMES: [&'static str; 1] = ["message_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+    type Params = (Cid,);
+    type Ok = Option<MessageLookup>;
 
-    Ok(MessageLookup {
-        receipt,
-        tipset: tipset.key().clone(),
-        height: tipset.epoch(),
-        message: cid,
-        return_dec: ipld,
-    })
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (message_cid,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let (tipset, receipt) = ctx
+            .state_manager
+            .search_for_message(None, message_cid, None)
+            .await?
+            .with_context(|| format!("message {message_cid} not found."))?;
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        Ok(Some(MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: message_cid,
+            return_dec: ipld,
+        }))
+    }
 }
 
 /// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
@@ -1198,90 +1237,104 @@ impl RpcMethod<1> for StateListMiners {
     }
 }
 
-pub async fn state_market_storage_deal<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<ApiMarketDeal, ServerError> {
-    let LotusJson((deal_id, ApiTipsetKey(tsk))): LotusJson<(DealID, ApiTipsetKey)> =
-        params.parse()?;
+pub enum StateMarketStorageDeal {}
 
-    let ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
-    let store = data.state_manager.blockstore();
-    let actor = data
-        .state_manager
-        .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
-    let market_state = market::State::load(store, actor.code, actor.state)?;
-    let proposals = market_state.proposals(store)?;
-    let proposal = proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
+impl RpcMethod<2> for StateMarketStorageDeal {
+    const NAME: &'static str = "Filecoin.StateMarketStorageDeal";
+    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let states = market_state.states(store)?;
-    let state = states.get(deal_id)?.unwrap_or_else(DealState::empty);
+    type Params = (DealID, ApiTipsetKey);
+    type Ok = ApiMarketDeal;
 
-    Ok(MarketDeal { proposal, state }.into())
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (deal_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let store = ctx.store();
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
+        let market_state = market::State::load(store, actor.code, actor.state)?;
+        let proposals = market_state.proposals(store)?;
+        let proposal = proposals.get(deal_id)?.ok_or_else(|| anyhow::anyhow!("deal {deal_id} not found - deal may not have completed sealing before deal proposal start epoch, or deal may have been slashed"))?;
+
+        let states = market_state.states(store)?;
+        let state = states.get(deal_id)?.unwrap_or_else(DealState::empty);
+
+        Ok(MarketDeal { proposal, state }.into())
+    }
 }
 
-pub async fn state_deal_provider_collateral_bounds<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<DealCollateralBounds, ServerError> {
-    let deal_provider_collateral_num = BigInt::from(110);
-    let deal_provider_collateral_denom = BigInt::from(100);
+pub enum StateDealProviderCollateralBounds {}
 
-    let LotusJson((size, verified, ApiTipsetKey(tsk))) = params.parse()?;
+impl RpcMethod<3> for StateDealProviderCollateralBounds {
+    const NAME: &'static str = "Filecoin.StateDealProviderCollateralBounds";
+    const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    // This is more eloquent than giving the whole match pattern a type.
-    let _: bool = verified;
+    type Params = (u64, bool, ApiTipsetKey);
+    type Ok = DealCollateralBounds;
 
-    let state_manager = &data.state_manager;
-    let ts = state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (size, verified, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let deal_provider_collateral_num = BigInt::from(110);
+        let deal_provider_collateral_denom = BigInt::from(100);
 
-    let power_actor =
-        state_manager.get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
+        // This is more eloquent than giving the whole match pattern a type.
+        let _: bool = verified;
 
-    let reward_actor =
-        state_manager.get_required_actor(&Address::REWARD_ACTOR, *ts.parent_state())?;
+        let state_manager = &ctx.state_manager;
+        let ts = state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
 
-    let store = state_manager.blockstore();
+        let power_actor =
+            state_manager.get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
 
-    let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
-    let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
+        let reward_actor =
+            state_manager.get_required_actor(&Address::REWARD_ACTOR, *ts.parent_state())?;
 
-    let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
+        let store = ctx.store();
 
-    let supply = genesis_info.get_vm_circulating_supply(
-        ts.epoch(),
-        &data.state_manager.blockstore_owned(),
-        ts.parent_state(),
-    )?;
+        let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
+        let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
 
-    let power_claim = power_state.total_power();
+        let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
 
-    let policy = &state_manager.chain_config().policy;
+        let supply = genesis_info.get_vm_circulating_supply(
+            ts.epoch(),
+            &state_manager.blockstore_owned(),
+            ts.parent_state(),
+        )?;
 
-    let baseline_power = reward_state.this_epoch_baseline_power();
+        let power_claim = power_state.total_power();
 
-    let (min, max) = reward_state.deal_provider_collateral_bounds(
-        policy,
-        size,
-        &power_claim.raw_byte_power,
-        baseline_power,
-        &supply.into(),
-    );
+        let policy = &state_manager.chain_config().policy;
 
-    let min = min
-        .atto()
-        .mul(deal_provider_collateral_num)
-        .div_euclid(&deal_provider_collateral_denom);
+        let baseline_power = reward_state.this_epoch_baseline_power();
 
-    Ok(DealCollateralBounds {
-        max: max.into(),
-        min: TokenAmount::from_atto(min),
-    })
+        let (min, max) = reward_state.deal_provider_collateral_bounds(
+            policy,
+            PaddedPieceSize::from(size).into(),
+            &power_claim.raw_byte_power,
+            baseline_power,
+            &supply.into(),
+        );
+
+        let min = min
+            .atto()
+            .mul(deal_provider_collateral_num)
+            .div_euclid(&deal_provider_collateral_denom);
+
+        Ok(DealCollateralBounds {
+            max: max.into(),
+            min: TokenAmount::from_atto(min),
+        })
+    }
 }
 
 pub enum StateGetBeaconEntry {}

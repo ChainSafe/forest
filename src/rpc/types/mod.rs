@@ -61,7 +61,7 @@ pub struct MessageSendSpec {
 
 lotus_json_with_self!(MessageSendSpec);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiDealState {
     pub sector_start_epoch: ChainEpoch,
@@ -73,36 +73,40 @@ pub struct ApiDealState {
 
 lotus_json_with_self!(ApiDealState);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiDealProposal {
+    #[schemars(with = "LotusJson<Cid>")]
     #[serde(rename = "PieceCID", with = "crate::lotus_json")]
     pub piece_cid: Cid,
     pub piece_size: u64,
     pub verified_deal: bool,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub client: Address,
+    #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     pub provider: Address,
     pub label: String,
     pub start_epoch: ChainEpoch,
     pub end_epoch: ChainEpoch,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub storage_price_per_epoch: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub provider_collateral: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub client_collateral: TokenAmount,
 }
 
 lotus_json_with_self!(ApiDealProposal);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiMarketDeal {
-    #[serde(with = "crate::lotus_json")]
     pub proposal: ApiDealProposal,
-    #[serde(with = "crate::lotus_json")]
     pub state: ApiDealState,
 }
 
@@ -115,16 +119,20 @@ pub struct MarketDeal {
     pub state: DealState,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLookup {
+    #[schemars(with = "LotusJson<Receipt>")]
     #[serde(with = "crate::lotus_json")]
     pub receipt: Receipt,
+    #[schemars(with = "LotusJson<TipsetKey>")]
     #[serde(rename = "TipSet", with = "crate::lotus_json")]
     pub tipset: TipsetKey,
     pub height: i64,
+    #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub message: Cid,
+    #[schemars(with = "serde_json::Value")]
     #[serde(with = "crate::lotus_json")]
     pub return_dec: Ipld,
 }
@@ -515,11 +523,13 @@ pub struct Transaction {
 
 lotus_json_with_self!(Transaction);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct DealCollateralBounds {
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub min: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     pub max: TokenAmount,
 }

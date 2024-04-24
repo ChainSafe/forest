@@ -98,8 +98,8 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateNetworkName::NAME, Access::Read);
     access.insert(state::StateReplay::NAME, Access::Read);
     access.insert(state::StateGetActor::NAME, Access::Read);
-    access.insert(state::STATE_MARKET_BALANCE, Access::Read);
-    access.insert(state::STATE_MARKET_DEALS, Access::Read);
+    access.insert(state::StateMarketBalance::NAME, Access::Read);
+    access.insert(state::StateMarketDeals::NAME, Access::Read);
     access.insert(state::StateMinerInfo::NAME, Access::Read);
     access.insert(state::StateMinerActiveSectors::NAME, Access::Read);
     access.insert(state::StateMinerFaults::NAME, Access::Read);
@@ -109,10 +109,10 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateMinerProvingDeadline::NAME, Access::Read);
     access.insert(state::StateMinerAvailableBalance::NAME, Access::Read);
     access.insert(state::StateGetReceipt::NAME, Access::Read);
-    access.insert(state::STATE_WAIT_MSG, Access::Read);
-    access.insert(state::STATE_SEARCH_MSG, Access::Read);
+    access.insert(state::StateWaitMsg::NAME, Access::Read);
+    access.insert(state::StateSearchMsg::NAME, Access::Read);
     access.insert(state::STATE_SEARCH_MSG_LIMITED, Access::Read);
-    access.insert(state::STATE_NETWORK_VERSION, Access::Read);
+    access.insert(state::StateNetworkVersion::NAME, Access::Read);
     access.insert(state::StateAccountKey::NAME, Access::Read);
     access.insert(state::StateLookupID::NAME, Access::Read);
     access.insert(state::STATE_FETCH_ROOT, Access::Read);
@@ -127,11 +127,11 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateMinerSectors::NAME, Access::Read);
     access.insert(state::StateMinerPartitions::NAME, Access::Read);
     access.insert(state::StateVerifiedClientStatus::NAME, Access::Read);
-    access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
+    access.insert(state::StateMarketStorageDeal::NAME, Access::Read);
     access.insert(state::StateVMCirculatingSupplyInternal::NAME, Access::Read);
     access.insert(state::MsigGetAvailableBalance::NAME, Access::Read);
     access.insert(state::MsigGetPending::NAME, Access::Read);
-    access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
+    access.insert(state::StateDealProviderCollateralBounds::NAME, Access::Read);
     access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
     access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
