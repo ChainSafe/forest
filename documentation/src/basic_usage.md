@@ -13,7 +13,6 @@ Forest Docker image (explained in detail [here](docker.md)).
 - Rust - install via [rustup](https://rustup.rs/)
 - OS Base-Devel/Build-Essential
 - Clang compiler
-- OpenCL bindings
 
 For Ubuntu, you can install the dependencies (excluding Rust) with:
 
