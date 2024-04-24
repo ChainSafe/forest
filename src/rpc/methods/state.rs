@@ -8,7 +8,6 @@ pub use types::*;
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
-use crate::lotus_json::LotusJson;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::state_tree::StateTree;
@@ -38,7 +37,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
-use jsonrpsee::types::{error::ErrorObject, Params};
+use jsonrpsee::types::error::ErrorObject;
 use libipld_core::ipld::Ipld;
 use nonempty::{nonempty, NonEmpty};
 use num_bigint::BigInt;
@@ -90,13 +89,13 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMarketStorageDeal);
         $callback!(crate::rpc::state::StateWaitMsg);
         $callback!(crate::rpc::state::StateSearchMsg);
+        $callback!(crate::rpc::state::StateSearchMsgLimited);
+        $callback!(crate::rpc::state::StateFetchRoot);
     };
 }
 pub(crate) use for_each_method;
 
-pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
 pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
@@ -714,7 +713,7 @@ impl RpcMethod<2> for StateWaitMsg {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (Cid, i64);
-    type Ok = Option<MessageLookup>;
+    type Ok = MessageLookup;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -727,13 +726,13 @@ impl RpcMethod<2> for StateWaitMsg {
         let tipset = tipset.context("wait for msg returned empty tuple")?;
         let receipt = receipt.context("wait for msg returned empty receipt")?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        Ok(Some(MessageLookup {
+        Ok(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
             return_dec: ipld,
-        }))
+        })
     }
 }
 
@@ -747,7 +746,7 @@ impl RpcMethod<1> for StateSearchMsg {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (Cid,);
-    type Ok = Option<MessageLookup>;
+    type Ok = MessageLookup;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -759,41 +758,48 @@ impl RpcMethod<1> for StateSearchMsg {
             .await?
             .with_context(|| format!("message {message_cid} not found."))?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
-        Ok(Some(MessageLookup {
+        Ok(MessageLookup {
             receipt,
             tipset: tipset.key().clone(),
             height: tipset.epoch(),
             message: message_cid,
             return_dec: ipld,
-        }))
+        })
     }
 }
 
 /// Looks back up to limit epochs in the chain for a message, and returns its receipt and the tipset where it was executed.
 /// See <https://github.com/filecoin-project/lotus/blob/master/documentation/en/api-v0-methods.md#StateSearchMsgLimited>
-pub async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<MessageLookup, ServerError> {
-    let LotusJson((cid, look_back_limit)): LotusJson<(Cid, i64)> = params.parse()?;
+pub enum StateSearchMsgLimited {}
 
-    let state_manager = &data.state_manager;
-    let (tipset, receipt) = state_manager
-        .search_for_message(None, cid, Some(look_back_limit))
-        .await?
-        .with_context(|| {
-            format!("message {cid} not found within the last {look_back_limit} epochs")
-        })?;
+impl RpcMethod<2> for StateSearchMsgLimited {
+    const NAME: &'static str = "Filecoin.StateSearchMsgLimited";
+    const PARAM_NAMES: [&'static str; 2] = ["message_cid", "look_back_limit"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+    type Params = (Cid, i64);
+    type Ok = MessageLookup;
 
-    Ok(MessageLookup {
-        receipt,
-        tipset: tipset.key().clone(),
-        height: tipset.epoch(),
-        message: cid,
-        return_dec: ipld,
-    })
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (message_cid, look_back_limit): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let (tipset, receipt) = ctx
+            .state_manager
+            .search_for_message(None, message_cid, Some(look_back_limit))
+            .await?
+            .with_context(|| {
+                format!("message {message_cid} not found within the last {look_back_limit} epochs")
+            })?;
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        Ok(MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: message_cid,
+            return_dec: ipld,
+        })
+    }
 }
 
 // Sample CIDs (useful for testing):
@@ -810,159 +816,167 @@ pub async fn state_search_msg_limited<DB: Blockstore + Send + Sync + 'static>(
 /// This function has two primary uses: (1) Downloading specific state-roots when Forest deviates
 /// from the mainline blockchain, (2) fetching historical state-trees to verify past versions of the
 /// consensus rules.
-pub async fn state_fetch_root<DB: Blockstore + Sync + Send + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((root_cid, save_to_file)): LotusJson<(Cid, Option<PathBuf>)> = params.parse()?;
+pub enum StateFetchRoot {}
 
-    let network_send = data.network_send.clone();
-    let db = data.chain_store.db.clone();
-    drop(data);
+impl RpcMethod<2> for StateFetchRoot {
+    const NAME: &'static str = "Filecoin.StateFetchRoot";
+    const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
-        let (car_tx, car_rx) = flume::bounded(100);
-        let roots = nonempty![root_cid];
-        let file = tokio::fs::File::create(save_to_file).await?;
+    type Params = (Cid, Option<PathBuf>);
+    type Ok = String;
 
-        let car_handle = tokio::spawn(async move {
-            car_rx
-                .stream()
-                .map(Ok)
-                .forward(CarWriter::new_carv1(roots, file)?)
-                .await
-        });
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (root_cid, save_to_file): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let network_send = ctx.network_send.clone();
+        let db = ctx.chain_store.db.clone();
 
-        (Some(car_tx), Some(car_handle))
-    } else {
-        (None, None)
-    };
+        let (car_tx, car_handle) = if let Some(save_to_file) = save_to_file {
+            let (car_tx, car_rx) = flume::bounded(100);
+            let roots = nonempty![root_cid];
+            let file = tokio::fs::File::create(save_to_file).await?;
 
-    const MAX_CONCURRENT_REQUESTS: usize = 64;
-    const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+            let car_handle = tokio::spawn(async move {
+                car_rx
+                    .stream()
+                    .map(Ok)
+                    .forward(CarWriter::new_carv1(roots, file)?)
+                    .await
+            });
 
-    let mut seen: CidHashSet = CidHashSet::default();
-    let mut counter: usize = 0;
-    let mut fetched: usize = 0;
-    let mut failures: usize = 0;
-    let mut task_set = JoinSet::new();
+            (Some(car_tx), Some(car_handle))
+        } else {
+            (None, None)
+        };
 
-    fn handle_worker(fetched: &mut usize, failures: &mut usize, ret: anyhow::Result<()>) {
-        match ret {
-            Ok(()) => *fetched += 1,
-            Err(msg) => {
-                *failures += 1;
-                tracing::debug!("Request failed: {msg}");
+        const MAX_CONCURRENT_REQUESTS: usize = 64;
+        const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+        let mut seen: CidHashSet = CidHashSet::default();
+        let mut counter: usize = 0;
+        let mut fetched: usize = 0;
+        let mut failures: usize = 0;
+        let mut task_set = JoinSet::new();
+
+        fn handle_worker(fetched: &mut usize, failures: &mut usize, ret: anyhow::Result<()>) {
+            match ret {
+                Ok(()) => *fetched += 1,
+                Err(msg) => {
+                    *failures += 1;
+                    tracing::debug!("Request failed: {msg}");
+                }
             }
         }
-    }
 
-    // When walking an Ipld graph, we're only interested in the DAG_CBOR encoded nodes.
-    let mut get_ipld_link = |ipld: &Ipld| match ipld {
-        &Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(cid) => Some(cid),
-        _ => None,
-    };
+        // When walking an Ipld graph, we're only interested in the DAG_CBOR encoded nodes.
+        let mut get_ipld_link = |ipld: &Ipld| match ipld {
+            &Ipld::Link(cid) if cid.codec() == DAG_CBOR && seen.insert(cid) => Some(cid),
+            _ => None,
+        };
 
-    // Do a depth-first-search of the IPLD graph (DAG). Nodes that are _not_ present in our database
-    // are fetched in background tasks. If the number of tasks reaches MAX_CONCURRENT_REQUESTS, the
-    // depth-first-search pauses until one of the work tasks returns. The memory usage of this
-    // algorithm is dominated by the set of seen CIDs and the 'dfs' stack is not expected to grow to
-    // more than 1000 elements (even when walking tens of millions of nodes).
-    let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
-    let mut to_be_fetched = vec![];
+        // Do a depth-first-search of the IPLD graph (DAG). Nodes that are _not_ present in our database
+        // are fetched in background tasks. If the number of tasks reaches MAX_CONCURRENT_REQUESTS, the
+        // depth-first-search pauses until one of the work tasks returns. The memory usage of this
+        // algorithm is dominated by the set of seen CIDs and the 'dfs' stack is not expected to grow to
+        // more than 1000 elements (even when walking tens of millions of nodes).
+        let dfs = Arc::new(Mutex::new(vec![Ipld::Link(root_cid)]));
+        let mut to_be_fetched = vec![];
 
-    // Loop until: No more items in `dfs` AND no running worker tasks.
-    loop {
-        while let Some(ipld) = lock_pop(&dfs) {
-            {
-                let mut dfs_guard = dfs.lock();
-                // Scan for unseen CIDs. Available IPLD nodes are pushed to the depth-first-search
-                // stack, unavailable nodes will be requested in worker tasks.
-                for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
-                    counter += 1;
-                    if counter % 1_000 == 0 {
-                        // set RUST_LOG=forest_filecoin::rpc::state_api=debug to enable these printouts.
-                        tracing::debug!(
+        // Loop until: No more items in `dfs` AND no running worker tasks.
+        loop {
+            while let Some(ipld) = lock_pop(&dfs) {
+                {
+                    let mut dfs_guard = dfs.lock();
+                    // Scan for unseen CIDs. Available IPLD nodes are pushed to the depth-first-search
+                    // stack, unavailable nodes will be requested in worker tasks.
+                    for new_cid in ipld.iter().filter_map(&mut get_ipld_link) {
+                        counter += 1;
+                        if counter % 1_000 == 0 {
+                            // set RUST_LOG=forest_filecoin::rpc::state_api=debug to enable these printouts.
+                            tracing::debug!(
                                 "Graph walk: CIDs: {counter}, Fetched: {fetched}, Failures: {failures}, dfs: {}, Concurrent: {}",
                                 dfs_guard.len(), task_set.len()
                             );
-                    }
-
-                    if let Some(next_ipld) = db.get_cbor(&new_cid)? {
-                        dfs_guard.push(next_ipld);
-                        if let Some(car_tx) = &car_tx {
-                            car_tx.send(CarBlock {
-                                cid: new_cid,
-                                data: db.get(&new_cid)?.with_context(|| {
-                                    format!("Failed to get cid {new_cid} from block store")
-                                })?,
-                            })?;
                         }
-                    } else {
-                        to_be_fetched.push(new_cid);
+
+                        if let Some(next_ipld) = db.get_cbor(&new_cid)? {
+                            dfs_guard.push(next_ipld);
+                            if let Some(car_tx) = &car_tx {
+                                car_tx.send(CarBlock {
+                                    cid: new_cid,
+                                    data: db.get(&new_cid)?.with_context(|| {
+                                        format!("Failed to get cid {new_cid} from block store")
+                                    })?,
+                                })?;
+                            }
+                        } else {
+                            to_be_fetched.push(new_cid);
+                        }
                     }
                 }
-            }
 
-            while let Some(cid) = to_be_fetched.pop() {
-                if task_set.len() == MAX_CONCURRENT_REQUESTS {
-                    if let Some(ret) = task_set.join_next().await {
-                        handle_worker(&mut fetched, &mut failures, ret?)
+                while let Some(cid) = to_be_fetched.pop() {
+                    if task_set.len() == MAX_CONCURRENT_REQUESTS {
+                        if let Some(ret) = task_set.join_next().await {
+                            handle_worker(&mut fetched, &mut failures, ret?)
+                        }
                     }
-                }
-                task_set.spawn_blocking({
-                    let network_send = network_send.clone();
-                    let db = db.clone();
-                    let dfs_vec = Arc::clone(&dfs);
-                    let car_tx = car_tx.clone();
-                    move || {
-                        let (tx, rx) = flume::bounded(1);
-                        network_send.send(NetworkMessage::BitswapRequest {
-                            cid,
-                            response_channel: tx,
-                            epoch: None,
-                        })?;
-                        // Bitswap requests do not fail. They are just ignored if no-one has
-                        // the requested data. Here we arbitrary decide to only wait for
-                        // REQUEST_TIMEOUT before judging that the data is unavailable.
-                        let _ignore = rx.recv_timeout(REQUEST_TIMEOUT);
-
-                        let new_ipld = db
-                            .get_cbor::<Ipld>(&cid)?
-                            .with_context(|| format!("Request failed: {cid}"))?;
-                        dfs_vec.lock().push(new_ipld);
-                        if let Some(car_tx) = &car_tx {
-                            car_tx.send(CarBlock {
+                    task_set.spawn_blocking({
+                        let network_send = network_send.clone();
+                        let db = db.clone();
+                        let dfs_vec = Arc::clone(&dfs);
+                        let car_tx = car_tx.clone();
+                        move || {
+                            let (tx, rx) = flume::bounded(1);
+                            network_send.send(NetworkMessage::BitswapRequest {
                                 cid,
-                                data: db.get(&cid)?.with_context(|| {
-                                    format!("Failed to get cid {cid} from block store")
-                                })?,
+                                response_channel: tx,
+                                epoch: None,
                             })?;
+                            // Bitswap requests do not fail. They are just ignored if no-one has
+                            // the requested data. Here we arbitrary decide to only wait for
+                            // REQUEST_TIMEOUT before judging that the data is unavailable.
+                            let _ignore = rx.recv_timeout(REQUEST_TIMEOUT);
+
+                            let new_ipld = db
+                                .get_cbor::<Ipld>(&cid)?
+                                .with_context(|| format!("Request failed: {cid}"))?;
+                            dfs_vec.lock().push(new_ipld);
+                            if let Some(car_tx) = &car_tx {
+                                car_tx.send(CarBlock {
+                                    cid,
+                                    data: db.get(&cid)?.with_context(|| {
+                                        format!("Failed to get cid {cid} from block store")
+                                    })?,
+                                })?;
+                            }
+
+                            Ok(())
                         }
-
-                        Ok(())
-                    }
-                });
+                    });
+                }
+                tokio::task::yield_now().await;
             }
-            tokio::task::yield_now().await;
+            if let Some(ret) = task_set.join_next().await {
+                handle_worker(&mut fetched, &mut failures, ret?)
+            } else {
+                // We are out of work items (dfs) and all worker threads have finished, this means
+                // the entire graph has been walked and fetched.
+                break;
+            }
         }
-        if let Some(ret) = task_set.join_next().await {
-            handle_worker(&mut fetched, &mut failures, ret?)
-        } else {
-            // We are out of work items (dfs) and all worker threads have finished, this means
-            // the entire graph has been walked and fetched.
-            break;
+
+        drop(car_tx);
+        if let Some(car_handle) = car_handle {
+            car_handle.await??;
         }
-    }
 
-    drop(car_tx);
-    if let Some(car_handle) = car_handle {
-        car_handle.await??;
+        Ok(format!(
+            "IPLD graph traversed! CIDs: {counter}, fetched: {fetched}, failures: {failures}."
+        ))
     }
-
-    Ok(format!(
-        "IPLD graph traversed! CIDs: {counter}, fetched: {fetched}, failures: {failures}."
-    ))
 }
 
 // Convenience function for locking and popping a value out of a vector. If this function is

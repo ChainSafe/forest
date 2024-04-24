@@ -747,7 +747,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
                 ),
                 validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
-                validate_message_lookup(ApiInfo::state_search_msg_limited_req(msg_cid, 800)),
+                validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
             ]);
         }
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
@@ -823,42 +823,60 @@ fn wallet_tests() -> Vec<RpcTest> {
 
 fn eth_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::basic(ApiInfo::eth_block_number_req()),
-        RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        RpcTest::identity(EthAccounts::request(()).unwrap()),
+        RpcTest::basic(EthBlockNumber::request(()).unwrap()),
+        RpcTest::identity(EthChainId::request(()).unwrap()),
         // There is randomness in the result of this API
-        RpcTest::basic(ApiInfo::eth_gas_price_req()),
+        RpcTest::basic(EthGasPrice::request(()).unwrap()),
         RpcTest::basic(EthSyncing::request(()).unwrap()),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_predefined(Predefined::Latest),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_predefined(Predefined::Pending),
-        )),
-        RpcTest::basic(ApiInfo::web3_client_version_req()),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Pending),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
     ]
 }
 
 fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     vec![
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_block_by_number_req(
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            false,
-        )),
-        RpcTest::identity(ApiInfo::eth_get_block_by_number_req(
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            true,
-        )),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                true,
+            ))
+            .unwrap(),
+        ),
     ]
 }
 
@@ -1265,17 +1283,13 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     builder.build().with(Style::markdown()).to_string()
 }
 
-fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+fn validate_message_lookup(req: RpcRequest<MessageLookup>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
-        if let Some(json) = forest.as_mut() {
-            json.return_dec = Ipld::Null;
-        }
-        if let Some(json) = lotus.as_mut() {
-            json.return_dec = Ipld::Null;
-        }
+        forest.return_dec = Ipld::Null;
+        lotus.return_dec = Ipld::Null;
         forest == lotus
     })
 }

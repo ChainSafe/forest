@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 #![allow(clippy::unused_async)]
 
-use crate::blocks::TipsetKey;
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
-use crate::lotus_json::LotusJson;
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod};
 use crate::shim::{
@@ -13,36 +11,40 @@ use crate::shim::{
     econ::{TokenAmount, BLOCK_GAS_LIMIT},
     message::Message,
 };
+use anyhow::{Context, Result};
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::types::Params;
 use num::BigInt;
 use num_traits::{FromPrimitive, Zero};
 use rand_distr::{Distribution, Normal};
 
-use anyhow::{Context, Result};
-
 const MIN_GAS_PREMIUM: f64 = 100000.0;
-
-pub const GAS_ESTIMATE_FEE_CAP: &str = "Filecoin.GasEstimateFeeCap";
-pub const GAS_ESTIMATE_GAS_PREMIUM: &str = "Filecoin.GasEstimateGasPremium";
 
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
         $callback!(crate::rpc::gas::GasEstimateMessageGas);
+        $callback!(crate::rpc::gas::GasEstimateFeeCap);
+        $callback!(crate::rpc::gas::GasEstimateGasPremium);
     };
 }
 pub(crate) use for_each_method;
 
 /// Estimate the fee cap
-pub async fn gas_estimate_fee_cap<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((msg, max_queue_blks, tsk)): LotusJson<(Message, i64, ApiTipsetKey)> =
-        params.parse()?;
+pub enum GasEstimateFeeCap {}
+impl RpcMethod<3> for GasEstimateFeeCap {
+    const NAME: &'static str = "Filecoin.GasEstimateFeeCap";
+    const PARAM_NAMES: [&'static str; 3] = ["message", "max_queue_blocks", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    estimate_fee_cap::<DB>(&data, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
+    type Params = (Message, i64, ApiTipsetKey);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (msg, max_queue_blks, tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        estimate_fee_cap(&ctx, msg, max_queue_blks, tsk).map(|n| TokenAmount::to_string(&n))
+    }
 }
 
 fn estimate_fee_cap<DB: Blockstore>(
@@ -66,20 +68,23 @@ fn estimate_fee_cap<DB: Blockstore>(
 }
 
 /// Estimate the fee cap
-pub async fn gas_estimate_gas_premium<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((nblocksincl, _sender, _gas_limit, _)): LotusJson<(
-        u64,
-        Address,
-        i64,
-        TipsetKey,
-    )> = params.parse()?;
+pub enum GasEstimateGasPremium {}
+impl RpcMethod<4> for GasEstimateGasPremium {
+    const NAME: &'static str = "Filecoin.GasEstimateGasPremium";
+    const PARAM_NAMES: [&'static str; 4] = ["nblocksincl", "sender", "gas_limit", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    estimate_gas_premium::<DB>(&data, nblocksincl)
-        .await
-        .map(|n| TokenAmount::to_string(&n))
+    type Params = (u64, Address, i64, ApiTipsetKey);
+    type Ok = String;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (nblocksincl, _sender, _gas_limit, _tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        estimate_gas_premium(&ctx, nblocksincl)
+            .await
+            .map(|n| TokenAmount::to_string(&n))
+    }
 }
 
 pub async fn estimate_gas_premium<DB: Blockstore>(

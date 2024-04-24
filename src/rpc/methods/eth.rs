@@ -30,7 +30,6 @@ use cid::{
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
-use jsonrpsee::types::Params;
 use keccak_hash::keccak;
 use nonempty::nonempty;
 use num_bigint::{self, Sign};
@@ -43,18 +42,17 @@ use std::{ops::Add, sync::Arc};
 
 macro_rules! for_each_method {
     ($callback:ident) => {
+        $callback!(crate::rpc::eth::Web3ClientVersion);
         $callback!(crate::rpc::eth::EthSyncing);
+        $callback!(crate::rpc::eth::EthAccounts);
+        $callback!(crate::rpc::eth::EthBlockNumber);
+        $callback!(crate::rpc::eth::EthChainId);
+        $callback!(crate::rpc::eth::EthGasPrice);
+        $callback!(crate::rpc::eth::EthGetBalance);
+        $callback!(crate::rpc::eth::EthGetBlockByNumber);
     };
 }
 pub(crate) use for_each_method;
-
-pub const ETH_ACCOUNTS: &str = "Filecoin.EthAccounts";
-pub const ETH_BLOCK_NUMBER: &str = "Filecoin.EthBlockNumber";
-pub const ETH_CHAIN_ID: &str = "Filecoin.EthChainId";
-pub const ETH_GAS_PRICE: &str = "Filecoin.EthGasPrice";
-pub const ETH_GET_BALANCE: &str = "Filecoin.EthGetBalance";
-pub const ETH_GET_BLOCK_BY_NUMBER: &str = "Filecoin.EthGetBlockByNumber";
-pub const WEB3_CLIENT_VERSION: &str = "Filecoin.Web3ClientVersion";
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -105,13 +103,13 @@ enum EVMMethod {
     InvokeContract = 3844450837,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default, Clone)]
-pub struct GasPriceResult(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
-
-lotus_json_with_self!(GasPriceResult);
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct BigInt(
+    #[schemars(with = "LotusJson<num_bigint::BigInt>")]
+    #[serde(with = "crate::lotus_json::hexify")]
+    pub num_bigint::BigInt,
+);
+lotus_json_with_self!(BigInt);
 
 impl From<TokenAmount> for BigInt {
     fn from(amount: TokenAmount) -> Self {
@@ -119,30 +117,50 @@ impl From<TokenAmount> for BigInt {
     }
 }
 
-lotus_json_with_self!(BigInt);
+type GasPriceResult = BigInt;
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Nonce(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::H64);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Nonce(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify_bytes")]
+    pub ethereum_types::H64,
+);
 
 lotus_json_with_self!(Nonce);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Bloom(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Bloom);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Bloom(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify_bytes")]
+    pub ethereum_types::Bloom,
+);
 
 lotus_json_with_self!(Bloom);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Uint64(#[serde(with = "crate::lotus_json::hexify")] pub u64);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Uint64(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify")]
+    pub u64,
+);
 
 lotus_json_with_self!(Uint64);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Bytes(#[serde(with = "crate::lotus_json::hexify_vec_bytes")] pub Vec<u8>);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Bytes(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
+    pub Vec<u8>,
+);
 
 lotus_json_with_self!(Bytes);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Address(#[serde(with = "crate::lotus_json::hexify_bytes")] pub ethereum_types::Address);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Address(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify_bytes")]
+    pub ethereum_types::Address,
+);
 
 lotus_json_with_self!(Address);
 
@@ -231,8 +249,8 @@ fn cast_eth_addr(bytes: &[u8]) -> Result<Address> {
     Ok(Address(payload))
 }
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
-pub struct Hash(pub ethereum_types::H256);
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
@@ -348,7 +366,7 @@ impl HasLotusJson for BlockNumberOrHash {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
     Hash(Vec<String>),
@@ -361,7 +379,7 @@ impl Default for Transactions {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub hash: Hash,
@@ -406,7 +424,7 @@ impl Block {
 
 lotus_json_with_self!(Block);
 
-#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Tx {
     pub chain_id: Uint64,
@@ -416,6 +434,7 @@ pub struct Tx {
     pub block_number: Uint64,
     pub transaction_index: Uint64,
     pub from: Address,
+    #[schemars(with = "Option<Address>")]
     #[serde(
         with = "crate::lotus_json",
         skip_serializing_if = "Option::is_none",
@@ -627,73 +646,141 @@ impl HasLotusJson for EthSyncingResult {
     }
 }
 
-pub async fn eth_accounts() -> Result<Vec<String>, ServerError> {
-    // EthAccounts will always return [] since we don't expect Forest to manage private keys
-    Ok(vec![])
-}
+pub enum Web3ClientVersion {}
+impl RpcMethod<0> for Web3ClientVersion {
+    const NAME: &'static str = "Filecoin.Web3ClientVersion";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-pub async fn eth_block_number<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
-    // `eth_block_number` needs to return the height of the latest committed tipset.
-    // Ethereum clients expect all transactions included in this block to have execution outputs.
-    // This is the parent of the head tipset. The head tipset is speculative, has not been
-    // recognized by the network, and its messages are only included, not executed.
-    // See https://github.com/filecoin-project/ref-fvm/issues/1135.
-    let heaviest = data.state_manager.chain_store().heaviest_tipset();
-    if heaviest.epoch() == 0 {
-        // We're at genesis.
-        return Ok("0x0".to_string());
-    }
-    // First non-null parent.
-    let effective_parent = heaviest.parents();
-    if let Ok(Some(parent)) = data
-        .state_manager
-        .chain_store()
-        .chain_index
-        .load_tipset(effective_parent)
-    {
-        Ok(format!("{:#x}", parent.epoch()))
-    } else {
-        Ok("0x0".to_string())
+    type Params = ();
+    type Ok = String;
+
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(crate::utils::version::FOREST_VERSION_STRING.clone())
     }
 }
 
-pub async fn eth_chain_id<DB: Blockstore>(data: Ctx<DB>) -> Result<String, ServerError> {
-    Ok(format!(
-        "{:#x}",
-        data.state_manager.chain_config().eth_chain_id
-    ))
-}
+pub enum EthAccounts {}
+impl RpcMethod<0> for EthAccounts {
+    const NAME: &'static str = "Filecoin.EthAccounts";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-pub async fn eth_gas_price<DB: Blockstore>(data: Ctx<DB>) -> Result<GasPriceResult, ServerError> {
-    let ts = data.state_manager.chain_store().heaviest_tipset();
-    let block0 = ts.block_headers().first();
-    let base_fee = &block0.parent_base_fee;
-    if let Ok(premium) = gas::estimate_gas_premium(&data, 10000).await {
-        let gas_price = base_fee.add(premium);
-        Ok(GasPriceResult(gas_price.atto().clone()))
-    } else {
-        Ok(GasPriceResult(num_bigint::BigInt::zero()))
+    type Params = ();
+    type Ok = Vec<String>;
+
+    async fn handle(
+        _: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // EthAccounts will always return [] since we don't expect Forest to manage private keys
+        Ok(vec![])
     }
 }
 
-pub async fn eth_get_balance<DB: Blockstore>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<BigInt, ServerError> {
-    let LotusJson((address, block_param)): LotusJson<(Address, BlockNumberOrHash)> =
-        params.parse()?;
+pub enum EthBlockNumber {}
+impl RpcMethod<0> for EthBlockNumber {
+    const NAME: &'static str = "Filecoin.EthBlockNumber";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    let fil_addr = address.to_filecoin_address()?;
+    type Params = ();
+    type Ok = String;
 
-    let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // `eth_block_number` needs to return the height of the latest committed tipset.
+        // Ethereum clients expect all transactions included in this block to have execution outputs.
+        // This is the parent of the head tipset. The head tipset is speculative, has not been
+        // recognized by the network, and its messages are only included, not executed.
+        // See https://github.com/filecoin-project/ref-fvm/issues/1135.
+        let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
+        if heaviest.epoch() == 0 {
+            // We're at genesis.
+            return Ok("0x0".to_string());
+        }
+        // First non-null parent.
+        let effective_parent = heaviest.parents();
+        if let Ok(Some(parent)) = ctx.chain_store.chain_index.load_tipset(effective_parent) {
+            Ok(format!("{:#x}", parent.epoch()))
+        } else {
+            Ok("0x0".to_string())
+        }
+    }
+}
 
-    let state = StateTree::new_from_root(data.state_manager.blockstore_owned(), ts.parent_state())?;
+pub enum EthChainId {}
+impl RpcMethod<0> for EthChainId {
+    const NAME: &'static str = "Filecoin.EthChainId";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    let actor = state
-        .get_actor(&fil_addr)?
-        .context("Failed to retrieve actor")?;
+    type Params = ();
+    type Ok = String;
 
-    Ok(BigInt(actor.balance.atto().clone()))
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        Ok(format!(
+            "{:#x}",
+            ctx.state_manager.chain_config().eth_chain_id
+        ))
+    }
+}
+
+pub enum EthGasPrice {}
+impl RpcMethod<0> for EthGasPrice {
+    const NAME: &'static str = "Filecoin.EthGasPrice";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = ();
+    type Ok = GasPriceResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.state_manager.chain_store().heaviest_tipset();
+        let block0 = ts.block_headers().first();
+        let base_fee = &block0.parent_base_fee;
+        if let Ok(premium) = gas::estimate_gas_premium(&ctx, 10000).await {
+            let gas_price = base_fee.add(premium);
+            Ok(BigInt(gas_price.atto().clone()))
+        } else {
+            Ok(BigInt(num_bigint::BigInt::zero()))
+        }
+    }
+}
+
+pub enum EthGetBalance {}
+impl RpcMethod<2> for EthGetBalance {
+    const NAME: &'static str = "Filecoin.EthGetBalance";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "block_param"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+
+    type Params = (Address, BlockNumberOrHash);
+    type Ok = BigInt;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let fil_addr = address.to_filecoin_address()?;
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let state =
+            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
+        let actor = state
+            .get_actor(&fil_addr)?
+            .context("Failed to retrieve actor")?;
+        Ok(BigInt(actor.balance.atto().clone()))
+    }
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
@@ -1171,18 +1258,23 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     })
 }
 
-pub async fn eth_get_block_by_number<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<Block, ServerError> {
-    let LotusJson((block_param, full_tx_info)): LotusJson<(BlockNumberOrHash, bool)> =
-        params.parse()?;
+pub enum EthGetBlockByNumber {}
+impl RpcMethod<2> for EthGetBlockByNumber {
+    const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
+    const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
 
-    let ts = tipset_by_block_number_or_hash(&data.chain_store, block_param)?;
+    type Params = (BlockNumberOrHash, bool);
+    type Ok = Block;
 
-    let block = block_from_filecoin_tipset(data, ts, full_tx_info).await?;
-
-    Ok(block)
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, full_tx_info): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        Ok(block)
+    }
 }
 
 pub enum EthSyncing {}
@@ -1232,10 +1324,10 @@ mod test {
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
-        let r = GasPriceResult(i.into());
+        let r = BigInt(i.into());
         let encoded = serde_json::to_string(&r).unwrap();
         assert_eq!(encoded, format!("\"{i:#x}\""));
-        let decoded: GasPriceResult = serde_json::from_str(&encoded).unwrap();
+        let decoded: BigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r.0, decoded.0);
     }
 
