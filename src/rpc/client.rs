@@ -12,13 +12,13 @@
 //! - Support per-request timeouts.
 
 use std::fmt::{self, Debug};
+use std::time::Duration;
 
 use http02::{header, HeaderMap, HeaderValue};
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;
 use serde::de::DeserializeOwned;
-use std::time::Duration;
 use tracing::{debug, Instrument, Level};
 use url::Url;
 
