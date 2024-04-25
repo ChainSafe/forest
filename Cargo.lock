@@ -2929,6 +2929,7 @@ dependencies = [
 name = "fil_actor_reward_state"
 version = "11.1.0"
 dependencies = [
+ "fil_actor_miner_state",
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
  "fvm_shared 3.6.0",

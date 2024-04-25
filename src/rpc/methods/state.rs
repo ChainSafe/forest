@@ -690,6 +690,7 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
         .context("Market actor address could not be resolved")?;
     let market_state = market::State::load(bs, actor.code, actor.state)?;
     let (w, vw) = market_state.verify_deals_for_activation(
+        bs,
         maddr.into(),
         pci.deal_ids,
         ts.epoch(),
