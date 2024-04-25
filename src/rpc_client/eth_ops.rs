@@ -35,6 +35,10 @@ impl ApiInfo {
         RpcRequest::new_v1(ETH_GET_BALANCE, (address, block_param))
     }
 
+    pub fn eth_subscribe_req(event: serde_json::Value) -> RpcRequest<SubscriptionID> {
+        RpcRequest::new_v1(ETH_SUBSCRIBE, event)
+    }
+
     pub fn web3_client_version_req() -> RpcRequest<String> {
         RpcRequest::new_v1(WEB3_CLIENT_VERSION, ())
     }
