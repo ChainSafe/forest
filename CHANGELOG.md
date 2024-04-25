@@ -84,6 +84,9 @@
 - [#4177](https://github.com/ChainSafe/forest/pull/4177) Fixed a bug where the
   environment variable `IPFS_GATEWAY` was not used to change the IPFS gateway.
 
+- [#4267](https://github.com/ChainSafe/forest/pull/4267) Fixed potential panics
+  in `forest-tool api compare`.
+
 ## Forest 0.17.2 "Dovakhin"
 
 This is a **mandatory** release for all mainnet node operators. It changes the
