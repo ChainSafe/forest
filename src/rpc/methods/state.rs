@@ -41,6 +41,7 @@ use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpsee::types::{error::ErrorObject, Params};
 use libipld_core::ipld::Ipld;
 use nonempty::{nonempty, NonEmpty};
+use num::Integer;
 use num_bigint::BigInt;
 use num_traits::Euclid;
 use parking_lot::Mutex;
@@ -100,6 +101,9 @@ pub const STATE_SEARCH_MSG_LIMITED: &str = "Filecoin.StateSearchMsgLimited";
 pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
 pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
     "Filecoin.StateDealProviderCollateralBounds";
+
+const INITIAL_PLEDGE_NUM: u32 = 110;
+const INITIAL_PLEDGE_DEN: u32 = 100;
 
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
@@ -725,8 +729,9 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
         &circ_supply.fil_circulating.into(),
     )?;
 
-    let (q, _) = (initial_pledge * 110).div_rem(110);
-    Ok(TokenAmount::to_string(&q.into()))
+    let (q, _) = (initial_pledge.atto() * BigInt::from(INITIAL_PLEDGE_NUM))
+        .div_rem(&BigInt::from(INITIAL_PLEDGE_DEN));
+    Ok(q.to_string())
 }
 
 /// returns the message receipt for the given message
