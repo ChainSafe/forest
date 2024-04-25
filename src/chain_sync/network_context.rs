@@ -262,6 +262,10 @@ where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
         F: Fn(&Vec<T>) -> bool,
     {
+        if request_len == 0 {
+            return Ok(vec![]);
+        }
+
         let request = ChainExchangeRequest {
             start: tsk.to_cids(),
             request_len,

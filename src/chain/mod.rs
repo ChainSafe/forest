@@ -31,7 +31,7 @@ pub async fn export<D: Digest>(
     // Wrap writer in optional checksum calculator
     let mut writer = AsyncWriterWithChecksum::<D, _>::new(BufWriter::new(writer), !skip_checksum);
 
-    // Stream stateroots in range stateroot_lookup_limit..=tipset.epoch(). Also
+    // Stream stateroots in range (stateroot_lookup_limit+1)..=tipset.epoch(). Also
     // stream all block headers until genesis.
     let blocks = par_buffer(
         // Queue 1k blocks. This is enuogh to saturate the compressor and blocks
