@@ -1512,6 +1512,81 @@ impl StateSectorPreCommitInfo {
 
         Ok(sectors)
     }
+
+    pub fn get_sector_pre_commit_infos(
+        store: &Arc<impl Blockstore>,
+        miner_address: &Address,
+        tipset: &Tipset,
+    ) -> anyhow::Result<Vec<SectorPreCommitInfo>> {
+        let mut infos = vec![];
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_required_actor(miner_address)?;
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        match &state {
+            miner::State::V8(s) => {
+                let precommitted = fil_actors_shared::v8::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V9(s) => {
+                let precommitted = fil_actors_shared::v9::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V10(s) => {
+                let precommitted = fil_actors_shared::v10::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v10::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V11(s) => {
+                let precommitted = fil_actors_shared::v11::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v11::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V12(s) => {
+                let precommitted = fil_actors_shared::v12::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v12::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V13(s) => {
+                let precommitted = fil_actors_shared::v13::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v13::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+        }?;
+
+        Ok(infos)
+    }
 }
 
 pub enum StateSectorGetInfo {}

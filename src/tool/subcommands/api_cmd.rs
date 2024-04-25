@@ -17,12 +17,10 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::eth::*;
 use crate::rpc::gas::GasEstimateGasLimit;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorPreCommitInfo};
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
-use crate::shim::sector::RegisteredSealProof;
-use crate::shim::sector::RegisteredSealProofV4::StackedDRG32GiBV1P1_Feat_SyntheticPoRep;
 use crate::shim::{
     address::{Address, Protocol},
     crypto::Signature,
@@ -746,6 +744,22 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 sector,
                 tipset.key().into(),
             ))?)]);
+        }
+        for info in StateSectorPreCommitInfo::get_sector_pre_commit_infos(
+            store,
+            &block.miner_address,
+            tipset,
+        )?
+        .into_iter()
+        .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(
+                ApiInfo::state_miner_initial_pledge_collateral_req(
+                    block.miner_address,
+                    info,
+                    tipset.key().into(),
+                ),
+            )]);
         }
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;

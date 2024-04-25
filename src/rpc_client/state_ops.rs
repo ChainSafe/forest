@@ -4,9 +4,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::lotus_json::LotusJson;
 use crate::rpc::types::*;
-use crate::shim::fvm_shared_latest::econ::TokenAmount;
 use crate::state_manager::MarketBalance;
 use crate::{
     rpc::state::*,
@@ -42,7 +40,7 @@ impl ApiInfo {
         miner: Address,
         info: SectorPreCommitInfo,
         tsk: ApiTipsetKey,
-    ) -> RpcRequest<LotusJson<TokenAmount>> {
+    ) -> RpcRequest<String> {
         RpcRequest::new(STATE_MINER_INITIAL_PLEDGE_COLLATERAL, (miner, info, tsk))
     }
 
