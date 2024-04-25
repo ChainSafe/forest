@@ -697,8 +697,8 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
         bs,
         maddr.into(),
         pci.deal_ids,
-        ts.epoch(),
         pci.expiration,
+        ts.epoch(),
     )?;
     let duration = pci.expiration - ts.epoch();
     let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
