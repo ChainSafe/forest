@@ -44,12 +44,6 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.4
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Apt Dependencies
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: sudo make install-deps
       - uses: actions/setup-go@v5
         with:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
@@ -75,12 +69,6 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.4
         timeout-minutes: ${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}
         continue-on-error: true
-      - name: Apt Dependencies
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 5
-          max_attempts: 3
-          command: sudo make install-deps
       - uses: actions/setup-go@v5
         with:
           go-version-file: "src/libp2p_bitswap/tests/go-app/go.mod"
