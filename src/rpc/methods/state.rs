@@ -663,7 +663,7 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
 pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync + 'static>(
     params: Params<'_>,
     data: Ctx<DB>,
-) -> Result<LotusJson<TokenAmount>, ServerError> {
+) -> Result<String, ServerError> {
     let LotusJson((maddr, pci, ApiTipsetKey(tsk))): LotusJson<(
         Address,
         SectorPreCommitInfo,
@@ -725,7 +725,7 @@ pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync 
     )?;
 
     let (q, _) = (initial_pledge * 110).div_rem(110);
-    Ok(LotusJson(q.into()))
+    Ok(TokenAmount::to_string(&q.into()))
 }
 
 /// returns the message receipt for the given message
