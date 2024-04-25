@@ -3,6 +3,8 @@
 
 use super::*;
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should move to src/lotus_json
 impl HasLotusJson for MinerInfo {
     type LotusJson = MinerInfoLotusJson;
     #[cfg(test)]
@@ -61,6 +63,8 @@ impl HasLotusJson for MinerInfo {
     }
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+//                  this should move to src/lotus_json
 impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
     #[cfg(test)]
@@ -69,15 +73,15 @@ impl HasLotusJson for MinerPower {
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         MinerPowerLotusJson {
-            miner_power: LotusJson(self.miner_power),
-            total_power: LotusJson(self.total_power),
+            miner_power: self.miner_power,
+            total_power: self.total_power,
             has_min_power: self.has_min_power,
         }
     }
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         MinerPower {
-            miner_power: lotus_json.miner_power.into_inner(),
-            total_power: lotus_json.total_power.into_inner(),
+            miner_power: lotus_json.miner_power,
+            total_power: lotus_json.total_power,
             has_min_power: lotus_json.has_min_power,
         }
     }

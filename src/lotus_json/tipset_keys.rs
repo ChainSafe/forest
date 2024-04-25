@@ -6,19 +6,12 @@ use crate::blocks::TipsetKey;
 use ::cid::Cid;
 use ::nonempty::NonEmpty;
 
-// must newtype so can impl JsonSchema
-#[derive(Serialize, Deserialize)]
-pub struct TipsetKeyLotusJson(LotusJson<NonEmpty<Cid>>);
-
-impl JsonSchema for TipsetKeyLotusJson {
-    fn schema_name() -> String {
-        String::from("TipsetKeyLotusJson")
-    }
-
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
-        gen.subschema_for::<LotusJson<Vec<Cid>>>()
-    }
-}
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct TipsetKeyLotusJson(
+    #[schemars(with = "LotusJson<Vec<Cid>>")]
+    #[serde(with = "crate::lotus_json")]
+    NonEmpty<Cid>,
+);
 
 impl HasLotusJson for TipsetKey {
     type LotusJson = TipsetKeyLotusJson;
@@ -32,10 +25,10 @@ impl HasLotusJson for TipsetKey {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        TipsetKeyLotusJson(LotusJson(self.into_cids()))
+        TipsetKeyLotusJson(self.into_cids())
     }
 
     fn from_lotus_json(TipsetKeyLotusJson(lotus_json): Self::LotusJson) -> Self {
-        Self::from(lotus_json.into_inner())
+        Self::from(lotus_json)
     }
 }

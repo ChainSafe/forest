@@ -3,7 +3,6 @@
 
 mod chain_ops;
 mod eth_ops;
-mod gas_ops;
 mod state_ops;
 
 use crate::libp2p::{Multiaddr, Protocol};
@@ -11,12 +10,21 @@ use crate::lotus_json::HasLotusJson;
 use crate::rpc::{self, ApiVersion, ServerError};
 use anyhow::Context as _;
 use jsonrpsee::core::traits::ToRpcParams;
+use once_cell::sync::Lazy;
 use std::{env, fmt, marker::PhantomData, str::FromStr, time::Duration};
 use url::Url;
 
 pub const API_INFO_KEY: &str = "FULLNODE_API_INFO";
 pub const DEFAULT_PORT: u16 = 2345;
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Default timeout for RPC requests. Doesn't apply to all requests, e.g., snapshot export which
+/// has no timeout.
+pub static DEFAULT_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
+    std::env::var("FOREST_RPC_DEFAULT_TIMEOUT")
+        .ok()
+        .and_then(|it| Duration::from_secs(it.parse().ok()?).into())
+        .unwrap_or(Duration::from_secs(60))
+});
 
 /// Token and URL for an [`rpc::Client`].
 #[derive(Clone, Debug)]
@@ -129,28 +137,28 @@ impl<T> RpcRequest<T> {
     pub fn new<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
         RpcRequest {
             method_name,
-            params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
-                serde_json::Value::String(
+            params: params
+                .into_lotus_json_value()
+                .unwrap_or(serde_json::Value::String(
                     "INTERNAL ERROR: Parameters could not be serialized as JSON".to_string(),
-                ),
-            ),
+                )),
             result_type: PhantomData,
             api_version: ApiVersion::V0,
-            timeout: DEFAULT_TIMEOUT,
+            timeout: *DEFAULT_TIMEOUT,
         }
     }
 
     pub fn new_v1<P: HasLotusJson>(method_name: &'static str, params: P) -> Self {
         RpcRequest {
             method_name,
-            params: serde_json::to_value(HasLotusJson::into_lotus_json(params)).unwrap_or(
-                serde_json::Value::String(
+            params: params
+                .into_lotus_json_value()
+                .unwrap_or(serde_json::Value::String(
                     "INTERNAL ERROR: Parameters could not be serialized as JSON".to_string(),
-                ),
-            ),
+                )),
             result_type: PhantomData,
             api_version: ApiVersion::V1,
-            timeout: DEFAULT_TIMEOUT,
+            timeout: *DEFAULT_TIMEOUT,
         }
     }
 

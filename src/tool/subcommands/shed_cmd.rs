@@ -5,7 +5,6 @@ use std::path::PathBuf;
 
 use crate::{
     libp2p::keypair::get_keypair,
-    lotus_json::LotusJson,
     rpc::{
         self,
         chain::{ChainGetTipSetByHeight, ChainHead},
@@ -75,10 +74,7 @@ impl ShedCommands {
                     futures::stream::iter((start_height..=end_height).map(|epoch| {
                         ChainGetTipSetByHeight::call(
                             &client,
-                            (
-                                i64::from(epoch),
-                                LotusJson(ApiTipsetKey(Some(head.key().clone()))),
-                            ),
+                            (i64::from(epoch), ApiTipsetKey(Some(head.key().clone()))),
                         )
                         .map_ok(|tipset| {
                             let cids = tipset.block_headers().iter().map(|it| *it.cid());

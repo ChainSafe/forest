@@ -12,9 +12,7 @@ use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
 use chrono::{DateTime, Utc};
 use clap::Subcommand;
-use futures::TryFutureExt as _;
 use humantime::format_duration;
-use jsonrpsee::core::ClientError;
 
 #[derive(Debug, Subcommand)]
 pub enum InfoCommand {
@@ -155,7 +153,7 @@ impl InfoCommand {
         let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
             NodeStatus::call(&client, ()),
             ChainHead::call(&client, ()),
-            api.state_network_name().map_err(ClientError::from),
+            StateNetworkName::call(&client, ()),
             StartTime::call(&client, ()),
             WalletDefaultAddress::call(&client, ()),
         )?;
@@ -165,7 +163,7 @@ impl InfoCommand {
             node_status.chain_status.blocks_per_tipset_last_finality;
 
         let default_wallet_address_balance = if let Some(def_addr) = default_wallet_address {
-            let balance = WalletBalance::call(&client, (def_addr.into(),)).await?;
+            let balance = WalletBalance::call(&client, (def_addr,)).await?;
             Some(balance)
         } else {
             None

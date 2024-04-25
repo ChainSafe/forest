@@ -4,7 +4,7 @@
 use std::str::FromStr as _;
 
 use crate::blocks::Tipset;
-use crate::lotus_json::LotusJson;
+use crate::lotus_json::HasLotusJson as _;
 use crate::message::SignedMessage;
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
 use crate::rpc_client::ApiInfo;
@@ -77,10 +77,13 @@ fn filter_messages(
     Ok(filtered)
 }
 
-async fn get_actor_sequence(message: &Message, tipset: &Tipset, api: &ApiInfo) -> Option<u64> {
+async fn get_actor_sequence(
+    message: &Message,
+    tipset: &Tipset,
+    client: &rpc::Client,
+) -> Option<u64> {
     let address = message.from;
-    let get_actor_result = api.state_get_actor(address, tipset.key().to_owned()).await;
-
+    let get_actor_result = StateGetActor::call(client, (address, tipset.key().into())).await;
     let actor_state = match get_actor_result {
         Ok(maybe_actor) => {
             if let Some(state) = maybe_actor {
@@ -214,8 +217,7 @@ impl MpoolCommands {
                 to,
                 from,
             } => {
-                let messages =
-                    MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),)).await?;
+                let messages = MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
                     let response = WalletList::call(&client, ()).await?;
@@ -230,10 +232,7 @@ impl MpoolCommands {
                     if cids {
                         println!("{}", msg.cid().unwrap());
                     } else {
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&crate::lotus_json::LotusJson(msg))?
-                        );
+                        println!("{}", msg.into_lotus_json_string_pretty()?);
                     }
                 }
 
@@ -249,8 +248,7 @@ impl MpoolCommands {
                 let atto_str = ChainGetMinBaseFee::call(&client, (basefee_lookback,)).await?;
                 let min_base_fee = TokenAmount::from_atto(atto_str.parse::<BigInt>()?);
 
-                let messages =
-                    MpoolPending::call(&client, (LotusJson(ApiTipsetKey(None)),)).await?;
+                let messages = MpoolPending::call(&client, (ApiTipsetKey(None),)).await?;
 
                 let local_addrs = if local {
                     let response = WalletList::call(&client, ()).await?;
@@ -266,7 +264,7 @@ impl MpoolCommands {
 
                 let mut actor_sequences: HashMap<Address, u64> = HashMap::default();
                 for msg in messages.iter() {
-                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &api).await {
+                    if let Some(sequence) = get_actor_sequence(msg, &tipset, &client).await {
                         actor_sequences.insert(msg.from, sequence);
                     }
                 }

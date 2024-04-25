@@ -499,7 +499,6 @@ pub fn get_parent_receipt(
 }
 
 pub mod headchange_json {
-    use crate::lotus_json::LotusJson;
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -508,13 +507,14 @@ pub mod headchange_json {
     #[serde(rename_all = "lowercase")]
     #[serde(tag = "type", content = "val")]
     pub enum HeadChangeJson {
-        Apply(LotusJson<Tipset>),
+        #[serde(with = "crate::lotus_json")]
+        Apply(Tipset),
     }
 
     impl From<HeadChange> for HeadChangeJson {
         fn from(wrapper: HeadChange) -> Self {
             match wrapper {
-                HeadChange::Apply(arc) => Self::Apply((*arc).clone().into()),
+                HeadChange::Apply(arc) => Self::Apply((*arc).clone()),
             }
         }
     }

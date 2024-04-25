@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-//! Differences between serializers
+//! # Differences between serializers
 //!
 //! The serializer created here uses `multihash` and `libipld-json` uses plain
 //! `base64`. That means one has an extra `m` in front of all the encoded byte
@@ -9,38 +9,104 @@
 //!
 //! For example:
 //!
-//! `crate::ipld`
+//! this:
 //! `{ "/": { "bytes": "mVGhlIHF1aQ" } }`
 //!
-//! `libipld-json`
+//! `libipld-json`:
 //! `{ "/": { "bytes": "VGhlIHF1aQ" } }`
 //!
 //! Since `Lotus` is also using `multihash-base64` and we're trying to be
-//! compatible, we cannot switch to `libipld-json`. It may be worthwhile
-//! to reconsider whether we want to stay compatible with Lotus in the future.
+//! compatible, we cannot switch to `libipld-json`.
+//!
+//! # Tech debt
+//! - The real way to do this is to implement [`libipld::codec`] bits appropriately,
+//!   or embrace using our own struct.
+
 use std::{collections::BTreeMap, fmt};
 
-use cid::multibase;
-use libipld_macro::ipld;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use super::*;
 
-use super::Ipld;
+use ::cid::multibase;
+use libipld::{ipld, Ipld};
+use serde::de;
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct IpldLotusJson(
+    #[serde(with = "self")]
+    #[schemars(with = "serde_json::Value")] // opt-out of JsonSchema for now
+    Ipld,
+);
+
+impl HasLotusJson for Ipld {
+    type LotusJson = IpldLotusJson;
+    #[cfg(test)]
+    fn snapshots() -> Vec<(serde_json::Value, Self)> {
+        vec![
+            (
+                json!({
+                    "my_link": {
+                        "/": "QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"
+                    },
+                    "my_bytes": {
+                        "/": { "bytes": "mVGhlIHF1aQ" }
+                    },
+                    "my_string": "Some data",
+                    "my_float": {
+                        "/": { "float": "10.5" }
+                    },
+                    "my_int": {
+                        "/": { "int": "8" }
+                    },
+                    "my_neg_int": {
+                        "/": { "int": "-20" }
+                    },
+                    "my_null": null,
+                    "my_list": [
+                        null,
+                        { "/": "bafy2bzaceaa466o2jfc4g4ggrmtf55ygigvkmxvkr5mvhy4qbwlxetbmlkqjk" },
+                        {"/": { "int": "1" }},
+                    ]
+                }),
+                ipld!({
+                    "my_link": Ipld::Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap()),
+                    "my_bytes": Ipld::Bytes(vec![0x54, 0x68, 0x65, 0x20, 0x71, 0x75, 0x69]),
+                    "my_string": "Some data",
+                    "my_float": 10.5,
+                    "my_int": 8,
+                    "my_neg_int": -20,
+                    "my_null": null,
+                    "my_list": [
+                        null,
+                        Ipld::Link("bafy2bzaceaa466o2jfc4g4ggrmtf55ygigvkmxvkr5mvhy4qbwlxetbmlkqjk".parse().unwrap()),
+                        1,
+                    ],
+                }),
+            ),
+            // Test ported from go-ipld-prime (making sure edge case is handled)
+            (
+                json!({"/":{"/":"QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n"}}),
+                ipld!({"/": Ipld::Link("QmdfTbBqBPQ7VNxZEYEj14VmRuZBkqFbiwReogJgS1zR1n".parse().unwrap())}),
+            ),
+        ]
+    }
+    fn into_lotus_json(self) -> Self::LotusJson {
+        IpldLotusJson(self)
+    }
+    fn from_lotus_json(IpldLotusJson(it): Self::LotusJson) -> Self {
+        it
+    }
+}
 
 const BYTES_JSON_KEY: &str = "bytes";
 const INT_JSON_KEY: &str = "int";
 const FLOAT_JSON_KEY: &str = "float";
 
-/// Wrapper for serializing and de-serializing a IPLD from JSON.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(transparent)]
-pub struct IpldJson(#[serde(with = "self")] pub Ipld);
-
 /// Wrapper for serializing a IPLD reference to JSON.
 #[derive(Serialize)]
 #[serde(transparent)]
-pub struct IpldJsonRef<'a>(#[serde(with = "self")] pub &'a Ipld);
+struct Ref<'a>(#[serde(with = "self")] pub &'a Ipld);
 
-pub fn serialize<S>(ipld: &Ipld, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize<S>(ipld: &Ipld, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -61,18 +127,18 @@ where
             serializer,
         ),
         Ipld::List(list) => {
-            let wrapped = list.iter().map(IpldJsonRef);
+            let wrapped = list.iter().map(Ref);
             serializer.collect_seq(wrapped)
         }
         Ipld::Map(map) => {
-            let wrapped = map.iter().map(|(key, ipld)| (key, IpldJsonRef(ipld)));
+            let wrapped = map.iter().map(|(key, ipld)| (key, Ref(ipld)));
             serializer.collect_map(wrapped)
         }
         Ipld::Link(cid) => serialize(&ipld!({ "/": cid.to_string() }), serializer),
     }
 }
 
-pub fn deserialize<'de, D>(deserializer: D) -> Result<Ipld, D::Error>
+fn deserialize<'de, D>(deserializer: D) -> Result<Ipld, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -89,92 +155,59 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
     }
 
     #[inline]
-    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
         self.visit_string(String::from(value))
     }
 
     #[inline]
-    fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_string<E: de::Error>(self, value: String) -> Result<Self::Value, E> {
         Ok(Ipld::String(value))
     }
     #[inline]
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_bytes<E: de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
         self.visit_byte_buf(v.to_owned())
     }
 
     #[inline]
-    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_byte_buf<E: de::Error>(self, v: Vec<u8>) -> Result<Self::Value, E> {
         Ok(Ipld::Bytes(v))
     }
 
     #[inline]
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> {
         Ok(Ipld::Integer(v.into()))
     }
 
     #[inline]
-    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> {
         Ok(Ipld::Integer(v.into()))
     }
 
     #[inline]
-    fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_i128<E: de::Error>(self, v: i128) -> Result<Self::Value, E> {
         Ok(Ipld::Integer(v))
     }
 
     #[inline]
-    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
         Ok(Ipld::Bool(v))
     }
 
     #[inline]
-    fn visit_none<E>(self) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> {
         self.visit_unit()
     }
 
     #[inline]
-    fn visit_unit<E>(self) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> {
         Ok(Ipld::Null)
     }
 
     #[inline]
-    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
-    where
-        V: de::SeqAccess<'de>,
-    {
+    fn visit_seq<V: de::SeqAccess<'de>>(self, mut visitor: V) -> Result<Self::Value, V::Error> {
         let mut vec = Vec::new();
 
-        while let Some(IpldJson(elem)) = visitor.next_element()? {
+        while let Some(IpldLotusJson(elem)) = visitor.next_element()? {
             vec.push(elem);
         }
 
@@ -188,7 +221,7 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
     {
         let mut map = BTreeMap::new();
 
-        while let Some((key, IpldJson(value))) = visitor.next_entry()? {
+        while let Some((key, IpldLotusJson(value))) = visitor.next_entry()? {
             map.insert(key, value);
         }
 
@@ -230,23 +263,20 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
     }
 
     #[inline]
-    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
+    fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
         Ok(Ipld::Float(v))
     }
 }
 
+#[test]
+fn snapshots() {
+    assert_all_snapshots::<Ipld>()
+}
+
 #[cfg(test)]
-mod tests {
-    use quickcheck_macros::quickcheck;
-    use serde_json;
-
-    use super::*;
-
-    #[quickcheck]
-    fn ipld_roundtrip(mut ipld: Ipld) {
+quickcheck::quickcheck! {
+    fn quickcheck(val: Ipld) -> () {
+        let mut val = val;
         /// `NaN != NaN`, which breaks our round-trip tests.
         /// Correct this by changing any `NaN`s to zero.
         fn fixup_floats(ipld: &mut Ipld) {
@@ -269,10 +299,8 @@ mod tests {
                 _ => {}
             }
         }
-        fixup_floats(&mut ipld);
-        let serialized = serde_json::to_string(&IpldJsonRef(&ipld)).unwrap();
-        let parsed: IpldJson = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(ipld, parsed.0);
+        fixup_floats(&mut val);
+        assert_unchanged_via_json(val)
     }
 }
 
@@ -298,10 +326,10 @@ fn issue_3383() {
         String::from("/"),
         Ipld::String(String::from("")),
     )]));
-    let serialized = serde_json::to_value(IpldJsonRef(&poison)).unwrap();
+    let serialized = serde_json::to_value(Ref(&poison)).unwrap();
 
     // we try and parse the map as a CID, even though it's meant to be a map...
-    let IpldJson(round_tripped) = serde_json::from_value(serialized).unwrap();
+    let IpldLotusJson(round_tripped) = serde_json::from_value(serialized).unwrap();
 
-    assert_eq!(round_tripped, poison); // we never make it here
+    pretty_assertions::assert_eq!(round_tripped, poison); // we never make it here
 }
