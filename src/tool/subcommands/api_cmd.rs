@@ -38,7 +38,6 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_shared2::piece::PaddedPieceSize;
 use itertools::Itertools as _;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
@@ -363,11 +362,6 @@ impl RpcTest {
         Self::validate(request, |forest, lotus| forest == lotus)
     }
 
-    fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.request.set_timeout(timeout);
-        self
-    }
-
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
@@ -596,7 +590,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(0xdeadbeef),
             tipset.key().into(),
         ))?),
-        RpcTest::identity(ApiInfo::state_network_version_req(tipset.key().into())),
+        RpcTest::identity(StateNetworkVersion::request((tipset.key().into(),))?),
         RpcTest::identity(StateListMiners::request((tipset.key().into(),))?),
         RpcTest::identity(MsigGetAvailableBalance::request((
             Address::new_id(18101), // msig address id
@@ -618,11 +612,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::DATACAP_TOKEN_ACTOR,
             tipset.key().into(),
         ))?),
-        RpcTest::identity(ApiInfo::state_deal_provider_collateral_bounds_req(
-            PaddedPieceSize(1),
+        RpcTest::identity(StateDealProviderCollateralBounds::request((
+            1,
             true,
             tipset.key().into(),
-        )),
+        ))?),
         RpcTest::identity(StateCirculatingSupply::request((tipset.key().into(),))?),
         RpcTest::identity(StateVMCirculatingSupplyInternal::request((tipset
             .key()
@@ -645,10 +639,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     // Take 5 deals from each tipset
     for deal in deals.into_iter().take(COLLECTION_SAMPLE_SIZE) {
-        tests.push(RpcTest::identity(ApiInfo::state_market_storage_deal_req(
+        tests.push(RpcTest::identity(StateMarketStorageDeal::request((
             deal,
             tipset.key().into(),
-        )));
+        ))?));
     }
 
     for block in tipset.block_headers() {
@@ -671,10 +665,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 0,
                 tipset.key().into(),
             ))?),
-            RpcTest::identity(ApiInfo::state_market_balance_req(
+            RpcTest::identity(StateMarketBalance::request((
                 block.miner_address,
                 tipset.key().into(),
-            )),
+            ))?),
             RpcTest::identity(StateMinerInfo::request((
                 block.miner_address,
                 tipset.key().into(),
@@ -765,10 +759,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
-                validate_message_lookup(ApiInfo::state_wait_msg_req(msg_cid, 0))
-                    .with_timeout(Duration::from_secs(30)),
-                validate_message_lookup(ApiInfo::state_search_msg_req(msg_cid)),
-                validate_message_lookup(ApiInfo::state_search_msg_limited_req(msg_cid, 800)),
+                validate_message_lookup(
+                    StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
+                ),
+                validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
+                validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
             ]);
         }
         for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
@@ -844,42 +839,60 @@ fn wallet_tests() -> Vec<RpcTest> {
 
 fn eth_tests() -> Vec<RpcTest> {
     vec![
-        RpcTest::identity(ApiInfo::eth_accounts_req()),
-        RpcTest::basic(ApiInfo::eth_block_number_req()),
-        RpcTest::identity(ApiInfo::eth_chain_id_req()),
+        RpcTest::identity(EthAccounts::request(()).unwrap()),
+        RpcTest::basic(EthBlockNumber::request(()).unwrap()),
+        RpcTest::identity(EthChainId::request(()).unwrap()),
         // There is randomness in the result of this API
-        RpcTest::basic(ApiInfo::eth_gas_price_req()),
+        RpcTest::basic(EthGasPrice::request(()).unwrap()),
         RpcTest::basic(EthSyncing::request(()).unwrap()),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_predefined(Predefined::Latest),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_predefined(Predefined::Pending),
-        )),
-        RpcTest::basic(ApiInfo::web3_client_version_req()),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Latest),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                BlockNumberOrHash::from_predefined(Predefined::Pending),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
     ]
 }
 
 fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
     vec![
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_balance_req(
-            EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-        )),
-        RpcTest::identity(ApiInfo::eth_get_block_by_number_req(
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            false,
-        )),
-        RpcTest::identity(ApiInfo::eth_get_block_by_number_req(
-            BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
-            true,
-        )),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByNumber::request((
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+                true,
+            ))
+            .unwrap(),
+        ),
     ]
 }
 
@@ -1286,17 +1299,13 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     builder.build().with(Style::markdown()).to_string()
 }
 
-fn validate_message_lookup(req: RpcRequest<Option<MessageLookup>>) -> RpcTest {
+fn validate_message_lookup(req: RpcRequest<MessageLookup>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
-        if let Some(json) = forest.as_mut() {
-            json.return_dec = Ipld::Null;
-        }
-        if let Some(json) = lotus.as_mut() {
-            json.return_dec = Ipld::Null;
-        }
+        forest.return_dec = Ipld::Null;
+        lotus.return_dec = Ipld::Null;
         forest == lotus
     })
 }

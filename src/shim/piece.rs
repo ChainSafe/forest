@@ -75,6 +75,12 @@ impl From<piece_v3::PieceInfo> for PieceInfo {
 #[serde(transparent)]
 pub struct PaddedPieceSize(piece_latest::PaddedPieceSize);
 
+impl From<u64> for PaddedPieceSize {
+    fn from(i: u64) -> Self {
+        Self(piece_latest::PaddedPieceSize(i))
+    }
+}
+
 impl From<PaddedPieceSize> for piece_v4::PaddedPieceSize {
     fn from(value: PaddedPieceSize) -> Self {
         value.0
