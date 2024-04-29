@@ -41,7 +41,6 @@ use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpsee::types::{error::ErrorObject, Params};
 use libipld_core::ipld::Ipld;
 use nonempty::{nonempty, NonEmpty};
-use num::Integer;
 use num_bigint::BigInt;
 use num_traits::Euclid;
 use parking_lot::Mutex;
@@ -101,8 +100,8 @@ pub const STATE_MARKET_STORAGE_DEAL: &str = "Filecoin.StateMarketStorageDeal";
 pub const STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS: &str =
     "Filecoin.StateDealProviderCollateralBounds";
 
-const INITIAL_PLEDGE_NUM: u32 = 110;
-const INITIAL_PLEDGE_DEN: u32 = 100;
+const INITIAL_PLEDGE_NUM: u64 = 110;
+const INITIAL_PLEDGE_DEN: u64 = 100;
 
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
@@ -671,7 +670,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const API_VERSION: ApiVersion = ApiVersion::V0;
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
-    type Ok = String;
+    type Ok = TokenAmount;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -720,16 +719,17 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             &Arc::new(ctx.store()),
             ts.parent_state(),
         )?;
-        let initial_pledge = reward_state.initial_pledge_for_power(
-            &sector_weigth,
-            pledge_collateral,
-            power_smoothed,
-            &circ_supply.fil_circulating.into(),
-        )?;
+        let initial_pledge: TokenAmount = reward_state
+            .initial_pledge_for_power(
+                &sector_weigth,
+                pledge_collateral,
+                power_smoothed,
+                &circ_supply.fil_circulating.into(),
+            )?
+            .into();
 
-        let (q, _) = (initial_pledge.atto() * BigInt::from(INITIAL_PLEDGE_NUM))
-            .div_rem(&BigInt::from(INITIAL_PLEDGE_DEN));
-        Ok(q.to_string())
+        let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
+        Ok(q)
     }
 }
 
