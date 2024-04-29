@@ -36,14 +36,6 @@ impl ApiInfo {
         RpcRequest::new(STATE_FETCH_ROOT, (root, opt_path))
     }
 
-    pub fn state_miner_initial_pledge_collateral_req(
-        miner: Address,
-        info: SectorPreCommitInfo,
-        tsk: ApiTipsetKey,
-    ) -> RpcRequest<String> {
-        RpcRequest::new(STATE_MINER_INITIAL_PLEDGE_COLLATERAL, (miner, info, tsk))
-    }
-
     pub fn state_network_version_req(tsk: ApiTipsetKey) -> RpcRequest<NetworkVersion> {
         RpcRequest::new(STATE_NETWORK_VERSION, (tsk,))
     }

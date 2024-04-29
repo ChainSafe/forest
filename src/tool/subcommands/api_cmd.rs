@@ -754,11 +754,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
         .take(COLLECTION_SAMPLE_SIZE)
         {
             tests.extend([RpcTest::identity(
-                ApiInfo::state_miner_initial_pledge_collateral_req(
+                StateMinerInitialPledgeCollateral::request((
                     block.miner_address,
                     info,
                     tipset.key().into(),
-                ),
+                ))?,
             )]);
         }
 

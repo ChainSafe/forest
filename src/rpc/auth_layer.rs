@@ -100,7 +100,6 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateGetActor::NAME, Access::Read);
     access.insert(state::STATE_MARKET_BALANCE, Access::Read);
     access.insert(state::STATE_MARKET_DEALS, Access::Read);
-    access.insert(state::STATE_MINER_INITIAL_PLEDGE_COLLATERAL, Access::Read);
     access.insert(state::StateMinerInfo::NAME, Access::Read);
     access.insert(state::StateMinerActiveSectors::NAME, Access::Read);
     access.insert(state::StateMinerFaults::NAME, Access::Read);
@@ -109,6 +108,7 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateMinerDeadlines::NAME, Access::Read);
     access.insert(state::StateMinerProvingDeadline::NAME, Access::Read);
     access.insert(state::StateMinerAvailableBalance::NAME, Access::Read);
+    access.insert(state::StateMinerInitialPledgeCollateral::NAME, Access::Read);
     access.insert(state::StateGetReceipt::NAME, Access::Read);
     access.insert(state::STATE_WAIT_MSG, Access::Read);
     access.insert(state::STATE_SEARCH_MSG, Access::Read);

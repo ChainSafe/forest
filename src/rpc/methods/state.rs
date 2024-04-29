@@ -74,6 +74,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerFaults);
         $callback!(crate::rpc::state::StateMinerRecoveries);
         $callback!(crate::rpc::state::StateMinerAvailableBalance);
+        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
         $callback!(crate::rpc::state::StateGetReceipt);
         $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
         $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
@@ -91,8 +92,6 @@ pub(crate) use for_each_method;
 pub const STATE_NETWORK_VERSION: &str = "Filecoin.StateNetworkVersion";
 pub const STATE_MARKET_BALANCE: &str = "Filecoin.StateMarketBalance";
 pub const STATE_MARKET_DEALS: &str = "Filecoin.StateMarketDeals";
-pub const STATE_MINER_INITIAL_PLEDGE_COLLATERAL: &str =
-    "Filecoin.StateMinerInitialPledgeCollateral";
 pub const STATE_WAIT_MSG: &str = "Filecoin.StateWaitMsg";
 pub const STATE_FETCH_ROOT: &str = "Forest.StateFetchRoot";
 pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
@@ -664,74 +663,75 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
     }
 }
 
-pub async fn state_miner_initial_pledge_collateral<DB: Blockstore + Send + Sync + 'static>(
-    params: Params<'_>,
-    data: Ctx<DB>,
-) -> Result<String, ServerError> {
-    let LotusJson((maddr, pci, ApiTipsetKey(tsk))): LotusJson<(
-        Address,
-        SectorPreCommitInfo,
-        ApiTipsetKey,
-    )> = params.parse()?;
+pub enum StateMinerInitialPledgeCollateral {}
 
-    // dbg!(&maddr);
-    // dbg!(&pci);
-    // dbg!(&tsk);
+impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
+    const NAME: &'static str = "Filecoin.StateMinerInitialPledgeCollateral";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
 
-    let bs = data.state_manager.blockstore();
-    let ts = data.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+    type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
+    type Ok = String;
 
-    let state = *ts.parent_state();
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, pci, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let bs = ctx.store(); // data.state_manager.blockstore();
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
 
-    let sector_size = pci
-        .seal_proof
-        .sector_size()
-        .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
+        let state = *ts.parent_state();
 
-    let actor = data
-        .state_manager
-        .get_actor(&Address::MARKET_ACTOR, state)?
-        .context("Market actor address could not be resolved")?;
-    let market_state = market::State::load(bs, actor.code, actor.state)?;
-    let (w, vw) = market_state.verify_deals_for_activation(
-        bs,
-        maddr.into(),
-        pci.deal_ids,
-        pci.expiration,
-        ts.epoch(),
-    )?;
-    let duration = pci.expiration - ts.epoch();
-    let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
+        let sector_size = pci
+            .seal_proof
+            .sector_size()
+            .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
 
-    let actor = data
-        .state_manager
-        .get_actor(&Address::POWER_ACTOR, state)?
-        .context("Power actor address could not be resolved")?;
-    let power_state = power::State::load(bs, actor.code, actor.state)?;
-    let power_smoothed = power_state.total_power_smoothed();
-    let pledge_collateral = power_state.total_locked();
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::MARKET_ACTOR, state)?
+            .context("Market actor address could not be resolved")?;
+        let market_state = market::State::load(bs, actor.code, actor.state)?;
+        let (w, vw) = market_state.verify_deals_for_activation(
+            bs,
+            address.into(),
+            pci.deal_ids,
+            pci.expiration,
+            ts.epoch(),
+        )?;
+        let duration = pci.expiration - ts.epoch();
+        let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
 
-    let actor = data
-        .state_manager
-        .get_actor(&Address::REWARD_ACTOR, state)?
-        .context("Reward actor address could not be resolved")?;
-    let reward_state = reward::State::load(bs, actor.code, actor.state)?;
-    let genesis_info = GenesisInfo::from_chain_config(data.state_manager.chain_config());
-    let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
-        ts.epoch(),
-        &Arc::new(bs),
-        ts.parent_state(),
-    )?;
-    let initial_pledge = reward_state.initial_pledge_for_power(
-        &sector_weigth,
-        pledge_collateral,
-        power_smoothed,
-        &circ_supply.fil_circulating.into(),
-    )?;
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::POWER_ACTOR, state)?
+            .context("Power actor address could not be resolved")?;
+        let power_state = power::State::load(bs, actor.code, actor.state)?;
+        let power_smoothed = power_state.total_power_smoothed();
+        let pledge_collateral = power_state.total_locked();
 
-    let (q, _) = (initial_pledge.atto() * BigInt::from(INITIAL_PLEDGE_NUM))
-        .div_rem(&BigInt::from(INITIAL_PLEDGE_DEN));
-    Ok(q.to_string())
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::REWARD_ACTOR, state)?
+            .context("Reward actor address could not be resolved")?;
+        let reward_state = reward::State::load(bs, actor.code, actor.state)?;
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
+            ts.epoch(),
+            &Arc::new(bs),
+            ts.parent_state(),
+        )?;
+        let initial_pledge = reward_state.initial_pledge_for_power(
+            &sector_weigth,
+            pledge_collateral,
+            power_smoothed,
+            &circ_supply.fil_circulating.into(),
+        )?;
+
+        let (q, _) = (initial_pledge.atto() * BigInt::from(INITIAL_PLEDGE_NUM))
+            .div_rem(&BigInt::from(INITIAL_PLEDGE_DEN));
+        Ok(q.to_string())
+    }
 }
 
 /// returns the message receipt for the given message

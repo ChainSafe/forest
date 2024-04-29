@@ -274,10 +274,6 @@ where
     module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
     module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
     module.register_async_method(
-        STATE_MINER_INITIAL_PLEDGE_COLLATERAL,
-        state_miner_initial_pledge_collateral::<DB>,
-    )?;
-    module.register_async_method(
         STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
         state_deal_provider_collateral_bounds::<DB>,
     )?;
