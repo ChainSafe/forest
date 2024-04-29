@@ -98,8 +98,8 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateNetworkName::NAME, Access::Read);
     access.insert(state::StateReplay::NAME, Access::Read);
     access.insert(state::StateGetActor::NAME, Access::Read);
-    access.insert(state::STATE_MARKET_BALANCE, Access::Read);
-    access.insert(state::STATE_MARKET_DEALS, Access::Read);
+    access.insert(state::StateMarketBalance::NAME, Access::Read);
+    access.insert(state::StateMarketDeals::NAME, Access::Read);
     access.insert(state::StateMinerInfo::NAME, Access::Read);
     access.insert(state::StateMinerActiveSectors::NAME, Access::Read);
     access.insert(state::StateMinerFaults::NAME, Access::Read);
@@ -109,13 +109,13 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateMinerProvingDeadline::NAME, Access::Read);
     access.insert(state::StateMinerAvailableBalance::NAME, Access::Read);
     access.insert(state::StateGetReceipt::NAME, Access::Read);
-    access.insert(state::STATE_WAIT_MSG, Access::Read);
-    access.insert(state::STATE_SEARCH_MSG, Access::Read);
-    access.insert(state::STATE_SEARCH_MSG_LIMITED, Access::Read);
-    access.insert(state::STATE_NETWORK_VERSION, Access::Read);
+    access.insert(state::StateWaitMsg::NAME, Access::Read);
+    access.insert(state::StateSearchMsg::NAME, Access::Read);
+    access.insert(state::StateSearchMsgLimited::NAME, Access::Read);
+    access.insert(state::StateNetworkVersion::NAME, Access::Read);
     access.insert(state::StateAccountKey::NAME, Access::Read);
     access.insert(state::StateLookupID::NAME, Access::Read);
-    access.insert(state::STATE_FETCH_ROOT, Access::Read);
+    access.insert(state::StateFetchRoot::NAME, Access::Read);
     access.insert(state::StateGetRandomnessFromTickets::NAME, Access::Read);
     access.insert(state::StateGetRandomnessFromBeacon::NAME, Access::Read);
     access.insert(state::StateReadState::NAME, Access::Read);
@@ -127,18 +127,18 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(state::StateMinerSectors::NAME, Access::Read);
     access.insert(state::StateMinerPartitions::NAME, Access::Read);
     access.insert(state::StateVerifiedClientStatus::NAME, Access::Read);
-    access.insert(state::STATE_MARKET_STORAGE_DEAL, Access::Read);
+    access.insert(state::StateMarketStorageDeal::NAME, Access::Read);
     access.insert(state::StateVMCirculatingSupplyInternal::NAME, Access::Read);
     access.insert(state::MsigGetAvailableBalance::NAME, Access::Read);
     access.insert(state::MsigGetPending::NAME, Access::Read);
-    access.insert(state::STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS, Access::Read);
+    access.insert(state::StateDealProviderCollateralBounds::NAME, Access::Read);
     access.insert(state::StateGetBeaconEntry::NAME, Access::Read);
     access.insert(state::StateSectorPreCommitInfo::NAME, Access::Read);
 
     // Gas API
     access.insert(gas::GasEstimateGasLimit::NAME, Access::Read);
-    access.insert(gas::GAS_ESTIMATE_GAS_PREMIUM, Access::Read);
-    access.insert(gas::GAS_ESTIMATE_FEE_CAP, Access::Read);
+    access.insert(gas::GasEstimateGasPremium::NAME, Access::Read);
+    access.insert(gas::GasEstimateFeeCap::NAME, Access::Read);
     access.insert(gas::GasEstimateMessageGas::NAME, Access::Read);
 
     // Common API
@@ -162,14 +162,14 @@ static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     access.insert(node::NodeStatus::NAME, Access::Read);
 
     // Eth API
-    access.insert(eth::ETH_ACCOUNTS, Access::Read);
-    access.insert(eth::ETH_BLOCK_NUMBER, Access::Read);
-    access.insert(eth::ETH_CHAIN_ID, Access::Read);
-    access.insert(eth::ETH_GAS_PRICE, Access::Read);
-    access.insert(eth::ETH_GET_BALANCE, Access::Read);
+    access.insert(eth::EthAccounts::NAME, Access::Read);
+    access.insert(eth::EthBlockNumber::NAME, Access::Read);
+    access.insert(eth::EthChainId::NAME, Access::Read);
+    access.insert(eth::EthGasPrice::NAME, Access::Read);
+    access.insert(eth::EthGetBalance::NAME, Access::Read);
     access.insert(eth::EthSyncing::NAME, Access::Read);
-    access.insert(eth::ETH_GET_BLOCK_BY_NUMBER, Access::Read);
-    access.insert(eth::WEB3_CLIENT_VERSION, Access::Read);
+    access.insert(eth::EthGetBlockByNumber::NAME, Access::Read);
+    access.insert(eth::Web3ClientVersion::NAME, Access::Read);
 
     // Pubsub API
     access.insert(CANCEL_METHOD_NAME, Access::Read);

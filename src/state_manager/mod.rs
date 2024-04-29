@@ -21,7 +21,7 @@ use crate::interpreter::{
     IMPLICIT_MESSAGE_GAS_LIMIT, VM,
 };
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::lotus_json::lotus_json_with_self;
+use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
@@ -63,6 +63,7 @@ use num::BigInt;
 use num_traits::identities::Zero;
 use parking_lot::Mutex as SyncMutex;
 use rayon::prelude::ParallelBridge;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
@@ -186,11 +187,13 @@ impl TipsetStateCache {
 }
 
 /// External format for returning market balance from state.
-#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketBalance {
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     escrow: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     locked: TokenAmount,
 }
