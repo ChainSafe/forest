@@ -92,7 +92,7 @@ indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22.5", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.22", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -160,7 +160,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
 rustyline = "14"
-schemars = { version = "0.8.17", features = ["chrono", "uuid1"] }
+schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -216,7 +216,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
-ariadne = "0.4.1"
+ariadne = "0.4"
 assert_cmd = "2"
 bimap = "0.6.3"
 cargo_metadata = "0.18.0"
