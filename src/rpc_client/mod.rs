@@ -89,27 +89,6 @@ impl ApiInfo {
             Err(it @ env::VarError::NotUnicode(_)) => Err(it.into()),
         }
     }
-
-    // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-    //                  This function should return rpc::ClientError,
-    //                  but that change should wait until _after_ all the methods
-    //                  have been migrated.
-    //
-    //                  In the limit, only rpc::Client should be making calls,
-    //                  and ApiInfo should be removed.
-    pub async fn call<T: HasLotusJson + std::fmt::Debug>(
-        &self,
-        req: RpcRequest<T>,
-    ) -> Result<T, ServerError> {
-        use jsonrpsee::core::ClientError;
-        match rpc::Client::from(self.clone()).call(req).await {
-            Ok(it) => Ok(it),
-            Err(e) => match e {
-                ClientError::Call(it) => Err(it.into()),
-                other => Err(ServerError::internal_error(other, None)),
-            },
-        }
-    }
 }
 
 impl From<ApiInfo> for rpc::Client {

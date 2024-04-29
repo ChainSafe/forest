@@ -114,7 +114,7 @@ impl SnapshotCommands {
                 });
                 // Manually construct RpcRequest because snapshot export could
                 // take a few hours on mainnet
-                let hash_result = api
+                let hash_result = client
                     .call(ChainExport::request((params,))?.with_timeout(Duration::MAX))
                     .await?;
 

@@ -44,7 +44,7 @@ where
                 Subcommand::Net(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Sync(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Mpool(cmd) => cmd.run(api).await,
-                Subcommand::State(cmd) => cmd.run(api).await,
+                Subcommand::State(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Config(cmd) => cmd.run(&mut std::io::stdout()),
                 Subcommand::Send(cmd) => cmd.run(rpc::Client::from(api)).await,
                 Subcommand::Info(cmd) => cmd.run(api).await,

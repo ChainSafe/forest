@@ -4,10 +4,9 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::rpc::RpcMethodExt as _;
+use crate::rpc::{self, prelude::*};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
-use crate::{rpc::state::StateFetchRoot, rpc_client::ApiInfo};
 use cid::Cid;
 use clap::Subcommand;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
@@ -34,10 +33,10 @@ pub enum StateCommands {
 }
 
 impl StateCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Fetch { root, save_to_file } => {
-                let ret = api
+                let ret = client
                     .call(
                         StateFetchRoot::request((root, save_to_file))?.with_timeout(Duration::MAX),
                     )

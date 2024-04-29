@@ -15,9 +15,9 @@ use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
-use crate::rpc::eth::*;
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
@@ -367,9 +367,9 @@ impl RpcTest {
         self
     }
 
-    async fn run(&self, forest_api: &ApiInfo, lotus_api: &ApiInfo) -> TestResult {
-        let forest_resp = forest_api.call(self.request.clone()).await;
-        let lotus_resp = lotus_api.call(self.request.clone()).await;
+    async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
+        let forest_resp = forest.call(self.request.clone()).await;
+        let lotus_resp = lotus.call(self.request.clone()).await;
 
         let forest_json_str = if let Ok(forest_resp) = forest_resp.as_ref() {
             serde_json::to_string_pretty(forest_resp).ok()
