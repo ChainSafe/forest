@@ -114,13 +114,11 @@ use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
-use crate::rpc::state::*;
 
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
 use jsonrpsee::{
-    core::RegisterMethodError,
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
     Methods,
 };
@@ -171,10 +169,6 @@ where
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
     let (mut module, _schema) = create_module(state.clone());
-
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4032
-    #[allow(deprecated)]
-    register_methods(&mut module)?;
 
     let mut pubsub_module = FilRpcModule::default();
 
@@ -259,44 +253,6 @@ where
     wallet::for_each_method!(register);
     eth::for_each_method!(register);
     module.finish()
-}
-
-#[deprecated = "methods should use `create_module`"]
-fn register_methods<DB>(module: &mut RpcModule<RPCState<DB>>) -> Result<(), RegisterMethodError>
-where
-    DB: Blockstore + Send + Sync + 'static,
-{
-    use eth::*;
-    use gas::*;
-
-    // State API
-    module.register_async_method(STATE_NETWORK_VERSION, state_get_network_version::<DB>)?;
-    module.register_async_method(STATE_MARKET_BALANCE, state_market_balance::<DB>)?;
-    module.register_async_method(STATE_MARKET_DEALS, state_market_deals::<DB>)?;
-    module.register_async_method(
-        STATE_DEAL_PROVIDER_COLLATERAL_BOUNDS,
-        state_deal_provider_collateral_bounds::<DB>,
-    )?;
-    module.register_async_method(STATE_WAIT_MSG, state_wait_msg::<DB>)?;
-    module.register_async_method(STATE_SEARCH_MSG, state_search_msg::<DB>)?;
-    module.register_async_method(STATE_SEARCH_MSG_LIMITED, state_search_msg_limited::<DB>)?;
-    module.register_async_method(STATE_FETCH_ROOT, state_fetch_root::<DB>)?;
-    module.register_async_method(STATE_MARKET_STORAGE_DEAL, state_market_storage_deal::<DB>)?;
-    // Gas API
-    module.register_async_method(GAS_ESTIMATE_FEE_CAP, gas_estimate_fee_cap::<DB>)?;
-    module.register_async_method(GAS_ESTIMATE_GAS_PREMIUM, gas_estimate_gas_premium::<DB>)?;
-    // Eth API
-    module.register_async_method(ETH_ACCOUNTS, |_, _| eth_accounts())?;
-    module.register_async_method(ETH_BLOCK_NUMBER, |_, state| eth_block_number::<DB>(state))?;
-    module.register_async_method(ETH_CHAIN_ID, |_, state| eth_chain_id::<DB>(state))?;
-    module.register_async_method(ETH_GAS_PRICE, |_, state| eth_gas_price::<DB>(state))?;
-    module.register_async_method(ETH_GET_BALANCE, eth_get_balance::<DB>)?;
-    module.register_async_method(ETH_GET_BLOCK_BY_NUMBER, eth_get_block_by_number::<DB>)?;
-    module.register_method(WEB3_CLIENT_VERSION, move |_, _| {
-        crate::utils::version::FOREST_VERSION_STRING.clone()
-    })?;
-
-    Ok(())
 }
 
 #[cfg(test)]

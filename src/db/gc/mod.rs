@@ -72,8 +72,8 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
-use crate::db::{truncated_hash, GarbageCollectable};
-use crate::ipld::unordered_stream_graph;
+use crate::db::{truncated_hash, GarbageCollectable, SettingsStore};
+use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
 use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
@@ -83,6 +83,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
 use tracing::info;
+
+const SETTINGS_KEY: &str = "LAST_GC_RUN";
 
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
 /// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
@@ -99,7 +101,7 @@ pub struct MarkAndSweep<DB> {
     block_time: Duration,
 }
 
-impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<DB> {
+impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<DB> {
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -133,7 +135,7 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = unordered_stream_graph(
+        let mut stream = stream_graph(
             self.db.clone(),
             (*tipset).clone().chain(self.db.clone()),
             depth,
@@ -167,15 +169,32 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
         }
     }
 
+    fn update_last_gc_run(&self, epoch: ChainEpoch) -> anyhow::Result<()> {
+        self.db
+            .write_bin(SETTINGS_KEY, epoch.to_string().as_bytes())
+    }
+
+    // Unfortunately there seems to be no good way of decoding a slice into i64 without array init
+    // and manipulation, therefore a string representation is used.
+    fn fetch_last_gc_run(&self) -> anyhow::Result<ChainEpoch> {
+        let bytes = self.db.read_bin(SETTINGS_KEY)?;
+        let epoch = match bytes {
+            Some(bytes) => ChainEpoch::from_str_radix(&String::from_utf8(bytes)?, 10)?,
+            None => 0,
+        };
+        Ok(epoch)
+    }
+
     // This function yields to the main GC loop if the conditions are not met for execution of the
     // next step.
     async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
         let current_epoch = tipset.epoch();
-        // Don't run the GC if there aren't enough state-roots yet. Sleep and yield to the main loop
-        // in order to refresh the heaviest tipset value.
-        if depth > current_epoch {
+        let last_gc_run = self.fetch_last_gc_run()?;
+        // Don't run the GC if there aren't enough state-roots yet or if we're too close to the last
+        // GC run. Sleep and yield to the main loop in order to refresh the heaviest tipset value.
+        if depth > current_epoch - last_gc_run {
             time::sleep(interval).await;
             return anyhow::Ok(());
         }
@@ -203,6 +222,8 @@ impl<DB: Blockstore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<D
 
         info!("GC sweep");
         self.sweep()?;
+
+        self.update_last_gc_run(current_epoch)?;
 
         anyhow::Ok(())
     }

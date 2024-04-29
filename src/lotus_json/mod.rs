@@ -216,6 +216,7 @@ decl_and_test!(
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod cid; // can't make snapshots of generic type
 mod claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
+mod hash_map;
 mod ipld; // NaN != NaN
 mod nonempty;
 mod opt; // can't make snapshots of generic type
