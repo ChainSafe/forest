@@ -677,7 +677,6 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, pci, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let bs = ctx.store(); // data.state_manager.blockstore();
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
 
         let state = *ts.parent_state();
@@ -691,9 +690,9 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             .state_manager
             .get_actor(&Address::MARKET_ACTOR, state)?
             .context("Market actor address could not be resolved")?;
-        let market_state = market::State::load(bs, actor.code, actor.state)?;
+        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
         let (w, vw) = market_state.verify_deals_for_activation(
-            bs,
+            ctx.store(),
             address.into(),
             pci.deal_ids,
             pci.expiration,
@@ -706,7 +705,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             .state_manager
             .get_actor(&Address::POWER_ACTOR, state)?
             .context("Power actor address could not be resolved")?;
-        let power_state = power::State::load(bs, actor.code, actor.state)?;
+        let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
         let power_smoothed = power_state.total_power_smoothed();
         let pledge_collateral = power_state.total_locked();
 
@@ -714,11 +713,11 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             .state_manager
             .get_actor(&Address::REWARD_ACTOR, state)?
             .context("Reward actor address could not be resolved")?;
-        let reward_state = reward::State::load(bs, actor.code, actor.state)?;
+        let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
         let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
-            &Arc::new(bs),
+            &Arc::new(ctx.store()),
             ts.parent_state(),
         )?;
         let initial_pledge = reward_state.initial_pledge_for_power(
