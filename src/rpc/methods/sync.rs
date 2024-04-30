@@ -1,16 +1,18 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::GossipBlock;
+use crate::blocks::{Block, FullTipset, GossipBlock, Tipset};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
+use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use nonempty::{nonempty, NonEmpty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 // Make sure to add any new methods here.
 macro_rules! for_each_method {
@@ -22,6 +24,8 @@ macro_rules! for_each_method {
     };
 }
 
+use crate::chain;
+use crate::chain_sync::TipsetValidator;
 pub(crate) use for_each_method;
 
 pub enum SyncCheckBad {}
@@ -96,6 +100,26 @@ impl RpcMethod<1> for SyncSubmitBlock {
     ) -> Result<Self::Ok, ServerError> {
         let encoded_message = to_vec(&block_msg)?;
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, ctx.network_name);
+        let (bls_messages, secp_messages) =
+            chain::store::block_messages(&ctx.chain_store.db, &block_msg.header)?;
+        let block = Block {
+            header: block_msg.header.clone(),
+            bls_messages,
+            secp_messages,
+        };
+        let ts = FullTipset::from(block);
+        let genesis_ts = Arc::new(Tipset::from(ctx.chain_store.genesis_block_header()));
+
+        TipsetValidator(&ts)
+            .validate(
+                ctx.chain_store.clone(),
+                ctx.bad_blocks.clone(),
+                genesis_ts,
+                ctx.state_manager.chain_config().block_delay_secs as u64,
+            )
+            .context("failed to validate the tipset")?;
+
+        ctx.tipset_send.send(Arc::new(ts.into_tipset()))?;
 
         ctx.network_send.send(NetworkMessage::PubsubMessage {
             topic: IdentTopic::new(pubsub_block_str),
@@ -146,6 +170,7 @@ mod tests {
         }]));
 
         let (network_send, network_rx) = flume::bounded(5);
+        let (tipset_send, _) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
@@ -208,6 +233,7 @@ mod tests {
             chain_store: cs_for_chain.clone(),
             beacon,
             shutdown: mpsc::channel(1).0, // dummy for tests
+            tipset_send,
         });
         (state, network_rx)
     }

@@ -267,7 +267,7 @@ pub(super) async fn start(
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
     display_chain_logo(&config.chain);
-    let (tipset_sink, tipset_stream) = flume::bounded(20);
+    let (tipset_sender, tipset_receiver) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
@@ -328,8 +328,8 @@ pub(super) async fn start(
         network_send.clone(),
         network_rx,
         Arc::new(Tipset::from(&genesis_header)),
-        tipset_sink,
-        tipset_stream,
+        tipset_sender.clone(),
+        tipset_receiver,
         opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
@@ -383,6 +383,7 @@ pub(super) async fn start(
                     beacon,
                     chain_store: rpc_chain_store,
                     shutdown: shutdown_send,
+                    tipset_send: tipset_sender,
                 },
                 rpc_address,
             )
