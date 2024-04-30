@@ -59,7 +59,7 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
 use std::io::{Seek, SeekFrom};

@@ -10,7 +10,7 @@ use futures::ready;
 use futures::{sink::Sink, Stream, StreamExt};
 use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io;

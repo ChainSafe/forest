@@ -3,7 +3,7 @@
 
 use super::*;
 use cid::Cid;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Serialize};
 
 #[cfg(doc)]

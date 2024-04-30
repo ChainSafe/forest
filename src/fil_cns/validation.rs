@@ -27,7 +27,7 @@ use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 
 use crate::fil_cns::{metrics, FilecoinConsensusError};
 

@@ -10,7 +10,7 @@ use cid::Cid;
 use futures::stream::FuturesUnordered;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use tokio::fs::File;

@@ -15,7 +15,7 @@ use crate::state_manager::StateManager;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use tokio::task::JoinSet;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation

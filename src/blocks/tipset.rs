@@ -507,7 +507,7 @@ mod lotus_json {
 
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
-    use nonempty::NonEmpty;
+    use nunny::Vec as NonEmpty;
     use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

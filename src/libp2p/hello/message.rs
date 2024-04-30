@@ -4,7 +4,7 @@
 use crate::shim::bigint::BigInt;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>

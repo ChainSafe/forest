@@ -9,7 +9,7 @@ use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufReader},

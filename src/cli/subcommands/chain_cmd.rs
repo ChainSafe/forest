@@ -8,7 +8,7 @@ use crate::rpc::{self, prelude::*};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 
 use super::{print_pretty_lotus_json, print_rpc_res_cids};
 

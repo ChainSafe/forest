@@ -41,7 +41,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use num_bigint::BigInt;
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
