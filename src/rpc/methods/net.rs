@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::{ApiVersion, ServerError};
+use crate::rpc::{ApiVersion, Permission, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;

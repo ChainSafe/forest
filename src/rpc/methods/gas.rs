@@ -4,7 +4,7 @@
 
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod};
+use crate::rpc::{error::ServerError, types::*, ApiVersion, Ctx, Permission, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::{Signature, SignatureType, SECP_SIG_LEN},

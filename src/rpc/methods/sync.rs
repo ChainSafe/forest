@@ -4,7 +4,7 @@
 use crate::blocks::GossipBlock;
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;

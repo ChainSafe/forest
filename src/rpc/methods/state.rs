@@ -21,7 +21,7 @@ use crate::state_manager::MarketBalance;
 use crate::utils::db::car_stream::{CarBlock, CarWriter};
 use crate::{
     beacon::BeaconEntry,
-    rpc::{error::ServerError, types::*, ApiVersion, Ctx, RpcMethod},
+    rpc::{types::*, ApiVersion, Ctx, Permission, RpcMethod, ServerError},
 };
 use ahash::{HashMap, HashMapExt};
 use anyhow::Context as _;

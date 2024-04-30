@@ -5,7 +5,7 @@ use super::gas::estimate_message_gas;
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::{ApiVersion, Ctx, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
@@ -150,6 +150,9 @@ impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    /// Lotus limits `MPOOL_PUSH`` to `Access::Write`. However, since messages
+    /// can always be pushed over the p2p protocol, limiting the RPC doesn't
+    /// improve security.
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (SignedMessage,);

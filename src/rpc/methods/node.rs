@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{
     lotus_json::lotus_json_with_self,
-    rpc::{ApiVersion, Ctx, RpcMethod, ServerError},
+    rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError},
 };
 use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;

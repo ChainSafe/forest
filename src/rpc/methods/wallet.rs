@@ -4,7 +4,7 @@
 use std::any::Any;
 
 use crate::key_management::{Key, KeyInfo};
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},

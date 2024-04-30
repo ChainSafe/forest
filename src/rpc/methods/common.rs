@@ -3,7 +3,7 @@
 
 use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::error::ServerError;
-use crate::rpc::{ApiVersion, Ctx, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
