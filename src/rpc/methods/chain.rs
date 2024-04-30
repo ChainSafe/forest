@@ -656,21 +656,27 @@ pub(crate) fn chain_notify<DB: Blockstore>(
 
     // As soon as the channel is created, send the current tipset
     let current = data.chain_store.heaviest_tipset();
-    let (change, headers) = ("current".into(), current.block_headers().clone().into());
+    let (change, tipset) = ("current".into(), current);
     sender
-        .send(vec![ApiHeadChange { change, headers }])
+        .send(vec![ApiHeadChange {
+            change,
+            tipset: tipset.as_ref().clone(),
+        }])
         .expect("receiver is not dropped");
 
     let mut subscriber = data.chain_store.publisher().subscribe();
 
     tokio::spawn(async move {
         while let Ok(v) = subscriber.recv().await {
-            let (change, headers) = match v {
-                HeadChange::Apply(ts) => ("apply".into(), ts.block_headers().clone().into()),
+            let (change, tipset) = match v {
+                HeadChange::Apply(ts) => ("apply".into(), ts),
             };
 
             if sender
-                .send(vec![ApiHeadChange { change, headers }])
+                .send(vec![ApiHeadChange {
+                    change,
+                    tipset: tipset.as_ref().clone(),
+                }])
                 .is_err()
             {
                 break;
@@ -773,13 +779,14 @@ pub struct ChainExportParams {
 }
 lotus_json_with_self!(ChainExportParams);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ApiHeadChange {
     #[serde(rename = "Type")]
     pub change: String,
     #[serde(rename = "Val", with = "crate::lotus_json")]
-    pub headers: Vec<CachingBlockHeader>,
+    #[schemars(with = "LotusJson<Tipset>")]
+    pub tipset: Tipset,
 }
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
