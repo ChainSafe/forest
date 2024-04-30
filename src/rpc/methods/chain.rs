@@ -12,7 +12,7 @@ use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
 use crate::message::{ChainMessage, SignedMessage};
 use crate::rpc::types::ApiTipsetKey;
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::message::Message;
@@ -66,6 +66,7 @@ impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";
     const PARAM_NAMES: [&'static str; 1] = ["msg_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = Message;
@@ -91,6 +92,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
     const NAME: &'static str = "Filecoin.ChainGetParentMessages";
     const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = Vec<ApiMessage>;
@@ -117,6 +119,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
     const NAME: &'static str = "Filecoin.ChainGetParentReceipts";
     const PARAM_NAMES: [&'static str; 1] = ["block_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = Vec<ApiReceipt>;
@@ -193,6 +196,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
     const NAME: &'static str = "Filecoin.ChainGetMessagesInTipset";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<ApiMessage>;
@@ -211,6 +215,7 @@ impl RpcMethod<1> for ChainExport {
     const NAME: &'static str = "Filecoin.ChainExport";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainExportParams,);
     type Ok = Option<String>;
@@ -283,6 +288,7 @@ impl RpcMethod<1> for ChainReadObj {
     const NAME: &'static str = "Filecoin.ChainReadObj";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = Vec<u8>;
@@ -305,6 +311,7 @@ impl RpcMethod<1> for ChainHasObj {
     const NAME: &'static str = "Filecoin.ChainHasObj";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = bool;
@@ -322,6 +329,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
     const NAME: &'static str = "Filecoin.ChainGetBlockMessages";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = BlockMessages;
@@ -359,6 +367,7 @@ impl RpcMethod<2> for ChainGetPath {
     const NAME: &'static str = "Filecoin.ChainGetPath";
     const PARAM_NAMES: [&'static str; 2] = ["from", "to"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (TipsetKey, TipsetKey);
     type Ok = Vec<PathChange>;
@@ -435,6 +444,7 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetByHeight";
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
@@ -461,6 +471,7 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
     const NAME: &'static str = "Filecoin.ChainGetTipSetAfterHeight";
     const PARAM_NAMES: [&'static str; 2] = ["height", "tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch, ApiTipsetKey);
     type Ok = Tipset;
@@ -487,6 +498,7 @@ impl RpcMethod<0> for ChainGetGenesis {
     const NAME: &'static str = "Filecoin.ChainGetGenesis";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = Option<Tipset>;
@@ -502,6 +514,7 @@ impl RpcMethod<0> for ChainHead {
     const NAME: &'static str = "Filecoin.ChainHead";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = Tipset;
@@ -517,6 +530,7 @@ impl RpcMethod<1> for ChainGetBlock {
     const NAME: &'static str = "Filecoin.ChainGetBlock";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = CachingBlockHeader;
@@ -539,6 +553,7 @@ impl RpcMethod<1> for ChainGetTipSet {
     const NAME: &'static str = "Filecoin.ChainGetTipSet";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
     type Ok = Tipset;
@@ -560,6 +575,7 @@ impl RpcMethod<1> for ChainSetHead {
     const NAME: &'static str = "Filecoin.ChainSetHead";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Admin;
 
     type Params = (ApiTipsetKey,);
     type Ok = ();
@@ -601,6 +617,7 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
     const NAME: &'static str = "Filecoin.ChainGetMinBaseFee";
     const PARAM_NAMES: [&'static str; 1] = ["lookback"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Admin;
 
     type Params = (u32,);
     type Ok = String;
@@ -633,6 +650,7 @@ impl RpcMethod<1> for ChainTipSetWeight {
     const NAME: &'static str = "Filecoin.ChainTipSetWeight";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
     type Ok = BigInt;

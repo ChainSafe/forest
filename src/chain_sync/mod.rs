@@ -10,6 +10,8 @@ mod sync_state;
 mod tipset_syncer;
 mod validation;
 
+pub use validation::TipsetValidator;
+
 pub use self::{
     bad_block_cache::BadBlockCache,
     chain_muxer::{ChainMuxer, SyncConfig},
