@@ -36,7 +36,7 @@ pub struct Client {
 }
 
 impl Client {
-    /// Use either the url in the environment or a default.
+    /// Use either the URL in the environment or a default.
     ///
     /// If `token` is provided, use that over the token in either of the above.
     pub fn default_or_from_env(token: Option<&str>) -> anyhow::Result<Self> {

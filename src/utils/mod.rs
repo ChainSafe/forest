@@ -24,7 +24,7 @@ use tokio::time::sleep;
 use tracing::error;
 use url::Url;
 
-/// "hunter2:/ip4/127.0.0.1/wss" -> "wss://:hunter2@127.0.0.1/"
+/// `"hunter2:/ip4/127.0.0.1/wss" -> "wss://:hunter2@127.0.0.1/"`
 #[derive(Clone, Debug)]
 pub struct UrlFromMultiAddr(pub Url);
 
