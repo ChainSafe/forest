@@ -30,7 +30,7 @@ pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address,);
     type Ok = u64;
@@ -48,7 +48,7 @@ pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
     type Ok = Vec<SignedMessage>;
@@ -123,7 +123,7 @@ pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
     const PARAM_NAMES: [&'static str; 2] = ["tsk", "tq"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey, f64);
     type Ok = Vec<SignedMessage>;
@@ -146,7 +146,7 @@ pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = (SignedMessage,);
     type Ok = Cid;
@@ -165,7 +165,7 @@ pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
     const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Message, Option<MessageSendSpec>);
     type Ok = SignedMessage;

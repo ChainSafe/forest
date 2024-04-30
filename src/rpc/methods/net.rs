@@ -35,7 +35,7 @@ pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = AddrInfo;
@@ -60,7 +60,7 @@ pub enum NetPeers {}
 impl RpcMethod<0> for NetPeers {
     const NAME: &'static str = "Filecoin.NetPeers";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = Vec<AddrInfo>;
@@ -90,7 +90,7 @@ pub enum NetListening {}
 impl RpcMethod<0> for NetListening {
     const NAME: &'static str = "Filecoin.NetListening";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = bool;
@@ -104,7 +104,7 @@ pub enum NetInfo {}
 impl RpcMethod<0> for NetInfo {
     const NAME: &'static str = "Forest.NetInfo";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = NetInfoResult;
@@ -124,7 +124,7 @@ pub enum NetConnect {}
 impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
     const PARAM_NAMES: [&'static str; 1] = ["info"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Write;
 
     type Params = (AddrInfo,);
     type Ok = ();
@@ -156,7 +156,7 @@ pub enum NetDisconnect {}
 impl RpcMethod<1> for NetDisconnect {
     const NAME: &'static str = "Filecoin.NetDisconnect";
     const PARAM_NAMES: [&'static str; 1] = ["id"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Write;
 
     type Params = (String,);
     type Ok = ();
@@ -183,7 +183,7 @@ pub enum NetAgentVersion {}
 impl RpcMethod<1> for NetAgentVersion {
     const NAME: &'static str = "Filecoin.NetAgentVersion";
     const PARAM_NAMES: [&'static str; 1] = ["id"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = (String,);
     type Ok = String;
@@ -212,7 +212,7 @@ pub enum NetAutoNatStatus {}
 impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = NatStatusResult;
@@ -232,7 +232,7 @@ pub enum NetVersion {}
 impl RpcMethod<0> for NetVersion {
     const NAME: &'static str = "Filecoin.NetVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
