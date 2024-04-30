@@ -624,17 +624,19 @@ fn state_tests_with_tipset<DB: Blockstore>(
     ];
 
     // Get deals
-    let deals = {
+    let (deals, deals_map) = {
         let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
         let actor = state.get_required_actor(&Address::MARKET_ACTOR)?;
         let market_state = market::State::load(&store, actor.code, actor.state)?;
         let proposals = market_state.proposals(&store)?;
         let mut deals = vec![];
-        proposals.for_each(|deal_id, _| {
+        let mut deals_map = HashMap::default();
+        proposals.for_each(|deal_id, deal_proposal| {
             deals.push(deal_id);
+            deals_map.insert(deal_id, deal_proposal);
             Ok(())
         })?;
-        deals
+        (deals, deals_map)
     };
 
     // Take 5 deals from each tipset
@@ -747,13 +749,31 @@ fn state_tests_with_tipset<DB: Blockstore>(
         .into_iter()
         .take(COLLECTION_SAMPLE_SIZE)
         {
-            tests.extend([RpcTest::identity(
-                StateMinerInitialPledgeCollateral::request((
-                    block.miner_address,
-                    info,
-                    tipset.key().into(),
-                ))?,
-            )]);
+            let mut push_test = true;
+            for id in info.deal_ids.iter() {
+                if let Some(Ok(deal_proposal)) = deals_map.get(&id) {
+                    if tipset.epoch() > deal_proposal.start_epoch {
+                        push_test = false;
+                        break;
+                    }
+                    if info.expiration > deal_proposal.end_epoch {
+                        push_test = false;
+                        break;
+                    }
+                } else {
+                    push_test = false;
+                    break;
+                }
+            }
+            if push_test {
+                tests.extend([RpcTest::identity(
+                    StateMinerInitialPledgeCollateral::request((
+                        block.miner_address,
+                        info,
+                        tipset.key().into(),
+                    ))?,
+                )]);
+            }
         }
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
