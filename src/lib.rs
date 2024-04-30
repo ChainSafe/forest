@@ -63,7 +63,6 @@ mod message_pool;
 mod metrics;
 mod networks;
 mod rpc;
-mod rpc_client;
 mod shim;
 mod state_manager;
 mod state_migration;

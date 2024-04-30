@@ -25,7 +25,7 @@ use serde::de::DeserializeOwned;
 use tracing::{debug, Instrument, Level};
 use url::Url;
 
-use super::{ApiVersion, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
+use super::{ApiVersion, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc_client::RpcRequest`]
 /// or a [`crate::rpc::RpcMethod`] to a single URL.
@@ -75,9 +75,9 @@ impl Client {
     }
     pub async fn call<T: crate::lotus_json::HasLotusJson + std::fmt::Debug>(
         &self,
-        req: crate::rpc_client::RpcRequest<T>,
+        req: Request<T>,
     ) -> Result<T, ClientError> {
-        let crate::rpc_client::RpcRequest {
+        let Request {
             method_name,
             params,
             api_version,

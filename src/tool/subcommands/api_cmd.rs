@@ -19,7 +19,6 @@ use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
-use crate::rpc_client::{RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -74,7 +73,7 @@ pub enum ApiCommands {
         #[arg(long, default_value = "mainnet")]
         chain: NetworkChain,
         // RPC port
-        #[arg(long, default_value_t = DEFAULT_PORT)]
+        #[arg(long, default_value_t = crate::rpc::DEFAULT_PORT)]
         port: u16,
         // Allow downloading snapshot automatically
         #[arg(long)]
@@ -228,7 +227,7 @@ impl TestSummary {
 
 /// Data about a failed test. Used for debugging.
 struct TestDump {
-    request: RpcRequest,
+    request: rpc::Request,
     forest_response: Option<String>,
     lotus_response: Option<String>,
 }
@@ -296,7 +295,7 @@ impl From<&RpcTest> for RpcTestHashable {
 }
 
 struct RpcTest {
-    request: RpcRequest,
+    request: rpc::Request,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
@@ -308,14 +307,14 @@ struct RpcTest {
 impl RpcTest {
     /// Check that an endpoint exists and that both the Lotus and Forest JSON
     /// response follows the same schema.
-    fn basic<T>(request: RpcRequest<T>) -> Self
+    fn basic<T>(request: rpc::Request<T>) -> Self
     where
         T: HasLotusJson,
     {
         Self::basic_raw(request.map_ty::<T::LotusJson>())
     }
     /// See [Self::basic], and note on this `impl` block.
-    fn basic_raw<T: DeserializeOwned>(request: RpcRequest<T>) -> Self {
+    fn basic_raw<T: DeserializeOwned>(request: rpc::Request<T>) -> Self {
         Self {
             request: request.map_ty(),
             check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
@@ -332,7 +331,7 @@ impl RpcTest {
     /// Check that an endpoint exists, has the same JSON schema, and do custom
     /// validation over both responses.
     fn validate<T: HasLotusJson>(
-        request: RpcRequest<T>,
+        request: rpc::Request<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
         Self::validate_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
@@ -341,7 +340,7 @@ impl RpcTest {
     }
     /// See [Self::validate], and note on this `impl` block.
     fn validate_raw<T: DeserializeOwned>(
-        request: RpcRequest<T>,
+        request: rpc::Request<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -375,7 +374,7 @@ impl RpcTest {
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
     /// JSON as Lotus.
-    fn identity<T: PartialEq + HasLotusJson>(request: RpcRequest<T>) -> RpcTest {
+    fn identity<T: PartialEq + HasLotusJson>(request: rpc::Request<T>) -> RpcTest {
         Self::validate(request, |forest, lotus| forest == lotus)
     }
 
@@ -1290,7 +1289,7 @@ fn format_as_markdown(results: &[((&'static str, TestSummary, TestSummary), u32)
     builder.build().with(Style::markdown()).to_string()
 }
 
-fn validate_message_lookup(req: RpcRequest<MessageLookup>) -> RpcTest {
+fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {

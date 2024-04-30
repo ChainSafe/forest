@@ -198,20 +198,18 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
-    fn request(
-        params: Self::Params,
-    ) -> Result<crate::rpc_client::RpcRequest<Self::Ok>, serde_json::Error> {
+    fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
         // hardcode calling convention because lotus is by-position only
         let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
             RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
             RequestParameters::ByName(it) => serde_json::Value::Object(it),
         };
-        Ok(crate::rpc_client::RpcRequest {
+        Ok(crate::rpc::Request {
             method_name: Self::NAME,
             params,
             result_type: std::marker::PhantomData,
             api_version: Self::API_VERSION,
-            timeout: *crate::rpc_client::DEFAULT_TIMEOUT,
+            timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
     fn call_raw(

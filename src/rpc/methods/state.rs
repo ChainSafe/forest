@@ -95,8 +95,6 @@ macro_rules! for_each_method {
 }
 pub(crate) use for_each_method;
 
-pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
