@@ -151,7 +151,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
                 exit_code: r.exit_code().into(),
                 return_data: r.return_data(),
                 gas_used: r.gas_used(),
-                events_root: None,
+                events_root: r.events_root(),
             })
             .collect();
 
