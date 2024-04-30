@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc::{self, prelude::*};
+use crate::rpc;
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Args)]
@@ -39,6 +39,7 @@ mod inner {
     use super::*;
     use crate::chain::ChainEpochDelta;
     use crate::chain_sync::SyncStage;
+    use crate::rpc::prelude::*;
     use crate::shim::{address::Address, message::Message};
     use crate::{cli::humantoken, message::SignedMessage};
     use boa_engine::{
