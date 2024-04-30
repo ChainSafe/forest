@@ -20,6 +20,7 @@ use http02::{header, HeaderMap, HeaderValue};
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;
+use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
 use tracing::{debug, Instrument, Level};
 use url::Url;
@@ -38,30 +39,26 @@ pub struct Client {
 }
 
 impl Client {
-    /// Use either the url in the environment or the provided default.
+    /// Use either the url in the environment or a default.
     ///
-    /// If `token` is provided, use that over a token in the above.
-    pub fn from_env_with_override(mut default: Url, token: Option<&str>) -> anyhow::Result<Self> {
-        let override_token = |url: &mut Url| -> anyhow::Result<()> {
-            if token.is_some() {
-                if url.set_password(token).is_err() {
-                    bail!("couldn't set override password")
-                }
-            }
-            Ok(())
-        };
-        match env::var("FULLNODE_API_INFO") {
+    /// If `token` is provided, use that over the token in either of the above.
+    pub fn default_or_from_env(token: Option<&str>) -> anyhow::Result<Self> {
+        static DEFAULT: Lazy<Url> = Lazy::new(|| "http://127.0.0.1:2345/".parse().unwrap());
+
+        let mut base_url = match env::var("FULLNODE_API_INFO") {
             Ok(it) => {
-                let crate::utils::UrlFromMultiAddr(mut url) = it.parse()?;
-                override_token(&mut url)?;
-                todo!()
+                let crate::utils::UrlFromMultiAddr(url) = it.parse()?;
+                url
             }
-            Err(env::VarError::NotPresent) => {
-                override_token(&mut default)?;
-                Ok(Self::from_url(default))
-            }
+            Err(env::VarError::NotPresent) => DEFAULT.clone(),
             Err(e @ env::VarError::NotUnicode(_)) => bail!(e),
+        };
+        if token.is_some() {
+            if base_url.set_password(token).is_err() {
+                bail!("couldn't set override password")
+            }
         }
+        Ok(Self::from_url(base_url))
     }
     pub fn from_url(mut base_url: Url) -> Self {
         let token = base_url.password().map(Into::into);

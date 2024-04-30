@@ -19,8 +19,7 @@ where
     // Capture Cli inputs
     let Cli { token, cmd } = Cli::parse_from(args);
 
-    let client =
-        rpc::Client::from_env_with_override("http://127.0.0.1:2345/".parse()?, token.as_deref())?;
+    let client = rpc::Client::default_or_from_env(token.as_deref())?;
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()

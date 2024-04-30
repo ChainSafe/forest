@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use crate::rpc::{self, prelude::*};
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Args)]
@@ -16,14 +17,14 @@ pub struct AttachCommand {
 
 impl AttachCommand {
     #[cfg(not(feature = "attach"))]
-    pub fn run(self, _api: ApiInfo) -> anyhow::Result<()> {
+    pub fn run(self, _: rpc::Client) -> anyhow::Result<()> {
         tracing::warn!("`attach` command is unavailable, forest binaries need to be recompiled with `attach` feature");
         Ok(())
     }
 
     #[cfg(feature = "attach")]
-    pub fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        self.run_inner(api)
+    pub fn run(self, client: rpc::Client) -> anyhow::Result<()> {
+        self.run_inner(client)
     }
 }
 
@@ -32,16 +33,13 @@ mod inner {
     use std::{
         fs::{canonicalize, read_to_string, OpenOptions},
         str::FromStr,
+        sync::Arc,
     };
 
     use super::*;
+    use crate::chain::ChainEpochDelta;
     use crate::chain_sync::SyncStage;
-    use crate::rpc_client::*;
     use crate::shim::{address::Address, message::Message};
-    use crate::{
-        chain::ChainEpochDelta,
-        rpc::{self, prelude::*},
-    };
     use crate::{cli::humantoken, message::SignedMessage};
     use boa_engine::{
         object::{builtins::JsArray, FunctionObjectBuilder},
@@ -211,9 +209,9 @@ mod inner {
 
     fn bind_async<T: DeserializeOwned, R: Serialize, Fut>(
         context: &mut Context,
-        api: &ApiInfo,
+        client: Arc<rpc::Client>,
         name: &'static str,
-        req: impl Fn(T, ApiInfo) -> Fut + 'static,
+        req: impl Fn(T, Arc<rpc::Client>) -> Fut + 'static,
     ) where
         Fut: Future<Output = anyhow::Result<R>>,
     {
@@ -222,7 +220,7 @@ mod inner {
         // not get traced. We're safe because we do not use any GC'ed variables.
         let js_func = FunctionObjectBuilder::new(context.realm(), unsafe {
             NativeFunction::from_closure({
-                let api = api.clone();
+                let client = client.clone();
                 move |_this, params, context| {
                     let handle = tokio::runtime::Handle::current();
 
@@ -237,7 +235,7 @@ mod inner {
                         let args = serde_json::from_value(
                             value.to_json(context).map_err(|e| anyhow::anyhow!("{e}"))?,
                         )?;
-                        handle.block_on(req(args, api.clone()))
+                        handle.block_on(req(args, client.clone()))
                     });
                     check_result(context, result)
                 }
@@ -269,7 +267,7 @@ mod inner {
 
     async fn send_message(
         params: SendMessageParams,
-        api: ApiInfo,
+        client: Arc<rpc::Client>,
     ) -> anyhow::Result<SignedMessage> {
         let (from, to, value) = params;
 
@@ -278,23 +276,25 @@ mod inner {
             Address::from_str(&to)?,
             humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
         );
-        Ok(MpoolPushMessage::call(&rpc::Client::from(api), (message, None)).await?)
+        Ok(MpoolPushMessage::call(&*client, (message, None)).await?)
     }
 
     type SleepParams = (u64,);
     type SleepResult = ();
 
-    async fn sleep(params: SleepParams, _api: ApiInfo) -> anyhow::Result<SleepResult> {
+    async fn sleep(params: SleepParams, _: Arc<rpc::Client>) -> anyhow::Result<SleepResult> {
         let secs = params.0;
         time::sleep(time::Duration::from_secs(secs)).await;
         Ok(())
     }
 
-    async fn sleep_tipsets(epochs: ChainEpochDelta, api: ApiInfo) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api);
+    async fn sleep_tipsets(
+        epochs: ChainEpochDelta,
+        client: Arc<rpc::Client>,
+    ) -> anyhow::Result<()> {
         let mut epoch = None;
         loop {
-            let state = SyncState::call(&client, ()).await?;
+            let state = SyncState::call(&*client, ()).await?;
             if state.active_syncs.first().stage() == SyncStage::Complete {
                 if let Some(prev) = epoch {
                     let curr = state.active_syncs.first().epoch();
@@ -310,7 +310,8 @@ mod inner {
     }
 
     impl AttachCommand {
-        fn setup_context(&self, context: &mut Context, api: ApiInfo) {
+        fn setup_context(&self, context: &mut Context, client: rpc::Client) {
+            let client = Arc::new(client);
             let console = Console::init(context);
             context
                 .register_global_property(JsString::from(Console::NAME), console, Attribute::all())
@@ -343,9 +344,9 @@ mod inner {
             bind_request!(context, api,);
 
             // Bind send_message, sleep, sleep_tipsets
-            bind_async(context, &api, "send_message", send_message);
-            bind_async(context, &api, "seep", sleep);
-            bind_async(context, &api, "sleep_tipsets", sleep_tipsets);
+            bind_async(context, client.clone(), "send_message", send_message);
+            bind_async(context, client.clone(), "seep", sleep);
+            bind_async(context, client.clone(), "sleep_tipsets", sleep_tipsets);
         }
 
         fn import_prelude(&self, context: &mut Context) -> anyhow::Result<()> {
@@ -367,7 +368,7 @@ mod inner {
             Ok(())
         }
 
-        pub(super) fn run_inner(self, api: ApiInfo) -> anyhow::Result<()> {
+        pub(super) fn run_inner(self, api: rpc::Client) -> anyhow::Result<()> {
             let mut context = Context::default();
             self.setup_context(&mut context, api);
 
