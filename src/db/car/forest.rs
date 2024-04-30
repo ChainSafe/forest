@@ -421,7 +421,7 @@ impl ForestCarFooter {
 mod tests {
     use super::*;
     use crate::block_on;
-    use nonempty::nonempty;
+    use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
 
     fn mk_encoded_car(

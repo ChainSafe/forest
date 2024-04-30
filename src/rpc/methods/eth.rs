@@ -31,7 +31,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
 use keccak_hash::keccak;
-use nonempty::nonempty;
+use nunny::vec as nonempty;
 use num_bigint::{self, Sign};
 use num_traits::{Signed as _, Zero as _};
 use rlp::RlpStream;
