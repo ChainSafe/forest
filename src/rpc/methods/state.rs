@@ -715,8 +715,8 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             ctx.store(),
             address.into(),
             pci.deal_ids,
-            pci.expiration,
             ts.epoch(),
+            pci.expiration,
         )?;
         let duration = pci.expiration - ts.epoch();
         let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
