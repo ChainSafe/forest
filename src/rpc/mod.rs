@@ -13,6 +13,7 @@ mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
+use reflect::Permission;
 
 /// Protocol or transport-specific error
 #[allow(unused)]
@@ -65,10 +66,8 @@ pub mod prelude {
 ///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
 ///
 /// # Interactions with the [`lotus_json`] APIs
-/// - Types defined in the module will only ever be deserialized as JSON, so there
-///   will NEVER be a need to implement [`HasLotusJson`] for them.
 /// - Types may have fields which must go through [`LotusJson`],
-///   and must reflect that in their [`JsonSchema`].
+///   and MUST reflect that in their [`JsonSchema`].
 ///   You have two options for this:
 ///   - Use `#[attributes]` to control serialization and schema generation:
 ///     ```ignore
@@ -87,6 +86,13 @@ pub mod prelude {
 ///         cid: LotusJson<Cid>, // use the shim type in application logic, manually performing conversions
 ///     }
 ///     ```
+///
+/// # `for_each_method`
+/// Each API vertical exposes a [`for_each_method!`](auth::for_each_method) macro,
+/// which is used in three places:
+/// - [`prelude`], where all the methods are exported for use in the codebase.
+/// - [`auth_layer`], where their [`RpcMethod::PERMISSION`]s are registered.
+/// - [`create_module`], where they're actually registered to be served.
 ///
 /// [`lotus_json`]: crate::lotus_json
 /// [`HasLotusJson`]: crate::lotus_json::HasLotusJson
@@ -115,6 +121,7 @@ use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
 pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 
+use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
 use hyper::server::conn::AddrStream;
 use hyper::service::{make_service_fn, service_fn};
@@ -142,6 +149,7 @@ pub struct RPCState<DB> {
     pub sync_state: Arc<parking_lot::RwLock<crate::chain_sync::SyncState>>,
     pub network_send: flume::Sender<crate::libp2p::NetworkMessage>,
     pub network_name: String,
+    pub tipset_send: flume::Sender<Arc<Tipset>>,
     pub start_time: chrono::DateTime<chrono::Utc>,
     pub beacon: Arc<crate::beacon::BeaconSchedule>,
     pub shutdown: mpsc::Sender<()>,
@@ -304,6 +312,7 @@ mod tests {
                     .get_beacon_schedule(genesis.timestamp),
             );
             let (network_send, _) = flume::bounded(0);
+            let (tipset_send, _) = flume::bounded(1);
             let network_name = get_network_name_from_genesis(genesis, &state_manager).unwrap();
             let message_pool = MessagePool::new(
                 MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
@@ -326,6 +335,7 @@ mod tests {
                 chain_store,
                 beacon,
                 shutdown: mpsc::channel(1).0, // dummy for tests
+                tipset_send,
             }
         }
     }

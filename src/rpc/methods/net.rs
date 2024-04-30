@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use crate::libp2p::{NetRPCMethods, NetworkMessage, PeerId};
 use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::{ApiVersion, ServerError};
+use crate::rpc::{ApiVersion, Permission, ServerError};
 use crate::rpc::{Ctx, RpcMethod};
 use anyhow::Result;
 use cid::multibase;
@@ -36,6 +36,7 @@ impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = AddrInfo;
@@ -61,6 +62,7 @@ impl RpcMethod<0> for NetPeers {
     const NAME: &'static str = "Filecoin.NetPeers";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = Vec<AddrInfo>;
@@ -91,6 +93,7 @@ impl RpcMethod<0> for NetListening {
     const NAME: &'static str = "Filecoin.NetListening";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = bool;
@@ -105,6 +108,7 @@ impl RpcMethod<0> for NetInfo {
     const NAME: &'static str = "Forest.NetInfo";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = NetInfoResult;
@@ -125,6 +129,7 @@ impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
     const PARAM_NAMES: [&'static str; 1] = ["info"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (AddrInfo,);
     type Ok = ();
@@ -157,6 +162,7 @@ impl RpcMethod<1> for NetDisconnect {
     const NAME: &'static str = "Filecoin.NetDisconnect";
     const PARAM_NAMES: [&'static str; 1] = ["id"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (String,);
     type Ok = ();
@@ -184,6 +190,7 @@ impl RpcMethod<1> for NetAgentVersion {
     const NAME: &'static str = "Filecoin.NetAgentVersion";
     const PARAM_NAMES: [&'static str; 1] = ["id"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (String,);
     type Ok = String;
@@ -213,6 +220,7 @@ impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = NatStatusResult;
@@ -233,6 +241,7 @@ impl RpcMethod<0> for NetVersion {
     const NAME: &'static str = "Filecoin.NetVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;

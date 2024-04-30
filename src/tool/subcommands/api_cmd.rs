@@ -1103,6 +1103,7 @@ async fn start_offline_server(
             .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
     );
     let (network_send, _) = flume::bounded(5);
+    let (tipset_send, _) = flume::bounded(5);
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
     let message_pool = MessagePool::new(
         MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
@@ -1138,6 +1139,7 @@ async fn start_offline_server(
         chain_store,
         beacon,
         shutdown,
+        tipset_send,
     };
     rpc_state.sync_state.write().set_stage(SyncStage::Idle);
     start_offline_rpc(rpc_state, rpc_port, shutdown_recv).await?;

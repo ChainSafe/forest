@@ -10,7 +10,7 @@ use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::{ApiVersion, Ctx, RpcMethod};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -651,6 +651,7 @@ impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
@@ -668,6 +669,7 @@ impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = Vec<String>;
@@ -686,6 +688,7 @@ impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
@@ -719,6 +722,7 @@ impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
@@ -739,6 +743,7 @@ impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = GasPriceResult;
@@ -764,6 +769,7 @@ impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "block_param"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, BlockNumberOrHash);
     type Ok = BigInt;
@@ -1263,6 +1269,7 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrHash, bool);
     type Ok = Block;
@@ -1282,6 +1289,7 @@ impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = EthSyncingResult;
