@@ -6,7 +6,6 @@ use crate::chain_sync::SyncConfig;
 use crate::cli_shared::snapshot::{self, TrustedVendor};
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::{self, chain::ChainExportParams, prelude::*};
-use crate::rpc_client::ApiInfo;
 use anyhow::Context as _;
 use chrono::DateTime;
 use clap::Subcommand;
@@ -39,8 +38,7 @@ pub enum SnapshotCommands {
 }
 
 impl SnapshotCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api.clone());
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Export {
                 output_path,

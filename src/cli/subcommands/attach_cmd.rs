@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_client::ApiInfo;
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Args)]

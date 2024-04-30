@@ -11,9 +11,11 @@
 //!   - communication protocols (`ws`, `http`).
 //! - Support per-request timeouts.
 
+use std::env;
 use std::fmt::{self, Debug};
 use std::time::Duration;
 
+use anyhow::bail;
 use http02::{header, HeaderMap, HeaderValue};
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
@@ -36,13 +38,43 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(base_url: Url, token: impl Into<Option<String>>) -> Self {
+    /// Use either the url in the environment or the provided default.
+    ///
+    /// If `token` is provided, use that over a token in the above.
+    pub fn from_env_with_override(mut default: Url, token: Option<&str>) -> anyhow::Result<Self> {
+        let override_token = |url: &mut Url| -> anyhow::Result<()> {
+            if token.is_some() {
+                if url.set_password(token).is_err() {
+                    bail!("couldn't set override password")
+                }
+            }
+            Ok(())
+        };
+        match env::var("FULLNODE_API_INFO") {
+            Ok(it) => {
+                let crate::utils::UrlFromMultiAddr(mut url) = it.parse()?;
+                override_token(&mut url)?;
+                todo!()
+            }
+            Err(env::VarError::NotPresent) => {
+                override_token(&mut default)?;
+                Ok(Self::from_url(default))
+            }
+            Err(e @ env::VarError::NotUnicode(_)) => bail!(e),
+        }
+    }
+    pub fn from_url(mut base_url: Url) -> Self {
+        let token = base_url.password().map(Into::into);
+        let _defer = base_url.set_password(None);
         Self {
+            token,
             base_url,
-            token: token.into(),
             v0: Default::default(),
             v1: Default::default(),
         }
+    }
+    pub fn base_url(&self) -> &Url {
+        &self.base_url
     }
     pub async fn call<T: crate::lotus_json::HasLotusJson + std::fmt::Debug>(
         &self,
@@ -140,7 +172,7 @@ fn trace_params(params: impl jsonrpsee::core::traits::ToRpcParams) {
 /// can be made using [`jsonrpsee`] primitives.
 struct UrlClient {
     url: Url,
-    inner: OneClientInner,
+    inner: UrlClientInner,
 }
 
 impl Debug for UrlClient {
@@ -169,7 +201,7 @@ impl UrlClient {
             None => HeaderMap::new(),
         };
         let inner = match url.scheme() {
-            "ws" | "wss" => OneClientInner::Ws(
+            "ws" | "wss" => UrlClientInner::Ws(
                 jsonrpsee::ws_client::WsClientBuilder::new()
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
@@ -178,7 +210,7 @@ impl UrlClient {
                     .build(&url)
                     .await?,
             ),
-            "http" | "https" => OneClientInner::Https(
+            "http" | "https" => UrlClientInner::Https(
                 jsonrpsee::http_client::HttpClientBuilder::new()
                     .set_headers(headers)
                     .max_request_size(MAX_REQUEST_BODY_SIZE)
@@ -197,7 +229,7 @@ impl UrlClient {
     }
 }
 
-enum OneClientInner {
+enum UrlClientInner {
     Ws(jsonrpsee::ws_client::WsClient),
     Https(jsonrpsee::http_client::HttpClient),
 }
@@ -210,8 +242,8 @@ impl jsonrpsee::core::client::ClientT for UrlClient {
         params: P,
     ) -> Result<(), jsonrpsee::core::ClientError> {
         match &self.inner {
-            OneClientInner::Ws(it) => it.notification(method, params).await,
-            OneClientInner::Https(it) => it.notification(method, params).await,
+            UrlClientInner::Ws(it) => it.notification(method, params).await,
+            UrlClientInner::Https(it) => it.notification(method, params).await,
         }
     }
     async fn request<R: DeserializeOwned, P: jsonrpsee::core::traits::ToRpcParams + Send>(
@@ -220,8 +252,8 @@ impl jsonrpsee::core::client::ClientT for UrlClient {
         params: P,
     ) -> Result<R, jsonrpsee::core::ClientError> {
         match &self.inner {
-            OneClientInner::Ws(it) => it.request(method, params).await,
-            OneClientInner::Https(it) => it.request(method, params).await,
+            UrlClientInner::Ws(it) => it.request(method, params).await,
+            UrlClientInner::Https(it) => it.request(method, params).await,
         }
     }
     async fn batch_request<'a, R: DeserializeOwned + 'a + std::fmt::Debug>(
@@ -229,8 +261,8 @@ impl jsonrpsee::core::client::ClientT for UrlClient {
         batch: jsonrpsee::core::params::BatchRequestBuilder<'a>,
     ) -> Result<jsonrpsee::core::client::BatchResponse<'a, R>, jsonrpsee::core::ClientError> {
         match &self.inner {
-            OneClientInner::Ws(it) => it.batch_request(batch).await,
-            OneClientInner::Https(it) => it.batch_request(batch).await,
+            UrlClientInner::Ws(it) => it.batch_request(batch).await,
+            UrlClientInner::Https(it) => it.batch_request(batch).await,
         }
     }
 }
@@ -248,11 +280,11 @@ impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
         Notif: DeserializeOwned,
     {
         match &self.inner {
-            OneClientInner::Ws(it) => {
+            UrlClientInner::Ws(it) => {
                 it.subscribe(subscribe_method, params, unsubscribe_method)
                     .await
             }
-            OneClientInner::Https(it) => {
+            UrlClientInner::Https(it) => {
                 it.subscribe(subscribe_method, params, unsubscribe_method)
                     .await
             }
@@ -266,8 +298,8 @@ impl jsonrpsee::core::client::SubscriptionClientT for UrlClient {
         Notif: DeserializeOwned,
     {
         match &self.inner {
-            OneClientInner::Ws(it) => it.subscribe_to_method(method).await,
-            OneClientInner::Https(it) => it.subscribe_to_method(method).await,
+            UrlClientInner::Ws(it) => it.subscribe_to_method(method).await,
+            UrlClientInner::Https(it) => it.subscribe_to_method(method).await,
         }
     }
 }

@@ -13,13 +13,97 @@ pub mod reqwest_resume;
 pub mod stream;
 pub mod version;
 
+use anyhow::{bail, Context as _};
 use futures::{
     future::{pending, FusedFuture},
     select, Future, FutureExt,
 };
-use std::{pin::Pin, time::Duration};
+use multiaddr::{Multiaddr, Protocol};
+use std::{pin::Pin, str::FromStr, time::Duration};
 use tokio::time::sleep;
 use tracing::error;
+use url::Url;
+
+/// "hunter2:/ip4/127.0.0.1/wss" -> "wss://:hunter2@127.0.0.1/"
+pub struct UrlFromMultiAddr(pub Url);
+
+impl FromStr for UrlFromMultiAddr {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (p, s) = match s.split_once(':') {
+            Some((first, rest)) => (Some(first), rest),
+            None => (None, s),
+        };
+        let m = Multiaddr::from_str(s).context("invalid multiaddr")?;
+        let mut u = multiaddr2url(&m).context("unsupported multiaddr")?;
+        if u.set_password(p).is_err() {
+            bail!("unsupported password")
+        }
+        Ok(Self(u))
+    }
+}
+
+/// `"/dns/example.com/tcp/8080/http" -> "http://example.com:8080/"`
+///
+/// Returns [`None`] on unsupported formats, or if there is a URL parsing error.
+///
+/// Note that [`Multiaddr`]s do NOT support a (URL) `path`, so that must be handled
+/// out-of-band.
+fn multiaddr2url(m: &Multiaddr) -> Option<Url> {
+    let mut components = m.iter().peekable();
+    let host = match components.next()? {
+        Protocol::Dns(it) | Protocol::Dns4(it) | Protocol::Dns6(it) | Protocol::Dnsaddr(it) => {
+            it.to_string()
+        }
+        Protocol::Ip4(it) => it.to_string(),
+        Protocol::Ip6(it) => it.to_string(),
+        _ => return None,
+    };
+    let port = components
+        .next_if(|it| matches!(it, Protocol::Tcp(_)))
+        .map(|it| match it {
+            Protocol::Tcp(port) => port,
+            _ => unreachable!(),
+        });
+    // ENHANCEMENT: could recognise `Tcp/443/Tls` as `https`
+    let scheme = match components.next()? {
+        Protocol::Http => "http",
+        Protocol::Https => "https",
+        Protocol::Ws(it) if it == "/" => "ws",
+        Protocol::Wss(it) if it == "/" => "wss",
+        _ => return None,
+    };
+    let None = components.next() else { return None };
+    let parse_me = match port {
+        Some(port) => format!("{}://{}:{}", scheme, host, port),
+        None => format!("{}://{}", scheme, host),
+    };
+    parse_me.parse().ok()
+}
+
+#[test]
+fn test_url_from_multiaddr() {
+    #[track_caller]
+    fn do_test(input: &str, expected: &str) {
+        let UrlFromMultiAddr(url) = input.parse().unwrap();
+        assert_eq!(url.as_str(), expected);
+    }
+    do_test("/dns/example.com/http", "http://example.com/");
+    do_test("/dns/example.com/tcp/8080/http", "http://example.com:8080/");
+    do_test("/ip4/127.0.0.1/wss", "wss://127.0.0.1/");
+
+    // with password
+    do_test(
+        "hunter2:/dns/example.com/http",
+        "http://:hunter2@example.com/",
+    );
+    do_test(
+        "hunter2:/dns/example.com/tcp/8080/http",
+        "http://:hunter2@example.com:8080/",
+    );
+    do_test("hunter2:/ip4/127.0.0.1/wss", "wss://:hunter2@127.0.0.1/");
+}
 
 /// Keep running the future created by `make_fut` until the timeout or retry
 /// limit in `args` is reached.

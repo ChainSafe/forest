@@ -19,7 +19,7 @@ use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
-use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
+use crate::rpc_client::{RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -29,6 +29,7 @@ use crate::shim::{
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
+use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
@@ -86,11 +87,11 @@ pub enum ApiCommands {
     /// Compare
     Compare {
         /// Forest address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible"))]
-        forest: ApiInfo,
+        #[clap(long, default_value = "/ip4/127.0.0.1/tcp/2345/http")]
+        forest: UrlFromMultiAddr,
         /// Lotus address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible"))]
-        lotus: ApiInfo,
+        #[clap(long, default_value = "/ip4/127.0.0.1/tcp/1234/http")]
+        lotus: UrlFromMultiAddr,
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg()]
         snapshot_files: Vec<PathBuf>,
@@ -143,8 +144,8 @@ impl ApiCommands {
                     .await?;
             }
             Self::Compare {
-                forest,
-                lotus,
+                forest: UrlFromMultiAddr(forest),
+                lotus: UrlFromMultiAddr(lotus),
                 snapshot_files,
                 filter,
                 filter_file,
@@ -162,7 +163,13 @@ impl ApiCommands {
                     max_concurrent_requests,
                 };
 
-                compare_apis(forest, lotus, snapshot_files, config).await?
+                compare_apis(
+                    rpc::Client::from_url(forest),
+                    rpc::Client::from_url(lotus),
+                    snapshot_files,
+                    config,
+                )
+                .await?
             }
         }
         Ok(())
@@ -795,15 +802,6 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 ))?),
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
             ]);
-            if !msg.params().is_empty() {
-                tests.extend([RpcTest::identity(ApiInfo::state_decode_params_req(
-                        msg.to(),
-                        msg.method_num(),
-                        msg.params().to_vec(),
-                        tipset.key().into(),
-                    )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769")
-                ]);
-            }
         }
     }
 
@@ -937,11 +935,6 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     Ok(tests)
 }
 
-fn websocket_tests() -> Vec<RpcTest> {
-    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
-    vec![test]
-}
-
 fn sample_message_cids<'a>(
     bls_messages: impl Iterator<Item = &'a Message> + 'a,
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
@@ -994,8 +987,8 @@ fn sample_messages<'a>(
 /// The number after a method name indicates how many times an RPC call was tested.
 #[allow(clippy::too_many_arguments)]
 async fn compare_apis(
-    forest: ApiInfo,
-    lotus: ApiInfo,
+    forest: rpc::Client,
+    lotus: rpc::Client,
     snapshot_files: Vec<PathBuf>,
     config: ApiTestFlags,
 ) -> anyhow::Result<()> {
@@ -1017,13 +1010,9 @@ async fn compare_apis(
         tests.extend(snapshot_tests(store, config.n_tipsets)?);
     }
 
-    if matches!(forest.scheme(), "ws" | "wss") && matches!(lotus.scheme(), "ws" | "wss") {
-        tests.extend(websocket_tests())
-    }
-
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, &config).await
+    run_tests(tests, forest, lotus, &config).await
 }
 
 async fn start_offline_server(
@@ -1178,10 +1167,12 @@ where
 
 async fn run_tests(
     tests: impl IntoIterator<Item = RpcTest>,
-    forest: &ApiInfo,
-    lotus: &ApiInfo,
+    forest: impl Into<Arc<rpc::Client>>,
+    lotus: impl Into<Arc<rpc::Client>>,
     config: &ApiTestFlags,
 ) -> anyhow::Result<()> {
+    let forest = Into::<Arc<rpc::Client>>::into(forest);
+    let lotus = Into::<Arc<rpc::Client>>::into(lotus);
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
 
