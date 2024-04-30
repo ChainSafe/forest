@@ -13,6 +13,7 @@ mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
+pub(self) use reflect::Permission;
 
 /// Protocol or transport-specific error
 #[allow(unused)]

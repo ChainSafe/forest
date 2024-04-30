@@ -34,13 +34,6 @@ enum Access {
 static ACCESS_MAP: Lazy<HashMap<&str, Access>> = Lazy::new(|| {
     let mut access = HashMap::new();
 
-    // Auth API
-    access.insert(auth::AuthNew::NAME, Access::Admin);
-    access.insert(auth::AuthVerify::NAME, Access::Read);
-
-    // Beacon API
-    access.insert(beacon::BeaconGetEntry::NAME, Access::Read);
-
     // Chain API
     access.insert(chain::ChainGetMessage::NAME, Access::Read);
     access.insert(chain::ChainExport::NAME, Access::Read);
