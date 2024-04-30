@@ -94,7 +94,7 @@ indicatif = { version = "0.17.6", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.12.1"
-jsonrpsee = { version = "0.22.4", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.22", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
@@ -162,7 +162,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10.1"
 rs-car-ipfs = "0.3"
 rustyline = "14"
-schemars = { version = "0.8.16", features = ["chrono", "uuid1"] }
+schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1.1.0"
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -218,7 +218,7 @@ tracing-loki = { version = "0.2", default-features = false, features = ["compat-
 termios = "0.3"
 
 [dev-dependencies]
-ariadne = "0.4.0"
+ariadne = "0.4"
 assert_cmd = "2"
 bimap = "0.6.3"
 cargo_metadata = "0.18.0"
@@ -238,7 +238,7 @@ proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.212"
+ra_ap_syntax = "0.0.213"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
