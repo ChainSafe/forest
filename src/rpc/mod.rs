@@ -312,6 +312,7 @@ mod tests {
                     .get_beacon_schedule(genesis.timestamp),
             );
             let (network_send, _) = flume::bounded(0);
+            let (tipset_send, _) = flume::bounded(1);
             let network_name = get_network_name_from_genesis(genesis, &state_manager).unwrap();
             let message_pool = MessagePool::new(
                 MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
@@ -334,6 +335,7 @@ mod tests {
                 chain_store,
                 beacon,
                 shutdown: mpsc::channel(1).0, // dummy for tests
+                tipset_send,
             }
         }
     }

@@ -170,6 +170,7 @@ mod tests {
         }]));
 
         let (network_send, network_rx) = flume::bounded(5);
+        let (tipset_send, _) = flume::bounded(5);
         let mut services = JoinSet::new();
         let db = Arc::new(MemoryDB::default());
         let chain_config = Arc::new(ChainConfig::default());
@@ -232,6 +233,7 @@ mod tests {
             chain_store: cs_for_chain.clone(),
             beacon,
             shutdown: mpsc::channel(1).0, // dummy for tests
+            tipset_send,
         });
         (state, network_rx)
     }
