@@ -3,7 +3,7 @@
 
 use crate::auth::*;
 use crate::lotus_json::lotus_json_with_self;
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
 use anyhow::Result;
 use chrono::Duration;
 use fvm_ipld_blockstore::Blockstore;
@@ -25,6 +25,7 @@ impl RpcMethod<1> for AuthNew {
     const NAME: &'static str = "Filecoin.AuthNew";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Admin;
     type Params = (AuthNewParams,);
     type Ok = Vec<u8>;
     async fn handle(
@@ -43,6 +44,7 @@ impl RpcMethod<1> for AuthVerify {
     const NAME: &'static str = "Filecoin.AuthVerify";
     const PARAM_NAMES: [&'static str; 1] = ["header_raw"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
     type Params = (String,);
     type Ok = Vec<String>;
     async fn handle(

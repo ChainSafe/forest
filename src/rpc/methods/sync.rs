@@ -4,7 +4,7 @@
 use crate::blocks::GossipBlock;
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
-use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
+use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -29,6 +29,7 @@ impl RpcMethod<1> for SyncCheckBad {
     const NAME: &'static str = "Filecoin.SyncCheckBad";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
     type Ok = String;
@@ -46,6 +47,7 @@ impl RpcMethod<1> for SyncMarkBad {
     const NAME: &'static str = "Filecoin.SyncMarkBad";
     const PARAM_NAMES: [&'static str; 1] = ["cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Admin;
 
     type Params = (Cid,);
     type Ok = ();
@@ -65,6 +67,7 @@ impl RpcMethod<0> for SyncState {
     const NAME: &'static str = "Filecoin.SyncState";
     const PARAM_NAMES: [&'static str; 0] = [];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = RPCSyncState;
@@ -80,6 +83,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
     const NAME: &'static str = "Filecoin.SyncSubmitBlock";
     const PARAM_NAMES: [&'static str; 1] = ["blk"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Write;
 
     type Params = (GossipBlock,);
     type Ok = ();
