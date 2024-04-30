@@ -22,7 +22,8 @@ pub enum NodeStatus {}
 impl RpcMethod<0> for NodeStatus {
     const NAME: &'static str = "Filecoin.NodeStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = NodeStatusResult;

@@ -650,7 +650,8 @@ pub enum Web3ClientVersion {}
 impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
@@ -667,7 +668,8 @@ pub enum EthAccounts {}
 impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = Vec<String>;
@@ -685,7 +687,8 @@ pub enum EthBlockNumber {}
 impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
@@ -718,7 +721,8 @@ pub enum EthChainId {}
 impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = String;
@@ -738,7 +742,8 @@ pub enum EthGasPrice {}
 impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = GasPriceResult;
@@ -763,7 +768,8 @@ pub enum EthGetBalance {}
 impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "block_param"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, BlockNumberOrHash);
     type Ok = BigInt;
@@ -1262,7 +1268,8 @@ pub enum EthGetBlockByNumber {}
 impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrHash, bool);
     type Ok = Block;
@@ -1281,7 +1288,8 @@ pub enum EthSyncing {}
 impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;const PERMISSION: Permission = Permission::Read;
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
     type Ok = EthSyncingResult;
