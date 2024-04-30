@@ -66,7 +66,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// See [`ApiVersion`].
     const API_VERSION: ApiVersion;
     /// See [`Permission`]
-    const PERMISSION: Permission = Permission::Read; // TODO(aatifsyed): removeme
+    const PERMISSION: Permission;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.

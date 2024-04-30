@@ -13,7 +13,7 @@ mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
-pub(self) use reflect::Permission;
+use reflect::Permission;
 
 /// Protocol or transport-specific error
 #[allow(unused)]
@@ -66,10 +66,8 @@ pub mod prelude {
 ///   - If it is used _across_ API verticals, it should live in `src/rpc/types.rs`
 ///
 /// # Interactions with the [`lotus_json`] APIs
-/// - Types defined in the module will only ever be deserialized as JSON, so there
-///   will NEVER be a need to implement [`HasLotusJson`] for them.
 /// - Types may have fields which must go through [`LotusJson`],
-///   and must reflect that in their [`JsonSchema`].
+///   and MUST reflect that in their [`JsonSchema`].
 ///   You have two options for this:
 ///   - Use `#[attributes]` to control serialization and schema generation:
 ///     ```ignore
@@ -88,6 +86,13 @@ pub mod prelude {
 ///         cid: LotusJson<Cid>, // use the shim type in application logic, manually performing conversions
 ///     }
 ///     ```
+///
+/// # `for_each_method`
+/// Each API vertical exposes a [`for_each_method!`](auth::for_each_method) macro,
+/// which is used in three places:
+/// - [`prelude`], where all the methods are exported for use in the codebase.
+/// - [`auth_layer`], where their [`RpcMethod::PERMISSION`]s are registered.
+/// - [`create_module`], where they're actually registered to be served.
 ///
 /// [`lotus_json`]: crate::lotus_json
 /// [`HasLotusJson`]: crate::lotus_json::HasLotusJson
