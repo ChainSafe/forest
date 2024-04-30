@@ -18,7 +18,7 @@ use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
-use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
+use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
@@ -177,34 +177,44 @@ pub enum RunIgnored {
     All,
 }
 
+/// Brief description of a single method call against a single host
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
-enum EndpointStatus {
-    // RPC method is missing
+enum TestSummary {
+    /// Server spoke JSON-RPC: no such method
     MissingMethod,
-    // Request isn't valid according to jsonrpc spec
-    InvalidRequest,
-    // Catch-all for errors on the node
-    InternalServerError,
-    // Unexpected JSON schema
-    InvalidJSON,
-    // Got response with the right JSON schema but it failed sanity checking
-    InvalidResponse,
+    /// Server spoke JSON-RPC: bad request (or other error)
+    Rejected,
+    /// Server doesn't seem to be speaking JSON-RPC
+    NotJsonRPC,
+    /// Transport or ask task management errors
+    InfraError,
+    /// Server returned JSON-RPC and it didn't match our schema
+    BadJson,
+    /// Server returned JSON-RPC and it matched our schema, but failed validation
+    CustomCheckFailed,
     Timeout,
     Valid,
 }
 
-impl EndpointStatus {
-    fn from_json_error(err: ServerError) -> Self {
-        match err.known_code() {
-            ErrorCode::ParseError => Self::InvalidResponse,
-            ErrorCode::OversizedRequest => Self::InvalidRequest,
-            ErrorCode::InvalidRequest => Self::InvalidRequest,
-            ErrorCode::MethodNotFound => Self::MissingMethod,
-            it if it.code() == 0 && it.message().contains("timed out") => Self::Timeout,
-            _ => {
-                tracing::debug!(?err);
-                Self::InternalServerError
-            }
+impl TestSummary {
+    fn from_err(err: &rpc::ClientError) -> Self {
+        match err {
+            rpc::ClientError::Call(it) => match it.code().into() {
+                ErrorCode::MethodNotFound => Self::MissingMethod,
+                _ => Self::Rejected,
+            },
+            rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
+            rpc::ClientError::RequestTimeout => Self::Timeout,
+
+            rpc::ClientError::Transport(_)
+            | rpc::ClientError::RestartNeeded(_)
+            | rpc::ClientError::InvalidSubscriptionId
+            | rpc::ClientError::InvalidRequestId(_)
+            | rpc::ClientError::MaxSlotsExceeded
+            | rpc::ClientError::Custom(_)
+            | rpc::ClientError::HttpNotImplemented
+            | rpc::ClientError::EmptyBatchRequest(_)
+            | rpc::ClientError::RegisterMethod(_) => Self::InfraError,
         }
     }
 }
@@ -250,9 +260,9 @@ impl std::fmt::Display for TestDump {
 
 struct TestResult {
     /// Forest result after calling the RPC method.
-    forest_status: EndpointStatus,
+    forest_status: TestSummary,
     /// Lotus result after calling the RPC method.
-    lotus_status: EndpointStatus,
+    lotus_status: TestSummary,
     /// Optional data dump if either status was invalid.
     test_dump: Option<TestDump>,
 }
@@ -388,35 +398,39 @@ impl RpcTest {
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
                 let forest_status = if (self.check_semantics)(forest, lotus) {
-                    EndpointStatus::Valid
+                    TestSummary::Valid
                 } else {
-                    EndpointStatus::InvalidResponse
+                    TestSummary::CustomCheckFailed
                 };
-                (forest_status, EndpointStatus::Valid)
+                (forest_status, TestSummary::Valid)
             }
             (forest_resp, lotus_resp) => {
-                let forest_status =
-                    forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                let forest_status = forest_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
                         if (self.check_syntax)(value) {
-                            EndpointStatus::Valid
+                            TestSummary::Valid
                         } else {
-                            EndpointStatus::InvalidJSON
+                            TestSummary::BadJson
                         }
-                    });
-                let lotus_status =
-                    lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                    },
+                );
+                let lotus_status = lotus_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
                         if (self.check_syntax)(value) {
-                            EndpointStatus::Valid
+                            TestSummary::Valid
                         } else {
-                            EndpointStatus::InvalidJSON
+                            TestSummary::BadJson
                         }
-                    });
+                    },
+                );
 
                 (forest_status, lotus_status)
             }
         };
 
-        if forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid {
+        if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
             TestResult {
                 forest_status,
                 lotus_status,
@@ -1212,8 +1226,8 @@ async fn run_tests(
         let forest_status = test_result.forest_status;
         let lotus_status = test_result.lotus_status;
         let result_entry = (method_name, forest_status, lotus_status);
-        if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
-            || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
+        if (forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid)
+            || (forest_status == TestSummary::Timeout && lotus_status == TestSummary::Timeout)
         {
             success_results
                 .entry(result_entry)
@@ -1250,8 +1264,8 @@ fn print_error_details(fail_details: &[TestDump]) {
 }
 
 fn print_test_results(
-    success_results: &HashMap<(&'static str, EndpointStatus, EndpointStatus), u32>,
-    failed_results: &HashMap<(&'static str, EndpointStatus, EndpointStatus), u32>,
+    success_results: &HashMap<(&'static str, TestSummary, TestSummary), u32>,
+    failed_results: &HashMap<(&'static str, TestSummary, TestSummary), u32>,
 ) {
     // Combine all results
     let mut combined_results = success_results.clone();
@@ -1265,7 +1279,7 @@ fn print_test_results(
     println!("{}", format_as_markdown(&results));
 }
 
-fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {
+fn format_as_markdown(results: &[((&'static str, TestSummary, TestSummary), u32)]) -> String {
     let mut builder = Builder::default();
 
     builder.push_record(["RPC Method", "Forest", "Lotus"]);
