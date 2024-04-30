@@ -3,7 +3,6 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::Context;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
@@ -57,7 +56,7 @@ impl CarCommands {
                     .try_collect()
                     .await?;
 
-                let all_roots = NonEmpty::from_vec(
+                let all_roots = NonEmpty::new(
                     car_streams
                         .iter()
                         .flat_map(|it| it.header.roots.iter())
@@ -65,7 +64,7 @@ impl CarCommands {
                         .cloned()
                         .collect_vec(),
                 )
-                .context("car roots cannot be empty")?;
+                .map_err(|_| anyhow::Error::msg("car roots cannot be empty"))?;
 
                 let frames = crate::db::car::forest::Encoder::compress_stream_default(
                     dedup_block_stream(merge_car_streams(car_streams)).map_err(anyhow::Error::from),

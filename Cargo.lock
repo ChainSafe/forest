@@ -6600,11 +6600,12 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 
 [[package]]
 name = "nunny"
-version = "0.1.4"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff27f7c3237e73d2778aea8b53a574869a42dfc2a926a103168cc8dc84630df7"
+checksum = "14322bc44ac32006482d77e39a75b84e62f0f934b54583434724d21dd555d8a1"
 dependencies = [
  "quickcheck",
+ "schemars",
  "serde",
 ]
 

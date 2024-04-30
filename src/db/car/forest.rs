@@ -445,9 +445,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn forest_car_create_basic(head: CarBlock, tail: Vec<CarBlock>) {
-        let roots = nonempty!(head.cid);
-        let blocks = NonEmpty { head, tail };
+    fn forest_car_create_basic(blocks: nunny::Vec<CarBlock>) {
+        let roots = nonempty!(blocks.first().cid);
         let forest_car =
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
         assert_eq!(forest_car.roots(), &roots);
@@ -458,15 +457,12 @@ mod tests {
 
     #[quickcheck]
     fn forest_car_create_options(
-        head: CarBlock,
-        tail: Vec<CarBlock>,
+        blocks: nunny::Vec<CarBlock>,
         frame_size: usize,
         mut compression_level: u16,
     ) {
         compression_level %= 15;
-
-        let roots = nonempty!(head.cid);
-        let blocks = NonEmpty { head, tail };
+        let roots = nonempty!(blocks.first().cid);
 
         let forest_car = ForestCar::new(mk_encoded_car(
             frame_size,

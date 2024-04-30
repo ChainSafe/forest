@@ -178,7 +178,7 @@ impl TipsetGroup {
     }
 
     fn heaviest_tipset(&self) -> Arc<Tipset> {
-        let max = self.tipsets.maximum_by_key(|ts| ts.weight()).weight();
+        let max = self.tipsets.iter_ne().map(|it| it.weight()).max();
 
         let ties = self.tipsets.iter().filter(|ts| ts.weight() == max);
 
@@ -1345,9 +1345,12 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
                 // But there's no reason `validate_block` couldn't return a list of all
                 // errors instead of a single one that has all the error messages,
                 // removing the caller's ability to distinguish between them.
-                let errs = errs.map(TipsetRangeSyncerError::ConsensusError);
 
-                TipsetRangeSyncerError::concat(errs)
+                TipsetRangeSyncerError::concat(
+                    errs.into_iter_ne()
+                        .map(TipsetRangeSyncerError::ConsensusError)
+                        .collect_vec(),
+                )
             })
             .await
     }));

@@ -197,7 +197,10 @@ async fn benchmark_forest_encoding(
     let file = tokio::io::BufReader::new(File::open(&input).await?);
 
     let mut block_stream = CarStream::new(file).await?;
-    let roots = std::mem::take(&mut block_stream.header.roots);
+    let roots = std::mem::replace(
+        &mut block_stream.header.roots,
+        nunny::vec![Default::default()],
+    );
 
     let mut dest = indicatif_sink("encoded");
 

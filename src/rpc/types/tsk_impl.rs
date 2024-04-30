@@ -33,7 +33,11 @@ impl HasLotusJson for ApiTipsetKey {
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        Self(NonEmpty::from_vec(HasLotusJson::from_lotus_json(lotus_json)).map(From::from))
+        Self(
+            NonEmpty::new(HasLotusJson::from_lotus_json(lotus_json))
+                .map(Into::into)
+                .ok(),
+        )
     }
 }
 

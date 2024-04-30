@@ -32,7 +32,7 @@ use nunny::Vec as NonEmpty;
 use crate::fil_cns::{metrics, FilecoinConsensusError};
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
-    NonEmpty::new(e.into())
+    NonEmpty::of(e.into())
 }
 
 /// Validates block semantically according to <https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md>

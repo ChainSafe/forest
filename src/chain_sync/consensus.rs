@@ -58,14 +58,9 @@ pub async fn collect_errs<E>(
         }
     }
 
-    let mut errors = errors.into_iter();
-
-    match errors.next() {
-        None => Ok(()),
-        Some(head) => Err(NonEmpty {
-            head,
-            tail: errors.collect(),
-        }),
+    match errors.try_into() {
+        Ok(it) => Err(it),
+        Err(_) => Ok(()),
     }
 }
 
