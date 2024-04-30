@@ -748,32 +748,22 @@ fn state_tests_with_tipset<DB: Blockstore>(
         )?
         .into_iter()
         .take(COLLECTION_SAMPLE_SIZE)
-        {
-            let mut push_test = true;
-            for id in info.deal_ids.iter() {
-                if let Some(Ok(deal_proposal)) = deals_map.get(&id) {
-                    if tipset.epoch() > deal_proposal.start_epoch {
-                        push_test = false;
-                        break;
-                    }
-                    if info.expiration > deal_proposal.end_epoch {
-                        push_test = false;
-                        break;
-                    }
+        .filter(|info| {
+            !info.deal_ids.iter().any(|id| {
+                if let Some(Ok(deal)) = deals_map.get(id) {
+                    tipset.epoch() > deal.start_epoch || info.expiration > deal.end_epoch
                 } else {
-                    push_test = false;
-                    break;
+                    true
                 }
-            }
-            if push_test {
-                tests.extend([RpcTest::identity(
-                    StateMinerInitialPledgeCollateral::request((
-                        block.miner_address,
-                        info,
-                        tipset.key().into(),
-                    ))?,
-                )]);
-            }
+            })
+        }) {
+            tests.extend([RpcTest::identity(
+                StateMinerInitialPledgeCollateral::request((
+                    block.miner_address,
+                    info,
+                    tipset.key().into(),
+                ))?,
+            )]);
         }
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
