@@ -3,9 +3,7 @@
 
 //! # Design Goals
 //! - use [`jsonrpsee`] clients and primitives.
-//! - Support different call formats
-//!   - [`crate::rpc_client::RpcRequest`]
-//!   - [`crate::rpc::RpcMethod`]
+//! - Support [`rpc::Request`](crate::rpc::Request).
 //! - Support different
 //!   - endpoint paths (`v0`, `v1`).
 //!   - communication protocols (`ws`, `http`).
@@ -27,8 +25,7 @@ use url::Url;
 
 use super::{ApiVersion, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
 
-/// A JSON-RPC client that can dispatch either a [`crate::rpc_client::RpcRequest`]
-/// or a [`crate::rpc::RpcMethod`] to a single URL.
+/// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
     /// SHOULD end in a slash, due to our use of [`Url::join`].
     base_url: Url,
@@ -53,10 +50,8 @@ impl Client {
             Err(env::VarError::NotPresent) => DEFAULT.clone(),
             Err(e @ env::VarError::NotUnicode(_)) => bail!(e),
         };
-        if token.is_some() {
-            if base_url.set_password(token).is_err() {
-                bail!("couldn't set override password")
-            }
+        if token.is_some() && base_url.set_password(token).is_err() {
+            bail!("couldn't set override password")
         }
         Ok(Self::from_url(base_url))
     }

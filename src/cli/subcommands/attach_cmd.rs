@@ -276,7 +276,7 @@ mod inner {
             Address::from_str(&to)?,
             humantoken::parse(&value)?, // Convert forest_shim::TokenAmount to TokenAmount3
         );
-        Ok(MpoolPushMessage::call(&*client, (message, None)).await?)
+        Ok(MpoolPushMessage::call(&client, (message, None)).await?)
     }
 
     type SleepParams = (u64,);
@@ -294,7 +294,7 @@ mod inner {
     ) -> anyhow::Result<()> {
         let mut epoch = None;
         loop {
-            let state = SyncState::call(&*client, ()).await?;
+            let state = SyncState::call(&client, ()).await?;
             if state.active_syncs.first().stage() == SyncStage::Complete {
                 if let Some(prev) = epoch {
                     let curr = state.active_syncs.first().epoch();
