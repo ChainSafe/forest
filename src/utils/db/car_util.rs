@@ -51,7 +51,7 @@ mod tests {
     use futures::{StreamExt, TryStreamExt};
     use fvm_ipld_encoding::DAG_CBOR;
     use itertools::Itertools;
-    use nonempty::{nonempty, NonEmpty};
+    use nunny::{vec as nonempty, Vec as NonEmpty};
     use pretty_assertions::assert_eq;
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;

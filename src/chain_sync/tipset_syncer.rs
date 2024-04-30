@@ -35,7 +35,7 @@ use futures::{stream, stream::FuturesUnordered, StreamExt, TryFutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
-use nonempty::{nonempty, NonEmpty};
+use nunny::{vec as nonempty, Vec as NonEmpty};
 use thiserror::Error;
 use tokio::task::JoinSet;
 use tracing::{debug, error, info, trace, warn};

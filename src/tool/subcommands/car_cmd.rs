@@ -132,7 +132,7 @@ mod tests {
     use cid::multihash::{Code, MultihashDigest};
     use cid::Cid;
     use futures::{stream::iter, StreamExt, TryStreamExt};
-    use nonempty::{nonempty, NonEmpty};
+    use nunny::{vec as nonempty, Vec as NonEmpty};
     use std::io::Write;
     use tempfile::{Builder, TempPath};
     use tokio::io::AsyncWriteExt;

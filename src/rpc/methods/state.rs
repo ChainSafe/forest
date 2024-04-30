@@ -39,7 +39,7 @@ use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpsee::types::error::ErrorObject;
 use libipld_core::ipld::Ipld;
-use nonempty::{nonempty, NonEmpty};
+use nunny::{vec as nonempty, Vec as NonEmpty};
 use num_bigint::BigInt;
 use num_traits::Euclid;
 use parking_lot::Mutex;
