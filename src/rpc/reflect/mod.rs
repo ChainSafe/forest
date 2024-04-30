@@ -65,6 +65,8 @@ pub trait RpcMethod<const ARITY: usize> {
     const PARAM_NAMES: [&'static str; ARITY];
     /// See [`ApiVersion`].
     const API_VERSION: ApiVersion;
+    /// See [`Permission`]
+    const PERMISSION: Permission;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
@@ -74,6 +76,15 @@ pub trait RpcMethod<const ARITY: usize> {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         params: Self::Params,
     ) -> impl Future<Output = Result<Self::Ok, Error>> + Send;
+}
+
+/// The permission required to call an RPC method.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Permission {
+    Admin,
+    Sign,
+    Write,
+    Read,
 }
 
 /// Lotus groups methods into API versions.
