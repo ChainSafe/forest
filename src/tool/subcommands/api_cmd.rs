@@ -624,17 +624,19 @@ fn state_tests_with_tipset<DB: Blockstore>(
     ];
 
     // Get deals
-    let deals = {
+    let (deals, deals_map) = {
         let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
         let actor = state.get_required_actor(&Address::MARKET_ACTOR)?;
         let market_state = market::State::load(&store, actor.code, actor.state)?;
         let proposals = market_state.proposals(&store)?;
         let mut deals = vec![];
-        proposals.for_each(|deal_id, _| {
+        let mut deals_map = HashMap::default();
+        proposals.for_each(|deal_id, deal_proposal| {
             deals.push(deal_id);
+            deals_map.insert(deal_id, deal_proposal);
             Ok(())
         })?;
-        deals
+        (deals, deals_map)
     };
 
     // Take 5 deals from each tipset
@@ -738,6 +740,30 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 sector,
                 tipset.key().into(),
             ))?)]);
+        }
+        for info in StateSectorPreCommitInfo::get_sector_pre_commit_infos(
+            store,
+            &block.miner_address,
+            tipset,
+        )?
+        .into_iter()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .filter(|info| {
+            !info.deal_ids.iter().any(|id| {
+                if let Some(Ok(deal)) = deals_map.get(id) {
+                    tipset.epoch() > deal.start_epoch || info.expiration > deal.end_epoch
+                } else {
+                    true
+                }
+            })
+        }) {
+            tests.extend([RpcTest::identity(
+                StateMinerInitialPledgeCollateral::request((
+                    block.miner_address,
+                    info,
+                    tipset.key().into(),
+                ))?,
+            )]);
         }
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
