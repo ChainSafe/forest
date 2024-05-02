@@ -9,7 +9,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nonempty::{nonempty, NonEmpty};
+use nunny::{vec as nonempty, Vec as NonEmpty};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

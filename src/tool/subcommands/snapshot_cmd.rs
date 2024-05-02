@@ -189,7 +189,10 @@ impl SnapshotCommands {
                 let file = tokio::io::BufReader::new(pb.wrap_async_read(file));
 
                 let mut block_stream = CarStream::new(file).await?;
-                let roots = std::mem::take(&mut block_stream.header.roots);
+                let roots = std::mem::replace(
+                    &mut block_stream.header.roots,
+                    nunny::vec![Default::default()],
+                );
 
                 let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
 

@@ -8,7 +8,7 @@ use crate::rpc::{self, prelude::*};
 use anyhow::bail;
 use cid::Cid;
 use clap::Subcommand;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 
 use super::{print_pretty_lotus_json, print_rpc_res_cids};
 
@@ -102,10 +102,10 @@ impl ChainCommands {
                 maybe_confirm(no_confirm, SET_HEAD_CONFIRMATION_MESSAGE)?;
                 ChainSetHead::call(
                     &client,
-                    (TipsetKey::from(
-                        NonEmpty::from_vec(cids).expect("empty vec disallowed by clap"),
-                    )
-                    .into(),),
+                    (
+                        TipsetKey::from(NonEmpty::new(cids).expect("empty vec disallowed by clap"))
+                            .into(),
+                    ),
                 )
                 .await?;
                 Ok(())

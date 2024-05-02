@@ -3,7 +3,7 @@
 
 use super::*;
 use cid::Cid;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Serialize};
 
 #[cfg(doc)]
@@ -18,6 +18,7 @@ use crate::blocks::TipsetKey;
 /// This may be expanded to have [`smallvec`](https://docs.rs/smallvec/1.11.0/smallvec/index.html)-style indirection
 /// to save more on heap allocations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 pub struct SmallCidNonEmptyVec(NonEmpty<SmallCid>);
 
 impl SmallCidNonEmptyVec {
@@ -30,7 +31,7 @@ impl SmallCidNonEmptyVec {
 
     /// Returns a non-empty collection of `CID`
     pub fn into_cids(self) -> NonEmpty<Cid> {
-        self.0.map(From::from)
+        self.0.into_iter_ne().map(From::from).collect_vec()
     }
 
     /// Returns an iterator of `CID`s.
@@ -42,7 +43,7 @@ impl SmallCidNonEmptyVec {
 impl<'a> IntoIterator for &'a SmallCidNonEmptyVec {
     type Item = Cid;
 
-    type IntoIter = std::iter::Map<nonempty::Iter<'a, SmallCid>, fn(&SmallCid) -> Cid>;
+    type IntoIter = std::iter::Map<std::slice::Iter<'a, SmallCid>, fn(&SmallCid) -> Cid>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter().map(|cid| Cid::from(cid.clone()))
@@ -115,28 +116,17 @@ impl<'de> Deserialize<'de> for SmallCid {
 /////////////////////
 // Arbitrary impls //
 /////////////////////
-// Note these go through MaybeCompactedCid, artificially bumping the probability of compact CIDs
 
 #[cfg(test)]
+// Note this goes through MaybeCompactedCid, artificially bumping the probability of compact CIDs
 impl quickcheck::Arbitrary for SmallCid {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         Self::from(Cid::from(MaybeCompactedCid::arbitrary(g)))
     }
 }
 
-#[cfg(test)]
-impl quickcheck::Arbitrary for SmallCidNonEmptyVec {
-    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-        NonEmpty {
-            head: Cid::arbitrary(g),
-            tail: Vec::arbitrary(g),
-        }
-        .into()
-    }
-}
-
 impl From<NonEmpty<Cid>> for SmallCidNonEmptyVec {
     fn from(value: NonEmpty<Cid>) -> Self {
-        Self(value.map(From::from))
+        Self(value.into_iter_ne().map(From::from).collect_vec())
     }
 }

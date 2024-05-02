@@ -31,7 +31,7 @@ static FILECOIN_GENESIS_CID: once_cell::sync::Lazy<Cid> = once_cell::sync::Lazy:
 
 #[cfg(test)]
 pub static GENESIS_BLOCK_PARENTS: once_cell::sync::Lazy<TipsetKey> =
-    once_cell::sync::Lazy::new(|| nonempty::nonempty![*FILECOIN_GENESIS_CID].into());
+    once_cell::sync::Lazy::new(|| nunny::vec![*FILECOIN_GENESIS_CID].into());
 
 #[derive(Deserialize_tuple, Serialize_tuple, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RawBlockHeader {

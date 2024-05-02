@@ -27,12 +27,12 @@ use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 
 use crate::fil_cns::{metrics, FilecoinConsensusError};
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
-    NonEmpty::new(e.into())
+    NonEmpty::of(e.into())
 }
 
 /// Validates block semantically according to <https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md>

@@ -15,7 +15,7 @@ use crate::state_manager::StateManager;
 use async_trait::async_trait;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use tokio::task::JoinSet;
 
 /// The `Consensus` trait encapsulates consensus specific rules of validation
@@ -58,14 +58,9 @@ pub async fn collect_errs<E>(
         }
     }
 
-    let mut errors = errors.into_iter();
-
-    match errors.next() {
-        None => Ok(()),
-        Some(head) => Err(NonEmpty {
-            head,
-            tail: errors.collect(),
-        }),
+    match errors.try_into() {
+        Ok(it) => Err(it),
+        Err(_) => Ok(()),
     }
 }
 

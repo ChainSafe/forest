@@ -3290,7 +3290,6 @@ dependencies = [
  "multiaddr",
  "multimap",
  "nom",
- "nonempty",
  "nonzero_ext",
  "num",
  "num-bigint",
@@ -3298,6 +3297,7 @@ dependencies = [
  "num-rational",
  "num-traits",
  "num_cpus",
+ "nunny",
  "once_cell",
  "parity-db",
  "parking_lot",
@@ -6437,15 +6437,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nonempty"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "303e8749c804ccd6ca3b428de7fe0d86cb86bc7606bc15291f100fd487960bb8"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "nonzero_ext"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6607,6 +6598,17 @@ name = "number_prefix"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
+
+[[package]]
+name = "nunny"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14322bc44ac32006482d77e39a75b84e62f0f934b54583434724d21dd555d8a1"
+dependencies = [
+ "quickcheck",
+ "schemars",
+ "serde",
+]
 
 [[package]]
 name = "object"

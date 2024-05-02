@@ -7,7 +7,7 @@ use crate::blocks::{Block, CachingBlockHeader, FullTipset, Tipset, BLOCK_MESSAGE
 use crate::message::SignedMessage;
 use crate::shim::message::Message;
 use cid::Cid;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
