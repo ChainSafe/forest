@@ -4,11 +4,13 @@
 mod auth_layer;
 mod channel;
 mod client;
+mod request;
 
 pub use client::Client;
 pub use error::ServerError;
 use reflect::Ctx;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
+pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
@@ -16,7 +18,6 @@ pub use methods::*;
 use reflect::Permission;
 
 /// Protocol or transport-specific error
-#[allow(unused)]
 pub use jsonrpsee::core::ClientError;
 
 #[allow(unused)]
@@ -113,9 +114,6 @@ mod methods {
     pub mod wallet;
 }
 
-use std::net::SocketAddr;
-use std::sync::Arc;
-
 use crate::key_management::KeyStore;
 use crate::rpc::auth_layer::AuthLayer;
 use crate::rpc::channel::RpcModule as FilRpcModule;
@@ -129,11 +127,26 @@ use jsonrpsee::{
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
     Methods,
 };
+use once_cell::sync::Lazy;
+use std::env;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 use tracing::info;
 
 use self::reflect::openrpc_types::ParamStructure;
+
+pub const DEFAULT_PORT: u16 = 2345;
+
+/// Request timeout read from environment variables
+static DEFAULT_REQUEST_TIMEOUT: Lazy<Duration> = Lazy::new(|| {
+    env::var("FOREST_RPC_DEFAULT_TIMEOUT")
+        .ok()
+        .and_then(|it| Duration::from_secs(it.parse().ok()?).into())
+        .unwrap_or(Duration::from_secs(60))
+});
 
 const MAX_REQUEST_BODY_SIZE: u32 = 64 * 1024 * 1024;
 const MAX_RESPONSE_BODY_SIZE: u32 = MAX_REQUEST_BODY_SIZE;

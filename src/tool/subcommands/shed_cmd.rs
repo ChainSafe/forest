@@ -11,7 +11,6 @@ use crate::{
         types::ApiTipsetKey,
         RpcMethodExt as _,
     },
-    rpc_client::ApiInfo,
 };
 use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
@@ -54,10 +53,9 @@ pub enum ShedCommands {
 }
 
 impl ShedCommands {
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             ShedCommands::SummarizeTipsets { height, ancestors } => {
-                let client = rpc::Client::from(ApiInfo::from_env()?);
                 let head = ChainHead::call(&client, ()).await?;
                 let end_height = match height {
                     Some(it) => it,

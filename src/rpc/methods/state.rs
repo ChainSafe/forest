@@ -97,8 +97,6 @@ macro_rules! for_each_method {
 }
 pub(crate) use for_each_method;
 
-pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
-
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
 
