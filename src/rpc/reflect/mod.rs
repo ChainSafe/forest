@@ -337,9 +337,13 @@ pub struct SelfDescribingRpcModule<Ctx> {
 
 impl<Ctx> SelfDescribingRpcModule<Ctx> {
     pub fn new(ctx: Arc<Ctx>, calling_convention: ParamStructure) -> Self {
+        // spec says draft07
+        let mut settings = SchemaSettings::draft07();
+        // ..but uses `components`
+        settings.definitions_path = String::from("#/components/schemas/");
         Self {
             inner: jsonrpsee::server::RpcModule::from_arc(ctx),
-            schema_generator: SchemaGenerator::new(SchemaSettings::openapi3()),
+            schema_generator: SchemaGenerator::new(settings),
             calling_convention,
             methods: vec![],
         }

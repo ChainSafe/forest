@@ -13,8 +13,9 @@ methods:
     result:
       name: "Filecoin.AuthNew::Result"
       schema:
-        $ref: "#/components/schemas/Inner"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/Inner"
+          - type: "null"
       required: true
   - name: Filecoin.AuthVerify
     params:
@@ -26,10 +27,11 @@ methods:
     result:
       name: "Filecoin.AuthVerify::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           type: string
-        nullable: true
       required: false
   - name: Filecoin.BeaconGetEntry
     params:
@@ -117,10 +119,11 @@ methods:
     result:
       name: "Filecoin.ChainGetParentMessages::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/ApiMessage"
-        nullable: true
       required: false
   - name: Filecoin.ChainGetParentReceipts
     params:
@@ -132,10 +135,11 @@ methods:
     result:
       name: "Filecoin.ChainGetParentReceipts::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/ApiReceipt"
-        nullable: true
       required: false
   - name: Filecoin.ChainGetMessagesInTipset
     params:
@@ -147,10 +151,11 @@ methods:
     result:
       name: "Filecoin.ChainGetMessagesInTipset::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/ApiMessage"
-        nullable: true
       required: false
   - name: Filecoin.ChainExport
     params:
@@ -162,8 +167,9 @@ methods:
     result:
       name: "Filecoin.ChainExport::Result"
       schema:
-        type: string
-        nullable: true
+        type:
+          - string
+          - "null"
       required: false
   - name: Filecoin.ChainReadObj
     params:
@@ -175,8 +181,9 @@ methods:
     result:
       name: "Filecoin.ChainReadObj::Result"
       schema:
-        $ref: "#/components/schemas/Inner"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/Inner"
+          - type: "null"
       required: true
   - name: Filecoin.ChainHasObj
     params:
@@ -227,10 +234,11 @@ methods:
     result:
       name: "Filecoin.ChainGetPath::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
-        nullable: true
       required: false
   - name: Filecoin.ChainGetTipSetByHeight
     params:
@@ -294,8 +302,9 @@ methods:
     result:
       name: "Filecoin.ChainGetGenesis::Result"
       schema:
-        $ref: "#/components/schemas/TipsetLotusJson"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/TipsetLotusJson"
+          - type: "null"
       required: false
   - name: Filecoin.ChainHead
     params: []
@@ -513,8 +522,9 @@ methods:
         required: true
       - name: spec
         schema:
-          $ref: "#/components/schemas/MessageSendSpec"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/MessageSendSpec"
+            - type: "null"
         required: false
       - name: tsk
         schema:
@@ -639,10 +649,11 @@ methods:
     result:
       name: "Filecoin.MpoolPending::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
-        nullable: true
       required: false
   - name: Filecoin.MpoolSelect
     params:
@@ -659,10 +670,11 @@ methods:
     result:
       name: "Filecoin.MpoolSelect::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
-        nullable: true
       required: false
   - name: Filecoin.MpoolPush
     params:
@@ -689,8 +701,9 @@ methods:
         required: true
       - name: spec
         schema:
-          $ref: "#/components/schemas/MessageSendSpec"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/MessageSendSpec"
+            - type: "null"
         required: false
     paramStructure: by-position
     result:
@@ -733,10 +746,11 @@ methods:
     result:
       name: "Filecoin.NetPeers::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/AddrInfo"
-        nullable: true
       required: false
   - name: Filecoin.NetListening
     params: []
@@ -833,10 +847,11 @@ methods:
           - Reachability
         properties:
           PublicAddrs:
-            type: array
+            type:
+              - array
+              - "null"
             items:
               type: string
-            nullable: true
           Reachability:
             type: integer
             format: int32
@@ -868,8 +883,9 @@ methods:
     result:
       name: "Filecoin.MinerGetBaseInfo::Result"
       schema:
-        $ref: "#/components/schemas/MiningBaseInfo"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/MiningBaseInfo"
+          - type: "null"
       required: false
   - name: Filecoin.StateCall
     params:
@@ -901,8 +917,9 @@ methods:
           Error:
             type: string
           ExecutionTrace:
-            $ref: "#/components/schemas/ExecutionTrace"
-            nullable: true
+            anyOf:
+              - $ref: "#/components/schemas/ExecutionTrace"
+              - type: "null"
           GasCost:
             $ref: "#/components/schemas/MessageGasCost"
           Msg:
@@ -954,10 +971,11 @@ methods:
     result:
       name: "Filecoin.StateListMessages::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-        nullable: true
       required: false
   - name: Filecoin.StateNetworkName
     params: []
@@ -987,8 +1005,9 @@ methods:
           - MsgRct
         properties:
           Error:
-            type: string
-            nullable: true
+            type:
+              - string
+              - "null"
           Msg:
             $ref: "#/components/schemas/MessageLotusJson"
           MsgRct:
@@ -1158,8 +1177,9 @@ methods:
     result:
       name: "Filecoin.StateGetActor::Result"
       schema:
-        $ref: "#/components/schemas/ActorStateLotusJson2"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/ActorStateLotusJson2"
+          - type: "null"
       required: false
   - name: Filecoin.StateMinerInfo
     params:
@@ -1244,10 +1264,11 @@ methods:
     result:
       name: "Filecoin.StateMinerActiveSectors::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/SectorOnChainInfo"
-        nullable: true
       required: false
   - name: Filecoin.StateMinerPartitions
     params:
@@ -1269,10 +1290,11 @@ methods:
     result:
       name: "Filecoin.StateMinerPartitions::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/MinerPartitions"
-        nullable: true
       required: false
   - name: Filecoin.StateMinerSectors
     params:
@@ -1282,8 +1304,9 @@ methods:
         required: true
       - name: sectors
         schema:
-          $ref: "#/components/schemas/BitFieldLotusJson2"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/BitFieldLotusJson2"
+            - type: "null"
         required: false
       - name: tipset_key
         schema:
@@ -1293,10 +1316,11 @@ methods:
     result:
       name: "Filecoin.StateMinerSectors::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/SectorOnChainInfo"
-        nullable: true
       required: false
   - name: Filecoin.StateMinerSectorCount
     params:
@@ -1372,10 +1396,11 @@ methods:
     result:
       name: "Filecoin.StateMinerDeadlines::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/ApiDeadline"
-        nullable: true
       required: false
   - name: Filecoin.StateMinerProvingDeadline
     params:
@@ -1407,12 +1432,13 @@ methods:
     result:
       name: "Filecoin.StateMinerFaults::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           type: integer
           format: uint8
           minimum: 0
-        nullable: true
       required: true
   - name: Filecoin.StateMinerRecoveries
     params:
@@ -1428,12 +1454,13 @@ methods:
     result:
       name: "Filecoin.StateMinerRecoveries::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           type: integer
           format: uint8
           minimum: 0
-        nullable: true
       required: true
   - name: Filecoin.StateMinerAvailableBalance
     params:
@@ -1529,8 +1556,9 @@ methods:
     result:
       name: "Filecoin.StateGetRandomnessFromTickets::Result"
       schema:
-        $ref: "#/components/schemas/Inner"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/Inner"
+          - type: "null"
       required: true
   - name: Filecoin.StateGetRandomnessFromBeacon
     params:
@@ -1556,8 +1584,9 @@ methods:
     result:
       name: "Filecoin.StateGetRandomnessFromBeacon::Result"
       schema:
-        $ref: "#/components/schemas/Inner"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/Inner"
+          - type: "null"
       required: true
   - name: Filecoin.StateReadState
     params:
@@ -1628,10 +1657,11 @@ methods:
     result:
       name: "Filecoin.MsigGetPending::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/Transaction"
-        nullable: true
       required: false
   - name: Filecoin.StateVerifiedClientStatus
     params:
@@ -1647,8 +1677,9 @@ methods:
     result:
       name: "Filecoin.StateVerifiedClientStatus::Result"
       schema:
-        $ref: "#/components/schemas/String"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/String"
+          - type: "null"
       required: false
   - name: Filecoin.StateVMCirculatingSupplyInternal
     params:
@@ -1692,10 +1723,11 @@ methods:
     result:
       name: "Filecoin.StateListMiners::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/String"
-        nullable: true
       required: false
   - name: Filecoin.StateNetworkVersion
     params:
@@ -1911,8 +1943,9 @@ methods:
         required: true
       - name: save_to_file
         schema:
-          type: string
-          nullable: true
+          type:
+            - string
+            - "null"
         required: false
     paramStructure: by-position
     result:
@@ -2026,8 +2059,9 @@ methods:
     result:
       name: "Filecoin.WalletDefaultAddress::Result"
       schema:
-        $ref: "#/components/schemas/String"
-        nullable: true
+        anyOf:
+          - $ref: "#/components/schemas/String"
+          - type: "null"
       required: false
   - name: Filecoin.WalletExport
     params:
@@ -2079,10 +2113,11 @@ methods:
     result:
       name: "Filecoin.WalletList::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           $ref: "#/components/schemas/String"
-        nullable: true
       required: false
   - name: Filecoin.WalletNew
     params:
@@ -2214,10 +2249,11 @@ methods:
     result:
       name: "Filecoin.EthAccounts::Result"
       schema:
-        type: array
+        type:
+          - array
+          - "null"
         items:
           type: string
-        nullable: true
       required: false
   - name: Filecoin.EthBlockNumber
     params: []
@@ -2569,19 +2605,21 @@ components:
     BigInt:
       $ref: "#/components/schemas/String"
     BitFieldLotusJson:
-      type: array
+      type:
+        - array
+        - "null"
       items:
         type: integer
         format: uint8
         minimum: 0
-      nullable: true
     BitFieldLotusJson2:
-      type: array
+      type:
+        - array
+        - "null"
       items:
         type: integer
         format: uint8
         minimum: 0
-      nullable: true
     BlockHeaderLotusJson:
       type: object
       required:
@@ -2713,8 +2751,9 @@ components:
           items:
             $ref: "#/components/schemas/GasTrace"
         InvokedActor:
-          $ref: "#/components/schemas/ActorTrace"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/ActorTrace"
+            - type: "null"
         Msg:
           $ref: "#/components/schemas/MessageTrace"
         MsgRct:
@@ -2883,10 +2922,11 @@ components:
         From:
           $ref: "#/components/schemas/String"
         GasLimit:
-          type: integer
+          type:
+            - integer
+            - "null"
           format: uint64
           minimum: 0
-          nullable: true
         Method:
           type: integer
           format: uint64
@@ -2898,8 +2938,9 @@ components:
           format: uint64
           minimum: 0
         ReadOnly:
-          type: boolean
-          nullable: true
+          type:
+            - boolean
+            - "null"
         To:
           $ref: "#/components/schemas/String"
         Value:
@@ -3001,29 +3042,37 @@ components:
     Nonce:
       type: string
     Nullable_CidLotusJsonGeneric_for_64:
-      $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+        - type: "null"
     Nullable_ElectionProofLotusJson:
-      $ref: "#/components/schemas/ElectionProofLotusJson"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/ElectionProofLotusJson"
+        - type: "null"
     Nullable_PendingBeneficiaryChangeLotusJson:
-      $ref: "#/components/schemas/PendingBeneficiaryChangeLotusJson"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/PendingBeneficiaryChangeLotusJson"
+        - type: "null"
     Nullable_ReceiptLotusJson:
-      $ref: "#/components/schemas/ReceiptLotusJson"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/ReceiptLotusJson"
+        - type: "null"
     Nullable_SignatureLotusJson:
-      $ref: "#/components/schemas/SignatureLotusJson"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/SignatureLotusJson"
+        - type: "null"
     Nullable_String:
-      $ref: "#/components/schemas/String"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/String"
+        - type: "null"
     Nullable_TicketLotusJson:
-      $ref: "#/components/schemas/TicketLotusJson"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/TicketLotusJson"
+        - type: "null"
     Nullable_VecU8LotusJson:
-      $ref: "#/components/schemas/VecU8LotusJson2"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/VecU8LotusJson2"
+        - type: "null"
     PathChange_for_TipsetLotusJson:
       oneOf:
         - type: object
@@ -3382,8 +3431,9 @@ components:
         s:
           $ref: "#/components/schemas/BigInt"
         to:
-          $ref: "#/components/schemas/Address"
-          nullable: true
+          anyOf:
+            - $ref: "#/components/schemas/Address"
+            - type: "null"
         transactionIndex:
           $ref: "#/components/schemas/Uint64"
         type:
@@ -3395,63 +3445,75 @@ components:
     Uint64:
       type: string
     VecU8LotusJson:
-      $ref: "#/components/schemas/Inner"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/Inner"
+        - type: "null"
     VecU8LotusJson2:
-      $ref: "#/components/schemas/Inner"
-      nullable: true
+      anyOf:
+        - $ref: "#/components/schemas/Inner"
+        - type: "null"
     "forest_filecoin::chain_sync::sync_state::lotus_json::SyncStateLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::chain_sync::sync_state::lotus_json::SyncStateLotusJson"
-      nullable: true
     "forest_filecoin::lotus_json::Stringify<forest_filecoin::shim::address::Address>":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/String"
-      nullable: true
     "forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson"
-      nullable: true
     "forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
-      nullable: true
     "forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-      nullable: true
     "forest_filecoin::lotus_json::message::MessageLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
-      nullable: true
     "forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson"
-      nullable: true
     "forest_filecoin::lotus_json::sector_info::SectorInfoLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::lotus_json::sector_info::SectorInfoLotusJson"
-      nullable: true
     "forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson":
-      type: array
+      type:
+        - array
+        - "null"
       items:
         $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
-      nullable: true
     int64:
       type: integer
       format: int64
     u64:
-      type: array
+      type:
+        - array
+        - "null"
       items:
         type: integer
         format: uint64
         minimum: 0
-      nullable: true
