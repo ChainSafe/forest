@@ -803,8 +803,7 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
 
         let actor = ctx
             .state_manager
-            .get_actor(&Address::MARKET_ACTOR, state)?
-            .context("Market actor address could not be resolved")?;
+            .get_required_actor(&Address::MARKET_ACTOR, state)?;
         let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.store(),
@@ -823,15 +822,13 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
 
         let actor = ctx
             .state_manager
-            .get_actor(&Address::POWER_ACTOR, state)?
-            .context("Power actor address could not be resolved")?;
+            .get_required_actor(&Address::POWER_ACTOR, state)?;
         let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
         let power_smoothed = power_state.total_power_smoothed();
 
         let actor = ctx
             .state_manager
-            .get_actor(&Address::REWARD_ACTOR, state)?
-            .context("Reward actor address could not be resolved")?;
+            .get_required_actor(&Address::REWARD_ACTOR, state)?;
         let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
         let deposit: TokenAmount = reward_state
             .pre_commit_deposit_for_power(power_smoothed, sector_weight)?
