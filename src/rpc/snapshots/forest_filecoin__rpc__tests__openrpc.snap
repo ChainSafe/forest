@@ -1,0 +1,3936 @@
+---
+source: src/rpc/mod.rs
+expression: spec
+---
+methods:
+  - name: Filecoin.AuthNew
+    params:
+      - name: params
+        schema:
+          type: object
+          required:
+            - perms
+            - token_exp
+          properties:
+            perms:
+              type: array
+              items:
+                type: string
+            token_exp:
+              type: integer
+              format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.AuthNew::Result"
+      schema:
+        $ref: "#/components/schemas/Inner"
+        nullable: true
+      required: true
+  - name: Filecoin.AuthVerify
+    params:
+      - name: header_raw
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.AuthVerify::Result"
+      schema:
+        type: array
+        items:
+          type: string
+        nullable: true
+      required: false
+  - name: Filecoin.BeaconGetEntry
+    params:
+      - name: first
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.BeaconGetEntry::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Round
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson"
+          Round:
+            type: integer
+            format: uint64
+            minimum: 0
+      required: true
+  - name: Filecoin.ChainGetMessage
+    params:
+      - name: msg_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMessage::Result"
+      schema:
+        type: object
+        required:
+          - From
+          - GasFeeCap
+          - GasLimit
+          - GasPremium
+          - Method
+          - Nonce
+          - To
+          - Value
+          - Version
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          From:
+            $ref: "#/components/schemas/String"
+          GasFeeCap:
+            $ref: "#/components/schemas/String"
+          GasLimit:
+            type: integer
+            format: uint64
+            minimum: 0
+          GasPremium:
+            $ref: "#/components/schemas/String"
+          Method:
+            type: integer
+            format: uint64
+            minimum: 0
+          Nonce:
+            type: integer
+            format: uint64
+            minimum: 0
+          Params:
+            $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+          To:
+            $ref: "#/components/schemas/String"
+          Value:
+            $ref: "#/components/schemas/String"
+          Version:
+            type: integer
+            format: uint64
+            minimum: 0
+      required: true
+  - name: Filecoin.ChainGetParentMessages
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentMessages::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessage"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainGetParentReceipts
+    params:
+      - name: block_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetParentReceipts::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiReceipt"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainGetMessagesInTipset
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMessagesInTipset::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiMessage"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainExport
+    params:
+      - name: params
+        schema:
+          type: object
+          required:
+            - dry_run
+            - epoch
+            - output_path
+            - recent_roots
+            - skip_checksum
+            - tipset_keys
+          properties:
+            dry_run:
+              type: boolean
+            epoch:
+              type: integer
+              format: int64
+            output_path:
+              type: string
+            recent_roots:
+              type: integer
+              format: int64
+            skip_checksum:
+              type: boolean
+            tipset_keys:
+              $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainExport::Result"
+      schema:
+        type: string
+        nullable: true
+      required: false
+  - name: Filecoin.ChainReadObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainReadObj::Result"
+      schema:
+        $ref: "#/components/schemas/Inner"
+        nullable: true
+      required: true
+  - name: Filecoin.ChainHasObj
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainHasObj::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.ChainGetBlockMessages
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetBlockMessages::Result"
+      schema:
+        type: object
+        required:
+          - BlsMessages
+          - Cids
+          - SecpkMessages
+        properties:
+          BlsMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
+          Cids:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+          SecpkMessages:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+      required: true
+  - name: Filecoin.ChainGetPath
+    params:
+      - name: from
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          minItems: 1
+        required: true
+      - name: to
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          minItems: 1
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetPath::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/PathChange_for_TipsetLotusJson"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainGetTipSetByHeight
+    params:
+      - name: height
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetTipSetByHeight::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+          Cids:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetTipSetAfterHeight
+    params:
+      - name: height
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetTipSetAfterHeight::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+          Cids:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetGenesis
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetGenesis::Result"
+      schema:
+        $ref: "#/components/schemas/TipsetLotusJson"
+        nullable: true
+      required: false
+  - name: Filecoin.ChainHead
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainHead::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+          Cids:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainGetBlock
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetBlock::Result"
+      schema:
+        type: object
+        required:
+          - BeaconEntries
+          - ForkSignaling
+          - Height
+          - Messages
+          - Miner
+          - ParentBaseFee
+          - ParentMessageReceipts
+          - ParentStateRoot
+          - ParentWeight
+          - Parents
+          - Timestamp
+          - WinPoStProof
+        properties:
+          BLSAggregate:
+            $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+          BeaconEntries:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson"
+          BlockSig:
+            $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+          ElectionProof:
+            $ref: "#/components/schemas/Nullable_ElectionProofLotusJson"
+          ForkSignaling:
+            type: integer
+            format: uint64
+            minimum: 0
+          Height:
+            type: integer
+            format: int64
+          Messages:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          Miner:
+            $ref: "#/components/schemas/String"
+          ParentBaseFee:
+            $ref: "#/components/schemas/String"
+          ParentMessageReceipts:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          ParentStateRoot:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          ParentWeight:
+            $ref: "#/components/schemas/String"
+          Parents:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+          Ticket:
+            $ref: "#/components/schemas/Nullable_TicketLotusJson"
+          Timestamp:
+            type: integer
+            format: uint64
+            minimum: 0
+          WinPoStProof:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson"
+      required: true
+  - name: Filecoin.ChainGetTipSet
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetTipSet::Result"
+      schema:
+        type: object
+        required:
+          - Blocks
+          - Cids
+          - Height
+        properties:
+          Blocks:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+          Cids:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+          Height:
+            $ref: "#/components/schemas/int64"
+      required: true
+  - name: Filecoin.ChainSetHead
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainSetHead::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.ChainGetMinBaseFee
+    params:
+      - name: lookback
+        schema:
+          type: integer
+          format: uint32
+          minimum: 0
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainGetMinBaseFee::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.ChainTipSetWeight
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.ChainTipSetWeight::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.Session
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.Session::Result"
+      schema:
+        type: string
+        format: uuid
+      required: true
+  - name: Filecoin.Version
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.Version::Result"
+      schema:
+        description: Represents the current version of the API.
+        type: object
+        required:
+          - APIVersion
+          - BlockDelay
+          - Version
+        properties:
+          APIVersion:
+            $ref: "#/components/schemas/ShiftingVersion"
+          BlockDelay:
+            type: integer
+            format: uint32
+            minimum: 0
+          Version:
+            type: string
+      required: true
+  - name: Filecoin.Shutdown
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.Shutdown::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.StartTime
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StartTime::Result"
+      schema:
+        type: string
+        format: date-time
+      required: true
+  - name: Filecoin.GasEstimateGasLimit
+    params:
+      - name: msg
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              type: integer
+              format: uint64
+              minimum: 0
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              type: integer
+              format: uint64
+              minimum: 0
+            Nonce:
+              type: integer
+              format: uint64
+              minimum: 0
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              type: integer
+              format: uint64
+              minimum: 0
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.GasEstimateGasLimit::Result"
+      schema:
+        type: integer
+        format: int64
+      required: true
+  - name: Filecoin.GasEstimateMessageGas
+    params:
+      - name: msg
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              type: integer
+              format: uint64
+              minimum: 0
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              type: integer
+              format: uint64
+              minimum: 0
+            Nonce:
+              type: integer
+              format: uint64
+              minimum: 0
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              type: integer
+              format: uint64
+              minimum: 0
+        required: true
+      - name: spec
+        schema:
+          $ref: "#/components/schemas/MessageSendSpec"
+          nullable: true
+        required: false
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.GasEstimateMessageGas::Result"
+      schema:
+        type: object
+        required:
+          - From
+          - GasFeeCap
+          - GasLimit
+          - GasPremium
+          - Method
+          - Nonce
+          - To
+          - Value
+          - Version
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          From:
+            $ref: "#/components/schemas/String"
+          GasFeeCap:
+            $ref: "#/components/schemas/String"
+          GasLimit:
+            type: integer
+            format: uint64
+            minimum: 0
+          GasPremium:
+            $ref: "#/components/schemas/String"
+          Method:
+            type: integer
+            format: uint64
+            minimum: 0
+          Nonce:
+            type: integer
+            format: uint64
+            minimum: 0
+          Params:
+            $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+          To:
+            $ref: "#/components/schemas/String"
+          Value:
+            $ref: "#/components/schemas/String"
+          Version:
+            type: integer
+            format: uint64
+            minimum: 0
+      required: true
+  - name: Filecoin.GasEstimateFeeCap
+    params:
+      - name: message
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              type: integer
+              format: uint64
+              minimum: 0
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              type: integer
+              format: uint64
+              minimum: 0
+            Nonce:
+              type: integer
+              format: uint64
+              minimum: 0
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              type: integer
+              format: uint64
+              minimum: 0
+        required: true
+      - name: max_queue_blocks
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.GasEstimateFeeCap::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.GasEstimateGasPremium
+    params:
+      - name: nblocksincl
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: sender
+        schema:
+          type: string
+        required: true
+      - name: gas_limit
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.GasEstimateGasPremium::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.MpoolGetNonce
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolGetNonce::Result"
+      schema:
+        type: integer
+        format: uint64
+        minimum: 0
+      required: true
+  - name: Filecoin.MpoolPending
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolPending::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+        nullable: true
+      required: false
+  - name: Filecoin.MpoolSelect
+    params:
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+      - name: tq
+        schema:
+          type: number
+          format: double
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolSelect::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+        nullable: true
+      required: false
+  - name: Filecoin.MpoolPush
+    params:
+      - name: msg
+        schema:
+          type: object
+          required:
+            - Message
+            - Signature
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            Message:
+              $ref: "#/components/schemas/MessageLotusJson"
+            Signature:
+              $ref: "#/components/schemas/SignatureLotusJson2"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolPush::Result"
+      schema:
+        type: object
+        required:
+          - /
+        properties:
+          /:
+            $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.MpoolPushMessage
+    params:
+      - name: usmg
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              type: integer
+              format: uint64
+              minimum: 0
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              type: integer
+              format: uint64
+              minimum: 0
+            Nonce:
+              type: integer
+              format: uint64
+              minimum: 0
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              type: integer
+              format: uint64
+              minimum: 0
+        required: true
+      - name: spec
+        schema:
+          $ref: "#/components/schemas/MessageSendSpec"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MpoolPushMessage::Result"
+      schema:
+        type: object
+        required:
+          - Message
+          - Signature
+        properties:
+          CID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          Message:
+            $ref: "#/components/schemas/MessageLotusJson"
+          Signature:
+            $ref: "#/components/schemas/SignatureLotusJson2"
+      required: true
+  - name: Filecoin.NetAddrsListen
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetAddrsListen::Result"
+      schema:
+        type: object
+        required:
+          - Addrs
+          - ID
+        properties:
+          Addrs:
+            type: array
+            items:
+              type: string
+            uniqueItems: true
+          ID:
+            type: string
+      required: true
+  - name: Filecoin.NetPeers
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetPeers::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/AddrInfo"
+        nullable: true
+      required: false
+  - name: Filecoin.NetListening
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetListening::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Forest.NetInfo
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Forest.NetInfo::Result"
+      schema:
+        type: object
+        required:
+          - num_connections
+          - num_established
+          - num_peers
+          - num_pending
+          - num_pending_incoming
+          - num_pending_outgoing
+        properties:
+          num_connections:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_established:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_peers:
+            type: integer
+            format: uint
+            minimum: 0
+          num_pending:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_pending_incoming:
+            type: integer
+            format: uint32
+            minimum: 0
+          num_pending_outgoing:
+            type: integer
+            format: uint32
+            minimum: 0
+      required: true
+  - name: Filecoin.NetConnect
+    params:
+      - name: info
+        schema:
+          type: object
+          required:
+            - Addrs
+            - ID
+          properties:
+            Addrs:
+              type: array
+              items:
+                type: string
+              uniqueItems: true
+            ID:
+              type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetConnect::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.NetDisconnect
+    params:
+      - name: id
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetDisconnect::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.NetAgentVersion
+    params:
+      - name: id
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetAgentVersion::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.NetAutoNatStatus
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetAutoNatStatus::Result"
+      schema:
+        type: object
+        required:
+          - Reachability
+        properties:
+          PublicAddrs:
+            type: array
+            items:
+              type: string
+            nullable: true
+          Reachability:
+            type: integer
+            format: int32
+      required: true
+  - name: Filecoin.NetVersion
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NetVersion::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.MinerGetBaseInfo
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: epoch
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MinerGetBaseInfo::Result"
+      schema:
+        $ref: "#/components/schemas/MiningBaseInfo"
+        nullable: true
+      required: false
+  - name: Filecoin.StateCall
+    params:
+      - name: message
+        schema:
+          type: object
+          required:
+            - From
+            - GasFeeCap
+            - GasLimit
+            - GasPremium
+            - Method
+            - Nonce
+            - To
+            - Value
+            - Version
+          properties:
+            CID:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+            From:
+              $ref: "#/components/schemas/String"
+            GasFeeCap:
+              $ref: "#/components/schemas/String"
+            GasLimit:
+              type: integer
+              format: uint64
+              minimum: 0
+            GasPremium:
+              $ref: "#/components/schemas/String"
+            Method:
+              type: integer
+              format: uint64
+              minimum: 0
+            Nonce:
+              type: integer
+              format: uint64
+              minimum: 0
+            Params:
+              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+            To:
+              $ref: "#/components/schemas/String"
+            Value:
+              $ref: "#/components/schemas/String"
+            Version:
+              type: integer
+              format: uint64
+              minimum: 0
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateCall::Result"
+      schema:
+        type: object
+        required:
+          - Duration
+          - Error
+          - GasCost
+          - Msg
+          - MsgCid
+          - MsgRct
+        properties:
+          Duration:
+            type: integer
+            format: uint64
+            minimum: 0
+          Error:
+            type: string
+          ExecutionTrace:
+            $ref: "#/components/schemas/ExecutionTrace"
+            nullable: true
+          GasCost:
+            $ref: "#/components/schemas/MessageGasCost"
+          Msg:
+            $ref: "#/components/schemas/MessageLotusJson"
+          MsgCid:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          MsgRct:
+            $ref: "#/components/schemas/Nullable_ReceiptLotusJson"
+      required: true
+  - name: Filecoin.StateGetBeaconEntry
+    params:
+      - name: epoch
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateGetBeaconEntry::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Round
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson"
+          Round:
+            type: integer
+            format: uint64
+            minimum: 0
+      required: true
+  - name: Filecoin.StateListMessages
+    params:
+      - name: message_filter
+        schema:
+          type: object
+          required:
+            - From
+            - To
+          properties:
+            From:
+              $ref: "#/components/schemas/Nullable_String"
+            To:
+              $ref: "#/components/schemas/Nullable_String"
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+      - name: max_height
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateListMessages::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+        nullable: true
+      required: false
+  - name: Filecoin.StateNetworkName
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateNetworkName::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateReplay
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+      - name: tsk
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateReplay::Result"
+      schema:
+        type: object
+        required:
+          - Msg
+          - MsgRct
+        properties:
+          Error:
+            type: string
+            nullable: true
+          Msg:
+            $ref: "#/components/schemas/MessageLotusJson"
+          MsgRct:
+            $ref: "#/components/schemas/Nullable_ReceiptLotusJson"
+      required: true
+  - name: Filecoin.StateSectorGetInfo
+    params:
+      - name: miner_address
+        schema:
+          type: string
+        required: true
+      - name: sector_number
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateSectorGetInfo::Result"
+      schema:
+        type: object
+        required:
+          - Activation
+          - DealIDs
+          - DealWeight
+          - ExpectedDayReward
+          - ExpectedStoragePledge
+          - Expiration
+          - InitialPledge
+          - ReplacedDayReward
+          - ReplacedSectorAge
+          - SealProof
+          - SealedCID
+          - SectorKeyCID
+          - SectorNumber
+          - SimpleQAPower
+          - VerifiedDealWeight
+        properties:
+          Activation:
+            description: Epoch during which the sector proof was accepted
+            type: integer
+            format: int64
+          DealIDs:
+            $ref: "#/components/schemas/u64"
+          DealWeight:
+            description: Integral of active deals over sector lifetime
+            $ref: "#/components/schemas/String"
+          ExpectedDayReward:
+            description: Expected one day projection of reward for sector computed at activation time
+            $ref: "#/components/schemas/String"
+          ExpectedStoragePledge:
+            description: Expected twenty day projection of reward for sector computed at activation time
+            $ref: "#/components/schemas/String"
+          Expiration:
+            description: Epoch during which the sector expires
+            type: integer
+            format: int64
+          InitialPledge:
+            description: Pledge collected to commit this sector
+            $ref: "#/components/schemas/String"
+          ReplacedDayReward:
+            $ref: "#/components/schemas/String"
+          ReplacedSectorAge:
+            type: integer
+            format: int64
+          SealProof:
+            description: The seal proof type implies the PoSt proofs
+            type: integer
+            format: int64
+          SealedCID:
+            description: "`CommR`"
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          SectorKeyCID:
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          SectorNumber:
+            type: integer
+            format: uint64
+            minimum: 0
+          SimpleQAPower:
+            type: boolean
+          VerifiedDealWeight:
+            description: Integral of active verified deals over sector lifetime
+            $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.StateSectorPreCommitInfo
+    params:
+      - name: miner_address
+        schema:
+          type: string
+        required: true
+      - name: sector_number
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateSectorPreCommitInfo::Result"
+      schema:
+        type: object
+        required:
+          - Info
+          - PreCommitDeposit
+          - PreCommitEpoch
+        properties:
+          Info:
+            $ref: "#/components/schemas/SectorPreCommitInfo"
+          PreCommitDeposit:
+            $ref: "#/components/schemas/String"
+          PreCommitEpoch:
+            type: integer
+            format: int64
+      required: true
+  - name: Filecoin.StateAccountKey
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateAccountKey::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateLookupID
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateLookupID::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateGetActor
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateGetActor::Result"
+      schema:
+        $ref: "#/components/schemas/ActorStateLotusJson2"
+        nullable: true
+      required: false
+  - name: Filecoin.StateMinerInfo
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerInfo::Result"
+      schema:
+        type: object
+        required:
+          - Beneficiary
+          - BeneficiaryTerm
+          - ConsensusFaultElapsed
+          - ControlAddresses
+          - Multiaddrs
+          - NewWorker
+          - Owner
+          - PeerId
+          - PendingBeneficiaryTerm
+          - PendingOwnerAddress
+          - SectorSize
+          - WindowPoStPartitionSectors
+          - WindowPoStProofType
+          - Worker
+          - WorkerChangeEpoch
+        properties:
+          Beneficiary:
+            $ref: "#/components/schemas/String"
+          BeneficiaryTerm:
+            $ref: "#/components/schemas/BeneficiaryTermLotusJson"
+          ConsensusFaultElapsed:
+            type: integer
+            format: int64
+          ControlAddresses:
+            $ref: "#/components/schemas/forest_filecoin::lotus_json::Stringify<forest_filecoin::shim::address::Address>"
+          Multiaddrs:
+            $ref: "#/components/schemas/VecU8LotusJson2"
+          NewWorker:
+            $ref: "#/components/schemas/Nullable_String"
+          Owner:
+            $ref: "#/components/schemas/String"
+          PeerId:
+            $ref: "#/components/schemas/Nullable_String"
+          PendingBeneficiaryTerm:
+            $ref: "#/components/schemas/Nullable_PendingBeneficiaryChangeLotusJson"
+          PendingOwnerAddress:
+            $ref: "#/components/schemas/Nullable_String"
+          SectorSize:
+            type: integer
+            format: uint64
+            minimum: 0
+          WindowPoStPartitionSectors:
+            type: integer
+            format: uint64
+            minimum: 0
+          WindowPoStProofType:
+            type: string
+          Worker:
+            $ref: "#/components/schemas/String"
+          WorkerChangeEpoch:
+            type: integer
+            format: int64
+      required: true
+  - name: Filecoin.StateMinerActiveSectors
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerActiveSectors::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/SectorOnChainInfo"
+        nullable: true
+      required: false
+  - name: Filecoin.StateMinerPartitions
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: deadline_index
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerPartitions::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/MinerPartitions"
+        nullable: true
+      required: false
+  - name: Filecoin.StateMinerSectors
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: sectors
+        schema:
+          $ref: "#/components/schemas/BitFieldLotusJson2"
+          nullable: true
+        required: false
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerSectors::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/SectorOnChainInfo"
+        nullable: true
+      required: false
+  - name: Filecoin.StateMinerSectorCount
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerSectorCount::Result"
+      schema:
+        type: object
+        required:
+          - Active
+          - Faulty
+          - Live
+        properties:
+          Active:
+            type: integer
+            format: uint64
+            minimum: 0
+          Faulty:
+            type: integer
+            format: uint64
+            minimum: 0
+          Live:
+            type: integer
+            format: uint64
+            minimum: 0
+      required: true
+  - name: Filecoin.StateMinerPower
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerPower::Result"
+      schema:
+        type: object
+        required:
+          - HasMinPower
+          - MinerPower
+          - TotalPower
+        properties:
+          HasMinPower:
+            type: boolean
+          MinerPower:
+            $ref: "#/components/schemas/ClaimLotusJson"
+          TotalPower:
+            $ref: "#/components/schemas/ClaimLotusJson"
+      required: true
+  - name: Filecoin.StateMinerDeadlines
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerDeadlines::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/ApiDeadline"
+        nullable: true
+      required: false
+  - name: Filecoin.StateMinerProvingDeadline
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerProvingDeadline::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateMinerFaults
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerFaults::Result"
+      schema:
+        type: array
+        items:
+          type: integer
+          format: uint8
+          minimum: 0
+        nullable: true
+      required: true
+  - name: Filecoin.StateMinerRecoveries
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerRecoveries::Result"
+      schema:
+        type: array
+        items:
+          type: integer
+          format: uint8
+          minimum: 0
+        nullable: true
+      required: true
+  - name: Filecoin.StateMinerAvailableBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerAvailableBalance::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateMinerInitialPledgeCollateral
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: sector_pre_commit_info
+        schema:
+          type: object
+          required:
+            - DealIDs
+            - Expiration
+            - SealProof
+            - SealRandEpoch
+            - SealedCID
+            - SectorNumber
+            - UnsealedCid
+          properties:
+            DealIDs:
+              $ref: "#/components/schemas/u64"
+            Expiration:
+              type: integer
+              format: int64
+            SealProof:
+              $ref: "#/components/schemas/int64"
+            SealRandEpoch:
+              type: integer
+              format: int64
+            SealedCID:
+              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+            SectorNumber:
+              type: integer
+              format: uint64
+              minimum: 0
+            UnsealedCid:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerInitialPledgeCollateral::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateGetReceipt
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateGetReceipt::Result"
+      schema:
+        type: object
+        required:
+          - ExitCode
+          - GasUsed
+          - Return
+        properties:
+          EventsRoot:
+            default: ~
+            $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          ExitCode:
+            type: integer
+            format: uint32
+            minimum: 0
+          GasUsed:
+            type: integer
+            format: uint64
+            minimum: 0
+          Return:
+            $ref: "#/components/schemas/VecU8LotusJson"
+      required: true
+  - name: Filecoin.StateGetRandomnessFromTickets
+    params:
+      - name: personalization
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: rand_epoch
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: entropy
+        schema:
+          $ref: "#/components/schemas/Inner"
+          nullable: true
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateGetRandomnessFromTickets::Result"
+      schema:
+        $ref: "#/components/schemas/Inner"
+        nullable: true
+      required: true
+  - name: Filecoin.StateGetRandomnessFromBeacon
+    params:
+      - name: personalization
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: rand_epoch
+        schema:
+          type: integer
+          format: int64
+        required: true
+      - name: entropy
+        schema:
+          $ref: "#/components/schemas/Inner"
+          nullable: true
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateGetRandomnessFromBeacon::Result"
+      schema:
+        $ref: "#/components/schemas/Inner"
+        nullable: true
+      required: true
+  - name: Filecoin.StateReadState
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateReadState::Result"
+      schema:
+        type: object
+        required:
+          - Balance
+          - Code
+          - State
+        properties:
+          Balance:
+            $ref: "#/components/schemas/String"
+          Code:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          State:
+            $ref: "#/components/schemas/ApiState"
+      required: true
+  - name: Filecoin.StateCirculatingSupply
+    params:
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateCirculatingSupply::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.MsigGetAvailableBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MsigGetAvailableBalance::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.MsigGetPending
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.MsigGetPending::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/Transaction"
+        nullable: true
+      required: false
+  - name: Filecoin.StateVerifiedClientStatus
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateVerifiedClientStatus::Result"
+      schema:
+        $ref: "#/components/schemas/String"
+        nullable: true
+      required: false
+  - name: Filecoin.StateVMCirculatingSupplyInternal
+    params:
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateVMCirculatingSupplyInternal::Result"
+      schema:
+        type: object
+        required:
+          - FilBurnt
+          - FilCirculating
+          - FilLocked
+          - FilMined
+          - FilReserveDisbursed
+          - FilVested
+        properties:
+          FilBurnt:
+            $ref: "#/components/schemas/String"
+          FilCirculating:
+            $ref: "#/components/schemas/String"
+          FilLocked:
+            $ref: "#/components/schemas/String"
+          FilMined:
+            $ref: "#/components/schemas/String"
+          FilReserveDisbursed:
+            $ref: "#/components/schemas/String"
+          FilVested:
+            $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.StateListMiners
+    params:
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateListMiners::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/String"
+        nullable: true
+      required: false
+  - name: Filecoin.StateNetworkVersion
+    params:
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateNetworkVersion::Result"
+      schema:
+        type: integer
+        format: uint32
+        minimum: 0
+      required: true
+  - name: Filecoin.StateMarketBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMarketBalance::Result"
+      schema:
+        description: External format for returning market balance from state.
+        type: object
+        required:
+          - Escrow
+          - Locked
+        properties:
+          Escrow:
+            $ref: "#/components/schemas/String"
+          Locked:
+            $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.StateMarketDeals
+    params:
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMarketDeals::Result"
+      schema:
+        type: object
+        additionalProperties:
+          $ref: "#/components/schemas/ApiMarketDeal"
+      required: true
+  - name: Filecoin.StateDealProviderCollateralBounds
+    params:
+      - name: size
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: verified
+        schema:
+          type: boolean
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateDealProviderCollateralBounds::Result"
+      schema:
+        type: object
+        required:
+          - Max
+          - Min
+        properties:
+          Max:
+            $ref: "#/components/schemas/String"
+          Min:
+            $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.StateMarketStorageDeal
+    params:
+      - name: deal_id
+        schema:
+          type: integer
+          format: uint64
+          minimum: 0
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMarketStorageDeal::Result"
+      schema:
+        type: object
+        required:
+          - Proposal
+          - State
+        properties:
+          Proposal:
+            $ref: "#/components/schemas/ApiDealProposal"
+          State:
+            $ref: "#/components/schemas/ApiDealState"
+      required: true
+  - name: Filecoin.StateWaitMsg
+    params:
+      - name: message_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+      - name: confidence
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateWaitMsg::Result"
+      schema:
+        type: object
+        required:
+          - Height
+          - Message
+          - Receipt
+          - ReturnDec
+          - TipSet
+        properties:
+          Height:
+            type: integer
+            format: int64
+          Message:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          Receipt:
+            $ref: "#/components/schemas/ReceiptLotusJson2"
+          ReturnDec: true
+          TipSet:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+      required: true
+  - name: Filecoin.StateSearchMsg
+    params:
+      - name: message_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateSearchMsg::Result"
+      schema:
+        type: object
+        required:
+          - Height
+          - Message
+          - Receipt
+          - ReturnDec
+          - TipSet
+        properties:
+          Height:
+            type: integer
+            format: int64
+          Message:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          Receipt:
+            $ref: "#/components/schemas/ReceiptLotusJson2"
+          ReturnDec: true
+          TipSet:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+      required: true
+  - name: Filecoin.StateSearchMsgLimited
+    params:
+      - name: message_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+      - name: look_back_limit
+        schema:
+          type: integer
+          format: int64
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateSearchMsgLimited::Result"
+      schema:
+        type: object
+        required:
+          - Height
+          - Message
+          - Receipt
+          - ReturnDec
+          - TipSet
+        properties:
+          Height:
+            type: integer
+            format: int64
+          Message:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          Receipt:
+            $ref: "#/components/schemas/ReceiptLotusJson2"
+          ReturnDec: true
+          TipSet:
+            $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+      required: true
+  - name: Filecoin.StateFetchRoot
+    params:
+      - name: root_cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+      - name: save_to_file
+        schema:
+          type: string
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateFetchRoot::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.StateMinerPreCommitDepositForPower
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: sector_pre_commit_info
+        schema:
+          type: object
+          required:
+            - DealIDs
+            - Expiration
+            - SealProof
+            - SealRandEpoch
+            - SealedCID
+            - SectorNumber
+            - UnsealedCid
+          properties:
+            DealIDs:
+              $ref: "#/components/schemas/u64"
+            Expiration:
+              type: integer
+              format: int64
+            SealProof:
+              $ref: "#/components/schemas/int64"
+            SealRandEpoch:
+              type: integer
+              format: int64
+            SealedCID:
+              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+            SectorNumber:
+              type: integer
+              format: uint64
+              minimum: 0
+            UnsealedCid:
+              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        required: true
+      - name: tipset_key
+        schema:
+          type: array
+          items:
+            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+          nullable: true
+        required: false
+    paramStructure: by-position
+    result:
+      name: "Filecoin.StateMinerPreCommitDepositForPower::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.NodeStatus
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.NodeStatus::Result"
+      schema:
+        type: object
+        required:
+          - chain_status
+          - peer_status
+          - sync_status
+        properties:
+          chain_status:
+            $ref: "#/components/schemas/NodeChainStatus"
+          peer_status:
+            $ref: "#/components/schemas/NodePeerStatus"
+          sync_status:
+            $ref: "#/components/schemas/NodeSyncStatus"
+      required: true
+  - name: Filecoin.SyncCheckBad
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.SyncCheckBad::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.SyncMarkBad
+    params:
+      - name: cid
+        schema:
+          type: object
+          required:
+            - /
+          properties:
+            /:
+              $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.SyncMarkBad::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.SyncState
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.SyncState::Result"
+      schema:
+        type: object
+        required:
+          - ActiveSyncs
+        properties:
+          ActiveSyncs:
+            $ref: "#/components/schemas/forest_filecoin::chain_sync::sync_state::lotus_json::SyncStateLotusJson"
+      required: true
+  - name: Filecoin.SyncSubmitBlock
+    params:
+      - name: blk
+        schema:
+          type: object
+          required:
+            - BlsMessages
+            - Header
+            - SecpkMessages
+          properties:
+            BlsMessages:
+              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+            Header:
+              $ref: "#/components/schemas/BlockHeaderLotusJson"
+            SecpkMessages:
+              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.SyncSubmitBlock::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.WalletBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletBalance::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletDefaultAddress
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletDefaultAddress::Result"
+      schema:
+        $ref: "#/components/schemas/String"
+        nullable: true
+      required: false
+  - name: Filecoin.WalletExport
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletExport::Result"
+      schema:
+        type: object
+        required:
+          - PrivateKey
+          - Type
+        properties:
+          PrivateKey:
+            $ref: "#/components/schemas/VecU8LotusJson"
+          Type:
+            $ref: "#/components/schemas/SignatureTypeLotusJson"
+      required: true
+  - name: Filecoin.WalletHas
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletHas::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.WalletImport
+    params:
+      - name: key
+        schema:
+          type: object
+          required:
+            - PrivateKey
+            - Type
+          properties:
+            PrivateKey:
+              $ref: "#/components/schemas/VecU8LotusJson"
+            Type:
+              $ref: "#/components/schemas/SignatureTypeLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletImport::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletList
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletList::Result"
+      schema:
+        type: array
+        items:
+          $ref: "#/components/schemas/String"
+        nullable: true
+      required: false
+  - name: Filecoin.WalletNew
+    params:
+      - name: signature_type
+        schema:
+          anyOf:
+            - $ref: "#/components/schemas/SignatureType"
+            - $ref: "#/components/schemas/String"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletNew::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletSetDefault
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletSetDefault::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.WalletSign
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: message
+        schema:
+          $ref: "#/components/schemas/Inner"
+          nullable: true
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletSign::Result"
+      schema:
+        type: object
+        required:
+          - Data
+          - Type
+        properties:
+          Data:
+            $ref: "#/components/schemas/VecU8LotusJson"
+          Type:
+            $ref: "#/components/schemas/SignatureTypeLotusJson"
+      required: true
+  - name: Filecoin.WalletValidateAddress
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletValidateAddress::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.WalletVerify
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: message
+        schema:
+          $ref: "#/components/schemas/Inner"
+          nullable: true
+        required: true
+      - name: signature
+        schema:
+          type: object
+          required:
+            - Data
+            - Type
+          properties:
+            Data:
+              $ref: "#/components/schemas/VecU8LotusJson"
+            Type:
+              $ref: "#/components/schemas/SignatureTypeLotusJson"
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletVerify::Result"
+      schema:
+        type: boolean
+      required: true
+  - name: Filecoin.WalletDelete
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.WalletDelete::Result"
+      schema:
+        type: "null"
+      required: true
+  - name: Filecoin.Web3ClientVersion
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.Web3ClientVersion::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.EthSyncing
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthSyncing::Result"
+      schema:
+        anyOf:
+          - type: boolean
+          - type: object
+            required:
+              - currentblock
+              - highestblock
+              - startingblock
+            properties:
+              currentblock:
+                type: integer
+                format: int64
+              highestblock:
+                type: integer
+                format: int64
+              startingblock:
+                type: integer
+                format: int64
+      required: true
+  - name: Filecoin.EthAccounts
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthAccounts::Result"
+      schema:
+        type: array
+        items:
+          type: string
+        nullable: true
+      required: false
+  - name: Filecoin.EthBlockNumber
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthBlockNumber::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.EthChainId
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthChainId::Result"
+      schema:
+        type: string
+      required: true
+  - name: Filecoin.EthGasPrice
+    params: []
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthGasPrice::Result"
+      schema:
+        $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.EthGetBalance
+    params:
+      - name: address
+        schema:
+          type: string
+        required: true
+      - name: block_param
+        schema:
+          type: string
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthGetBalance::Result"
+      schema:
+        $ref: "#/components/schemas/String"
+      required: true
+  - name: Filecoin.EthGetBlockByNumber
+    params:
+      - name: block_param
+        schema:
+          type: string
+        required: true
+      - name: full_tx_info
+        schema:
+          type: boolean
+        required: true
+    paramStructure: by-position
+    result:
+      name: "Filecoin.EthGetBlockByNumber::Result"
+      schema:
+        type: object
+        required:
+          - baseFeePerGas
+          - difficulty
+          - extraData
+          - gasLimit
+          - gasUsed
+          - hash
+          - logsBloom
+          - miner
+          - mixHash
+          - nonce
+          - number
+          - parentHash
+          - receiptsRoot
+          - sha3Uncles
+          - size
+          - stateRoot
+          - timestamp
+          - totalDifficulty
+          - transactions
+          - transactionsRoot
+          - uncles
+        properties:
+          baseFeePerGas:
+            $ref: "#/components/schemas/BigInt"
+          difficulty:
+            $ref: "#/components/schemas/Uint64"
+          extraData:
+            $ref: "#/components/schemas/Bytes"
+          gasLimit:
+            $ref: "#/components/schemas/Uint64"
+          gasUsed:
+            $ref: "#/components/schemas/Uint64"
+          hash:
+            $ref: "#/components/schemas/Hash"
+          logsBloom:
+            $ref: "#/components/schemas/Bloom"
+          miner:
+            $ref: "#/components/schemas/Address"
+          mixHash:
+            $ref: "#/components/schemas/Hash"
+          nonce:
+            $ref: "#/components/schemas/Nonce"
+          number:
+            $ref: "#/components/schemas/Uint64"
+          parentHash:
+            $ref: "#/components/schemas/Hash"
+          receiptsRoot:
+            $ref: "#/components/schemas/Hash"
+          sha3Uncles:
+            $ref: "#/components/schemas/Hash"
+          size:
+            $ref: "#/components/schemas/Uint64"
+          stateRoot:
+            $ref: "#/components/schemas/Hash"
+          timestamp:
+            $ref: "#/components/schemas/Uint64"
+          totalDifficulty:
+            $ref: "#/components/schemas/Uint64"
+          transactions:
+            $ref: "#/components/schemas/Transactions"
+          transactionsRoot:
+            $ref: "#/components/schemas/Hash"
+          uncles:
+            type: array
+            items:
+              $ref: "#/components/schemas/Hash"
+      required: true
+components:
+  schemas:
+    ActorStateLotusJson:
+      type: object
+      required:
+        - Balance
+        - Code
+        - Head
+        - Nonce
+      properties:
+        Balance:
+          $ref: "#/components/schemas/String"
+        Code:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        DelegatedAddress:
+          $ref: "#/components/schemas/Nullable_String"
+        Head:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Nonce:
+          type: integer
+          format: uint64
+          minimum: 0
+    ActorStateLotusJson2:
+      type: object
+      required:
+        - Balance
+        - Code
+        - Head
+        - Nonce
+      properties:
+        Balance:
+          $ref: "#/components/schemas/String"
+        Code:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        DelegatedAddress:
+          $ref: "#/components/schemas/Nullable_String"
+        Head:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Nonce:
+          type: integer
+          format: uint64
+          minimum: 0
+    ActorTrace:
+      type: object
+      required:
+        - Id
+        - State
+      properties:
+        Id:
+          type: integer
+          format: uint64
+          minimum: 0
+        State:
+          $ref: "#/components/schemas/ActorStateLotusJson"
+    AddrInfo:
+      type: object
+      required:
+        - Addrs
+        - ID
+      properties:
+        Addrs:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        ID:
+          type: string
+    Address:
+      type: string
+    ApiDeadline:
+      type: object
+      required:
+        - DisputableProofCount
+        - PostSubmissions
+      properties:
+        DisputableProofCount:
+          type: integer
+          format: uint64
+          minimum: 0
+        PostSubmissions:
+          $ref: "#/components/schemas/BitFieldLotusJson"
+    ApiDealProposal:
+      type: object
+      required:
+        - Client
+        - ClientCollateral
+        - EndEpoch
+        - Label
+        - PieceCID
+        - PieceSize
+        - Provider
+        - ProviderCollateral
+        - StartEpoch
+        - StoragePricePerEpoch
+        - VerifiedDeal
+      properties:
+        Client:
+          $ref: "#/components/schemas/String"
+        ClientCollateral:
+          $ref: "#/components/schemas/String"
+        EndEpoch:
+          type: integer
+          format: int64
+        Label:
+          type: string
+        PieceCID:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        PieceSize:
+          type: integer
+          format: uint64
+          minimum: 0
+        Provider:
+          $ref: "#/components/schemas/String"
+        ProviderCollateral:
+          $ref: "#/components/schemas/String"
+        StartEpoch:
+          type: integer
+          format: int64
+        StoragePricePerEpoch:
+          $ref: "#/components/schemas/String"
+        VerifiedDeal:
+          type: boolean
+    ApiDealState:
+      type: object
+      required:
+        - LastUpdatedEpoch
+        - SectorStartEpoch
+        - SlashEpoch
+      properties:
+        LastUpdatedEpoch:
+          type: integer
+          format: int64
+        SectorStartEpoch:
+          type: integer
+          format: int64
+        SlashEpoch:
+          type: integer
+          format: int64
+    ApiMarketDeal:
+      type: object
+      required:
+        - Proposal
+        - State
+      properties:
+        Proposal:
+          $ref: "#/components/schemas/ApiDealProposal"
+        State:
+          $ref: "#/components/schemas/ApiDealState"
+    ApiMessage:
+      type: object
+      required:
+        - Cid
+        - Message
+      properties:
+        Cid:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Message:
+          $ref: "#/components/schemas/MessageLotusJson"
+    ApiReceipt:
+      type: object
+      required:
+        - EventsRoot
+        - ExitCode
+        - GasUsed
+        - Return
+      properties:
+        EventsRoot:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        ExitCode:
+          $ref: "#/components/schemas/ExitCode"
+        GasUsed:
+          type: integer
+          format: uint64
+          minimum: 0
+        Return:
+          $ref: "#/components/schemas/VecU8LotusJson"
+    ApiState:
+      type: object
+      required:
+        - BuiltinActors
+      properties:
+        BuiltinActors: true
+    BeaconEntryLotusJson:
+      type: object
+      required:
+        - Data
+        - Round
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        Round:
+          type: integer
+          format: uint64
+          minimum: 0
+    BeneficiaryTermLotusJson:
+      type: object
+      required:
+        - Expiration
+        - Quota
+        - UsedQuota
+      properties:
+        Expiration:
+          description: "The epoch at which the beneficiary's rights expire and revert to the owner"
+          type: integer
+          format: int64
+        Quota:
+          description: "The total amount the current beneficiary can withdraw. Monotonic, but reset when beneficiary changes."
+          $ref: "#/components/schemas/String"
+        UsedQuota:
+          description: The amount of quota the current beneficiary has already withdrawn
+          $ref: "#/components/schemas/String"
+    BigInt:
+      $ref: "#/components/schemas/String"
+    BitFieldLotusJson:
+      type: array
+      items:
+        type: integer
+        format: uint8
+        minimum: 0
+      nullable: true
+    BitFieldLotusJson2:
+      type: array
+      items:
+        type: integer
+        format: uint8
+        minimum: 0
+      nullable: true
+    BlockHeaderLotusJson:
+      type: object
+      required:
+        - BeaconEntries
+        - ForkSignaling
+        - Height
+        - Messages
+        - Miner
+        - ParentBaseFee
+        - ParentMessageReceipts
+        - ParentStateRoot
+        - ParentWeight
+        - Parents
+        - Timestamp
+        - WinPoStProof
+      properties:
+        BLSAggregate:
+          $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+        BeaconEntries:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson"
+        BlockSig:
+          $ref: "#/components/schemas/Nullable_SignatureLotusJson"
+        ElectionProof:
+          $ref: "#/components/schemas/Nullable_ElectionProofLotusJson"
+        ForkSignaling:
+          type: integer
+          format: uint64
+          minimum: 0
+        Height:
+          type: integer
+          format: int64
+        Messages:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Miner:
+          $ref: "#/components/schemas/String"
+        ParentBaseFee:
+          $ref: "#/components/schemas/String"
+        ParentMessageReceipts:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        ParentStateRoot:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        ParentWeight:
+          $ref: "#/components/schemas/String"
+        Parents:
+          $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+        Ticket:
+          $ref: "#/components/schemas/Nullable_TicketLotusJson"
+        Timestamp:
+          type: integer
+          format: uint64
+          minimum: 0
+        WinPoStProof:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson"
+    Bloom:
+      type: string
+    Bytes:
+      type: string
+    CidLotusJsonGeneric_for_64:
+      type: object
+      required:
+        - /
+      properties:
+        /:
+          $ref: "#/components/schemas/String"
+    CidLotusJsonGeneric_for_642:
+      type: object
+      required:
+        - /
+      properties:
+        /:
+          $ref: "#/components/schemas/String"
+    ClaimLotusJson:
+      type: object
+      required:
+        - QualityAdjPower
+        - RawBytePower
+      properties:
+        QualityAdjPower:
+          description: "Sum of quality adjusted power for a miner's sectors."
+          $ref: "#/components/schemas/String"
+        RawBytePower:
+          description: "Sum of raw byte power for a miner's sectors."
+          $ref: "#/components/schemas/String"
+    ElectionProofLotusJson:
+      type: object
+      required:
+        - VRFProof
+        - WinCount
+      properties:
+        VRFProof:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        WinCount:
+          type: integer
+          format: int64
+    ExecutionTrace:
+      type: object
+      required:
+        - GasCharges
+        - Msg
+        - MsgRct
+        - Subcalls
+      properties:
+        GasCharges:
+          type: array
+          items:
+            $ref: "#/components/schemas/GasTrace"
+        InvokedActor:
+          $ref: "#/components/schemas/ActorTrace"
+          nullable: true
+        Msg:
+          $ref: "#/components/schemas/MessageTrace"
+        MsgRct:
+          $ref: "#/components/schemas/ReturnTrace"
+        Subcalls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExecutionTrace"
+    ExitCode:
+      description: "`Newtype` wrapper for the FVM `ExitCode`.\n\n# Examples ``` # use forest_filecoin::doctest_private::ExitCode; let fvm2_success = fvm_shared2::error::ExitCode::new(0); let fvm3_success = fvm_shared3::error::ExitCode::new(0);\n\nlet shim_from_v2 = ExitCode::from(fvm2_success); let shim_from_v3 = ExitCode::from(fvm3_success);\n\nassert_eq!(shim_from_v2, shim_from_v3); assert_eq!(shim_from_v2, fvm2_success.into()); assert_eq!(shim_from_v3, fvm3_success.into()); ```"
+      type: integer
+      format: uint32
+      minimum: 0
+    GasTrace:
+      type: object
+      required:
+        - Name
+        - cg
+        - sg
+        - tg
+        - tt
+      properties:
+        Name:
+          type: string
+        cg:
+          type: integer
+          format: uint64
+          minimum: 0
+        sg:
+          type: integer
+          format: uint64
+          minimum: 0
+        tg:
+          type: integer
+          format: uint64
+          minimum: 0
+        tt:
+          type: integer
+          format: uint64
+          minimum: 0
+    Hash:
+      type: string
+    Inner:
+      type: string
+    MessageGasCost:
+      type: object
+      required:
+        - BaseFeeBurn
+        - GasUsed
+        - Message
+        - MinerPenalty
+        - MinerTip
+        - OverEstimationBurn
+        - Refund
+        - TotalCost
+      properties:
+        BaseFeeBurn:
+          $ref: "#/components/schemas/String"
+        GasUsed:
+          $ref: "#/components/schemas/String"
+        Message:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        MinerPenalty:
+          $ref: "#/components/schemas/String"
+        MinerTip:
+          $ref: "#/components/schemas/String"
+        OverEstimationBurn:
+          $ref: "#/components/schemas/String"
+        Refund:
+          $ref: "#/components/schemas/String"
+        TotalCost:
+          $ref: "#/components/schemas/String"
+    MessageLotusJson:
+      type: object
+      required:
+        - From
+        - GasFeeCap
+        - GasLimit
+        - GasPremium
+        - Method
+        - Nonce
+        - To
+        - Value
+        - Version
+      properties:
+        CID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        From:
+          $ref: "#/components/schemas/String"
+        GasFeeCap:
+          $ref: "#/components/schemas/String"
+        GasLimit:
+          type: integer
+          format: uint64
+          minimum: 0
+        GasPremium:
+          $ref: "#/components/schemas/String"
+        Method:
+          type: integer
+          format: uint64
+          minimum: 0
+        Nonce:
+          type: integer
+          format: uint64
+          minimum: 0
+        Params:
+          $ref: "#/components/schemas/Nullable_VecU8LotusJson"
+        To:
+          $ref: "#/components/schemas/String"
+        Value:
+          $ref: "#/components/schemas/String"
+        Version:
+          type: integer
+          format: uint64
+          minimum: 0
+    MessageSendSpec:
+      type: object
+      required:
+        - MaxFee
+      properties:
+        MaxFee:
+          $ref: "#/components/schemas/String"
+    MessageTrace:
+      type: object
+      required:
+        - From
+        - Method
+        - Params
+        - ParamsCodec
+        - To
+        - Value
+      properties:
+        From:
+          $ref: "#/components/schemas/String"
+        GasLimit:
+          type: integer
+          format: uint64
+          minimum: 0
+          nullable: true
+        Method:
+          type: integer
+          format: uint64
+          minimum: 0
+        Params:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        ParamsCodec:
+          type: integer
+          format: uint64
+          minimum: 0
+        ReadOnly:
+          type: boolean
+          nullable: true
+        To:
+          $ref: "#/components/schemas/String"
+        Value:
+          $ref: "#/components/schemas/String"
+    MinerPartitions:
+      type: object
+      required:
+        - ActiveSectors
+        - AllSectors
+        - FaultySectors
+        - LiveSectors
+        - RecoveringSectors
+      properties:
+        ActiveSectors:
+          $ref: "#/components/schemas/BitFieldLotusJson"
+        AllSectors:
+          $ref: "#/components/schemas/BitFieldLotusJson"
+        FaultySectors:
+          $ref: "#/components/schemas/BitFieldLotusJson"
+        LiveSectors:
+          $ref: "#/components/schemas/BitFieldLotusJson"
+        RecoveringSectors:
+          $ref: "#/components/schemas/BitFieldLotusJson"
+    MiningBaseInfo:
+      type: object
+      required:
+        - BeaconEntries
+        - EligibleForMining
+        - MinerPower
+        - NetworkPower
+        - PrevBeaconEntry
+        - SectorSize
+        - Sectors
+        - WorkerKey
+      properties:
+        BeaconEntries:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson"
+        EligibleForMining:
+          type: boolean
+        MinerPower:
+          $ref: "#/components/schemas/String"
+        NetworkPower:
+          $ref: "#/components/schemas/String"
+        PrevBeaconEntry:
+          $ref: "#/components/schemas/BeaconEntryLotusJson"
+        SectorSize:
+          type: integer
+          format: uint64
+          minimum: 0
+        Sectors:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::sector_info::SectorInfoLotusJson"
+        WorkerKey:
+          $ref: "#/components/schemas/String"
+    NodeChainStatus:
+      type: object
+      required:
+        - blocks_per_tipset_last_100
+        - blocks_per_tipset_last_finality
+      properties:
+        blocks_per_tipset_last_100:
+          type: number
+          format: double
+        blocks_per_tipset_last_finality:
+          type: number
+          format: double
+    NodePeerStatus:
+      type: object
+      required:
+        - peers_to_publish_blocks
+        - peers_to_publish_msgs
+      properties:
+        peers_to_publish_blocks:
+          type: integer
+          format: uint32
+          minimum: 0
+        peers_to_publish_msgs:
+          type: integer
+          format: uint32
+          minimum: 0
+    NodeSyncStatus:
+      type: object
+      required:
+        - behind
+        - epoch
+      properties:
+        behind:
+          type: integer
+          format: uint64
+          minimum: 0
+        epoch:
+          type: integer
+          format: uint64
+          minimum: 0
+    NonEmpty_Array_of_CidLotusJsonGeneric_for_64:
+      type: array
+      items:
+        $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      minItems: 1
+    Nonce:
+      type: string
+    Nullable_CidLotusJsonGeneric_for_64:
+      $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      nullable: true
+    Nullable_ElectionProofLotusJson:
+      $ref: "#/components/schemas/ElectionProofLotusJson"
+      nullable: true
+    Nullable_PendingBeneficiaryChangeLotusJson:
+      $ref: "#/components/schemas/PendingBeneficiaryChangeLotusJson"
+      nullable: true
+    Nullable_ReceiptLotusJson:
+      $ref: "#/components/schemas/ReceiptLotusJson"
+      nullable: true
+    Nullable_SignatureLotusJson:
+      $ref: "#/components/schemas/SignatureLotusJson"
+      nullable: true
+    Nullable_String:
+      $ref: "#/components/schemas/String"
+      nullable: true
+    Nullable_TicketLotusJson:
+      $ref: "#/components/schemas/TicketLotusJson"
+      nullable: true
+    Nullable_VecU8LotusJson:
+      $ref: "#/components/schemas/VecU8LotusJson2"
+      nullable: true
+    PathChange_for_TipsetLotusJson:
+      oneOf:
+        - type: object
+          required:
+            - revert
+          properties:
+            revert:
+              $ref: "#/components/schemas/TipsetLotusJson"
+          additionalProperties: false
+        - type: object
+          required:
+            - apply
+          properties:
+            apply:
+              $ref: "#/components/schemas/TipsetLotusJson"
+          additionalProperties: false
+    PendingBeneficiaryChangeLotusJson:
+      type: object
+      required:
+        - ApprovedByBeneficiary
+        - ApprovedByNominee
+        - NewBeneficiary
+        - NewExpiration
+        - NewQuota
+      properties:
+        ApprovedByBeneficiary:
+          type: boolean
+        ApprovedByNominee:
+          type: boolean
+        NewBeneficiary:
+          $ref: "#/components/schemas/String"
+        NewExpiration:
+          type: integer
+          format: int64
+        NewQuota:
+          $ref: "#/components/schemas/String"
+    ReceiptLotusJson:
+      type: object
+      required:
+        - ExitCode
+        - GasUsed
+        - Return
+      properties:
+        EventsRoot:
+          default: ~
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        ExitCode:
+          type: integer
+          format: uint32
+          minimum: 0
+        GasUsed:
+          type: integer
+          format: uint64
+          minimum: 0
+        Return:
+          $ref: "#/components/schemas/VecU8LotusJson"
+    ReceiptLotusJson2:
+      type: object
+      required:
+        - ExitCode
+        - GasUsed
+        - Return
+      properties:
+        EventsRoot:
+          default: ~
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        ExitCode:
+          type: integer
+          format: uint32
+          minimum: 0
+        GasUsed:
+          type: integer
+          format: uint64
+          minimum: 0
+        Return:
+          $ref: "#/components/schemas/VecU8LotusJson"
+    ReturnTrace:
+      type: object
+      required:
+        - ExitCode
+        - Return
+        - ReturnCodec
+      properties:
+        ExitCode:
+          $ref: "#/components/schemas/ExitCode"
+        Return:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        ReturnCodec:
+          type: integer
+          format: uint64
+          minimum: 0
+    SectorOnChainInfo:
+      type: object
+      required:
+        - Activation
+        - DealIDs
+        - DealWeight
+        - ExpectedDayReward
+        - ExpectedStoragePledge
+        - Expiration
+        - InitialPledge
+        - ReplacedDayReward
+        - ReplacedSectorAge
+        - SealProof
+        - SealedCID
+        - SectorKeyCID
+        - SectorNumber
+        - SimpleQAPower
+        - VerifiedDealWeight
+      properties:
+        Activation:
+          description: Epoch during which the sector proof was accepted
+          type: integer
+          format: int64
+        DealIDs:
+          $ref: "#/components/schemas/u64"
+        DealWeight:
+          description: Integral of active deals over sector lifetime
+          $ref: "#/components/schemas/String"
+        ExpectedDayReward:
+          description: Expected one day projection of reward for sector computed at activation time
+          $ref: "#/components/schemas/String"
+        ExpectedStoragePledge:
+          description: Expected twenty day projection of reward for sector computed at activation time
+          $ref: "#/components/schemas/String"
+        Expiration:
+          description: Epoch during which the sector expires
+          type: integer
+          format: int64
+        InitialPledge:
+          description: Pledge collected to commit this sector
+          $ref: "#/components/schemas/String"
+        ReplacedDayReward:
+          $ref: "#/components/schemas/String"
+        ReplacedSectorAge:
+          type: integer
+          format: int64
+        SealProof:
+          description: The seal proof type implies the PoSt proofs
+          type: integer
+          format: int64
+        SealedCID:
+          description: "`CommR`"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        SectorKeyCID:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+        SectorNumber:
+          type: integer
+          format: uint64
+          minimum: 0
+        SimpleQAPower:
+          type: boolean
+        VerifiedDealWeight:
+          description: Integral of active verified deals over sector lifetime
+          $ref: "#/components/schemas/String"
+    SectorPreCommitInfo:
+      type: object
+      required:
+        - DealIDs
+        - Expiration
+        - SealProof
+        - SealRandEpoch
+        - SealedCID
+        - SectorNumber
+        - UnsealedCid
+      properties:
+        DealIDs:
+          $ref: "#/components/schemas/u64"
+        Expiration:
+          type: integer
+          format: int64
+        SealProof:
+          $ref: "#/components/schemas/int64"
+        SealRandEpoch:
+          type: integer
+          format: int64
+        SealedCID:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        SectorNumber:
+          type: integer
+          format: uint64
+          minimum: 0
+        UnsealedCid:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+    ShiftingVersion:
+      description: "Integer based value on version information. Highest order bits for Major, Mid order for Minor and lowest for Patch."
+      type: integer
+      format: uint32
+      minimum: 0
+    SignatureLotusJson:
+      type: object
+      required:
+        - Data
+        - Type
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        Type:
+          $ref: "#/components/schemas/SignatureTypeLotusJson"
+    SignatureLotusJson2:
+      type: object
+      required:
+        - Data
+        - Type
+      properties:
+        Data:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        Type:
+          $ref: "#/components/schemas/SignatureTypeLotusJson"
+    SignatureType:
+      description: Signature variants for Filecoin signatures.
+      type: string
+      enum:
+        - Secp256k1
+        - Bls
+        - Delegated
+    SignatureTypeLotusJson:
+      anyOf:
+        - $ref: "#/components/schemas/SignatureType"
+        - $ref: "#/components/schemas/String"
+    String:
+      type: string
+    TicketLotusJson:
+      type: object
+      required:
+        - VRFProof
+      properties:
+        VRFProof:
+          $ref: "#/components/schemas/VecU8LotusJson"
+    TipsetLotusJson:
+      type: object
+      required:
+        - Blocks
+        - Cids
+        - Height
+      properties:
+        Blocks:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+        Cids:
+          $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
+        Height:
+          $ref: "#/components/schemas/int64"
+    Transaction:
+      type: object
+      required:
+        - Approved
+        - ID
+        - Method
+        - Params
+        - To
+        - Value
+      properties:
+        Approved:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::Stringify<forest_filecoin::shim::address::Address>"
+        ID:
+          type: integer
+          format: int64
+        Method:
+          type: integer
+          format: uint64
+          minimum: 0
+        Params:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        To:
+          $ref: "#/components/schemas/String"
+        Value:
+          $ref: "#/components/schemas/String"
+    Transactions:
+      anyOf:
+        - type: array
+          items:
+            type: string
+        - type: array
+          items:
+            $ref: "#/components/schemas/Tx"
+    Tx:
+      type: object
+      required:
+        - accessList
+        - blockHash
+        - blockNumber
+        - chainId
+        - from
+        - gas
+        - hash
+        - input
+        - maxFeePerGas
+        - maxPriorityFeePerGas
+        - nonce
+        - r
+        - s
+        - transactionIndex
+        - type
+        - v
+        - value
+      properties:
+        accessList:
+          type: array
+          items:
+            $ref: "#/components/schemas/Hash"
+        blockHash:
+          $ref: "#/components/schemas/Hash"
+        blockNumber:
+          $ref: "#/components/schemas/Uint64"
+        chainId:
+          $ref: "#/components/schemas/Uint64"
+        from:
+          $ref: "#/components/schemas/Address"
+        gas:
+          $ref: "#/components/schemas/Uint64"
+        hash:
+          $ref: "#/components/schemas/Hash"
+        input:
+          $ref: "#/components/schemas/Bytes"
+        maxFeePerGas:
+          $ref: "#/components/schemas/BigInt"
+        maxPriorityFeePerGas:
+          $ref: "#/components/schemas/BigInt"
+        nonce:
+          $ref: "#/components/schemas/Uint64"
+        r:
+          $ref: "#/components/schemas/BigInt"
+        s:
+          $ref: "#/components/schemas/BigInt"
+        to:
+          $ref: "#/components/schemas/Address"
+          nullable: true
+        transactionIndex:
+          $ref: "#/components/schemas/Uint64"
+        type:
+          $ref: "#/components/schemas/Uint64"
+        v:
+          $ref: "#/components/schemas/BigInt"
+        value:
+          $ref: "#/components/schemas/BigInt"
+    Uint64:
+      type: string
+    VecU8LotusJson:
+      $ref: "#/components/schemas/Inner"
+      nullable: true
+    VecU8LotusJson2:
+      $ref: "#/components/schemas/Inner"
+      nullable: true
+    "forest_filecoin::chain_sync::sync_state::lotus_json::SyncStateLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::chain_sync::sync_state::lotus_json::SyncStateLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::Stringify<forest_filecoin::shim::address::Address>":
+      type: array
+      items:
+        $ref: "#/components/schemas/String"
+      nullable: true
+    "forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::beacon_entry::BeaconEntryLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::block_header::BlockHeaderLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>":
+      type: array
+      items:
+        $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
+      nullable: true
+    "forest_filecoin::lotus_json::message::MessageLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::po_st_proof::PoStProofLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::sector_info::SectorInfoLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::sector_info::SectorInfoLotusJson"
+      nullable: true
+    "forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson":
+      type: array
+      items:
+        $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
+      nullable: true
+    int64:
+      type: integer
+      format: int64
+    u64:
+      type: array
+      items:
+        type: integer
+        format: uint64
+        minimum: 0
+      nullable: true
