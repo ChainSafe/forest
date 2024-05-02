@@ -310,7 +310,7 @@ macro_rules! do_impls {
                 Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
             fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {
-                [$(($arg::LotusJson::json_schema(_gen), $arg::LotusJson::optional())),*]
+                [$((_gen.subschema_for::<$arg::LotusJson>(), $arg::LotusJson::optional())),*]
             }
         }
     };

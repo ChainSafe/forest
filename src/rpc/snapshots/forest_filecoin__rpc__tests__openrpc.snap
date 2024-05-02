@@ -7,18 +7,7 @@ methods:
     params:
       - name: params
         schema:
-          type: object
-          required:
-            - perms
-            - token_exp
-          properties:
-            perms:
-              type: array
-              items:
-                type: string
-            token_exp:
-              type: integer
-              format: int64
+          $ref: "#/components/schemas/AuthNewParams"
         required: true
     paramStructure: by-position
     result:
@@ -69,12 +58,7 @@ methods:
     params:
       - name: msg_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -127,12 +111,7 @@ methods:
     params:
       - name: block_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -147,12 +126,7 @@ methods:
     params:
       - name: block_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -167,10 +141,7 @@ methods:
     params:
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -185,29 +156,7 @@ methods:
     params:
       - name: params
         schema:
-          type: object
-          required:
-            - dry_run
-            - epoch
-            - output_path
-            - recent_roots
-            - skip_checksum
-            - tipset_keys
-          properties:
-            dry_run:
-              type: boolean
-            epoch:
-              type: integer
-              format: int64
-            output_path:
-              type: string
-            recent_roots:
-              type: integer
-              format: int64
-            skip_checksum:
-              type: boolean
-            tipset_keys:
-              $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
+          $ref: "#/components/schemas/ChainExportParams"
         required: true
     paramStructure: by-position
     result:
@@ -220,12 +169,7 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -238,12 +182,7 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -255,12 +194,7 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -283,17 +217,11 @@ methods:
     params:
       - name: from
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          minItems: 1
+          $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
         required: true
       - name: to
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          minItems: 1
+          $ref: "#/components/schemas/NonEmpty_Array_of_CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -313,10 +241,7 @@ methods:
         required: true
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -344,10 +269,7 @@ methods:
         required: true
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -398,12 +320,7 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -466,10 +383,7 @@ methods:
     params:
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -492,10 +406,7 @@ methods:
     params:
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -521,10 +432,7 @@ methods:
     params:
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -584,55 +492,11 @@ methods:
     params:
       - name: msg
         schema:
-          type: object
-          required:
-            - From
-            - GasFeeCap
-            - GasLimit
-            - GasPremium
-            - Method
-            - Nonce
-            - To
-            - Value
-            - Version
-          properties:
-            CID:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-            From:
-              $ref: "#/components/schemas/String"
-            GasFeeCap:
-              $ref: "#/components/schemas/String"
-            GasLimit:
-              type: integer
-              format: uint64
-              minimum: 0
-            GasPremium:
-              $ref: "#/components/schemas/String"
-            Method:
-              type: integer
-              format: uint64
-              minimum: 0
-            Nonce:
-              type: integer
-              format: uint64
-              minimum: 0
-            Params:
-              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
-            To:
-              $ref: "#/components/schemas/String"
-            Value:
-              $ref: "#/components/schemas/String"
-            Version:
-              type: integer
-              format: uint64
-              minimum: 0
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
         required: true
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -645,48 +509,7 @@ methods:
     params:
       - name: msg
         schema:
-          type: object
-          required:
-            - From
-            - GasFeeCap
-            - GasLimit
-            - GasPremium
-            - Method
-            - Nonce
-            - To
-            - Value
-            - Version
-          properties:
-            CID:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-            From:
-              $ref: "#/components/schemas/String"
-            GasFeeCap:
-              $ref: "#/components/schemas/String"
-            GasLimit:
-              type: integer
-              format: uint64
-              minimum: 0
-            GasPremium:
-              $ref: "#/components/schemas/String"
-            Method:
-              type: integer
-              format: uint64
-              minimum: 0
-            Nonce:
-              type: integer
-              format: uint64
-              minimum: 0
-            Params:
-              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
-            To:
-              $ref: "#/components/schemas/String"
-            Value:
-              $ref: "#/components/schemas/String"
-            Version:
-              type: integer
-              format: uint64
-              minimum: 0
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
         required: true
       - name: spec
         schema:
@@ -695,10 +518,7 @@ methods:
         required: false
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -751,48 +571,7 @@ methods:
     params:
       - name: message
         schema:
-          type: object
-          required:
-            - From
-            - GasFeeCap
-            - GasLimit
-            - GasPremium
-            - Method
-            - Nonce
-            - To
-            - Value
-            - Version
-          properties:
-            CID:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-            From:
-              $ref: "#/components/schemas/String"
-            GasFeeCap:
-              $ref: "#/components/schemas/String"
-            GasLimit:
-              type: integer
-              format: uint64
-              minimum: 0
-            GasPremium:
-              $ref: "#/components/schemas/String"
-            Method:
-              type: integer
-              format: uint64
-              minimum: 0
-            Nonce:
-              type: integer
-              format: uint64
-              minimum: 0
-            Params:
-              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
-            To:
-              $ref: "#/components/schemas/String"
-            Value:
-              $ref: "#/components/schemas/String"
-            Version:
-              type: integer
-              format: uint64
-              minimum: 0
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
         required: true
       - name: max_queue_blocks
         schema:
@@ -801,10 +580,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -822,7 +598,7 @@ methods:
         required: true
       - name: sender
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: gas_limit
         schema:
@@ -831,10 +607,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -846,7 +619,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
     paramStructure: by-position
     result:
@@ -860,10 +633,7 @@ methods:
     params:
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -878,10 +648,7 @@ methods:
     params:
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
       - name: tq
         schema:
@@ -901,17 +668,7 @@ methods:
     params:
       - name: msg
         schema:
-          type: object
-          required:
-            - Message
-            - Signature
-          properties:
-            CID:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-            Message:
-              $ref: "#/components/schemas/MessageLotusJson"
-            Signature:
-              $ref: "#/components/schemas/SignatureLotusJson2"
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::signed_message::SignedMessageLotusJson"
         required: true
     paramStructure: by-position
     result:
@@ -928,48 +685,7 @@ methods:
     params:
       - name: usmg
         schema:
-          type: object
-          required:
-            - From
-            - GasFeeCap
-            - GasLimit
-            - GasPremium
-            - Method
-            - Nonce
-            - To
-            - Value
-            - Version
-          properties:
-            CID:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-            From:
-              $ref: "#/components/schemas/String"
-            GasFeeCap:
-              $ref: "#/components/schemas/String"
-            GasLimit:
-              type: integer
-              format: uint64
-              minimum: 0
-            GasPremium:
-              $ref: "#/components/schemas/String"
-            Method:
-              type: integer
-              format: uint64
-              minimum: 0
-            Nonce:
-              type: integer
-              format: uint64
-              minimum: 0
-            Params:
-              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
-            To:
-              $ref: "#/components/schemas/String"
-            Value:
-              $ref: "#/components/schemas/String"
-            Version:
-              type: integer
-              format: uint64
-              minimum: 0
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
         required: true
       - name: spec
         schema:
@@ -1074,18 +790,7 @@ methods:
     params:
       - name: info
         schema:
-          type: object
-          required:
-            - Addrs
-            - ID
-          properties:
-            Addrs:
-              type: array
-              items:
-                type: string
-              uniqueItems: true
-            ID:
-              type: string
+          $ref: "#/components/schemas/AddrInfo"
         required: true
     paramStructure: by-position
     result:
@@ -1148,7 +853,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: epoch
         schema:
@@ -1157,10 +862,7 @@ methods:
         required: true
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1173,55 +875,11 @@ methods:
     params:
       - name: message
         schema:
-          type: object
-          required:
-            - From
-            - GasFeeCap
-            - GasLimit
-            - GasPremium
-            - Method
-            - Nonce
-            - To
-            - Value
-            - Version
-          properties:
-            CID:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
-            From:
-              $ref: "#/components/schemas/String"
-            GasFeeCap:
-              $ref: "#/components/schemas/String"
-            GasLimit:
-              type: integer
-              format: uint64
-              minimum: 0
-            GasPremium:
-              $ref: "#/components/schemas/String"
-            Method:
-              type: integer
-              format: uint64
-              minimum: 0
-            Nonce:
-              type: integer
-              format: uint64
-              minimum: 0
-            Params:
-              $ref: "#/components/schemas/Nullable_VecU8LotusJson"
-            To:
-              $ref: "#/components/schemas/String"
-            Value:
-              $ref: "#/components/schemas/String"
-            Version:
-              type: integer
-              format: uint64
-              minimum: 0
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::message::MessageLotusJson"
         required: true
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1281,22 +939,11 @@ methods:
     params:
       - name: message_filter
         schema:
-          type: object
-          required:
-            - From
-            - To
-          properties:
-            From:
-              $ref: "#/components/schemas/Nullable_String"
-            To:
-              $ref: "#/components/schemas/Nullable_String"
+          $ref: "#/components/schemas/MessageFilter"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
       - name: max_height
         schema:
@@ -1324,19 +971,11 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
       - name: tsk
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1359,7 +998,7 @@ methods:
     params:
       - name: miner_address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: sector_number
         schema:
@@ -1369,10 +1008,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1446,7 +1082,7 @@ methods:
     params:
       - name: miner_address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: sector_number
         schema:
@@ -1456,10 +1092,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1483,14 +1116,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1502,14 +1132,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1521,14 +1148,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1541,14 +1165,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1613,14 +1234,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1635,7 +1253,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: deadline_index
         schema:
@@ -1645,10 +1263,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1663,7 +1278,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: sectors
         schema:
@@ -1672,10 +1287,7 @@ methods:
         required: false
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1690,14 +1302,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1726,14 +1335,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1756,14 +1362,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1778,14 +1381,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1797,14 +1397,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1821,14 +1418,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1845,14 +1439,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1864,45 +1455,15 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: sector_pre_commit_info
         schema:
-          type: object
-          required:
-            - DealIDs
-            - Expiration
-            - SealProof
-            - SealRandEpoch
-            - SealedCID
-            - SectorNumber
-            - UnsealedCid
-          properties:
-            DealIDs:
-              $ref: "#/components/schemas/u64"
-            Expiration:
-              type: integer
-              format: int64
-            SealProof:
-              $ref: "#/components/schemas/int64"
-            SealRandEpoch:
-              type: integer
-              format: int64
-            SealedCID:
-              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
-            SectorNumber:
-              type: integer
-              format: uint64
-              minimum: 0
-            UnsealedCid:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          $ref: "#/components/schemas/SectorPreCommitInfo2"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1914,19 +1475,11 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1966,15 +1519,11 @@ methods:
         required: true
       - name: entropy
         schema:
-          $ref: "#/components/schemas/Inner"
-          nullable: true
+          $ref: "#/components/schemas/VecU8LotusJson2"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -1997,15 +1546,11 @@ methods:
         required: true
       - name: entropy
         schema:
-          $ref: "#/components/schemas/Inner"
-          nullable: true
+          $ref: "#/components/schemas/VecU8LotusJson2"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2018,14 +1563,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2048,10 +1590,7 @@ methods:
     params:
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2063,14 +1602,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2082,14 +1618,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2104,14 +1637,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2124,10 +1654,7 @@ methods:
     params:
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2159,10 +1686,7 @@ methods:
     params:
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2177,10 +1701,7 @@ methods:
     params:
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2194,14 +1715,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2222,10 +1740,7 @@ methods:
     params:
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2249,10 +1764,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2278,10 +1790,7 @@ methods:
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2301,12 +1810,7 @@ methods:
     params:
       - name: message_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
       - name: confidence
         schema:
@@ -2340,12 +1844,7 @@ methods:
     params:
       - name: message_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -2374,12 +1873,7 @@ methods:
     params:
       - name: message_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
       - name: look_back_limit
         schema:
@@ -2413,12 +1907,7 @@ methods:
     params:
       - name: root_cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
       - name: save_to_file
         schema:
@@ -2435,45 +1924,15 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: sector_pre_commit_info
         schema:
-          type: object
-          required:
-            - DealIDs
-            - Expiration
-            - SealProof
-            - SealRandEpoch
-            - SealedCID
-            - SectorNumber
-            - UnsealedCid
-          properties:
-            DealIDs:
-              $ref: "#/components/schemas/u64"
-            Expiration:
-              type: integer
-              format: int64
-            SealProof:
-              $ref: "#/components/schemas/int64"
-            SealRandEpoch:
-              type: integer
-              format: int64
-            SealedCID:
-              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
-            SectorNumber:
-              type: integer
-              format: uint64
-              minimum: 0
-            UnsealedCid:
-              $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+          $ref: "#/components/schemas/SectorPreCommitInfo2"
         required: true
       - name: tipset_key
         schema:
-          type: array
-          items:
-            $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
-          nullable: true
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
         required: false
     paramStructure: by-position
     result:
@@ -2504,12 +1963,7 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -2521,12 +1975,7 @@ methods:
     params:
       - name: cid
         schema:
-          type: object
-          required:
-            - /
-          properties:
-            /:
-              $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_64"
         required: true
     paramStructure: by-position
     result:
@@ -2551,18 +2000,7 @@ methods:
     params:
       - name: blk
         schema:
-          type: object
-          required:
-            - BlsMessages
-            - Header
-            - SecpkMessages
-          properties:
-            BlsMessages:
-              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
-            Header:
-              $ref: "#/components/schemas/BlockHeaderLotusJson"
-            SecpkMessages:
-              $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+          $ref: "#/components/schemas/GossipBlockLotusJson"
         required: true
     paramStructure: by-position
     result:
@@ -2574,7 +2012,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
     paramStructure: by-position
     result:
@@ -2595,7 +2033,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
     paramStructure: by-position
     result:
@@ -2615,7 +2053,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
     paramStructure: by-position
     result:
@@ -2627,15 +2065,7 @@ methods:
     params:
       - name: key
         schema:
-          type: object
-          required:
-            - PrivateKey
-            - Type
-          properties:
-            PrivateKey:
-              $ref: "#/components/schemas/VecU8LotusJson"
-            Type:
-              $ref: "#/components/schemas/SignatureTypeLotusJson"
+          $ref: "#/components/schemas/KeyInfoLotusJson"
         required: true
     paramStructure: by-position
     result:
@@ -2658,9 +2088,7 @@ methods:
     params:
       - name: signature_type
         schema:
-          anyOf:
-            - $ref: "#/components/schemas/SignatureType"
-            - $ref: "#/components/schemas/String"
+          $ref: "#/components/schemas/SignatureTypeLotusJson2"
         required: true
     paramStructure: by-position
     result:
@@ -2672,7 +2100,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
     paramStructure: by-position
     result:
@@ -2684,12 +2112,11 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: message
         schema:
-          $ref: "#/components/schemas/Inner"
-          nullable: true
+          $ref: "#/components/schemas/VecU8LotusJson2"
         required: true
     paramStructure: by-position
     result:
@@ -2721,24 +2148,15 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
       - name: message
         schema:
-          $ref: "#/components/schemas/Inner"
-          nullable: true
+          $ref: "#/components/schemas/VecU8LotusJson2"
         required: true
       - name: signature
         schema:
-          type: object
-          required:
-            - Data
-            - Type
-          properties:
-            Data:
-              $ref: "#/components/schemas/VecU8LotusJson"
-            Type:
-              $ref: "#/components/schemas/SignatureTypeLotusJson"
+          $ref: "#/components/schemas/SignatureLotusJson"
         required: true
     paramStructure: by-position
     result:
@@ -2750,7 +2168,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/String"
         required: true
     paramStructure: by-position
     result:
@@ -2829,7 +2247,7 @@ methods:
     params:
       - name: address
         schema:
-          type: string
+          $ref: "#/components/schemas/Address"
         required: true
       - name: block_param
         schema:
@@ -3106,6 +2524,19 @@ components:
         - BuiltinActors
       properties:
         BuiltinActors: true
+    AuthNewParams:
+      type: object
+      required:
+        - perms
+        - token_exp
+      properties:
+        perms:
+          type: array
+          items:
+            type: string
+        token_exp:
+          type: integer
+          format: int64
     BeaconEntryLotusJson:
       type: object
       required:
@@ -3208,6 +2639,30 @@ components:
       type: string
     Bytes:
       type: string
+    ChainExportParams:
+      type: object
+      required:
+        - dry_run
+        - epoch
+        - output_path
+        - recent_roots
+        - skip_checksum
+        - tipset_keys
+      properties:
+        dry_run:
+          type: boolean
+        epoch:
+          type: integer
+          format: int64
+        output_path:
+          type: string
+        recent_roots:
+          type: integer
+          format: int64
+        skip_checksum:
+          type: boolean
+        tipset_keys:
+          $ref: "#/components/schemas/forest_filecoin::lotus_json::cid::CidLotusJsonGeneric<64>"
     CidLotusJsonGeneric_for_64:
       type: object
       required:
@@ -3300,10 +2755,43 @@ components:
           type: integer
           format: uint64
           minimum: 0
+    GossipBlockLotusJson:
+      type: object
+      required:
+        - BlsMessages
+        - Header
+        - SecpkMessages
+      properties:
+        BlsMessages:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        Header:
+          $ref: "#/components/schemas/BlockHeaderLotusJson"
+        SecpkMessages:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
     Hash:
       type: string
     Inner:
       type: string
+    KeyInfoLotusJson:
+      type: object
+      required:
+        - PrivateKey
+        - Type
+      properties:
+        PrivateKey:
+          $ref: "#/components/schemas/VecU8LotusJson"
+        Type:
+          $ref: "#/components/schemas/SignatureTypeLotusJson"
+    MessageFilter:
+      type: object
+      required:
+        - From
+        - To
+      properties:
+        From:
+          $ref: "#/components/schemas/Nullable_String"
+        To:
+          $ref: "#/components/schemas/Nullable_String"
     MessageGasCost:
       type: object
       required:
@@ -3720,6 +3208,35 @@ components:
           minimum: 0
         UnsealedCid:
           $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
+    SectorPreCommitInfo2:
+      type: object
+      required:
+        - DealIDs
+        - Expiration
+        - SealProof
+        - SealRandEpoch
+        - SealedCID
+        - SectorNumber
+        - UnsealedCid
+      properties:
+        DealIDs:
+          $ref: "#/components/schemas/u64"
+        Expiration:
+          type: integer
+          format: int64
+        SealProof:
+          $ref: "#/components/schemas/int64"
+        SealRandEpoch:
+          type: integer
+          format: int64
+        SealedCID:
+          $ref: "#/components/schemas/CidLotusJsonGeneric_for_642"
+        SectorNumber:
+          type: integer
+          format: uint64
+          minimum: 0
+        UnsealedCid:
+          $ref: "#/components/schemas/Nullable_CidLotusJsonGeneric_for_64"
     ShiftingVersion:
       description: "Integer based value on version information. Highest order bits for Major, Mid order for Minor and lowest for Patch."
       type: integer
@@ -3753,6 +3270,10 @@ components:
         - Bls
         - Delegated
     SignatureTypeLotusJson:
+      anyOf:
+        - $ref: "#/components/schemas/SignatureType"
+        - $ref: "#/components/schemas/String"
+    SignatureTypeLotusJson2:
       anyOf:
         - $ref: "#/components/schemas/SignatureType"
         - $ref: "#/components/schemas/String"
