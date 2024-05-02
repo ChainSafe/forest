@@ -46,8 +46,6 @@ pub trait Provider {
         &self,
         h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error>;
-    /// Return all messages for a tipset
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error>;
     /// Return a tipset given the tipset keys from the `ChainStore`
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error>;
     /// Computes the base fee
@@ -115,10 +113,6 @@ where
         h: &CachingBlockHeader,
     ) -> Result<(Vec<Message>, Vec<SignedMessage>), Error> {
         crate::chain::block_messages(self.sm.blockstore(), h).map_err(|err| err.into())
-    }
-
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        Ok(self.sm.chain_store().messages_for_tipset(h)?)
     }
 
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
