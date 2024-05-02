@@ -33,7 +33,7 @@ use fil_actor_interface::{
     miner::{MinerInfo, MinerPower},
     multisig, power, reward,
 };
-use fil_actor_miner_state::v10::qa_power_for_weight;
+use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -814,7 +814,12 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             pci.expiration,
         )?;
         let duration = pci.expiration - ts.epoch();
-        let sector_weight = qa_power_for_weight(sector_size, duration, &w, &vw);
+        let sector_weight =
+            if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V16 {
+                qa_power_for_weight(sector_size, duration, &w, &vw)
+            } else {
+                qa_power_max(sector_size)
+            };
 
         let actor = ctx
             .state_manager
@@ -828,7 +833,9 @@ impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
             .get_actor(&Address::REWARD_ACTOR, state)?
             .context("Reward actor address could not be resolved")?;
         let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
-        let deposit: TokenAmount = reward_state.pre_commit_deposit_for_power(power_smoothed, sector_weight)?.into();
+        let deposit: TokenAmount = reward_state
+            .pre_commit_deposit_for_power(power_smoothed, sector_weight)?
+            .into();
         let (value, _) = (deposit * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(value)
     }
