@@ -327,7 +327,7 @@ pub struct SectorOnChainInfo {
 
 lotus_json_with_self!(SectorOnChainInfo);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitOnChainInfo {
     #[schemars(with = "LotusJson<SectorPreCommitInfo>")]
@@ -341,7 +341,7 @@ pub struct SectorPreCommitOnChainInfo {
 
 lotus_json_with_self!(SectorPreCommitOnChainInfo);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorPreCommitInfo {
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
