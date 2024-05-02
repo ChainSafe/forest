@@ -780,6 +780,13 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tests.extend([RpcTest::identity(
                 StateMinerInitialPledgeCollateral::request((
                     block.miner_address,
+                    info.clone(),
+                    tipset.key().into(),
+                ))?,
+            )]);
+            tests.extend([RpcTest::identity(
+                StateMinerPreCommitDepositForPower::request((
+                    block.miner_address,
                     info,
                     tipset.key().into(),
                 ))?,
