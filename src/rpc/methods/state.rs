@@ -93,6 +93,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
     };
 }
 pub(crate) use for_each_method;
@@ -773,6 +774,63 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
 
         let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
         Ok(q)
+    }
+}
+
+pub enum StateMinerPreCommitDepositForPower {}
+
+impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
+    const NAME: &'static str = "Filecoin.StateMinerPreCommitDepositForPower";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
+    type Ok = TokenAmount;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, pci, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+
+        let state = *ts.parent_state();
+
+        let sector_size = pci
+            .seal_proof
+            .sector_size()
+            .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
+
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::MARKET_ACTOR, state)?
+            .context("Market actor address could not be resolved")?;
+        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let (w, vw) = market_state.verify_deals_for_activation(
+            ctx.store(),
+            address.into(),
+            pci.deal_ids,
+            ts.epoch(),
+            pci.expiration,
+        )?;
+        let duration = pci.expiration - ts.epoch();
+        let sector_weight = qa_power_for_weight(sector_size, duration, &w, &vw);
+
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::POWER_ACTOR, state)?
+            .context("Power actor address could not be resolved")?;
+        let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
+        let power_smoothed = power_state.total_power_smoothed();
+
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::REWARD_ACTOR, state)?
+            .context("Reward actor address could not be resolved")?;
+        let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
+        let deposit: TokenAmount = reward_state.pre_commit_deposit_for_power(power_smoothed, sector_weight)?.into();
+        let (value, _) = (deposit * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
+        Ok(value)
     }
 }
 
