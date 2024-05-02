@@ -7,6 +7,7 @@ use std::{
     str::{self, FromStr},
 };
 
+use crate::key_management::{Key, KeyInfo};
 use crate::{
     cli::humantoken,
     message::SignedMessage,
@@ -16,10 +17,6 @@ use crate::{
     },
     shim::address::Address,
     ENCRYPTED_KEYSTORE_NAME,
-};
-use crate::{
-    key_management::{Key, KeyInfo},
-    rpc_client::ApiInfo,
 };
 use crate::{
     lotus_json::HasLotusJson as _,
@@ -307,8 +304,12 @@ pub enum WalletCommands {
     },
 }
 impl WalletCommands {
-    pub async fn run(self, api: ApiInfo, remote_wallet: bool, encrypt: bool) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api.clone());
+    pub async fn run(
+        self,
+        client: rpc::Client,
+        remote_wallet: bool,
+        encrypt: bool,
+    ) -> anyhow::Result<()> {
         let mut backend = if remote_wallet {
             WalletBackend::new_remote(client)
         } else {

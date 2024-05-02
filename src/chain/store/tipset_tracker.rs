@@ -9,7 +9,7 @@ use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use nonempty::nonempty;
+use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use tracing::{debug, warn};
 

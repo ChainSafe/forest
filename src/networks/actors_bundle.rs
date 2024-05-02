@@ -4,13 +4,13 @@
 use std::io::{self, Cursor};
 use std::path::Path;
 
-use anyhow::{ensure, Context as _};
+use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
 use futures::{stream, StreamExt, TryStreamExt};
 use itertools::Itertools;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
 use tokio::fs::File;
@@ -132,7 +132,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     stream::iter(blocks)
         .map(io::Result::Ok)
         .forward(CarWriter::new_carv1(
-            NonEmpty::from_vec(roots).context("car roots cannot be empty")?,
+            NonEmpty::new(roots).map_err(|_| anyhow::Error::msg("car roots cannot be empty"))?,
             ZstdEncoder::with_quality(
                 File::create(&output).await?,
                 async_compression::Level::Precise(17),

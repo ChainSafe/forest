@@ -15,8 +15,8 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
-use nonempty::{nonempty, NonEmpty};
 use num::BigInt;
+use nunny::{vec as nonempty, Vec as NonEmpty};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -154,7 +154,11 @@ impl quickcheck::Arbitrary for Tipset {
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
-        let headers = full_tipset.blocks.map(|block| block.header);
+        let headers = full_tipset
+            .blocks
+            .into_iter_ne()
+            .map(|block| block.header)
+            .collect_vec();
 
         Tipset { headers, key }
     }
@@ -184,13 +188,14 @@ impl Tipset {
     pub fn new<H: Into<CachingBlockHeader>>(
         headers: impl IntoIterator<Item = H>,
     ) -> Result<Self, CreateTipsetError> {
-        let headers = NonEmpty::collect(
+        let headers = NonEmpty::new(
             headers
                 .into_iter()
                 .map(Into::<CachingBlockHeader>::into)
-                .sorted_by_cached_key(|it| it.tipset_sort_key()),
+                .sorted_by_cached_key(|it| it.tipset_sort_key())
+                .collect(),
         )
-        .ok_or(CreateTipsetError::Empty)?;
+        .map_err(|_| CreateTipsetError::Empty)?;
 
         verify_block_headers(&headers)?;
 
@@ -295,7 +300,7 @@ impl Tipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKey::from(self.headers.clone().map(|h| *h.cid())))
+            .get_or_init(|| TipsetKey::from(self.headers.iter_ne().map(|h| *h.cid()).collect_vec()))
     }
     /// Returns a non-empty collection of `CIDs` for the current tipset
     pub fn cids(&self) -> NonEmpty<Cid> {
@@ -425,14 +430,15 @@ impl PartialEq for FullTipset {
 
 impl FullTipset {
     pub fn new(blocks: impl IntoIterator<Item = Block>) -> Result<Self, CreateTipsetError> {
-        let blocks = NonEmpty::collect(
+        let blocks = NonEmpty::new(
             // sort blocks on creation to allow for more seamless conversions between
             // FullTipset and Tipset
             blocks
                 .into_iter()
-                .sorted_by_cached_key(|it| it.header.tipset_sort_key()),
+                .sorted_by_cached_key(|it| it.header.tipset_sort_key())
+                .collect(),
         )
-        .ok_or(CreateTipsetError::Empty)?;
+        .map_err(|_| CreateTipsetError::Empty)?;
 
         verify_block_headers(blocks.iter().map(|it| &it.header))?;
 
@@ -461,7 +467,7 @@ impl FullTipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKey::from(self.blocks.clone().map(|b| *b.cid())))
+            .get_or_init(|| TipsetKey::from(self.blocks.iter_ne().map(|b| *b.cid()).collect_vec()))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -482,7 +488,8 @@ fn verify_block_headers<'a>(
 ) -> Result<(), CreateTipsetError> {
     use itertools::all;
 
-    let headers = NonEmpty::collect(headers).ok_or(CreateTipsetError::Empty)?;
+    let headers =
+        NonEmpty::new(headers.into_iter().collect()).map_err(|_| CreateTipsetError::Empty)?;
     if !all(&headers, |it| it.parents == headers.first().parents) {
         return Err(CreateTipsetError::BadParents);
     }
@@ -507,7 +514,7 @@ mod lotus_json {
 
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
-    use nonempty::NonEmpty;
+    use nunny::Vec as NonEmpty;
     use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

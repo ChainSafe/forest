@@ -6,7 +6,6 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::blocks::Tipset;
 use crate::cli::humantoken::TokenAmountPretty;
 use crate::rpc::{self, prelude::*};
-use crate::rpc_client::ApiInfo;
 use crate::shim::address::Address;
 use crate::shim::clock::{ChainEpoch, BLOCKS_PER_EPOCH, EPOCH_DURATION_SECONDS};
 use crate::shim::econ::TokenAmount;
@@ -148,8 +147,7 @@ impl NodeStatusInfo {
 }
 
 impl InfoCommand {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api.clone());
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         let (node_status, head, network, start_time, default_wallet_address) = tokio::try_join!(
             NodeStatus::call(&client, ()),
             ChainHead::call(&client, ()),

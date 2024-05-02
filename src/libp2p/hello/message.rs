@@ -4,7 +4,7 @@
 use crate::shim::bigint::BigInt;
 use crate::shim::clock::ChainEpoch;
 use cid::Cid;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use serde_tuple::{self, Deserialize_tuple, Serialize_tuple};
 
 /// Hello message <https://filecoin-project.github.io/specs/#hello-spec>
@@ -40,7 +40,7 @@ mod tests {
             genesis_cid: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             heaviest_tipset_weight: Default::default(),
             heaviest_tipset_height: Default::default(),
-            heaviest_tip_set: Default::default(),
+            heaviest_tip_set: NonEmpty::of(Default::default()),
         };
         let bz = to_vec(&orig_msg).unwrap();
         let msg: HelloRequest = from_slice_with_fallback(&bz).unwrap();

@@ -7,8 +7,6 @@ use std::{
     str::FromStr,
 };
 
-// todo: move this to healthcheck module
-use crate::rpc_client::DEFAULT_PORT;
 use chrono::Duration;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
@@ -98,7 +96,7 @@ impl Default for Client {
             buffer_size: BufferSize::default(),
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
-            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
+            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), crate::rpc::DEFAULT_PORT),
             healthcheck_address: SocketAddr::new(
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
                 crate::health::DEFAULT_HEALTHCHECK_PORT,

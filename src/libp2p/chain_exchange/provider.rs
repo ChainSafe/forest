@@ -155,7 +155,7 @@ mod tests {
     use crate::networks::ChainConfig;
     use crate::shim::address::Address;
     use crate::utils::db::car_util::load_car;
-    use nonempty::NonEmpty;
+    use nunny::Vec as NonEmpty;
     use std::sync::Arc;
 
     async fn populate_db() -> (NonEmpty<Cid>, Arc<MemoryDB>) {
