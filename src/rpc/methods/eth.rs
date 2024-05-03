@@ -49,6 +49,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthChainId);
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
+        $callback!(crate::rpc::eth::EthGetBlockByHash);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
     };
 }
@@ -325,6 +326,10 @@ impl BlockNumberOrHash {
 
     pub fn from_block_number(number: i64) -> Self {
         Self::BlockNumber(number)
+    }
+
+    pub fn from_block_hash(hash: Hash, require_canonical: bool) -> Self {
+        Self::BlockHash(hash, require_canonical)
     }
 }
 
@@ -1262,6 +1267,26 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         },
         ..Block::new(!msgs_and_receipts.is_empty())
     })
+}
+
+pub enum EthGetBlockByHash {}
+impl RpcMethod<2> for EthGetBlockByHash {
+    const NAME: &'static str = "Filecoin.EthGetBlockByHash";
+    const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (BlockNumberOrHash, bool);
+    type Ok = Block;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, full_tx_info): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        Ok(block)
+    }
 }
 
 pub enum EthGetBlockByNumber {}
