@@ -33,15 +33,16 @@ use fil_actor_interface::{
     miner::{MinerInfo, MinerPower},
     multisig, power, reward,
 };
+use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
 use jsonrpsee::types::error::ErrorObject;
 use libipld_core::ipld::Ipld;
-use nonempty::{nonempty, NonEmpty};
 use num_bigint::BigInt;
 use num_traits::Euclid;
+use nunny::{vec as nonempty, Vec as NonEmpty};
 use parking_lot::Mutex;
 use std::ops::Mul;
 use std::path::PathBuf;
@@ -72,6 +73,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerFaults);
         $callback!(crate::rpc::state::StateMinerRecoveries);
         $callback!(crate::rpc::state::StateMinerAvailableBalance);
+        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
         $callback!(crate::rpc::state::StateGetReceipt);
         $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
         $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
@@ -91,11 +93,13 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
     };
 }
 pub(crate) use for_each_method;
 
-pub const STATE_DECODE_PARAMS: &str = "Filecoin.StateDecodeParams";
+const INITIAL_PLEDGE_NUM: u64 = 110;
+const INITIAL_PLEDGE_DEN: u64 = 100;
 
 pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
@@ -696,6 +700,139 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         };
 
         Ok(vested + available)
+    }
+}
+
+pub enum StateMinerInitialPledgeCollateral {}
+
+impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
+    const NAME: &'static str = "Filecoin.StateMinerInitialPledgeCollateral";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
+    type Ok = TokenAmount;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, pci, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+
+        let state = *ts.parent_state();
+
+        let sector_size = pci
+            .seal_proof
+            .sector_size()
+            .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
+
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::MARKET_ACTOR, state)?
+            .context("Market actor address could not be resolved")?;
+        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let (w, vw) = market_state.verify_deals_for_activation(
+            ctx.store(),
+            address.into(),
+            pci.deal_ids,
+            ts.epoch(),
+            pci.expiration,
+        )?;
+        let duration = pci.expiration - ts.epoch();
+        let sector_weigth = qa_power_for_weight(sector_size, duration, &w, &vw);
+
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::POWER_ACTOR, state)?
+            .context("Power actor address could not be resolved")?;
+        let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
+        let power_smoothed = power_state.total_power_smoothed();
+        let pledge_collateral = power_state.total_locked();
+
+        let actor = ctx
+            .state_manager
+            .get_actor(&Address::REWARD_ACTOR, state)?
+            .context("Reward actor address could not be resolved")?;
+        let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
+            ts.epoch(),
+            &Arc::new(ctx.store()),
+            ts.parent_state(),
+        )?;
+        let initial_pledge: TokenAmount = reward_state
+            .initial_pledge_for_power(
+                &sector_weigth,
+                pledge_collateral,
+                power_smoothed,
+                &circ_supply.fil_circulating.into(),
+            )?
+            .into();
+
+        let (q, _) = (initial_pledge * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
+        Ok(q)
+    }
+}
+
+pub enum StateMinerPreCommitDepositForPower {}
+
+impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
+    const NAME: &'static str = "Filecoin.StateMinerPreCommitDepositForPower";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
+    type Ok = TokenAmount;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, pci, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+
+        let state = *ts.parent_state();
+
+        let sector_size = pci
+            .seal_proof
+            .sector_size()
+            .map_err(|e| anyhow::anyhow!("failed to get resolve size: {e}"))?;
+
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::MARKET_ACTOR, state)?;
+        let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
+        let (w, vw) = market_state.verify_deals_for_activation(
+            ctx.store(),
+            address.into(),
+            pci.deal_ids,
+            ts.epoch(),
+            pci.expiration,
+        )?;
+        let duration = pci.expiration - ts.epoch();
+        let sector_weight =
+            if ctx.state_manager.get_network_version(ts.epoch()) < NetworkVersion::V16 {
+                qa_power_for_weight(sector_size, duration, &w, &vw)
+            } else {
+                qa_power_max(sector_size)
+            };
+
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::POWER_ACTOR, state)?;
+        let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
+        let power_smoothed = power_state.total_power_smoothed();
+
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::REWARD_ACTOR, state)?;
+        let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
+        let deposit: TokenAmount = reward_state
+            .pre_commit_deposit_for_power(power_smoothed, sector_weight)?
+            .into();
+        let (value, _) = (deposit * INITIAL_PLEDGE_NUM).div_rem(INITIAL_PLEDGE_DEN);
+        Ok(value)
     }
 }
 
@@ -1546,6 +1683,81 @@ impl StateSectorPreCommitInfo {
         }?;
 
         Ok(sectors)
+    }
+
+    pub fn get_sector_pre_commit_infos(
+        store: &Arc<impl Blockstore>,
+        miner_address: &Address,
+        tipset: &Tipset,
+    ) -> anyhow::Result<Vec<SectorPreCommitInfo>> {
+        let mut infos = vec![];
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_required_actor(miner_address)?;
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        match &state {
+            miner::State::V8(s) => {
+                let precommitted = fil_actors_shared::v8::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V9(s) => {
+                let precommitted = fil_actors_shared::v9::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V10(s) => {
+                let precommitted = fil_actors_shared::v10::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v10::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V11(s) => {
+                let precommitted = fil_actors_shared::v11::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v11::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V12(s) => {
+                let precommitted = fil_actors_shared::v12::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v12::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+            miner::State::V13(s) => {
+                let precommitted = fil_actors_shared::v13::make_map_with_root::<
+                    _,
+                    fil_actor_miner_state::v13::SectorPreCommitOnChainInfo,
+                >(&s.pre_committed_sectors, store)?;
+                precommitted.for_each(|_k, v| {
+                    infos.push(v.info.clone().into());
+                    Ok(())
+                })
+            }
+        }?;
+
+        Ok(infos)
     }
 }
 

@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use ::nonempty::NonEmpty;
 
-impl<T> HasLotusJson for NonEmpty<T>
+impl<T> HasLotusJson for nunny::Vec<T>
 where
     T: HasLotusJson,
 {
-    type LotusJson = NonEmpty<<T as HasLotusJson>::LotusJson>;
+    type LotusJson = nunny::Vec<<T as HasLotusJson>::LotusJson>;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -16,11 +15,16 @@ where
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        self.map(HasLotusJson::into_lotus_json)
+        self.into_iter_ne()
+            .map(HasLotusJson::into_lotus_json)
+            .collect_vec()
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        lotus_json.map(HasLotusJson::from_lotus_json)
+        lotus_json
+            .into_iter_ne()
+            .map(HasLotusJson::from_lotus_json)
+            .collect_vec()
     }
 }
 
@@ -28,7 +32,7 @@ where
 mod tests {
     use super::*;
     use ::cid::Cid;
-    use ::nonempty::nonempty;
+    use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
 
     #[test]
@@ -37,7 +41,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn assert_unchanged(head: Cid, tail: Vec<Cid>) {
-        assert_unchanged_via_json(NonEmpty::from((head, tail)))
+    fn assert_unchanged(it: nunny::Vec<Cid>) {
+        assert_unchanged_via_json(it)
     }
 }

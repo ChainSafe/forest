@@ -7,7 +7,6 @@ use crate::blocks::Tipset;
 use crate::lotus_json::HasLotusJson as _;
 use crate::message::SignedMessage;
 use crate::rpc::{self, prelude::*, types::ApiTipsetKey};
-use crate::rpc_client::ApiInfo;
 use crate::shim::address::StrictAddress;
 use crate::shim::message::Message;
 use crate::shim::{address::Address, econ::TokenAmount};
@@ -208,8 +207,7 @@ fn print_stats(stats: &[MpStat], basefee_lookback: u32) {
 }
 
 impl MpoolCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api.clone());
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Pending {
                 local,

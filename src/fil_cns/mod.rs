@@ -9,7 +9,7 @@ use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use thiserror::Error;
 
 mod metrics;

@@ -10,7 +10,7 @@ use futures::ready;
 use futures::{sink::Sink, Stream, StreamExt};
 use fvm_ipld_encoding::to_vec;
 use integer_encoding::VarInt;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use pin_project_lite::pin_project;
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -24,7 +24,7 @@ use unsigned_varint::codec::UviBytes;
 
 use crate::utils::encoding::from_slice_with_fallback;
 
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CarHeader {
     // The roots array must contain one or more CIDs,
     // each of which should be present somewhere in the remainder of the CAR.

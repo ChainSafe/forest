@@ -59,7 +59,7 @@ use cid::Cid;
 use futures::{Stream, TryStream, TryStreamExt as _};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use parking_lot::{Mutex, RwLock};
 use positioned_io::{Cursor, ReadAt, SizeCursor};
 use std::io::{Seek, SeekFrom};
@@ -421,7 +421,7 @@ impl ForestCarFooter {
 mod tests {
     use super::*;
     use crate::block_on;
-    use nonempty::nonempty;
+    use nunny::vec as nonempty;
     use quickcheck_macros::quickcheck;
 
     fn mk_encoded_car(
@@ -445,9 +445,8 @@ mod tests {
     }
 
     #[quickcheck]
-    fn forest_car_create_basic(head: CarBlock, tail: Vec<CarBlock>) {
-        let roots = nonempty!(head.cid);
-        let blocks = NonEmpty { head, tail };
+    fn forest_car_create_basic(blocks: nunny::Vec<CarBlock>) {
+        let roots = nonempty!(blocks.first().cid);
         let forest_car =
             ForestCar::new(mk_encoded_car(1024 * 4, 3, roots.clone(), blocks.clone())).unwrap();
         assert_eq!(forest_car.roots(), &roots);
@@ -458,15 +457,12 @@ mod tests {
 
     #[quickcheck]
     fn forest_car_create_options(
-        head: CarBlock,
-        tail: Vec<CarBlock>,
+        blocks: nunny::Vec<CarBlock>,
         frame_size: usize,
         mut compression_level: u16,
     ) {
         compression_level %= 15;
-
-        let roots = nonempty!(head.cid);
-        let blocks = NonEmpty { head, tail };
+        let roots = nonempty!(blocks.first().cid);
 
         let forest_car = ForestCar::new(mk_encoded_car(
             frame_size,

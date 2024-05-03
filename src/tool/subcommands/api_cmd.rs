@@ -15,11 +15,10 @@ use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
-use crate::rpc::eth::*;
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{prelude::*, start_rpc, RPCState, ServerError};
-use crate::rpc_client::{ApiInfo, RpcRequest, DEFAULT_PORT};
+use crate::rpc::{self, eth::*};
+use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -29,6 +28,7 @@ use crate::shim::{
     state_tree::StateTree,
 };
 use crate::state_manager::StateManager;
+use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::Cid;
@@ -73,7 +73,7 @@ pub enum ApiCommands {
         #[arg(long, default_value = "mainnet")]
         chain: NetworkChain,
         // RPC port
-        #[arg(long, default_value_t = DEFAULT_PORT)]
+        #[arg(long, default_value_t = crate::rpc::DEFAULT_PORT)]
         port: u16,
         // Allow downloading snapshot automatically
         #[arg(long)]
@@ -86,11 +86,11 @@ pub enum ApiCommands {
     /// Compare
     Compare {
         /// Forest address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/2345/http").expect("infallible"))]
-        forest: ApiInfo,
+        #[clap(long, default_value = "/ip4/127.0.0.1/tcp/2345/http")]
+        forest: UrlFromMultiAddr,
         /// Lotus address
-        #[clap(long, default_value_t = ApiInfo::from_str("/ip4/127.0.0.1/tcp/1234/http").expect("infallible"))]
-        lotus: ApiInfo,
+        #[clap(long, default_value = "/ip4/127.0.0.1/tcp/1234/http")]
+        lotus: UrlFromMultiAddr,
         /// Snapshot input paths. Supports `.car`, `.car.zst`, and `.forest.car.zst`.
         #[arg()]
         snapshot_files: Vec<PathBuf>,
@@ -143,8 +143,8 @@ impl ApiCommands {
                     .await?;
             }
             Self::Compare {
-                forest,
-                lotus,
+                forest: UrlFromMultiAddr(forest),
+                lotus: UrlFromMultiAddr(lotus),
                 snapshot_files,
                 filter,
                 filter_file,
@@ -162,7 +162,13 @@ impl ApiCommands {
                     max_concurrent_requests,
                 };
 
-                compare_apis(forest, lotus, snapshot_files, config).await?
+                compare_apis(
+                    rpc::Client::from_url(forest),
+                    rpc::Client::from_url(lotus),
+                    snapshot_files,
+                    config,
+                )
+                .await?
             }
         }
         Ok(())
@@ -177,41 +183,51 @@ pub enum RunIgnored {
     All,
 }
 
+/// Brief description of a single method call against a single host
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
-enum EndpointStatus {
-    // RPC method is missing
+enum TestSummary {
+    /// Server spoke JSON-RPC: no such method
     MissingMethod,
-    // Request isn't valid according to jsonrpc spec
-    InvalidRequest,
-    // Catch-all for errors on the node
-    InternalServerError,
-    // Unexpected JSON schema
-    InvalidJSON,
-    // Got response with the right JSON schema but it failed sanity checking
-    InvalidResponse,
+    /// Server spoke JSON-RPC: bad request (or other error)
+    Rejected,
+    /// Server doesn't seem to be speaking JSON-RPC
+    NotJsonRPC,
+    /// Transport or ask task management errors
+    InfraError,
+    /// Server returned JSON-RPC and it didn't match our schema
+    BadJson,
+    /// Server returned JSON-RPC and it matched our schema, but failed validation
+    CustomCheckFailed,
     Timeout,
     Valid,
 }
 
-impl EndpointStatus {
-    fn from_json_error(err: ServerError) -> Self {
-        match err.known_code() {
-            ErrorCode::ParseError => Self::InvalidResponse,
-            ErrorCode::OversizedRequest => Self::InvalidRequest,
-            ErrorCode::InvalidRequest => Self::InvalidRequest,
-            ErrorCode::MethodNotFound => Self::MissingMethod,
-            it if it.code() == 0 && it.message().contains("timed out") => Self::Timeout,
-            _ => {
-                tracing::debug!(?err);
-                Self::InternalServerError
-            }
+impl TestSummary {
+    fn from_err(err: &rpc::ClientError) -> Self {
+        match err {
+            rpc::ClientError::Call(it) => match it.code().into() {
+                ErrorCode::MethodNotFound => Self::MissingMethod,
+                _ => Self::Rejected,
+            },
+            rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
+            rpc::ClientError::RequestTimeout => Self::Timeout,
+
+            rpc::ClientError::Transport(_)
+            | rpc::ClientError::RestartNeeded(_)
+            | rpc::ClientError::InvalidSubscriptionId
+            | rpc::ClientError::InvalidRequestId(_)
+            | rpc::ClientError::MaxSlotsExceeded
+            | rpc::ClientError::Custom(_)
+            | rpc::ClientError::HttpNotImplemented
+            | rpc::ClientError::EmptyBatchRequest(_)
+            | rpc::ClientError::RegisterMethod(_) => Self::InfraError,
         }
     }
 }
 
 /// Data about a failed test. Used for debugging.
 struct TestDump {
-    request: RpcRequest,
+    request: rpc::Request,
     forest_response: Option<String>,
     lotus_response: Option<String>,
 }
@@ -250,9 +266,9 @@ impl std::fmt::Display for TestDump {
 
 struct TestResult {
     /// Forest result after calling the RPC method.
-    forest_status: EndpointStatus,
+    forest_status: TestSummary,
     /// Lotus result after calling the RPC method.
-    lotus_status: EndpointStatus,
+    lotus_status: TestSummary,
     /// Optional data dump if either status was invalid.
     test_dump: Option<TestDump>,
 }
@@ -279,7 +295,7 @@ impl From<&RpcTest> for RpcTestHashable {
 }
 
 struct RpcTest {
-    request: RpcRequest,
+    request: rpc::Request,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
@@ -291,14 +307,14 @@ struct RpcTest {
 impl RpcTest {
     /// Check that an endpoint exists and that both the Lotus and Forest JSON
     /// response follows the same schema.
-    fn basic<T>(request: RpcRequest<T>) -> Self
+    fn basic<T>(request: rpc::Request<T>) -> Self
     where
         T: HasLotusJson,
     {
         Self::basic_raw(request.map_ty::<T::LotusJson>())
     }
     /// See [Self::basic], and note on this `impl` block.
-    fn basic_raw<T: DeserializeOwned>(request: RpcRequest<T>) -> Self {
+    fn basic_raw<T: DeserializeOwned>(request: rpc::Request<T>) -> Self {
         Self {
             request: request.map_ty(),
             check_syntax: Arc::new(|it| match serde_json::from_value::<T>(it) {
@@ -315,7 +331,7 @@ impl RpcTest {
     /// Check that an endpoint exists, has the same JSON schema, and do custom
     /// validation over both responses.
     fn validate<T: HasLotusJson>(
-        request: RpcRequest<T>,
+        request: rpc::Request<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
         Self::validate_raw(request.map_ty::<T::LotusJson>(), move |l, r| {
@@ -324,7 +340,7 @@ impl RpcTest {
     }
     /// See [Self::validate], and note on this `impl` block.
     fn validate_raw<T: DeserializeOwned>(
-        request: RpcRequest<T>,
+        request: rpc::Request<T>,
         validate: impl Fn(T, T) -> bool + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -358,7 +374,7 @@ impl RpcTest {
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
     /// JSON as Lotus.
-    fn identity<T: PartialEq + HasLotusJson>(request: RpcRequest<T>) -> RpcTest {
+    fn identity<T: PartialEq + HasLotusJson>(request: rpc::Request<T>) -> RpcTest {
         Self::validate(request, |forest, lotus| forest == lotus)
     }
 
@@ -367,9 +383,9 @@ impl RpcTest {
         self
     }
 
-    async fn run(&self, forest_api: &ApiInfo, lotus_api: &ApiInfo) -> TestResult {
-        let forest_resp = forest_api.call(self.request.clone()).await;
-        let lotus_resp = lotus_api.call(self.request.clone()).await;
+    async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
+        let forest_resp = forest.call(self.request.clone()).await;
+        let lotus_resp = lotus.call(self.request.clone()).await;
 
         let forest_json_str = if let Ok(forest_resp) = forest_resp.as_ref() {
             serde_json::to_string_pretty(forest_resp).ok()
@@ -388,35 +404,39 @@ impl RpcTest {
                 if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
             {
                 let forest_status = if (self.check_semantics)(forest, lotus) {
-                    EndpointStatus::Valid
+                    TestSummary::Valid
                 } else {
-                    EndpointStatus::InvalidResponse
+                    TestSummary::CustomCheckFailed
                 };
-                (forest_status, EndpointStatus::Valid)
+                (forest_status, TestSummary::Valid)
             }
             (forest_resp, lotus_resp) => {
-                let forest_status =
-                    forest_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                let forest_status = forest_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
                         if (self.check_syntax)(value) {
-                            EndpointStatus::Valid
+                            TestSummary::Valid
                         } else {
-                            EndpointStatus::InvalidJSON
+                            TestSummary::BadJson
                         }
-                    });
-                let lotus_status =
-                    lotus_resp.map_or_else(EndpointStatus::from_json_error, |value| {
+                    },
+                );
+                let lotus_status = lotus_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
                         if (self.check_syntax)(value) {
-                            EndpointStatus::Valid
+                            TestSummary::Valid
                         } else {
-                            EndpointStatus::InvalidJSON
+                            TestSummary::BadJson
                         }
-                    });
+                    },
+                );
 
                 (forest_status, lotus_status)
             }
         };
 
-        if forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid {
+        if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
             TestResult {
                 forest_status,
                 lotus_status,
@@ -624,17 +644,19 @@ fn state_tests_with_tipset<DB: Blockstore>(
     ];
 
     // Get deals
-    let deals = {
+    let (deals, deals_map) = {
         let state = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
         let actor = state.get_required_actor(&Address::MARKET_ACTOR)?;
         let market_state = market::State::load(&store, actor.code, actor.state)?;
         let proposals = market_state.proposals(&store)?;
         let mut deals = vec![];
-        proposals.for_each(|deal_id, _| {
+        let mut deals_map = HashMap::default();
+        proposals.for_each(|deal_id, deal_proposal| {
             deals.push(deal_id);
+            deals_map.insert(deal_id, deal_proposal);
             Ok(())
         })?;
-        deals
+        (deals, deals_map)
     };
 
     // Take 5 deals from each tipset
@@ -739,6 +761,37 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 tipset.key().into(),
             ))?)]);
         }
+        for info in StateSectorPreCommitInfo::get_sector_pre_commit_infos(
+            store,
+            &block.miner_address,
+            tipset,
+        )?
+        .into_iter()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .filter(|info| {
+            !info.deal_ids.iter().any(|id| {
+                if let Some(Ok(deal)) = deals_map.get(id) {
+                    tipset.epoch() > deal.start_epoch || info.expiration > deal.end_epoch
+                } else {
+                    true
+                }
+            })
+        }) {
+            tests.extend([RpcTest::identity(
+                StateMinerInitialPledgeCollateral::request((
+                    block.miner_address,
+                    info.clone(),
+                    tipset.key().into(),
+                ))?,
+            )]);
+            tests.extend([RpcTest::identity(
+                StateMinerPreCommitDepositForPower::request((
+                    block.miner_address,
+                    info,
+                    tipset.key().into(),
+                ))?,
+            )]);
+        }
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
@@ -781,15 +834,6 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 ))?),
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
             ]);
-            if !msg.params().is_empty() {
-                tests.extend([RpcTest::identity(ApiInfo::state_decode_params_req(
-                        msg.to(),
-                        msg.method_num(),
-                        msg.params().to_vec(),
-                        tipset.key().into(),
-                    )).ignore("Difficult to implement. Tracking issue: https://github.com/ChainSafe/forest/issues/3769")
-                ]);
-            }
         }
     }
 
@@ -923,11 +967,6 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     Ok(tests)
 }
 
-fn websocket_tests() -> Vec<RpcTest> {
-    let test = RpcTest::identity(ApiInfo::chain_notify_req()).ignore("Not implemented yet");
-    vec![test]
-}
-
 fn sample_message_cids<'a>(
     bls_messages: impl Iterator<Item = &'a Message> + 'a,
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
@@ -980,8 +1019,8 @@ fn sample_messages<'a>(
 /// The number after a method name indicates how many times an RPC call was tested.
 #[allow(clippy::too_many_arguments)]
 async fn compare_apis(
-    forest: ApiInfo,
-    lotus: ApiInfo,
+    forest: rpc::Client,
+    lotus: rpc::Client,
     snapshot_files: Vec<PathBuf>,
     config: ApiTestFlags,
 ) -> anyhow::Result<()> {
@@ -1003,13 +1042,9 @@ async fn compare_apis(
         tests.extend(snapshot_tests(store, config.n_tipsets)?);
     }
 
-    if matches!(forest.scheme(), "ws" | "wss") && matches!(lotus.scheme(), "ws" | "wss") {
-        tests.extend(websocket_tests())
-    }
-
     tests.sort_by_key(|test| test.request.method_name);
 
-    run_tests(tests, &forest, &lotus, &config).await
+    run_tests(tests, forest, lotus, &config).await
 }
 
 async fn start_offline_server(
@@ -1164,10 +1199,12 @@ where
 
 async fn run_tests(
     tests: impl IntoIterator<Item = RpcTest>,
-    forest: &ApiInfo,
-    lotus: &ApiInfo,
+    forest: impl Into<Arc<rpc::Client>>,
+    lotus: impl Into<Arc<rpc::Client>>,
     config: &ApiTestFlags,
 ) -> anyhow::Result<()> {
+    let forest = Into::<Arc<rpc::Client>>::into(forest);
+    let lotus = Into::<Arc<rpc::Client>>::into(lotus);
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_requests));
     let mut futures = FuturesUnordered::new();
 
@@ -1212,8 +1249,8 @@ async fn run_tests(
         let forest_status = test_result.forest_status;
         let lotus_status = test_result.lotus_status;
         let result_entry = (method_name, forest_status, lotus_status);
-        if (forest_status == EndpointStatus::Valid && lotus_status == EndpointStatus::Valid)
-            || (forest_status == EndpointStatus::Timeout && lotus_status == EndpointStatus::Timeout)
+        if (forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid)
+            || (forest_status == TestSummary::Timeout && lotus_status == TestSummary::Timeout)
         {
             success_results
                 .entry(result_entry)
@@ -1250,8 +1287,8 @@ fn print_error_details(fail_details: &[TestDump]) {
 }
 
 fn print_test_results(
-    success_results: &HashMap<(&'static str, EndpointStatus, EndpointStatus), u32>,
-    failed_results: &HashMap<(&'static str, EndpointStatus, EndpointStatus), u32>,
+    success_results: &HashMap<(&'static str, TestSummary, TestSummary), u32>,
+    failed_results: &HashMap<(&'static str, TestSummary, TestSummary), u32>,
 ) {
     // Combine all results
     let mut combined_results = success_results.clone();
@@ -1265,7 +1302,7 @@ fn print_test_results(
     println!("{}", format_as_markdown(&results));
 }
 
-fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus), u32)]) -> String {
+fn format_as_markdown(results: &[((&'static str, TestSummary, TestSummary), u32)]) -> String {
     let mut builder = Builder::default();
 
     builder.push_record(["RPC Method", "Forest", "Lotus"]);
@@ -1285,7 +1322,7 @@ fn format_as_markdown(results: &[((&'static str, EndpointStatus, EndpointStatus)
     builder.build().with(Style::markdown()).to_string()
 }
 
-fn validate_message_lookup(req: RpcRequest<MessageLookup>) -> RpcTest {
+fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
     use libipld_core::ipld::Ipld;
 
     RpcTest::validate(req, |mut forest, mut lotus| {

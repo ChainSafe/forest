@@ -71,6 +71,12 @@
   and `--exact-balance` flags to `forest-wallet balance` similarly to
   `forest-wallet list` subcommand.
 
+- [#4213](https://github.com/ChainSafe/forest/issues/4213) Add support for the
+  `Filecoin.StateMinerInitialPledgeCollateral` RPC method.
+
+- [#4214](https://github.com/ChainSafe/forest/issues/4214) Add support for the
+  `Filecoin.StateMinerPreCommitDepositForPower` RPC method.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default

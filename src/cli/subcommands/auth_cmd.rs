@@ -1,14 +1,12 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::rpc_client::ApiInfo;
 use crate::{
     auth::*,
     rpc::{self, auth::AuthNewParams, prelude::*},
 };
 use chrono::Duration;
 use clap::Subcommand;
-use std::str::FromStr;
 
 use super::print_rpc_res_bytes;
 
@@ -20,7 +18,7 @@ pub enum AuthCommands {
         #[arg(short, long)]
         perm: String,
         /// Token is revoked after this duration
-        #[arg(long, default_value_t = humantime::Duration::from_str("2 months").expect("infallible"))]
+        #[arg(long, default_value = "2 months")]
         expire_in: humantime::Duration,
     },
     /// Get RPC API Information
@@ -29,7 +27,7 @@ pub enum AuthCommands {
         #[arg(short, long)]
         perm: String,
         /// Token is revoked after this duration
-        #[arg(long, default_value_t = humantime::Duration::from_str("2 months").expect("infallible"))]
+        #[arg(long, default_value = "2 months")]
         expire_in: humantime::Duration,
     },
 }
@@ -48,8 +46,7 @@ fn process_perms(perm: String) -> Result<Vec<String>, rpc::ServerError> {
 }
 
 impl AuthCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
-        let client = rpc::Client::from(api.clone());
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::CreateToken { perm, expire_in } => {
                 let perm: String = perm.parse()?;
@@ -62,9 +59,11 @@ impl AuthCommands {
                 let perm: String = perm.parse()?;
                 let perms = process_perms(perm)?;
                 let token_exp = Duration::from_std(expire_in.into())?;
-                let token = AuthNew::call(&client, (AuthNewParams { perms, token_exp },)).await?;
-                let new_api = api.set_token(Some(String::from_utf8(token)?));
-                println!("FULLNODE_API_INFO=\"{}\"", new_api);
+                let token = String::from_utf8(
+                    AuthNew::call(&client, (AuthNewParams { perms, token_exp },)).await?,
+                )?;
+                let addr = multiaddr::from_url(client.base_url().as_str())?;
+                println!("FULLNODE_API_INFO=\"{}:{}\"", token, addr);
                 Ok(())
             }
         }
