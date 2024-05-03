@@ -14,8 +14,9 @@ use std::fmt::{self, Debug};
 use std::time::Duration;
 
 use anyhow::bail;
+use futures::StreamExt;
 use http02::{header, HeaderMap, HeaderValue};
-use jsonrpsee::core::client::ClientT as _;
+use jsonrpsee::core::client::{ClientT as _, SubscriptionClientT};
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;
 use once_cell::sync::Lazy;
@@ -24,6 +25,8 @@ use tracing::{debug, Instrument, Level};
 use url::Url;
 
 use super::{ApiVersion, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
+
+const DEFAULT_NOTIFICATION_SAMPLES: usize = 2;
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
@@ -128,6 +131,66 @@ impl Client {
             result
         };
         work.instrument(span.or_current()).await
+    }
+    pub async fn subscribe<T: crate::lotus_json::HasLotusJson + std::fmt::Debug>(
+        &self,
+        req: Request<T>,
+    ) -> Result<Vec<T>, ClientError> {
+        let Request {
+            method_name,
+            params,
+            api_version,
+            ..
+        } = req;
+
+        let client = self.get_or_init_client(api_version).await?;
+
+        let subscription = match params {
+            serde_json::Value::Null => {
+                client.subscribe::<T::LotusJson, _>(method_name, ArrayParams::new(), "xrpc.cancel")
+            }
+            serde_json::Value::Array(it) => {
+                let mut params = ArrayParams::new();
+                for param in it {
+                    params.insert(param)?
+                }
+                trace_params(params.clone());
+                client.subscribe(method_name, params, "xrpc.cancel")
+            }
+            serde_json::Value::Object(it) => {
+                let mut params = ObjectParams::new();
+                for (name, param) in it {
+                    params.insert(&name, param)?
+                }
+                trace_params(params.clone());
+                client.subscribe(method_name, params, "xrpc.cancel")
+            }
+            prim @ (serde_json::Value::Bool(_)
+            | serde_json::Value::Number(_)
+            | serde_json::Value::String(_)) => {
+                return Err(ClientError::Custom(format!(
+                    "invalid parameter type: `{}`",
+                    prim
+                )))
+            }
+        }
+        .await?;
+
+        let result = subscription
+            .take(DEFAULT_NOTIFICATION_SAMPLES)
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .map(|r| {
+                let result = match r {
+                    Ok(it) => Ok(T::from_lotus_json(it)),
+                    Err(e) => Err(e),
+                };
+                debug!(?result);
+                result
+            })
+            .collect();
+        result
     }
     async fn get_or_init_client(&self, version: ApiVersion) -> Result<&UrlClient, ClientError> {
         match version {

@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ApiVersion;
+use super::{chain::CHAIN_NOTIFY, ApiVersion};
 use jsonrpsee::core::traits::ToRpcParams;
 use std::{marker::PhantomData, time::Duration};
 
@@ -34,6 +34,13 @@ impl<T> Request<T> {
             result_type: PhantomData,
             api_version: self.api_version,
             timeout: self.timeout,
+        }
+    }
+
+    pub fn is_subscription_method(&self) -> bool {
+        match self.method_name {
+            CHAIN_NOTIFY => true,
+            _ => false,
         }
     }
 }

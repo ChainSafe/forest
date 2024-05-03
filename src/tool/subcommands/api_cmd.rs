@@ -14,11 +14,12 @@ use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
+use crate::rpc::chain::ApiHeadChange;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
-use crate::rpc::{prelude::*, start_rpc, RPCState};
+use crate::rpc::{prelude::*, start_rpc, RPCState, Request};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
     address::{Address, Protocol},
@@ -39,6 +40,7 @@ use fil_actors_shared::v10::runtime::DomainSeparationTag;
 use futures::{stream::FuturesUnordered, StreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools as _;
+use jsonrpsee::core::ClientError;
 use jsonrpsee::types::ErrorCode;
 use serde::de::DeserializeOwned;
 use similar::{ChangeTag, TextDiff};
@@ -200,6 +202,8 @@ enum TestSummary {
     CustomCheckFailed,
     Timeout,
     Valid,
+    /// One or several notifications produced an error
+    SubscriptionError,
 }
 
 impl TestSummary {
@@ -378,12 +382,28 @@ impl RpcTest {
         Self::validate(request, |forest, lotus| forest == lotus)
     }
 
+    fn subscribe<T: PartialEq + HasLotusJson + std::fmt::Debug>(request: Request<T>) -> RpcTest {
+        Self::validate(request, |_forest, _lotus| {
+            // We can't compare values because we would need to run subscriptions concurrently
+            // and hope there are no network races
+            true
+        })
+    }
+
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
         self
     }
 
     async fn run(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
+        if self.request.is_subscription_method() {
+            self.run_subscription(forest, lotus).await
+        } else {
+            self.run_request(forest, lotus).await
+        }
+    }
+
+    async fn run_request(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
         let forest_resp = forest.call(self.request.clone()).await;
         let lotus_resp = lotus.call(self.request.clone()).await;
 
@@ -434,6 +454,119 @@ impl RpcTest {
 
                 (forest_status, lotus_status)
             }
+        };
+
+        if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
+            TestResult {
+                forest_status,
+                lotus_status,
+                test_dump: None,
+            }
+        } else {
+            TestResult {
+                forest_status,
+                lotus_status,
+                test_dump: Some(TestDump {
+                    request: self.request.clone(),
+                    forest_response: forest_json_str,
+                    lotus_response: lotus_json_str,
+                }),
+            }
+        }
+    }
+
+    fn get_test_summaries(
+        &self,
+        forest_resp: Result<serde_json::Value, ClientError>,
+        lotus_resp: Result<serde_json::Value, ClientError>,
+    ) -> (TestSummary, TestSummary) {
+        match (forest_resp, lotus_resp) {
+            (Ok(forest), Ok(lotus))
+                if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
+            {
+                let forest_status = if (self.check_semantics)(forest, lotus) {
+                    TestSummary::Valid
+                } else {
+                    TestSummary::CustomCheckFailed
+                };
+                (forest_status, TestSummary::Valid)
+            }
+            (forest_resp, lotus_resp) => {
+                let forest_status = forest_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
+                        if (self.check_syntax)(value) {
+                            TestSummary::Valid
+                        } else {
+                            TestSummary::BadJson
+                        }
+                    },
+                );
+                let lotus_status = lotus_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
+                        if (self.check_syntax)(value) {
+                            TestSummary::Valid
+                        } else {
+                            TestSummary::BadJson
+                        }
+                    },
+                );
+
+                (forest_status, lotus_status)
+            }
+        }
+    }
+
+    async fn run_subscription(&self, forest: &rpc::Client, lotus: &rpc::Client) -> TestResult {
+        let forest_resp = forest.subscribe(self.request.clone()).await;
+        let lotus_resp = lotus.subscribe(self.request.clone()).await;
+
+        let forest_json_str = if let Ok(forest_resp) = forest_resp.as_ref() {
+            serde_json::to_string_pretty(forest_resp).ok()
+        } else {
+            None
+        };
+
+        let lotus_json_str = if let Ok(lotus_resp) = lotus_resp.as_ref() {
+            serde_json::to_string_pretty(lotus_resp).ok()
+        } else {
+            None
+        };
+
+        let unpack = |value: serde_json::Value| match value {
+            serde_json::Value::Array(arr) => {
+                arr.first().unwrap_or(&serde_json::Value::Null).clone()
+            }
+            _ => serde_json::Value::Null,
+        };
+
+        let (forest_status, lotus_status) = match (forest_resp, lotus_resp) {
+            (Ok(a), Ok(b)) => {
+                let summaries: Vec<(TestSummary, TestSummary)> = a
+                    .into_iter()
+                    .zip(b.into_iter())
+                    .map(|(a, b)| self.get_test_summaries(Ok(unpack(a)), Ok(unpack(b))))
+                    .collect();
+                let (forest_summaries, lotus_summaries): (Vec<_>, Vec<_>) =
+                    summaries.into_iter().map(|(a, b)| (a, b)).unzip();
+
+                let forest_status = if forest_summaries
+                    .into_iter()
+                    .all(|s| s == TestSummary::Valid)
+                {
+                    TestSummary::Valid
+                } else {
+                    TestSummary::SubscriptionError
+                };
+                let lotus_status = if lotus_summaries.into_iter().all(|s| s == TestSummary::Valid) {
+                    TestSummary::Valid
+                } else {
+                    TestSummary::SubscriptionError
+                };
+                (forest_status, lotus_status)
+            }
+            _ => todo!(),
         };
 
         if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
@@ -967,6 +1100,23 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     Ok(tests)
 }
 
+pub fn chain_notify_req() -> Request<ApiHeadChange> {
+    use std::marker::PhantomData;
+
+    Request {
+        method_name: crate::rpc::chain::CHAIN_NOTIFY,
+        params: ().into(),
+        result_type: PhantomData,
+        api_version: rpc::ApiVersion::V0,
+        timeout: std::time::Duration::from_secs(24 * 3600),
+    }
+}
+
+fn websocket_tests() -> Vec<RpcTest> {
+    let test = RpcTest::subscribe(chain_notify_req());
+    vec![test]
+}
+
 fn sample_message_cids<'a>(
     bls_messages: impl Iterator<Item = &'a Message> + 'a,
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
@@ -1040,6 +1190,12 @@ async fn compare_apis(
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
         tests.extend(snapshot_tests(store, config.n_tipsets)?);
+    }
+
+    if matches!(forest.base_url().scheme(), "ws" | "wss")
+        && matches!(lotus.base_url().scheme(), "ws" | "wss")
+    {
+        tests.extend(websocket_tests())
     }
 
     tests.sort_by_key(|test| test.request.method_name);

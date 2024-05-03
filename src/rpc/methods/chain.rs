@@ -774,6 +774,7 @@ pub struct ApiHeadChange {
     #[schemars(with = "LotusJson<Tipset>")]
     pub tipset: Tipset,
 }
+lotus_json_with_self!(ApiHeadChange);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
