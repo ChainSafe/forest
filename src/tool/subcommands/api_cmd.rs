@@ -549,7 +549,7 @@ impl RpcTest {
                     .map(|(a, b)| self.get_test_summaries(Ok(unpack(a)), Ok(unpack(b))))
                     .collect();
                 let (forest_summaries, lotus_summaries): (Vec<_>, Vec<_>) =
-                    summaries.into_iter().map(|(a, b)| (a, b)).unzip();
+                    summaries.into_iter().unzip();
 
                 let forest_status = if forest_summaries
                     .into_iter()
@@ -566,7 +566,7 @@ impl RpcTest {
                 };
                 (forest_status, lotus_status)
             }
-            _ => todo!(),
+            _ => unimplemented!(),
         };
 
         if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {

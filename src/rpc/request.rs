@@ -38,10 +38,7 @@ impl<T> Request<T> {
     }
 
     pub fn is_subscription_method(&self) -> bool {
-        match self.method_name {
-            CHAIN_NOTIFY => true,
-            _ => false,
-        }
+        matches!(self.method_name, CHAIN_NOTIFY)
     }
 }
 

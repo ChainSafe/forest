@@ -176,7 +176,7 @@ impl Client {
         }
         .await?;
 
-        let result = subscription
+        subscription
             .take(DEFAULT_NOTIFICATION_SAMPLES)
             .collect::<Vec<_>>()
             .await
@@ -189,8 +189,7 @@ impl Client {
                 debug!(?result);
                 result
             })
-            .collect();
-        result
+            .collect()
     }
     async fn get_or_init_client(&self, version: ApiVersion) -> Result<&UrlClient, ClientError> {
         match version {
