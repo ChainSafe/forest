@@ -13,6 +13,7 @@ pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 pub use request::Request;
 mod error;
 mod reflect;
+pub use reflect::openrpc_types::OpenRPC;
 pub mod types;
 pub use methods::*;
 use reflect::Permission;
@@ -249,7 +250,7 @@ where
     Ok(())
 }
 
-fn create_module<DB>(
+pub fn create_module<DB>(
     state: Arc<RPCState<DB>>,
 ) -> (RpcModule<RPCState<DB>>, reflect::openrpc_types::OpenRPC)
 where

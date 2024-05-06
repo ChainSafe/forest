@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 
 use crate::{
     libp2p::keypair::get_keypair,
@@ -14,8 +14,9 @@ use crate::{
 };
 use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
-use clap::Subcommand;
+use clap::{Parser, Subcommand};
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
+use serde::Deserialize as _;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
@@ -50,6 +51,21 @@ pub enum ShedCommands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+
+    #[command(flatten)]
+    Rpc(Rpc),
+}
+
+#[derive(Parser)]
+pub enum Rpc {
+    #[command(flatten)]
+    Dump(Dump),
+}
+
+#[derive(Parser)]
+pub enum Dump {
+    OpenRpc,
+    JsonSchema,
 }
 
 impl ShedCommands {
@@ -114,7 +130,78 @@ impl ShedCommands {
                     println!("{}", BASE64_STANDARD.encode(keypair_data));
                 }
             }
+            ShedCommands::Rpc(Rpc::Dump(what)) => {
+                // Creating an RPCState<...> here would required bringing in a bunch of `#[cfg(test)]` code,
+                // so just pull from the snapshot
+                let deserializer = serde_yaml::Deserializer::from_str(include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/src/rpc/snapshots/forest_filecoin__rpc__tests__openrpc.snap"
+                )))
+                .nth(1)
+                .expect("yaml snapshot contains two documents");
+                let mut openrpc = crate::rpc::OpenRPC::deserialize(deserializer)?;
+                match what {
+                    Dump::OpenRpc => serde_json::to_writer_pretty(io::stdout(), &openrpc)?,
+                    Dump::JsonSchema => {}
+                }
+            }
         }
         Ok(())
+    }
+}
+
+fn rewrite_links(schema: &mut schemars::schema::Schema) {
+    use schemars::schema::{
+        ArrayValidation, ObjectValidation, Schema, SchemaObject, SubschemaValidation,
+    };
+    match schema {
+        Schema::Bool(_) => {}
+        Schema::Object(SchemaObject {
+            metadata: _,
+            instance_type: _,
+            format: _,
+            enum_values: _,
+            const_value: _,
+            subschemas,
+            number: _,
+            string: _,
+            array,
+            object,
+            reference,
+            extensions: _,
+        }) => {
+            if let Some(SubschemaValidation {
+                all_of,
+                any_of,
+                one_of,
+                not,
+                if_schema,
+                then_schema,
+                else_schema,
+            }) = subschemas.as_deref_mut()
+            {
+                for it in all_of
+                    .iter_mut()
+                    .chain(any_of)
+                    .chain(one_of)
+                    .flatten()
+                    .chain(not.as_deref_mut())
+                    .chain(if_schema.as_deref_mut())
+                    .chain(then_schema.as_deref_mut())
+                    .chain(else_schema.as_deref_mut())
+                {
+                    rewrite_links(it)
+                }
+            }
+            if let Some(ArrayValidation {
+                items,
+                additional_items,
+                max_items,
+                min_items,
+                unique_items,
+                contains,
+            }) = array.as_deref_mut()
+            {}
+        }
     }
 }
