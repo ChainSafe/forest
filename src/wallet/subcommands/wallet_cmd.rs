@@ -374,7 +374,6 @@ impl WalletCommands {
                 let key = match path {
                     Some(path) => std::fs::read_to_string(path)?,
                     _ => {
-                        // TODO Perhaps it's better to always use stdin and not make it interactive
                         let term = Term::stderr();
                         if term.is_term() {
                             tokio::task::spawn_blocking(|| {

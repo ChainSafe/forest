@@ -77,6 +77,9 @@
 - [#4214](https://github.com/ChainSafe/forest/issues/4214) Add support for the
   `Filecoin.StateMinerPreCommitDepositForPower` RPC method.
 
+- [#4255](https://github.com/ChainSafe/forest/pull/4255) Add support for the
+  `Filecoin.MinerCreateBlock` RPC method.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default

@@ -182,7 +182,8 @@ services:
           --forest $$FOREST_API_INFO \
           --lotus $$LOTUS_API_INFO \
           --n-tipsets 10 \
-          --filter-file /data/filter-list
+          --filter-file /data/filter-list \
+          --miner-address ${MINER_ADDRESS}
   api-compare-offline:
     depends_on:
       lotus-sync-wait:

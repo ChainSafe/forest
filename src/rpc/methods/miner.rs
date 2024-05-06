@@ -8,7 +8,7 @@ use crate::blocks::{ElectionProof, RawBlockHeader};
 use crate::chain::{compute_base_fee, ChainStore};
 
 use crate::fil_cns::weight;
-use crate::key_management::Key;
+use crate::key_management::{Key, KeyStore};
 use crate::lotus_json::lotus_json_with_self;
 
 use crate::lotus_json::LotusJson;
@@ -36,6 +36,8 @@ use itertools::Itertools;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_tuple::Serialize_tuple;
+use tokio::sync::RwLock;
 
 use std::sync::Arc;
 
@@ -93,6 +95,12 @@ pub struct BlockMessage {
 }
 
 lotus_json_with_self!(BlockMessage);
+
+#[derive(Serialize_tuple)]
+struct MessageMeta {
+    bls_messages: Cid,
+    secpk_messages: Cid,
+}
 
 pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
@@ -191,25 +199,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             secpk_messages: secpk_msgs_root,
         })?;
 
-        let signatures: Vec<_> = bls_sigs
-            .iter()
-            .map(|sig| anyhow::Ok(bls_signatures::Signature::from_bytes(sig.bytes())?))
-            .try_collect()?;
-
-        let bls_aggregate = if signatures.is_empty() {
-            let sig: bls_signatures::Signature = blstrs::G2Affine::identity().into();
-            let mut raw_signature: [u8; BLS_SIG_LEN] = [0; BLS_SIG_LEN];
-            sig.write_bytes(&mut raw_signature.as_mut())
-                .expect("preallocated");
-            Signature::new_bls(raw_signature.to_vec())
-        } else {
-            let bls_aggregate =
-                bls_signatures::aggregate(&signatures).context("failed to aggregate signatures")?;
-            Signature {
-                sig_type: SignatureType::Bls,
-                bytes: bls_aggregate.as_bytes().to_vec(),
-            }
-        };
+        let bls_aggregate = aggregate_from_bls_signatures(bls_sigs)?;
 
         let mut block_header = RawBlockHeader {
             miner_address: block_template.miner,
@@ -230,38 +220,60 @@ impl RpcMethod<1> for MinerCreateBlock {
             parent_base_fee,
         };
 
-        let signing_bytes = block_header.signing_bytes();
+        block_header.signature = sign_block_header(&block_header, &worker, ctx.keystore.clone())
+            .await?
+            .into();
 
-        let keystore = &mut *ctx.keystore.write().await;
-        let key = match crate::key_management::find_key(&worker, keystore) {
-            Ok(key) => key,
-            Err(_) => {
-                let key_info = crate::key_management::try_find(&worker, keystore)?;
-                Key::try_from(key_info)?
-            }
-        };
-
-        let sig = crate::key_management::sign(
-            *key.key_info.key_type(),
-            key.key_info.private_key(),
-            &signing_bytes,
-        )?;
-
-        block_header.signature = sig.into();
-
-        // wallet sign in tests - both nodes should have the same key, no?
-        let block_message = BlockMessage {
+        Ok(BlockMessage {
             header: CachingBlockHeader::from(block_header),
             bls_messages: bls_msg_cids,
             secpk_messages: secpk_msg_cids,
-        };
-
-        Ok(block_message)
+        })
     }
 }
 
-#[derive(fvm_ipld_encoding::tuple::Serialize_tuple)]
-struct MessageMeta {
-    bls_messages: Cid,
-    secpk_messages: Cid,
+async fn sign_block_header(
+    block_header: &RawBlockHeader,
+    worker: &Address,
+    keystore: Arc<RwLock<KeyStore>>,
+) -> Result<Signature> {
+    let signing_bytes = block_header.signing_bytes();
+
+    let mut keystore = keystore.write().await;
+    let key = match crate::key_management::find_key(worker, &keystore) {
+        Ok(key) => key,
+        Err(_) => {
+            let key_info = crate::key_management::try_find(worker, &mut keystore)?;
+            Key::try_from(key_info)?
+        }
+    };
+    drop(keystore);
+
+    let sig = crate::key_management::sign(
+        *key.key_info.key_type(),
+        key.key_info.private_key(),
+        &signing_bytes,
+    )?;
+    Ok(sig)
+}
+
+fn aggregate_from_bls_signatures(bls_sigs: Vec<Signature>) -> anyhow::Result<Signature> {
+    let signatures: Vec<_> = bls_sigs
+        .iter()
+        .map(|sig| anyhow::Ok(bls_signatures::Signature::from_bytes(sig.bytes())?))
+        .try_collect()?;
+
+    if signatures.is_empty() {
+        let sig: bls_signatures::Signature = blstrs::G2Affine::identity().into();
+        let mut raw_signature: [u8; BLS_SIG_LEN] = [0; BLS_SIG_LEN];
+        sig.write_bytes(&mut raw_signature.as_mut())?;
+        Ok(Signature::new_bls(raw_signature.to_vec()))
+    } else {
+        let bls_aggregate =
+            bls_signatures::aggregate(&signatures).context("failed to aggregate signatures")?;
+        Ok(Signature {
+            sig_type: SignatureType::Bls,
+            bytes: bls_aggregate.as_bytes().to_vec(),
+        })
+    }
 }

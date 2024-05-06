@@ -32,6 +32,7 @@ use crate::state_manager::StateManager;
 use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
 use anyhow::Context as _;
+use bls_signatures::Serialize;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
@@ -116,6 +117,9 @@ pub enum ApiCommands {
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
+        /// Miner address to use for miner tests. Miner worker key must be in the key-store.
+        #[arg(long)]
+        miner_address: Option<Address>,
     },
 }
 
@@ -128,6 +132,7 @@ struct ApiTestFlags {
     n_tipsets: usize,
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
+    miner_address: Option<Address>,
 }
 
 impl ApiCommands {
@@ -153,6 +158,7 @@ impl ApiCommands {
                 n_tipsets,
                 run_ignored,
                 max_concurrent_requests,
+                miner_address,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -161,6 +167,7 @@ impl ApiCommands {
                     n_tipsets,
                     run_ignored,
                     max_concurrent_requests,
+                    miner_address,
                 };
 
                 compare_apis(
@@ -576,6 +583,80 @@ fn state_tests() -> Vec<RpcTest> {
     ]
 }
 
+fn miner_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    tipset: &Tipset,
+    miner_address: Option<Address>,
+) -> anyhow::Result<Vec<RpcTest>> {
+    // If no miner address is provided, we can't run any miner tests.
+    let miner_address = if let Some(miner_address) = miner_address {
+        miner_address
+    } else {
+        return Ok(vec![]);
+    };
+
+    let mut tests = Vec::new();
+    for block in tipset.block_headers() {
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
+        tests.push(miner_create_block_test(
+            miner_address,
+            tipset,
+            bls_messages,
+            secp_messages,
+        ));
+    }
+    tests.push(miner_create_block_no_messages_test(miner_address, tipset));
+    Ok(tests)
+}
+
+fn miner_create_block_test(
+    miner: Address,
+    tipset: &Tipset,
+    bls_messages: Vec<Message>,
+    secp_messages: Vec<SignedMessage>,
+) -> RpcTest {
+    // randomly sign BLS messages so we can test the BLS signature aggregation
+    let priv_key = bls_signatures::PrivateKey::generate(&mut rand::thread_rng());
+    let signed_bls_msgs = bls_messages
+        .into_iter()
+        .map(|message| {
+            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            SignedMessage {
+                message,
+                signature: Signature::new_bls(sig.as_bytes().to_vec()),
+            }
+        })
+        .collect_vec();
+
+    let block_template = BlockTemplate {
+        miner,
+        parents: tipset.parents().to_owned(),
+        ticket: Ticket::default(),
+        eproof: ElectionProof::default(),
+        beacon_values: tipset.block_headers().first().beacon_entries.to_owned(),
+        messages: [signed_bls_msgs, secp_messages].concat(),
+        epoch: tipset.epoch(),
+        timestamp: tipset.min_timestamp(),
+        winning_post_proof: Vec::default(),
+    };
+    RpcTest::identity(MinerCreateBlock::request((block_template,)).unwrap())
+}
+
+fn miner_create_block_no_messages_test(miner: Address, tipset: &Tipset) -> RpcTest {
+    let block_template = BlockTemplate {
+        miner,
+        parents: tipset.parents().to_owned(),
+        ticket: Ticket::default(),
+        eproof: ElectionProof::default(),
+        beacon_values: tipset.block_headers().first().beacon_entries.to_owned(),
+        messages: Vec::default(),
+        epoch: tipset.epoch(),
+        timestamp: tipset.min_timestamp(),
+        winning_post_proof: Vec::default(),
+    };
+    RpcTest::identity(MinerCreateBlock::request((block_template,)).unwrap())
+}
+
 fn state_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     tipset: &Tipset,
@@ -836,21 +917,6 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 RpcTest::identity(StateCall::request((msg.clone(), tipset.key().into()))?),
             ]);
         }
-        // TODO can we devise some synthetic, signed bls messages?
-        let block_template = BlockTemplate {
-            miner: Address::from_str("t0111551").unwrap(),
-            parents: tipset.parents().to_owned(),
-            ticket: Ticket::default(),
-            eproof: ElectionProof::default(),
-            beacon_values: Vec::default(),
-            messages: secp_messages.clone(),
-            epoch: tipset.epoch(),
-            timestamp: tipset.min_timestamp(),
-            winning_post_proof: Vec::default(),
-        };
-        tests.push(RpcTest::identity(
-            MinerCreateBlock::request((block_template,)).unwrap(),
-        ));
     }
 
     Ok(tests)
@@ -964,7 +1030,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
-fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
+fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     // shared_tipset in the snapshot might not be finalized for the offline RPC server
     // use heaviest - 10 instead
@@ -974,8 +1040,14 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .take(10)
         .last()
         .expect("Infallible");
-    for tipset in shared_tipset.chain(&store).take(n_tipsets) {
+
+    for tipset in shared_tipset.chain(&store).take(config.n_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
+        tests.extend(miner_tests_with_tipset(
+            &store,
+            &tipset,
+            config.miner_address,
+        )?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
@@ -1055,7 +1127,7 @@ async fn compare_apis(
 
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        tests.extend(snapshot_tests(store, config.n_tipsets)?);
+        tests.extend(snapshot_tests(store, &config)?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);
