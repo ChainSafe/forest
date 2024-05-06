@@ -419,42 +419,7 @@ impl RpcTest {
             None
         };
 
-        let (forest_status, lotus_status) = match (forest_resp, lotus_resp) {
-            (Ok(forest), Ok(lotus))
-                if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
-            {
-                let forest_status = if (self.check_semantics)(forest, lotus) {
-                    TestSummary::Valid
-                } else {
-                    TestSummary::CustomCheckFailed
-                };
-                (forest_status, TestSummary::Valid)
-            }
-            (forest_resp, lotus_resp) => {
-                let forest_status = forest_resp.map_or_else(
-                    |e| TestSummary::from_err(&e),
-                    |value| {
-                        if (self.check_syntax)(value) {
-                            TestSummary::Valid
-                        } else {
-                            TestSummary::BadJson
-                        }
-                    },
-                );
-                let lotus_status = lotus_resp.map_or_else(
-                    |e| TestSummary::from_err(&e),
-                    |value| {
-                        if (self.check_syntax)(value) {
-                            TestSummary::Valid
-                        } else {
-                            TestSummary::BadJson
-                        }
-                    },
-                );
-
-                (forest_status, lotus_status)
-            }
-        };
+        let (forest_status, lotus_status) = self.get_test_summaries(forest_resp, lotus_resp);
 
         if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
             TestResult {
@@ -471,49 +436,6 @@ impl RpcTest {
                     forest_response: forest_json_str,
                     lotus_response: lotus_json_str,
                 }),
-            }
-        }
-    }
-
-    fn get_test_summaries(
-        &self,
-        forest_resp: Result<serde_json::Value, ClientError>,
-        lotus_resp: Result<serde_json::Value, ClientError>,
-    ) -> (TestSummary, TestSummary) {
-        match (forest_resp, lotus_resp) {
-            (Ok(forest), Ok(lotus))
-                if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
-            {
-                let forest_status = if (self.check_semantics)(forest, lotus) {
-                    TestSummary::Valid
-                } else {
-                    TestSummary::CustomCheckFailed
-                };
-                (forest_status, TestSummary::Valid)
-            }
-            (forest_resp, lotus_resp) => {
-                let forest_status = forest_resp.map_or_else(
-                    |e| TestSummary::from_err(&e),
-                    |value| {
-                        if (self.check_syntax)(value) {
-                            TestSummary::Valid
-                        } else {
-                            TestSummary::BadJson
-                        }
-                    },
-                );
-                let lotus_status = lotus_resp.map_or_else(
-                    |e| TestSummary::from_err(&e),
-                    |value| {
-                        if (self.check_syntax)(value) {
-                            TestSummary::Valid
-                        } else {
-                            TestSummary::BadJson
-                        }
-                    },
-                );
-
-                (forest_status, lotus_status)
             }
         }
     }
@@ -600,6 +522,49 @@ impl RpcTest {
                     forest_response: forest_json_str,
                     lotus_response: lotus_json_str,
                 }),
+            }
+        }
+    }
+
+    fn get_test_summaries(
+        &self,
+        forest_resp: Result<serde_json::Value, ClientError>,
+        lotus_resp: Result<serde_json::Value, ClientError>,
+    ) -> (TestSummary, TestSummary) {
+        match (forest_resp, lotus_resp) {
+            (Ok(forest), Ok(lotus))
+                if (self.check_syntax)(forest.clone()) && (self.check_syntax)(lotus.clone()) =>
+            {
+                let forest_status = if (self.check_semantics)(forest, lotus) {
+                    TestSummary::Valid
+                } else {
+                    TestSummary::CustomCheckFailed
+                };
+                (forest_status, TestSummary::Valid)
+            }
+            (forest_resp, lotus_resp) => {
+                let forest_status = forest_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
+                        if (self.check_syntax)(value) {
+                            TestSummary::Valid
+                        } else {
+                            TestSummary::BadJson
+                        }
+                    },
+                );
+                let lotus_status = lotus_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
+                        if (self.check_syntax)(value) {
+                            TestSummary::Valid
+                        } else {
+                            TestSummary::BadJson
+                        }
+                    },
+                );
+
+                (forest_status, lotus_status)
             }
         }
     }
