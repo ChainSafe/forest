@@ -1094,6 +1094,8 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
 }
 
 pub fn chain_notify_req() -> Request<Vec<ApiHeadChange>> {
+    const ONE_DAY: Duration = Duration::from_secs(24 * 3600);
+
     use std::marker::PhantomData;
 
     Request {
@@ -1101,7 +1103,7 @@ pub fn chain_notify_req() -> Request<Vec<ApiHeadChange>> {
         params: ().into(),
         result_type: PhantomData,
         api_version: rpc::ApiVersion::V0,
-        timeout: std::time::Duration::from_secs(24 * 3600),
+        timeout: ONE_DAY,
     }
 }
 
