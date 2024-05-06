@@ -141,7 +141,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             param_structure: calling_convention,
             result: Some(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
-                schema: <Self::Ok as HasLotusJson>::LotusJson::json_schema(gen),
+                schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
                 required: !<Self::Ok as HasLotusJson>::LotusJson::optional(),
             }),
         })

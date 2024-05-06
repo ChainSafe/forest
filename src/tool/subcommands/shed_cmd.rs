@@ -51,13 +51,13 @@ pub enum ShedCommands {
         output: Option<PathBuf>,
     },
 
-    #[command(flatten)]
+    #[command(subcommand)]
     Rpc(Rpc),
 }
 
 #[derive(Parser)]
 pub enum Rpc {
-    #[command(flatten)]
+    #[command(subcommand)]
     Dump(Dump),
 }
 
@@ -158,7 +158,10 @@ impl ShedCommands {
                 crate::rpc::eth::for_each_method!(register);
                 match what {
                     Dump::JsonSchemaDefinitions => {
-                        serde_json::to_writer_pretty(io::stdout(), gen.definitions())?;
+                        serde_json::to_writer_pretty(
+                            io::stdout(),
+                            &serde_json::json!({"definitions": gen.definitions()}),
+                        )?;
                     }
                 }
             }
