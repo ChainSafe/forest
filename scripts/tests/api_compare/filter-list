@@ -5,3 +5,4 @@
 # Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619017774/job/23623141130?pr=4170
 !Filecoin.MpoolGetNonce
 !Filecoin.StateCall
+!Filecoin.EthGetBlockByNumber

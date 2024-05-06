@@ -284,7 +284,7 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
 
-    /// Additional flags, see [`SectorOnChainInfoFlags`]
+    /// Additional flags, see [`fil_actor_miner_state::v12::SectorOnChainInfoFlags`]
     pub flags: u32,
 
     #[schemars(with = "LotusJson<BigInt>")]
