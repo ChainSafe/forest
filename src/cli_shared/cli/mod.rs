@@ -194,7 +194,7 @@ impl CliOpts {
         }
 
         if let Some(addresses) = &self.p2p_listen_address {
-            cfg.network.listening_multiaddrs = addresses.clone();
+            cfg.network.listening_multiaddrs.clone_from(addresses);
         }
 
         if self.import_snapshot.is_some() && self.import_chain.is_some() {

@@ -188,19 +188,6 @@ impl Provider for TestApi {
         }
     }
 
-    fn messages_for_tipset(&self, h: &Tipset) -> Result<Vec<ChainMessage>, Error> {
-        let (us, s) = self.messages_for_block(h.block_headers().first())?;
-        let mut msgs = Vec::with_capacity(us.len() + s.len());
-
-        for msg in us {
-            msgs.push(ChainMessage::Unsigned(msg));
-        }
-        for smsg in s {
-            msgs.push(ChainMessage::Signed(smsg));
-        }
-        Ok(msgs)
-    }
-
     fn load_tipset(&self, tsk: &TipsetKey) -> Result<Arc<Tipset>, Error> {
         let inner = self.inner.lock();
         for ts in &inner.tipsets {

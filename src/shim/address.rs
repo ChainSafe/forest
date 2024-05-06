@@ -79,19 +79,24 @@ impl CurrentNetwork {
     }
 }
 
+#[cfg(test)]
 struct NetworkGuard(Network);
-impl NetworkGuard {
-    #[cfg(test)]
-    fn new(new_network: Network) -> Self {
-        let previous_network = CurrentNetwork::get();
-        CurrentNetwork::set(new_network);
-        NetworkGuard(previous_network)
-    }
-}
+#[cfg(test)]
+mod network_guard_impl {
+    use super::*;
 
-impl Drop for NetworkGuard {
-    fn drop(&mut self) {
-        CurrentNetwork::set(self.0);
+    impl NetworkGuard {
+        pub fn new(new_network: Network) -> Self {
+            let previous_network = CurrentNetwork::get();
+            CurrentNetwork::set(new_network);
+            NetworkGuard(previous_network)
+        }
+    }
+
+    impl Drop for NetworkGuard {
+        fn drop(&mut self) {
+            CurrentNetwork::set(self.0);
+        }
     }
 }
 
