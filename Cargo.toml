@@ -188,7 +188,7 @@ thiserror = "1.0"
 ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
-tokio-util = { version = "0.7.11", features = ["compat", "io-util"] }
+tokio-util = { version = "0.7", features = ["compat", "io-util"] }
 toml = "0.8"
 tower = { version = "0.4", features = ["full"] }
 tracing = "0.1"
@@ -226,7 +226,7 @@ derive-quickcheck-arbitrary = "0.1.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 glob = "0.3"
-http-range-header = "0.4.1"
+http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
