@@ -534,19 +534,12 @@ impl RpcTest {
             None
         };
 
-        let unpack = |value: serde_json::Value| match value {
-            serde_json::Value::Array(arr) => {
-                arr.first().unwrap_or(&serde_json::Value::Null).clone()
-            }
-            _ => serde_json::Value::Null,
-        };
-
         let (forest_status, lotus_status) = match (forest_resp, lotus_resp) {
             (Ok(a), Ok(b)) => {
                 let summaries: Vec<(TestSummary, TestSummary)> = a
                     .into_iter()
                     .zip(b.into_iter())
-                    .map(|(a, b)| self.get_test_summaries(Ok(unpack(a)), Ok(unpack(b))))
+                    .map(|(a, b)| self.get_test_summaries(Ok(a), Ok(b)))
                     .collect();
                 let (forest_summaries, lotus_summaries): (Vec<_>, Vec<_>) =
                     summaries.into_iter().unzip();
@@ -1100,7 +1093,7 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
     Ok(tests)
 }
 
-pub fn chain_notify_req() -> Request<ApiHeadChange> {
+pub fn chain_notify_req() -> Request<Vec<ApiHeadChange>> {
     use std::marker::PhantomData;
 
     Request {
