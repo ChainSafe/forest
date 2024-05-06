@@ -8,6 +8,7 @@ pub use types::*;
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
+use crate::shim::actors::miner::MinerStateExt as _;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::state_tree::StateTree;
@@ -410,11 +411,8 @@ impl RpcMethod<2> for StateMinerActiveSectors {
                 Ok(())
             })
         })?;
-        let sectors = miner_state
-            .load_sectors(ctx.store(), Some(&BitField::union(&active_sectors)))?
-            .into_iter()
-            .map(SectorOnChainInfo::from)
-            .collect::<Vec<_>>();
+        let sectors =
+            miner_state.load_sectors_ext(ctx.store(), Some(&BitField::union(&active_sectors)))?;
         Ok(sectors)
     }
 }
@@ -477,11 +475,7 @@ impl RpcMethod<3> for StateMinerSectors {
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
         let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        let sectors_info = miner_state
-            .load_sectors(ctx.store(), sectors.as_ref())?
-            .into_iter()
-            .map(SectorOnChainInfo::from)
-            .collect::<Vec<_>>();
+        let sectors_info = miner_state.load_sectors_ext(ctx.store(), sectors.as_ref())?;
         Ok(sectors_info)
     }
 }
@@ -1785,7 +1779,6 @@ impl RpcMethod<3> for StateSectorGetInfo {
             .get_all_sectors(&miner_address, &ts)?
             .into_iter()
             .find(|info| info.sector_number == sector_number)
-            .map(SectorOnChainInfo::from)
             .context(format!("Info for sector number {sector_number} not found"))?)
     }
 }
