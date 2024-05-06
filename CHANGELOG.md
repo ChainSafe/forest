@@ -93,6 +93,9 @@
 - [#4267](https://github.com/ChainSafe/forest/pull/4267) Fixed potential panics
   in `forest-tool api compare`.
 
+- [#4276](https://github.com/ChainSafe/forest/pull/4276) Fix schema bug in the
+  `Filecoin.ChainNotify` RPC method.
+
 ## Forest 0.17.2 "Dovakhin"
 
 This is a **mandatory** release for all mainnet node operators. It changes the
