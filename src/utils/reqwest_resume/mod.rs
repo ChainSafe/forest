@@ -20,17 +20,6 @@ use std::{
 };
 use tokio::time::sleep;
 
-/// Extension to [`reqwest::Client`] that provides a method to convert it
-pub trait ClientExt {
-    /// Convert a [`reqwest::Client`] into a [`reqwest_resume::Client`](Client)
-    fn resumable(self) -> Client;
-}
-impl ClientExt for reqwest::Client {
-    fn resumable(self) -> Client {
-        Client(self)
-    }
-}
-
 /// A `Client` to make Requests with.
 ///
 /// See [`reqwest::Client`].
