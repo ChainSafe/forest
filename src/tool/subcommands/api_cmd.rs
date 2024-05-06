@@ -559,7 +559,30 @@ impl RpcTest {
                 };
                 (forest_status, lotus_status)
             }
-            _ => unimplemented!(),
+            (forest_resp, lotus_resp) => {
+                let forest_status = forest_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
+                        if value.into_iter().all(|v| (self.check_syntax)(v)) {
+                            TestSummary::Valid
+                        } else {
+                            TestSummary::BadJson
+                        }
+                    },
+                );
+                let lotus_status = lotus_resp.map_or_else(
+                    |e| TestSummary::from_err(&e),
+                    |value| {
+                        if value.into_iter().all(|v| (self.check_syntax)(v)) {
+                            TestSummary::Valid
+                        } else {
+                            TestSummary::BadJson
+                        }
+                    },
+                );
+
+                (forest_status, lotus_status)
+            }
         };
 
         if forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid {
