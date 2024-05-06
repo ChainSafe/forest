@@ -7,9 +7,10 @@ use std::{
 };
 
 use crate::chain_sync::SyncStage;
-use crate::rpc_client::*;
+use crate::rpc::{self, prelude::*};
 use cid::Cid;
 use clap::Subcommand;
+use itertools::Itertools as _;
 use ticker::Ticker;
 
 use crate::cli::subcommands::format_vec_pretty;
@@ -28,38 +29,44 @@ pub enum SyncCommands {
     CheckBad {
         #[arg(short)]
         /// The block CID to check
-        cid: String,
+        cid: Cid,
     },
     /// Mark a given block as bad
     MarkBad {
         /// The block CID to mark as a bad block
         #[arg(short)]
-        cid: String,
+        cid: Cid,
     },
 }
 
 impl SyncCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Wait { watch } => {
                 let ticker = Ticker::new(0.., Duration::from_secs(1));
                 let mut stdout = stdout();
 
                 for _ in ticker {
-                    let response = api.sync_status().await?;
-                    let state = response.active_syncs.first();
+                    let resp = SyncState::call(&client, ()).await?;
+                    let active_syncs = resp.active_syncs;
+                    let state = active_syncs
+                        .iter()
+                        .rev()
+                        .find_or_first(|ss| {
+                            ss.stage() != SyncStage::Idle && ss.stage() != SyncStage::Complete
+                        })
+                        .expect("Infallible, active_syncs is NonEmpty");
 
-                    let target_height = if let Some(tipset) = state.target() {
-                        tipset.epoch()
-                    } else {
-                        0
-                    };
-
-                    let base_height = if let Some(tipset) = state.base() {
-                        tipset.epoch()
-                    } else {
-                        0
-                    };
+                    let base_height = state
+                        .base()
+                        .as_ref()
+                        .map(|ts| ts.epoch())
+                        .unwrap_or_default();
+                    let target_height = state
+                        .target()
+                        .as_ref()
+                        .map(|ts| ts.epoch())
+                        .unwrap_or_default();
 
                     println!(
                         "Worker: 0; Base: {}; Target: {}; (diff: {})",
@@ -91,9 +98,9 @@ impl SyncCommands {
                 Ok(())
             }
             Self::Status => {
-                let response = api.sync_status().await?;
+                let resp = SyncState::call(&client, ()).await?;
+                let state = resp.active_syncs.first();
 
-                let state = response.active_syncs.first();
                 let base = state.base();
                 let elapsed_time = state.get_elapsed_time();
                 let target = state.target();
@@ -127,9 +134,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::CheckBad { cid } => {
-                let cid: Cid = cid.parse()?;
-                let response = api.sync_check_bad(cid).await?;
-
+                let response = SyncCheckBad::call(&client, (cid,)).await?;
                 if response.is_empty() {
                     println!("Block \"{cid}\" is not marked as a bad block");
                 } else {
@@ -138,8 +143,7 @@ impl SyncCommands {
                 Ok(())
             }
             Self::MarkBad { cid } => {
-                let cid: Cid = cid.parse()?;
-                api.sync_mark_bad(cid).await?;
+                SyncMarkBad::call(&client, (cid,)).await?;
                 println!("OK");
                 Ok(())
             }

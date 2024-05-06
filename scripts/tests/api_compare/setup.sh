@@ -10,7 +10,10 @@ pushd "${PARENT_PATH}"
 source .env
 
 # This should not be needed in GH. It is useful for running locally.
-docker compose down --remove-orphans --volumes
+docker compose down --remove-orphans
+docker compose rm -f
+# Cleanup data volumes
+# docker volume rm -f api_compare_node-data
 
 # Run it in the background so we can perform checks on it.
 # Ideally, we could use `--wait` and `--wait-timeout` to wait for services
@@ -19,4 +22,3 @@ docker compose down --remove-orphans --volumes
 docker compose up --build --force-recreate --detach --timestamps
 
 popd
-

@@ -16,29 +16,67 @@ use serde::{Deserialize, Serialize};
 
 use crate::blocks::{CachingBlockHeader, RawBlockHeader};
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BlockHeaderLotusJson {
-    miner: LotusJson<Address>,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    ticket: LotusJson<Option<Ticket>>,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    election_proof: LotusJson<Option<ElectionProof>>,
-    beacon_entries: LotusJson<Vec<BeaconEntry>>,
-    win_po_st_proof: LotusJson<Vec<PoStProof>>,
-    parents: LotusJson<TipsetKey>,
-    parent_weight: LotusJson<BigInt>,
-    height: LotusJson<i64>,
-    parent_state_root: LotusJson<Cid>,
-    parent_message_receipts: LotusJson<Cid>,
-    messages: LotusJson<Cid>,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    b_l_s_aggregate: LotusJson<Option<Signature>>,
-    timestamp: LotusJson<u64>,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    block_sig: LotusJson<Option<Signature>>,
-    fork_signaling: LotusJson<u64>,
-    parent_base_fee: LotusJson<TokenAmount>,
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    miner: Address,
+    #[schemars(with = "LotusJson<Option<Ticket>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    ticket: Option<Ticket>,
+    #[schemars(with = "LotusJson<Option<ElectionProof>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    election_proof: Option<ElectionProof>,
+    #[schemars(with = "LotusJson<Vec<BeaconEntry>>")]
+    #[serde(with = "crate::lotus_json")]
+    beacon_entries: Vec<BeaconEntry>,
+    #[schemars(with = "LotusJson<Vec<PoStProof>>")]
+    #[serde(with = "crate::lotus_json")]
+    win_po_st_proof: Vec<PoStProof>,
+    #[schemars(with = "LotusJson<TipsetKey>")]
+    #[serde(with = "crate::lotus_json")]
+    parents: TipsetKey,
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    parent_weight: BigInt,
+    height: i64,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    parent_state_root: Cid,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    parent_message_receipts: Cid,
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    messages: Cid,
+    #[schemars(with = "LotusJson<Option<Signature>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    b_l_s_aggregate: Option<Signature>,
+    timestamp: u64,
+    #[schemars(with = "LotusJson<Option<Signature>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    block_sig: Option<Signature>,
+    fork_signaling: u64,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    parent_base_fee: TokenAmount,
 }
 
 impl HasLotusJson for CachingBlockHeader {
@@ -93,22 +131,22 @@ impl HasLotusJson for CachingBlockHeader {
             parent_base_fee,
         } = self.into_raw();
         Self::LotusJson {
-            miner: miner_address.into(),
-            ticket: ticket.into(),
-            election_proof: election_proof.into(),
-            beacon_entries: beacon_entries.into(),
-            win_po_st_proof: winning_post_proof.into(),
-            parents: parents.into(),
-            parent_weight: weight.into(),
-            height: epoch.into(),
-            parent_state_root: state_root.into(),
-            parent_message_receipts: message_receipts.into(),
-            messages: messages.into(),
-            b_l_s_aggregate: bls_aggregate.into(),
-            timestamp: timestamp.into(),
-            block_sig: signature.into(),
-            fork_signaling: fork_signal.into(),
-            parent_base_fee: parent_base_fee.into(),
+            miner: miner_address,
+            ticket,
+            election_proof,
+            beacon_entries,
+            win_po_st_proof: winning_post_proof,
+            parents,
+            parent_weight: weight,
+            height: epoch,
+            parent_state_root: state_root,
+            parent_message_receipts: message_receipts,
+            messages,
+            b_l_s_aggregate: bls_aggregate,
+            timestamp,
+            block_sig: signature,
+            fork_signaling: fork_signal,
+            parent_base_fee,
         }
     }
 
@@ -132,22 +170,22 @@ impl HasLotusJson for CachingBlockHeader {
             parent_base_fee,
         } = lotus_json;
         Self::new(RawBlockHeader {
-            parents: parents.into_inner(),
-            weight: parent_weight.into_inner(),
-            epoch: height.into_inner(),
-            beacon_entries: beacon_entries.into_inner(),
-            winning_post_proof: win_po_st_proof.into_inner(),
-            miner_address: miner.into_inner(),
-            messages: messages.into_inner(),
-            message_receipts: parent_message_receipts.into_inner(),
-            state_root: parent_state_root.into_inner(),
-            fork_signal: fork_signaling.into_inner(),
-            signature: block_sig.into_inner(),
-            election_proof: election_proof.into_inner(),
-            timestamp: timestamp.into_inner(),
-            ticket: ticket.into_inner(),
-            bls_aggregate: b_l_s_aggregate.into_inner(),
-            parent_base_fee: parent_base_fee.into_inner(),
+            parents,
+            weight: parent_weight,
+            epoch: height,
+            beacon_entries,
+            winning_post_proof: win_po_st_proof,
+            miner_address: miner,
+            messages,
+            message_receipts: parent_message_receipts,
+            state_root: parent_state_root,
+            fork_signal: fork_signaling,
+            signature: block_sig,
+            election_proof,
+            timestamp,
+            ticket,
+            bls_aggregate: b_l_s_aggregate,
+            parent_base_fee,
         })
     }
 }

@@ -4,11 +4,15 @@ use super::*;
 
 use crate::{key_management::KeyInfo, shim::crypto::SignatureType};
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct KeyInfoLotusJson {
-    r#type: LotusJson<SignatureType>,
-    private_key: LotusJson<Vec<u8>>,
+    #[schemars(with = "LotusJson<SignatureType>")]
+    #[serde(with = "crate::lotus_json")]
+    r#type: SignatureType,
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    private_key: Vec<u8>,
 }
 
 impl HasLotusJson for KeyInfo {
@@ -31,8 +35,8 @@ impl HasLotusJson for KeyInfo {
     fn into_lotus_json(self) -> Self::LotusJson {
         let (key_type, private_key) = (self.key_type(), self.private_key());
         Self::LotusJson {
-            r#type: (*key_type).into(),
-            private_key: private_key.clone().into(),
+            r#type: (*key_type),
+            private_key: private_key.clone(),
         }
     }
 
@@ -41,6 +45,6 @@ impl HasLotusJson for KeyInfo {
             r#type,
             private_key,
         } = lotus_json;
-        Self::new(r#type.into_inner(), private_key.into_inner())
+        Self::new(r#type, private_key)
     }
 }

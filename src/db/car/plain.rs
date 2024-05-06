@@ -71,7 +71,7 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use integer_encoding::VarIntReader;
 
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use parking_lot::RwLock;
 use positioned_io::ReadAt;
 use std::ops::DerefMut;

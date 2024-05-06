@@ -7,18 +7,28 @@ use ::cid::Cid;
 
 use super::*;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SignedMessageLotusJson {
-    message: LotusJson<Message>,
-    signature: LotusJson<Signature>,
-    #[serde(rename = "CID", skip_serializing_if = "LotusJson::is_none", default)]
-    cid: LotusJson<Option<Cid>>,
+    #[schemars(with = "LotusJson<Message>")]
+    #[serde(with = "crate::lotus_json")]
+    message: Message,
+    #[schemars(with = "LotusJson<Signature>")]
+    #[serde(with = "crate::lotus_json")]
+    signature: Signature,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        rename = "CID",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    cid: Option<Cid>,
 }
 
 impl SignedMessageLotusJson {
     pub fn with_cid(mut self, cid: Cid) -> Self {
-        self.cid = LotusJson(Some(cid));
+        self.cid = Some(cid);
         self
     }
 }
@@ -60,9 +70,9 @@ impl HasLotusJson for SignedMessage {
     fn into_lotus_json(self) -> Self::LotusJson {
         let Self { message, signature } = self;
         Self::LotusJson {
-            message: message.into(),
-            signature: signature.into(),
-            cid: None.into(), // See notes on Message
+            message,
+            signature,
+            cid: None, // See notes on Message
         }
     }
 
@@ -73,8 +83,8 @@ impl HasLotusJson for SignedMessage {
             cid: _ignored, // See notes on Message
         } = lotus_json;
         Self {
-            message: message.into_inner(),
-            signature: signature.into_inner(),
+            message,
+            signature,
         }
     }
 }

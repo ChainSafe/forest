@@ -4,13 +4,12 @@
 use super::*;
 use crate::blocks::Tipset;
 use crate::chain::index::{ChainIndex, ResolveNullTipset};
-use crate::cid_collections::CidHashSet;
 use crate::cli_shared::snapshot;
 use crate::daemon::bundle::load_actor_bundles;
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::{AnyCar, ManyCar};
 use crate::interpreter::{MessageCallbackCtx, VMTrace};
-use crate::ipld::recurse_links_hash;
+use crate::ipld::stream_chain;
 use crate::networks::{butterflynet, calibnet, mainnet, ChainConfig, NetworkChain};
 use crate::shim::address::CurrentNetwork;
 use crate::shim::clock::ChainEpoch;
@@ -18,7 +17,7 @@ use crate::shim::fvm_shared_latest::address::Network;
 use crate::shim::machine::MultiEngine;
 use crate::state_manager::apply_block_messages;
 use crate::utils::db::car_stream::CarStream;
-use crate::utils::proofs_api::paramfetch::ensure_params_downloaded;
+use crate::utils::proofs_api::ensure_params_downloaded;
 use anyhow::{bail, Context as _};
 use cid::Cid;
 use clap::Subcommand;
@@ -190,7 +189,10 @@ impl SnapshotCommands {
                 let file = tokio::io::BufReader::new(pb.wrap_async_read(file));
 
                 let mut block_stream = CarStream::new(file).await?;
-                let roots = std::mem::take(&mut block_stream.header.roots);
+                let roots = std::mem::replace(
+                    &mut block_stream.header.roots,
+                    nunny::vec![Default::default()],
+                );
 
                 let mut dest = tokio::io::BufWriter::new(File::create(&destination).await?);
 
@@ -274,29 +276,21 @@ where
     DB: Blockstore + Send + Sync,
 {
     let epoch_limit = ts.epoch() - epochs as i64;
-    let mut seen = CidHashSet::default();
 
     let pb = validation_spinner("Checking IPLD integrity:").with_finish(
         indicatif::ProgressFinish::AbandonWithMessage("❌ Invalid IPLD data!".into()),
     );
 
-    for tipset in ts
-        .chain(db)
-        .take_while(|tipset| tipset.epoch() > epoch_limit)
-    {
+    let tipsets = ts.chain(db).inspect(|tipset| {
         let height = tipset.epoch();
-        pb.set_message(format!("{} remaining epochs", height - epoch_limit));
-
-        let mut assert_cid_exists = |cid: Cid| async move {
-            let data = db.get(&cid)?;
-            data.with_context(|| format!("Broken IPLD link at epoch: {height}"))
-        };
-
-        for h in tipset.block_headers() {
-            recurse_links_hash(&mut seen, h.state_root, &mut assert_cid_exists, &|_| ()).await?;
-            recurse_links_hash(&mut seen, h.messages, &mut assert_cid_exists, &|_| ()).await?;
+        if height - epoch_limit >= 0 {
+            pb.set_message(format!("{} remaining epochs (state)", height - epoch_limit));
+        } else {
+            pb.set_message(format!("{} remaining epochs (spine)", height));
         }
-    }
+    });
+    let mut stream = stream_chain(&db, tipsets, epoch_limit);
+    while stream.try_next().await?.is_some() {}
 
     pb.finish_with_message("✅ verified!");
     Ok(())
@@ -363,7 +357,7 @@ where
     load_actor_bundles(&db, &network).await?;
 
     // Set proof parameter data dir and make sure the proofs are available
-    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
+    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(
         &Config::default().client.data_dir,
     );
 
@@ -466,10 +460,10 @@ mod structured {
     use cid::Cid;
     use serde_json::json;
 
+    use crate::lotus_json::HasLotusJson as _;
     use crate::state_manager::utils::structured;
     use crate::{
         interpreter::CalledAt,
-        lotus_json::LotusJson,
         message::{ChainMessage, Message as _},
         shim::executor::ApplyRet,
     };
@@ -480,7 +474,7 @@ mod structured {
         contexts: Vec<(ChainMessage, ApplyRet, CalledAt, Duration)>,
     ) -> anyhow::Result<serde_json::Value> {
         Ok(json!({
-        "Root": LotusJson(state_root),
+        "Root": state_root.into_lotus_json(),
         "Trace": contexts
             .into_iter()
             .map(|(message, apply_ret, called_at, duration)| call_json(message, apply_ret, called_at, duration))
@@ -502,21 +496,21 @@ mod structured {
         let unsigned_message_cid = chain_message.message().cid()?;
 
         Ok(json!({
-            "MsgCid": LotusJson(chain_message_cid),
-            "Msg": LotusJson(chain_message.message().clone()),
-            "MsgRct": LotusJson(apply_ret.msg_receipt()),
+            "MsgCid": chain_message_cid.into_lotus_json(),
+            "Msg": chain_message.message().clone().into_lotus_json(),
+            "MsgRct": apply_ret.msg_receipt().into_lotus_json(),
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
-                "Message": is_explicit.then_some(LotusJson(unsigned_message_cid)),
+                "Message": is_explicit.then_some(unsigned_message_cid.into_lotus_json()),
                 "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())).unwrap_or_default(),
-                "BaseFeeBurn": LotusJson(apply_ret.base_fee_burn()),
-                "OverEstimationBurn": LotusJson(apply_ret.over_estimation_burn()),
-                "MinerPenalty": LotusJson(apply_ret.penalty()),
-                "MinerTip": LotusJson(apply_ret.miner_tip()),
-                "Refund": LotusJson(apply_ret.refund()),
-                "TotalCost": LotusJson(chain_message.message().required_funds() - &apply_ret.refund())
+                "BaseFeeBurn": apply_ret.base_fee_burn().into_lotus_json(),
+                "OverEstimationBurn": apply_ret.over_estimation_burn().into_lotus_json(),
+                "MinerPenalty": apply_ret.penalty().into_lotus_json(),
+                "MinerTip": apply_ret.miner_tip().into_lotus_json(),
+                "Refund": apply_ret.refund().into_lotus_json(),
+                "TotalCost": (chain_message.message().required_funds() - &apply_ret.refund()).into_lotus_json(),
             },
-            "ExecutionTrace": LotusJson(structured::parse_events(apply_ret.exec_trace())?),
+            "ExecutionTrace": structured::parse_events(apply_ret.exec_trace())?.into_lotus_json(),
             "Duration": duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
         }))
     }

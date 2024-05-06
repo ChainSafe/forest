@@ -27,13 +27,13 @@ use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::rpc::start_rpc;
-use crate::rpc_api::data_types::RPCState;
+use crate::rpc::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::version::NetworkVersion;
 use crate::state_manager::StateManager;
 use crate::utils::{
-    monitoring::MemStatsTracker, proofs_api::paramfetch::ensure_params_downloaded,
+    monitoring::MemStatsTracker, proofs_api::ensure_params_downloaded,
     version::FOREST_VERSION_STRING,
 };
 use anyhow::{bail, Context as _};
@@ -267,7 +267,7 @@ pub(super) async fn start(
 
     info!("Using network :: {}", get_actual_chain_name(&network_name));
     display_chain_logo(&config.chain);
-    let (tipset_sink, tipset_stream) = flume::bounded(20);
+    let (tipset_sender, tipset_receiver) = flume::bounded(20);
 
     // if bootstrap peers are not set, set them
     let config = if config.network.bootstrap_peers.is_empty() {
@@ -323,18 +323,37 @@ pub(super) async fn start(
     // Initialize ChainMuxer
     let chain_muxer = ChainMuxer::new(
         Arc::clone(&state_manager),
-        peer_manager,
+        peer_manager.clone(),
         mpool.clone(),
         network_send.clone(),
         network_rx,
-        Arc::new(Tipset::from(genesis_header)),
-        tipset_sink,
-        tipset_stream,
+        Arc::new(Tipset::from(&genesis_header)),
+        tipset_sender.clone(),
+        tipset_receiver,
         opts.stateless,
     )?;
     let bad_blocks = chain_muxer.bad_blocks_cloned();
     let sync_state = chain_muxer.sync_state_cloned();
     services.spawn(async { Err(anyhow::anyhow!("{}", chain_muxer.await)) });
+
+    if config.client.enable_health_check {
+        let forest_state = crate::health::ForestState {
+            config: config.clone(),
+            chain_config: chain_config.clone(),
+            genesis_timestamp: genesis_header.timestamp,
+            sync_state: sync_state.clone(),
+            peer_manager,
+        };
+
+        let listener =
+            tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address).await?;
+
+        services.spawn(async move {
+            crate::health::init_healthcheck_server(forest_state, listener)
+                .await
+                .context("Failed to initiate healthcheck server")
+        });
+    }
 
     // Start services
     if config.client.enable_rpc {
@@ -363,13 +382,12 @@ pub(super) async fn start(
                     start_time,
                     beacon,
                     chain_store: rpc_chain_store,
+                    shutdown: shutdown_send,
+                    tipset_send: tipset_sender,
                 },
                 rpc_address,
-                FOREST_VERSION_STRING.as_str(),
-                shutdown_send,
             )
             .await
-            .map_err(|err| anyhow::anyhow!("{:?}", serde_json::to_string(&err)))
         });
     } else {
         debug!("RPC disabled.");
@@ -381,9 +399,7 @@ pub(super) async fn start(
 
     // Sets proof parameter file download path early, the files will be checked and
     // downloaded later right after snapshot import step
-    crate::utils::proofs_api::paramfetch::set_proofs_parameter_cache_dir_env(
-        &config.client.data_dir,
-    );
+    crate::utils::proofs_api::set_proofs_parameter_cache_dir_env(&config.client.data_dir);
 
     // Sets the latest snapshot if needed for downloading later
     let mut config = config;

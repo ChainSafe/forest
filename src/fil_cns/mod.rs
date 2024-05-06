@@ -9,7 +9,7 @@ use crate::state_manager::{Error as StateManagerError, StateManager};
 use anyhow::anyhow;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::Error as ForestEncodingError;
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 use thiserror::Error;
 
 mod metrics;
@@ -22,6 +22,8 @@ pub enum FilecoinConsensusError {
     BlockWithoutElectionProof,
     #[error("Block without ticket")]
     BlockWithoutTicket,
+    #[error("Block height {current} not greater than parent height {parent}")]
+    BlockHeightNotGreaterThanParentHeight { current: i64, parent: i64 },
     #[error("Block had the wrong timestamp: {0} != {1}")]
     UnequalBlockTimestamps(u64, u64),
     #[error("Tipset without ticket to verify")]

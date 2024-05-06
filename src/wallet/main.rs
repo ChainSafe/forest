@@ -5,7 +5,7 @@ use std::ffi::OsString;
 
 use super::subcommands::Cli;
 use crate::networks::NetworkChain;
-use crate::rpc_client::ApiInfo;
+use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Network};
 use clap::Parser;
 use std::str::FromStr;
@@ -15,20 +15,25 @@ where
     ArgT: Into<OsString> + Clone,
 {
     // Capture Cli inputs
-    let Cli { opts, cmd } = Cli::parse_from(args);
+    let Cli {
+        opts,
+        remote_wallet,
+        encrypt,
+        cmd,
+    } = Cli::parse_from(args);
 
-    let api = ApiInfo::from_env()?.set_token(opts.token.clone());
+    let client = rpc::Client::default_or_from_env(opts.token.as_deref())?;
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
         .block_on(async {
-            let name = api.state_network_name().await?;
+            let name = StateNetworkName::call(&client, ()).await?;
             let chain = NetworkChain::from_str(&name)?;
             if chain.is_testnet() {
                 CurrentNetwork::set_global(Network::Testnet);
             }
             // Run command
-            cmd.run(api).await
+            cmd.run(client, remote_wallet, encrypt).await
         })
 }

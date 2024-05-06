@@ -16,6 +16,8 @@ where
     let Cli { cmd } = Cli::parse_from(args);
     setup_minimal_logger();
 
+    let client = crate::rpc::Client::default_or_from_env(None)?;
+
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
@@ -31,7 +33,8 @@ where
                 Subcommand::DB(cmd) => cmd.run().await,
                 Subcommand::Car(cmd) => cmd.run().await,
                 Subcommand::Api(cmd) => cmd.run().await,
-                Subcommand::Shed(cmd) => cmd.run().await,
+                Subcommand::Net(cmd) => cmd.run().await,
+                Subcommand::Shed(cmd) => cmd.run(client).await,
             }
         })
 }

@@ -88,6 +88,19 @@ async fn ask_and_verify_mainnet_beacon_entry_success() {
     assert!(beacon.verify_entries(&[e2, e3], &e1).unwrap());
 }
 
+// This is a regression test for cases when a block header contains
+// duplicate beacon entries.
+// For details, see <https://github.com/ChainSafe/forest/pull/4163>
+#[tokio::test]
+async fn ask_and_verify_mainnet_beacon_entry_success_issue_4163() {
+    let beacon = new_beacon_mainnet();
+
+    let e1 = beacon.entry(3907446).await.unwrap();
+    let e2 = beacon.entry(3907447).await.unwrap();
+    let e3 = beacon.entry(3907447).await.unwrap();
+    assert!(beacon.verify_entries(&[e2, e3], &e1).unwrap());
+}
+
 #[tokio::test]
 async fn ask_and_verify_mainnet_beacon_entry_fail() {
     let beacon = new_beacon_mainnet();

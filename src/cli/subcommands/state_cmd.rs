@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use std::path::PathBuf;
+use std::time::Duration;
 
-use crate::rpc_client::ApiInfo;
+use crate::rpc::{self, prelude::*};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
 use cid::Cid;
@@ -32,10 +33,15 @@ pub enum StateCommands {
 }
 
 impl StateCommands {
-    pub async fn run(self, api: ApiInfo) -> anyhow::Result<()> {
+    pub async fn run(self, client: rpc::Client) -> anyhow::Result<()> {
         match self {
             Self::Fetch { root, save_to_file } => {
-                println!("{}", api.state_fetch_root(root, save_to_file).await?);
+                let ret = client
+                    .call(
+                        StateFetchRoot::request((root, save_to_file))?.with_timeout(Duration::MAX),
+                    )
+                    .await?;
+                println!("{ret}");
             }
         }
         Ok(())

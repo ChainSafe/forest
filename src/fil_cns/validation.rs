@@ -27,12 +27,12 @@ use filecoin_proofs_api::{post, PublicReplicaInfo, SectorId};
 use futures::stream::FuturesUnordered;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{bytes_32, to_vec};
-use nonempty::NonEmpty;
+use nunny::Vec as NonEmpty;
 
 use crate::fil_cns::{metrics, FilecoinConsensusError};
 
 fn to_errs<E: Into<FilecoinConsensusError>>(e: E) -> NonEmpty<FilecoinConsensusError> {
-    NonEmpty::new(e.into())
+    NonEmpty::of(e.into())
 }
 
 /// Validates block semantically according to <https://github.com/filecoin-project/specs/blob/6ab401c0b92efb6420c6e198ec387cf56dc86057/validation.md>
@@ -82,7 +82,7 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
 
     let prev_beacon = chain_store
         .chain_index
-        .latest_beacon_entry(&base_tipset)
+        .latest_beacon_entry(base_tipset.clone())
         .map(Arc::new)
         .map_err(to_errs)?;
 
@@ -127,19 +127,17 @@ pub(in crate::fil_cns) async fn validate_block<DB: Blockstore + Sync + Send + 's
 
     // Beacon values check
     if std::env::var(IGNORE_DRAND_VAR) != Ok("1".to_owned()) {
-        let v_block = Arc::clone(&block);
-        let parent_epoch = base_tipset.epoch();
-        let v_prev_beacon = Arc::clone(&prev_beacon);
-        validations.push(tokio::task::spawn(async move {
-            v_block
-                .header()
-                .validate_block_drand(
-                    win_p_nv,
-                    beacon_schedule.as_ref(),
-                    parent_epoch,
-                    &v_prev_beacon,
-                )
-                .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
+        validations.push(tokio::task::spawn({
+            let block = Arc::clone(&block);
+            let parent_epoch = base_tipset.epoch();
+            let prev_beacon = Arc::clone(&prev_beacon);
+            let nv = state_manager.get_network_version(header.epoch);
+            async move {
+                block
+                    .header()
+                    .validate_block_drand(nv, beacon_schedule.as_ref(), parent_epoch, &prev_beacon)
+                    .map_err(|e| FilecoinConsensusError::BeaconValidation(e.to_string()))
+            }
         }));
     }
 
@@ -197,10 +195,18 @@ fn block_timestamp_checks(
     base_tipset: &Tipset,
     chain_config: &ChainConfig,
 ) -> Result<(), FilecoinConsensusError> {
+    if header.epoch <= base_tipset.epoch() {
+        return Err(
+            FilecoinConsensusError::BlockHeightNotGreaterThanParentHeight {
+                current: header.epoch,
+                parent: base_tipset.epoch(),
+            },
+        );
+    }
     // Timestamp checks
     let block_delay = chain_config.block_delay_secs;
-    let nulls = (header.epoch - (base_tipset.epoch() + 1)) as u64;
-    let target_timestamp = base_tipset.min_timestamp() + block_delay as u64 * (nulls + 1);
+    let nulls = header.epoch - (base_tipset.epoch() + 1);
+    let target_timestamp = base_tipset.min_timestamp() + block_delay as u64 * (nulls + 1) as u64;
     if target_timestamp != header.timestamp {
         return Err(FilecoinConsensusError::UnequalBlockTimestamps(
             header.timestamp,

@@ -1,44 +1,75 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
-use jsonrpsee::types::error::{
-    ErrorObjectOwned, INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, PARSE_ERROR_CODE,
+use jsonrpsee::{
+    core::ClientError,
+    types::error::{self, ErrorCode, ErrorObjectOwned},
 };
 
-#[derive(derive_more::From, derive_more::Into, Debug)]
-pub struct JsonRpcError {
+/// An error returned _by the remote server_, not due to e.g serialization errors,
+/// protocol errors, or the connection failing.
+#[derive(derive_more::From, derive_more::Into, Debug, PartialEq)]
+pub struct ServerError {
     inner: ErrorObjectOwned,
 }
 
-impl JsonRpcError {
-    fn new(code: i32, message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
+impl ServerError {
+    pub fn new(
+        code: i32,
+        message: impl Display,
+        data: impl Into<Option<serde_json::Value>>,
+    ) -> Self {
         Self {
             inner: ErrorObjectOwned::owned(code, message.to_string(), data.into()),
         }
     }
-    pub fn parse_error(message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
-        Self::new(PARSE_ERROR_CODE, message, data)
+    pub fn message(&self) -> &str {
+        self.inner.message()
     }
-    pub fn internal_error(
-        message: impl Display,
-        data: impl Into<Option<serde_json::Value>>,
-    ) -> Self {
-        Self::new(INTERNAL_ERROR_CODE, message, data)
+    pub fn known_code(&self) -> ErrorCode {
+        self.inner.code().into()
     }
-    pub fn invalid_params(
-        message: impl Display,
-        data: impl Into<Option<serde_json::Value>>,
-    ) -> Self {
-        Self::new(INVALID_PARAMS_CODE, message, data)
+}
+
+impl Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("JSON-RPC error:\n")?;
+        f.write_fmt(format_args!("\tcode: {}\n", self.inner.code()))?;
+        f.write_fmt(format_args!("\tmessage: {}\n", self.inner.message()))?;
+        if let Some(data) = self.inner.data() {
+            f.write_fmt(format_args!("\tdata: {}\n", data))?
+        }
+        Ok(())
     }
+}
+
+impl std::error::Error for ServerError {}
+
+macro_rules! ctor {
+    ($($ctor:ident { $code:expr })*) => {
+        $(
+            impl ServerError {
+                pub fn $ctor(message: impl Display, data: impl Into<Option<serde_json::Value>>) -> Self {
+                    Self::new($code, message, data)
+                }
+            }
+        )*
+    }
+}
+
+ctor! {
+    parse_error { error::PARSE_ERROR_CODE }
+    internal_error { error::INTERNAL_ERROR_CODE }
+    invalid_params { error::INVALID_PARAMS_CODE }
+    method_not_found { error::METHOD_NOT_FOUND_CODE }
 }
 
 macro_rules! from2internal {
     ($($ty:ty),* $(,)?) => {
         $(
-            impl From<$ty> for JsonRpcError {
+            impl From<$ty> for ServerError {
                 fn from(it: $ty) -> Self {
                     Self::internal_error(it, None)
                 }
@@ -66,15 +97,22 @@ from2internal! {
     std::io::Error,
     std::time::SystemTimeError,
     tokio::task::JoinError,
+    fil_actors_shared::fvm_ipld_hamt::Error,
 }
 
-impl<T> From<flume::SendError<T>> for JsonRpcError {
+impl From<ServerError> for ClientError {
+    fn from(value: ServerError) -> Self {
+        Self::Call(value.inner)
+    }
+}
+
+impl<T> From<flume::SendError<T>> for ServerError {
     fn from(e: flume::SendError<T>) -> Self {
         Self::internal_error(e, None)
     }
 }
 
-impl<T> From<tokio::sync::mpsc::error::SendError<T>> for JsonRpcError {
+impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ServerError {
     fn from(e: tokio::sync::mpsc::error::SendError<T>) -> Self {
         Self::internal_error(e, None)
     }

@@ -75,7 +75,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{mpsc, oneshot};
 
-use super::error::JsonRpcError;
+use super::error::ServerError;
 
 pub const NOTIF_METHOD_NAME: &str = "xrpc.ch.val";
 pub const CANCEL_METHOD_NAME: &str = "xrpc.cancel";
@@ -126,8 +126,6 @@ impl PendingSubscriptionSink {
         );
         let success = response.is_success();
 
-        // TODO: #1052
-        //
         // Ideally the message should be sent only once.
         //
         // The same message is sent twice here because one is sent directly to the transport layer and
@@ -295,9 +293,9 @@ impl Default for RpcModule {
                             let opt = channels.lock().remove(&sub_id);
                             match opt {
                                 Some((_, _, channel_id)) => {
-                                    Ok::<ChannelId, JsonRpcError>(channel_id)
+                                    Ok::<ChannelId, ServerError>(channel_id)
                                 }
-                                None => Err::<ChannelId, JsonRpcError>(JsonRpcError::from(
+                                None => Err::<ChannelId, ServerError>(ServerError::from(
                                     anyhow::anyhow!("channel not found"),
                                 )),
                             }

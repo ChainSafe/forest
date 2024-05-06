@@ -1,6 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-
+#![allow(clippy::indexing_slicing)]
 use std::{
     cmp::Ordering,
     mem,
@@ -44,7 +44,6 @@ pub(in crate::message_pool) struct Chains {
     pub key_vec: Vec<NodeKey>,
 }
 
-#[cfg(test)]
 impl Chains {
     // Sort by effective perf with cmp_effective
     pub(in crate::message_pool) fn sort_effective(&mut self) {
@@ -254,7 +253,7 @@ impl Chains {
     pub(in crate::message_pool) fn drop_invalid(&mut self, key_vec: &mut Vec<NodeKey>) {
         let mut valid_keys = vec![];
         for k in key_vec.iter() {
-            if let true = self.map.get(*k).map(|n| n.valid).unwrap() {
+            if self.map.get(*k).map(|n| n.valid).unwrap() {
                 valid_keys.push(*k);
             } else {
                 self.map.remove(*k);
@@ -324,7 +323,6 @@ impl MsgChainNode {
     }
 }
 
-#[cfg(test)]
 impl MsgChainNode {
     pub(in crate::message_pool) fn cmp_effective(&self, other: &Self) -> Ordering {
         if self.merged && !other.merged

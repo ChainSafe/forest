@@ -12,13 +12,13 @@ use thiserror::Error;
 /// constant string that is used to identify the JWT secret key in `KeyStore`
 pub const JWT_IDENTIFIER: &str = "auth-jwt-private";
 /// Admin permissions
-pub static ADMIN: &[&str] = &["read", "write", "sign", "admin"];
+pub const ADMIN: &[&str] = &["read", "write", "sign", "admin"];
 /// Signing permissions
-pub static SIGN: &[&str] = &["read", "write", "sign"];
+pub const SIGN: &[&str] = &["read", "write", "sign"];
 /// Writing permissions
-pub static WRITE: &[&str] = &["read", "write"];
+pub const WRITE: &[&str] = &["read", "write"];
 /// Reading permissions
-pub static READ: &[&str] = &["read"];
+pub const READ: &[&str] = &["read"];
 
 /// Error enumeration for Authentication
 #[derive(Debug, Error, Serialize, Deserialize)]

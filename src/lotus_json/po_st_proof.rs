@@ -9,8 +9,12 @@ use super::*;
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct PoStProofLotusJson {
-    po_st_proof: LotusJson<RegisteredPoStProof>,
-    proof_bytes: LotusJson<Vec<u8>>,
+    #[schemars(with = "LotusJson<RegisteredPoStProof>")]
+    #[serde(with = "crate::lotus_json")]
+    po_st_proof: RegisteredPoStProof,
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    proof_bytes: Vec<u8>,
 }
 
 impl HasLotusJson for PoStProof {
@@ -38,8 +42,8 @@ impl HasLotusJson for PoStProof {
             proof_bytes,
         } = self.into();
         Self::LotusJson {
-            po_st_proof: crate::shim::sector::RegisteredPoStProof::from(post_proof).into(),
-            proof_bytes: proof_bytes.into(),
+            po_st_proof: post_proof.into(),
+            proof_bytes,
         }
     }
 
@@ -49,8 +53,8 @@ impl HasLotusJson for PoStProof {
             proof_bytes,
         } = lotus_json;
         Self::from(PoStProofV3 {
-            post_proof: po_st_proof.into_inner().into(),
-            proof_bytes: proof_bytes.into_inner(),
+            post_proof: po_st_proof.into(),
+            proof_bytes,
         })
     }
 }

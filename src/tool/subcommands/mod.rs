@@ -8,6 +8,7 @@ mod benchmark_cmd;
 mod car_cmd;
 mod db_cmd;
 mod fetch_params_cmd;
+mod net_cmd;
 mod shed_cmd;
 mod snapshot_cmd;
 mod state_migration_cmd;
@@ -28,6 +29,7 @@ pub struct Cli {
 
 /// forest-tool sub-commands
 #[derive(clap::Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum Subcommand {
     /// Create and restore backups
     #[command(subcommand)]
@@ -64,6 +66,10 @@ pub enum Subcommand {
     /// API tooling
     #[command(subcommand)]
     Api(api_cmd::ApiCommands),
+
+    /// Network utilities
+    #[command(subcommand)]
+    Net(net_cmd::NetCommands),
 
     /// Miscellaneous, semver-exempt commands for developer use.
     #[command(subcommand)]

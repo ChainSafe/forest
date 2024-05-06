@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use crate::rpc_client::DEFAULT_PORT;
 use chrono::Duration;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
@@ -42,6 +41,7 @@ pub struct Client {
     pub genesis_file: Option<String>,
     pub enable_rpc: bool,
     pub enable_metrics_endpoint: bool,
+    pub enable_health_check: bool,
     /// If this is true, then we do not validate the imported snapshot.
     /// Otherwise, we validate and compute the states.
     pub snapshot: bool,
@@ -64,6 +64,7 @@ pub struct Client {
     pub metrics_address: SocketAddr,
     /// RPC bind, e.g. 127.0.0.1:1234
     pub rpc_address: SocketAddr,
+    pub healthcheck_address: SocketAddr,
     /// Period of validity for JWT in seconds. Defaults to 60 days.
     #[serde_as(as = "DurationSeconds<i64>")]
     #[cfg_attr(test, arbitrary(gen(
@@ -84,6 +85,7 @@ impl Default for Client {
             genesis_file: None,
             enable_rpc: true,
             enable_metrics_endpoint: true,
+            enable_health_check: true,
             snapshot_path: None,
             snapshot: false,
             consume_snapshot: false,
@@ -94,7 +96,11 @@ impl Default for Client {
             buffer_size: BufferSize::default(),
             encrypt_keystore: true,
             metrics_address: FromStr::from_str("0.0.0.0:6116").unwrap(),
-            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), DEFAULT_PORT),
+            rpc_address: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), crate::rpc::DEFAULT_PORT),
+            healthcheck_address: SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                crate::health::DEFAULT_HEALTHCHECK_PORT,
+            ),
             token_exp: Duration::try_seconds(5184000).expect("Infallible"), // 60 Days = 5184000 Seconds
             load_actors: true,
         }

@@ -7,28 +7,49 @@ use crate::shim::{address::Address, econ::TokenAmount, message::Message};
 use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct MessageLotusJson {
-    version: LotusJson<u64>,
-    to: LotusJson<Address>,
-    from: LotusJson<Address>,
-    nonce: LotusJson<u64>,
-    value: LotusJson<TokenAmount>,
-    gas_limit: LotusJson<u64>,
-    gas_fee_cap: LotusJson<TokenAmount>,
-    gas_premium: LotusJson<TokenAmount>,
-    method: LotusJson<u64>,
-    #[serde(skip_serializing_if = "LotusJson::is_none", default)]
-    params: LotusJson<Option<RawBytes>>,
+    version: u64,
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    to: Address,
+    #[schemars(with = "LotusJson<Address>")]
+    #[serde(with = "crate::lotus_json")]
+    from: Address,
+    nonce: u64,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    value: TokenAmount,
+    gas_limit: u64,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    gas_fee_cap: TokenAmount,
+    #[schemars(with = "LotusJson<TokenAmount>")]
+    #[serde(with = "crate::lotus_json")]
+    gas_premium: TokenAmount,
+    method: u64,
+    #[schemars(with = "LotusJson<Option<RawBytes>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    params: Option<RawBytes>,
     // This is a bit of a hack - `Message`s don't really store their CID, but they're
     // serialized with it.
     // However, getting a message's CID is fallible...
     // So we keep this as an `Option`, and ignore it if it fails.
     // We also ignore it when serializing from json.
     // I wouldn't be surprised if this causes issues with arbitrary tests
-    #[serde(rename = "CID", skip_serializing_if = "LotusJson::is_none", default)]
-    cid: LotusJson<Option<Cid>>,
+    #[schemars(with = "LotusJson<Option<Cid>>")]
+    #[serde(
+        with = "crate::lotus_json",
+        rename = "CID",
+        skip_serializing_if = "Option::is_none",
+        default
+    )]
+    cid: Option<Cid>,
 }
 
 impl HasLotusJson for Message {
@@ -71,17 +92,17 @@ impl HasLotusJson for Message {
             gas_premium,
         } = self;
         Self::LotusJson {
-            version: version.into(),
-            to: to.into(),
-            from: from.into(),
-            nonce: sequence.into(),
-            value: value.into(),
-            gas_limit: gas_limit.into(),
-            gas_fee_cap: gas_fee_cap.into(),
-            gas_premium: gas_premium.into(),
-            method: method_num.into(),
-            params: Some(params).into(),
-            cid: cid.into(),
+            version,
+            to,
+            from,
+            nonce: sequence,
+            value,
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
+            method: method_num,
+            params: Some(params),
+            cid,
         }
     }
 
@@ -100,16 +121,16 @@ impl HasLotusJson for Message {
             cid: _ignored,
         } = lotus_json;
         Self {
-            version: version.into_inner(),
-            from: from.into_inner(),
-            to: to.into_inner(),
-            sequence: nonce.into_inner(),
-            value: value.into_inner(),
-            method_num: method.into_inner(),
-            params: params.into_inner().unwrap_or_default(),
-            gas_limit: gas_limit.into_inner(),
-            gas_fee_cap: gas_fee_cap.into_inner(),
-            gas_premium: gas_premium.into_inner(),
+            version,
+            from,
+            to,
+            sequence: nonce,
+            value,
+            method_num: method,
+            params: params.unwrap_or_default(),
+            gas_limit,
+            gas_fee_cap,
+            gas_premium,
         }
     }
 }

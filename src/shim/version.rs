@@ -8,6 +8,7 @@ use super::fvm_shared_latest::version::NetworkVersion as NetworkVersion_latest;
 pub use fvm_shared2::version::NetworkVersion as NetworkVersion_v2;
 use fvm_shared3::version::NetworkVersion as NetworkVersion_v3;
 use fvm_shared4::version::NetworkVersion as NetworkVersion_v4;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Specifies the network version
@@ -26,10 +27,12 @@ use serde::{Deserialize, Serialize};
 /// // use `.into()` when FVM2 has to be specified.
 /// assert_eq!(fvm_shared2::version::NetworkVersion::V0, v0.into());
 /// ```
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Debug, Eq, PartialEq, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize, JsonSchema,
+)]
 #[repr(transparent)]
 #[serde(transparent)]
-pub struct NetworkVersion(pub NetworkVersion_latest);
+pub struct NetworkVersion(#[schemars(with = "u32")] pub NetworkVersion_latest);
 
 lotus_json_with_self!(NetworkVersion);
 
@@ -72,6 +75,12 @@ impl DerefMut for NetworkVersion {
     }
 }
 
+impl From<u32> for NetworkVersion {
+    fn from(value: u32) -> Self {
+        NetworkVersion(NetworkVersion_latest::new(value))
+    }
+}
+
 impl From<NetworkVersion_v2> for NetworkVersion {
     fn from(value: NetworkVersion_v2) -> Self {
         NetworkVersion((value as u32).into())
@@ -105,5 +114,13 @@ impl From<NetworkVersion> for NetworkVersion_v3 {
 impl From<NetworkVersion> for NetworkVersion_v4 {
     fn from(other: NetworkVersion) -> Self {
         other.0
+    }
+}
+
+#[cfg(test)]
+impl quickcheck::Arbitrary for NetworkVersion {
+    fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+        let value = u32::arbitrary(g);
+        NetworkVersion(NetworkVersion_latest::new(value))
     }
 }

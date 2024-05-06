@@ -4,8 +4,6 @@
 # - Lotus miner (2k build),
 # - Forest node.
 
-version: "3.8"
-
 services:
   # Basic devnet initialisation. This will populate Lotus data volume with necessary artifacts
   # to run a devnet. The initialisation is a lengthy process and occurs only at the first
@@ -179,6 +177,7 @@ services:
     environment:
       - FIL_PROOFS_PARAMETER_CACHE=${FIL_PROOFS_PARAMETER_CACHE}
       - RUST_LOG=info,forest_filecoin::blocks::header=debug
+      - FOREST_GENESIS_NETWORK_VERSION=${GENESIS_NETWORK_VERSION}
       - FOREST_SHARK_HEIGHT=${SHARK_HEIGHT}
       - FOREST_HYGGE_HEIGHT=${HYGGE_HEIGHT}
       - FOREST_LIGHTNING_HEIGHT=${LIGHTNING_HEIGHT}

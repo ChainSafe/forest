@@ -8,12 +8,14 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
 
-use crate::{db::SettingsStore, utils::net::http_get};
+use crate::{db::SettingsStore, shim::version::NetworkVersion, utils::net::http_get};
 
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
     get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
 };
+
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V21;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -35,7 +37,7 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzacedz4owzn3irngak4cdv3xndfxyy4qi5hcv7p724anbnt27l7dctoq").unwrap()
+    Cid::from_str("bafy2bzaceddfs2mf6ufmvszvwho2n6c7zvrnywpwkyq5wudtsknxhfvhwrhhs").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
@@ -50,7 +52,7 @@ static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
 /// The genesis file does not live on the `master` branch, currently on a draft PR.
 /// `<https://github.com/filecoin-project/lotus/pull/11458>`
 static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/3331a7e52c97e5723fc0c613271a616bb3ccdb39/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/c643e174798202e77b3e8f8a080d81e1ea32f7c5/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -68,6 +70,48 @@ pub const ETH_CHAIN_ID: u64 = 3141592;
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
         (
+            Height::Breeze,
+            HeightInfo {
+                epoch: -50,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Smoke,
+            HeightInfo {
+                epoch: -2,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Ignition,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
+            Height::ActorsV2,
+            HeightInfo {
+                epoch: -3,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Liftoff,
+            HeightInfo {
+                epoch: -6,
+                bundle: None,
+            },
+        ),
+        (
+            Height::Calico,
+            HeightInfo {
+                epoch: -9,
+                bundle: None,
+            },
+        ),
+        (
             Height::Watermelon,
             HeightInfo {
                 epoch: -1,
@@ -80,9 +124,9 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         (
             Height::Dragon,
             HeightInfo {
-                epoch: 2600,
+                epoch: 480,
                 bundle: Some(
-                    Cid::try_from("bafy2bzaceaqx5xa4cwso24rjiu2ketjlztrqlac6dkyol7tlyuhzrle3zfbos")
+                    Cid::try_from("bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu")
                         .unwrap(),
                 ),
             },

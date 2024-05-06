@@ -8,7 +8,9 @@ use super::*;
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct TicketLotusJson {
-    v_r_f_proof: LotusJson<VRFProof>,
+    #[schemars(with = "LotusJson<VRFProof>")]
+    #[serde(with = "crate::lotus_json")]
+    v_r_f_proof: VRFProof,
 }
 
 impl HasLotusJson for Ticket {
@@ -27,14 +29,14 @@ impl HasLotusJson for Ticket {
     fn into_lotus_json(self) -> Self::LotusJson {
         let Self { vrfproof } = self;
         Self::LotusJson {
-            v_r_f_proof: vrfproof.into(),
+            v_r_f_proof: vrfproof,
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         let Self::LotusJson { v_r_f_proof } = lotus_json;
         Self {
-            vrfproof: v_r_f_proof.into_inner(),
+            vrfproof: v_r_f_proof,
         }
     }
 }

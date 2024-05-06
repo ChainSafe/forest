@@ -1,6 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::sync::Arc;
 use std::{fmt, sync::OnceLock};
 
 use crate::cid_collections::SmallCidNonEmptyVec;
@@ -14,8 +15,8 @@ use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
 use itertools::Itertools as _;
-use nonempty::{nonempty, NonEmpty};
 use num::BigInt;
+use nunny::{vec as nonempty, Vec as NonEmpty};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -153,7 +154,11 @@ impl quickcheck::Arbitrary for Tipset {
 impl From<FullTipset> for Tipset {
     fn from(full_tipset: FullTipset) -> Self {
         let key = full_tipset.key;
-        let headers = full_tipset.blocks.map(|block| block.header);
+        let headers = full_tipset
+            .blocks
+            .into_iter_ne()
+            .map(|block| block.header)
+            .collect_vec();
 
         Tipset { headers, key }
     }
@@ -183,13 +188,14 @@ impl Tipset {
     pub fn new<H: Into<CachingBlockHeader>>(
         headers: impl IntoIterator<Item = H>,
     ) -> Result<Self, CreateTipsetError> {
-        let headers = NonEmpty::collect(
+        let headers = NonEmpty::new(
             headers
                 .into_iter()
                 .map(Into::<CachingBlockHeader>::into)
-                .sorted_by_cached_key(|it| it.tipset_sort_key()),
+                .sorted_by_cached_key(|it| it.tipset_sort_key())
+                .collect(),
         )
-        .ok_or(CreateTipsetError::Empty)?;
+        .map_err(|_| CreateTipsetError::Empty)?;
 
         verify_block_headers(&headers)?;
 
@@ -294,7 +300,7 @@ impl Tipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKey::from(self.headers.clone().map(|h| *h.cid())))
+            .get_or_init(|| TipsetKey::from(self.headers.iter_ne().map(|h| *h.cid()).collect_vec()))
     }
     /// Returns a non-empty collection of `CIDs` for the current tipset
     pub fn cids(&self) -> NonEmpty<Cid> {
@@ -339,6 +345,19 @@ impl Tipset {
         itertools::unfold(Some(self), move |tipset| {
             tipset.take().map(|child| {
                 *tipset = Tipset::load(&store, child.parents()).ok().flatten();
+                child
+            })
+        })
+    }
+
+    /// Returns an iterator of all tipsets
+    pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
+        itertools::unfold(Some(self), move |tipset| {
+            tipset.take().map(|child| {
+                *tipset = Tipset::load(&store, child.parents())
+                    .ok()
+                    .flatten()
+                    .map(Arc::new);
                 child
             })
         })
@@ -411,14 +430,15 @@ impl PartialEq for FullTipset {
 
 impl FullTipset {
     pub fn new(blocks: impl IntoIterator<Item = Block>) -> Result<Self, CreateTipsetError> {
-        let blocks = NonEmpty::collect(
+        let blocks = NonEmpty::new(
             // sort blocks on creation to allow for more seamless conversions between
             // FullTipset and Tipset
             blocks
                 .into_iter()
-                .sorted_by_cached_key(|it| it.header.tipset_sort_key()),
+                .sorted_by_cached_key(|it| it.header.tipset_sort_key())
+                .collect(),
         )
-        .ok_or(CreateTipsetError::Empty)?;
+        .map_err(|_| CreateTipsetError::Empty)?;
 
         verify_block_headers(blocks.iter().map(|it| &it.header))?;
 
@@ -447,7 +467,7 @@ impl FullTipset {
     /// Returns a key for the tipset.
     pub fn key(&self) -> &TipsetKey {
         self.key
-            .get_or_init(|| TipsetKey::from(self.blocks.clone().map(|b| *b.cid())))
+            .get_or_init(|| TipsetKey::from(self.blocks.iter_ne().map(|b| *b.cid()).collect_vec()))
     }
     /// Returns the state root for the tipset parent.
     pub fn parent_state(&self) -> &Cid {
@@ -468,7 +488,8 @@ fn verify_block_headers<'a>(
 ) -> Result<(), CreateTipsetError> {
     use itertools::all;
 
-    let headers = NonEmpty::collect(headers).ok_or(CreateTipsetError::Empty)?;
+    let headers =
+        NonEmpty::new(headers.into_iter().collect()).map_err(|_| CreateTipsetError::Empty)?;
     if !all(&headers, |it| it.parents == headers.first().parents) {
         return Err(CreateTipsetError::BadParents);
     }
@@ -493,12 +514,13 @@ mod lotus_json {
 
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
-    use nonempty::NonEmpty;
+    use nunny::Vec as NonEmpty;
     use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     use super::TipsetKey;
 
+    #[derive(Clone)]
     pub struct TipsetLotusJson(Tipset);
 
     impl JsonSchema for TipsetLotusJson {
@@ -523,9 +545,12 @@ mod lotus_json {
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
-        cids: LotusJson<TipsetKey>,
-        blocks: LotusJson<NonEmpty<CachingBlockHeader>>,
-        height: LotusJson<i64>,
+        #[serde(with = "crate::lotus_json")]
+        cids: TipsetKey,
+        #[serde(with = "crate::lotus_json")]
+        blocks: NonEmpty<CachingBlockHeader>,
+        #[serde(with = "crate::lotus_json")]
+        height: i64,
     }
 
     impl<'de> Deserialize<'de> for TipsetLotusJson {
@@ -540,7 +565,7 @@ mod lotus_json {
             } = Deserialize::deserialize(deserializer)?;
 
             Ok(Self(Tipset {
-                headers: blocks.into_inner(),
+                headers: blocks,
                 key: Default::default(),
             }))
         }
@@ -553,9 +578,9 @@ mod lotus_json {
         {
             let Self(tipset) = self;
             TipsetLotusJsonInner {
-                cids: tipset.key().clone().into(),
-                blocks: tipset.clone().into_block_headers().into(),
-                height: tipset.epoch().into(),
+                cids: tipset.key().clone(),
+                blocks: tipset.clone().into_block_headers(),
+                height: tipset.epoch(),
             }
             .serialize(serializer)
         }

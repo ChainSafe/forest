@@ -27,6 +27,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_encoding::to_vec;
+use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
 use num::BigInt;
@@ -39,8 +40,8 @@ use crate::message_pool::{
     errors::Error,
     head_change, metrics,
     msgpool::{
-        recover_sig, republish_pending_messages, select_messages_for_block,
-        BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE, RBF_DENOM, RBF_NUM,
+        recover_sig, republish_pending_messages, BASE_FEE_LOWER_BOUND_FACTOR_CONSERVATIVE,
+        RBF_DENOM, RBF_NUM,
     },
     provider::Provider,
     utils::get_base_fee_lower_bound,
@@ -138,7 +139,7 @@ impl MsgSet {
         if self.msgs.remove(&sequence).is_none() {
             if applied && sequence >= self.next_sequence {
                 self.next_sequence = sequence + 1;
-                while self.msgs.get(&self.next_sequence).is_some() {
+                while self.msgs.contains_key(&self.next_sequence) {
                     self.next_sequence += 1;
                 }
             }
@@ -381,12 +382,14 @@ where
         if mset.msgs.is_empty() {
             return None;
         }
-        let mut msg_vec = Vec::new();
-        for (_, item) in mset.msgs.iter() {
-            msg_vec.push(item.clone());
-        }
-        msg_vec.sort_by_key(|value| value.message().sequence);
-        Some(msg_vec)
+
+        Some(
+            mset.msgs
+                .values()
+                .cloned()
+                .sorted_by_key(|v| v.message().sequence)
+                .collect(),
+        )
     }
 
     /// Return Vector of signed messages given a block header for self.
@@ -438,27 +441,6 @@ where
             .map_err(|e| Error::Other(e.to_string()))?;
         self.config = cfg;
         Ok(())
-    }
-
-    /// Select messages that can be included in a block built on a given base
-    /// tipset.
-    pub fn select_messages_for_block(&self, base: &Tipset) -> Result<Vec<SignedMessage>, Error> {
-        // Take a snapshot of the pending messages.
-        let pending: HashMap<Address, HashMap<u64, SignedMessage>> = {
-            let pending = self.pending.read();
-            pending
-                .iter()
-                .filter_map(|(actor, mset)| {
-                    if mset.msgs.is_empty() {
-                        None
-                    } else {
-                        Some((*actor, mset.msgs.clone()))
-                    }
-                })
-                .collect()
-        };
-
-        select_messages_for_block(self.api.as_ref(), self.chain_config.as_ref(), base, pending)
     }
 }
 

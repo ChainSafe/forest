@@ -5,11 +5,13 @@ use crate::beacon::BeaconEntry;
 
 use super::*;
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BeaconEntryLotusJson {
-    round: LotusJson<u64>,
-    data: LotusJson<Vec<u8>>,
+    round: u64,
+    #[schemars(with = "LotusJson<Vec<u8>>")]
+    #[serde(with = "crate::lotus_json")]
+    data: Vec<u8>,
 }
 
 impl HasLotusJson for BeaconEntry {
@@ -23,13 +25,13 @@ impl HasLotusJson for BeaconEntry {
     fn into_lotus_json(self) -> Self::LotusJson {
         let (round, data) = self.into_parts();
         Self::LotusJson {
-            round: round.into(),
-            data: data.into(),
+            round,
+            data,
         }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         let Self::LotusJson { round, data } = lotus_json;
-        Self::new(round.into_inner(), data.into_inner())
+        Self::new(round, data)
     }
 }
