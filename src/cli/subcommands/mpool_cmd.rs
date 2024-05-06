@@ -134,7 +134,7 @@ fn compute_stats(
         let actor_sequence = *actor_sequences.get(&address).expect("get must succeed");
 
         let mut curr_sequence = actor_sequence;
-        while bucket.get(&curr_sequence).is_some() {
+        while bucket.contains_key(&curr_sequence) {
             curr_sequence += 1;
         }
 
