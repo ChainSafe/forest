@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod empty_map;
-mod walk;
 use std::ops::SubAssign;
 
 use indexmap::IndexMap;

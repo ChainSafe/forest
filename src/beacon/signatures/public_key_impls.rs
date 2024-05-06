@@ -9,7 +9,7 @@ impl PublicKeyOnG2 {
     }
 
     pub fn verify(&self, message: impl AsRef<[u8]>, signature: &SignatureOnG1) -> bool {
-        verify_messages_unchained(self, &[message.as_ref()], &[&signature])
+        verify_messages_unchained(self, &[message.as_ref()], &[signature])
     }
 
     pub fn verify_batch(&self, messages: &[&[u8]], signatures: &[&SignatureOnG1]) -> bool {

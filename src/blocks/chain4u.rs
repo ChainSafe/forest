@@ -167,10 +167,10 @@ impl<T> Chain4U<T> {
             inner: Default::default(),
         }
     }
-    pub fn get<Q: ?Sized>(&self, ident: &Q) -> Option<RawBlockHeader>
+    pub fn get<Q>(&self, ident: &Q) -> Option<RawBlockHeader>
     where
         String: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.lock().ident2header.get(ident).cloned()
     }
@@ -395,15 +395,11 @@ impl<N, E, Ix> KeyedDiGraph<N, E, Ix> {
     {
         petgraph::algo::is_cyclic_directed(&self.graph)
     }
-    fn neighbors_directed<Q: ?Sized>(
-        &self,
-        node: &Q,
-        dir: petgraph::Direction,
-    ) -> impl Iterator<Item = &N>
+    fn neighbors_directed<Q>(&self, node: &Q, dir: petgraph::Direction) -> impl Iterator<Item = &N>
     where
         Ix: petgraph::graph::IndexType,
         N: Borrow<Q> + Hash + Eq,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.node2ix
             .get_by_left(node)

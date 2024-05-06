@@ -4,7 +4,6 @@
 pub mod selector;
 pub mod util;
 
-pub use libipld::Path;
 pub use libipld_core::ipld::Ipld;
 pub use util::*;
 
