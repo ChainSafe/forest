@@ -725,6 +725,10 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     bad_block_cache: Arc<BadBlockCache>,
     genesis: Arc<Tipset>,
 ) -> Result<(), TipsetRangeSyncerError> {
+    if proposed_head == current_head {
+        return Ok(());
+    }
+
     tracker
         .write()
         .init(current_head.clone(), proposed_head.clone());
