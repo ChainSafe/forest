@@ -47,6 +47,7 @@ pub mod prelude {
     chain::for_each_method!(export);
     common::for_each_method!(export);
     gas::for_each_method!(export);
+    miner::for_each_method!(export);
     mpool::for_each_method!(export);
     net::for_each_method!(export);
     state::for_each_method!(export);
@@ -106,6 +107,7 @@ mod methods {
     pub mod common;
     pub mod eth;
     pub mod gas;
+    pub mod miner;
     pub mod mpool;
     pub mod net;
     pub mod node;
@@ -267,6 +269,7 @@ where
     common::for_each_method!(register);
     gas::for_each_method!(register);
     mpool::for_each_method!(register);
+    miner::for_each_method!(register);
     net::for_each_method!(register);
     state::for_each_method!(register);
     node::for_each_method!(register);
