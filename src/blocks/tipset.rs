@@ -402,6 +402,16 @@ impl Tipset {
         }
         anyhow::bail!("Genesis block not found")
     }
+
+    /// Check if `self` is the child of `other`
+    pub fn is_child_of(&self, other: &Self) -> bool {
+        self.parents() == other.key()
+        // See <https://github.com/filecoin-project/lotus/blob/01ec22974942fb7328a1e665704c6cfd75d93372/chain/types/tipset.go#L258>
+        // FIXME: The height check might go beyond what is meant by
+		//  "parent", but many parts of the code rely on the tipset's
+		//  height for their processing logic at the moment to obviate it.
+        && self.epoch() > other.epoch()
+    }
 }
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
