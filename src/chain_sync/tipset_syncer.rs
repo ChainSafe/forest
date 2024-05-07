@@ -811,22 +811,17 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     let mut parent_tipsets = nonempty![proposed_head.clone()];
     tracker.write().set_epoch(current_head.epoch());
 
-    let total_size = proposed_head.epoch() - current_head.epoch();
+    let until_epoch = current_head.epoch() + 1;
+    let total_size = proposed_head.epoch() - until_epoch + 1;
     #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
 
-    'sync: loop {
+    'sync: while parent_tipsets.last().epoch() > until_epoch {
         let oldest_parent = parent_tipsets.last();
-        let work_to_be_done = oldest_parent.epoch() - current_head.epoch();
+        let work_to_be_done = oldest_parent.epoch() - until_epoch + 1;
         wp.set((work_to_be_done - total_size).unsigned_abs());
         validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &parent_blocks)?;
 
-        // Check if we are at the end of the range
-        if oldest_parent.epoch() <= current_head.epoch() {
-            // Current tipset epoch is less than or equal to the epoch of
-            // Tipset we a synchronizing toward, stop.
-            break;
-        }
         // Attempt to load the parent tipset from local store
         if let Some(tipset) = chain_store
             .chain_index
