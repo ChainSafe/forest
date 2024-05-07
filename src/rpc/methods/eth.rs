@@ -360,6 +360,11 @@ impl HasLotusJson for BlockNumberOrHash {
             _ => (),
         };
 
+        // TODO: should we implement EIP-1898?
+        if let Ok(hash) = Hash::from_str(&lotus_json) {
+            return Self::BlockHash(hash, false);
+        }
+
         #[allow(clippy::indexing_slicing)]
         if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
             if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
