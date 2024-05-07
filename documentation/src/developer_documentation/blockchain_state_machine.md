@@ -29,7 +29,7 @@ is correct.
  - Known worst-case memory usage.
  - Low best-case memory usage.
 
-## 2023 algorithm
+## 2023 algorithm (THIS ALGORITHM WILL BE REPLACED)
 
 BOOTSTRAP:
 
@@ -83,7 +83,7 @@ gitGraph
 
 ### Two active chains, starting from snapshot after the fork
 
-```
+```mermaid
 %%{init: { 'gitGraph': {'mainBranchName': 'BlockChain'}} }%%
 gitGraph
         commit id: "Genesis"
@@ -99,7 +99,7 @@ gitGraph
 
 ### Two active chains, synced, new chain becomes heaviest
 
-```
+```mermaid
 %%{init: { 'gitGraph': {'mainBranchName': 'BlockChain'}} }%%
 gitGraph
         commit id: "Genesis"
@@ -113,6 +113,9 @@ gitGraph
 ```
 
 ## New state-machine
+
+We receive block-headers from the gossip protocol
+
 
 ### State
 
