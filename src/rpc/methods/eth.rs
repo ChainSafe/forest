@@ -827,7 +827,13 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Ok(ts)
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let tsk = TipsetKey::from(nonempty![hash.to_cid()]);
+            let cid = hash.to_cid();
+            // TODO: Implement what is needed to retrieve the tsk
+            let bytes = chain
+                .blockstore()
+                .get(&cid)?
+                .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
+            let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
             let ts = chain.chain_index.load_required_tipset(&tsk)?;
             // verify that the tipset is in the canonical chain
             if require_canonical {
