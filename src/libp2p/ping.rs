@@ -42,7 +42,7 @@ pub async fn p2p_ping(addr: Multiaddr) -> Result<Duration, ping::Failure> {
     }
 }
 
-fn map_failure<E: Error + Send + 'static>(error: E) -> ping::Failure {
+fn map_failure<E: Error + Send + Sync + 'static>(error: E) -> ping::Failure {
     ping::Failure::Other {
         error: Box::new(error),
     }
