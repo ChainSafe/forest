@@ -85,3 +85,35 @@ Checklist for adding a new RPC method:
 5. Implement Forest endpoint in `src/rpc/`, add it to the method list in
    `src/rpc/mod.rs`
 6. Verify that the test from step 4 shows `Valid` for Forest.
+
+## Creating own miner for tests
+
+Use commands along the lines of the following script to create a miner for
+testing. Note that the `miner create` will take a while to complete.
+
+```bash
+#!/bin/bash
+# Owner
+# The owner keypair is provided by the miner ahead of registration and its public key associated with the miner address.
+# The owner keypair can be used to administer a miner and withdraw funds.
+OWNER=$(lotus wallet new bls)
+WORKER=$(lotus wallet new bls)
+SENDER=$(lotus wallet new bls)
+
+# print the owner address and order the user to send FIL from faucet to it. Wait for the confirmation from the user.
+echo "Owner: $OWNER"
+echo "Please send some FIL to the owner address and press enter to continue. Ensure that that the transaction is confirmed."
+read
+
+# Send some FIL to the worker and sender from the owner address
+lotus send --from $OWNER $WORKER 10
+lotus send --from $OWNER $SENDER 10
+
+echo "Wait till the funds are confirmed and press enter to continue."
+read
+
+lotus-shed miner create $SENDER $OWNER $WORKER 32GiB
+```
+
+Afterwards, use the `lotus wallet export` and `lotus wallet import` commands to
+persist and restore the keys.
