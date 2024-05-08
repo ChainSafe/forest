@@ -52,6 +52,14 @@ FOLLOW:
 This BOOTSTRAP/FOLLOW algorithm is difficult to understand and it is fragile
 (both against unexpected messages and adversarial messages).
 
+## Issues with the 2023 algorithm
+
+ - Excessive complexity. Reasoning about correctness and performance is
+   difficult.
+ - Too linear. Doesn't handle forks well.
+ - Unnecessary constraints. Requires 5 nodes in the network before it'll enter
+   FOLLOW mode. Dev networks usually do not have 5 nodes.
+
 ## Scenarios
 
 ### No forks, starting from snapshot
