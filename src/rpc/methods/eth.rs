@@ -20,7 +20,7 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
 use cid::{
@@ -782,9 +782,7 @@ impl RpcMethod<2> for EthGetBalance {
         let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
         let state =
             StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
-        let actor = state
-            .get_actor(&fil_addr)?
-            .context("Failed to retrieve actor")?;
+        let actor = state.get_required_actor(&fil_addr)?;
         Ok(BigInt(actor.balance.atto().clone()))
     }
 }

@@ -12,13 +12,12 @@
 //! > requires reading all sector metadata from the miner actor.
 
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
+use crate::utils::db::CborStoreExt as _;
 use ahash::HashMap;
-use anyhow::Context;
 use cid::Cid;
 use fil_actor_miner_state::v12::State as MinerStateOld;
 use fil_actors_shared::v12::Array as ArrayOld;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use fvm_shared4::clock::ChainEpoch;
 use fvm_shared4::deal::DealID;
 use fvm_shared4::sector::{SectorID, SectorNumber};
@@ -57,9 +56,7 @@ impl<BS: Blockstore> ActorMigration<BS> for MinerMigrator {
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let miner_id = input.address.id()?;
-        let in_state: MinerStateOld = store
-            .get_cbor(&input.head)?
-            .context("Miner actor: could not read v12 state")?;
+        let in_state: MinerStateOld = store.get_cbor_required(&input.head)?;
 
         let in_sectors = ArrayOld::<fil_actor_miner_state::v12::SectorOnChainInfo, BS>::load(
             &in_state.sectors,

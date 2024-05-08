@@ -15,6 +15,7 @@ mod tsk_impl;
 #[cfg(test)]
 mod tests;
 
+use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
@@ -26,7 +27,7 @@ use crate::shim::{
     executor::Receipt,
     fvm_shared_latest::MethodNum,
     message::Message,
-    sector::{RegisteredSealProof, SectorNumber},
+    sector::{RegisteredSealProof, SectorInfo, SectorNumber, StoragePower},
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
@@ -536,3 +537,31 @@ pub struct DealCollateralBounds {
 }
 
 lotus_json_with_self!(DealCollateralBounds);
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfo {
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<StoragePower>")]
+    pub miner_power: StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<StoragePower>")]
+    pub network_power: StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<SectorInfo>>")]
+    pub sectors: Vec<SectorInfo>,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub worker_key: Address,
+    #[schemars(with = "u64")]
+    pub sector_size: fvm_shared2::sector::SectorSize,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<BeaconEntry>")]
+    pub prev_beacon_entry: BeaconEntry,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<BeaconEntry>>")]
+    pub beacon_entries: Vec<BeaconEntry>,
+    pub eligible_for_mining: bool,
+}
+
+lotus_json_with_self!(MiningBaseInfo);

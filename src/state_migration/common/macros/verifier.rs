@@ -10,11 +10,9 @@ macro_rules! impl_verifier {
         pub(super) mod verifier {
             use $crate::cid_collections::CidHashMap;
             use $crate::shim::{address::Address, machine::BuiltinActorManifest, state_tree::StateTree};
-            use ::fvm_ipld_blockstore::Blockstore;
-            use ::fvm_ipld_encoding::CborStore as _;
             use $crate::state_migration::common::{verifier::ActorMigrationVerifier, Migrator};
-            use ::anyhow::Context as _;
-
+            use $crate::utils::db::CborStoreExt as _;
+            use ::fvm_ipld_blockstore::Blockstore;
             use super::*;
 
             #[derive(Default)]
@@ -28,12 +26,9 @@ macro_rules! impl_verifier {
                     actors_in: &StateTree<BS>,
                 ) -> anyhow::Result<()> {
                     let system_actor = actors_in
-                        .get_actor(&Address::SYSTEM_ACTOR)?
-                        .context("system actor not found")?;
-
+                        .get_required_actor(&Address::SYSTEM_ACTOR)?;
                     let system_actor_state = store
-                        .get_cbor::<SystemStateOld>(&system_actor.state)?
-                        .context("system actor state not found")?;
+                        .get_cbor_required::<SystemStateOld>(&system_actor.state)?;
                     let manifest =
                         BuiltinActorManifest::load_v1_actor_list(&store, &system_actor_state.builtin_actors)?;
                     let manifest_actors_count = manifest.builtin_actors().len();
