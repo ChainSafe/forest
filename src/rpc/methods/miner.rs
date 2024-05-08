@@ -16,6 +16,7 @@ use crate::message::SignedMessage;
 use crate::networks::Height;
 
 use crate::rpc::reflect::Permission;
+use crate::rpc::types::{ApiTipsetKey, MiningBaseInfo};
 use crate::rpc::{ApiVersion, Ctx, RpcMethod, ServerError};
 use crate::shim::address::Address;
 use crate::shim::clock::ChainEpoch;
@@ -44,6 +45,7 @@ use std::sync::Arc;
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::miner::MinerCreateBlock);
+        $callback!(crate::rpc::miner::MinerGetBaseInfo);
     };
 }
 pub(crate) use for_each_method;
@@ -275,5 +277,31 @@ fn aggregate_from_bls_signatures(bls_sigs: Vec<Signature>) -> anyhow::Result<Sig
             sig_type: SignatureType::Bls,
             bytes: bls_aggregate.as_bytes().to_vec(),
         })
+    }
+}
+
+pub enum MinerGetBaseInfo {}
+impl RpcMethod<3> for MinerGetBaseInfo {
+    const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, i64, ApiTipsetKey);
+    type Ok = Option<MiningBaseInfo>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, epoch, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+
+        Ok(ctx
+            .state_manager
+            .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
+            .await?)
     }
 }

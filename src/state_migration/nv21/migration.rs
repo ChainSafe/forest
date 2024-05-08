@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use super::{miner, system, verifier::Verifier, SystemStateOld};
 use crate::make_butterfly_policy;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
@@ -12,14 +13,12 @@ use crate::shim::{
     sector::{RegisteredPoStProofV3, RegisteredSealProofV3},
     state_tree::{StateTree, StateTreeVersion},
 };
+use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
+use crate::utils::db::CborStoreExt as _;
 use anyhow::Context;
 use cid::Cid;
 use fil_actors_shared::v11::runtime::ProofSet;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-
-use super::{miner, system, verifier::Verifier, SystemStateOld};
-use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 
 impl<BS: Blockstore> StateMigration<BS> {
     pub fn add_nv21_migrations(
@@ -30,13 +29,8 @@ impl<BS: Blockstore> StateMigration<BS> {
         chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
-        let system_actor = state_tree
-            .get_actor(&Address::new_id(0))?
-            .context("failed to get system actor")?;
-
-        let system_actor_state = store
-            .get_cbor::<SystemStateOld>(&system_actor.state)?
-            .context("system actor state not found")?;
+        let system_actor = state_tree.get_required_actor(&Address::new_id(0))?;
+        let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
         let current_manifest_data = system_actor_state.builtin_actors;
 
