@@ -11,7 +11,6 @@ use crate::shim::{
     econ::TokenAmount,
     state_tree::StateTree,
 };
-use base64::{prelude::BASE64_STANDARD, Engine};
 use fvm_ipld_blockstore::Blockstore;
 
 macro_rules! for_each_method {
@@ -235,7 +234,7 @@ impl RpcMethod<2> for WalletSign {
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
-            &BASE64_STANDARD.decode(message)?,
+            &message,
         )?;
 
         Ok(sig)

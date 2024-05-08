@@ -96,6 +96,9 @@
 - [#4267](https://github.com/ChainSafe/forest/pull/4267) Fixed potential panics
   in `forest-tool api compare`.
 
+- [#4297](https://github.com/ChainSafe/forest/pull/4297) Fixed double decoding
+  of message in the `Filecoin.WalletSign` RPC method.
+
 ## Forest 0.17.2 "Dovakhin"
 
 This is a **mandatory** release for all mainnet node operators. It changes the
