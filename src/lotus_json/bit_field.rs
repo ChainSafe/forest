@@ -6,6 +6,7 @@ use super::*;
 use fil_actors_shared::fvm_ipld_bitfield::{json::BitFieldJson, BitField};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "BitField")]
 pub struct BitFieldLotusJson(#[schemars(with = "Option<Vec<u8>>")] pub BitFieldJson);
 
 impl Clone for BitFieldLotusJson {

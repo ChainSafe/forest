@@ -467,33 +467,6 @@ impl<T> LotusJson<T> {
     }
 }
 
-/// A struct that is (de) serialized through its [`Display`] and [`FromStr`] implementations.
-#[derive(Serialize, Deserialize, From, Default)]
-#[serde(bound = "T: Display + FromStr, T::Err: Display")]
-pub struct Stringify<T>(#[serde(with = "stringify")] pub T);
-
-impl<T> Stringify<T> {
-    pub fn into_inner(self) -> T {
-        self.0
-    }
-}
-
-impl<T> JsonSchema for Stringify<T> {
-    fn schema_name() -> String {
-        String::schema_name()
-    }
-
-    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-        String::json_schema(gen)
-    }
-}
-
-impl<T: Clone> Clone for Stringify<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
 macro_rules! lotus_json_with_self {
     ($($domain_ty:ty),* $(,)?) => {
         $(

@@ -13,9 +13,14 @@ use crate::shim::crypto::SignatureType;
 
 #[derive(Deserialize, Serialize, JsonSchema)]
 #[serde(untagged)] // try an int, then a string
+#[schemars(rename = "SignatureType")]
 pub enum SignatureTypeLotusJson {
     Integer(SignatureType),
-    String(Stringify<SignatureType>),
+    String(
+        #[serde(with = "crate::lotus_json::stringify")]
+        #[schemars(with = "String")]
+        SignatureType,
+    ),
 }
 
 impl HasLotusJson for SignatureType {
@@ -32,8 +37,7 @@ impl HasLotusJson for SignatureType {
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
         match lotus_json {
-            SignatureTypeLotusJson::Integer(inner)
-            | SignatureTypeLotusJson::String(Stringify(inner)) => inner,
+            SignatureTypeLotusJson::Integer(inner) | SignatureTypeLotusJson::String(inner) => inner,
         }
     }
 }

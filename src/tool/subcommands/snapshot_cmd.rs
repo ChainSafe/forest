@@ -488,8 +488,6 @@ mod structured {
         called_at: CalledAt,
         duration: Duration,
     ) -> anyhow::Result<serde_json::Value> {
-        use crate::lotus_json::Stringify;
-
         let is_explicit = matches!(called_at.apply_kind(), fvm3::executor::ApplyKind::Explicit);
 
         let chain_message_cid = chain_message.cid()?;
@@ -502,7 +500,7 @@ mod structured {
             "Error": apply_ret.failure_info().unwrap_or_default(),
             "GasCost": {
                 "Message": is_explicit.then_some(unsigned_message_cid.into_lotus_json()),
-                "GasUsed": is_explicit.then_some(Stringify(apply_ret.msg_receipt().gas_used())).unwrap_or_default(),
+                "GasUsed": is_explicit.then_some(apply_ret.msg_receipt().gas_used()).unwrap_or_default().to_string(),
                 "BaseFeeBurn": apply_ret.base_fee_burn().into_lotus_json(),
                 "OverEstimationBurn": apply_ret.over_estimation_burn().into_lotus_json(),
                 "MinerPenalty": apply_ret.penalty().into_lotus_json(),

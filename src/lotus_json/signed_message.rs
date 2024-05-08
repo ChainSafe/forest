@@ -9,6 +9,7 @@ use super::*;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "SignedMessage")]
 pub struct SignedMessageLotusJson {
     #[schemars(with = "LotusJson<Message>")]
     #[serde(with = "crate::lotus_json")]
@@ -82,9 +83,6 @@ impl HasLotusJson for SignedMessage {
             signature,
             cid: _ignored, // See notes on Message
         } = lotus_json;
-        Self {
-            message,
-            signature,
-        }
+        Self { message, signature }
     }
 }

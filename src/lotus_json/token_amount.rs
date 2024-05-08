@@ -7,6 +7,7 @@ use num::BigInt;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)] // name the field for clarity
+#[schemars(rename = "TokenAmount")]
 pub struct TokenAmountLotusJson {
     #[schemars(with = "LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]

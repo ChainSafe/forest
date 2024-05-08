@@ -7,6 +7,7 @@ use super::*;
 // - use #[serde(with = "...")]
 // - de/ser empty vecs as null
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "Base64String")]
 pub struct VecU8LotusJson(Option<Inner>);
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]

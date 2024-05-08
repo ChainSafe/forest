@@ -7,6 +7,7 @@ use super::*;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "BeaconEntry")]
 pub struct BeaconEntryLotusJson {
     round: u64,
     #[schemars(with = "LotusJson<Vec<u8>>")]
@@ -24,10 +25,7 @@ impl HasLotusJson for BeaconEntry {
 
     fn into_lotus_json(self) -> Self::LotusJson {
         let (round, data) = self.into_parts();
-        Self::LotusJson {
-            round,
-            data,
-        }
+        Self::LotusJson { round, data }
     }
 
     fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
