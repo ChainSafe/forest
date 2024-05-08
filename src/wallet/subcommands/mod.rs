@@ -16,6 +16,8 @@ pub struct Cli {
     pub opts: CliRpcOpts,
 
     /// Use remote wallet associated with the Filecoin node.
+    /// Warning! You should ensure that your connection is encrypted and secure,
+    /// as the communication between the wallet and the node is **not** encrypted.
     #[arg(long)]
     pub remote_wallet: bool,
 
