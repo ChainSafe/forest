@@ -17,6 +17,7 @@ use crate::shim::clock::ChainEpoch;
 use crate::shim::error::ExitCode;
 use crate::shim::executor::Receipt;
 use crate::shim::message::Message;
+use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
 use cid::Cid;
@@ -306,11 +307,7 @@ impl RpcMethod<1> for ChainGetBlockMessages {
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx
-            .state_manager
-            .blockstore()
-            .get_cbor(&cid)?
-            .context("can't find block with that cid")?;
+        let blk: CachingBlockHeader = ctx.state_manager.blockstore().get_cbor_required(&cid)?;
         let blk_msgs = &blk.messages;
         let (unsigned_cids, signed_cids) =
             crate::chain::read_msg_cids(ctx.state_manager.blockstore(), blk_msgs)?;
@@ -507,11 +504,7 @@ impl RpcMethod<1> for ChainGetBlock {
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx
-            .state_manager
-            .blockstore()
-            .get_cbor(&cid)?
-            .context("can't find BlockHeader with that cid")?;
+        let blk: CachingBlockHeader = ctx.state_manager.blockstore().get_cbor_required(&cid)?;
         Ok(blk)
     }
 }

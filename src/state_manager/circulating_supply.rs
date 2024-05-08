@@ -267,9 +267,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
 }
 
 fn get_fil_mined<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
-    let actor = state_tree
-        .get_actor(&Address::REWARD_ACTOR)?
-        .context("Reward actor address could not be resolved")?;
+    let actor = state_tree.get_required_actor(&Address::REWARD_ACTOR)?;
     let state = reward::State::load(state_tree.store(), actor.code, actor.state)?;
 
     Ok(state.into_total_storage_power_reward().into())

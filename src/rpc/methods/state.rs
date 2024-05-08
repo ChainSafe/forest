@@ -18,7 +18,10 @@ use crate::shim::{
 use crate::state_manager::chain_rand::ChainRand;
 use crate::state_manager::circulating_supply::GenesisInfo;
 use crate::state_manager::MarketBalance;
-use crate::utils::db::car_stream::{CarBlock, CarWriter};
+use crate::utils::db::{
+    car_stream::{CarBlock, CarWriter},
+    BlockstoreExt as _,
+};
 use crate::{
     beacon::BeaconEntry,
     rpc::{types::*, ApiVersion, Ctx, Permission, RpcMethod, ServerError},
@@ -729,8 +732,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
 
         let actor = ctx
             .state_manager
-            .get_actor(&Address::MARKET_ACTOR, state)?
-            .context("Market actor address could not be resolved")?;
+            .get_required_actor(&Address::MARKET_ACTOR, state)?;
         let market_state = market::State::load(ctx.store(), actor.code, actor.state)?;
         let (w, vw) = market_state.verify_deals_for_activation(
             ctx.store(),
@@ -744,16 +746,14 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
 
         let actor = ctx
             .state_manager
-            .get_actor(&Address::POWER_ACTOR, state)?
-            .context("Power actor address could not be resolved")?;
+            .get_required_actor(&Address::POWER_ACTOR, state)?;
         let power_state = power::State::load(ctx.store(), actor.code, actor.state)?;
         let power_smoothed = power_state.total_power_smoothed();
         let pledge_collateral = power_state.total_locked();
 
         let actor = ctx
             .state_manager
-            .get_actor(&Address::REWARD_ACTOR, state)?
-            .context("Reward actor address could not be resolved")?;
+            .get_required_actor(&Address::REWARD_ACTOR, state)?;
         let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
         let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
@@ -1240,11 +1240,7 @@ impl RpcMethod<2> for StateReadState {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let blk = ctx
-            .state_manager
-            .blockstore()
-            .get(&actor.state)?
-            .context("Failed to get block from blockstore")?;
+        let blk = ctx.state_manager.blockstore().get_required(&actor.state)?;
         let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
         Ok(ApiActorState {
             balance: actor.balance.clone().into(),

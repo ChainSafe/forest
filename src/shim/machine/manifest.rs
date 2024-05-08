@@ -5,10 +5,10 @@
 
 use std::collections::BTreeMap;
 
+use crate::utils::db::CborStoreExt as _;
 use anyhow::{ensure, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore as _;
 use itertools::Itertools as _;
 
 /// This should be the latest enumeration of all builtin actors
@@ -29,9 +29,7 @@ static_assertions::assert_not_impl_all!(BuiltinActor: std::hash::Hash);
 impl BuiltinActorManifest {
     const MANDATORY_BUILTINS: &'static [BuiltinActor] = &[BuiltinActor::Init, BuiltinActor::System];
     pub fn load_manifest(b: impl Blockstore, manifest_cid: &Cid) -> anyhow::Result<Self> {
-        let (manifest_version, actor_list_cid) = b
-            .get_cbor::<(u32, Cid)>(manifest_cid)?
-            .context("failed to load manifest")?;
+        let (manifest_version, actor_list_cid) = b.get_cbor_required::<(u32, Cid)>(manifest_cid)?;
         ensure!(
             manifest_version == 1,
             "unsupported manifest version {}",
@@ -40,9 +38,7 @@ impl BuiltinActorManifest {
         Self::load_v1_actor_list(b, &actor_list_cid)
     }
     pub fn load_v1_actor_list(b: impl Blockstore, actor_list_cid: &Cid) -> anyhow::Result<Self> {
-        let mut actor_list = b
-            .get_cbor::<Vec<(String, Cid)>>(actor_list_cid)?
-            .context("failed to load actor list")?;
+        let mut actor_list = b.get_cbor_required::<Vec<(String, Cid)>>(actor_list_cid)?;
         actor_list.sort();
         ensure!(
             actor_list.iter().map(|(name, _cid)| name).all_unique(),
