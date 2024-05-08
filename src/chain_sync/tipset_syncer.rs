@@ -815,31 +815,35 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     let total_size = proposed_head.epoch() - until_epoch + 1;
 
     let mut accepted_blocks: Vec<Cid> = vec![];
-    let mut parent_tipsets = nonempty![proposed_head];
+    let mut pending_tipsets = nonempty![proposed_head];
     tracker.write().set_epoch(current_head.epoch());
 
     #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
-    while parent_tipsets.last().epoch() > until_epoch {
-        let oldest_parent = parent_tipsets.last();
-        let work_to_be_done = oldest_parent.epoch() - until_epoch + 1;
+    while pending_tipsets.last().epoch() > until_epoch {
+        let oldest_pending_tipset = pending_tipsets.last();
+        let work_to_be_done = oldest_pending_tipset.epoch() - until_epoch + 1;
         wp.set((work_to_be_done - total_size).unsigned_abs());
-        validate_tipset_against_cache(bad_block_cache, oldest_parent.parents(), &accepted_blocks)?;
+        validate_tipset_against_cache(
+            bad_block_cache,
+            oldest_pending_tipset.parents(),
+            &accepted_blocks,
+        )?;
 
         // Attempt to load the parent tipset from local store
         if let Some(tipset) = chain_store
             .chain_index
-            .load_tipset(oldest_parent.parents())?
+            .load_tipset(oldest_pending_tipset.parents())?
         {
             accepted_blocks.extend(tipset.cids());
-            parent_tipsets.push(tipset);
+            pending_tipsets.push(tipset);
             continue;
         }
 
-        let epoch_diff = oldest_parent.epoch() - current_head.epoch();
+        let epoch_diff = oldest_pending_tipset.epoch() - current_head.epoch();
         let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
         let network_tipsets = network
-            .chain_exchange_headers(None, oldest_parent.parents(), window as u64)
+            .chain_exchange_headers(None, oldest_pending_tipset.parents(), window as u64)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
 
@@ -850,15 +854,17 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &accepted_blocks)?;
             accepted_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
-            parent_tipsets.push(tipset);
+            pending_tipsets.push(tipset);
         }
     }
     drop(wp);
 
-    let oldest_tipset = parent_tipsets.last();
+    let oldest_pending_tipset = pending_tipsets.last();
     // common case: receiving a block that's potentially part of the same tipset as our best block
-    if oldest_tipset.as_ref() == current_head || oldest_tipset.is_child_of(current_head) {
-        return Ok(parent_tipsets);
+    if oldest_pending_tipset.as_ref() == current_head
+        || oldest_pending_tipset.is_child_of(current_head)
+    {
+        return Ok(pending_tipsets);
     }
 
     // Fork detected, sync the fork tipset range by iteratively walking back
@@ -866,7 +872,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     info!("Fork detected, searching for a common ancestor between the local chain and the network chain");
     const FORK_LENGTH_THRESHOLD: u64 = 500;
     let fork_tipsets = network
-        .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
+        .chain_exchange_headers(None, oldest_pending_tipset.parents(), FORK_LENGTH_THRESHOLD)
         .await
         .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
     let mut potential_common_ancestor = chain_store
@@ -878,7 +884,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         if fork_tipset.epoch() == 0 {
             return Err(TipsetRangeSyncerError::ForkAtGenesisBlock(format!(
                 "{:?}",
-                oldest_tipset.cids()
+                oldest_pending_tipset.cids()
             )));
         }
         if &potential_common_ancestor == fork_tipset {
@@ -886,7 +892,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             // iterator is immediately dropped
             let mut fork_tipsets = fork_tipsets;
             fork_tipsets.drain((i + 1)..);
-            parent_tipsets.extend(fork_tipsets);
+            pending_tipsets.extend(fork_tipsets);
             break;
         }
 
@@ -912,7 +918,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         }
     }
 
-    Ok(parent_tipsets)
+    Ok(pending_tipsets)
 }
 
 #[allow(clippy::too_many_arguments)]
