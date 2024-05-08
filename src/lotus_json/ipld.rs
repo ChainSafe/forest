@@ -31,6 +31,7 @@ use libipld::{ipld, Ipld};
 use serde::de;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "Ipld")]
 pub struct IpldLotusJson(
     #[serde(with = "self")]
     #[schemars(with = "serde_json::Value")] // opt-out of JsonSchema for now

@@ -4,6 +4,7 @@
 use super::*;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "Cid")]
 pub struct CidLotusJsonGeneric<const S: usize> {
     #[serde(rename = "/")]
     slash: Stringify<::cid::CidGeneric<S>>,
