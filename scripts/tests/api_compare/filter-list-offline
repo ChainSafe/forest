@@ -10,3 +10,5 @@
 !Filecoin.NetAgentVersion
 !Filecoin.NetAutoNatStatus
 !Filecoin.NetPeers
+# These methods don't make sense in the context of an offline node
+!Filecoin.MinerCreateBlock
