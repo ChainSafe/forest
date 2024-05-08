@@ -25,7 +25,8 @@ use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
+use crate::rpc::types::MiningBaseInfo;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
