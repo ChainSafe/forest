@@ -7,6 +7,9 @@
 use std::sync::Arc;
 
 use crate::shim::econ::TokenAmount;
+use crate::state_migration::common::{
+    ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
+};
 use crate::{
     shim::address::Address, state_migration::common::MigrationCache, utils::db::CborStoreExt,
 };
@@ -20,11 +23,6 @@ use fil_actors_shared::fvm_ipld_amt;
 use fil_actors_shared::v11::{runtime::Policy as PolicyOld, Array as ArrayOld};
 use fil_actors_shared::v12::{runtime::Policy as PolicyNew, Array as ArrayNew};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
-
-use crate::state_migration::common::{
-    ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
-};
 
 pub struct MinerMigrator {
     empty_deadline_v11: Cid,
@@ -69,9 +67,7 @@ impl<BS: Blockstore> ActorMigration<BS> for MinerMigrator {
         store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
-        let in_state: MinerStateOld = store
-            .get_cbor(&input.head)?
-            .context("Miner actor: could not read v11 state")?;
+        let in_state: MinerStateOld = store.get_cbor_required(&input.head)?;
 
         let new_sectors = self.migrate_sectors_with_cache(
             store,
@@ -204,9 +200,7 @@ impl MinerMigrator {
             return Ok(self.empty_deadlines_v12);
         }
 
-        let in_deadlines = store
-            .get_cbor::<DeadlinesOld>(deadlines)?
-            .context("failed to get in_deadlines")?;
+        let in_deadlines = store.get_cbor_required::<DeadlinesOld>(deadlines)?;
         let mut out_deadlines = DeadlinesNew::new(&self.policy_new, self.empty_deadline_v12);
 
         for (i, deadline) in in_deadlines.due.iter().enumerate() {
@@ -217,9 +211,7 @@ impl MinerMigrator {
                     out_deadlines.due.push(self.empty_deadline_v12);
                 }
             } else {
-                let in_deadline = store
-                    .get_cbor::<DeadlineOld>(deadline)?
-                    .context("failed to get in_deadline")?;
+                let in_deadline = store.get_cbor_required::<DeadlineOld>(deadline)?;
 
                 let out_sectors_snapshot_cid_cache_key =
                     sectors_amt_key(&in_deadline.sectors_snapshot)?;
@@ -309,11 +301,10 @@ mod tests {
         let store = Arc::new(crate::db::MemoryDB::default());
         let (mut state_tree_old, manifest_old) = make_input_tree(&store);
         let system_actor_old = state_tree_old
-            .get_actor(&fil_actor_interface::system::ADDRESS.into())
-            .unwrap()
+            .get_required_actor(&fil_actor_interface::system::ADDRESS.into())
             .unwrap();
         let system_state_old: fil_actor_system_state::v11::State =
-            store.get_cbor(&system_actor_old.state).unwrap().unwrap();
+            store.get_cbor_required(&system_actor_old.state).unwrap();
         let manifest_data_cid_old = system_state_old.builtin_actors;
         assert_eq!(manifest_data_cid_old, manifest_old.source_cid());
 
@@ -376,11 +367,11 @@ mod tests {
         assert_eq!(new_state_cid, new_state_cid2);
 
         let new_state_tree = StateTree::new_from_root(store.clone(), &new_state_cid).unwrap();
-        let new_miner_state_cid = new_state_tree.get_actor(&addr).unwrap().unwrap().state;
+        let new_miner_state_cid = new_state_tree.get_required_actor(&addr).unwrap().state;
         let new_miner_state: fil_actor_miner_state::v12::State =
-            store.get_cbor(&new_miner_state_cid).unwrap().unwrap();
+            store.get_cbor_required(&new_miner_state_cid).unwrap();
         let deadlines: fil_actor_miner_state::v12::Deadlines =
-            store.get_cbor(&new_miner_state.deadlines).unwrap().unwrap();
+            store.get_cbor_required(&new_miner_state.deadlines).unwrap();
         deadlines
             .for_each(&store, |_, deadline| {
                 let sectors_snapshots =

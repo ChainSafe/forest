@@ -7,12 +7,10 @@
 use crate::state_migration::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
 };
-use crate::utils::db::CborStoreExt;
-use anyhow::Context as _;
+use crate::utils::db::CborStoreExt as _;
 use cid::Cid;
 use fil_actor_miner_state::{v10::State as MinerStateOld, v11::State as MinerStateNew};
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore as _;
 use std::sync::Arc;
 
 pub struct MinerMigrator(Cid);
@@ -29,14 +27,9 @@ impl<BS: Blockstore> ActorMigration<BS> for MinerMigrator {
         store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
-        let in_state: MinerStateOld = store
-            .get_cbor(&input.head)?
-            .context("Miner actor: could not read v10 state")?;
-
+        let in_state: MinerStateOld = store.get_cbor_required(&input.head)?;
         let out_state: MinerStateNew = TypeMigrator::migrate_type(in_state, &store)?;
-
         let new_head = store.put_cbor_default(&out_state)?;
-
         Ok(Some(ActorMigrationOutput {
             new_code_cid: self.0,
             new_head,

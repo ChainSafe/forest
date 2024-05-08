@@ -777,14 +777,9 @@ where
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
-            .get_actor(&message_from_address, *current.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?
-            .context("Failed to load actor state")
+            .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(|e| Error::State(e.to_string()))?;
-        let message_from_id = self
-            .lookup_id(&message_from_address, current.as_ref())?
-            .context("Failed to lookup id")
-            .map_err(|e| Error::State(e.to_string()))?;
+        let message_from_id = self.lookup_required_id(&message_from_address, current.as_ref())?;
         while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
                 .cs
@@ -1185,9 +1180,7 @@ where
             epoch,
         )?;
 
-        let actor = self
-            .get_actor(&addr, *tipset.parent_state())?
-            .context("miner actor does not exist")?;
+        let actor = self.get_required_actor(&addr, *tipset.parent_state())?;
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -1324,7 +1317,7 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> anyhow::Result<Option<DataCap>> {
-        let id = self.lookup_id(addr, ts)?.context("actor not found")?;
+        let id = self.lookup_required_id(addr, ts)?;
         let network_version = self.get_network_version(ts.epoch());
 
         // This is a copy of Lotus code, we need to treat all the actors below version 9
