@@ -51,7 +51,6 @@ use tokio::task::JoinSet;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
-        $callback!(crate::rpc::state::MinerGetBaseInfo);
         $callback!(crate::rpc::state::StateCall);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateListMessages);
@@ -100,32 +99,6 @@ pub(crate) use for_each_method;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
-
-pub enum MinerGetBaseInfo {}
-impl RpcMethod<3> for MinerGetBaseInfo {
-    const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
-    const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (Address, i64, ApiTipsetKey);
-    type Ok = Option<MiningBaseInfo>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (address, epoch, ApiTipsetKey(tsk)): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
-
-        Ok(ctx
-            .state_manager
-            .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
-            .await?)
-    }
-}
 
 pub enum StateCall {}
 impl RpcMethod<2> for StateCall {
