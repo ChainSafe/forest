@@ -16,6 +16,8 @@ use anyhow::Context as _;
 use base64::{prelude::BASE64_STANDARD, Engine};
 use clap::{Parser, Subcommand};
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _};
+use itertools::Itertools as _;
+use std::fmt;
 
 #[derive(Subcommand)]
 pub enum ShedCommands {
@@ -63,7 +65,7 @@ pub enum Rpc {
 
 #[derive(Parser)]
 pub enum Dump {
-    // OpenRpc,
+    ClientMethods,
     JsonSchemaDefinitions,
 }
 
@@ -163,9 +165,143 @@ impl ShedCommands {
                             &serde_json::json!({"definitions": gen.definitions()}),
                         )?;
                     }
+                    Dump::ClientMethods => {
+                        for method in methods {
+                            let (_prefix, short_method_name) = method.name.split_once(".").unwrap();
+                            let params = method
+                                .params
+                                .iter()
+                                .map(|it| (it.name.as_str(), guess_ty_name(&it.schema)))
+                                .collect::<Vec<_>>();
+                            let return_ty = guess_ty_name(&method.result.as_ref().unwrap().schema);
+                            let sig = format!(
+                                "def {}(self, {}) -> {}:",
+                                short_method_name,
+                                params
+                                    .iter()
+                                    .map(|(n, ty)| format!("{}: {}", n, ty))
+                                    .join(", "),
+                                return_ty
+                            );
+                            let mappers = params
+                                .iter()
+                                .map(|(n, ty)| match ty {
+                                    Guess::Generated(_) => {
+                                        format!("{}.model_dump_json(by_alias=True)", n)
+                                    }
+                                    _ => format!("json.dumps({})", n),
+                                })
+                                .join(", ");
+                            let body = match return_ty {
+                                Guess::Generated(it) => {
+                                    format!(
+                                        r#"return {}.model_validate_json(self.call("{}", [{}]))"#,
+                                        it, method.name, mappers
+                                    )
+                                }
+                                _ => format!(
+                                    r#"return json.loads(self.call("{}", [{}]))"#,
+                                    method.name, mappers
+                                ),
+                            };
+                            println!("{}\n    {}", sig, body);
+                        }
+                    }
                 }
             }
         }
         Ok(())
     }
+}
+
+enum Guess {
+    None,
+    Never,
+    Any,
+    PrimBool,
+    PrimFloat,
+    PrimInt,
+    PrimStr,
+    Generated(String),
+}
+
+impl fmt::Display for Guess {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Guess::None => f.write_str("None"),
+            Guess::Never => f.write_str("typing.Never"),
+            Guess::Any => f.write_str("typing.Any"),
+            Guess::PrimBool => f.write_str("bool"),
+            Guess::PrimFloat => f.write_str("float"),
+            Guess::PrimInt => f.write_str("int"),
+            Guess::PrimStr => f.write_str("str"),
+            Guess::Generated(it) => it.fmt(f),
+        }
+    }
+}
+
+fn guess_ty_name(schema: &schemars::schema::Schema) -> Guess {
+    use schemars::schema::{InstanceType, Schema, SchemaObject, SingleOrVec};
+    match schema {
+        Schema::Bool(true) => Guess::Any,
+        Schema::Bool(false) => Guess::Never,
+        Schema::Object(it) => match it {
+            SchemaObject {
+                metadata: _,
+                instance_type: _, // None,
+                format: _,        // None,
+                enum_values: _,   // None,
+                const_value: _,   // None,
+                subschemas: _,    // None,
+                number: _,        // None,
+                string: _,        // None,
+                array: _,         // None,
+                object: _,        // None,
+                reference: Some(reference),
+                extensions: _,
+            } => Guess::Generated(self::guess_ty_name_of_reference(&reference)),
+            SchemaObject {
+                metadata: _,
+                instance_type: Some(SingleOrVec::Single(it)),
+                format: _,
+                enum_values: None,
+                const_value: None,
+                subschemas: None,
+                number: _,
+                string: _,
+                array: None,
+                object: None,
+                reference: None,
+                extensions: _,
+            } => match **it {
+                InstanceType::Null => Guess::None,
+                InstanceType::Boolean => Guess::PrimBool,
+                InstanceType::Object => todo!(),
+                InstanceType::Array => todo!(),
+                InstanceType::Number => Guess::PrimFloat,
+                InstanceType::String => Guess::PrimStr,
+                InstanceType::Integer => Guess::PrimInt,
+            },
+            _ => Guess::Any,
+        },
+    }
+}
+
+fn guess_ty_name_of_reference(src: &str) -> String {
+    use convert_case::Casing as _;
+    const REPLACEMENT_CHARACTER: char = std::char::REPLACEMENT_CHARACTER;
+    let cvt = src
+        .chars()
+        .map(|it| match it.is_ascii_alphanumeric() {
+            true => it,
+            false => REPLACEMENT_CHARACTER,
+        })
+        .dedup_by(|l, r| *l == REPLACEMENT_CHARACTER && *r == REPLACEMENT_CHARACTER)
+        .map(|it| match it == REPLACEMENT_CHARACTER {
+            true => '-',
+            false => it,
+        })
+        .collect::<String>()
+        .to_case(convert_case::Case::Pascal);
+    cvt.strip_prefix("Definitions").unwrap_or(&cvt).into()
 }
