@@ -44,9 +44,10 @@ BOOTSTRAP:
 
 FOLLOW:
  1. Collect blockheaders from gossip protocol.
- 2. Validate them the blocks.
- 3. Update HEAD.
- 4. Goto step 1.
+ 2. Scan backwards 500 (`FORK_LENGTH_THRESHOLD`) steps to find a common ancestor in case of a fork.
+ 3. Validate tipsets up to the new proposed HEAD.
+ 4. Update HEAD.
+ 5. Goto step 1.
 
 This BOOTSTRAP/FOLLOW algorithm is difficult to understand and it is fragile
 (both against unexpected messages and adversarial messages).
