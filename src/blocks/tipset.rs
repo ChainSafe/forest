@@ -405,12 +405,9 @@ impl Tipset {
 
     /// Check if `self` is the child of `other`
     pub fn is_child_of(&self, other: &Self) -> bool {
-        self.parents() == other.key()
+        // Note: the extra `&& self.epoch() > other.epoch()` check in lotus is dropped
         // See <https://github.com/filecoin-project/lotus/blob/01ec22974942fb7328a1e665704c6cfd75d93372/chain/types/tipset.go#L258>
-        // The height check might go beyond what is meant by
-		//  "parent", but many parts of the code rely on the tipset's
-		//  height for their processing logic at the moment to obviate it.
-        && self.epoch() > other.epoch()
+        self.parents() == other.key()
     }
 }
 
