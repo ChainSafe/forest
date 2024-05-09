@@ -17,6 +17,7 @@ jobs:
           NETWORK=calibnet
           TAG=$(curl --silent https://api.github.com/repos/filecoin-project/lotus/releases | jq -r 'first | .tag_name')
           sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/api_compare/.env
+          sed -i "s/\(LOTUS_IMAGE=.*\):.*/\1:$TAG-$NETWORK/" ./scripts/tests/snapshot_parity/.env
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
