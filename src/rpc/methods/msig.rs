@@ -7,7 +7,7 @@ use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
 use crate::shim::{address::Address, econ::TokenAmount};
 use fil_actor_interface::multisig;
 use fvm_ipld_blockstore::Blockstore;
-use num::Zero;
+use num_bigint::BigInt;
 
 macro_rules! for_each_method {
     ($callback:ident) => {
@@ -24,7 +24,7 @@ impl RpcMethod<3> for MsigGetVested {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey, ApiTipsetKey);
-    type Ok = TokenAmount;
+    type Ok = BigInt;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -41,7 +41,7 @@ impl RpcMethod<3> for MsigGetVested {
                 None,
             ));
         } else if start_ts.epoch() == end_ts.epoch() {
-            return Ok(TokenAmount::zero());
+            return Ok(BigInt::from(0));
         }
 
         let msig_actor = ctx
@@ -51,6 +51,6 @@ impl RpcMethod<3> for MsigGetVested {
 
         let start_lb: TokenAmount = ms.locked_balance(start_ts.epoch())?.into();
         let end_lb: TokenAmount = ms.locked_balance(end_ts.epoch())?.into();
-        Ok(start_lb - &end_lb)
+        Ok(start_lb.atto() - end_lb.atto())
     }
 }

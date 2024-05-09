@@ -710,8 +710,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
         ))?),
         RpcTest::identity(MsigGetVested::request((
             Address::new_id(18101), // msig address id
-            tipset.key().into(),
             tipset.parents().into(),
+            tipset.key().into(),
         ))?),
         RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
