@@ -6,7 +6,6 @@
 //! If a type here is used by only one API, it should be relocated.
 
 mod address_impl;
-mod beneficiary_impl;
 mod deal_impl;
 mod miner_impl;
 mod sector_impl;
@@ -46,8 +45,6 @@ use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(test)]
-use serde_json::Value;
 use std::str::FromStr;
 
 // Chain API
@@ -192,35 +189,6 @@ pub struct MinerInfoLotusJson {
     #[schemars(with = "LotusJson<Option<PendingBeneficiaryChange>>")]
     #[serde(with = "crate::lotus_json")]
     pub pending_beneficiary_term: Option<PendingBeneficiaryChange>,
-}
-
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct BeneficiaryTermLotusJson {
-    /// The total amount the current beneficiary can withdraw. Monotonic, but reset when beneficiary changes.
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
-    pub quota: TokenAmount,
-    /// The amount of quota the current beneficiary has already withdrawn
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
-    pub used_quota: TokenAmount,
-    /// The epoch at which the beneficiary's rights expire and revert to the owner
-    pub expiration: ChainEpoch,
-}
-
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct PendingBeneficiaryChangeLotusJson {
-    #[schemars(with = "LotusJson<Address>")]
-    #[serde(with = "crate::lotus_json")]
-    pub new_beneficiary: Address,
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
-    pub new_quota: TokenAmount,
-    pub new_expiration: ChainEpoch,
-    pub approved_by_beneficiary: bool,
-    pub approved_by_nominee: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
