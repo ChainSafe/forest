@@ -8,6 +8,7 @@ pub use types::*;
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
+use crate::shim::actors::market::BalanceTableExt as _;
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::state_tree::StateTree;
@@ -88,6 +89,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateListMiners);
         $callback!(crate::rpc::state::StateNetworkVersion);
         $callback!(crate::rpc::state::StateMarketBalance);
+        $callback!(crate::rpc::state::StateMarketParticipants);
         $callback!(crate::rpc::state::StateMarketDeals);
         $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!(crate::rpc::state::StateMarketStorageDeal);
@@ -1420,6 +1422,41 @@ impl RpcMethod<2> for StateMarketStorageDeal {
         let state = states.get(deal_id)?.unwrap_or_else(DealState::empty);
 
         Ok(MarketDeal { proposal, state }.into())
+    }
+}
+
+pub enum StateMarketParticipants {}
+
+impl RpcMethod<1> for StateMarketParticipants {
+    const NAME: &'static str = "Filecoin.StateMarketParticipants";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<String, MarketBalance>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let market_state = ctx.state_manager.market_state(&ts)?;
+        let escrow_table = market_state.escrow_table(ctx.store())?;
+        let locked_table = market_state.locked_table(ctx.store())?;
+        let mut result = HashMap::new();
+        escrow_table.for_each(|address, escrow| {
+            let locked = locked_table.get(&address.into())?;
+            result.insert(
+                address.to_string(),
+                MarketBalance {
+                    escrow: escrow.clone(),
+                    locked: locked.into(),
+                },
+            );
+            Ok(())
+        })?;
+        Ok(result)
     }
 }
 

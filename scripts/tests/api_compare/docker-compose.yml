@@ -183,7 +183,8 @@ services:
           --lotus $$LOTUS_API_INFO \
           --n-tipsets 10 \
           --filter-file /data/filter-list \
-          --miner-address ${MINER_ADDRESS}
+          --miner-address ${MINER_ADDRESS} \
+          --worker-address ${MINER_WORKER_ADDRESS}
   api-compare-offline:
     depends_on:
       lotus-sync-wait:

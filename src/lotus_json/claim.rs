@@ -7,6 +7,7 @@ use super::*;
 
 #[derive(Default, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "Claim")]
 pub struct ClaimLotusJson {
     #[schemars(with = "LotusJson<num::BigInt>")]
     #[serde(with = "crate::lotus_json")]

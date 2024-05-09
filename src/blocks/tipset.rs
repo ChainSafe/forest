@@ -522,41 +522,25 @@ mod lotus_json {
     use crate::blocks::{CachingBlockHeader, Tipset};
     use crate::lotus_json::*;
     use nunny::Vec as NonEmpty;
-    use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use schemars::JsonSchema;
+    use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 
     use super::TipsetKey;
 
-    #[derive(Clone)]
-    pub struct TipsetLotusJson(Tipset);
+    #[derive(Clone, JsonSchema)]
+    #[schemars(rename = "Tipset")]
+    pub struct TipsetLotusJson(#[schemars(with = "TipsetLotusJsonInner")] Tipset);
 
-    impl JsonSchema for TipsetLotusJson {
-        fn schema_name() -> String {
-            String::from("TipsetLotusJson")
-        }
-        fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-            // can't impl JsonSchema for NonEmpty...
-            #[derive(JsonSchema)]
-            #[serde(rename_all = "PascalCase")]
-            #[allow(unused)]
-            struct Helper {
-                cids: LotusJson<TipsetKey>,
-                blocks: LotusJson<Vec<CachingBlockHeader>>,
-                height: LotusJson<i64>,
-            }
-            Helper::json_schema(gen)
-        }
-    }
-
-    // NOTE: keep this in sync with JsonSchema implementation above
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, JsonSchema)]
+    #[schemars(rename = "Tipset")]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
         #[serde(with = "crate::lotus_json")]
+        #[schemars(with = "LotusJson<TipsetKey>")]
         cids: TipsetKey,
         #[serde(with = "crate::lotus_json")]
+        #[schemars(with = "LotusJson<NonEmpty<CachingBlockHeader>>")]
         blocks: NonEmpty<CachingBlockHeader>,
-        #[serde(with = "crate::lotus_json")]
         height: i64,
     }
 
@@ -571,10 +555,7 @@ mod lotus_json {
                 height: _ignored1,
             } = Deserialize::deserialize(deserializer)?;
 
-            Ok(Self(Tipset {
-                headers: blocks,
-                key: Default::default(),
-            }))
+            Ok(Self(Tipset::new(blocks).map_err(D::Error::custom)?))
         }
     }
 

@@ -7,6 +7,7 @@ use ::cid::Cid;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "SectorInfo")]
 pub struct SectorInfoLotusJson {
     #[schemars(with = "LotusJson<RegisteredSealProof>")]
     #[serde(with = "crate::lotus_json")]
@@ -57,10 +58,6 @@ impl HasLotusJson for SectorInfo {
             sector_number,
             sealed_c_i_d,
         } = lotus_json;
-        Self::new(
-            seal_proof.into(),
-            sector_number,
-            sealed_c_i_d,
-        )
+        Self::new(seal_proof.into(), sector_number, sealed_c_i_d)
     }
 }

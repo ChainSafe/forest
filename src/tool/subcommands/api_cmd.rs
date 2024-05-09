@@ -120,6 +120,9 @@ pub enum ApiCommands {
         /// Miner address to use for miner tests. Miner worker key must be in the key-store.
         #[arg(long)]
         miner_address: Option<Address>,
+        /// Worker address to use where key is applicable. Worker key must be in the key-store.
+        #[arg(long)]
+        worker_address: Option<Address>,
     },
 }
 
@@ -133,6 +136,7 @@ struct ApiTestFlags {
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
     miner_address: Option<Address>,
+    worker_address: Option<Address>,
 }
 
 impl ApiCommands {
@@ -159,6 +163,7 @@ impl ApiCommands {
                 run_ignored,
                 max_concurrent_requests,
                 miner_address,
+                worker_address,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -168,6 +173,7 @@ impl ApiCommands {
                     run_ignored,
                     max_concurrent_requests,
                     miner_address,
+                    worker_address,
                 };
 
                 compare_apis(
@@ -723,6 +729,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateVMCirculatingSupplyInternal::request((tipset
             .key()
             .into(),))?),
+        RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
     ];
 
     // Get deals
@@ -922,7 +929,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
-fn wallet_tests() -> Vec<RpcTest> {
+fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
     // This address has been funded by the calibnet faucet and the private keys
     // has been discarded. It should always have a non-zero balance.
     let known_wallet = Address::from_str("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui").unwrap();
@@ -936,15 +943,26 @@ fn wallet_tests() -> Vec<RpcTest> {
         _ => panic!("Invalid signature (must be bls or secp256k1)"),
     };
 
-    vec![
+    let mut tests = vec![
         RpcTest::identity(WalletBalance::request((known_wallet,)).unwrap()),
         RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
         RpcTest::identity(WalletVerify::request((known_wallet, text, signature)).unwrap()),
-        // These methods require write access in Lotus. Not sure why.
-        // RpcTest::basic(ApiInfo::wallet_default_address_req()),
-        // RpcTest::basic(ApiInfo::wallet_list_req()),
-        // RpcTest::basic(ApiInfo::wallet_has_req(known_wallet.to_string())),
-    ]
+    ];
+
+    // If a worker address is provided, we can test wallet methods requiring
+    // a shared key.
+    if let Some(worker_address) = config.worker_address {
+        use base64::{prelude::BASE64_STANDARD, Engine};
+        let msg =
+            BASE64_STANDARD.encode("Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".as_bytes());
+        tests.push(RpcTest::identity(
+            WalletSign::request((worker_address, msg.into())).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            WalletSign::request((worker_address, Vec::new())).unwrap(),
+        ));
+    }
+    tests
 }
 
 fn eth_tests() -> Vec<RpcTest> {
@@ -1121,7 +1139,7 @@ async fn compare_apis(
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
-    tests.extend(wallet_tests());
+    tests.extend(wallet_tests(&config));
     tests.extend(eth_tests());
     tests.extend(state_tests());
 
