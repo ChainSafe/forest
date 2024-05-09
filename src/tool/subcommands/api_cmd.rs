@@ -729,6 +729,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateVMCirculatingSupplyInternal::request((tipset
             .key()
             .into(),))?),
+        RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
     ];
 
     // Get deals

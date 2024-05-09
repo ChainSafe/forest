@@ -193,10 +193,10 @@ impl TipsetStateCache {
 pub struct MarketBalance {
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
-    escrow: TokenAmount,
+    pub escrow: TokenAmount,
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
-    locked: TokenAmount,
+    pub locked: TokenAmount,
 }
 lotus_json_with_self!(MarketBalance);
 
@@ -1019,19 +1019,16 @@ where
             .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
     }
 
-    /// Retrieves market balance in escrow and locked tables.
-    pub fn market_balance(
-        &self,
-        addr: &Address,
-        ts: &Tipset,
-    ) -> anyhow::Result<MarketBalance, Error> {
-        let actor = self
-            .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-            .ok_or_else(|| {
-                Error::State("Market actor address could not be resolved".to_string())
-            })?;
-
+    /// Retrieves market state
+    pub fn market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
+        let actor = self.get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
         let market_state = market::State::load(self.blockstore(), actor.code, actor.state)?;
+        Ok(market_state)
+    }
+
+    /// Retrieves market balance in escrow and locked tables.
+    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+        let market_state = self.market_state(ts)?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
