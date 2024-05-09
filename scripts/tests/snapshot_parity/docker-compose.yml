@@ -74,7 +74,7 @@ services:
       - |
         set -euxo pipefail
         lotus daemon --remove-existing-chain --import-snapshot $(ls /data/*.car.zst | tail -n 1) &
-        lotus wait-api --timeout 10m
+        lotus wait-api --timeout 20m
         lotus sync wait
         lotus chain export --tipset @$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) --recent-stateroots ${EXPORT_EPOCHS} --skip-old-msgs /data/exported/lotus.car
         kill -KILL $!
