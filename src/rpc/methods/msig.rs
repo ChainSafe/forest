@@ -35,22 +35,26 @@ impl RpcMethod<3> for MsigGetVested {
             .load_required_tipset_or_heaviest(&start_tsk)?;
         let end_ts = ctx.chain_store.load_required_tipset_or_heaviest(&end_tsk)?;
 
-        if start_ts.epoch() > end_ts.epoch() {
-            return Err(ServerError::internal_error(
-                "start tipset is after end tipset",
-                None,
-            ));
-        } else if start_ts.epoch() == end_ts.epoch() {
-            return Ok(BigInt::from(0));
+        match start_ts.epoch().cmp(&end_ts.epoch()) {
+            std::cmp::Ordering::Greater => {
+                return Err(ServerError::internal_error(
+                    "start tipset is after end tipset",
+                    None,
+                ));
+            }
+            std::cmp::Ordering::Equal => {
+                return Ok(BigInt::from(0));
+            }
+            std::cmp::Ordering::Less => {
+                let msig_actor = ctx
+                    .state_manager
+                    .get_required_actor(&addr, *end_ts.parent_state())?;
+                let ms = multisig::State::load(ctx.store(), msig_actor.code, msig_actor.state)?;
+
+                let start_lb: TokenAmount = ms.locked_balance(start_ts.epoch())?.into();
+                let end_lb: TokenAmount = ms.locked_balance(end_ts.epoch())?.into();
+                Ok(start_lb.atto() - end_lb.atto())
+            }
         }
-
-        let msig_actor = ctx
-            .state_manager
-            .get_required_actor(&addr, *end_ts.parent_state())?;
-        let ms = multisig::State::load(ctx.store(), msig_actor.code, msig_actor.state)?;
-
-        let start_lb: TokenAmount = ms.locked_balance(start_ts.epoch())?.into();
-        let end_lb: TokenAmount = ms.locked_balance(end_ts.epoch())?.into();
-        Ok(start_lb.atto() - end_lb.atto())
     }
 }
