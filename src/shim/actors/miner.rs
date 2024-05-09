@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod r#impl;
+mod state;
 
 use fil_actor_interface::miner::State;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;

@@ -5,8 +5,16 @@ use super::*;
 
 use num::BigInt;
 
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "BigInt")]
+pub struct BigIntLotusJson(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::stringify")]
+    BigInt,
+);
+
 impl HasLotusJson for BigInt {
-    type LotusJson = Stringify<BigInt>;
+    type LotusJson = BigIntLotusJson;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -14,10 +22,10 @@ impl HasLotusJson for BigInt {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        self.into()
+        BigIntLotusJson(self)
     }
 
-    fn from_lotus_json(Stringify(big_int): Self::LotusJson) -> Self {
+    fn from_lotus_json(BigIntLotusJson(big_int): Self::LotusJson) -> Self {
         big_int
     }
 }

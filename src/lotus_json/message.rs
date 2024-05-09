@@ -9,6 +9,7 @@ use fvm_ipld_encoding::RawBytes;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "Message")]
 pub struct MessageLotusJson {
     version: u64,
     #[schemars(with = "LotusJson<Address>")]

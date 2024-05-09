@@ -8,6 +8,7 @@ use super::*;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "PoStProof")]
 pub struct PoStProofLotusJson {
     #[schemars(with = "LotusJson<RegisteredPoStProof>")]
     #[serde(with = "crate::lotus_json")]

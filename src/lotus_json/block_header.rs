@@ -18,6 +18,7 @@ use crate::blocks::{CachingBlockHeader, RawBlockHeader};
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "BlockHeader")]
 pub struct BlockHeaderLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]

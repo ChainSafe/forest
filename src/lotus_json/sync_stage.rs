@@ -4,8 +4,16 @@ use super::*;
 
 use crate::chain_sync::SyncStage;
 
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[schemars(rename = "SyncStage")]
+pub struct SyncStageLotusJson(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::stringify")]
+    SyncStage,
+);
+
 impl HasLotusJson for SyncStage {
-    type LotusJson = Stringify<SyncStage>;
+    type LotusJson = SyncStageLotusJson;
 
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
@@ -13,10 +21,10 @@ impl HasLotusJson for SyncStage {
     }
 
     fn into_lotus_json(self) -> Self::LotusJson {
-        self.into()
+        SyncStageLotusJson(self)
     }
 
-    fn from_lotus_json(Stringify(sync_stage): Self::LotusJson) -> Self {
+    fn from_lotus_json(SyncStageLotusJson(sync_stage): Self::LotusJson) -> Self {
         sync_stage
     }
 }

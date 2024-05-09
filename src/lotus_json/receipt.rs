@@ -9,6 +9,7 @@ use crate::shim::executor::Receipt;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "Receipt")]
 pub struct ReceiptLotusJson {
     exit_code: u32,
     #[schemars(with = "LotusJson<RawBytes>")]
