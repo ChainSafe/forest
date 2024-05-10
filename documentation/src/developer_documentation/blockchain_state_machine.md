@@ -60,6 +60,45 @@ This BOOTSTRAP/FOLLOW algorithm is difficult to understand and it is fragile
  - Unnecessary constraints. Requires 5 nodes in the network before it'll enter
    FOLLOW mode. Dev networks usually do not have 5 nodes.
 
+## Comprehensive model
+
+A comprehensive model of a node's view of the blockchain consists of:
+
+- A graph of tipsets.
+- A set of validated tipsets.
+- A set of bad blocks.
+- A set of unconnected chains (not graphs) of tipsets.
+- A set of loose blocks.
+
+A fresh node initiated from a snapshot will have a tipset graph with no forks.
+Each tipset will be assumed to be validated. The set of bad blocks is nil and
+the set of unconnected chains is empty. Peers in the p2p swarm will then notify
+us of their current HEAD tipsets. These tipsets may be much younger than the
+heaviest tipset from the snapshot. We grow the tipset chains by requesting them
+from the peers until they can be connected to the tipset graph. A tipset can
+only be validated if its parent is valid. Thus, we cannot start validating
+tipsets until they've been connected to the tipset graph.
+
+Tipsets in forks can be validated in parallel. We are required to keep track of
+the heaviest validated tipset. When the heaviest validated tipset changes, we
+must emit a series of `apply` and `revert` messages. The `apply` message is used
+to move HEAD down the chain of tipsets. The `revert` message is used to navigate
+to backtrack to a new fork in the graph.
+
+To enable garbage collection of old data, we have to keep track the root
+tipsets. Our roots are the leaves in the graph and the youngest tipests in the
+unconnected chains.
+
+Events:
+- Receive 'message' from p2p swarm.
+- Receive 'block' from p2p swarm.
+- Receive 'Hello' from p2p swarm.
+- Receive Tipset (requested with ChainExchange)
+
+### Known issues and limitations
+
+
+
 ## Scenarios
 
 ### No forks, starting from snapshot
@@ -129,6 +168,10 @@ We receive block-headers from the gossip protocol
 ### State
 
 State of a Filecoin node:
+    // Graph heads. Pairs of (heaviest_validated, heaviest_known). Each item is a branch in the graph.
+    Graph: [(Tipset, Tipset)]
+    // (Highest epoch, lowest epoch)
+    Unconnected Chains: [(Tipset, Tipset)]
     Heaviest tipset
     Forks:
         Heaviest tipset
