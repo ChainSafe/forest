@@ -26,7 +26,8 @@ use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
-use crate::rpc::types::MiningBaseInfo;
+use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
+use crate::shim::actors::miner::MinerStateExt as _;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -46,7 +47,6 @@ use chain_rand::ChainRand;
 use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
-use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
@@ -374,8 +374,7 @@ where
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
-
-        state.load_sectors(self.blockstore(), None)
+        state.load_sectors_ext(self.blockstore(), None)
     }
 }
 
