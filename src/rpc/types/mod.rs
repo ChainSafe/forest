@@ -261,7 +261,7 @@ pub struct ApiState {
 
 lotus_json_with_self!(ApiState);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
     pub sector_number: SectorNumber,
@@ -285,6 +285,9 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
 
+    /// Additional flags, see [`fil_actor_miner_state::v12::SectorOnChainInfoFlags`]
+    pub flags: u32,
+
     #[schemars(with = "LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]
     /// Integral of active deals over sector lifetime
@@ -306,13 +309,14 @@ pub struct SectorOnChainInfo {
     /// time
     pub expected_day_reward: TokenAmount,
 
+    /// Epoch at which this sector's power was most recently updated
+    pub power_base_epoch: ChainEpoch,
+
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     /// Expected twenty day projection of reward for sector computed at
     /// activation time
     pub expected_storage_pledge: TokenAmount,
-
-    pub replaced_sector_age: ChainEpoch,
 
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
@@ -321,9 +325,6 @@ pub struct SectorOnChainInfo {
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(with = "crate::lotus_json", rename = "SectorKeyCID")]
     pub sector_key_cid: Option<Cid>,
-
-    #[serde(rename = "SimpleQAPower")]
-    pub simple_qa_power: bool,
 }
 
 lotus_json_with_self!(SectorOnChainInfo);
