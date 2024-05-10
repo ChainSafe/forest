@@ -1,7 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
+
 #![allow(clippy::unused_async)]
 
+mod types;
+
+use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
@@ -20,7 +24,6 @@ use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAdd
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
-
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
@@ -1371,6 +1374,24 @@ impl RpcMethod<0> for EthSyncing {
             },
             None => Err(ServerError::internal_error("sync state not found", None)),
         }
+    }
+}
+
+pub enum EthGetCode {}
+impl RpcMethod<2> for EthGetCode {
+    const NAME: &'static str = "Filecoin.EthGetCode";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "block_number_or_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, BlockNumberOrHash);
+    type Ok = Vec<u8>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, block_number_or_hash): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        unimplemented!()
     }
 }
 
