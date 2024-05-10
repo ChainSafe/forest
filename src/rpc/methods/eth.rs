@@ -418,9 +418,9 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn new(has_transactions: bool) -> Self {
+    pub fn new(has_transactions: bool, tipset_len: usize) -> Self {
         Self {
-            gas_limit: Uint64(BLOCK_GAS_LIMIT),
+            gas_limit: Uint64(BLOCK_GAS_LIMIT.saturating_mul(tipset_len as _)),
             logs_bloom: Bloom(ethereum_types::Bloom(FULL_BLOOM)),
             sha3_uncles: Hash::empty_uncles(),
             transactions_root: if has_transactions {
@@ -1269,7 +1269,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
         } else {
             Transactions::Hash(hash_transactions)
         },
-        ..Block::new(!msgs_and_receipts.is_empty())
+        ..Block::new(!msgs_and_receipts.is_empty(), tipset.len())
     })
 }
 
@@ -1558,10 +1558,10 @@ mod test {
 
     #[test]
     fn test_block_constructor() {
-        let block = Block::new(false);
+        let block = Block::new(false, 1);
         assert_eq!(block.transactions_root, Hash::empty_root());
 
-        let block = Block::new(true);
+        let block = Block::new(true, 1);
         assert_eq!(block.transactions_root, Hash::default());
     }
 

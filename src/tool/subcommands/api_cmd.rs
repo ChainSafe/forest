@@ -17,7 +17,7 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::Address as EthAddress;
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
@@ -758,7 +758,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
-            RpcTest::identity(StateMinerActiveSectors::request((
+            validate_sector_on_chain_info_vec(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
             ))?),
@@ -766,7 +766,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            RpcTest::identity(StateMinerSectors::request((
+            validate_sector_on_chain_info_vec(StateMinerSectors::request((
                 block.miner_address,
                 None,
                 tipset.key().into(),
@@ -824,12 +824,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .take(COLLECTION_SAMPLE_SIZE)
         {
             tests.extend([
-                RpcTest::identity(StateSectorGetInfo::request((
+                validate_sector_on_chain_info(StateSectorGetInfo::request((
                     block.miner_address,
                     sector,
                     tipset.key().into(),
                 ))?),
-                RpcTest::identity(StateMinerSectors::request((
+                validate_sector_on_chain_info_vec(StateMinerSectors::request((
                     block.miner_address,
                     {
                         let mut bf = BitField::new();
@@ -1438,6 +1438,28 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
+        forest == lotus
+    })
+}
+
+fn validate_sector_on_chain_info(req: rpc::Request<SectorOnChainInfo>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // https://github.com/filecoin-project/lotus/issues/11962
+        forest.flags = 0;
+        lotus.flags = 0;
+        forest == lotus
+    })
+}
+
+fn validate_sector_on_chain_info_vec(req: rpc::Request<Vec<SectorOnChainInfo>>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // https://github.com/filecoin-project/lotus/issues/11962
+        for f in &mut forest {
+            f.flags = 0;
+        }
+        for l in &mut lotus {
+            l.flags = 0;
+        }
         forest == lotus
     })
 }
