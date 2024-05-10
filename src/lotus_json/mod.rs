@@ -222,7 +222,7 @@ mod hash_map;
 mod ipld; // NaN != NaN
 mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
 mod miner_power; // fil_actor_interface::miner::MinerInfo: !quickcheck::Arbitrary
-mod nonempty;
+mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
 mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary

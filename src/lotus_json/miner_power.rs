@@ -22,7 +22,7 @@ impl HasLotusJson for MinerPower {
     type LotusJson = MinerPowerLotusJson;
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        unimplemented!("see commented-out test, below")
     }
     fn into_lotus_json(self) -> Self::LotusJson {
         MinerPowerLotusJson {
@@ -39,3 +39,9 @@ impl HasLotusJson for MinerPower {
         }
     }
 }
+
+// MinerPower: !Debug
+// #[test]
+// fn snapshots() {
+//     assert_all_snapshots::<MinerPower>();
+// }
