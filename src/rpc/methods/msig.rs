@@ -104,15 +104,11 @@ impl RpcMethod<3> for MsigGetVested {
         let end_ts = ctx.chain_store.load_required_tipset_or_heaviest(&end_tsk)?;
 
         match start_ts.epoch().cmp(&end_ts.epoch()) {
-            std::cmp::Ordering::Greater => {
-                return Err(ServerError::internal_error(
-                    "start tipset is after end tipset",
-                    None,
-                ));
-            }
-            std::cmp::Ordering::Equal => {
-                return Ok(BigInt::from(0));
-            }
+            std::cmp::Ordering::Greater => Err(ServerError::internal_error(
+                "start tipset is after end tipset",
+                None,
+            )),
+            std::cmp::Ordering::Equal => Ok(BigInt::from(0)),
             std::cmp::Ordering::Less => {
                 let msig_actor = ctx
                     .state_manager
