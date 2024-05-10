@@ -956,7 +956,7 @@ impl RpcMethod<2> for StateSearchMsgLimited {
 pub enum StateFetchRoot {}
 
 impl RpcMethod<2> for StateFetchRoot {
-    const NAME: &'static str = "Filecoin.StateFetchRoot";
+    const NAME: &'static str = "Forest.StateFetchRoot";
     const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
