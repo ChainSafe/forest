@@ -76,6 +76,18 @@ lotus_json_with_self!(ApiDealState);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+pub struct MsigVesting {
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    pub initial_balance: BigInt,
+    pub start_epoch: ChainEpoch,
+    pub unlock_duration: ChainEpoch,
+}
+
+lotus_json_with_self!(MsigVesting);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
 pub struct ApiDealProposal {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(rename = "PieceCID", with = "crate::lotus_json")]
