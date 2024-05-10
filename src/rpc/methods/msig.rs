@@ -13,6 +13,7 @@ use num_bigint::BigInt;
 macro_rules! for_each_method {
     ($callback:ident) => {
         $callback!(crate::rpc::msig::MsigGetVested);
+        $callback!(crate::rpc::msig::MsigGetVestingSchedule);
     };
 }
 pub(crate) use for_each_method;
