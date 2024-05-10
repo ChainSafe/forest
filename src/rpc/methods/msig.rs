@@ -5,6 +5,7 @@ use crate::rpc::error::ServerError;
 use crate::rpc::types::ApiTipsetKey;
 use crate::rpc::types::*;
 use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
+use crate::shim::actors::multisig::MultisigExt;
 use crate::shim::{address::Address, econ::TokenAmount};
 use fil_actor_interface::multisig;
 use fvm_ipld_blockstore::Blockstore;
@@ -143,39 +144,6 @@ impl RpcMethod<2> for MsigGetVestingSchedule {
             .get_required_actor(&addr, *ts.parent_state())?;
         let ms = multisig::State::load(ctx.store(), msig_actor.code, msig_actor.state)?;
 
-        let msig_vesting = match &ms {
-            multisig::State::V8(st) => MsigVesting {
-                initial_balance: st.initial_balance.atto().clone(),
-                start_epoch: st.start_epoch,
-                unlock_duration: st.unlock_duration,
-            },
-            multisig::State::V9(st) => MsigVesting {
-                initial_balance: st.initial_balance.atto().clone(),
-                start_epoch: st.start_epoch,
-                unlock_duration: st.unlock_duration,
-            },
-            multisig::State::V10(st) => MsigVesting {
-                initial_balance: st.initial_balance.atto().clone(),
-                start_epoch: st.start_epoch,
-                unlock_duration: st.unlock_duration,
-            },
-            multisig::State::V11(st) => MsigVesting {
-                initial_balance: st.initial_balance.atto().clone(),
-                start_epoch: st.start_epoch,
-                unlock_duration: st.unlock_duration,
-            },
-            multisig::State::V12(st) => MsigVesting {
-                initial_balance: st.initial_balance.atto().clone(),
-                start_epoch: st.start_epoch,
-                unlock_duration: st.unlock_duration,
-            },
-            multisig::State::V13(st) => MsigVesting {
-                initial_balance: st.initial_balance.atto().clone(),
-                start_epoch: st.start_epoch,
-                unlock_duration: st.unlock_duration,
-            },
-        };
-
-        Ok(msig_vesting)
+        Ok(ms.get_vesting_schedule()?)
     }
 }
