@@ -202,6 +202,7 @@ decl_and_test!(
     registered_po_st_proof for crate::shim::sector::RegisteredPoStProof,
     registered_seal_proof for crate::shim::sector::RegisteredSealProof,
     sector_info for crate::shim::sector::SectorInfo,
+    sector_size for crate::shim::sector::SectorSize,
     signature for crate::shim::crypto::Signature,
     signature_type for crate::shim::crypto::SignatureType,
     signed_message for  crate::message::SignedMessage,
@@ -219,6 +220,8 @@ mod cid; // can't make snapshots of generic type
 mod claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
 mod hash_map;
 mod ipld; // NaN != NaN
+mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
+mod miner_power; // fil_actor_interface::miner::MinerInfo: !quickcheck::Arbitrary
 mod nonempty;
 mod opt; // can't make snapshots of generic type
 mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
