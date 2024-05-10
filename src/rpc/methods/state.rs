@@ -8,6 +8,7 @@ pub use types::*;
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
+use crate::shim::actors::{market::BalanceTableExt as _, miner::MinerStateExt as _};
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::state_tree::StateTree;
@@ -86,6 +87,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateListMiners);
         $callback!(crate::rpc::state::StateNetworkVersion);
         $callback!(crate::rpc::state::StateMarketBalance);
+        $callback!(crate::rpc::state::StateMarketParticipants);
         $callback!(crate::rpc::state::StateMarketDeals);
         $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!(crate::rpc::state::StateMarketStorageDeal);
@@ -384,11 +386,8 @@ impl RpcMethod<2> for StateMinerActiveSectors {
                 Ok(())
             })
         })?;
-        let sectors = miner_state
-            .load_sectors(ctx.store(), Some(&BitField::union(&active_sectors)))?
-            .into_iter()
-            .map(SectorOnChainInfo::from)
-            .collect::<Vec<_>>();
+        let sectors =
+            miner_state.load_sectors_ext(ctx.store(), Some(&BitField::union(&active_sectors)))?;
         Ok(sectors)
     }
 }
@@ -451,11 +450,7 @@ impl RpcMethod<3> for StateMinerSectors {
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
         let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        let sectors_info = miner_state
-            .load_sectors(ctx.store(), sectors.as_ref())?
-            .into_iter()
-            .map(SectorOnChainInfo::from)
-            .collect::<Vec<_>>();
+        let sectors_info = miner_state.load_sectors_ext(ctx.store(), sectors.as_ref())?;
         Ok(sectors_info)
     }
 }
@@ -952,7 +947,7 @@ impl RpcMethod<2> for StateSearchMsgLimited {
 pub enum StateFetchRoot {}
 
 impl RpcMethod<2> for StateFetchRoot {
-    const NAME: &'static str = "Filecoin.StateFetchRoot";
+    const NAME: &'static str = "Forest.StateFetchRoot";
     const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
@@ -1357,6 +1352,41 @@ impl RpcMethod<2> for StateMarketStorageDeal {
     }
 }
 
+pub enum StateMarketParticipants {}
+
+impl RpcMethod<1> for StateMarketParticipants {
+    const NAME: &'static str = "Filecoin.StateMarketParticipants";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<String, MarketBalance>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let market_state = ctx.state_manager.market_state(&ts)?;
+        let escrow_table = market_state.escrow_table(ctx.store())?;
+        let locked_table = market_state.locked_table(ctx.store())?;
+        let mut result = HashMap::new();
+        escrow_table.for_each(|address, escrow| {
+            let locked = locked_table.get(&address.into())?;
+            result.insert(
+                address.to_string(),
+                MarketBalance {
+                    escrow: escrow.clone(),
+                    locked: locked.into(),
+                },
+            );
+            Ok(())
+        })?;
+        Ok(result)
+    }
+}
+
 pub enum StateDealProviderCollateralBounds {}
 
 impl RpcMethod<3> for StateDealProviderCollateralBounds {
@@ -1688,7 +1718,6 @@ impl RpcMethod<3> for StateSectorGetInfo {
             .get_all_sectors(&miner_address, &ts)?
             .into_iter()
             .find(|info| info.sector_number == sector_number)
-            .map(SectorOnChainInfo::from)
             .context(format!("Info for sector number {sector_number} not found"))?)
     }
 }

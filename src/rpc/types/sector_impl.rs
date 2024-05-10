@@ -1,31 +1,150 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use fil_actor_miner_state::v13::SectorOnChainInfoFlags;
+
 use super::*;
 
-impl From<fil_actor_interface::miner::SectorOnChainInfo> for SectorOnChainInfo {
-    fn from(other: fil_actor_interface::miner::SectorOnChainInfo) -> Self {
-        SectorOnChainInfo {
-            sector_number: other.sector_number,
-            seal_proof: other.seal_proof.into(),
-            sealed_cid: other.sealed_cid,
-            deal_ids: other.deal_ids,
-            activation: other.activation,
-            expiration: other.expiration,
-            deal_weight: other.deal_weight,
-            verified_deal_weight: other.verified_deal_weight,
-            initial_pledge: other.initial_pledge.into(),
-            expected_day_reward: other.expected_day_reward.into(),
-            expected_storage_pledge: other.expected_storage_pledge.into(),
-            replaced_sector_age: other.replaced_sector_age,
-            // `replaced_day_reward` has to be zero and Lemmih cannot figure out
-            // why. Lotus casts all `SectorOnChainInfo` structs to the miner-v9
-            // version which clears some fields (like `simple_qa_power`) but it
-            // shouldn't clear `replaced_day_reward`. Oh well, maybe one day
-            // Lemmih will figure it out.
+impl From<fil_actor_miner_state::v8::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v8::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: Default::default(),
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
             replaced_day_reward: TokenAmount::default(),
-            sector_key_cid: other.sector_key_cid,
-            simple_qa_power: other.simple_qa_power,
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.activation,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v9::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v9::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: if info.simple_qa_power {
+                SectorOnChainInfoFlags::SIMPLE_QA_POWER.bits()
+            } else {
+                Default::default()
+            },
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
+            replaced_day_reward: info.replaced_day_reward.into(),
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.activation,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v10::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v10::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: if info.simple_qa_power {
+                SectorOnChainInfoFlags::SIMPLE_QA_POWER.bits()
+            } else {
+                Default::default()
+            },
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
+            replaced_day_reward: info.replaced_day_reward.into(),
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.activation,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v11::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v11::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: if info.simple_qa_power {
+                SectorOnChainInfoFlags::SIMPLE_QA_POWER.bits()
+            } else {
+                Default::default()
+            },
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
+            replaced_day_reward: info.replaced_day_reward.into(),
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.activation,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v12::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v12::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: info.flags.bits(),
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
+            replaced_day_reward: info.replaced_day_reward.into(),
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.power_base_epoch,
+        }
+    }
+}
+
+impl From<fil_actor_miner_state::v13::SectorOnChainInfo> for SectorOnChainInfo {
+    fn from(info: fil_actor_miner_state::v13::SectorOnChainInfo) -> Self {
+        Self {
+            sector_number: info.sector_number,
+            seal_proof: info.seal_proof.into(),
+            sealed_cid: info.sealed_cid,
+            deal_ids: info.deprecated_deal_ids,
+            activation: info.activation,
+            expiration: info.expiration,
+            flags: info.flags.bits(),
+            deal_weight: info.deal_weight,
+            verified_deal_weight: info.verified_deal_weight,
+            initial_pledge: info.initial_pledge.into(),
+            expected_day_reward: info.expected_day_reward.into(),
+            expected_storage_pledge: info.expected_storage_pledge.into(),
+            replaced_day_reward: info.replaced_day_reward.into(),
+            sector_key_cid: info.sector_key_cid,
+            power_base_epoch: info.power_base_epoch,
         }
     }
 }
