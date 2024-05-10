@@ -31,6 +31,11 @@ impl CidHashSet {
     pub fn insert(&mut self, cid: Cid) -> bool {
         self.inner.insert(cid, ()).is_none()
     }
+
+    /// Returns the number of elements.
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 ////////////////////
