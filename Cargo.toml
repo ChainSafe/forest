@@ -130,7 +130,7 @@ multiaddr = "0.18"
 multimap = "0.10.0"
 nom = "7.1.3"
 nonzero_ext = "0.3.0"
-num = "0.4.0"
+num = "0.4.3"
 num-bigint = "0.4"
 num-derive = "0.4"
 num-rational = "0.4"
@@ -230,13 +230,13 @@ http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-petgraph = "0.6.4"
+petgraph = "0.6.5"
 predicates = "3.1"
-proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
+proc-macro2 = { version = "1.0.82", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
 quickcheck_async = "0.1.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.214"
+ra_ap_syntax = "0.0.215"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
