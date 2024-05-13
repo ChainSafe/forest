@@ -272,7 +272,7 @@ impl RpcMethod<2> for StateVerifierStatus {
             .state_manager
             .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
         let verifreg_state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
-        Ok(verifreg_state.verified_client_data_cap(ctx.store(), aid.into())?)
+        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
     }
 }
 
