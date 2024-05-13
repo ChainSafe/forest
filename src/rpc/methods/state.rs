@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
 mod types;
 pub use types::*;
@@ -35,7 +34,7 @@ use fil_actor_interface::market::DealState;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
-    multisig, power, reward,
+    power, reward,
 };
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
@@ -82,8 +81,6 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
         $callback!(crate::rpc::state::StateReadState);
         $callback!(crate::rpc::state::StateCirculatingSupply);
-        $callback!(crate::rpc::state::MsigGetAvailableBalance);
-        $callback!(crate::rpc::state::MsigGetPending);
         $callback!(crate::rpc::state::StateVerifiedClientStatus);
         $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
         $callback!(crate::rpc::state::StateListMiners);
@@ -1245,70 +1242,6 @@ impl RpcMethod<1> for StateCirculatingSupply {
             root,
         )?;
         Ok(supply)
-    }
-}
-
-pub enum MsigGetAvailableBalance {}
-
-impl RpcMethod<2> for MsigGetAvailableBalance {
-    const NAME: &'static str = "Filecoin.MsigGetAvailableBalance";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (Address, ApiTipsetKey);
-    type Ok = TokenAmount;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore>,
-        (address, ApiTipsetKey(tsk)): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let height = ts.epoch();
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let actor_balance = TokenAmount::from(&actor.balance);
-        let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
-        let locked_balance = ms.locked_balance(height)?.into();
-        let avail_balance = &actor_balance - locked_balance;
-        Ok(avail_balance)
-    }
-}
-
-pub enum MsigGetPending {}
-
-impl RpcMethod<2> for MsigGetPending {
-    const NAME: &'static str = "Filecoin.MsigGetPending";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (Address, ApiTipsetKey);
-    type Ok = Vec<Transaction>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore>,
-        (address, ApiTipsetKey(tsk)): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
-        let txns = ms
-            .get_pending_txn(ctx.store())?
-            .iter()
-            .map(|txn| Transaction {
-                id: txn.id,
-                to: txn.to.into(),
-                value: txn.value.clone().into(),
-                method: txn.method,
-                params: txn.params.clone(),
-                approved: txn.approved.iter().map(|item| item.into()).collect(),
-            })
-            .collect();
-        Ok(txns)
     }
 }
 

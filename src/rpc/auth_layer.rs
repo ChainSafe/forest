@@ -4,7 +4,7 @@
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
-    auth, beacon, chain, common, eth, gas, miner, mpool, net, node, state, sync, wallet,
+    auth, beacon, chain, common, eth, gas, miner, mpool, msig, net, node, state, sync, wallet,
     Permission, RpcMethod as _, CANCEL_METHOD_NAME,
 };
 use ahash::{HashMap, HashMapExt as _};
@@ -43,6 +43,7 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
     sync::for_each_method!(insert);
     wallet::for_each_method!(insert);
     eth::for_each_method!(insert);
+    msig::for_each_method!(insert);
 
     access.insert(chain::CHAIN_NOTIFY, Permission::Read);
     access.insert(CANCEL_METHOD_NAME, Permission::Read);
