@@ -775,6 +775,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateVerifierStatus::request((
+                block.miner_address,
+                tipset.key().into(),
+            ))?),
             validate_sector_on_chain_info_vec(StateMinerSectors::request((
                 block.miner_address,
                 None,

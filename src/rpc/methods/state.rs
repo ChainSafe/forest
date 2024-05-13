@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use num::Zero;
 pub use types::*;
 
 use crate::blocks::Tipset;
@@ -34,13 +35,14 @@ use fil_actor_interface::market::DealState;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
-    power, reward,
+    power, reward, verifreg,
 };
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
+pub use fvm_shared3::sector::StoragePower;
 use jsonrpsee::types::error::ErrorObject;
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
@@ -95,6 +97,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!(crate::rpc::state::StateVerifierStatus);
     };
 }
 pub(crate) use for_each_method;
@@ -241,6 +244,38 @@ impl RpcMethod<2> for StateLookupID {
         Ok(ctx
             .state_manager
             .lookup_required_id(&address, ts.as_ref())?)
+    }
+}
+
+pub enum StateVerifierStatus {}
+
+impl RpcMethod<2> for StateVerifierStatus {
+    const NAME: &'static str = "Filecoin.StateVerifierStatus";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = StoragePower;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let aid = ctx
+            .state_manager
+            .lookup_required_id(&address, ts.as_ref())?;
+
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
+        let verifreg_state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
+        if let Some(data_cap) = verifreg_state.verified_client_data_cap(ctx.store(), aid.into())? {
+            Ok(data_cap)
+        } else {
+            Ok(BigInt::zero())
+        }
     }
 }
 
