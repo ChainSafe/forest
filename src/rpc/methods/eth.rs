@@ -1305,44 +1305,42 @@ impl RpcMethod<2> for EthGetCode {
         // Not a contract. We could try to distinguish between accounts and "native" contracts here,
         // but it's not worth it.
         if !fil_actor_interface::is_evm_actor(&actor.code) {
-            Ok(Default::default())
-        } else {
-            let message = Message {
-                from: FilecoinAddress::SYSTEM_ACTOR,
-                to: to_address,
-                method_num: METHOD_GET_BYTE_CODE,
-                gas_limit: BLOCK_GAS_LIMIT,
-                ..Default::default()
-            };
-            let mut api_invoc_result = None;
-            for ts in ts.chain_arc(ctx.store()) {
-                match ctx.state_manager.call(&message, Some(ts)) {
-                    Ok(res) => {
-                        api_invoc_result = Some(res);
-                        break;
-                    }
-                    Err(e) => tracing::warn!(%e),
-                }
-            }
-            let Some(api_invoc_result) = api_invoc_result else {
-                return Err(anyhow::anyhow!("no message receipt").into());
-            };
-            let Some(msg_rct) = api_invoc_result.msg_rct else {
-                return Err(anyhow::anyhow!("no message receipt").into());
-            };
-            if !api_invoc_result.error.is_empty() {
-                return Err(
-                    anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into(),
-                );
-            }
+            return Ok(Default::default());
+        }
 
-            let get_bytecode_return: GetBytecodeReturn =
-                fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
-            if let Some(cid) = get_bytecode_return.0 {
-                Ok(Bytes(ctx.store().get_required(&cid)?))
-            } else {
-                Ok(Default::default())
+        let message = Message {
+            from: FilecoinAddress::SYSTEM_ACTOR,
+            to: to_address,
+            method_num: METHOD_GET_BYTE_CODE,
+            gas_limit: BLOCK_GAS_LIMIT,
+            ..Default::default()
+        };
+        let mut api_invoc_result = None;
+        for ts in ts.chain_arc(ctx.store()) {
+            match ctx.state_manager.call(&message, Some(ts)) {
+                Ok(res) => {
+                    api_invoc_result = Some(res);
+                    break;
+                }
+                Err(e) => tracing::warn!(%e),
             }
+        }
+        let Some(api_invoc_result) = api_invoc_result else {
+            return Err(anyhow::anyhow!("no message receipt").into());
+        };
+        let Some(msg_rct) = api_invoc_result.msg_rct else {
+            return Err(anyhow::anyhow!("no message receipt").into());
+        };
+        if !api_invoc_result.error.is_empty() {
+            return Err(anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into());
+        }
+
+        let get_bytecode_return: GetBytecodeReturn =
+            fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
+        if let Some(cid) = get_bytecode_return.0 {
+            Ok(Bytes(ctx.store().get_required(&cid)?))
+        } else {
+            Ok(Default::default())
         }
     }
 }

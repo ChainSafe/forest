@@ -55,10 +55,9 @@ impl EthAddress {
                             eth_addr.0
                         );
                     }
-                    Ok(eth_addr)
-                } else {
-                    bail!("invalid delegated address namespace in: {addr}")
+                    return Ok(eth_addr);
                 }
+                bail!("invalid delegated address namespace in: {addr}")
             }
             _ => {
                 bail!("invalid address {addr}");
