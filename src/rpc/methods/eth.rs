@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-mod types;
+pub mod types;
 
 use self::types::*;
 use super::gas;
@@ -22,6 +22,7 @@ use crate::shim::fvm_shared_latest::address::{Address as VmAddress, DelegatedAdd
 use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
+use crate::utils::db::BlockstoreExt as _;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
@@ -49,6 +50,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthAccounts);
         $callback!(crate::rpc::eth::EthBlockNumber);
         $callback!(crate::rpc::eth::EthChainId);
+        $callback!(crate::rpc::eth::EthGetCode);
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
@@ -166,100 +168,6 @@ pub struct Bytes(
 );
 
 lotus_json_with_self!(Bytes);
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
-pub struct Address(
-    #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::hexify_bytes")]
-    pub ethereum_types::Address,
-);
-
-lotus_json_with_self!(Address);
-
-impl Address {
-    pub fn to_filecoin_address(&self) -> Result<FilecoinAddress, anyhow::Error> {
-        if self.is_masked_id() {
-            const PREFIX_LEN: usize = MASKED_ID_PREFIX.len();
-            // This is a masked ID address.
-            let arr = self.0.as_fixed_bytes();
-            let mut bytes = [0; 8];
-            bytes.copy_from_slice(&arr[PREFIX_LEN..]);
-            Ok(FilecoinAddress::new_id(u64::from_be_bytes(bytes)))
-        } else {
-            // Otherwise, translate the address into an address controlled by the
-            // Ethereum Address Manager.
-            Ok(FilecoinAddress::new_delegated(
-                FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()?,
-                self.0.as_bytes(),
-            )?)
-        }
-    }
-
-    // See https://github.com/filecoin-project/lotus/blob/v1.26.2/chain/types/ethtypes/eth_types.go#L347-L375 for reference implementation
-    pub fn from_filecoin_address(addr: &FilecoinAddress) -> Result<Self> {
-        match addr.protocol() {
-            Protocol::ID => Ok(Self::from_actor_id(addr.id()?)),
-            Protocol::Delegated => {
-                let payload = addr.payload();
-                let result: Result<DelegatedAddress, _> = payload.try_into();
-                if let Ok(f4_addr) = result {
-                    let namespace = f4_addr.namespace();
-                    if namespace != FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR.id()? {
-                        bail!("invalid address {addr}");
-                    }
-                    let eth_addr = cast_eth_addr(f4_addr.subaddress())?;
-                    if eth_addr.is_masked_id() {
-                        bail!(
-                            "f410f addresses cannot embed masked-ID payloads: {}",
-                            eth_addr.0
-                        );
-                    }
-                    Ok(eth_addr)
-                } else {
-                    bail!("invalid delegated address namespace in: {addr}")
-                }
-            }
-            _ => {
-                bail!("invalid address {addr}");
-            }
-        }
-    }
-
-    fn is_masked_id(&self) -> bool {
-        self.0.as_bytes().starts_with(&MASKED_ID_PREFIX)
-    }
-
-    fn from_actor_id(id: u64) -> Self {
-        let pfx = MASKED_ID_PREFIX;
-        let arr = id.to_be_bytes();
-        let payload = [
-            pfx[0], pfx[1], pfx[2], pfx[3], pfx[4], pfx[5], pfx[6], pfx[7], //
-            pfx[8], pfx[9], pfx[10], pfx[11], //
-            arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7],
-        ];
-
-        Self(ethereum_types::H160(payload))
-    }
-}
-
-impl FromStr for Address {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Address(
-            ethereum_types::Address::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))?,
-        ))
-    }
-}
-
-fn cast_eth_addr(bytes: &[u8]) -> Result<Address> {
-    if bytes.len() != ADDRESS_LENGTH {
-        bail!("cannot parse bytes into an Ethereum address: incorrect input length")
-    }
-    let mut payload = ethereum_types::H160::default();
-    payload.as_bytes_mut().copy_from_slice(bytes);
-    Ok(Address(payload))
-}
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
@@ -397,7 +305,7 @@ pub struct Block {
     pub hash: Hash,
     pub parent_hash: Hash,
     pub sha3_uncles: Hash,
-    pub miner: Address,
+    pub miner: EthAddress,
     pub state_root: Hash,
     pub transactions_root: Hash,
     pub receipts_root: Hash,
@@ -445,14 +353,14 @@ pub struct Tx {
     pub block_hash: Hash,
     pub block_number: Uint64,
     pub transaction_index: Uint64,
-    pub from: Address,
-    #[schemars(with = "Option<Address>")]
+    pub from: EthAddress,
+    #[schemars(with = "Option<EthAddress>")]
     #[serde(
         with = "crate::lotus_json",
         skip_serializing_if = "Option::is_none",
         default
     )]
-    pub to: Option<Address>,
+    pub to: Option<EthAddress>,
     pub value: BigInt,
     pub r#type: Uint64,
     pub input: Bytes,
@@ -478,7 +386,7 @@ lotus_json_with_self!(Tx);
 struct TxArgs {
     pub chain_id: u64,
     pub nonce: u64,
-    pub to: Option<Address>,
+    pub to: Option<EthAddress>,
     pub value: BigInt,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
@@ -533,7 +441,7 @@ fn format_bigint(value: &BigInt) -> Result<BytesMut> {
     })
 }
 
-fn format_address(value: &Option<Address>) -> BytesMut {
+fn format_address(value: &Option<EthAddress>) -> BytesMut {
     if let Some(addr) = value {
         addr.0.as_bytes().into()
     } else {
@@ -783,7 +691,7 @@ impl RpcMethod<2> for EthGetBalance {
     const API_VERSION: ApiVersion = ApiVersion::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Address, BlockNumberOrHash);
+    type Params = (EthAddress, BlockNumberOrHash);
     type Ok = BigInt;
 
     async fn handle(
@@ -899,7 +807,7 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
             bail!("unsupported EAM method");
         }
     } else if msg.method_num() == EVMMethod::InvokeContract as u64 {
-        let addr = Address::from_filecoin_address(&msg.to)?;
+        let addr = EthAddress::from_filecoin_address(&msg.to)?;
         to = Some(addr);
     } else {
         bail!(
@@ -973,7 +881,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
 
     // This should be impossible to fail as we've already asserted that we have an
     // Ethereum Address sender...
-    let from = Address::from_filecoin_address(&from)?;
+    let from = EthAddress::from_filecoin_address(&from)?;
 
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
@@ -997,9 +905,9 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
 fn lookup_eth_address<DB: Blockstore>(
     addr: &FilecoinAddress,
     state: &StateTree<DB>,
-) -> Result<Option<Address>> {
+) -> Result<Option<EthAddress>> {
     // Attempt to convert directly, if it's an f4 address.
-    if let Ok(eth_addr) = Address::from_filecoin_address(addr) {
+    if let Ok(eth_addr) = EthAddress::from_filecoin_address(addr) {
         if !eth_addr.is_masked_id() {
             return Ok(Some(eth_addr));
         }
@@ -1015,7 +923,7 @@ fn lookup_eth_address<DB: Blockstore>(
     let result = state.get_actor(addr);
     if let Ok(Some(actor_state)) = result {
         if let Some(addr) = actor_state.delegated_address {
-            if let Ok(eth_addr) = Address::from_filecoin_address(&addr.into()) {
+            if let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr.into()) {
                 if !eth_addr.is_masked_id() {
                     // Conversable into an eth address, use it.
                     return Ok(Some(eth_addr));
@@ -1032,7 +940,7 @@ fn lookup_eth_address<DB: Blockstore>(
     }
 
     // Otherwise, use the masked address.
-    Ok(Some(Address::from_actor_id(id_addr)))
+    Ok(Some(EthAddress::from_actor_id(id_addr)))
 }
 
 /// See <https://docs.soliditylang.org/en/latest/abi-spec.html#function-selector-and-argument-encoding>
@@ -1135,7 +1043,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     // known sentinel address.
     let mut to = match lookup_eth_address(&msg.to(), state) {
         Ok(Some(addr)) => Some(addr),
-        Ok(None) => Some(Address(
+        Ok(None) => Some(EthAddress(
             ethereum_types::H160::from_str(REVERTED_ETH_ADDRESS).unwrap(),
         )),
         Err(err) => {
@@ -1378,18 +1286,67 @@ impl RpcMethod<0> for EthSyncing {
 pub enum EthGetCode {}
 impl RpcMethod<2> for EthGetCode {
     const NAME: &'static str = "Filecoin.EthGetCode";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "block_number_or_hash"];
+    const PARAM_NAMES: [&'static str; 2] = ["eth_address", "block_number_or_hash"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = Vec<u8>;
+    type Ok = Bytes;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (address, block_number_or_hash): Self::Params,
+        (eth_address, block_number_or_hash): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        unimplemented!()
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_number_or_hash)?;
+        let to_address = FilecoinAddress::try_from(&eth_address)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&to_address, *ts.parent_state())?;
+        // Not a contract. We could try to distinguish between accounts and "native" contracts here,
+        // but it's not worth it.
+        if !fil_actor_interface::is_evm_actor(&actor.code) {
+            Ok(Default::default())
+        } else {
+            let message = Message {
+                from: FilecoinAddress::SYSTEM_ACTOR,
+                to: to_address,
+                method_num: METHOD_GET_BYTE_CODE,
+                gas_limit: BLOCK_GAS_LIMIT,
+                ..Default::default()
+            };
+            let mut api_invoc_result = None;
+            for ts in ts.chain_arc(ctx.store()) {
+                match ctx.state_manager.call(&message, Some(ts)) {
+                    Ok(res) => {
+                        api_invoc_result = Some(res);
+                        break;
+                    }
+                    Err(e) => tracing::warn!(%e),
+                }
+            }
+            if let Some(api_invoc_result) = api_invoc_result {
+                if let Some(msg_rct) = api_invoc_result.msg_rct {
+                    if api_invoc_result.error.is_empty() {
+                        let get_bytecode_return: GetBytecodeReturn =
+                            fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
+                        if let Some(cid) = get_bytecode_return.0 {
+                            Ok(Bytes(ctx.store().get_required(&cid)?))
+                        } else {
+                            Ok(Default::default())
+                        }
+                    } else {
+                        Err(
+                            anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error)
+                                .into(),
+                        )
+                    }
+                } else {
+                    Err(anyhow::anyhow!("no message receipt").into())
+                }
+            } else {
+                Err(anyhow::anyhow!("failed to call GetBytecode").into())
+            }
+        }
     }
 }
 
@@ -1455,7 +1412,7 @@ mod test {
         let eth_tx_args = TxArgs {
             chain_id: 314159,
             nonce: 486,
-            to: Some(Address(
+            to: Some(EthAddress(
                 ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
                     .unwrap(),
             )),
@@ -1539,7 +1496,7 @@ mod test {
             let addr = FilecoinAddress::new_id(id);
 
             // roundtrip
-            let eth_addr = Address::from_filecoin_address(&addr).unwrap();
+            let eth_addr = EthAddress::from_filecoin_address(&addr).unwrap();
             let fil_addr = eth_addr.to_filecoin_address().unwrap();
             assert_eq!(addr, fil_addr)
         }
@@ -1554,19 +1511,19 @@ mod test {
         ];
 
         for addr in test_cases {
-            let eth_addr: Address = serde_json::from_str(addr).unwrap();
+            let eth_addr: EthAddress = serde_json::from_str(addr).unwrap();
 
             let encoded = serde_json::to_string(&eth_addr).unwrap();
             assert_eq!(encoded, addr.to_lowercase());
 
-            let decoded: Address = serde_json::from_str(&encoded).unwrap();
+            let decoded: EthAddress = serde_json::from_str(&encoded).unwrap();
             assert_eq!(eth_addr, decoded);
         }
     }
 
     #[quickcheck]
     fn test_fil_address_roundtrip(addr: FilecoinAddress) {
-        if let Ok(eth_addr) = Address::from_filecoin_address(&addr) {
+        if let Ok(eth_addr) = EthAddress::from_filecoin_address(&addr) {
             let fil_addr = eth_addr.to_filecoin_address().unwrap();
 
             let protocol = addr.protocol();
@@ -1613,7 +1570,7 @@ mod test {
                 .unwrap()
                 .to
                 .unwrap(),
-            Address(H160::from_str("0xa251031ed6b4779e2a0b913683e71043d88002a3").unwrap())
+            EthAddress(H160::from_str("0xa251031ed6b4779e2a0b913683e71043d88002a3").unwrap())
         );
     }
 }
