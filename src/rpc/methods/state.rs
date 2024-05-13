@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use num::Zero;
 pub use types::*;
 
 use crate::blocks::Tipset;
@@ -247,6 +246,8 @@ impl RpcMethod<2> for StateLookupID {
     }
 }
 
+// StateVerifiedClientStatus returns the data cap for the given address.
+// Returns zero if there is no entry in the data cap table for the address.
 pub enum StateVerifierStatus {}
 
 impl RpcMethod<2> for StateVerifierStatus {
@@ -256,7 +257,7 @@ impl RpcMethod<2> for StateVerifierStatus {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
-    type Ok = StoragePower;
+    type Ok = Option<StoragePower>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -271,11 +272,7 @@ impl RpcMethod<2> for StateVerifierStatus {
             .state_manager
             .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
         let verifreg_state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
-        if let Some(data_cap) = verifreg_state.verified_client_data_cap(ctx.store(), aid.into())? {
-            Ok(data_cap)
-        } else {
-            Ok(BigInt::zero())
-        }
+        Ok(verifreg_state.verified_client_data_cap(ctx.store(), aid.into())?)
     }
 }
 
