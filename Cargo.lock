@@ -2716,7 +2716,8 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "fil_actor_account_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5803630d67ee3012ae7bb0229c7cb19e967f63e06eb7b88b5ec3c85714112f6"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2731,7 +2732,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8012beeb137dbe7176894fb8e3d925c61e02b81ff1ca94d9903fc2752f3dcb8"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2745,7 +2747,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d969aa3b996f2dbf0726f98f31d53085d6b9dd84c1303be575ac5134a31f2452"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2764,7 +2767,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c09e2e2395ea39c56af7eaa8ec99e73e704ace4579a561fb7b519628215c2714"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2783,7 +2787,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edc06ecbbae8cf326873f4c3d999994a0381def4703d96ddcf5d493e844f0eb0"
 dependencies = [
  "anyhow",
  "cid",
@@ -2803,7 +2808,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85c7c41d74a43debac38dda4ddafac9e0663d34f774d0f41aa8456c63a95ab0a"
 dependencies = [
  "anyhow",
  "cid",
@@ -2840,7 +2846,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88de192c6fbdcd9f059e974f71473615885b9576f9e3e8cfdb791732332d9b9d"
 dependencies = [
  "anyhow",
  "cid",
@@ -2864,7 +2871,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f7ab05b0429df9a462243f9d36376d9e27772e3e0dbbdaa070579bc2256fad8"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
@@ -2893,7 +2901,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c4c3a54cc18248e48ed16c9de4e7ec2c3672e31474858602010e4a4d07ec182"
 dependencies = [
  "anyhow",
  "cid",
@@ -2915,7 +2924,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f01ddd75e03016d0521af6755712926fec1b35efe929d00dea3e4548ed675fac"
 dependencies = [
  "anyhow",
  "cid",
@@ -2937,7 +2947,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6e09508056274bcdf28a11842bb42979faf394db1c22d77f974c3d1a57e0da8"
 dependencies = [
  "fil_actor_miner_state",
  "fvm_ipld_encoding",
@@ -2953,7 +2964,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "473df3a71395b0e52f5e4203276ce04f7b3b94387208a77d754839c7795f4080"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2969,7 +2981,8 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a40c2401a951ced412215b7e8e3ab4cbc9e64a64c8964c584eb4a66018a1d35"
 dependencies = [
  "anyhow",
  "cid",
@@ -2988,7 +3001,8 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "11.2.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/verifreg-add-method#89239d6784c6ea1dcd15fbbb3cfda1adc73254bd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1aeab0e86dc983285a033518b3f2d6b48a49395192f802c32bd66d71cb19212"
 dependencies = [
  "anyhow",
  "cid",
