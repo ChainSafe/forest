@@ -55,6 +55,7 @@ pub mod prelude {
     sync::for_each_method!(export);
     wallet::for_each_method!(export);
     eth::for_each_method!(export);
+    msig::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -109,6 +110,7 @@ mod methods {
     pub mod gas;
     pub mod miner;
     pub mod mpool;
+    pub mod msig;
     pub mod net;
     pub mod node;
     pub mod state;
@@ -276,6 +278,7 @@ where
     sync::for_each_method!(register);
     wallet::for_each_method!(register);
     eth::for_each_method!(register);
+    msig::for_each_method!(register);
     module.finish()
 }
 

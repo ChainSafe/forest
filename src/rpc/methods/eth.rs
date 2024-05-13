@@ -1,11 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
+use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
@@ -50,6 +50,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
+        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
     };
 }
 pub(crate) use for_each_method;
@@ -145,6 +146,15 @@ pub struct Uint64(
 );
 
 lotus_json_with_self!(Uint64);
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct Int64(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify")]
+    pub i64,
+);
+
+lotus_json_with_self!(Int64);
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Bytes(
@@ -1280,6 +1290,49 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
     }
+}
+
+pub enum EthGetBlockTransactionCountByNumber {}
+impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
+    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
+    const PARAM_NAMES: [&'static str; 1] = ["block_number"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Int64,);
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_number,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let height = block_number.0;
+        let head = ctx.chain_store.heaviest_tipset();
+        if height > head.epoch() {
+            return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
+        }
+        let ts = ctx.chain_store.chain_index.tipset_by_height(
+            height,
+            head,
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let count = count_messages_in_tipset(ctx.store(), &ts)?;
+        Ok(Uint64(count as _))
+    }
+}
+
+fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Result<usize> {
+    let mut message_cids = CidHashSet::default();
+    for block in ts.block_headers() {
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
+        for m in bls_messages {
+            message_cids.insert(m.cid()?);
+        }
+        for m in secp_messages {
+            message_cids.insert(m.cid()?);
+        }
+    }
+    Ok(message_cids.len())
 }
 
 pub enum EthSyncing {}

@@ -708,6 +708,15 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(18101), // msig address id
             tipset.key().into(),
         ))?),
+        RpcTest::identity(MsigGetVested::request((
+            Address::new_id(18101), // msig address id
+            tipset.parents().into(),
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(MsigGetVestingSchedule::request((
+            Address::new_id(18101), // msig address id
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateGetBeaconEntry::request((tipset.epoch(),))?),
         // Not easily verifiable by using addresses extracted from blocks as most of those yield `null`
         // for both Lotus and Forest. Therefore the actor addresses are hardcoded to values that allow
@@ -1020,6 +1029,9 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 true,
             ))
             .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
         ),
     ]
 }

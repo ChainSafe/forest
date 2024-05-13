@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::unused_async)]
 
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
