@@ -669,6 +669,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
         RpcTest::identity(StateNetworkName::request(())?),
+        RpcTest::identity(StateGetNetworkParams::request(())?),
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
