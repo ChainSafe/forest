@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
 
-use crate::{db::SettingsStore, shim::version::NetworkVersion, utils::net::http_get};
+use crate::{db::SettingsStore, make_height, shim::version::NetworkVersion, utils::net::http_get};
 
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
@@ -66,71 +66,52 @@ pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
 pub const ETH_CHAIN_ID: u64 = 3141592;
 
+pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
+
 /// Height epochs.
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
+        make_height!(Breeze, -50),
+        make_height!(Smoke, -2),
+        make_height!(Ignition, -3),
+        make_height!(Refuel, -4),
+        make_height!(Assembly, -5),
+        make_height!(Tape, -6),
+        make_height!(Liftoff, -7),
+        make_height!(Kumquat, -8),
+        make_height!(Calico, -9),
+        make_height!(Persian, -10),
+        make_height!(Claus, -11),
+        make_height!(Orange, -12),
+        make_height!(Trust, -13),
+        make_height!(Norwegian, -14),
+        make_height!(Turbo, -15),
+        make_height!(Hyperdrive, -16),
+        make_height!(Chocolate, -17),
+        make_height!(OhSnap, -18),
+        make_height!(Skyr, -19),
+        make_height!(Shark, -20),
+        make_height!(Hygge, -21),
+        make_height!(Lightning, -22),
+        make_height!(Thunder, -23),
+        make_height!(
+            Watermelon,
+            -1,
+            "bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq"
+        ),
+        make_height!(
+            Dragon,
+            480,
+            "bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu"
+        ),
         (
-            Height::Breeze,
+            Height::Phoenix,
             HeightInfo {
-                epoch: -50,
+                epoch: 600,
                 bundle: None,
             },
         ),
-        (
-            Height::Smoke,
-            HeightInfo {
-                epoch: -2,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Ignition,
-            HeightInfo {
-                epoch: -3,
-                bundle: None,
-            },
-        ),
-        (
-            Height::ActorsV2,
-            HeightInfo {
-                epoch: -3,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Liftoff,
-            HeightInfo {
-                epoch: -6,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Calico,
-            HeightInfo {
-                epoch: -9,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Watermelon,
-            HeightInfo {
-                epoch: -1,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::Dragon,
-            HeightInfo {
-                epoch: 480,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu")
-                        .unwrap(),
-                ),
-            },
-        ),
+        make_height!(Aussie, 9999999999),
     ])
 });
 
@@ -142,7 +123,7 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
         },
         DrandPoint {
             height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
-                .unwrap_or(HEIGHT_INFOS.get(&Height::Dragon).unwrap().epoch + 120),
+                .unwrap_or(HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch),
             config: &DRAND_QUICKNET,
         },
     ]

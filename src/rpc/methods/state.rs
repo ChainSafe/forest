@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use fvm_shared3::sector::RegisteredSealProof;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 pub use types::*;
 
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
+use crate::lotus_json::lotus_json_with_self;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::actors::{market::BalanceTableExt as _, miner::MinerStateExt as _};
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
@@ -57,6 +62,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateCall);
         $callback!(crate::rpc::state::StateGetBeaconEntry);
         $callback!(crate::rpc::state::StateListMessages);
+        $callback!(crate::rpc::state::StateGetNetworkParams);
         $callback!(crate::rpc::state::StateNetworkName);
         $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
@@ -1801,5 +1807,161 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         Ok(out)
+    }
+}
+
+pub enum StateGetNetworkParams {}
+
+impl RpcMethod<0> for StateGetNetworkParams {
+    const NAME: &'static str = "Filecoin.StateGetNetworkParams";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = NetworkParams;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let config = ctx.state_manager.chain_config();
+        let policy = &config.policy;
+
+        // This is the correct implementation, but for conformance with Lotus,
+        // until resolved there, we have to use a workaround. Replace this
+        // once a version of Lotus is released with the correct implementation.
+        // The change is already in the Lotus master branch.
+        //let supported_proof_types = policy
+        //    .valid_pre_commit_proof_type
+        //    .iter()
+        //    .map(|p| i64::from(*p))
+        //    .sorted()
+        //    .map(|p| p.into())
+        //    .collect();
+
+        use crate::shim::sector::RegisteredSealProofV3::*;
+        let supported_proof_types = match config.network {
+            NetworkChain::Mainnet | NetworkChain::Calibnet => {
+                vec![StackedDRG32GiBV1, StackedDRG64GiBV1]
+            }
+            NetworkChain::Butterflynet => {
+                vec![StackedDRG512MiBV1, StackedDRG32GiBV1, StackedDRG64GiBV1]
+            }
+            NetworkChain::Devnet(_) => {
+                vec![StackedDRG2KiBV1, StackedDRG8MiBV1]
+            }
+        };
+
+        let params = NetworkParams {
+            network_name: ctx.network_name.clone(),
+            block_delay_secs: config.block_delay_secs as u64,
+            consensus_miner_min_power: policy.minimum_consensus_power.clone(),
+            supported_proof_types,
+            pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
+            fork_upgrade_params: ForkUpgradeParams::try_from(config)
+                .context("Failed to get fork upgrade params")?,
+            eip155_chain_id: config.eth_chain_id,
+        };
+
+        Ok(params)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct NetworkParams {
+    network_name: String,
+    block_delay_secs: u64,
+    #[schemars(with = "crate::lotus_json::LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    consensus_miner_min_power: BigInt,
+    #[schemars(with = "crate::lotus_json::LotusJson<i64>")]
+    supported_proof_types: Vec<RegisteredSealProof>,
+    pre_commit_challenge_delay: ChainEpoch,
+    fork_upgrade_params: ForkUpgradeParams,
+    #[serde(rename = "Eip155ChainID")]
+    eip155_chain_id: u32,
+}
+
+lotus_json_with_self!(NetworkParams);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ForkUpgradeParams {
+    upgrade_smoke_height: ChainEpoch,
+    upgrade_breeze_height: ChainEpoch,
+    upgrade_ignition_height: ChainEpoch,
+    upgrade_liftoff_height: ChainEpoch,
+    upgrade_assembly_height: ChainEpoch,
+    upgrade_refuel_height: ChainEpoch,
+    upgrade_tape_height: ChainEpoch,
+    upgrade_kumquat_height: ChainEpoch,
+    breeze_gas_tamping_duration: ChainEpoch,
+    upgrade_calico_height: ChainEpoch,
+    upgrade_persian_height: ChainEpoch,
+    upgrade_orange_height: ChainEpoch,
+    upgrade_claus_height: ChainEpoch,
+    upgrade_trust_height: ChainEpoch,
+    upgrade_norwegian_height: ChainEpoch,
+    upgrade_turbo_height: ChainEpoch,
+    upgrade_hyperdrive_height: ChainEpoch,
+    upgrade_chocolate_height: ChainEpoch,
+    upgrade_oh_snap_height: ChainEpoch,
+    upgrade_skyr_height: ChainEpoch,
+    upgrade_shark_height: ChainEpoch,
+    upgrade_hygge_height: ChainEpoch,
+    upgrade_lightning_height: ChainEpoch,
+    upgrade_thunder_height: ChainEpoch,
+    upgrade_watermelon_height: ChainEpoch,
+    upgrade_dragon_height: ChainEpoch,
+    upgrade_phoenix_height: ChainEpoch,
+    // To be added in the next Lotus release
+    // upgrade_aussie_height: ChainEpoch,
+}
+
+impl TryFrom<&Arc<ChainConfig>> for ForkUpgradeParams {
+    type Error = anyhow::Error;
+    fn try_from(config: &Arc<ChainConfig>) -> anyhow::Result<Self> {
+        let height_infos = &config.height_infos;
+        let get_height = |height| -> anyhow::Result<ChainEpoch> {
+            let height = height_infos
+                .get(&height)
+                .context(format!("Height info for {height} not found"))?
+                .epoch;
+            Ok(height)
+        };
+
+        use crate::networks::Height::*;
+        Ok(ForkUpgradeParams {
+            upgrade_smoke_height: get_height(Smoke)?,
+            upgrade_breeze_height: get_height(Breeze)?,
+            upgrade_ignition_height: get_height(Ignition)?,
+            upgrade_liftoff_height: get_height(Liftoff)?,
+            upgrade_assembly_height: get_height(Assembly)?,
+            upgrade_refuel_height: get_height(Refuel)?,
+            upgrade_tape_height: get_height(Tape)?,
+            upgrade_kumquat_height: get_height(Kumquat)?,
+            breeze_gas_tamping_duration: config.breeze_gas_tamping_duration,
+            upgrade_calico_height: get_height(Calico)?,
+            upgrade_persian_height: get_height(Persian)?,
+            upgrade_orange_height: get_height(Orange)?,
+            upgrade_claus_height: get_height(Claus)?,
+            upgrade_trust_height: get_height(Trust)?,
+            upgrade_norwegian_height: get_height(Norwegian)?,
+            upgrade_turbo_height: get_height(Turbo)?,
+            upgrade_hyperdrive_height: get_height(Hyperdrive)?,
+            upgrade_chocolate_height: get_height(Chocolate)?,
+            upgrade_oh_snap_height: get_height(OhSnap)?,
+            upgrade_skyr_height: get_height(Skyr)?,
+            upgrade_shark_height: get_height(Shark)?,
+            upgrade_hygge_height: get_height(Hygge)?,
+            upgrade_lightning_height: get_height(Lightning)?,
+            upgrade_thunder_height: get_height(Thunder)?,
+            upgrade_watermelon_height: get_height(Watermelon)?,
+            upgrade_dragon_height: get_height(Dragon)?,
+            upgrade_phoenix_height: get_height(Phoenix)?,
+            // upgrade_aussie_height: get_height(Aussie)?,
+        })
     }
 }
