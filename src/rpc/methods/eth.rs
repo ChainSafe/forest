@@ -1324,27 +1324,24 @@ impl RpcMethod<2> for EthGetCode {
                     Err(e) => tracing::warn!(%e),
                 }
             }
-            if let Some(api_invoc_result) = api_invoc_result {
-                if let Some(msg_rct) = api_invoc_result.msg_rct {
-                    if api_invoc_result.error.is_empty() {
-                        let get_bytecode_return: GetBytecodeReturn =
-                            fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
-                        if let Some(cid) = get_bytecode_return.0 {
-                            Ok(Bytes(ctx.store().get_required(&cid)?))
-                        } else {
-                            Ok(Default::default())
-                        }
-                    } else {
-                        Err(
-                            anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error)
-                                .into(),
-                        )
-                    }
-                } else {
-                    Err(anyhow::anyhow!("no message receipt").into())
-                }
+            let Some(api_invoc_result) = api_invoc_result else {
+                return Err(anyhow::anyhow!("no message receipt").into());
+            };
+            let Some(msg_rct) = api_invoc_result.msg_rct else {
+                return Err(anyhow::anyhow!("no message receipt").into());
+            };
+            if !api_invoc_result.error.is_empty() {
+                return Err(
+                    anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into(),
+                );
+            }
+
+            let get_bytecode_return: GetBytecodeReturn =
+                fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
+            if let Some(cid) = get_bytecode_return.0 {
+                Ok(Bytes(ctx.store().get_required(&cid)?))
             } else {
-                Err(anyhow::anyhow!("failed to call GetBytecode").into())
+                Ok(Default::default())
             }
         }
     }
