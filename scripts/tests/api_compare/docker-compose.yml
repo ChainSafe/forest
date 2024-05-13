@@ -3,9 +3,11 @@
 services:
   init: 
     build:
-      dockerfile: aria2-Dockerfile
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
     networks:
       - api-tests
     environment:
@@ -14,11 +16,13 @@ services:
     command:
       - |
         set -euxo pipefail
+        # fetch parameter files
+        forest-tool fetch-params --keys
         # if there are some files in the data directory, then we don't need to fetch the snapshot
         if [ "$$(ls -A /data/*.car.zst)" ]; then
           echo "Snapshot already fetched"
         else
-          aria2c -d /data -x5 https://forest-archive.chainsafe.dev/latest/calibnet/
+          forest-tool snapshot fetch --chain calibnet -d /data
         fi
   forest:
     depends_on:
