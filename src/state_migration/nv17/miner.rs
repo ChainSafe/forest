@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::networks::NetworkChain;
 use crate::shim::{address::Address, piece::PieceInfo};
 use crate::utils::db::CborStoreExt;
+use crate::{make_calibnet_policy, make_mainnet_policy};
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::{multibase::Base, Cid};
@@ -48,8 +49,8 @@ where
     let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
 
     let policy = match chain {
-        NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
-        NetworkChain::Calibnet => fil_actors_shared::v8::runtime::Policy::calibnet(),
+        NetworkChain::Mainnet => make_mainnet_policy!(v8),
+        NetworkChain::Calibnet => make_calibnet_policy!(v8),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
         NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
     };
@@ -61,8 +62,8 @@ where
     let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
 
     let policy = match chain {
-        NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
-        NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
+        NetworkChain::Mainnet => make_mainnet_policy!(v9),
+        NetworkChain::Calibnet => make_calibnet_policy!(v9),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
         NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
     };
@@ -253,8 +254,8 @@ impl MinerMigrator {
                 store.get_cbor_required(deadlines)?;
 
             let policy = match &self.chain {
-                NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
-                NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
+                NetworkChain::Mainnet => make_mainnet_policy!(v9),
+                NetworkChain::Calibnet => make_calibnet_policy!(v9),
                 NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
                 NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
             };
@@ -933,7 +934,7 @@ mod tests {
         let empty_miner_info_cid = store.put_cbor_default(&empty_miner_info).unwrap();
 
         fil_actor_miner_state::v8::State::new(
-            &fil_actors_shared::v8::runtime::Policy::calibnet(),
+            &make_calibnet_policy!(v8),
             store,
             empty_miner_info_cid,
             0,

@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use super::{miner, system, verifier::Verifier, SystemStateOld};
-use crate::make_butterfly_policy;
 use crate::networks::{ChainConfig, Height, NetworkChain};
 use crate::shim::{
     address::Address,
@@ -15,9 +14,9 @@ use crate::shim::{
 };
 use crate::state_migration::common::{migrators::nil_migrator, StateMigration};
 use crate::utils::db::CborStoreExt as _;
+use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 use anyhow::Context;
 use cid::Cid;
-use fil_actors_shared::v11::runtime::ProofSet;
 use fvm_ipld_blockstore::Blockstore;
 
 impl<BS: Blockstore> StateMigration<BS> {
@@ -43,38 +42,12 @@ impl<BS: Blockstore> StateMigration<BS> {
         }
 
         let (policy_old, policy_new) = match &chain_config.network {
-            NetworkChain::Mainnet => (
-                fil_actors_shared::v11::runtime::Policy::mainnet(),
-                fil_actors_shared::v12::runtime::Policy::mainnet(),
-            ),
-            NetworkChain::Calibnet => (
-                fil_actors_shared::v11::runtime::Policy::calibnet(),
-                fil_actors_shared::v12::runtime::Policy::calibnet(),
-            ),
+            NetworkChain::Mainnet => (make_mainnet_policy!(v11), make_mainnet_policy!(v12)),
+            NetworkChain::Calibnet => (make_calibnet_policy!(v11), make_calibnet_policy!(v12)),
             NetworkChain::Butterflynet => {
                 (make_butterfly_policy!(v11), make_butterfly_policy!(v12))
             }
-            NetworkChain::Devnet(_) => {
-                let mut policy_old = fil_actors_shared::v11::runtime::Policy::mainnet();
-                policy_old.minimum_consensus_power = 2048.into();
-                policy_old.minimum_verified_allocation_size = 256.into();
-                policy_old.pre_commit_challenge_delay = 10;
-
-                let mut proofs = ProofSet::default_seal_proofs();
-                proofs.insert(RegisteredSealProofV3::StackedDRG2KiBV1);
-                proofs.insert(RegisteredSealProofV3::StackedDRG8MiBV1);
-                policy_old.valid_pre_commit_proof_type = proofs;
-
-                let mut proofs = ProofSet::default_post_proofs();
-                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow2KiBV1);
-                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow8MiBV1);
-                policy_old.valid_post_proof_type = proofs;
-
-                (
-                    policy_old,
-                    fil_actors_shared::v12::runtime::Policy::devnet(),
-                )
-            }
+            NetworkChain::Devnet(_) => (make_devnet_policy!(v11), make_devnet_policy!(v12)),
         };
         let miner_old_code = current_manifest.get(BuiltinActor::Miner)?;
         let miner_new_code = new_manifest.get(BuiltinActor::Miner)?;

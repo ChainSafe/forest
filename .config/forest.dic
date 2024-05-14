@@ -31,6 +31,7 @@ cron
 crypto
 daemon
 daemonize
+devnet
 DB/S
 deserialize/D
 destructuring
