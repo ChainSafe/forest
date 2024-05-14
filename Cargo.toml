@@ -27,25 +27,25 @@ bls-signatures = { version = "0.15", default-features = false, features = [
   "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
 blstrs = { version = "0.7", features = ["portable"] }
-byteorder = "1.5.0"
-bytes = "1.2"
-cbor4ii = { version = "0.2.14", default-features = false, features = ["use_alloc", "use_std"] }
+byteorder = "1"
+bytes = "1"
+cbor4ii = { version = "0.2", default-features = false, features = ["use_alloc", "use_std"] }
 cfg-if = "1"
-cfg-vis = "0.3.0"
+cfg-vis = "0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4", features = ["derive"] }
 colored = "2.0"
-convert_case = "0.6.0"
-crypto_secretbox = "0.1.1"
-daemonize-me = "2.0"
-data-encoding = "2.3"
+convert_case = "0.6"
+crypto_secretbox = "0.1"
+daemonize-me = "2"
+data-encoding = "2"
 data-encoding-macro = "0.1"
-derive_more = "0.99.17"
+derive_more = "0.99"
 dialoguer = "0.11"
-digest = "0.10.5"
+digest = "0.10"
 directories = "5"
-ethereum-types = "0.14.1"
+ethereum-types = "0.14"
 fil_actor_account_state = { version = "11.2.0" }
 fil_actor_cron_state = { version = "11.2.0" }
 fil_actor_datacap_state = { version = "11.2.0" }
@@ -60,7 +60,7 @@ fil_actor_verifreg_state = { version = "11.2.0" }
 fil_actors_shared = { version = "11.2.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
-frc46_token = "10.0.0"
+frc46_token = "10"
 fs_extra = "1.2"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.7", default-features = false }
@@ -75,23 +75,23 @@ gethostname = "0.4"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
-http = "1.0"
-keccak-hash = "0.10.0"
-rlp = "0.5.2"
+http = "1"
+keccak-hash = "0.10"
+rlp = "0.5"
 # TODO(forest): https://github.com/ChainSafe/forest/issues/3961
 #               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
 http02 = { version = "0.2", package = "http" }
-human-repr = "1.0"
+human-repr = "1"
 human_bytes = "0.4"
-humantime = "2.1.0"
+humantime = "2"
 # TODO(forest): https://github.com/ChainSafe/forest/issues/3961
 #               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
 hyper = { version = "0.14", features = ["full"] }
-indexmap = { version = "2.2", features = ["serde"] }
-indicatif = { version = "0.17.6", features = ["tokio"] }
+indexmap = { version = "2", features = ["serde"] }
+indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
-itertools = "0.12.1"
+itertools = "0.12"
 jsonrpsee = { version = "0.22", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"
@@ -125,66 +125,66 @@ libp2p = { version = "0.53", default-features = false, features = [
 libsecp256k1 = "0.7"
 lru = "0.12"
 memmap2 = "0.9"
-memory-stats = "1.1"
+memory-stats = "1"
 multiaddr = "0.18"
-multimap = "0.10.0"
-nom = "7.1.3"
-nonzero_ext = "0.3.0"
-num = "0.4.0"
+multimap = "0.10"
+nom = "7"
+nonzero_ext = "0.3"
+num = "0.4"
 num-bigint = "0.4"
 num-derive = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
-num_cpus = "1.14"
+num_cpus = "1"
 nunny = { version = "0.2", features = ["serde", "quickcheck", "schemars"] }
-once_cell = "1.15"
-parity-db = { version = "0.4.13", default-features = false }
+once_cell = "1"
+parity-db = { version = "0.4", default-features = false }
 parking_lot = { version = "0.12", features = ["deadlock_detection"] }
-pathfinding = "4.9.1"
+pathfinding = "4"
 pin-project-lite = "0.2"
-positioned-io = "0.3.3"
-pretty_assertions = "1.3.0"
+positioned-io = "0.3"
+pretty_assertions = "1"
 prometheus-client = "0.22"
 quick-protobuf = "0.8"
 quick-protobuf-codec = "0.2"
 rand = "0.8"
 rand_distr = "0.4"
 raw_sync_2 = "0.1"
-rayon = "1.8"
-regex = "1.10"
+rayon = "1"
+regex = "1"
 reqwest = { version = "0.12", default-features = false, features = [
   "stream",
   "rustls-tls",
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
-rlimit = "0.10.1"
+rlimit = "0.10"
 rs-car-ipfs = "0.3"
 rustyline = "14"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
-scopeguard = "1.1.0"
-semver = "1.0"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_ipld_dagcbor = "0.4.1"
+scopeguard = "1"
+semver = "1"
+serde = { version = "1", default-features = false, features = ["derive"] }
+serde_ipld_dagcbor = "0.4"
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_tuple = "0.5"
-serde_with = { version = "3.6.1", features = ["chrono_0_4"] }
+serde_with = { version = "3", features = ["chrono_0_4"] }
 serde_yaml = "0.9"
 sha2 = { version = "0.10.5", default-features = false }
 shared_memory = "0.12"
 similar = "2"
 slotmap = "1.0"
 smallvec = "1.13"
-smart-default = "0.7.1"
-stacker = "0.1.15"
-static_assertions = "1.1.0"
+smart-default = "0.7"
+stacker = "0.1"
+static_assertions = "1"
 statrs = "0.16"
 strum = { version = "0.26", features = ["derive"] }
 strum_macros = "0.26"
 tabled = "0.15"
 tap = "1"
 tar = "0.4"
-tempfile = "3.10"
-thiserror = "1.0"
+tempfile = "3"
+thiserror = "1"
 ticker = "0.1"
 tokio = { version = "1", features = ['full'] }
 tokio-stream = { version = "0.1", features = ["fs", "io-util"] }
@@ -195,8 +195,8 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 unsigned-varint = { version = "0.8", features = ["codec"] }
-url = { version = "2.3", features = ["serde"] }
-uuid = { version = "1.7", features = ["v4", "serde"] }
+url = { version = "2", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
 zstd = "0.13"
 
@@ -218,11 +218,11 @@ termios = "0.3"
 [dev-dependencies]
 ariadne = "0.4"
 assert_cmd = "2"
-bimap = "0.6.3"
-cargo_metadata = "0.18.0"
-criterion = { version = "0.5.1", features = ["async_tokio", "csv"] }
-cs_serde_bytes = "0.12.2"
-derive-quickcheck-arbitrary = "0.1.1"
+bimap = "0.6"
+cargo_metadata = "0.18"
+criterion = { version = "0.5", features = ["async_tokio", "csv"] }
+cs_serde_bytes = "0.12"
+derive-quickcheck-arbitrary = "0.1"
 fvm3 = { package = "fvm", default-features = false, version = "~3.8", features = ["arb"] }
 fvm_shared3 = { package = "fvm_shared", version = "~3.6", default-features = false, features = ["arb"] }
 glob = "0.3"
@@ -230,13 +230,13 @@ http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
 libp2p-swarm-test = "0.3"
 num-bigint = { version = "0.4", features = ['quickcheck'] }
-petgraph = "0.6.4"
-predicates = "3.1"
-proc-macro2 = { version = "1.0.78", default-features = false, features = ["span-locations"] }
+petgraph = "0.6"
+predicates = "3"
+proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quickcheck = "1"
-quickcheck_async = "0.1.1"
+quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.214"
+ra_ap_syntax = "0.0.215"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
