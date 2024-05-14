@@ -105,13 +105,15 @@ pub enum Height {
     Breeze,
     Smoke,
     Ignition,
-    ActorsV2,
+    Refuel,
+    Assembly,
     Tape,
     Liftoff,
     Kumquat,
     Calico,
     Persian,
     Orange,
+    Claus,
     Trust,
     Norwegian,
     Turbo,
@@ -128,6 +130,8 @@ pub enum Height {
     WatermelonFix2,
     Dragon,
     DragonFix,
+    Phoenix,
+    Aussie,
 }
 
 impl Default for Height {
@@ -142,13 +146,15 @@ impl From<Height> for NetworkVersion {
             Height::Breeze => NetworkVersion::V1,
             Height::Smoke => NetworkVersion::V2,
             Height::Ignition => NetworkVersion::V3,
-            Height::ActorsV2 => NetworkVersion::V4,
+            Height::Refuel => NetworkVersion::V3,
+            Height::Assembly => NetworkVersion::V4,
             Height::Tape => NetworkVersion::V5,
             Height::Liftoff => NetworkVersion::V5,
             Height::Kumquat => NetworkVersion::V6,
             Height::Calico => NetworkVersion::V7,
             Height::Persian => NetworkVersion::V8,
             Height::Orange => NetworkVersion::V9,
+            Height::Claus => NetworkVersion::V9,
             Height::Trust => NetworkVersion::V10,
             Height::Norwegian => NetworkVersion::V11,
             Height::Turbo => NetworkVersion::V12,
@@ -165,6 +171,8 @@ impl From<Height> for NetworkVersion {
             Height::WatermelonFix2 => NetworkVersion::V21,
             Height::Dragon => NetworkVersion::V22,
             Height::DragonFix => NetworkVersion::V22,
+            Height::Phoenix => NetworkVersion::V22,
+            Height::Aussie => NetworkVersion::V23,
         }
     }
 }
@@ -205,6 +213,7 @@ pub struct ChainConfig {
     #[serde(default = "default_policy")]
     pub policy: Policy,
     pub eth_chain_id: u32,
+    pub breeze_gas_tamping_duration: i64,
 }
 
 impl ChainConfig {
@@ -220,6 +229,7 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.clone(),
             policy: Policy::mainnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -235,6 +245,7 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.clone(),
             policy: Policy::calibnet(),
             eth_chain_id: ETH_CHAIN_ID as u32,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -268,6 +279,7 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.clone(),
             policy,
             eth_chain_id: ETH_CHAIN_ID as u32,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -284,6 +296,7 @@ impl ChainConfig {
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_butterfly_policy!(v10),
             eth_chain_id: ETH_CHAIN_ID as u32,
+            breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
 
@@ -418,17 +431,68 @@ fn get_upgrade_height_from_env(env_var_key: &str) -> Option<ChainEpoch> {
     None
 }
 
+#[macro_export]
+macro_rules! make_height {
+    ($id:ident,$epoch:expr) => {
+        (
+            Height::$id,
+            HeightInfo {
+                epoch: $epoch,
+                bundle: None,
+            },
+        )
+    };
+    ($id:ident,$epoch:expr,$bundle:expr) => {
+        (
+            Height::$id,
+            HeightInfo {
+                epoch: $epoch,
+                bundle: Some(Cid::try_from($bundle).unwrap()),
+            },
+        )
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn heights_are_present(height_infos: &HashMap<Height, HeightInfo>) {
-        assert!(height_infos.get(&Height::Breeze).is_some());
-        assert!(height_infos.get(&Height::Smoke).is_some());
-        assert!(height_infos.get(&Height::Ignition).is_some());
-        assert!(height_infos.get(&Height::ActorsV2).is_some());
-        assert!(height_infos.get(&Height::Liftoff).is_some());
-        assert!(height_infos.get(&Height::Calico).is_some());
+        /// These are required heights that need to be defined for all networks, for, e.g., conformance
+        /// with `Filecoin.StateGetNetworkParams` RPC method.
+        const REQUIRED_HEIGHTS: [Height; 27] = [
+            Height::Breeze,
+            Height::Smoke,
+            Height::Ignition,
+            Height::Refuel,
+            Height::Assembly,
+            Height::Tape,
+            Height::Liftoff,
+            Height::Kumquat,
+            Height::Calico,
+            Height::Persian,
+            Height::Orange,
+            Height::Claus,
+            Height::Trust,
+            Height::Norwegian,
+            Height::Turbo,
+            Height::Hyperdrive,
+            Height::Chocolate,
+            Height::OhSnap,
+            Height::Skyr,
+            Height::Shark,
+            Height::Hygge,
+            Height::Lightning,
+            Height::Thunder,
+            Height::Watermelon,
+            Height::Dragon,
+            Height::Phoenix,
+            Height::Aussie,
+        ];
+
+        for height in &REQUIRED_HEIGHTS {
+            assert!(height_infos.get(height).is_some());
+        }
     }
 
     #[test]

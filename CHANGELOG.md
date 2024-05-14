@@ -80,6 +80,9 @@
 - [#4255](https://github.com/ChainSafe/forest/pull/4255) Add support for the
   `Filecoin.MinerCreateBlock` RPC method.
 
+- [#4315](https://github.com/ChainSafe/forest/pull/4315) Add support for the
+  `Filecoin.StateGetNetworkParams` RPC method.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
