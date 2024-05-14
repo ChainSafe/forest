@@ -415,9 +415,10 @@ pub struct FullTipset {
 // Constructing a FullTipset from a single Block is infallible.
 impl From<Block> for FullTipset {
     fn from(block: Block) -> Self {
+        let cid = block.header.cid().clone();
         FullTipset {
             blocks: nonempty![block],
-            key: OnceCell::new(),
+            key: OnceCell::with_value(TipsetKey::from(nonempty![cid])),
         }
     }
 }
