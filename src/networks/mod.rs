@@ -30,6 +30,8 @@ pub mod calibnet;
 pub mod devnet;
 pub mod mainnet;
 
+pub mod metrics;
+
 /// Newest network version for all networks
 pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
@@ -453,6 +455,20 @@ macro_rules! make_height {
     };
 }
 
+// The formula matches lotus
+// ```go
+// sinceGenesis := build.Clock.Now().Sub(genesisTime)
+// expectedHeight := int64(sinceGenesis.Seconds()) / int64(build.BlockDelaySecs)
+// ```
+// See <https://github.com/filecoin-project/lotus/blob/b27c861485695d3f5bb92bcb281abc95f4d90fb6/chain/sync.go#L180>
+pub fn calculate_expected_epoch(
+    now_timestamp: u64,
+    genesis_timestamp: u64,
+    block_delay: u32,
+) -> u64 {
+    now_timestamp.saturating_sub(genesis_timestamp) / block_delay as u64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +549,38 @@ mod tests {
         std::env::set_var("FOREST_TEST_VAR_3", "foo");
         let epoch = get_upgrade_height_from_env("FOREST_TEST_VAR_3");
         assert_eq!(epoch, None);
+    }
+
+    #[test]
+    fn test_calculate_expected_epoch() {
+        // now, genesis, block_delay
+        assert_eq!(0, calculate_expected_epoch(0, 0, 1));
+        assert_eq!(5, calculate_expected_epoch(5, 0, 1));
+
+        let mainnet_genesis = 1598306400;
+        let mainnet_block_delay = 30;
+
+        assert_eq!(
+            0,
+            calculate_expected_epoch(mainnet_genesis, mainnet_genesis, mainnet_block_delay)
+        );
+
+        assert_eq!(
+            0,
+            calculate_expected_epoch(
+                mainnet_genesis + mainnet_block_delay as u64 - 1,
+                mainnet_genesis,
+                mainnet_block_delay
+            )
+        );
+
+        assert_eq!(
+            1,
+            calculate_expected_epoch(
+                mainnet_genesis + mainnet_block_delay as u64,
+                mainnet_genesis,
+                mainnet_block_delay
+            )
+        );
     }
 }

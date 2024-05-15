@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ahash::HashMap;
 use axum::extract::{self, Query};
 
-use crate::chain_sync::SyncStage;
+use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
 
 use super::{AppError, ForestState};
 
@@ -109,11 +109,12 @@ fn check_sync_state_not_error(state: &Arc<ForestState>, acc: &mut MessageAccumul
 /// in case of forking.
 fn check_epoch_up_to_date(state: &Arc<ForestState>, acc: &mut MessageAccumulator) -> bool {
     const MAX_EPOCH_DIFF: i64 = 5;
-    let now_epoch = chrono::Utc::now()
-        .timestamp()
-        .saturating_add(state.chain_config.block_delay_secs as i64)
-        .saturating_sub(state.genesis_timestamp as i64)
-        / state.chain_config.block_delay_secs as i64;
+
+    let now_epoch = calculate_expected_epoch(
+        chrono::Utc::now().timestamp() as u64,
+        state.genesis_timestamp,
+        state.chain_config.block_delay_secs,
+    ) as i64;
 
     // The current epoch of the node must be not too far behind the network
     if state.sync_state.read().epoch() >= now_epoch - MAX_EPOCH_DIFF {
