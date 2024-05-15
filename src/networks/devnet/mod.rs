@@ -162,3 +162,55 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
         },
     ]
 });
+
+/// Creates a new devnet policy with the given version.
+/// Works with `v10` onward.
+#[macro_export]
+macro_rules! make_devnet_policy {
+    (v11) => {
+        fil_actors_shared::v11::runtime::Policy {
+            minimum_consensus_power: 2040.into(),
+            minimum_verified_allocation_size: 256.into(),
+            pre_commit_challenge_delay: 10,
+            valid_pre_commit_proof_type: {
+                use $crate::shim::sector::RegisteredSealProofV3;
+                let mut proofs = fil_actors_shared::v11::runtime::ProofSet::default();
+                proofs.insert(RegisteredSealProofV3::StackedDRG2KiBV1P1);
+                proofs.insert(RegisteredSealProofV3::StackedDRG8MiBV1P1);
+                proofs
+            },
+            valid_post_proof_type: {
+                use $crate::shim::sector::RegisteredPoStProofV3;
+                let mut proofs = fil_actors_shared::v11::runtime::ProofSet::default();
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow2KiBV1);
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow2KiBV1P1);
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow8MiBV1);
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow8MiBV1P1);
+                proofs
+            },
+            ..Default::default()
+        }
+    };
+    ($version:tt) => {
+        fil_actors_shared::$version::runtime::Policy {
+            minimum_consensus_power: 2040.into(),
+            minimum_verified_allocation_size: 256.into(),
+            pre_commit_challenge_delay: 10,
+            valid_pre_commit_proof_type: {
+                let mut proofs = fil_actors_shared::$version::runtime::ProofSet::default();
+                proofs.insert(RegisteredSealProofV3::StackedDRG2KiBV1P1);
+                proofs.insert(RegisteredSealProofV3::StackedDRG2KiBV1P1_Feat_SyntheticPoRep);
+                proofs.insert(RegisteredSealProofV3::StackedDRG8MiBV1P1);
+                proofs.insert(RegisteredSealProofV3::StackedDRG8MiBV1P1_Feat_SyntheticPoRep);
+                proofs
+            },
+            valid_post_proof_type: {
+                let mut proofs = fil_actors_shared::$version::runtime::ProofSet::default();
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow2KiBV1P1);
+                proofs.insert(RegisteredPoStProofV3::StackedDRGWindow8MiBV1P1);
+                proofs
+            },
+            ..Default::default()
+        }
+    };
+}

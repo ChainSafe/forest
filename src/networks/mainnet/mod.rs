@@ -113,6 +113,14 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| 
     ]
 });
 
+/// Creates a new mainnet policy with the given version.
+#[macro_export]
+macro_rules! make_mainnet_policy {
+    ($version:tt) => {
+        fil_actors_shared::$version::runtime::Policy::default()
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

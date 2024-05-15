@@ -5,7 +5,7 @@ use std::{fmt::Display, str::FromStr};
 
 use ahash::HashMap;
 use cid::Cid;
-use fil_actors_shared::v10::runtime::Policy;
+use fil_actors_shared::v13::runtime::Policy;
 use itertools::Itertools;
 use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
@@ -15,10 +15,10 @@ use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
-use crate::make_butterfly_policy;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
+use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
 mod actors_bundle;
 pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
@@ -211,8 +211,7 @@ pub struct ChainConfig {
     pub propagation_delay_secs: u32,
     pub genesis_network: NetworkVersion,
     pub height_infos: HashMap<Height, HeightInfo>,
-    #[cfg_attr(test, arbitrary(gen(|_g| Policy::mainnet())))]
-    #[serde(default = "default_policy")]
+    #[cfg_attr(test, arbitrary(gen(|_g| Policy::default())))]
     pub policy: Policy,
     pub eth_chain_id: u32,
     pub breeze_gas_tamping_duration: i64,
@@ -229,7 +228,7 @@ impl ChainConfig {
             propagation_delay_secs: 10,
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: Policy::mainnet(),
+            policy: make_mainnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID as u32,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
@@ -245,7 +244,7 @@ impl ChainConfig {
             propagation_delay_secs: 10,
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: Policy::calibnet(),
+            policy: make_calibnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID as u32,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
@@ -253,24 +252,6 @@ impl ChainConfig {
 
     pub fn devnet() -> Self {
         use devnet::*;
-        let mut policy = Policy::mainnet();
-        policy.minimum_consensus_power = 2048.into();
-        policy.minimum_verified_allocation_size = 256.into();
-        policy.pre_commit_challenge_delay = 10;
-
-        #[allow(clippy::disallowed_types)]
-        let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            RegisteredSealProofV3::StackedDRG2KiBV1,
-            RegisteredSealProofV3::StackedDRG8MiBV1,
-        ]);
-        policy.valid_pre_commit_proof_type = allowed_proof_types;
-        #[allow(clippy::disallowed_types)]
-        let allowed_proof_types = std::collections::HashSet::from_iter(vec![
-            RegisteredPoStProofV3::StackedDRGWindow2KiBV1,
-            RegisteredPoStProofV3::StackedDRGWindow8MiBV1,
-        ]);
-        policy.valid_post_proof_type = allowed_proof_types;
-
         Self {
             network: NetworkChain::Devnet("devnet".to_string()),
             genesis_cid: None,
@@ -279,7 +260,7 @@ impl ChainConfig {
             propagation_delay_secs: 1,
             genesis_network: *GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy,
+            policy: make_devnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID as u32,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
@@ -296,7 +277,7 @@ impl ChainConfig {
             propagation_delay_secs: 6,
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: make_butterfly_policy!(v10),
+            policy: make_butterfly_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID as u32,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
@@ -390,12 +371,6 @@ impl Default for ChainConfig {
     fn default() -> Self {
         ChainConfig::mainnet()
     }
-}
-
-/// Dummy default. Will be overwritten later.
-// Wish we could get rid of this
-fn default_policy() -> Policy {
-    Policy::mainnet()
 }
 
 pub(crate) fn parse_bootstrap_peers(bootstrap_peer_list: &str) -> Vec<Multiaddr> {
