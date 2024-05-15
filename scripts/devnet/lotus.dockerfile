@@ -14,6 +14,7 @@ RUN git clone --depth 1 --branch FIP0079-testing https://github.com/filecoin-pro
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \
     FFI_USE_BLST_PORTABLE="1" \
+    FFI_USE_GPU="0" \
     make 2k && strip lotus*
 
 FROM ubuntu:22.04
