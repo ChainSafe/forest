@@ -18,7 +18,7 @@ use crate::db::SettingsStore;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
-use crate::{make_butterfly_policy, make_devnet_policy};
+use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
 mod actors_bundle;
 pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
@@ -226,7 +226,7 @@ impl ChainConfig {
             propagation_delay_secs: 10,
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: Policy::default(),
+            policy: make_mainnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID as u32,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
@@ -242,10 +242,7 @@ impl ChainConfig {
             propagation_delay_secs: 10,
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
-            policy: Policy {
-                minimum_consensus_power: (32 << 30).into(),
-                ..Default::default()
-            },
+            policy: make_calibnet_policy!(v13),
             eth_chain_id: ETH_CHAIN_ID as u32,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }

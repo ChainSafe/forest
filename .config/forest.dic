@@ -13,6 +13,7 @@ BLAKE2b
 blockchain/M
 blockstore/SM
 BLS
+calibnet
 callee
 canonicalization
 CAR/SM
