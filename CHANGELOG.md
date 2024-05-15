@@ -102,6 +102,9 @@
 - [#4297](https://github.com/ChainSafe/forest/pull/4297) Fixed double decoding
   of message in the `Filecoin.WalletSign` RPC method.
 
+- [#4328](https://github.com/ChainSafe/forest/pull/4328) Fix issues when
+  connecting to a network with fewer than 5 peers.
+
 ## Forest 0.17.2 "Dovakhin"
 
 This is a **mandatory** release for all mainnet node operators. It changes the
