@@ -83,6 +83,9 @@
 - [#4315](https://github.com/ChainSafe/forest/pull/4315) Add support for the
   `Filecoin.StateGetNetworkParams` RPC method.
 
+- [#4326](https://github.com/ChainSafe/forest/pull/4326) Added
+  `expected_network_height` metric to the Prometheus metrics.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
@@ -104,6 +107,9 @@
 
 - [#4314](https://github.com/ChainSafe/forest/issues/4314) Fixed incorrect
   allowed proof types for all networks.
+
+- [#4328](https://github.com/ChainSafe/forest/pull/4328) Fix issues when
+  connecting to a network with fewer than 5 peers.
 
 ## Forest 0.17.2 "Dovakhin"
 

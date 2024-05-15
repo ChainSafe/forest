@@ -115,7 +115,7 @@ impl RpcMethod<1> for SyncSubmitBlock {
                 ctx.chain_store.clone(),
                 ctx.bad_blocks.clone(),
                 genesis_ts,
-                ctx.state_manager.chain_config().block_delay_secs as u64,
+                ctx.state_manager.chain_config().block_delay_secs,
             )
             .context("failed to validate the tipset")?;
 
