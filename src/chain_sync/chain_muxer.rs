@@ -44,7 +44,7 @@ use crate::chain_sync::{
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
 const DEFAULT_REQUEST_WINDOW: usize = 8;
-const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 5;
+const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 1;
 const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
