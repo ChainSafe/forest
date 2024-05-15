@@ -83,6 +83,9 @@
 - [#4315](https://github.com/ChainSafe/forest/pull/4315) Add support for the
   `Filecoin.StateGetNetworkParams` RPC method.
 
+- [#4326](https://github.com/ChainSafe/forest/pull/4326) Added
+  `expected_network_height` metric to the Prometheus metrics.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
