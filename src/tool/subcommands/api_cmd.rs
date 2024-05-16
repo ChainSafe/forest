@@ -198,12 +198,12 @@ pub enum RunIgnored {
 }
 
 /// Brief description of a single method call against a single host
-#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum TestSummary {
     /// Server spoke JSON-RPC: no such method
     MissingMethod,
     /// Server spoke JSON-RPC: bad request (or other error)
-    Rejected,
+    Rejected(String),
     /// Server doesn't seem to be speaking JSON-RPC
     NotJsonRPC,
     /// Transport or ask task management errors
@@ -221,7 +221,7 @@ impl TestSummary {
         match err {
             rpc::ClientError::Call(it) => match it.code().into() {
                 ErrorCode::MethodNotFound => Self::MissingMethod,
-                _ => Self::Rejected,
+                _ => Self::Rejected(it.message().to_string()),
             },
             rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
             rpc::ClientError::RequestTimeout => Self::Timeout,
@@ -848,6 +848,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     },
                     tipset.key().into(),
                 ))?),
+                RpcTest::identity(StateSectorExpiration::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
@@ -1386,10 +1391,18 @@ async fn run_tests(
     while let Some(Ok((method_name, test_result))) = futures.next().await {
         let forest_status = test_result.forest_status;
         let lotus_status = test_result.lotus_status;
+        let success = match (&forest_status, &lotus_status) {
+            (TestSummary::Valid, TestSummary::Valid)
+            | (TestSummary::Timeout, TestSummary::Timeout) => true,
+            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus))
+                if reason_forest == reason_lotus =>
+            {
+                true
+            }
+            _ => false,
+        };
         let result_entry = (method_name, forest_status, lotus_status);
-        if (forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid)
-            || (forest_status == TestSummary::Timeout && lotus_status == TestSummary::Timeout)
-        {
+        if success {
             success_results
                 .entry(result_entry)
                 .and_modify(|v| *v += 1)
@@ -1430,8 +1443,8 @@ fn print_test_results(
 ) {
     // Combine all results
     let mut combined_results = success_results.clone();
-    for (key, value) in failed_results {
-        combined_results.insert(*key, *value);
+    for (key, &value) in failed_results {
+        combined_results.insert(key.clone(), value);
     }
 
     // Collect and display results in Markdown format
