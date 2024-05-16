@@ -182,7 +182,7 @@ pub(super) async fn start(
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
-    if config.client.load_actors {
+    if config.client.load_actors && !opts.stateless {
         load_actor_bundles(&db, &config.chain).await?;
     }
 
@@ -463,7 +463,9 @@ pub(super) async fn start(
         return Ok(());
     }
 
-    ensure_params_downloaded().await?;
+    if !opts.stateless {
+        ensure_params_downloaded().await?;
+    }
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,
