@@ -699,6 +699,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(0xdeadbeef),
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateVerifierStatus::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateNetworkVersion::request((tipset.key().into(),))?),
         RpcTest::identity(StateListMiners::request((tipset.key().into(),))?),
         RpcTest::identity(MsigGetAvailableBalance::request((
