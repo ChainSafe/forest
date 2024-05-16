@@ -286,6 +286,7 @@ fn miner_prev_sectors_out_key(address: &Address) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::make_calibnet_policy;
     use crate::networks::{ChainConfig, Height};
     use crate::shim::{
         econ::TokenAmount,
@@ -341,10 +342,7 @@ mod tests {
             .unwrap();
         deadline.sectors_snapshot = sectors_snapshot.flush().unwrap();
         let deadline_cid = store.put_cbor_default(&deadline).unwrap();
-        let deadlines = DeadlinesOld::new(
-            &fil_actors_shared::v11::runtime::Policy::calibnet(),
-            deadline_cid,
-        );
+        let deadlines = DeadlinesOld::new(&make_calibnet_policy!(v11), deadline_cid);
         miner_state1.deadlines = store.put_cbor_default(&deadlines).unwrap();
 
         let miner1_state_cid = store.put_cbor_default(&miner_state1).unwrap();
@@ -492,7 +490,7 @@ mod tests {
         let miner_info_cid = store.put_cbor_default(&miner_info).unwrap();
 
         fil_actor_miner_state::v11::State::new(
-            &fil_actors_shared::v11::runtime::Policy::calibnet(),
+            &make_calibnet_policy!(v11),
             store,
             miner_info_cid,
             0,

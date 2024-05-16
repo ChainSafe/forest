@@ -120,6 +120,17 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
     ]
 });
 
+/// Creates a new calibnet policy with the given version.
+#[macro_export]
+macro_rules! make_calibnet_policy {
+    ($version:tt) => {
+        fil_actors_shared::$version::runtime::Policy {
+            minimum_consensus_power: (32i64 << 30).into(),
+            ..Default::default()
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -137,7 +137,7 @@ macro_rules! make_butterfly_policy {
         use $crate::networks::butterflynet::*;
         use $crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 
-        let mut policy = fil_actors_shared::v10::runtime::Policy::mainnet();
+        let mut policy = fil_actors_shared::v10::runtime::Policy::default();
         policy.minimum_consensus_power = MINIMUM_CONSENSUS_POWER.into();
         policy.minimum_verified_allocation_size = MINIMUM_VERIED_ALLOCATION.into();
         policy.pre_commit_challenge_delay = PRE_COMMIT_CHALLENGE_DELAY;
@@ -162,18 +162,21 @@ macro_rules! make_butterfly_policy {
         use $crate::networks::butterflynet::*;
         use $crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 
-        let mut policy = fil_actors_shared::$version::runtime::Policy::mainnet();
+        let mut policy = fil_actors_shared::$version::runtime::Policy::default();
         policy.minimum_consensus_power = MINIMUM_CONSENSUS_POWER.into();
         policy.minimum_verified_allocation_size = MINIMUM_VERIED_ALLOCATION.into();
         policy.pre_commit_challenge_delay = PRE_COMMIT_CHALLENGE_DELAY;
 
-        let mut proofs = fil_actors_shared::$version::runtime::ProofSet::default_seal_proofs();
-        proofs.insert($crate::shim::sector::RegisteredSealProofV3::StackedDRG512MiBV1);
-        proofs.insert(RegisteredSealProofV3::StackedDRG32GiBV1);
-        proofs.insert(RegisteredSealProofV3::StackedDRG64GiBV1);
+        let mut proofs = fil_actors_shared::$version::runtime::ProofSet::default();
+        proofs.insert(RegisteredSealProofV3::StackedDRG512MiBV1P1);
+        proofs.insert(RegisteredSealProofV3::StackedDRG32GiBV1P1);
+        proofs.insert(RegisteredSealProofV3::StackedDRG64GiBV1P1);
+        proofs.insert(RegisteredSealProofV3::StackedDRG512MiBV1P1_Feat_SyntheticPoRep);
+        proofs.insert(RegisteredSealProofV3::StackedDRG32GiBV1P1_Feat_SyntheticPoRep);
+        proofs.insert(RegisteredSealProofV3::StackedDRG64GiBV1P1_Feat_SyntheticPoRep);
         policy.valid_pre_commit_proof_type = proofs;
 
-        let mut proofs = fil_actors_shared::$version::runtime::ProofSet::default_post_proofs();
+        let mut proofs = fil_actors_shared::$version::runtime::ProofSet::default();
         proofs.insert(RegisteredPoStProofV3::StackedDRGWindow512MiBV1);
         proofs.insert(RegisteredPoStProofV3::StackedDRGWindow32GiBV1);
         proofs.insert(RegisteredPoStProofV3::StackedDRGWindow64GiBV1);
