@@ -57,7 +57,7 @@ pub struct GenesisInfo {
 impl GenesisInfo {
     pub fn from_chain_config(chain_config: &ChainConfig) -> Self {
         let ignition_height = chain_config.epoch(Height::Ignition);
-        let actors_v2_height = chain_config.epoch(Height::ActorsV2);
+        let actors_v2_height = chain_config.epoch(Height::Assembly);
         let liftoff_height = chain_config.epoch(Height::Liftoff);
         let calico_height = chain_config.epoch(Height::Calico);
         Self {

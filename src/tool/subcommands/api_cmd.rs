@@ -14,7 +14,7 @@ use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
-use crate::rpc::eth::Address as EthAddress;
+use crate::rpc::eth::types::EthAddress;
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
@@ -669,6 +669,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
         RpcTest::identity(StateNetworkName::request(())?),
+        RpcTest::identity(StateGetNetworkParams::request(())?),
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
@@ -1036,6 +1037,25 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetCode::request((
+                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetCode::request((
+                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+                Address::from_str("f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq")
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+            ))
+            .unwrap(),
         ),
     ]
 }

@@ -13,6 +13,7 @@ BLAKE2b
 blockchain/M
 blockstore/SM
 BLS
+calibnet
 callee
 canonicalization
 CAR/SM
@@ -31,6 +32,7 @@ cron
 crypto
 daemon
 daemonize
+devnet
 DB/S
 deserialize/D
 destructuring
