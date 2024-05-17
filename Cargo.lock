@@ -326,12 +326,11 @@ dependencies = [
 
 [[package]]
 name = "async-channel"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f2776ead772134d55b62dd45e59a79e21612d85d0af729b8b7d3967d601a62a"
+checksum = "89b47800b0be77592da0afd425cc03468052844aff33b84e33cc696f64e77b6a"
 dependencies = [
  "concurrent-queue",
- "event-listener 5.3.0",
  "event-listener-strategy 0.5.2",
  "futures-core",
  "pin-project-lite",
@@ -393,7 +392,7 @@ version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05b1b633a2115cd122d73b955eadd9916c18c8f510ec9cd1686404c60ad1c29c"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-executor",
  "async-io 2.3.2",
  "async-lock 3.3.0",
@@ -991,7 +990,7 @@ version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "495f7104e962b7356f0aeb34247aca1fe7d2e783b346582db7f2904cb5717e88"
 dependencies = [
- "async-channel 2.3.0",
+ "async-channel 2.3.1",
  "async-lock 3.3.0",
  "async-task",
  "futures-io",
@@ -1255,9 +1254,9 @@ dependencies = [
 
 [[package]]
 name = "camino"
-version = "1.1.6"
+version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c59e92b5a388f549b863a7bea62612c09f24c8393560709a54558a9abdfb3b9c"
+checksum = "e0ec6b951b160caa93cc0c7b209e5a3bff7aae9062213451ac99493cd844c239"
 dependencies = [
  "serde",
 ]
@@ -2029,12 +2028,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.20.8"
+version = "0.20.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e36fcd13ed84ffdfda6f5be89b31287cbb80c439841fe69e04841435464391"
+checksum = "83b2eb4d90d12bdda5ed17de686c2acb4c57914f8f921b8da7e112b5a36f3fe1"
 dependencies = [
- "darling_core 0.20.8",
- "darling_macro 0.20.8",
+ "darling_core 0.20.9",
+ "darling_macro 0.20.9",
 ]
 
 [[package]]
@@ -2053,15 +2052,15 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.20.8"
+version = "0.20.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c2cf1c23a687a1feeb728783b993c4e1ad83d99f351801977dd809b48d0a70f"
+checksum = "622687fe0bac72a04e5599029151f5796111b90f1baaa9b544d807a5e31cd120"
 dependencies = [
  "fnv",
  "ident_case",
  "proc-macro2",
  "quote",
- "strsim 0.10.0",
+ "strsim 0.11.1",
  "syn 2.0.63",
 ]
 
@@ -2078,11 +2077,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.20.8"
+version = "0.20.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a668eda54683121533a393014d8692171709ff57a7d61f187b6e782719f8933f"
+checksum = "733cabb43482b1a1b53eee8583c2b9e8684d592215ea83efd305dd31bc2f0178"
 dependencies = [
- "darling_core 0.20.8",
+ "darling_core 0.20.9",
  "quote",
  "syn 2.0.63",
 ]
@@ -2715,9 +2714,9 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5803630d67ee3012ae7bb0229c7cb19e967f63e06eb7b88b5ec3c85714112f6"
+checksum = "50f6afd00148be75ae9364d00f4bf0f3c4a489d3142b2b6241c05c41b68313f5"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2731,9 +2730,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8012beeb137dbe7176894fb8e3d925c61e02b81ff1ca94d9903fc2752f3dcb8"
+checksum = "a803ca89f22b08ed9cda3ec0232ad648227d86a6843ab3bebbf89a8f55346754"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2746,9 +2745,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d969aa3b996f2dbf0726f98f31d53085d6b9dd84c1303be575ac5134a31f2452"
+checksum = "df5948b4f7db2bac5db0ad5fddc696d17f0beed7cc13f9401dab050402c87c65"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2766,9 +2765,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c09e2e2395ea39c56af7eaa8ec99e73e704ace4579a561fb7b519628215c2714"
+checksum = "f7100661c79e1fbcd89bb95f400ff996ca03bd11e6a9d0f1ba130dd5d441133f"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2786,9 +2785,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edc06ecbbae8cf326873f4c3d999994a0381def4703d96ddcf5d493e844f0eb0"
+checksum = "795698d82f43505ddcbac10f036f582d79fb773afc34cc285f818cbaeefc45a8"
 dependencies = [
  "anyhow",
  "cid",
@@ -2807,9 +2806,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c7c41d74a43debac38dda4ddafac9e0663d34f774d0f41aa8456c63a95ab0a"
+checksum = "fb722974e516f60ef9e5c59d3893d13d252f84a7770c0258aa4a59f38b0f97a5"
 dependencies = [
  "anyhow",
  "cid",
@@ -2845,9 +2844,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88de192c6fbdcd9f059e974f71473615885b9576f9e3e8cfdb791732332d9b9d"
+checksum = "4ac021874f4dd086dff52199d42cece3328d1950cd4be07f1941865f3fedf7fa"
 dependencies = [
  "anyhow",
  "cid",
@@ -2870,9 +2869,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7ab05b0429df9a462243f9d36376d9e27772e3e0dbbdaa070579bc2256fad8"
+checksum = "dd937037459b6f6203d272515c28d458597d79237c88dc0c660d2bf644e4931b"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
@@ -2900,9 +2899,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c4c3a54cc18248e48ed16c9de4e7ec2c3672e31474858602010e4a4d07ec182"
+checksum = "e66a65e101320fb5e575e5e799f8623ae6e09e0775355a115b91ada0732d767e"
 dependencies = [
  "anyhow",
  "cid",
@@ -2923,9 +2922,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f01ddd75e03016d0521af6755712926fec1b35efe929d00dea3e4548ed675fac"
+checksum = "7bfed9886b2e7ffbb6aca60170f53f57b2a3857c95e8468a1d0f4911077512b5"
 dependencies = [
  "anyhow",
  "cid",
@@ -2946,9 +2945,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e09508056274bcdf28a11842bb42979faf394db1c22d77f974c3d1a57e0da8"
+checksum = "213fcfaa48ad8a10921349a95118d12e33bac24331dfe337bf6cf88f736d0a2f"
 dependencies = [
  "fil_actor_miner_state",
  "fvm_ipld_encoding",
@@ -2963,9 +2962,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "473df3a71395b0e52f5e4203276ce04f7b3b94387208a77d754839c7795f4080"
+checksum = "08d8180a03589eb94b7513ef7c09c9a789b6a40b2b5316ce4901802188853855"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2980,9 +2979,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a40c2401a951ced412215b7e8e3ab4cbc9e64a64c8964c584eb4a66018a1d35"
+checksum = "da48d5e792a10606fdec4b232aa1faeb91483b4cc871a1e07f12e319f7f4a269"
 dependencies = [
  "anyhow",
  "cid",
@@ -3000,9 +2999,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "11.2.0"
+version = "12.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1aeab0e86dc983285a033518b3f2d6b48a49395192f802c32bd66d71cb19212"
+checksum = "9fd08132201fd4f9fa77a79d576dfc18ed81286e319d3da7101025970ac28981"
 dependencies = [
  "anyhow",
  "cid",
@@ -3182,7 +3181,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "forest-filecoin"
-version = "0.17.2"
+version = "0.18.0"
 dependencies = [
  "ahash",
  "anes 0.2.0",
@@ -3360,7 +3359,7 @@ dependencies = [
  "tokio-stream",
  "tokio-test",
  "tokio-util",
- "toml 0.8.12",
+ "toml 0.8.13",
  "tower",
  "tracing",
  "tracing-appender",
@@ -4860,9 +4859,9 @@ dependencies = [
 
 [[package]]
 name = "insta"
-version = "1.38.0"
+version = "1.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eab73f58e59ca6526037208f0e98851159ec1633cf17b6cd2e1f2c3fd5d53cc"
+checksum = "810ae6042d48e2c9e9215043563a58a80b877bc863228a74cf10c49d4620a6f5"
 dependencies = [
  "console",
  "lazy_static",
@@ -8151,9 +8150,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "092474d1a01ea8278f69e6a358998405fae5b8b963ddaeb2b0b04a128bf1dfb0"
+checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
 
 [[package]]
 name = "rustyline"
@@ -8326,9 +8325,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.201"
+version = "1.0.202"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "780f1cebed1629e4753a1a38a3c72d30b97ec044f0aef68cb26650a3c5cf363c"
+checksum = "226b61a0d411b2ba5ff6d7f73a476ac4f8bb900373459cd00fab8512828ba395"
 dependencies = [
  "serde_derive",
 ]
@@ -8353,9 +8352,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.201"
+version = "1.0.202"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5e405930b9796f1c00bee880d03fc7e0bb4b9a11afc776885ffe84320da2865"
+checksum = "6048858004bcff69094cd972ed40a32500f153bd3be9f716b2eed2e8217c4838"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8364,9 +8363,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive_internals"
-version = "0.29.0"
+version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330f01ce65a3a5fe59a60c82f3c9a024b573b8a6e875bd233fe5f934e71d54e3"
+checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8419,9 +8418,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb3622f419d1296904700073ea6cc23ad690adbd66f13ea683df73298736f0c1"
+checksum = "79e674e01f999af37c49f70a6ede167a8a60b2503e56c5599532a65baa5969a0"
 dependencies = [
  "serde",
 ]
@@ -8483,7 +8482,7 @@ version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65569b702f41443e8bc8bbb1c5779bd0450bbe723b56198980e80ec45780bce2"
 dependencies = [
- "darling 0.20.8",
+ "darling 0.20.9",
  "proc-macro2",
  "quote",
  "syn 2.0.63",
@@ -8718,9 +8717,9 @@ dependencies = [
 
 [[package]]
 name = "smol_str"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6845563ada680337a52d43bb0b29f396f2d911616f6573012645b9e3d048a49"
+checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
 ]
@@ -9469,21 +9468,21 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.12"
+version = "0.8.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9dd1545e8208b4a5af1aa9bbd0b4cf7e9ea08fabc5d0a5c67fcaafa17433aa3"
+checksum = "a4e43f8cc456c9704c851ae29c67e17ef65d2c30017c17a9765b89c382dc8bba"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.12",
+ "toml_edit 0.22.13",
 ]
 
 [[package]]
 name = "toml_datetime"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3550f4e9685620ac18a50ed434eb3aec30db8ba93b0287467bca5826ea25baf1"
+checksum = "4badfd56924ae69bcc9039335b2e017639ce3f9b001c393c1b2d1ef846ce2cbf"
 dependencies = [
  "serde",
 ]
@@ -9512,9 +9511,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.12"
+version = "0.22.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3328d4f68a705b2a4498da1d580585d39a6510f98318a2cec3018a7ec61ddef"
+checksum = "c127785850e8c20836d49732ae6abfa47616e60bf9d9f57c43c250361a9db96c"
 dependencies = [
  "indexmap 2.2.6",
  "serde",
