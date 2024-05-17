@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The bootstrap node is the first node a new node contacts when it joins the
+A bootstrap node is the first node a new node contacts when it joins the
 network. It is responsible for providing the new node with a list of other nodes
 in the network, which the new node can then contact to join the network. Every
 Forest node has a list of bootstrap nodes that it can contact to join the
@@ -12,7 +12,7 @@ via the configuration file.
 ## Forest as a bootstrap node
 
 Every Forest node can act as a bootstrap node. That said, running a `stateless`
-node as a bootstrap node is recommended to lower the hardware requirements. The
+node as a bootstrap node is recommended to lower the hardware requirements. A
 `stateless` node does not store the network's state or participate in the
 consensus process. It only serves as a gateway for new nodes to join the
 network.
@@ -91,3 +91,7 @@ First, convert the keypair file used by Forest into a private key used by Lotus:
 
 Then, copy the content to the relevant file's (one with the type `libp2p-host`
 in `~/.lotus/keystore/`) `PrivateKey` value. Done!
+
+## Additional resources
+
+- [DHT Bootstrap nodes](https://blog.ipfs.tech/2023-rust-libp2p-based-ipfs-bootstrap-node/#ipfs-public-dht-bootstrap-nodes)
