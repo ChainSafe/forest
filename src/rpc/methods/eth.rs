@@ -31,7 +31,7 @@ use cid::{
     Cid,
 };
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
 use keccak_hash::keccak;
 use num_bigint::{self, Sign};
@@ -51,6 +51,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthBlockNumber);
         $callback!(crate::rpc::eth::EthChainId);
         $callback!(crate::rpc::eth::EthGetCode);
+        $callback!(crate::rpc::eth::EthGetStorageAt);
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
@@ -159,15 +160,6 @@ pub struct Int64(
 );
 
 lotus_json_with_self!(Int64);
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
-pub struct Bytes(
-    #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
-    pub Vec<u8>,
-);
-
-lotus_json_with_self!(Bytes);
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
@@ -316,7 +308,7 @@ pub struct Block {
     pub gas_limit: Uint64,
     pub gas_used: Uint64,
     pub timestamp: Uint64,
-    pub extra_data: Bytes,
+    pub extra_data: EthBytes,
     pub mix_hash: Hash,
     pub nonce: Nonce,
     pub base_fee_per_gas: BigInt,
@@ -363,7 +355,7 @@ pub struct Tx {
     pub to: Option<EthAddress>,
     pub value: BigInt,
     pub r#type: Uint64,
-    pub input: Bytes,
+    pub input: EthBytes,
     pub gas: Uint64,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
@@ -897,7 +889,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
         v,
         r,
         s,
-        input: Bytes(tx_args.input),
+        input: EthBytes(tx_args.input),
         ..Tx::default()
     })
 }
@@ -949,10 +941,10 @@ fn encode_filecoin_params_as_abi(
     method: MethodNum,
     codec: u64,
     params: &fvm_ipld_encoding::RawBytes,
-) -> Result<Bytes> {
+) -> Result<EthBytes> {
     let mut buffer: Vec<u8> = vec![0x86, 0x8e, 0x10, 0xc4];
     buffer.append(&mut encode_filecoin_returns_as_abi(method, codec, params));
-    Ok(Bytes(buffer))
+    Ok(EthBytes(buffer))
 }
 
 fn encode_filecoin_returns_as_abi(
@@ -1000,16 +992,16 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 }
 
 /// Decodes the payload using the given codec.
-fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<Bytes> {
+fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
         DAG_CBOR | CBOR => {
             let result: Result<Vec<u8>, _> = serde_ipld_dagcbor::de::from_reader(payload.reader());
             match result {
-                Ok(buffer) => Ok(Bytes(buffer)),
+                Ok(buffer) => Ok(EthBytes(buffer)),
                 Err(err) => bail!("decode_payload: failed to decode cbor payload: {err}"),
             }
         }
-        IPLD_RAW => Ok(Bytes(payload.to_vec())),
+        IPLD_RAW => Ok(EthBytes(payload.to_vec())),
         _ => bail!("decode_payload: unsupported codec {codec}"),
     }
 }
@@ -1291,7 +1283,7 @@ impl RpcMethod<2> for EthGetCode {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = Bytes;
+    type Ok = EthBytes;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1338,9 +1330,80 @@ impl RpcMethod<2> for EthGetCode {
         let get_bytecode_return: GetBytecodeReturn =
             fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
         if let Some(cid) = get_bytecode_return.0 {
-            Ok(Bytes(ctx.store().get_required(&cid)?))
+            Ok(EthBytes(ctx.store().get_required(&cid)?))
         } else {
             Ok(Default::default())
+        }
+    }
+}
+
+pub enum EthGetStorageAt {}
+impl RpcMethod<3> for EthGetStorageAt {
+    const NAME: &'static str = "Filecoin.EthGetStorageAt";
+    const PARAM_NAMES: [&'static str; 3] = ["eth_address", "position", "block_number_or_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, EthBytes, BlockNumberOrHash);
+    type Ok = EthBytes;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_address, position, block_number_or_hash): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let make_empty_result = || EthBytes(vec![0; 32]);
+
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_number_or_hash)?;
+        let to_address = FilecoinAddress::try_from(&eth_address)?;
+        let Some(actor) = ctx
+            .state_manager
+            .get_actor(&to_address, *ts.parent_state())?
+        else {
+            return Ok(make_empty_result());
+        };
+
+        if !fil_actor_interface::is_evm_actor(&actor.code) {
+            return Ok(make_empty_result());
+        }
+
+        let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
+        let message = Message {
+            from: FilecoinAddress::SYSTEM_ACTOR,
+            to: to_address,
+            method_num: METHOD_GET_STORAGE_AT,
+            gas_limit: BLOCK_GAS_LIMIT,
+            params,
+            ..Default::default()
+        };
+        let mut api_invoc_result = None;
+        for ts in ts.chain_arc(ctx.store()) {
+            match ctx.state_manager.call(&message, Some(ts)) {
+                Ok(res) => {
+                    api_invoc_result = Some(res);
+                    break;
+                }
+                Err(e) => tracing::warn!(%e),
+            }
+        }
+        let Some(api_invoc_result) = api_invoc_result else {
+            return Err(anyhow::anyhow!("no message receipt").into());
+        };
+        let Some(msg_rct) = api_invoc_result.msg_rct else {
+            return Err(anyhow::anyhow!("no message receipt").into());
+        };
+        if !api_invoc_result.error.is_empty() {
+            return Err(anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into());
+        }
+
+        let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
+            .bytes()
+            .to_vec();
+        if ret.len() < 32 {
+            let mut with_padding = vec![0; 32_usize.saturating_sub(ret.len())];
+            with_padding.append(&mut ret);
+            Ok(EthBytes(with_padding))
+        } else {
+            Ok(EthBytes(ret))
         }
     }
 }
