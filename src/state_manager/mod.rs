@@ -423,7 +423,7 @@ where
         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         let height = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
@@ -509,7 +509,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
         let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
@@ -1542,7 +1542,7 @@ where
         beacon,
     );
 
-    let genesis_info = GenesisInfo::from_chain_config(&chain_config);
+    let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
             genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;
