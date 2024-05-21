@@ -1060,6 +1060,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
+        RpcTest::identity(ChainReadObj::request((block_cid,)).unwrap()),
         RpcTest::identity(
             EthGetBlockByHash::request((
                 BlockNumberOrHash::from_block_hash(block_hash.clone(), false),
