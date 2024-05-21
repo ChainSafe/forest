@@ -15,8 +15,6 @@
 //! The [`RpcMethod`] trait encapsulates all the above at a single site.
 //! - [`schemars::JsonSchema`] provides schema definitions,
 //! - [`RpcMethod`] defining arity and actually dispatching the function calls.
-//!
-//! [`SelfDescribingRpcModule`] actually does the work to create the OpenRPC document.
 
 pub mod jsonrpc_types;
 pub mod openrpc_types;
