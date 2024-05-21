@@ -280,7 +280,7 @@ use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 use tracing::info;
 
-use self::reflect::openrpc_types::ParamStructure;
+use self::reflect::openrpc_types::{self, ParamStructure};
 
 pub const DEFAULT_PORT: u16 = 2345;
 
@@ -333,7 +333,7 @@ where
     // `Arc` is needed because we will share the state between two modules
     let state = Arc::new(state);
     let keystore = state.keystore.clone();
-    let (mut module, _schema) = create_module(state.clone());
+    let mut module = create_module(state.clone());
 
     let mut pubsub_module = FilRpcModule::default();
 
@@ -393,96 +393,54 @@ where
     Ok(())
 }
 
-fn create_module<DB>(
-    state: Arc<RPCState<DB>>,
-) -> (RpcModule<RPCState<DB>>, reflect::openrpc_types::OpenRPC)
+fn create_module<DB>(state: Arc<RPCState<DB>>) -> RpcModule<RPCState<DB>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
-    let mut module = reflect::SelfDescribingRpcModule::new(state, ParamStructure::ByPosition);
+    let mut module = RpcModule::from_arc(state);
     macro_rules! register {
         ($ty:ty) => {
-            <$ty>::register(&mut module);
+            <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
         };
     }
     for_each_method!(register);
-    module.finish()
+    module
+}
+
+#[allow(unused)]
+pub fn openrpc() -> openrpc_types::OpenRPC {
+    use schemars::gen::{SchemaGenerator, SchemaSettings};
+    let mut methods = vec![];
+    // spec says draft07
+    let mut settings = SchemaSettings::draft07();
+    // ..but uses `components`
+    settings.definitions_path = String::from("#/components/schemas/");
+    let mut gen = SchemaGenerator::new(settings);
+    macro_rules! callback {
+        ($ty:ty) => {
+            methods.push(<$ty>::openrpc(&mut gen, ParamStructure::ByPosition).unwrap());
+        };
+    }
+    for_each_method!(callback);
+    openrpc_types::OpenRPC {
+        methods: openrpc_types::Methods::new(methods).unwrap(),
+        components: openrpc_types::Components {
+            schemas: gen.take_definitions().into_iter().collect(),
+        },
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use tokio::task::JoinSet;
-
-    use crate::{
-        blocks::Chain4U,
-        chain::ChainStore,
-        chain_sync::SyncConfig,
-        db::car::PlainCar,
-        genesis::get_network_name_from_genesis,
-        message_pool::{MessagePool, MpoolRpcProvider},
-        networks::ChainConfig,
-        state_manager::StateManager,
-        KeyStoreConfig,
-    };
-
-    use super::*;
-
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4047
-    //               `tokio` shouldn't be necessary
+    // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+    //                  re-enable this
+    //
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
-    #[tokio::test]
-    #[ignore = "https://github.com/ChainSafe/forest/issues/4032"]
-    async fn openrpc() {
-        let (_, spec) = create_module(Arc::new(RPCState::calibnet()));
+    #[test]
+    #[ignore = "merge conflicts"]
+    fn openrpc() {
+        let spec = super::openrpc();
         insta::assert_yaml_snapshot!(spec);
-    }
-
-    impl RPCState<Chain4U<PlainCar<&'static [u8]>>> {
-        pub fn calibnet() -> Self {
-            let chain_store = Arc::new(ChainStore::calibnet());
-            let genesis = chain_store.genesis_block_header();
-            let state_manager = Arc::new(
-                StateManager::new(
-                    chain_store.clone(),
-                    Arc::new(ChainConfig::calibnet()),
-                    Arc::new(SyncConfig::default()),
-                )
-                .unwrap(),
-            );
-            let beacon = Arc::new(
-                state_manager
-                    .chain_config()
-                    .get_beacon_schedule(genesis.timestamp),
-            );
-            let (network_send, _) = flume::bounded(0);
-            let (tipset_send, _) = flume::bounded(1);
-            let network_name = get_network_name_from_genesis(genesis, &state_manager).unwrap();
-            let message_pool = MessagePool::new(
-                MpoolRpcProvider::new(chain_store.publisher().clone(), state_manager.clone()),
-                network_name.clone(),
-                network_send.clone(),
-                Default::default(),
-                state_manager.chain_config().clone(),
-                &mut JoinSet::default(),
-            )
-            .unwrap();
-            RPCState {
-                state_manager,
-                keystore: Arc::new(RwLock::new(KeyStore::new(KeyStoreConfig::Memory).unwrap())),
-                mpool: Arc::new(message_pool),
-                bad_blocks: Default::default(),
-                sync_state: Default::default(),
-                network_send,
-                network_name,
-                start_time: Default::default(),
-                chain_store,
-                beacon,
-                shutdown: mpsc::channel(1).0, // dummy for tests
-                tipset_send,
-            }
-        }
     }
 }
