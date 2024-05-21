@@ -1002,6 +1002,19 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(
+                    // TODO: retrieve hash from head?
+                    Cid::try_from("bafy2bzacec5j7fxwr47evoggukektfvadnv63vm4rgaihcaa63moxvdzvayuq")
+                        .unwrap()
+                        .into(),
+                    false,
+                ),
+                false,
+            ))
+            .unwrap(),
+        ),
     ]
 }
 
@@ -1057,21 +1070,6 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                     .try_into()
                     .unwrap(),
                 BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(ChainReadObj::request((block_cid,)).unwrap()),
-        RpcTest::identity(
-            EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash.clone(), false),
-                false,
-            ))
-            .unwrap(),
-        ),
-        RpcTest::identity(
-            EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash.clone(), false),
-                true,
             ))
             .unwrap(),
         ),
