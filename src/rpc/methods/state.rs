@@ -58,55 +58,6 @@ use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::state::StateCall);
-        $callback!(crate::rpc::state::StateGetBeaconEntry);
-        $callback!(crate::rpc::state::StateListMessages);
-        $callback!(crate::rpc::state::StateGetNetworkParams);
-        $callback!(crate::rpc::state::StateNetworkName);
-        $callback!(crate::rpc::state::StateReplay);
-        $callback!(crate::rpc::state::StateSectorGetInfo);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
-        $callback!(crate::rpc::state::StateAccountKey);
-        $callback!(crate::rpc::state::StateLookupID);
-        $callback!(crate::rpc::state::StateGetActor);
-        $callback!(crate::rpc::state::StateMinerInfo);
-        $callback!(crate::rpc::state::StateMinerActiveSectors);
-        $callback!(crate::rpc::state::StateMinerPartitions);
-        $callback!(crate::rpc::state::StateMinerSectors);
-        $callback!(crate::rpc::state::StateMinerSectorCount);
-        $callback!(crate::rpc::state::StateMinerPower);
-        $callback!(crate::rpc::state::StateMinerDeadlines);
-        $callback!(crate::rpc::state::StateMinerProvingDeadline);
-        $callback!(crate::rpc::state::StateMinerFaults);
-        $callback!(crate::rpc::state::StateMinerRecoveries);
-        $callback!(crate::rpc::state::StateMinerAvailableBalance);
-        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
-        $callback!(crate::rpc::state::StateGetReceipt);
-        $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
-        $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
-        $callback!(crate::rpc::state::StateReadState);
-        $callback!(crate::rpc::state::StateCirculatingSupply);
-        $callback!(crate::rpc::state::StateVerifiedClientStatus);
-        $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
-        $callback!(crate::rpc::state::StateListMiners);
-        $callback!(crate::rpc::state::StateNetworkVersion);
-        $callback!(crate::rpc::state::StateMarketBalance);
-        $callback!(crate::rpc::state::StateMarketParticipants);
-        $callback!(crate::rpc::state::StateMarketDeals);
-        $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
-        $callback!(crate::rpc::state::StateMarketStorageDeal);
-        $callback!(crate::rpc::state::StateWaitMsg);
-        $callback!(crate::rpc::state::StateSearchMsg);
-        $callback!(crate::rpc::state::StateSearchMsgLimited);
-        $callback!(crate::rpc::state::StateFetchRoot);
-        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
-        $callback!(crate::rpc::state::StateVerifierStatus);
-    };
-}
-pub(crate) use for_each_method;
-
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
 
