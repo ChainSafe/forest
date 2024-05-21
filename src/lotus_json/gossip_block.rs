@@ -8,6 +8,7 @@ use ::cid::Cid;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "GossipBlock")]
 pub struct GossipBlockLotusJson {
     #[schemars(with = "LotusJson<CachingBlockHeader>")]
     #[serde(with = "crate::lotus_json")]

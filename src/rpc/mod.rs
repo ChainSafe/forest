@@ -47,6 +47,7 @@ pub mod prelude {
     chain::for_each_method!(export);
     common::for_each_method!(export);
     gas::for_each_method!(export);
+    miner::for_each_method!(export);
     mpool::for_each_method!(export);
     net::for_each_method!(export);
     state::for_each_method!(export);
@@ -54,6 +55,7 @@ pub mod prelude {
     sync::for_each_method!(export);
     wallet::for_each_method!(export);
     eth::for_each_method!(export);
+    msig::for_each_method!(export);
 }
 
 /// All the methods live in their own folder
@@ -106,7 +108,9 @@ mod methods {
     pub mod common;
     pub mod eth;
     pub mod gas;
+    pub mod miner;
     pub mod mpool;
+    pub mod msig;
     pub mod net;
     pub mod node;
     pub mod state;
@@ -267,12 +271,14 @@ where
     common::for_each_method!(register);
     gas::for_each_method!(register);
     mpool::for_each_method!(register);
+    miner::for_each_method!(register);
     net::for_each_method!(register);
     state::for_each_method!(register);
     node::for_each_method!(register);
     sync::for_each_method!(register);
     wallet::for_each_method!(register);
     eth::for_each_method!(register);
+    msig::for_each_method!(register);
     module.finish()
 }
 

@@ -438,7 +438,7 @@ where
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
 #[derive(Debug, Deserialize, From, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[serde(bound = "T: HasLotusJson")]
+#[serde(bound = "T: HasLotusJson", transparent)]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 
 impl<T: Clone> Clone for LotusJson<T> {
@@ -464,33 +464,6 @@ where
 impl<T> LotusJson<T> {
     pub fn into_inner(self) -> T {
         self.0
-    }
-}
-
-/// A struct that is (de) serialized through its [`Display`] and [`FromStr`] implementations.
-#[derive(Serialize, Deserialize, From, Default)]
-#[serde(bound = "T: Display + FromStr, T::Err: Display")]
-pub struct Stringify<T>(#[serde(with = "stringify")] pub T);
-
-impl<T> Stringify<T> {
-    pub fn into_inner(self) -> T {
-        self.0
-    }
-}
-
-impl<T> JsonSchema for Stringify<T> {
-    fn schema_name() -> String {
-        String::schema_name()
-    }
-
-    fn json_schema(gen: &mut SchemaGenerator) -> Schema {
-        String::json_schema(gen)
-    }
-}
-
-impl<T: Clone> Clone for Stringify<T> {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
     }
 }
 

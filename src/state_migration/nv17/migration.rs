@@ -10,7 +10,8 @@ use crate::shim::{
     machine::{BuiltinActor, BuiltinActorManifest},
     state_tree::{StateTree, StateTreeVersion},
 };
-use anyhow::{anyhow, Context as _};
+use crate::utils::db::CborStoreExt as _;
+use anyhow::anyhow;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore as _;
@@ -46,24 +47,19 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
             BuiltinActorManifest::load_v1_actor_list(store, &current_manifest_data)?;
 
         let verifreg_actor_v8 = actors_in
-            .get_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?
-            .context("Failed to load verifreg actor v8")?;
+            .get_required_actor(&fil_actors_shared::v8::VERIFIED_REGISTRY_ACTOR_ADDR.into())?;
 
         let market_actor_v8 = actors_in
-            .get_actor(&fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.into())?
-            .context("Failed to load market actor v8")?;
+            .get_required_actor(&fil_actors_shared::v8::STORAGE_MARKET_ACTOR_ADDR.into())?;
 
-        let market_state_v8: fil_actor_market_state::v8::State = store
-            .get_cbor(&market_actor_v8.state)?
-            .context("Failed to load market state v8")?;
+        let market_state_v8: fil_actor_market_state::v8::State =
+            store.get_cbor_required(&market_actor_v8.state)?;
 
-        let init_actor_v8 = actors_in
-            .get_actor(&fil_actors_shared::v8::INIT_ACTOR_ADDR.into())?
-            .context("Failed to load init actor v8")?;
+        let init_actor_v8 =
+            actors_in.get_required_actor(&fil_actors_shared::v8::INIT_ACTOR_ADDR.into())?;
 
-        let init_state_v8: fil_actor_init_state::v8::State = store
-            .get_cbor(&init_actor_v8.state)?
-            .context("Failed to load init state v8")?;
+        let init_state_v8: fil_actor_init_state::v8::State =
+            store.get_cbor_required(&init_actor_v8.state)?;
 
         let (pending_verified_deals, pending_verified_deal_size) =
             get_pending_verified_deals_and_total_size(&store, &market_state_v8)?;
@@ -95,9 +91,8 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         );
 
         let verifreg_state_v8_cid = verifreg_actor_v8.state;
-        let verifreg_state_v8: fil_actor_verifreg_state::v8::State = store
-            .get_cbor(&verifreg_state_v8_cid)?
-            .context("Failed to load verifreg state v8")?;
+        let verifreg_state_v8: fil_actor_verifreg_state::v8::State =
+            store.get_cbor_required(&verifreg_state_v8_cid)?;
         let verifreg_code = new_manifest.get(BuiltinActor::VerifiedRegistry)?;
         let market_code = new_manifest.get(BuiltinActor::Market)?;
 
@@ -118,9 +113,7 @@ impl<BS: Blockstore + Send + Sync> StateMigration<BS> {
         // while forest uses a post migrator to simplify the logic.
         self.add_post_migrator(Arc::new(datacap::DataCapPostMigrator {
             new_code_cid: new_manifest.get(BuiltinActor::DataCap)?,
-            verifreg_state: store
-                .get_cbor(&verifreg_state_v8_cid)?
-                .context("Failed to load verifreg state v8")?,
+            verifreg_state: store.get_cbor_required(&verifreg_state_v8_cid)?,
             pending_verified_deal_size,
         }));
 

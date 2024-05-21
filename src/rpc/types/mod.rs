@@ -15,6 +15,7 @@ mod tsk_impl;
 #[cfg(test)]
 mod tests;
 
+use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::libp2p::Multihash;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
@@ -26,7 +27,7 @@ use crate::shim::{
     executor::Receipt,
     fvm_shared_latest::MethodNum,
     message::Message,
-    sector::{RegisteredSealProof, SectorNumber},
+    sector::{RegisteredSealProof, SectorInfo, SectorNumber, StoragePower},
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
@@ -72,6 +73,18 @@ pub struct ApiDealState {
 }
 
 lotus_json_with_self!(ApiDealState);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MsigVesting {
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    pub initial_balance: BigInt,
+    pub start_epoch: ChainEpoch,
+    pub unlock_duration: ChainEpoch,
+}
+
+lotus_json_with_self!(MsigVesting);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -260,7 +273,7 @@ pub struct ApiState {
 
 lotus_json_with_self!(ApiState);
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorOnChainInfo {
     pub sector_number: SectorNumber,
@@ -284,6 +297,9 @@ pub struct SectorOnChainInfo {
     /// Epoch during which the sector expires
     pub expiration: ChainEpoch,
 
+    /// Additional flags, see [`fil_actor_miner_state::v12::SectorOnChainInfoFlags`]
+    pub flags: u32,
+
     #[schemars(with = "LotusJson<BigInt>")]
     #[serde(with = "crate::lotus_json")]
     /// Integral of active deals over sector lifetime
@@ -305,13 +321,14 @@ pub struct SectorOnChainInfo {
     /// time
     pub expected_day_reward: TokenAmount,
 
+    /// Epoch at which this sector's power was most recently updated
+    pub power_base_epoch: ChainEpoch,
+
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
     /// Expected twenty day projection of reward for sector computed at
     /// activation time
     pub expected_storage_pledge: TokenAmount,
-
-    pub replaced_sector_age: ChainEpoch,
 
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
@@ -320,9 +337,6 @@ pub struct SectorOnChainInfo {
     #[schemars(with = "LotusJson<Option<Cid>>")]
     #[serde(with = "crate::lotus_json", rename = "SectorKeyCID")]
     pub sector_key_cid: Option<Cid>,
-
-    #[serde(rename = "SimpleQAPower")]
-    pub simple_qa_power: bool,
 }
 
 lotus_json_with_self!(SectorOnChainInfo);
@@ -535,3 +549,31 @@ pub struct DealCollateralBounds {
 }
 
 lotus_json_with_self!(DealCollateralBounds);
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MiningBaseInfo {
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<StoragePower>")]
+    pub miner_power: StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<StoragePower>")]
+    pub network_power: StoragePower,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<SectorInfo>>")]
+    pub sectors: Vec<SectorInfo>,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Address>")]
+    pub worker_key: Address,
+    #[schemars(with = "u64")]
+    pub sector_size: fvm_shared2::sector::SectorSize,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<BeaconEntry>")]
+    pub prev_beacon_entry: BeaconEntry,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<BeaconEntry>>")]
+    pub beacon_entries: Vec<BeaconEntry>,
+    pub eligible_for_mining: bool,
+}
+
+lotus_json_with_self!(MiningBaseInfo);

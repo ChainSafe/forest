@@ -7,7 +7,7 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use crate::shim::version::NetworkVersion;
+use crate::{make_height, shim::version::NetworkVersion};
 
 use super::{
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
@@ -36,216 +36,73 @@ const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
 pub const ETH_CHAIN_ID: u64 = 314159;
 
+pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
+
 /// Height epochs.
 pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
     HashMap::from_iter([
-        (
-            Height::Breeze,
-            HeightInfo {
-                epoch: -1,
-                bundle: None,
-            },
+        make_height!(Breeze, -1),
+        make_height!(Smoke, -2),
+        make_height!(Ignition, -3),
+        make_height!(Refuel, -4),
+        make_height!(Assembly, 30),
+        make_height!(Tape, 60),
+        make_height!(Liftoff, -5),
+        make_height!(Kumquat, 90),
+        make_height!(Calico, 120),
+        make_height!(Persian, 240),
+        make_height!(Claus, 270),
+        make_height!(Orange, 300),
+        make_height!(Trust, 330),
+        make_height!(Norwegian, 360),
+        make_height!(Turbo, 390),
+        make_height!(Hyperdrive, 420),
+        make_height!(Chocolate, 450),
+        make_height!(OhSnap, 480),
+        make_height!(Skyr, 510),
+        make_height!(
+            Shark,
+            16_800,
+            "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy"
         ),
-        (
-            Height::Smoke,
-            HeightInfo {
-                epoch: -2,
-                bundle: None,
-            },
+        make_height!(
+            Hygge,
+            322_354,
+            "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo"
         ),
-        (
-            Height::Ignition,
-            HeightInfo {
-                epoch: -3,
-                bundle: None,
-            },
+        make_height!(
+            Lightning,
+            LIGHTNING_EPOCH,
+            "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco"
         ),
-        (
-            Height::ActorsV2,
-            HeightInfo {
-                epoch: 30,
-                bundle: None,
-            },
+        make_height!(Thunder, LIGHTNING_EPOCH + LIGHTNING_ROLLOVER_PERIOD),
+        make_height!(
+            Watermelon,
+            1_013_134,
+            "bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs"
         ),
-        (
-            Height::Tape,
-            HeightInfo {
-                epoch: 60,
-                bundle: None,
-            },
+        make_height!(
+            WatermelonFix,
+            1_070_494,
+            "bafy2bzacebl4w5ptfvuw6746w7ev562idkbf5ppq72e6zub22435ws2rukzru"
         ),
-        (
-            Height::Liftoff,
-            HeightInfo {
-                epoch: -5,
-                bundle: None,
-            },
+        make_height!(
+            WatermelonFix2,
+            1_108_174,
+            "bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca"
         ),
-        (
-            Height::Kumquat,
-            HeightInfo {
-                epoch: 90,
-                bundle: None,
-            },
+        make_height!(
+            Dragon,
+            1_427_974,
+            "bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi"
         ),
-        (
-            Height::Calico,
-            HeightInfo {
-                epoch: 120,
-                bundle: None,
-            },
+        make_height!(
+            DragonFix,
+            1_493_854,
+            "bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs"
         ),
-        (
-            Height::Persian,
-            HeightInfo {
-                epoch: 130,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Orange,
-            HeightInfo {
-                epoch: 300,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Trust,
-            HeightInfo {
-                epoch: 330,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Norwegian,
-            HeightInfo {
-                epoch: 360,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Turbo,
-            HeightInfo {
-                epoch: 390,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Hyperdrive,
-            HeightInfo {
-                epoch: 420,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Chocolate,
-            HeightInfo {
-                epoch: 450,
-                bundle: None,
-            },
-        ),
-        (
-            Height::OhSnap,
-            HeightInfo {
-                epoch: 480,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Skyr,
-            HeightInfo {
-                epoch: 510,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Shark,
-            HeightInfo {
-                epoch: 16_800,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::Hygge,
-            HeightInfo {
-                epoch: 322_354,
-                bundle: Some(
-                    Cid::try_from("bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::Lightning,
-            HeightInfo {
-                epoch: LIGHTNING_EPOCH,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::Thunder,
-            HeightInfo {
-                epoch: LIGHTNING_EPOCH + LIGHTNING_ROLLOVER_PERIOD,
-                bundle: None,
-            },
-        ),
-        (
-            Height::Watermelon,
-            HeightInfo {
-                epoch: 1_013_134,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::WatermelonFix,
-            HeightInfo {
-                epoch: 1_070_494,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacebl4w5ptfvuw6746w7ev562idkbf5ppq72e6zub22435ws2rukzru")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::WatermelonFix2,
-            HeightInfo {
-                epoch: 1_108_174,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::Dragon,
-            HeightInfo {
-                epoch: 1_427_974,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi")
-                        .unwrap(),
-                ),
-            },
-        ),
-        (
-            Height::DragonFix,
-            HeightInfo {
-                // Wed Apr  3 11:00:00 AM UTC 2024
-                epoch: 1_493_854,
-                bundle: Some(
-                    Cid::try_from("bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs")
-                        .unwrap(),
-                ),
-            },
-        ),
+        make_height!(Phoenix, 1_428_094),
+        make_height!(Aussie, 999999999999999),
     ])
 });
 
@@ -257,11 +114,22 @@ pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| 
         },
         DrandPoint {
             height: get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT")
-                .unwrap_or(HEIGHT_INFOS.get(&Height::Dragon).unwrap().epoch + 120),
+                .unwrap_or(HEIGHT_INFOS.get(&Height::Phoenix).unwrap().epoch),
             config: &DRAND_QUICKNET,
         },
     ]
 });
+
+/// Creates a new calibnet policy with the given version.
+#[macro_export]
+macro_rules! make_calibnet_policy {
+    ($version:tt) => {
+        fil_actors_shared::$version::runtime::Policy {
+            minimum_consensus_power: (32i64 << 30).into(),
+            ..Default::default()
+        }
+    };
+}
 
 #[cfg(test)]
 mod tests {

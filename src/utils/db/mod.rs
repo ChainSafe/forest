@@ -4,6 +4,7 @@
 pub mod car_stream;
 pub mod car_util;
 
+use anyhow::Context as _;
 use cid::{
     multihash::{Code, MultihashDigest},
     Cid,
@@ -41,6 +42,12 @@ pub trait BlockstoreExt: Blockstore {
 
         Ok(cids)
     }
+
+    /// Gets the block from the blockstore. Return an error when not found.
+    fn get_required(&self, cid: &Cid) -> anyhow::Result<Vec<u8>> {
+        self.get(cid)?
+            .with_context(|| format!("Entry not found in block store: cid={cid}"))
+    }
 }
 
 impl<T: fvm_ipld_blockstore::Blockstore> BlockstoreExt for T {}
@@ -60,6 +67,19 @@ pub trait CborStoreExt: CborStore {
     /// A wrapper of [`CborStore::put_cbor`] that omits code parameter to match store API in go
     fn put_cbor_default<S: serde::ser::Serialize>(&self, obj: &S) -> anyhow::Result<Cid> {
         self.put_cbor(obj, Self::default_code())
+    }
+
+    /// Get typed object from block store by `CID`. Return an error when not found.
+    fn get_cbor_required<T>(&self, cid: &Cid) -> anyhow::Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        self.get_cbor(cid)?.with_context(|| {
+            format!(
+                "Entry not found in cbor store: cid={cid}, type={}",
+                std::any::type_name::<T>()
+            )
+        })
     }
 }
 

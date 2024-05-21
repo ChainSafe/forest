@@ -4,8 +4,8 @@
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
 use crate::rpc::{
-    auth, beacon, chain, common, eth, gas, mpool, net, node, state, sync, wallet, Permission,
-    RpcMethod as _, CANCEL_METHOD_NAME,
+    auth, beacon, chain, common, eth, gas, miner, mpool, msig, net, node, state, sync, wallet,
+    Permission, RpcMethod as _, CANCEL_METHOD_NAME,
 };
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
@@ -35,6 +35,7 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
     chain::for_each_method!(insert);
     common::for_each_method!(insert);
     gas::for_each_method!(insert);
+    miner::for_each_method!(insert);
     mpool::for_each_method!(insert);
     net::for_each_method!(insert);
     state::for_each_method!(insert);
@@ -42,6 +43,7 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
     sync::for_each_method!(insert);
     wallet::for_each_method!(insert);
     eth::for_each_method!(insert);
+    msig::for_each_method!(insert);
 
     access.insert(chain::CHAIN_NOTIFY, Permission::Read);
     access.insert(CANCEL_METHOD_NAME, Permission::Read);

@@ -1,7 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::beacon::BeaconEntry;
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::shim::{
     address::Address,
@@ -9,7 +8,6 @@ use crate::shim::{
     error::ExitCode,
     executor::Receipt,
     message::Message,
-    sector::{SectorInfo, StoragePower},
     state_tree::{ActorID, ActorState},
 };
 use cid::Cid;
@@ -163,34 +161,6 @@ impl PartialEq for GasTrace {
             && self.storage_gas == other.storage_gas
     }
 }
-
-#[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct MiningBaseInfo {
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<StoragePower>")]
-    pub miner_power: StoragePower,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<StoragePower>")]
-    pub network_power: StoragePower,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Vec<SectorInfo>>")]
-    pub sectors: Vec<SectorInfo>,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Address>")]
-    pub worker_key: Address,
-    #[schemars(with = "u64")]
-    pub sector_size: fvm_shared2::sector::SectorSize,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<BeaconEntry>")]
-    pub prev_beacon_entry: BeaconEntry,
-    #[serde(with = "crate::lotus_json")]
-    #[schemars(with = "LotusJson<Vec<BeaconEntry>>")]
-    pub beacon_entries: Vec<BeaconEntry>,
-    pub eligible_for_mining: bool,
-}
-
-lotus_json_with_self!(MiningBaseInfo);
 
 #[derive(PartialEq, Serialize, Deserialize, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

@@ -8,6 +8,7 @@ services:
       dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     volumes:
       - node-data:/data
+      - filecoin-proofs:${FIL_PROOFS_PARAMETER_CACHE}
     networks:
       - snapshot-parity-tests
     environment:
@@ -16,6 +17,8 @@ services:
     command:
       - |
         set -euxo pipefail
+        # fetch parameter files
+        forest-tool fetch-params --keys
         # if there are some files in the data directory, then we don't need to fetch the snapshot
         if [ "$$(ls -A /data/*.car.zst)" ]; then
           echo "Snapshot already fetched"
@@ -74,7 +77,7 @@ services:
       - |
         set -euxo pipefail
         lotus daemon --remove-existing-chain --import-snapshot $(ls /data/*.car.zst | tail -n 1) &
-        lotus wait-api --timeout 10m
+        lotus wait-api --timeout 20m
         lotus sync wait
         lotus chain export --tipset @$(ls /data/*.car.zst | tail -n 1 | grep -Eo '[0-9]+' | tail -n 1) --recent-stateroots ${EXPORT_EPOCHS} --skip-old-msgs /data/exported/lotus.car
         kill -KILL $!

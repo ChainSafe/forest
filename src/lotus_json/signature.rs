@@ -6,6 +6,7 @@ use crate::shim::crypto::{Signature, SignatureType};
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "Signature")]
 pub struct SignatureLotusJson {
     #[schemars(with = "LotusJson<SignatureType>")]
     #[serde(with = "crate::lotus_json")]

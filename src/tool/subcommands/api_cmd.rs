@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::blocks::Tipset;
+use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
@@ -14,9 +14,10 @@ use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
-use crate::rpc::eth::Address as EthAddress;
+use crate::rpc::eth::types::EthAddress;
 use crate::rpc::gas::GasEstimateGasLimit;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
+use crate::rpc::miner::BlockTemplate;
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
@@ -31,6 +32,7 @@ use crate::state_manager::StateManager;
 use crate::utils::UrlFromMultiAddr;
 use ahash::HashMap;
 use anyhow::Context as _;
+use bls_signatures::Serialize;
 use cid::Cid;
 use clap::{Subcommand, ValueEnum};
 use fil_actor_interface::market;
@@ -115,6 +117,12 @@ pub enum ApiCommands {
         /// Maximum number of concurrent requests
         #[arg(long, default_value = "8")]
         max_concurrent_requests: usize,
+        /// Miner address to use for miner tests. Miner worker key must be in the key-store.
+        #[arg(long)]
+        miner_address: Option<Address>,
+        /// Worker address to use where key is applicable. Worker key must be in the key-store.
+        #[arg(long)]
+        worker_address: Option<Address>,
     },
 }
 
@@ -127,6 +135,8 @@ struct ApiTestFlags {
     n_tipsets: usize,
     run_ignored: RunIgnored,
     max_concurrent_requests: usize,
+    miner_address: Option<Address>,
+    worker_address: Option<Address>,
 }
 
 impl ApiCommands {
@@ -152,6 +162,8 @@ impl ApiCommands {
                 n_tipsets,
                 run_ignored,
                 max_concurrent_requests,
+                miner_address,
+                worker_address,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -160,6 +172,8 @@ impl ApiCommands {
                     n_tipsets,
                     run_ignored,
                     max_concurrent_requests,
+                    miner_address,
+                    worker_address,
                 };
 
                 compare_apis(
@@ -575,12 +589,87 @@ fn state_tests() -> Vec<RpcTest> {
     ]
 }
 
+fn miner_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    tipset: &Tipset,
+    miner_address: Option<Address>,
+) -> anyhow::Result<Vec<RpcTest>> {
+    // If no miner address is provided, we can't run any miner tests.
+    let miner_address = if let Some(miner_address) = miner_address {
+        miner_address
+    } else {
+        return Ok(vec![]);
+    };
+
+    let mut tests = Vec::new();
+    for block in tipset.block_headers() {
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
+        tests.push(miner_create_block_test(
+            miner_address,
+            tipset,
+            bls_messages,
+            secp_messages,
+        ));
+    }
+    tests.push(miner_create_block_no_messages_test(miner_address, tipset));
+    Ok(tests)
+}
+
+fn miner_create_block_test(
+    miner: Address,
+    tipset: &Tipset,
+    bls_messages: Vec<Message>,
+    secp_messages: Vec<SignedMessage>,
+) -> RpcTest {
+    // randomly sign BLS messages so we can test the BLS signature aggregation
+    let priv_key = bls_signatures::PrivateKey::generate(&mut rand::thread_rng());
+    let signed_bls_msgs = bls_messages
+        .into_iter()
+        .map(|message| {
+            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            SignedMessage {
+                message,
+                signature: Signature::new_bls(sig.as_bytes().to_vec()),
+            }
+        })
+        .collect_vec();
+
+    let block_template = BlockTemplate {
+        miner,
+        parents: tipset.parents().to_owned(),
+        ticket: Ticket::default(),
+        eproof: ElectionProof::default(),
+        beacon_values: tipset.block_headers().first().beacon_entries.to_owned(),
+        messages: [signed_bls_msgs, secp_messages].concat(),
+        epoch: tipset.epoch(),
+        timestamp: tipset.min_timestamp(),
+        winning_post_proof: Vec::default(),
+    };
+    RpcTest::identity(MinerCreateBlock::request((block_template,)).unwrap())
+}
+
+fn miner_create_block_no_messages_test(miner: Address, tipset: &Tipset) -> RpcTest {
+    let block_template = BlockTemplate {
+        miner,
+        parents: tipset.parents().to_owned(),
+        ticket: Ticket::default(),
+        eproof: ElectionProof::default(),
+        beacon_values: tipset.block_headers().first().beacon_entries.to_owned(),
+        messages: Vec::default(),
+        epoch: tipset.epoch(),
+        timestamp: tipset.min_timestamp(),
+        winning_post_proof: Vec::default(),
+    };
+    RpcTest::identity(MinerCreateBlock::request((block_template,)).unwrap())
+}
+
 fn state_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     tipset: &Tipset,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![
         RpcTest::identity(StateNetworkName::request(())?),
+        RpcTest::identity(StateGetNetworkParams::request(())?),
         RpcTest::identity(StateGetActor::request((
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
@@ -610,6 +699,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::new_id(0xdeadbeef),
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateVerifierStatus::request((
+            Address::VERIFIED_REGISTRY_ACTOR,
+            tipset.key().into(),
+        ))?),
         RpcTest::identity(StateNetworkVersion::request((tipset.key().into(),))?),
         RpcTest::identity(StateListMiners::request((tipset.key().into(),))?),
         RpcTest::identity(MsigGetAvailableBalance::request((
@@ -617,6 +710,15 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tipset.key().into(),
         ))?),
         RpcTest::identity(MsigGetPending::request((
+            Address::new_id(18101), // msig address id
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(MsigGetVested::request((
+            Address::new_id(18101), // msig address id
+            tipset.parents().into(),
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(MsigGetVestingSchedule::request((
             Address::new_id(18101), // msig address id
             tipset.key().into(),
         ))?),
@@ -641,6 +743,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateVMCirculatingSupplyInternal::request((tipset
             .key()
             .into(),))?),
+        RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
     ];
 
     // Get deals
@@ -669,7 +772,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
-            RpcTest::identity(StateMinerActiveSectors::request((
+            validate_sector_on_chain_info_vec(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
             ))?),
@@ -677,7 +780,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            RpcTest::identity(StateMinerSectors::request((
+            validate_sector_on_chain_info_vec(StateMinerSectors::request((
                 block.miner_address,
                 None,
                 tipset.key().into(),
@@ -735,12 +838,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .take(COLLECTION_SAMPLE_SIZE)
         {
             tests.extend([
-                RpcTest::identity(StateSectorGetInfo::request((
+                validate_sector_on_chain_info(StateSectorGetInfo::request((
                     block.miner_address,
                     sector,
                     tipset.key().into(),
                 ))?),
-                RpcTest::identity(StateMinerSectors::request((
+                validate_sector_on_chain_info_vec(StateMinerSectors::request((
                     block.miner_address,
                     {
                         let mut bf = BitField::new();
@@ -840,7 +943,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
-fn wallet_tests() -> Vec<RpcTest> {
+fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
     // This address has been funded by the calibnet faucet and the private keys
     // has been discarded. It should always have a non-zero balance.
     let known_wallet = Address::from_str("t1c4dkec3qhrnrsa4mccy7qntkyq2hhsma4sq7lui").unwrap();
@@ -854,15 +957,26 @@ fn wallet_tests() -> Vec<RpcTest> {
         _ => panic!("Invalid signature (must be bls or secp256k1)"),
     };
 
-    vec![
+    let mut tests = vec![
         RpcTest::identity(WalletBalance::request((known_wallet,)).unwrap()),
         RpcTest::identity(WalletValidateAddress::request((known_wallet.to_string(),)).unwrap()),
         RpcTest::identity(WalletVerify::request((known_wallet, text, signature)).unwrap()),
-        // These methods require write access in Lotus. Not sure why.
-        // RpcTest::basic(ApiInfo::wallet_default_address_req()),
-        // RpcTest::basic(ApiInfo::wallet_list_req()),
-        // RpcTest::basic(ApiInfo::wallet_has_req(known_wallet.to_string())),
-    ]
+    ];
+
+    // If a worker address is provided, we can test wallet methods requiring
+    // a shared key.
+    if let Some(worker_address) = config.worker_address {
+        use base64::{prelude::BASE64_STANDARD, Engine};
+        let msg =
+            BASE64_STANDARD.encode("Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn".as_bytes());
+        tests.push(RpcTest::identity(
+            WalletSign::request((worker_address, msg.into())).unwrap(),
+        ));
+        tests.push(RpcTest::identity(
+            WalletSign::request((worker_address, Vec::new())).unwrap(),
+        ));
+    }
+    tests
 }
 
 fn eth_tests() -> Vec<RpcTest> {
@@ -925,6 +1039,28 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetCode::request((
+                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetCode::request((
+                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+                Address::from_str("f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq")
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockByHash::request((
                 BlockNumberOrHash::from_block_hash(block_hash.clone(), false),
                 false,
@@ -933,7 +1069,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ),
         RpcTest::identity(
             EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash, true),
+                BlockNumberOrHash::from_block_hash(block_hash.clone(), false),
                 true,
             ))
             .unwrap(),
@@ -965,7 +1101,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 
 // Extract tests that use chain-specific data such as block CIDs or message
 // CIDs. Right now, only the last `n_tipsets` tipsets are used.
-fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<RpcTest>> {
+fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
     // shared_tipset in the snapshot might not be finalized for the offline RPC server
     // use heaviest - 10 instead
@@ -975,8 +1111,14 @@ fn snapshot_tests(store: Arc<ManyCar>, n_tipsets: usize) -> anyhow::Result<Vec<R
         .take(10)
         .last()
         .expect("Infallible");
-    for tipset in shared_tipset.chain(&store).take(n_tipsets) {
+
+    for tipset in shared_tipset.chain(&store).take(config.n_tipsets) {
         tests.extend(chain_tests_with_tipset(&store, &tipset)?);
+        tests.extend(miner_tests_with_tipset(
+            &store,
+            &tipset,
+            config.miner_address,
+        )?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
@@ -1050,13 +1192,13 @@ async fn compare_apis(
     tests.extend(mpool_tests());
     tests.extend(net_tests());
     tests.extend(node_tests());
-    tests.extend(wallet_tests());
+    tests.extend(wallet_tests(&config));
     tests.extend(eth_tests());
     tests.extend(state_tests());
 
     if !snapshot_files.is_empty() {
         let store = Arc::new(ManyCar::try_from(snapshot_files)?);
-        tests.extend(snapshot_tests(store, config.n_tipsets)?);
+        tests.extend(snapshot_tests(store, &config)?);
     }
 
     tests.sort_by_key(|test| test.request.method_name);
@@ -1346,6 +1488,28 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
+        forest == lotus
+    })
+}
+
+fn validate_sector_on_chain_info(req: rpc::Request<SectorOnChainInfo>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // https://github.com/filecoin-project/lotus/issues/11962
+        forest.flags = 0;
+        lotus.flags = 0;
+        forest == lotus
+    })
+}
+
+fn validate_sector_on_chain_info_vec(req: rpc::Request<Vec<SectorOnChainInfo>>) -> RpcTest {
+    RpcTest::validate(req, |mut forest, mut lotus| {
+        // https://github.com/filecoin-project/lotus/issues/11962
+        for f in &mut forest {
+            f.flags = 0;
+        }
+        for l in &mut lotus {
+            l.flags = 0;
+        }
         forest == lotus
     })
 }

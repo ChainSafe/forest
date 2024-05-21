@@ -9,6 +9,7 @@ use std::sync::Arc;
 use crate::networks::NetworkChain;
 use crate::shim::{address::Address, piece::PieceInfo};
 use crate::utils::db::CborStoreExt;
+use crate::{make_calibnet_policy, make_mainnet_policy};
 use ahash::HashMap;
 use anyhow::Context as _;
 use cid::{multibase::Base, Cid};
@@ -19,7 +20,6 @@ use fil_actor_miner_state::{
 use fil_actors_shared::abi::commp::compute_unsealed_sector_cid_v2;
 use fil_actors_shared::fvm_ipld_amt;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 
 use super::super::common::{
     ActorMigration, ActorMigrationInput, ActorMigrationOutput, TypeMigration, TypeMigrator,
@@ -49,8 +49,8 @@ where
     let empty_deadline_v8_cid = store.put_cbor_default(&empty_deadline_v8)?;
 
     let policy = match chain {
-        NetworkChain::Mainnet => fil_actors_shared::v8::runtime::Policy::mainnet(),
-        NetworkChain::Calibnet => fil_actors_shared::v8::runtime::Policy::calibnet(),
+        NetworkChain::Mainnet => make_mainnet_policy!(v8),
+        NetworkChain::Calibnet => make_calibnet_policy!(v8),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
         NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
     };
@@ -62,8 +62,8 @@ where
     let empty_deadline_v9_cid = store.put_cbor_default(&empty_deadline_v9)?;
 
     let policy = match chain {
-        NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
-        NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
+        NetworkChain::Mainnet => make_mainnet_policy!(v9),
+        NetworkChain::Calibnet => make_calibnet_policy!(v9),
         NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
         NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
     };
@@ -93,9 +93,7 @@ where
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
         let mut cache: HashMap<String, Cid> = Default::default();
 
-        let in_state: MinerStateOld = store
-            .get_cbor(&input.head)?
-            .context("Init actor: could not read v9 state")?;
+        let in_state: MinerStateOld = store.get_cbor_required(&input.head)?;
         let new_pre_committed_sectors =
             self.migrate_pre_committed_sectors(&store, &in_state.pre_committed_sectors)?;
         let new_sectors =
@@ -252,13 +250,12 @@ impl MinerMigrator {
         if deadlines == &self.empty_deadlines_v8_cid {
             Ok(self.empty_deadlines_v9_cid)
         } else {
-            let in_deadlines: fil_actor_miner_state::v8::Deadlines = store
-                .get_cbor(deadlines)?
-                .context("Failed to get in_deadlines")?;
+            let in_deadlines: fil_actor_miner_state::v8::Deadlines =
+                store.get_cbor_required(deadlines)?;
 
             let policy = match &self.chain {
-                NetworkChain::Mainnet => fil_actors_shared::v9::runtime::Policy::mainnet(),
-                NetworkChain::Calibnet => fil_actors_shared::v9::runtime::Policy::calibnet(),
+                NetworkChain::Mainnet => make_mainnet_policy!(v9),
+                NetworkChain::Calibnet => make_calibnet_policy!(v9),
                 NetworkChain::Devnet(_) => unimplemented!("Policy::devnet"),
                 NetworkChain::Butterflynet => unimplemented!("Policy::butterflynet"),
             };
@@ -273,7 +270,7 @@ impl MinerMigrator {
                     }
                 } else {
                     let in_deadline: fil_actor_miner_state::v8::Deadline =
-                        store.get_cbor(c)?.context("Failed to get in_deadline")?;
+                        store.get_cbor_required(c)?;
 
                     let out_sectors_snapshot_cid_cache_key =
                         sectors_amt_key(&in_deadline.sectors_snapshot)?;
@@ -394,7 +391,7 @@ mod tests {
             .unwrap()
             .unwrap();
         let system_state_old: fil_actor_system_state::v9::State =
-            store.get_cbor(&system_actor_old.state).unwrap().unwrap();
+            store.get_cbor_required(&system_actor_old.state).unwrap();
         let manifest_data_cid_old = system_state_old.builtin_actors;
         assert_eq!(manifest_data_cid_old, manifest_old.source_cid());
         assert_eq!(
@@ -412,7 +409,7 @@ mod tests {
             .unwrap()
             .unwrap();
         let mut market_state_old: fil_actor_market_state::v8::State =
-            store.get_cbor(&market_actor_old.state).unwrap().unwrap();
+            store.get_cbor_required(&market_actor_old.state).unwrap();
         let mut proposals = fil_actors_shared::v8::Array::<
             fil_actor_market_state::v8::DealProposal,
             _,
@@ -621,7 +618,7 @@ mod tests {
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &tree_root, 200).unwrap();
-        let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid).unwrap().unwrap();
+        let actors_out_state_root: StateRoot = store.get_cbor_required(&new_state_cid).unwrap();
         assert_eq!(
             actors_out_state_root.actors.to_string(),
             "bafy2bzacedgtk3lnnyfxnzc32etqaj3zvi7ar7nxq2jtxd2qr36ftbsjoycqu"
@@ -654,7 +651,7 @@ mod tests {
         }
         let new_state_cid =
             super::super::run_migration(&chain_config, &store, &state_tree_old_root, 200).unwrap();
-        let actors_out_state_root: StateRoot = store.get_cbor(&new_state_cid).unwrap().unwrap();
+        let actors_out_state_root: StateRoot = store.get_cbor_required(&new_state_cid).unwrap();
         assert_eq!(
             actors_out_state_root.actors.to_string(),
             "bafy2bzacebdpnjjyspbyj7al7d6234kdhkmdygkfdkp6zyao5o3egsfmribty"
@@ -937,7 +934,7 @@ mod tests {
         let empty_miner_info_cid = store.put_cbor_default(&empty_miner_info).unwrap();
 
         fil_actor_miner_state::v8::State::new(
-            &fil_actors_shared::v8::runtime::Policy::calibnet(),
+            &make_calibnet_policy!(v8),
             store,
             empty_miner_info_cid,
             0,

@@ -7,6 +7,7 @@ use ::cid::Cid;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
+#[schemars(rename = "ActorState")]
 pub struct ActorStateLotusJson {
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]

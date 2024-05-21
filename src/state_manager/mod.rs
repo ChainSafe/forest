@@ -25,7 +25,9 @@ use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::message::{ChainMessage, Message as MessageTrait};
 use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
-use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost, MiningBaseInfo};
+use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
+use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
+use crate::shim::actors::miner::MinerStateExt as _;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -45,14 +47,13 @@ use chain_rand::ChainRand;
 use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
-use fil_actor_interface::miner::SectorOnChainInfo;
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::Policy;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
+use fil_actors_shared::v13::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -192,10 +193,10 @@ impl TipsetStateCache {
 pub struct MarketBalance {
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
-    escrow: TokenAmount,
+    pub escrow: TokenAmount,
     #[schemars(with = "LotusJson<TokenAmount>")]
     #[serde(with = "crate::lotus_json")]
-    locked: TokenAmount,
+    pub locked: TokenAmount,
 }
 lotus_json_with_self!(MarketBalance);
 
@@ -373,8 +374,7 @@ where
             .get_actor(addr, *ts.parent_state())?
             .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
         let state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
-
-        state.load_sectors(self.blockstore(), None)
+        state.load_sectors_ext(self.blockstore(), None)
     }
 }
 
@@ -777,14 +777,9 @@ where
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
-            .get_actor(&message_from_address, *current.parent_state())
-            .map_err(|e| Error::State(e.to_string()))?
-            .context("Failed to load actor state")
+            .get_required_actor(&message_from_address, *current.parent_state())
             .map_err(|e| Error::State(e.to_string()))?;
-        let message_from_id = self
-            .lookup_id(&message_from_address, current.as_ref())?
-            .context("Failed to lookup id")
-            .map_err(|e| Error::State(e.to_string()))?;
+        let message_from_id = self.lookup_required_id(&message_from_address, current.as_ref())?;
         while current.epoch() > look_back_limit.unwrap_or_default() {
             let parent_tipset = self
                 .cs
@@ -1023,19 +1018,16 @@ where
             .ok_or_else(|| Error::Other(format!("Failed to lookup the id address {addr}")))
     }
 
-    /// Retrieves market balance in escrow and locked tables.
-    pub fn market_balance(
-        &self,
-        addr: &Address,
-        ts: &Tipset,
-    ) -> anyhow::Result<MarketBalance, Error> {
-        let actor = self
-            .get_actor(&Address::MARKET_ACTOR, *ts.parent_state())?
-            .ok_or_else(|| {
-                Error::State("Market actor address could not be resolved".to_string())
-            })?;
-
+    /// Retrieves market state
+    pub fn market_state(&self, ts: &Tipset) -> Result<market::State, Error> {
+        let actor = self.get_required_actor(&Address::MARKET_ACTOR, *ts.parent_state())?;
         let market_state = market::State::load(self.blockstore(), actor.code, actor.state)?;
+        Ok(market_state)
+    }
+
+    /// Retrieves market balance in escrow and locked tables.
+    pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
+        let market_state = self.market_state(ts)?;
 
         let new_addr = self
             .lookup_id(addr, ts)?
@@ -1185,9 +1177,7 @@ where
             epoch,
         )?;
 
-        let actor = self
-            .get_actor(&addr, *tipset.parent_state())?
-            .context("miner actor does not exist")?;
+        let actor = self.get_required_actor(&addr, *tipset.parent_state())?;
 
         let miner_state = miner::State::load(self.blockstore(), actor.code, actor.state)?;
 
@@ -1324,7 +1314,7 @@ where
         addr: &Address,
         ts: &Arc<Tipset>,
     ) -> anyhow::Result<Option<DataCap>> {
-        let id = self.lookup_id(addr, ts)?.context("actor not found")?;
+        let id = self.lookup_required_id(addr, ts)?;
         let network_version = self.get_network_version(ts.epoch());
 
         // This is a copy of Lotus code, we need to treat all the actors below version 9

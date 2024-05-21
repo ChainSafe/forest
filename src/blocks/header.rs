@@ -203,7 +203,7 @@ impl RawBlockHeader {
 
     /// Serializes the header to bytes for signing purposes i.e. without the
     /// signature field
-    fn signing_bytes(&self) -> Vec<u8> {
+    pub fn signing_bytes(&self) -> Vec<u8> {
         let mut blk = self.clone();
         blk.signature = None;
         fvm_ipld_encoding::to_vec(&blk).expect("block serialization cannot fail")

@@ -21,7 +21,6 @@ use fil_actor_market_state::v13::{
 use fil_actors_shared::v12::Array as ArrayOld;
 use fil_actors_shared::v13::Array as ArrayNew;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::CborStore;
 use fvm_shared4::clock::ChainEpoch;
 
 use crate::state_migration::common::{ActorMigration, ActorMigrationInput, ActorMigrationOutput};
@@ -51,9 +50,7 @@ impl<BS: Blockstore> ActorMigration<BS> for MarketMigrator {
         store: &BS,
         input: ActorMigrationInput,
     ) -> anyhow::Result<Option<ActorMigrationOutput>> {
-        let in_state: MarketStateOld = store
-            .get_cbor(&input.head)?
-            .context("failed to load state")?;
+        let in_state: MarketStateOld = store.get_cbor_required(&input.head)?;
 
         let (provider_sectors, new_states) =
             self.migrate_provider_sectors_and_states(store, &in_state.states, &in_state.proposals)?;
