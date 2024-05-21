@@ -155,6 +155,11 @@ where
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.block_headers().iter())?;
 
+        // Write the TipsetKey to the blockstore for EthAPI queries
+        let tsk = ts.key();
+        self.blockstore()
+            .put_keyed(&tsk.cid()?, &fvm_ipld_encoding::to_vec(&tsk)?)?;
+
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
         self.update_heaviest(Arc::new(expanded))?;
