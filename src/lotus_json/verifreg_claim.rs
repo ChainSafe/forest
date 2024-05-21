@@ -5,8 +5,6 @@ use crate::lotus_json::HasLotusJson;
 use crate::rpc::types::ClaimLotusJson;
 use fil_actor_interface::verifreg::Claim;
 
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this should move to src/lotus_json
 impl HasLotusJson for Claim {
     type LotusJson = ClaimLotusJson;
     #[cfg(test)]
