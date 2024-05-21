@@ -27,6 +27,22 @@
 
 ### Breaking
 
+### Added
+
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.18.0 "Big Bang"
+
+This is a non-mandatory release including a fair number of new RPC methods and
+improvements to the Forest RPC API. The release also includes a number of bug
+fixes, as outlined below. Please note the breaking changes in this release.
+
+### Breaking
+
 - [#4177](https://github.com/ChainSafe/forest/pull/4177) Rename environment
   variable `TRUST_PARAMS` to `FOREST_FORCE_TRUST_PARAMS`.
 
