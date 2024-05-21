@@ -431,15 +431,19 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
 
 #[cfg(test)]
 mod tests {
-    // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-    //                  re-enable this
-    //
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
-    #[ignore = "merge conflicts"]
     fn openrpc() {
-        let spec = super::openrpc();
-        insta::assert_yaml_snapshot!(spec);
+        let _spec = super::openrpc();
+        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+        //                  this is disabled because it causes lots of merge
+        //                  conflicts.
+        //                  We should consider re-enabling it when our RPC is
+        //                  more stable.
+        //                  (We still run this test to make sure we're not
+        //                  violating other invariants)
+        #[cfg(never)]
+        insta::assert_yaml_snapshot!(_spec);
     }
 }
