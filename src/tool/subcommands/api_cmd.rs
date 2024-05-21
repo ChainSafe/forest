@@ -1019,9 +1019,6 @@ fn eth_tests() -> Vec<RpcTest> {
 }
 
 fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
-    let block_cid = shared_tipset.key().cid().unwrap();
-    let block_hash: Hash = block_cid.into();
-
     vec![
         RpcTest::identity(
             EthGetBalance::request((
