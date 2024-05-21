@@ -36,12 +36,14 @@ use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
+use fil_actor_interface::verifreg::Claim;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
     power, reward,
 };
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -101,6 +103,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
+        $callback!(crate::rpc::state::StateGetClaim);
     };
 }
 pub(crate) use for_each_method;
@@ -1807,6 +1810,26 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         Ok(out)
+    }
+}
+
+pub enum StateGetClaim {}
+
+impl RpcMethod<3> for StateGetClaim {
+    const NAME: &'static str = "Filecoin.StateGetClaim";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "claim_id", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ClaimID, ApiTipsetKey);
+    type Ok = Option<Claim>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, claim_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_claim(&address, &ts, claim_id)?)
     }
 }
 

@@ -48,8 +48,10 @@ use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
+use fil_actor_interface::verifreg::Claim;
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
@@ -1309,6 +1311,27 @@ where
         )
     }
 
+    fn get_verified_registry_actor_state(
+        self: &Arc<Self>,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<verifreg::State> {
+        let act = self
+            .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::State("actor not found".to_string()))?;
+        verifreg::State::load(self.blockstore(), act.code, act.state)
+    }
+    pub fn get_claim(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+        claim_id: ClaimID,
+    ) -> anyhow::Result<Option<Claim>> {
+        let id_address = self.lookup_required_id(addr, ts)?;
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_claim(self.blockstore(), id_address.into(), claim_id)
+    }
+
     pub fn verified_client_status(
         self: &Arc<Self>,
         addr: &Address,
@@ -1321,11 +1344,7 @@ where
         // differently. Which maps to network below version 17.
         // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
-            let act = self
-                .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
-                .map_err(|e| Error::State(e.to_string()))?
-                .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
-            let state = verifreg::State::load(self.blockstore(), act.code, act.state)?;
+            let state = self.get_verified_registry_actor_state(&ts)?;
             return state.verified_client_data_cap(self.blockstore(), id.into());
         }
 

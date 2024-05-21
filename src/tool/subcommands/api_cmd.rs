@@ -827,6 +827,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateGetClaim::request((
+                block.miner_address,
+                0,
+                tipset.key().into(),
+            ))?),
         ]);
 
         for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?
