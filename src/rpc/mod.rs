@@ -407,7 +407,6 @@ where
     module
 }
 
-#[allow(unused)]
 pub fn openrpc() -> openrpc_types::OpenRPC {
     use schemars::gen::{SchemaGenerator, SchemaSettings};
     let mut methods = vec![];
