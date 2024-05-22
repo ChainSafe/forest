@@ -238,7 +238,7 @@ impl RpcMethod<0> for NetVersion {
 
 pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
-    const NAME: &'static str = "Filecoin.NetVersion";
+    const NAME: &'static str = "Filecoin.NetProtectAdd";
     const PARAM_NAMES: [&'static str; 1] = ["acl"];
     const API_VERSION: ApiVersion = ApiVersion::V1;
     const PERMISSION: Permission = Permission::Admin;
