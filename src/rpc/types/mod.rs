@@ -178,6 +178,7 @@ pub struct ClaimLotusJson {
     #[serde(with = "crate::lotus_json")]
     pub data: Cid,
     // The (padded) size of data (from allocation).
+    #[schemars(with = "u64")]
     pub size: PaddedPieceSize,
     // The min period after term_start which the provider must commit to storing data
     pub term_min: ChainEpoch,
