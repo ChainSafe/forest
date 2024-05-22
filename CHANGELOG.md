@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
+  `Filecoin.StateGetClaim` RPC method.
+
 ### Changed
 
 ### Removed
