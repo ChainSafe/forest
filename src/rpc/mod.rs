@@ -71,6 +71,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetCode);
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
+        $callback!(crate::rpc::eth::EthGetBlockByHash);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
 
