@@ -222,8 +222,8 @@ mod opt; // can't make snapshots of generic type
 mod power_claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
-mod vec;
-mod verifreg_claim; // can't make snapshots of generic type
+mod vec; // can't make snapshots of generic type
+mod verifreg_claim;
 
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
