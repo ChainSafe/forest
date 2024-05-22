@@ -249,8 +249,8 @@ impl BlockNumberOrHash {
         Self::BlockNumber(number)
     }
 
-    pub fn from_block_hash(hash: Hash, require_canonical: bool) -> Self {
-        Self::BlockHash(hash, require_canonical)
+    pub fn from_block_hash(hash: Hash) -> Self {
+        Self::BlockHash(hash, false)
     }
 }
 
@@ -746,7 +746,6 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
             let cid = hash.to_cid();
-            // TODO: Implement what is needed to retrieve the tsk
             let bytes = chain
                 .blockstore()
                 .get(&cid)?

@@ -1009,9 +1009,20 @@ fn eth_tests() -> Vec<RpcTest> {
                     Cid::try_from("bafy2bzacec5j7fxwr47evoggukektfvadnv63vm4rgaihcaa63moxvdzvayuq")
                         .unwrap()
                         .into(),
-                    false,
                 ),
                 false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(
+                    // TODO: retrieve hash from head?
+                    Cid::try_from("bafy2bzacec5j7fxwr47evoggukektfvadnv63vm4rgaihcaa63moxvdzvayuq")
+                        .unwrap()
+                        .into(),
+                ),
+                true,
             ))
             .unwrap(),
         ),
