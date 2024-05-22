@@ -136,6 +136,8 @@ pub async fn start_interruptable(opts: CliOpts, config: Config) -> anyhow::Resul
 // Garbage collection interval, currently set at 10 hours.
 const GC_INTERVAL: Duration = Duration::from_secs(60 * 60 * 10);
 
+const TIPSET_KEY_LOOKBACK_ENTRIES: usize = 2000;
+
 /// Starts daemon process
 pub(super) async fn start(
     opts: CliOpts,
@@ -434,7 +436,18 @@ pub(super) async fn start(
             debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
                 .chain_store()
-                .set_heaviest_tipset(Arc::new(ts))?;
+                .set_heaviest_tipset(Arc::new(ts.clone()))?;
+
+            let mut curr = ts;
+            tracing::info!("Caching tipset keys for EthAPIs");
+            for _ in 0..TIPSET_KEY_LOOKBACK_ENTRIES {
+                state_manager.chain_store().put_tipset_key(curr.key())?;
+                if let Ok(ts) = Tipset::load_required(&state_manager.blockstore(), curr.parents()) {
+                    curr = ts;
+                } else {
+                    break;
+                }
+            }
         }
     }
 
