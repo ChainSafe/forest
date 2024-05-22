@@ -831,6 +831,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            // NOTE: Once StateGetClaims is implemented we need to retrieve a valid claim_id and
+            // use that for testing.
             RpcTest::identity(StateGetClaim::request((
                 block.miner_address,
                 0,
