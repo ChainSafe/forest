@@ -246,7 +246,7 @@ impl RpcMethod<1> for NetProtectAdd {
     type Params = (String,);
     type Ok = ();
 
-    // This is a no-op due to the fact that rust `lib-p2p` implementation is very different to that
+    // This is a no-op due to the fact that `rust-libp2p` implementation is very different to that
     // in go. However it would be nice to investigate connection limiting options in rust.
     // See: <https://github.com/ChainSafe/forest/issues/4355>.
     async fn handle(
