@@ -159,8 +159,9 @@ pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 impl Hash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
-        // TODO: exhaustive testing, try to remove unwrap
-        let mh = multihash::Code::Blake2b256.wrap(self.0.as_bytes()).unwrap();
+        let mh = multihash::Code::Blake2b256
+            .wrap(self.0.as_bytes())
+            .expect("should not fail");
         Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
     }
 
@@ -1368,10 +1369,19 @@ impl RpcMethod<2> for EthGetCode {
 mod test {
     use super::*;
     use ethereum_types::H160;
+    use ethereum_types::H256;
     use num_bigint;
     use num_traits::{FromBytes, Signed};
+    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
+
+    impl Arbitrary for Hash {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
+            Self { 0: H256(arr) }
+        }
+    }
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
@@ -1560,6 +1570,13 @@ mod test {
             let h1: Hash = c.into();
             assert_eq!(h, h1);
         }
+    }
+
+    #[quickcheck]
+    fn test_eth_hash_roundtrip(eth_hash: Hash) {
+        let cid = eth_hash.to_cid();
+        let hash = cid.into();
+        assert_eq!(eth_hash, hash);
     }
 
     #[test]
