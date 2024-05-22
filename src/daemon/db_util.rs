@@ -5,6 +5,7 @@ use crate::blocks::Tipset;
 use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
+use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use anyhow::Context as _;
@@ -12,6 +13,7 @@ use futures::TryStreamExt;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
+use std::sync::Arc;
 use std::{
     path::{Path, PathBuf},
     time,
@@ -20,6 +22,8 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use url::Url;
 use walkdir::WalkDir;
+
+const TIPSET_KEY_LOOKBACK_ENTRIES: usize = 2000;
 
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
@@ -138,6 +142,27 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     );
     crate::db::car::forest::Encoder::write(&mut writer, roots, frames).await?;
     writer.shutdown().await?;
+
+    Ok(())
+}
+
+pub fn cache_tipset_keys<DB>(
+    state_manager: Arc<StateManager<DB>>,
+    ts: &Tipset,
+) -> anyhow::Result<()>
+where
+    DB: fvm_ipld_blockstore::Blockstore,
+{
+    let mut curr = ts.clone();
+    tracing::info!("Caching tipset keys for EthAPIs");
+    for _ in 0..TIPSET_KEY_LOOKBACK_ENTRIES {
+        state_manager.chain_store().put_tipset_key(curr.key())?;
+        if let Ok(ts) = Tipset::load_required(state_manager.blockstore(), curr.parents()) {
+            curr = ts;
+        } else {
+            break;
+        }
+    }
 
     Ok(())
 }
