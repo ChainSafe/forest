@@ -11,16 +11,6 @@ use fil_actor_interface::multisig;
 use fvm_ipld_blockstore::Blockstore;
 use num_bigint::BigInt;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::msig::MsigGetAvailableBalance);
-        $callback!(crate::rpc::msig::MsigGetPending);
-        $callback!(crate::rpc::msig::MsigGetVested);
-        $callback!(crate::rpc::msig::MsigGetVestingSchedule);
-    };
-}
-pub(crate) use for_each_method;
-
 pub enum MsigGetAvailableBalance {}
 
 impl RpcMethod<2> for MsigGetAvailableBalance {

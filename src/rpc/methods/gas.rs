@@ -18,16 +18,6 @@ use rand_distr::{Distribution, Normal};
 
 const MIN_GAS_PREMIUM: f64 = 100000.0;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::gas::GasEstimateGasLimit);
-        $callback!(crate::rpc::gas::GasEstimateMessageGas);
-        $callback!(crate::rpc::gas::GasEstimateFeeCap);
-        $callback!(crate::rpc::gas::GasEstimateGasPremium);
-    };
-}
-pub(crate) use for_each_method;
-
 /// Estimate the fee cap
 pub enum GasEstimateFeeCap {}
 impl RpcMethod<3> for GasEstimateFeeCap {

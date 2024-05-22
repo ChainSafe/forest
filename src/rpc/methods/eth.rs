@@ -43,23 +43,6 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 use std::{ops::Add, sync::Arc};
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::eth::Web3ClientVersion);
-        $callback!(crate::rpc::eth::EthSyncing);
-        $callback!(crate::rpc::eth::EthAccounts);
-        $callback!(crate::rpc::eth::EthBlockNumber);
-        $callback!(crate::rpc::eth::EthChainId);
-        $callback!(crate::rpc::eth::EthGetCode);
-        $callback!(crate::rpc::eth::EthGasPrice);
-        $callback!(crate::rpc::eth::EthGetBalance);
-        $callback!(crate::rpc::eth::EthGetBlockByHash);
-        $callback!(crate::rpc::eth::EthGetBlockByNumber);
-        $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
-    };
-}
-pub(crate) use for_each_method;
-
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 /// Ethereum Bloom filter size in bits.

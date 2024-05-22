@@ -14,17 +14,6 @@ use ahash::{HashSet, HashSetExt as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::mpool::MpoolGetNonce);
-        $callback!(crate::rpc::mpool::MpoolPending);
-        $callback!(crate::rpc::mpool::MpoolSelect);
-        $callback!(crate::rpc::mpool::MpoolPush);
-        $callback!(crate::rpc::mpool::MpoolPushMessage);
-    };
-}
-pub(crate) use for_each_method;
-
 /// Gets next nonce for the specified sender.
 pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
