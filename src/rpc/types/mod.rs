@@ -40,6 +40,8 @@ use fil_actor_interface::{
 use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::{BytesDe, RawBytes};
+use fvm_shared4::piece::PaddedPieceSize;
+use fvm_shared4::ActorID;
 use libipld_core::ipld::Ipld;
 use libp2p::PeerId;
 use num_bigint::BigInt;
@@ -164,6 +166,29 @@ pub struct ApiTipsetKey(pub Option<TipsetKey>);
 /// See: <https://github.com/filecoin-project/lotus/issues/11461>.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ClaimLotusJson {
+    // The provider storing the data (from allocation).
+    pub provider: ActorID,
+    // The client which allocated the DataCap (from allocation).
+    pub client: ActorID,
+    // Identifier of the data committed (from allocation).
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub data: Cid,
+    // The (padded) size of data (from allocation).
+    #[schemars(with = "u64")]
+    pub size: PaddedPieceSize,
+    // The min period after term_start which the provider must commit to storing data
+    pub term_min: ChainEpoch,
+    // The max period after term_start for which provider can earn QA-power for the data
+    pub term_max: ChainEpoch,
+    // The epoch at which the (first range of the) piece was committed.
+    pub term_start: ChainEpoch,
+    // ID of the provider's sector in which the data is committed.
+    pub sector: SectorNumber,
+}
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

@@ -215,14 +215,15 @@ decl_and_test!(
 
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod cid; // can't make snapshots of generic type
-mod claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
 mod hash_map;
 mod ipld; // NaN != NaN
 mod nonempty;
 mod opt; // can't make snapshots of generic type
+mod power_claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
 mod vec; // can't make snapshots of generic type
+mod verifreg_claim;
 
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()

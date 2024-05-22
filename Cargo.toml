@@ -46,18 +46,18 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "5"
 ethereum-types = "0.14.1"
-fil_actor_account_state = { version = "12.0.0" }
-fil_actor_cron_state = { version = "12.0.0" }
-fil_actor_datacap_state = { version = "12.0.0" }
-fil_actor_init_state = { version = "12.0.0" }
-fil_actor_interface = { version = "12.0.0" }
-fil_actor_market_state = { version = "12.0.0" }
-fil_actor_miner_state = { version = "12.0.0" }
-fil_actor_power_state = { version = "12.0.0" }
-fil_actor_reward_state = { version = "12.0.0" }
-fil_actor_system_state = { version = "12.0.0" }
-fil_actor_verifreg_state = { version = "12.0.0" }
-fil_actors_shared = { version = "12.0.0", features = ["json"] }
+fil_actor_account_state = { version = "13.0.0" }
+fil_actor_cron_state = { version = "13.0.0" }
+fil_actor_datacap_state = { version = "13.0.0" }
+fil_actor_init_state = { version = "13.0.0" }
+fil_actor_interface = { version = "13.0.0" }
+fil_actor_market_state = { version = "13.0.0" }
+fil_actor_miner_state = { version = "13.0.0" }
+fil_actor_power_state = { version = "13.0.0" }
+fil_actor_reward_state = { version = "13.0.0" }
+fil_actor_system_state = { version = "13.0.0" }
+fil_actor_verifreg_state = { version = "13.0.0" }
+fil_actors_shared = { version = "13.0.0", features = ["json"] }
 filecoin-proofs-api = { version = "16.0", default-features = false }
 flume = "0.11"
 frc46_token = "10"
