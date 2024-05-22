@@ -170,29 +170,22 @@ pub struct AddressOrEmpty(pub Option<Address>);
 #[serde(rename_all = "PascalCase")]
 pub struct ClaimLotusJson {
     // The provider storing the data (from allocation).
-    #[schemars(with = "u64")]
     pub provider: ActorID,
     // The client which allocated the DataCap (from allocation).
-    #[schemars(with = "u64")]
     pub client: ActorID,
     // Identifier of the data committed (from allocation).
     #[schemars(with = "LotusJson<Cid>")]
     #[serde(with = "crate::lotus_json")]
     pub data: Cid,
     // The (padded) size of data (from allocation).
-    #[schemars(with = "u64")]
     pub size: PaddedPieceSize,
     // The min period after term_start which the provider must commit to storing data
-    #[schemars(with = "u64")]
     pub term_min: ChainEpoch,
     // The max period after term_start for which provider can earn QA-power for the data
-    #[schemars(with = "u64")]
     pub term_max: ChainEpoch,
     // The epoch at which the (first range of the) piece was committed.
-    #[schemars(with = "u64")]
     pub term_start: ChainEpoch,
     // ID of the provider's sector in which the data is committed.
-    #[schemars(with = "u64")]
     pub sector: SectorNumber,
 }
 
