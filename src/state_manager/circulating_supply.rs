@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::chain::*;
 use crate::networks::{ChainConfig, Height};
 use crate::rpc::types::CirculatingSupply;
+use crate::shim::version::NetworkVersion;
 use crate::shim::{
     address::Address,
     clock::{ChainEpoch, EPOCHS_IN_DAY},
@@ -48,23 +49,15 @@ pub struct GenesisInfo {
     genesis_pledge: TokenAmount,
     genesis_market_funds: TokenAmount,
 
-    /// Heights epoch
-    ignition_height: ChainEpoch,
-    actors_v2_height: ChainEpoch,
-    calico_height: ChainEpoch,
+    chain_config: Arc<ChainConfig>,
 }
 
 impl GenesisInfo {
-    pub fn from_chain_config(chain_config: &ChainConfig) -> Self {
-        let ignition_height = chain_config.epoch(Height::Ignition);
-        let actors_v2_height = chain_config.epoch(Height::Assembly);
+    pub fn from_chain_config(chain_config: Arc<ChainConfig>) -> Self {
         let liftoff_height = chain_config.epoch(Height::Liftoff);
-        let calico_height = chain_config.epoch(Height::Calico);
         Self {
-            ignition_height,
-            actors_v2_height,
-            calico_height,
             vesting: GenesisInfoVesting::new(liftoff_height),
+            chain_config,
             ..GenesisInfo::default()
         }
     }
@@ -98,8 +91,10 @@ impl GenesisInfo {
         let fil_vested = get_fil_vested(self, height);
         let fil_mined = get_fil_mined(&state_tree)?;
         let fil_burnt = get_fil_burnt(&state_tree)?;
-        let fil_locked = get_fil_locked(&state_tree)?;
-        let fil_reserve_disbursed = if height > self.actors_v2_height {
+
+        let network_version = self.chain_config.network_version(height);
+        let fil_locked = get_fil_locked(&state_tree, network_version)?;
+        let fil_reserve_disbursed = if height > self.chain_config.epoch(Height::Assembly) {
             get_fil_reserve_disbursed(&state_tree)?
         } else {
             TokenAmount::default()
@@ -152,11 +147,15 @@ impl GenesisInfo {
                         un_circ += actor_balance;
                     }
                     Address::MARKET_ACTOR => {
-                        let ms = market::State::load(&db, actor.code, actor.state)?;
-
-                        let locked_balance: TokenAmount = ms.total_locked().into();
-                        circ += actor_balance - &locked_balance;
-                        un_circ += locked_balance;
+                        let network_version = self.chain_config.network_version(height);
+                        if network_version >= NetworkVersion::V23 {
+                            circ += actor_balance;
+                        } else {
+                            let ms = market::State::load(&db, actor.code, actor.state)?;
+                            let locked_balance: TokenAmount = ms.total_locked().into();
+                            circ += actor_balance - &locked_balance;
+                            un_circ += locked_balance;
+                        }
                     }
                     _ if is_account_actor(&actor.code)
                     || is_paych_actor(&actor.code)
@@ -242,12 +241,12 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
     let post_ignition = &genesis_info.vesting.ignition;
     let calico_vesting = &genesis_info.vesting.calico;
 
-    if height <= genesis_info.ignition_height {
+    if height <= genesis_info.chain_config.epoch(Height::Ignition) {
         for (unlock_duration, initial_balance) in pre_ignition {
             return_value +=
                 initial_balance - v0_amount_locked(*unlock_duration, initial_balance, height);
         }
-    } else if height <= genesis_info.calico_height {
+    } else if height <= genesis_info.chain_config.epoch(Height::Calico) {
         for (start_epoch, unlock_duration, initial_balance) in post_ignition {
             return_value += initial_balance
                 - v0_amount_locked(*unlock_duration, initial_balance, height - start_epoch);
@@ -259,7 +258,7 @@ fn get_fil_vested(genesis_info: &GenesisInfo, height: ChainEpoch) -> TokenAmount
         }
     }
 
-    if height <= genesis_info.actors_v2_height {
+    if height <= genesis_info.chain_config.epoch(Height::Assembly) {
         return_value += &genesis_info.genesis_pledge + &genesis_info.genesis_market_funds;
     }
 
@@ -307,10 +306,15 @@ fn get_fil_reserve_disbursed<DB: Blockstore>(
 
 fn get_fil_locked<DB: Blockstore>(
     state_tree: &StateTree<DB>,
+    network_version: NetworkVersion,
 ) -> Result<TokenAmount, anyhow::Error> {
-    let market_locked = get_fil_market_locked(state_tree)?;
-    let power_locked = get_fil_power_locked(state_tree)?;
-    Ok(power_locked + market_locked)
+    let total = if network_version >= NetworkVersion::V23 {
+        get_fil_power_locked(state_tree)?
+    } else {
+        get_fil_market_locked(state_tree)? + get_fil_power_locked(state_tree)?
+    };
+
+    Ok(total)
 }
 
 fn get_fil_burnt<DB: Blockstore>(state_tree: &StateTree<DB>) -> Result<TokenAmount, anyhow::Error> {
