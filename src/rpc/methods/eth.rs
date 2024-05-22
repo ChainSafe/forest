@@ -1547,6 +1547,22 @@ mod test {
     }
 
     #[test]
+    fn test_hash() {
+        let test_cases = [
+            r#""0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184""#,
+            r#""0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738""#,
+        ];
+
+        for hash in test_cases {
+            let h: Hash = serde_json::from_str(hash).unwrap();
+
+            let c = h.to_cid();
+            let h1: Hash = c.into();
+            assert_eq!(h, h1);
+        }
+    }
+
+    #[test]
     fn test_block_constructor() {
         let block = Block::new(false, 1);
         assert_eq!(block.transactions_root, Hash::empty_root());
