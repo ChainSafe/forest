@@ -236,6 +236,28 @@ impl RpcMethod<0> for NetVersion {
     }
 }
 
+pub enum NetProtectAdd {}
+impl RpcMethod<1> for NetProtectAdd {
+    const NAME: &'static str = "Filecoin.NetVersion";
+    const PARAM_NAMES: [&'static str; 1] = ["acl"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Admin;
+
+    type Params = (String,);
+    type Ok = ();
+
+    // This is a no-op due to the fact that rust `lib-p2p` implementation is very different to that
+    // in go. However it would be nice to investigate connection limiting options in rust.
+    // See: <https://github.com/ChainSafe/forest/issues/4355>.
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (peer_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let _ = PeerId::from_str(&peer_id)?;
+        Ok(())
+    }
+}
+
 // Net API
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
