@@ -15,8 +15,6 @@
 //! The [`RpcMethod`] trait encapsulates all the above at a single site.
 //! - [`schemars::JsonSchema`] provides schema definitions,
 //! - [`RpcMethod`] defining arity and actually dispatching the function calls.
-//!
-//! [`SelfDescribingRpcModule`] actually does the work to create the OpenRPC document.
 
 pub mod jsonrpc_types;
 pub mod openrpc_types;
@@ -29,27 +27,23 @@ use crate::lotus_json::HasLotusJson;
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
-use jsonrpsee::{MethodsError, RpcModule};
+use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};
 use parser::Parser;
-use schemars::{
-    gen::{SchemaGenerator, SchemaSettings},
-    schema::Schema,
-    JsonSchema,
-};
+use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::Serialize;
 use serde::{
-    de::{DeserializeOwned, Error as _, Unexpected},
+    de::{Error as _, Unexpected},
     Deserialize,
 };
 use std::{future::Future, sync::Arc};
-use tokio_util::either::Either;
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
 
-/// A definition of an RPC method handler which can be registered with a
-/// [`SelfDescribingRpcModule`].
+/// A definition of an RPC method handler which:
+/// - can be [registered](RpcMethodExt::register) with an [`RpcModule`].
+/// - can describe itself in OpenRPC.
 ///
 /// Note, an earlier draft of this trait had an additional type parameter for `Ctx`
 /// for generality.
@@ -141,13 +135,13 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             param_structure: calling_convention,
             result: Some(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
-                schema: <Self::Ok as HasLotusJson>::LotusJson::json_schema(gen),
+                schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
                 required: !<Self::Ok as HasLotusJson>::LotusJson::optional(),
             }),
         })
     }
     /// Register this method with an [`RpcModule`].
-    fn register_raw(
+    fn register(
         module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
         calling_convention: ParamStructure,
     ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
@@ -164,38 +158,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             let ok = Self::handle(ctx, params).await?;
             Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
         })
-    }
-    /// Register this method and generate a schema entry for it in a [`SelfDescribingRpcModule`].
-    fn register<'de>(
-        module: &mut SelfDescribingRpcModule<
-            crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>,
-        >,
-    ) where
-        <Self::Ok as HasLotusJson>::LotusJson: Clone + JsonSchema + Deserialize<'de> + 'static,
-    {
-        Self::register_raw(&mut module.inner, module.calling_convention).unwrap();
-        module
-            .methods
-            .push(Self::openrpc(&mut module.schema_generator, module.calling_convention).unwrap());
-    }
-    /// Call this method on an [`RpcModule`].
-    #[allow(unused)] // included for completeness
-    fn call_module(
-        module: &RpcModule<Ctx<impl Blockstore + Send + Sync + 'static>>,
-        params: Self::Params,
-    ) -> impl Future<Output = Result<Self::Ok, MethodsError>> + Send
-    where
-        Self::Ok: DeserializeOwned + Clone + Send,
-    {
-        // stay on current thread so don't require `Self::Params: Send`
-        // hardcode calling convention because lotus is by-position only
-        let params = Self::build_params(params, ConcreteCallingConvention::ByPosition);
-        async {
-            match params2params(params?)? {
-                Either::Left(it) => module.call(Self::NAME, it).await,
-                Either::Right(it) => module.call(Self::NAME, it).await,
-            }
-        }
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
@@ -310,7 +272,7 @@ macro_rules! do_impls {
                 Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
             fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {
-                [$(($arg::LotusJson::json_schema(_gen), $arg::LotusJson::optional())),*]
+                [$((_gen.subschema_for::<$arg::LotusJson>(), $arg::LotusJson::optional())),*]
             }
         }
     };
@@ -328,69 +290,10 @@ do_impls!(4, T0, T1, T2, T3);
 // do_impls!(9, T0, T1, T2, T3, T4, T5, T6, T7, T8);
 // do_impls!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
 
-pub struct SelfDescribingRpcModule<Ctx> {
-    inner: jsonrpsee::server::RpcModule<Ctx>,
-    schema_generator: SchemaGenerator,
-    calling_convention: ParamStructure,
-    methods: Vec<Method>,
-}
-
-impl<Ctx> SelfDescribingRpcModule<Ctx> {
-    pub fn new(ctx: Arc<Ctx>, calling_convention: ParamStructure) -> Self {
-        Self {
-            inner: jsonrpsee::server::RpcModule::from_arc(ctx),
-            schema_generator: SchemaGenerator::new(SchemaSettings::openapi3()),
-            calling_convention,
-            methods: vec![],
-        }
-    }
-    pub fn finish(self) -> (jsonrpsee::server::RpcModule<Ctx>, openrpc_types::OpenRPC) {
-        let Self {
-            inner,
-            mut schema_generator,
-            methods,
-            calling_convention: _,
-        } = self;
-        (
-            inner,
-            openrpc_types::OpenRPC {
-                methods: openrpc_types::Methods::new(methods).unwrap(),
-                components: openrpc_types::Components {
-                    schemas: schema_generator.take_definitions().into_iter().collect(),
-                },
-            },
-        )
-    }
-}
-
 /// [`openrpc_types::ParamStructure`] describes accepted param format.
 /// This is an actual param format, used to decide how to construct arguments.
 pub enum ConcreteCallingConvention {
     ByPosition,
     #[allow(unused)] // included for completeness
     ByName,
-}
-
-fn params2params(
-    ours: RequestParameters,
-) -> Result<
-    Either<jsonrpsee::core::params::ArrayParams, jsonrpsee::core::params::ObjectParams>,
-    serde_json::Error,
-> {
-    match ours {
-        RequestParameters::ByPosition(args) => {
-            let mut builder = jsonrpsee::core::params::ArrayParams::new();
-            for arg in args {
-                builder.insert(arg)?
-            }
-            Ok(Either::Left(builder))
-        }
-        RequestParameters::ByName(args) => {
-            let mut builder = jsonrpsee::core::params::ObjectParams::new();
-            for (name, value) in args {
-                builder.insert(&name, value)?
-            }
-            Ok(Either::Right(builder))
-        }
-    }
 }

@@ -6,13 +6,6 @@ use crate::{beacon::BeaconEntry, shim::clock::ChainEpoch};
 use anyhow::Result;
 use fvm_ipld_blockstore::Blockstore;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::beacon::BeaconGetEntry);
-    };
-}
-pub(crate) use for_each_method;
-
 /// `BeaconGetEntry` returns the beacon entry for the given Filecoin epoch. If
 /// the entry has not yet been produced, the call will block until the entry
 /// becomes available
