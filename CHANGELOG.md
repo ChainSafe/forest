@@ -38,6 +38,9 @@
 
 ### Fixed
 
+- [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
+  `Filecoin.ChainNotify` RPC method.
+
 ## Forest 0.18.0 "Big Bang"
 
 This is a non-mandatory release including a fair number of new RPC methods and
