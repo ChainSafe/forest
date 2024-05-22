@@ -1379,7 +1379,7 @@ mod test {
     impl Arbitrary for Hash {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
             let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
-            Self { 0: H256(arr) }
+            Self(H256(arr))
         }
     }
 
