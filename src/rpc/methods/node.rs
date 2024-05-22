@@ -11,13 +11,6 @@ use fvm_ipld_blockstore::Blockstore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::node::NodeStatus);
-    };
-}
-pub(crate) use for_each_method;
-
 pub enum NodeStatus {}
 impl RpcMethod<0> for NodeStatus {
     const NAME: &'static str = "Filecoin.NodeStatus";

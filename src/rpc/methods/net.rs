@@ -16,21 +16,6 @@ use libp2p::Multiaddr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::net::NetAddrsListen);
-        $callback!(crate::rpc::net::NetPeers);
-        $callback!(crate::rpc::net::NetListening);
-        $callback!(crate::rpc::net::NetInfo);
-        $callback!(crate::rpc::net::NetConnect);
-        $callback!(crate::rpc::net::NetDisconnect);
-        $callback!(crate::rpc::net::NetAgentVersion);
-        $callback!(crate::rpc::net::NetAutoNatStatus);
-        $callback!(crate::rpc::net::NetVersion);
-    };
-}
-pub(crate) use for_each_method;
-
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
