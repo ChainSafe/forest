@@ -442,7 +442,7 @@ pub(super) async fn start(
             tracing::info!("Caching tipset keys for EthAPIs");
             for _ in 0..TIPSET_KEY_LOOKBACK_ENTRIES {
                 state_manager.chain_store().put_tipset_key(curr.key())?;
-                if let Ok(ts) = Tipset::load_required(&state_manager.blockstore(), curr.parents()) {
+                if let Ok(ts) = Tipset::load_required(state_manager.blockstore(), curr.parents()) {
                     curr = ts;
                 } else {
                     break;
