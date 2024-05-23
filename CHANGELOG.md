@@ -31,11 +31,15 @@
 
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
+
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
 
 - [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
   `Filecoin.EthGetBlockByHash` RPC method.
+
+- [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
+  `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
 
 ### Changed
 
