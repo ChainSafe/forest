@@ -108,6 +108,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::net::NetAgentVersion);
         $callback!(crate::rpc::net::NetAutoNatStatus);
         $callback!(crate::rpc::net::NetVersion);
+        $callback!(crate::rpc::net::NetProtectAdd);
 
         // node vertical
         $callback!(crate::rpc::node::NodeStatus);
