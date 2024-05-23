@@ -197,7 +197,8 @@ impl fmt::Display for Hash {
 
 lotus_json_with_self!(Hash);
 
-#[derive(Debug, Default, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub enum Predefined {
     Earliest,
     Pending,
@@ -205,80 +206,58 @@ pub enum Predefined {
     Latest,
 }
 
-impl fmt::Display for Predefined {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            Predefined::Earliest => "earliest",
-            Predefined::Pending => "pending",
-            Predefined::Latest => "latest",
-        };
-        write!(f, "{}", s)
-    }
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockNumber {
+    block_number: i64,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum BlockNumberOrHash {
-    PredefinedBlock(Predefined),
-    BlockNumber(i64),
-    BlockHash(Hash, bool),
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockHash {
+    block_hash: Hash,
+    require_canonical: bool,
 }
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BlockNumberOrHash {
+    #[schemars(with = "String")]
+    Predefined(Predefined),
+    StringNumber(Int64),
+    StringHash(Hash),
+    Number(BlockNumber),
+    Hash(BlockHash),
+}
+
+lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {
     pub fn from_predefined(predefined: Predefined) -> Self {
-        Self::PredefinedBlock(predefined)
+        Self::Predefined(predefined)
     }
 
     pub fn from_block_number(number: i64) -> Self {
-        Self::BlockNumber(number)
+        Self::Number(BlockNumber {
+            block_number: number,
+        })
     }
 
     pub fn from_block_hash(hash: Hash) -> Self {
-        Self::BlockHash(hash, false)
-    }
-}
-
-// TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
-//                 implement EIP-1898
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this shouldn't exist
-impl HasLotusJson for BlockNumberOrHash {
-    type LotusJson = String;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        Self::Hash(BlockHash {
+            block_hash: hash,
+            require_canonical: false,
+        })
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        match self {
-            Self::PredefinedBlock(predefined) => predefined.to_string(),
-            Self::BlockNumber(number) => format!("{:#x}", number),
-            Self::BlockHash(hash, _require_canonical) => format!("{:#x}", hash.0),
-        }
+    // TODO: rename
+    pub fn from_block_number_string(number: i64) -> Self {
+        Self::StringNumber(Int64(number))
     }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        match lotus_json.as_str() {
-            "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
-            "pending" => return Self::PredefinedBlock(Predefined::Pending),
-            "latest" => return Self::PredefinedBlock(Predefined::Latest),
-            _ => (),
-        };
-
-        if let Ok(hash) = Hash::from_str(&lotus_json) {
-            return Self::BlockHash(hash, false);
-        }
-
-        #[allow(clippy::indexing_slicing)]
-        if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
-            if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
-                return Self::BlockNumber(number);
-            }
-        }
-
-        // Return some default value if we can't convert
-        Self::PredefinedBlock(Predefined::Latest)
+    // TODO: rename
+    pub fn from_block_hash_string(hash: Hash) -> Self {
+        Self::StringHash(hash)
     }
 }
 
@@ -709,8 +688,20 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
 
+    // Translate to Object scheme if needed
+    let block_param = match block_param {
+        BlockNumberOrHash::StringNumber(n) => {
+            BlockNumberOrHash::Number(BlockNumber { block_number: n.0 })
+        }
+        BlockNumberOrHash::StringHash(block_hash) => BlockNumberOrHash::Hash(BlockHash {
+            block_hash,
+            require_canonical: false,
+        }),
+        _ => block_param,
+    };
+
     match block_param {
-        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
+        BlockNumberOrHash::Predefined(predefined) => match predefined {
             Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
             Predefined::Pending => Ok(head),
             Predefined::Latest => {
@@ -718,8 +709,8 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 Ok(parent)
             }
         },
-        BlockNumberOrHash::BlockNumber(number) => {
-            let height = ChainEpoch::from(number);
+        BlockNumberOrHash::Number(BlockNumber { block_number }) => {
+            let height = ChainEpoch::from(block_number);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
             }
@@ -729,8 +720,11 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                     .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
             Ok(ts)
         }
-        BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let cid = hash.to_cid();
+        BlockNumberOrHash::Hash(BlockHash {
+            block_hash,
+            require_canonical,
+        }) => {
+            let cid = block_hash.to_cid();
             let bytes = chain
                 .blockstore()
                 .get(&cid)?
@@ -752,6 +746,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             }
             Ok(ts)
         }
+        _ => bail!("unreachable"),
     }
 }
 
