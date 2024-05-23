@@ -238,7 +238,8 @@ impl BlockNumberOrHash {
     }
 }
 
-// TODO(elmattic): implement EIP-1898. https://github.com/ChainSafe/forest/issues/4359
+// TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
+//                 implement EIP-1898
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
 //                  this shouldn't exist
 impl HasLotusJson for BlockNumberOrHash {
