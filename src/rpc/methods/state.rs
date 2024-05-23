@@ -11,6 +11,7 @@ pub use types::*;
 
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
+use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -660,6 +661,10 @@ impl RpcMethod<2> for StateMinerAvailableBalance {
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
         let actor_balance: TokenAmount = actor.balance.clone().into();
         let (vested, available): (TokenAmount, TokenAmount) = match &state {
+            miner::State::V14(s) => (
+                s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
+                s.get_available_balance(&actor_balance.into())?.into(),
+            ),
             miner::State::V13(s) => (
                 s.check_vested_funds(ctx.store(), ts.epoch())?.into(),
                 s.get_available_balance(&actor_balance.into())?.into(),
@@ -1659,60 +1664,86 @@ impl StateSectorPreCommitInfo {
                     _,
                     fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    sectors.push(v.info.sector_number);
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V9(s) => {
                 let precommitted = fil_actors_shared::v9::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    sectors.push(v.info.sector_number);
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V10(s) => {
                 let precommitted = fil_actors_shared::v10::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v10::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    sectors.push(v.info.sector_number);
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V11(s) => {
                 let precommitted = fil_actors_shared::v11::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v11::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    sectors.push(v.info.sector_number);
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V12(s) => {
                 let precommitted = fil_actors_shared::v12::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v12::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    sectors.push(v.info.sector_number);
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V13(s) => {
                 let precommitted = fil_actors_shared::v13::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v13::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    sectors.push(v.info.sector_number);
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V14(s) => {
+                let precommitted = fil_actor_miner_state::v14::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v14::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        sectors.push(v.info.sector_number);
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
         }?;
 
@@ -1734,60 +1765,86 @@ impl StateSectorPreCommitInfo {
                     _,
                     fil_actor_miner_state::v8::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    infos.push(v.info.clone().into());
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V9(s) => {
                 let precommitted = fil_actors_shared::v9::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v9::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    infos.push(v.info.clone().into());
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V10(s) => {
                 let precommitted = fil_actors_shared::v10::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v10::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    infos.push(v.info.clone().into());
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V11(s) => {
                 let precommitted = fil_actors_shared::v11::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v11::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    infos.push(v.info.clone().into());
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V12(s) => {
                 let precommitted = fil_actors_shared::v12::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v12::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    infos.push(v.info.clone().into());
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
             miner::State::V13(s) => {
                 let precommitted = fil_actors_shared::v13::make_map_with_root::<
                     _,
                     fil_actor_miner_state::v13::SectorPreCommitOnChainInfo,
                 >(&s.pre_committed_sectors, store)?;
-                precommitted.for_each(|_k, v| {
-                    infos.push(v.info.clone().into());
-                    Ok(())
-                })
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
+            }
+            miner::State::V14(s) => {
+                let precommitted = fil_actor_miner_state::v14::PreCommitMap::load(
+                    store,
+                    &s.pre_committed_sectors,
+                    fil_actor_miner_state::v14::PRECOMMIT_CONFIG,
+                    "precommits",
+                )?;
+                precommitted
+                    .for_each(|_k, v| {
+                        infos.push(v.info.clone().into());
+                        Ok(())
+                    })
+                    .context("failed to iterate over precommitted sectors")
             }
         }?;
 
@@ -2202,6 +2259,18 @@ impl StateGetAllocations {
                         Ok(())
                     })?;
                 }
+                init::State::V14(s) => {
+                    let map = fil_actor_init_state::v14::AddressMap::load(
+                        store,
+                        &s.address_map,
+                        fil_actors_shared::v14::DEFAULT_HAMT_CONFIG,
+                        "address_map",
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
             };
         }
 
@@ -2296,7 +2365,7 @@ pub struct NetworkParams {
     pre_commit_challenge_delay: ChainEpoch,
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]
-    eip155_chain_id: u32,
+    eip155_chain_id: EthChainId,
 }
 
 lotus_json_with_self!(NetworkParams);
@@ -2332,7 +2401,7 @@ pub struct ForkUpgradeParams {
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
     // To be added in the next Lotus release
-    // upgrade_aussie_height: ChainEpoch,
+    // upgrade_waffle_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2376,7 +2445,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_watermelon_height: get_height(Watermelon)?,
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
-            // upgrade_aussie_height: get_height(Aussie)?,
+            // upgrade_waffle_height: get_height(Waffle)?,
         })
     }
 }
