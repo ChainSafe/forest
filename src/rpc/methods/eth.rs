@@ -1223,6 +1223,31 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
+pub enum EthGetBlockTransactionCountByHash {}
+impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
+    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
+    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = get_tipset_from_hash(ctx.store(), &block_hash)?;
+
+        let head = ctx.chain_store.heaviest_tipset();
+        if ts.epoch() > head.epoch() {
+            return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
+        }
+        let count = count_messages_in_tipset(ctx.store(), &ts)?;
+        Ok(Uint64(count as _))
+    }
+}
+
 pub enum EthGetBlockTransactionCountByNumber {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
@@ -1264,6 +1289,15 @@ fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Res
         }
     }
     Ok(message_cids.len())
+}
+
+fn get_tipset_from_hash(store: &impl Blockstore, block_hash: &Hash) -> anyhow::Result<Tipset> {
+    let cid = block_hash.to_cid();
+    let bytes = store
+        .get(&cid)?
+        .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
+    let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
+    Tipset::load_required(store, &tsk)
 }
 
 pub enum EthSyncing {}
