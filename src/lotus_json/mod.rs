@@ -214,6 +214,8 @@ decl_and_test!(
     vrf_proof for crate::blocks::VRFProof,
 );
 
+// If a module cannot be tested normally above, you MAY declare it separately here
+// but you MUST document any tech debt - the reason WHY it cannot be tested above.
 mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod cid; // can't make snapshots of generic type
