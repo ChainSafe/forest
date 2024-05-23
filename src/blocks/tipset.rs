@@ -112,6 +112,7 @@ impl IntoIterator for TipsetKey {
 pub struct Tipset {
     /// Sorted
     headers: NonEmpty<CachingBlockHeader>,
+    // key is lazily initialized via `fn key()`.
     key: OnceCell<TipsetKey>,
 }
 
@@ -405,10 +406,11 @@ impl Tipset {
 }
 
 /// `FullTipset` is an expanded version of a tipset that contains all the blocks
-/// and messages
+/// and messages.
 #[derive(Debug, Clone)]
 pub struct FullTipset {
     blocks: NonEmpty<Block>,
+    // key is lazily initialized via `fn key()`.
     key: OnceCell<TipsetKey>,
 }
 

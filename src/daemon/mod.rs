@@ -25,7 +25,7 @@ use crate::key_management::{
 };
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
-use crate::networks::{ChainConfig, NetworkChain};
+use crate::networks::{self, ChainConfig, NetworkChain};
 use crate::rpc::start_rpc;
 use crate::rpc::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -182,7 +182,7 @@ pub(super) async fn start(
     let forest_car_db_dir = db_root_dir.join("car_db");
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
-    if config.client.load_actors {
+    if config.client.load_actors && !opts.stateless {
         load_actor_bundles(&db, &config.chain).await?;
     }
 
@@ -195,6 +195,16 @@ pub(super) async fn start(
             Ok(())
         });
     }
+
+    // Read Genesis file
+    // * When snapshot command implemented, this genesis does not need to be
+    //   initialized
+    let genesis_header = read_genesis_header(
+        config.client.genesis_file.as_ref(),
+        chain_config.genesis_bytes(&db).await?.as_deref(),
+        &db,
+    )
+    .await?;
 
     if config.client.enable_metrics_endpoint {
         // Start Prometheus server port
@@ -212,17 +222,14 @@ pub(super) async fn start(
                 .await
                 .context("Failed to initiate prometheus server")
         });
-    }
 
-    // Read Genesis file
-    // * When snapshot command implemented, this genesis does not need to be
-    //   initialized
-    let genesis_header = read_genesis_header(
-        config.client.genesis_file.as_ref(),
-        chain_config.genesis_bytes(&db).await?.as_deref(),
-        &db,
-    )
-    .await?;
+        crate::metrics::default_registry().register_collector(Box::new(
+            networks::metrics::NetworkHeightCollector::new(
+                chain_config.block_delay_secs,
+                genesis_header.timestamp,
+            ),
+        ));
+    }
 
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
@@ -456,7 +463,9 @@ pub(super) async fn start(
         return Ok(());
     }
 
-    ensure_params_downloaded().await?;
+    if !opts.stateless {
+        ensure_params_downloaded().await?;
+    }
     services.spawn(p2p_service.run());
 
     // blocking until any of the services returns an error,

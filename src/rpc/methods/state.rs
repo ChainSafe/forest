@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use fvm_shared3::sector::RegisteredSealProof;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 pub use types::*;
 
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
+use crate::lotus_json::lotus_json_with_self;
+use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::actors::{market::BalanceTableExt as _, miner::MinerStateExt as _};
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
@@ -31,16 +36,19 @@ use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
+use fil_actor_interface::verifreg::Claim;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
-    multisig, power, reward,
+    power, reward, verifreg,
 };
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, DAG_CBOR};
+pub use fvm_shared3::sector::StoragePower;
 use jsonrpsee::types::error::ErrorObject;
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
@@ -51,55 +59,6 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
-
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::state::StateCall);
-        $callback!(crate::rpc::state::StateGetBeaconEntry);
-        $callback!(crate::rpc::state::StateListMessages);
-        $callback!(crate::rpc::state::StateNetworkName);
-        $callback!(crate::rpc::state::StateReplay);
-        $callback!(crate::rpc::state::StateSectorGetInfo);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
-        $callback!(crate::rpc::state::StateAccountKey);
-        $callback!(crate::rpc::state::StateLookupID);
-        $callback!(crate::rpc::state::StateGetActor);
-        $callback!(crate::rpc::state::StateMinerInfo);
-        $callback!(crate::rpc::state::StateMinerActiveSectors);
-        $callback!(crate::rpc::state::StateMinerPartitions);
-        $callback!(crate::rpc::state::StateMinerSectors);
-        $callback!(crate::rpc::state::StateMinerSectorCount);
-        $callback!(crate::rpc::state::StateMinerPower);
-        $callback!(crate::rpc::state::StateMinerDeadlines);
-        $callback!(crate::rpc::state::StateMinerProvingDeadline);
-        $callback!(crate::rpc::state::StateMinerFaults);
-        $callback!(crate::rpc::state::StateMinerRecoveries);
-        $callback!(crate::rpc::state::StateMinerAvailableBalance);
-        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
-        $callback!(crate::rpc::state::StateGetReceipt);
-        $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
-        $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
-        $callback!(crate::rpc::state::StateReadState);
-        $callback!(crate::rpc::state::StateCirculatingSupply);
-        $callback!(crate::rpc::state::MsigGetAvailableBalance);
-        $callback!(crate::rpc::state::MsigGetPending);
-        $callback!(crate::rpc::state::StateVerifiedClientStatus);
-        $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
-        $callback!(crate::rpc::state::StateListMiners);
-        $callback!(crate::rpc::state::StateNetworkVersion);
-        $callback!(crate::rpc::state::StateMarketBalance);
-        $callback!(crate::rpc::state::StateMarketParticipants);
-        $callback!(crate::rpc::state::StateMarketDeals);
-        $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
-        $callback!(crate::rpc::state::StateMarketStorageDeal);
-        $callback!(crate::rpc::state::StateWaitMsg);
-        $callback!(crate::rpc::state::StateSearchMsg);
-        $callback!(crate::rpc::state::StateSearchMsgLimited);
-        $callback!(crate::rpc::state::StateFetchRoot);
-        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
-    };
-}
-pub(crate) use for_each_method;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
@@ -243,6 +202,36 @@ impl RpcMethod<2> for StateLookupID {
         Ok(ctx
             .state_manager
             .lookup_required_id(&address, ts.as_ref())?)
+    }
+}
+
+// StateVerifiedClientStatus returns the data cap for the given address.
+// Returns zero if there is no entry in the data cap table for the address.
+pub enum StateVerifierStatus {}
+
+impl RpcMethod<2> for StateVerifierStatus {
+    const NAME: &'static str = "Filecoin.StateVerifierStatus";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = Option<StoragePower>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let aid = ctx
+            .state_manager
+            .lookup_required_id(&address, ts.as_ref())?;
+
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())?;
+        let verifreg_state = verifreg::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(verifreg_state.verifier_data_cap(ctx.store(), aid.into())?)
     }
 }
 
@@ -722,7 +711,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             .state_manager
             .get_required_actor(&Address::REWARD_ACTOR, state)?;
         let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
             &Arc::new(ctx.store()),
@@ -1237,77 +1226,13 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         let height = ts.epoch();
         let root = ts.parent_state();
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         let supply = genesis_info.get_state_circulating_supply(
             height,
             &ctx.state_manager.blockstore_owned(),
             root,
         )?;
         Ok(supply)
-    }
-}
-
-pub enum MsigGetAvailableBalance {}
-
-impl RpcMethod<2> for MsigGetAvailableBalance {
-    const NAME: &'static str = "Filecoin.MsigGetAvailableBalance";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (Address, ApiTipsetKey);
-    type Ok = TokenAmount;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore>,
-        (address, ApiTipsetKey(tsk)): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let height = ts.epoch();
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let actor_balance = TokenAmount::from(&actor.balance);
-        let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
-        let locked_balance = ms.locked_balance(height)?.into();
-        let avail_balance = &actor_balance - locked_balance;
-        Ok(avail_balance)
-    }
-}
-
-pub enum MsigGetPending {}
-
-impl RpcMethod<2> for MsigGetPending {
-    const NAME: &'static str = "Filecoin.MsigGetPending";
-    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
-    const PERMISSION: Permission = Permission::Read;
-
-    type Params = (Address, ApiTipsetKey);
-    type Ok = Vec<Transaction>;
-
-    async fn handle(
-        ctx: Ctx<impl Blockstore>,
-        (address, ApiTipsetKey(tsk)): Self::Params,
-    ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let actor = ctx
-            .state_manager
-            .get_required_actor(&address, *ts.parent_state())?;
-        let ms = multisig::State::load(ctx.store(), actor.code, actor.state)?;
-        let txns = ms
-            .get_pending_txn(ctx.store())?
-            .iter()
-            .map(|txn| Transaction {
-                id: txn.id,
-                to: txn.to.into(),
-                value: txn.value.clone().into(),
-                method: txn.method,
-                params: txn.params.clone(),
-                approved: txn.approved.iter().map(|item| item.into()).collect(),
-            })
-            .collect();
-        Ok(txns)
     }
 }
 
@@ -1348,7 +1273,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         Ok(genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
             &ctx.state_manager.blockstore_owned(),
@@ -1489,7 +1414,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
         let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
 
-        let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config().clone());
 
         let supply = genesis_info.get_vm_circulating_supply(
             ts.epoch(),
@@ -1867,5 +1792,181 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         Ok(out)
+    }
+}
+
+pub enum StateGetClaim {}
+
+impl RpcMethod<3> for StateGetClaim {
+    const NAME: &'static str = "Filecoin.StateGetClaim";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "claim_id", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ClaimID, ApiTipsetKey);
+    type Ok = Option<Claim>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, claim_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_claim(&address, &ts, claim_id)?)
+    }
+}
+
+pub enum StateGetNetworkParams {}
+
+impl RpcMethod<0> for StateGetNetworkParams {
+    const NAME: &'static str = "Filecoin.StateGetNetworkParams";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = NetworkParams;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let config = ctx.state_manager.chain_config();
+        let policy = &config.policy;
+
+        // This is the correct implementation, but for conformance with Lotus,
+        // until resolved there, we have to use a workaround. Replace this
+        // once a version of Lotus is released with the correct implementation.
+        // The change is already in the Lotus master branch.
+        //let supported_proof_types = policy
+        //    .valid_pre_commit_proof_type
+        //    .iter()
+        //    .map(|p| i64::from(*p))
+        //    .sorted()
+        //    .map(|p| p.into())
+        //    .collect();
+
+        use crate::shim::sector::RegisteredSealProofV3::*;
+        let supported_proof_types = match config.network {
+            NetworkChain::Mainnet | NetworkChain::Calibnet => {
+                vec![StackedDRG32GiBV1, StackedDRG64GiBV1]
+            }
+            NetworkChain::Butterflynet => {
+                vec![StackedDRG512MiBV1, StackedDRG32GiBV1, StackedDRG64GiBV1]
+            }
+            NetworkChain::Devnet(_) => {
+                vec![StackedDRG2KiBV1, StackedDRG8MiBV1]
+            }
+        };
+
+        let params = NetworkParams {
+            network_name: ctx.network_name.clone(),
+            block_delay_secs: config.block_delay_secs as u64,
+            consensus_miner_min_power: policy.minimum_consensus_power.clone(),
+            supported_proof_types,
+            pre_commit_challenge_delay: policy.pre_commit_challenge_delay,
+            fork_upgrade_params: ForkUpgradeParams::try_from(config)
+                .context("Failed to get fork upgrade params")?,
+            eip155_chain_id: config.eth_chain_id,
+        };
+
+        Ok(params)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct NetworkParams {
+    network_name: String,
+    block_delay_secs: u64,
+    #[schemars(with = "crate::lotus_json::LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    consensus_miner_min_power: BigInt,
+    #[schemars(with = "crate::lotus_json::LotusJson<i64>")]
+    supported_proof_types: Vec<RegisteredSealProof>,
+    pre_commit_challenge_delay: ChainEpoch,
+    fork_upgrade_params: ForkUpgradeParams,
+    #[serde(rename = "Eip155ChainID")]
+    eip155_chain_id: u32,
+}
+
+lotus_json_with_self!(NetworkParams);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ForkUpgradeParams {
+    upgrade_smoke_height: ChainEpoch,
+    upgrade_breeze_height: ChainEpoch,
+    upgrade_ignition_height: ChainEpoch,
+    upgrade_liftoff_height: ChainEpoch,
+    upgrade_assembly_height: ChainEpoch,
+    upgrade_refuel_height: ChainEpoch,
+    upgrade_tape_height: ChainEpoch,
+    upgrade_kumquat_height: ChainEpoch,
+    breeze_gas_tamping_duration: ChainEpoch,
+    upgrade_calico_height: ChainEpoch,
+    upgrade_persian_height: ChainEpoch,
+    upgrade_orange_height: ChainEpoch,
+    upgrade_claus_height: ChainEpoch,
+    upgrade_trust_height: ChainEpoch,
+    upgrade_norwegian_height: ChainEpoch,
+    upgrade_turbo_height: ChainEpoch,
+    upgrade_hyperdrive_height: ChainEpoch,
+    upgrade_chocolate_height: ChainEpoch,
+    upgrade_oh_snap_height: ChainEpoch,
+    upgrade_skyr_height: ChainEpoch,
+    upgrade_shark_height: ChainEpoch,
+    upgrade_hygge_height: ChainEpoch,
+    upgrade_lightning_height: ChainEpoch,
+    upgrade_thunder_height: ChainEpoch,
+    upgrade_watermelon_height: ChainEpoch,
+    upgrade_dragon_height: ChainEpoch,
+    upgrade_phoenix_height: ChainEpoch,
+    // To be added in the next Lotus release
+    // upgrade_aussie_height: ChainEpoch,
+}
+
+impl TryFrom<&Arc<ChainConfig>> for ForkUpgradeParams {
+    type Error = anyhow::Error;
+    fn try_from(config: &Arc<ChainConfig>) -> anyhow::Result<Self> {
+        let height_infos = &config.height_infos;
+        let get_height = |height| -> anyhow::Result<ChainEpoch> {
+            let height = height_infos
+                .get(&height)
+                .context(format!("Height info for {height} not found"))?
+                .epoch;
+            Ok(height)
+        };
+
+        use crate::networks::Height::*;
+        Ok(ForkUpgradeParams {
+            upgrade_smoke_height: get_height(Smoke)?,
+            upgrade_breeze_height: get_height(Breeze)?,
+            upgrade_ignition_height: get_height(Ignition)?,
+            upgrade_liftoff_height: get_height(Liftoff)?,
+            upgrade_assembly_height: get_height(Assembly)?,
+            upgrade_refuel_height: get_height(Refuel)?,
+            upgrade_tape_height: get_height(Tape)?,
+            upgrade_kumquat_height: get_height(Kumquat)?,
+            breeze_gas_tamping_duration: config.breeze_gas_tamping_duration,
+            upgrade_calico_height: get_height(Calico)?,
+            upgrade_persian_height: get_height(Persian)?,
+            upgrade_orange_height: get_height(Orange)?,
+            upgrade_claus_height: get_height(Claus)?,
+            upgrade_trust_height: get_height(Trust)?,
+            upgrade_norwegian_height: get_height(Norwegian)?,
+            upgrade_turbo_height: get_height(Turbo)?,
+            upgrade_hyperdrive_height: get_height(Hyperdrive)?,
+            upgrade_chocolate_height: get_height(Chocolate)?,
+            upgrade_oh_snap_height: get_height(OhSnap)?,
+            upgrade_skyr_height: get_height(Skyr)?,
+            upgrade_shark_height: get_height(Shark)?,
+            upgrade_hygge_height: get_height(Hygge)?,
+            upgrade_lightning_height: get_height(Lightning)?,
+            upgrade_thunder_height: get_height(Thunder)?,
+            upgrade_watermelon_height: get_height(Watermelon)?,
+            upgrade_dragon_height: get_height(Dragon)?,
+            upgrade_phoenix_height: get_height(Phoenix)?,
+            // upgrade_aussie_height: get_height(Aussie)?,
+        })
     }
 }

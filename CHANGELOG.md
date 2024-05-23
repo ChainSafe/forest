@@ -27,6 +27,30 @@
 
 ### Breaking
 
+### Added
+
+- [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
+  `Filecoin.StateGetClaim` RPC method.
+- [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
+  `Filecoin.NetProtectAdd` RPC method.
+
+### Changed
+
+### Removed
+
+- [#4358](https://github.com/ChainSafe/forest/pull/4358) Remove the
+  `forest-cli attach` command.
+
+### Fixed
+
+## Forest 0.18.0 "Big Bang"
+
+This is a non-mandatory release including a fair number of new RPC methods and
+improvements to the Forest RPC API. The release also includes a number of bug
+fixes, as outlined below. Please note the breaking changes in this release.
+
+### Breaking
+
 - [#4177](https://github.com/ChainSafe/forest/pull/4177) Rename environment
   variable `TRUST_PARAMS` to `FOREST_FORCE_TRUST_PARAMS`.
 
@@ -80,6 +104,12 @@
 - [#4255](https://github.com/ChainSafe/forest/pull/4255) Add support for the
   `Filecoin.MinerCreateBlock` RPC method.
 
+- [#4315](https://github.com/ChainSafe/forest/pull/4315) Add support for the
+  `Filecoin.StateGetNetworkParams` RPC method.
+
+- [#4326](https://github.com/ChainSafe/forest/pull/4326) Added
+  `expected_network_height` metric to the Prometheus metrics.
+
 ### Changed
 
 - [#4170](https://github.com/ChainSafe/forest/pull/4170) Change the default
@@ -98,6 +128,12 @@
 
 - [#4297](https://github.com/ChainSafe/forest/pull/4297) Fixed double decoding
   of message in the `Filecoin.WalletSign` RPC method.
+
+- [#4314](https://github.com/ChainSafe/forest/issues/4314) Fixed incorrect
+  allowed proof types for all networks.
+
+- [#4328](https://github.com/ChainSafe/forest/pull/4328) Fix issues when
+  connecting to a network with fewer than 5 peers.
 
 ## Forest 0.17.2 "Dovakhin"
 

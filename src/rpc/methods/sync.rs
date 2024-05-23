@@ -5,7 +5,7 @@ use crate::blocks::{Block, FullTipset, GossipBlock, Tipset};
 use crate::libp2p::{IdentTopic, NetworkMessage, PUBSUB_BLOCK_STR};
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod, ServerError};
-use anyhow::Context as _;
+use anyhow::{anyhow, Context as _};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -14,19 +14,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-// Make sure to add any new methods here.
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::sync::SyncCheckBad);
-        $callback!(crate::rpc::sync::SyncMarkBad);
-        $callback!(crate::rpc::sync::SyncState);
-        $callback!(crate::rpc::sync::SyncSubmitBlock);
-    };
-}
-
 use crate::chain;
-use crate::chain_sync::TipsetValidator;
-pub(crate) use for_each_method;
+use crate::chain_sync::{SyncStage, TipsetValidator};
 
 pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {
@@ -98,6 +87,9 @@ impl RpcMethod<1> for SyncSubmitBlock {
         ctx: Ctx<impl Blockstore>,
         (block_msg,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        if !matches!(ctx.sync_state.read().stage(), SyncStage::Complete) {
+            Err(anyhow!("the node isn't in 'follow' mode"))?
+        }
         let encoded_message = to_vec(&block_msg)?;
         let pubsub_block_str = format!("{}/{}", PUBSUB_BLOCK_STR, ctx.network_name);
         let (bls_messages, secp_messages) =
@@ -115,11 +107,13 @@ impl RpcMethod<1> for SyncSubmitBlock {
                 ctx.chain_store.clone(),
                 ctx.bad_blocks.clone(),
                 genesis_ts,
-                ctx.state_manager.chain_config().block_delay_secs as u64,
+                ctx.state_manager.chain_config().block_delay_secs,
             )
             .context("failed to validate the tipset")?;
 
-        ctx.tipset_send.send(Arc::new(ts.into_tipset()))?;
+        ctx.tipset_send
+            .try_send(Arc::new(ts.into_tipset()))
+            .context("tipset queue is full")?;
 
         ctx.network_send.send(NetworkMessage::PubsubMessage {
             topic: IdentTopic::new(pubsub_block_str),

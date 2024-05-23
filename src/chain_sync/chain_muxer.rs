@@ -8,7 +8,6 @@ use std::{
     time::SystemTime,
 };
 
-use crate::blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey};
 use crate::chain::{ChainStore, Error as ChainStoreError};
 use crate::libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
@@ -17,6 +16,10 @@ use crate::message::SignedMessage;
 use crate::message_pool::{MessagePool, Provider};
 use crate::shim::{clock::SECONDS_IN_DAY, message::Message};
 use crate::state_manager::StateManager;
+use crate::{
+    blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey},
+    networks::calculate_expected_epoch,
+};
 use cid::Cid;
 use futures::{
     future::{try_join_all, Future},
@@ -44,7 +47,7 @@ use crate::chain_sync::{
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
 const DEFAULT_REQUEST_WINDOW: usize = 8;
-const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 5;
+const DEFAULT_TIPSET_SAMPLE_SIZE: usize = 1;
 const DEFAULT_RECENT_STATE_ROOTS: i64 = 2000;
 
 pub(in crate::chain_sync) type WorkerState = Arc<RwLock<SyncState>>;
@@ -362,7 +365,7 @@ where
         mem_pool: Arc<MessagePool<M>>,
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
-        block_delay: u64,
+        block_delay: u32,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound { source, request } => {
@@ -527,7 +530,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
 
         let future = async move {
             loop {
@@ -567,11 +570,11 @@ where
         let chain_store = self.state_manager.chain_store().clone();
         let network = self.network.clone();
         let genesis = self.genesis.clone();
-        let genesis_timestamp = self.genesis.block_headers().first().timestamp as i64;
+        let genesis_timestamp = self.genesis.block_headers().first().timestamp;
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
 
         let evaluator = async move {
             // If `local_epoch >= now_epoch`, return `NetworkHeadEvaluation::InSync`
@@ -579,11 +582,11 @@ where
             // Otherwise in some conditions, `forest-cli sync wait` takes very long to exit (only when the node enters FOLLOW mode)
             match (
                 chain_store.heaviest_tipset().epoch(),
-                get_now_epoch(
-                    chrono::Utc::now().timestamp(),
+                calculate_expected_epoch(
+                    chrono::Utc::now().timestamp() as u64,
                     genesis_timestamp,
-                    block_delay as i64,
-                ),
+                    block_delay,
+                ) as i64,
             ) {
                 (local_epoch, now_epoch) if local_epoch >= now_epoch => {
                     return Ok(NetworkHeadEvaluation::InSync)
@@ -623,11 +626,11 @@ where
                     }
                 };
 
-                let now_epoch = get_now_epoch(
-                    chrono::Utc::now().timestamp(),
+                let now_epoch = calculate_expected_epoch(
+                    chrono::Utc::now().timestamp() as u64,
                     genesis_timestamp,
-                    block_delay as i64,
-                );
+                    block_delay,
+                ) as i64;
                 let is_block_valid = |block: &Block| -> bool {
                     let header = &block.header;
                     if !header.is_within_clock_drift() {
@@ -729,7 +732,7 @@ where
         let genesis = self.genesis.clone();
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv_async().await {
@@ -820,7 +823,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
-        let block_delay = self.state_manager.chain_config().block_delay_secs as u64;
+        let block_delay = self.state_manager.chain_config().block_delay_secs;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -1022,14 +1025,4 @@ where
             }
         }
     }
-}
-
-// The formula matches lotus
-// ```go
-// sinceGenesis := build.Clock.Now().Sub(genesisTime)
-// expectedHeight := int64(sinceGenesis.Seconds()) / int64(build.BlockDelaySecs)
-// ```
-// See <https://github.com/filecoin-project/lotus/blob/b27c861485695d3f5bb92bcb281abc95f4d90fb6/chain/sync.go#L180>
-fn get_now_epoch(now_timestamp: i64, genesis_timestamp: i64, block_delay: i64) -> i64 {
-    now_timestamp.saturating_sub(genesis_timestamp) / block_delay
 }

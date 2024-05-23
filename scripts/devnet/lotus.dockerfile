@@ -1,14 +1,22 @@
 # Lotus binaries image, to be used in the local devnet with Forest.
 FROM golang:1.21-bullseye AS lotus-builder
 
-RUN apt-get update && apt-get install -y ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
+RUN apt-get update && apt-get install -y curl ca-certificates build-essential clang ocl-icd-opencl-dev ocl-icd-libopencl1 jq libhwloc-dev 
 
 WORKDIR /lotus
 
+# Install rust toolchain for rebuilding `filecoin-ffi`
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path --profile minimal
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 RUN git clone --depth 1 --branch v1.26.1 https://github.com/filecoin-project/lotus.git .
 
+# https://github.com/Filecoin-project/filecoin-ffi?tab=readme-ov-file#building-from-source
 RUN CGO_CFLAGS_ALLOW="-D__BLST_PORTABLE__" \
     CGO_CFLAGS="-D__BLST_PORTABLE__" \
+    FFI_USE_BLST_PORTABLE="1" \
+    FFI_USE_GPU="0" \
     make 2k && strip lotus*
 
 FROM ubuntu:22.04

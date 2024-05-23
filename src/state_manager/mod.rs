@@ -48,12 +48,14 @@ use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
+use fil_actor_interface::verifreg::Claim;
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fil_actors_shared::v10::runtime::Policy;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
+use fil_actors_shared::v13::runtime::Policy;
 use futures::{channel::oneshot, select, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::to_vec;
@@ -423,7 +425,7 @@ where
         // TODO(elmattic): https://github.com/ChainSafe/forest/issues/3733
 
         let height = tipset.epoch();
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         let mut vm = VM::new(
             ExecutionContext {
                 heaviest_tipset: Arc::clone(tipset),
@@ -509,7 +511,7 @@ where
         // Since we're simulating a future message, pretend we're applying it in the
         // "next" tipset
         let epoch = ts.epoch() + 1;
-        let genesis_info = GenesisInfo::from_chain_config(self.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(self.chain_config().clone());
         // FVM requires a stack size of 64MiB. The alternative is to use `ThreadedExecutor` from
         // FVM, but that introduces some constraints, and possible deadlocks.
         let (ret, _) = stacker::grow(64 << 20, || -> ApplyResult {
@@ -1309,6 +1311,27 @@ where
         )
     }
 
+    fn get_verified_registry_actor_state(
+        self: &Arc<Self>,
+        ts: &Arc<Tipset>,
+    ) -> anyhow::Result<verifreg::State> {
+        let act = self
+            .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
+            .map_err(|e| Error::State(e.to_string()))?
+            .ok_or_else(|| Error::State("actor not found".to_string()))?;
+        verifreg::State::load(self.blockstore(), act.code, act.state)
+    }
+    pub fn get_claim(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+        claim_id: ClaimID,
+    ) -> anyhow::Result<Option<Claim>> {
+        let id_address = self.lookup_required_id(addr, ts)?;
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_claim(self.blockstore(), id_address.into(), claim_id)
+    }
+
     pub fn verified_client_status(
         self: &Arc<Self>,
         addr: &Address,
@@ -1321,11 +1344,7 @@ where
         // differently. Which maps to network below version 17.
         // Original: https://github.com/filecoin-project/lotus/blob/5e76b05b17771da6939c7b0bf65127c3dc70ee23/node/impl/full/state.go#L1627-L1664.
         if (u32::from(network_version.0)) < 17 {
-            let act = self
-                .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
-                .map_err(|e| Error::State(e.to_string()))?
-                .ok_or_else(|| Error::State("Miner actor not found".to_string()))?;
-            let state = verifreg::State::load(self.blockstore(), act.code, act.state)?;
+            let state = self.get_verified_registry_actor_state(ts)?;
             return state.verified_client_data_cap(self.blockstore(), id.into());
         }
 
@@ -1542,7 +1561,7 @@ where
         beacon,
     );
 
-    let genesis_info = GenesisInfo::from_chain_config(&chain_config);
+    let genesis_info = GenesisInfo::from_chain_config(chain_config.clone());
     let create_vm = |state_root: Cid, epoch, timestamp| {
         let circulating_supply =
             genesis_info.get_vm_circulating_supply(epoch, &chain_index.db, &state_root)?;

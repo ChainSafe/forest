@@ -219,7 +219,6 @@ decl_and_test!(
 mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod cid; // can't make snapshots of generic type
-mod claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
 mod hash_map;
 mod ipld; // NaN != NaN
 mod miner_info; // fil_actor_miner_state::v12::MinerInfo: !quickcheck::Arbitrary
@@ -227,9 +226,11 @@ mod miner_power; // fil_actor_interface::miner::MinerInfo: !quickcheck::Arbitrar
 mod nonempty; // can't make snapshots of generic type
 mod opt; // can't make snapshots of generic type
 mod pending_beneficiary_change; // fil_actor_miner_state::v12::PendingBeneficiaryChange: !quickcheck::Arbitrary
+mod power_claim; // fil_actor_interface::power::Claim: !quickcheck::Arbitrary
 mod raw_bytes; // fvm_ipld_encoding::RawBytes: !quickcheck::Arbitrary
 mod receipt; // shim type roundtrip is wrong - see module
 mod vec; // can't make snapshots of generic type
+mod verifreg_claim;
 
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
@@ -445,7 +446,7 @@ where
 
 /// A domain struct that is (de) serialized through its lotus JSON representation.
 #[derive(Debug, Deserialize, From, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[serde(bound = "T: HasLotusJson")]
+#[serde(bound = "T: HasLotusJson", transparent)]
 pub struct LotusJson<T>(#[serde(with = "self")] pub T);
 
 impl<T: Clone> Clone for LotusJson<T> {

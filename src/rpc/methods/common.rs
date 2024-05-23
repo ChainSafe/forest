@@ -13,16 +13,6 @@ use uuid::Uuid;
 
 static SESSION_UUID: Lazy<Uuid> = Lazy::new(Uuid::new_v4);
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::common::Session);
-        $callback!(crate::rpc::common::Version);
-        $callback!(crate::rpc::common::Shutdown);
-        $callback!(crate::rpc::common::StartTime);
-    };
-}
-pub(crate) use for_each_method;
-
 /// The returned session UUID uniquely identifies the API node.
 pub enum Session {}
 impl RpcMethod<0> for Session {

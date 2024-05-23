@@ -33,6 +33,8 @@ use fil_actor_interface::market::{DealProposal, DealState};
 use fil_actor_interface::miner::DeadlineInfo;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_encoding::RawBytes;
+use fvm_shared4::piece::PaddedPieceSize;
+use fvm_shared4::ActorID;
 use libipld_core::ipld::Ipld;
 use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;
@@ -63,6 +65,18 @@ pub struct ApiDealState {
 }
 
 lotus_json_with_self!(ApiDealState);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct MsigVesting {
+    #[schemars(with = "LotusJson<BigInt>")]
+    #[serde(with = "crate::lotus_json")]
+    pub initial_balance: BigInt,
+    pub start_epoch: ChainEpoch,
+    pub unlock_duration: ChainEpoch,
+}
+
+lotus_json_with_self!(MsigVesting);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
@@ -142,6 +156,29 @@ pub struct ApiTipsetKey(pub Option<TipsetKey>);
 /// See: <https://github.com/filecoin-project/lotus/issues/11461>.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct AddressOrEmpty(pub Option<Address>);
+#[derive(Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct ClaimLotusJson {
+    // The provider storing the data (from allocation).
+    pub provider: ActorID,
+    // The client which allocated the DataCap (from allocation).
+    pub client: ActorID,
+    // Identifier of the data committed (from allocation).
+    #[schemars(with = "LotusJson<Cid>")]
+    #[serde(with = "crate::lotus_json")]
+    pub data: Cid,
+    // The (padded) size of data (from allocation).
+    #[schemars(with = "u64")]
+    pub size: PaddedPieceSize,
+    // The min period after term_start which the provider must commit to storing data
+    pub term_min: ChainEpoch,
+    // The max period after term_start for which provider can earn QA-power for the data
+    pub term_max: ChainEpoch,
+    // The epoch at which the (first range of the) piece was committed.
+    pub term_start: ChainEpoch,
+    // ID of the provider's sector in which the data is committed.
+    pub sector: SectorNumber,
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

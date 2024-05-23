@@ -35,14 +35,6 @@ jobs:
         run: |
           gem install rubocop -v 1.58 --no-document
           rubocop scripts/
-  run-js-linters:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - run: |
-        yarn install
-        yarn js-lint
-        yarn js-fmt-check
   docker-lint:
     runs-on: ubuntu-latest
     steps:

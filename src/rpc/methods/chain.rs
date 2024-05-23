@@ -38,30 +38,6 @@ use tokio::sync::{
     Mutex,
 };
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::chain::ChainGetMessage);
-        $callback!(crate::rpc::chain::ChainGetParentMessages);
-        $callback!(crate::rpc::chain::ChainGetParentReceipts);
-        $callback!(crate::rpc::chain::ChainGetMessagesInTipset);
-        $callback!(crate::rpc::chain::ChainExport);
-        $callback!(crate::rpc::chain::ChainReadObj);
-        $callback!(crate::rpc::chain::ChainHasObj);
-        $callback!(crate::rpc::chain::ChainGetBlockMessages);
-        $callback!(crate::rpc::chain::ChainGetPath);
-        $callback!(crate::rpc::chain::ChainGetTipSetByHeight);
-        $callback!(crate::rpc::chain::ChainGetTipSetAfterHeight);
-        $callback!(crate::rpc::chain::ChainGetGenesis);
-        $callback!(crate::rpc::chain::ChainHead);
-        $callback!(crate::rpc::chain::ChainGetBlock);
-        $callback!(crate::rpc::chain::ChainGetTipSet);
-        $callback!(crate::rpc::chain::ChainSetHead);
-        $callback!(crate::rpc::chain::ChainGetMinBaseFee);
-        $callback!(crate::rpc::chain::ChainTipSetWeight);
-    };
-}
-pub(crate) use for_each_method;
-
 pub enum ChainGetMessage {}
 impl RpcMethod<1> for ChainGetMessage {
     const NAME: &'static str = "Filecoin.ChainGetMessage";
