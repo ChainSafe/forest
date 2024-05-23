@@ -89,7 +89,7 @@ pub enum Subcommand {
     #[command(subcommand)]
     Info(InfoCommand),
 
-    /// [REMOVED] attach to daemon via a JavaScript console
+    /// `[REMOVED]` Attach to daemon via a JavaScript console
     Attach { _ignored: Vec<String> },
 
     /// Shutdown Forest
