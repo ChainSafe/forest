@@ -38,6 +38,9 @@
 
 ### Removed
 
+- [#4358](https://github.com/ChainSafe/forest/pull/4358) Remove the
+  `forest-cli attach` command.
+
 ### Fixed
 
 ## Forest 0.18.0 "Big Bang"

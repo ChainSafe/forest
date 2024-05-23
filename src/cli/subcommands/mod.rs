@@ -6,7 +6,6 @@
 // check out the original commit history here:
 // https://github.com/ChainSafe/forest/commits/main/forest/src/cli/mod.rs
 
-mod attach_cmd;
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
@@ -29,10 +28,10 @@ use clap::Parser;
 use tracing::error;
 
 pub(super) use self::{
-    attach_cmd::AttachCommand, auth_cmd::AuthCommands, chain_cmd::ChainCommands,
-    config_cmd::ConfigCommands, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
-    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
-    state_cmd::StateCommands, sync_cmd::SyncCommands,
+    auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
+    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
+    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
+    sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -90,8 +89,8 @@ pub enum Subcommand {
     #[command(subcommand)]
     Info(InfoCommand),
 
-    /// Attach to daemon via a JavaScript console
-    Attach(AttachCommand),
+    /// `[REMOVED]` Attach to daemon via a JavaScript console
+    Attach { _ignored: Vec<String> },
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
