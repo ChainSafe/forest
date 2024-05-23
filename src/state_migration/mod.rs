@@ -23,6 +23,7 @@ mod nv21fix;
 mod nv21fix2;
 mod nv22;
 mod nv22fix;
+mod nv23;
 mod type_migrations;
 
 type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::Result<Cid>;
@@ -69,6 +70,8 @@ where
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
+                // TODO uncomment this! Add for other chains as needed!
+                // (Height::Aussie, nv23::run_migration::<DB>),
             ]
         }
     };
