@@ -238,6 +238,7 @@ impl BlockNumberOrHash {
     }
 }
 
+// TODO(elmattic): implement EIP-1898. https://github.com/ChainSafe/forest/issues/4359
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
 //                  this shouldn't exist
 impl HasLotusJson for BlockNumberOrHash {
@@ -264,7 +265,6 @@ impl HasLotusJson for BlockNumberOrHash {
             _ => (),
         };
 
-        // TODO: should we implement EIP-1898?
         if let Ok(hash) = Hash::from_str(&lotus_json) {
             return Self::BlockHash(hash, false);
         }
