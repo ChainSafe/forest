@@ -209,7 +209,7 @@ pub enum Predefined {
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockNumber {
-    block_number: i64,
+    block_number: Int64,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -248,7 +248,7 @@ impl BlockNumberOrHash {
     /// Construct a block number using EIP-1898 Object scheme.
     pub fn from_block_number_object(number: i64) -> Self {
         Self::Number(BlockNumber {
-            block_number: number,
+            block_number: Int64(number),
         })
     }
 
@@ -691,7 +691,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
     // Translate to Object scheme if needed
     let block_param = match block_param {
         BlockNumberOrHash::BlockNumber(n) => {
-            BlockNumberOrHash::Number(BlockNumber { block_number: n.0 })
+            BlockNumberOrHash::Number(BlockNumber { block_number: n })
         }
         BlockNumberOrHash::BlockHash(block_hash) => BlockNumberOrHash::Hash(BlockHash {
             block_hash,
@@ -710,7 +710,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             }
         },
         BlockNumberOrHash::Number(BlockNumber { block_number }) => {
-            let height = ChainEpoch::from(block_number);
+            let height = ChainEpoch::from(block_number.0);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
             }
