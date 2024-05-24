@@ -223,9 +223,9 @@ pub struct BlockHash {
 #[serde(untagged)]
 pub enum BlockNumberOrHash {
     #[schemars(with = "String")]
-    Predefined(Predefined),
-    StringNumber(Int64),
-    StringHash(Hash),
+    PredefinedBlock(Predefined),
+    BlockNumber(Int64),
+    BlockHash(Hash),
     Number(BlockNumber),
     Hash(BlockHash),
 }
@@ -234,30 +234,30 @@ lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {
     pub fn from_predefined(predefined: Predefined) -> Self {
-        Self::Predefined(predefined)
+        Self::PredefinedBlock(predefined)
     }
 
     pub fn from_block_number(number: i64) -> Self {
+        Self::BlockNumber(Int64(number))
+    }
+
+    pub fn from_block_hash(hash: Hash) -> Self {
+        Self::BlockHash(hash)
+    }
+
+    /// Construct a block number using EIP-1898 Object scheme.
+    pub fn from_block_number_object(number: i64) -> Self {
         Self::Number(BlockNumber {
             block_number: number,
         })
     }
 
-    pub fn from_block_hash(hash: Hash) -> Self {
+    /// Construct a block hash using EIP-1898 Object scheme.
+    pub fn from_block_hash_object(hash: Hash) -> Self {
         Self::Hash(BlockHash {
             block_hash: hash,
             require_canonical: false,
         })
-    }
-
-    // TODO: rename
-    pub fn from_block_number_string(number: i64) -> Self {
-        Self::StringNumber(Int64(number))
-    }
-
-    // TODO: rename
-    pub fn from_block_hash_string(hash: Hash) -> Self {
-        Self::StringHash(hash)
     }
 }
 
@@ -690,10 +690,10 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 
     // Translate to Object scheme if needed
     let block_param = match block_param {
-        BlockNumberOrHash::StringNumber(n) => {
+        BlockNumberOrHash::BlockNumber(n) => {
             BlockNumberOrHash::Number(BlockNumber { block_number: n.0 })
         }
-        BlockNumberOrHash::StringHash(block_hash) => BlockNumberOrHash::Hash(BlockHash {
+        BlockNumberOrHash::BlockHash(block_hash) => BlockNumberOrHash::Hash(BlockHash {
             block_hash,
             require_canonical: false,
         }),
@@ -701,7 +701,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
     };
 
     match block_param {
-        BlockNumberOrHash::Predefined(predefined) => match predefined {
+        BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
             Predefined::Earliest => bail!("block param \"earliest\" is not supported"),
             Predefined::Pending => Ok(head),
             Predefined::Latest => {
