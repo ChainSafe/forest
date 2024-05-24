@@ -1039,6 +1039,20 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), false),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockByNumber::request((
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 false,

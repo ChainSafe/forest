@@ -253,10 +253,10 @@ impl BlockNumberOrHash {
     }
 
     /// Construct a block hash using EIP-1898 Object scheme.
-    pub fn from_block_hash_object(hash: Hash) -> Self {
+    pub fn from_block_hash_object(hash: Hash, require_canonical: bool) -> Self {
         Self::Hash(BlockHash {
             block_hash: hash,
-            require_canonical: false,
+            require_canonical,
         })
     }
 }
