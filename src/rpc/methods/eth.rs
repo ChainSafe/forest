@@ -682,23 +682,20 @@ impl RpcMethod<2> for EthGetBalance {
     }
 }
 
+fn get_tipset_from_hash(store: &impl Blockstore, block_hash: &Hash) -> anyhow::Result<Tipset> {
+    let cid = block_hash.to_cid();
+    let bytes = store
+        .get(&cid)?
+        .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
+    let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
+    Tipset::load_required(store, &tsk)
+}
+
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &Arc<ChainStore<DB>>,
     block_param: BlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
-
-    // Translate to Object scheme if needed
-    let block_param = match block_param {
-        BlockNumberOrHash::BlockNumber(n) => {
-            BlockNumberOrHash::Number(BlockNumber { block_number: n })
-        }
-        BlockNumberOrHash::BlockHash(block_hash) => BlockNumberOrHash::Hash(BlockHash {
-            block_hash,
-            require_canonical: false,
-        }),
-        _ => block_param,
-    };
 
     match block_param {
         BlockNumberOrHash::PredefinedBlock(predefined) => match predefined {
@@ -709,7 +706,8 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 Ok(parent)
             }
         },
-        BlockNumberOrHash::Number(BlockNumber { block_number }) => {
+        BlockNumberOrHash::BlockNumber(block_number)
+        | BlockNumberOrHash::Number(BlockNumber { block_number }) => {
             let height = ChainEpoch::from(block_number.0);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
@@ -720,17 +718,15 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                     .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
             Ok(ts)
         }
+        BlockNumberOrHash::BlockHash(block_hash) => {
+            let ts = Arc::new(get_tipset_from_hash(chain.blockstore(), &block_hash)?);
+            Ok(ts)
+        }
         BlockNumberOrHash::Hash(BlockHash {
             block_hash,
             require_canonical,
         }) => {
-            let cid = block_hash.to_cid();
-            let bytes = chain
-                .blockstore()
-                .get(&cid)?
-                .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
-            let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
-            let ts = chain.chain_index.load_required_tipset(&tsk)?;
+            let ts = Arc::new(get_tipset_from_hash(chain.blockstore(), &block_hash)?);
             // verify that the tipset is in the canonical chain
             if require_canonical {
                 // walk up the current chain (our head) until we reach ts.epoch()
@@ -746,7 +742,6 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             }
             Ok(ts)
         }
-        _ => bail!("unreachable"),
     }
 }
 
