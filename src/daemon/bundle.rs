@@ -13,6 +13,7 @@ use crate::{
 };
 use ahash::HashSet;
 use anyhow::ensure;
+use cid::Cid;
 use futures::{stream::FuturesUnordered, TryStreamExt};
 use fvm_ipld_blockstore::Blockstore;
 use std::mem::discriminant;
@@ -30,10 +31,12 @@ pub async fn load_actor_bundles(
         _ => None,
     } {
         info!("Loading actor bundle from {bundle_path} set by FOREST_ACTOR_BUNDLE_PATH environment variable");
-        load_actor_bundles_from_path(db, network, &bundle_path).await
+        load_actor_bundles_from_path(db, network, &bundle_path).await?;
     } else {
-        load_actor_bundles_from_server(db, network).await
+        load_actor_bundles_from_server(db, network, &ACTOR_BUNDLES).await?;
     }
+
+    Ok(())
 }
 
 pub async fn load_actor_bundles_from_path(
@@ -73,12 +76,14 @@ pub async fn load_actor_bundles_from_path(
     Ok(())
 }
 
+/// Loads the missing actor bundle, returns the CIDs of the loaded bundles.
 pub async fn load_actor_bundles_from_server(
     db: &impl Blockstore,
     network: &NetworkChain,
-) -> anyhow::Result<()> {
+    bundles: &[ActorBundleInfo],
+) -> anyhow::Result<Vec<Cid>> {
     FuturesUnordered::from_iter(
-        ACTOR_BUNDLES
+        bundles
             .iter()
             .filter(|bundle| {
                 !db.has(&bundle.manifest).unwrap_or(false) &&
@@ -92,6 +97,7 @@ pub async fn load_actor_bundles_from_server(
                      url,
                      alt_url,
                      network: _,
+                     version: _,
                  }| async move {
                     let response = if let Ok(response) = http_get(url).await {
                         response
@@ -103,12 +109,10 @@ pub async fn load_actor_bundles_from_server(
                     let header = load_car(db, Cursor::new(bytes)).await?;
                     ensure!(header.roots.len() == 1);
                     ensure!(header.roots.first() == root);
-                    Ok(())
+                    Ok(*header.roots.first())
                 },
             ),
     )
     .try_collect::<Vec<_>>()
-    .await?;
-
-    Ok(())
+    .await
 }
