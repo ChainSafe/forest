@@ -703,6 +703,15 @@ impl RpcMethod<2> for EthGetBalance {
     }
 }
 
+fn get_tipset_from_hash(store: &impl Blockstore, block_hash: &Hash) -> anyhow::Result<Tipset> {
+    let cid = block_hash.to_cid();
+    let bytes = store
+        .get(&cid)?
+        .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
+    let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
+    Tipset::load_required(store, &tsk)
+}
+
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &Arc<ChainStore<DB>>,
     block_param: BlockNumberOrHash,
@@ -1289,15 +1298,6 @@ fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Res
         }
     }
     Ok(message_cids.len())
-}
-
-fn get_tipset_from_hash(store: &impl Blockstore, block_hash: &Hash) -> anyhow::Result<Tipset> {
-    let cid = block_hash.to_cid();
-    let bytes = store
-        .get(&cid)?
-        .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
-    let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
-    Tipset::load_required(store, &tsk)
 }
 
 pub enum EthSyncing {}
