@@ -16,21 +16,6 @@ use libp2p::Multiaddr;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::net::NetAddrsListen);
-        $callback!(crate::rpc::net::NetPeers);
-        $callback!(crate::rpc::net::NetListening);
-        $callback!(crate::rpc::net::NetInfo);
-        $callback!(crate::rpc::net::NetConnect);
-        $callback!(crate::rpc::net::NetDisconnect);
-        $callback!(crate::rpc::net::NetAgentVersion);
-        $callback!(crate::rpc::net::NetAutoNatStatus);
-        $callback!(crate::rpc::net::NetVersion);
-    };
-}
-pub(crate) use for_each_method;
-
 pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
@@ -248,6 +233,28 @@ impl RpcMethod<0> for NetVersion {
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
         Ok(ctx.state_manager.chain_config().eth_chain_id.to_string())
+    }
+}
+
+pub enum NetProtectAdd {}
+impl RpcMethod<1> for NetProtectAdd {
+    const NAME: &'static str = "Filecoin.NetProtectAdd";
+    const PARAM_NAMES: [&'static str; 1] = ["acl"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Admin;
+
+    type Params = (String,);
+    type Ok = ();
+
+    // This is a no-op due to the fact that `rust-libp2p` implementation is very different to that
+    // in go. However it would be nice to investigate connection limiting options in Rust.
+    // See: <https://github.com/ChainSafe/forest/issues/4355>.
+    async fn handle(
+        _: Ctx<impl Blockstore>,
+        (peer_id,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let _ = PeerId::from_str(&peer_id)?;
+        Ok(())
     }
 }
 

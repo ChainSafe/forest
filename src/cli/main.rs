@@ -1,16 +1,15 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use std::ffi::OsString;
-
+use super::subcommands::Subcommand;
 use crate::cli::subcommands::Cli;
 use crate::cli_shared::logger;
 use crate::daemon::get_actual_chain_name;
 use crate::rpc::{self, prelude::*};
 use crate::shim::address::{CurrentNetwork, Network};
+use anyhow::bail;
 use clap::Parser;
-
-use super::subcommands::Subcommand;
+use std::ffi::OsString;
 
 pub fn main<ArgT>(args: impl IntoIterator<Item = ArgT>) -> anyhow::Result<()>
 where
@@ -46,7 +45,7 @@ where
                 Subcommand::Send(cmd) => cmd.run(client).await,
                 Subcommand::Info(cmd) => cmd.run(client).await,
                 Subcommand::Snapshot(cmd) => cmd.run(client).await,
-                Subcommand::Attach(cmd) => cmd.run(client),
+                Subcommand::Attach { .. } => bail!("the `attach` subcommand has been removed. Please raise an issue if this breaks a workflow for you"),
                 Subcommand::Shutdown(cmd) => cmd.run(client).await,
             }
         })

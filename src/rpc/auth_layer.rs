@@ -3,10 +3,7 @@
 
 use crate::auth::{verify_token, JWT_IDENTIFIER};
 use crate::key_management::KeyStore;
-use crate::rpc::{
-    auth, beacon, chain, common, eth, gas, miner, mpool, msig, net, node, state, sync, wallet,
-    Permission, RpcMethod as _, CANCEL_METHOD_NAME,
-};
+use crate::rpc::{chain, Permission, RpcMethod as _, CANCEL_METHOD_NAME};
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -29,21 +26,7 @@ static METHOD_NAME2REQUIRED_PERMISSION: Lazy<HashMap<&str, Permission>> = Lazy::
             access.insert(<$ty>::NAME, <$ty>::PERMISSION);
         };
     }
-
-    auth::for_each_method!(insert);
-    beacon::for_each_method!(insert);
-    chain::for_each_method!(insert);
-    common::for_each_method!(insert);
-    gas::for_each_method!(insert);
-    miner::for_each_method!(insert);
-    mpool::for_each_method!(insert);
-    net::for_each_method!(insert);
-    state::for_each_method!(insert);
-    node::for_each_method!(insert);
-    sync::for_each_method!(insert);
-    wallet::for_each_method!(insert);
-    eth::for_each_method!(insert);
-    msig::for_each_method!(insert);
+    super::for_each_method!(insert);
 
     access.insert(chain::CHAIN_NOTIFY, Permission::Read);
     access.insert(CANCEL_METHOD_NAME, Permission::Read);
@@ -157,6 +140,7 @@ async fn check_permissions(
 mod tests {
     use self::chain::ChainHead;
     use super::*;
+    use crate::rpc::wallet;
     use chrono::Duration;
 
     #[tokio::test]

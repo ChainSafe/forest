@@ -11,14 +11,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::auth::AuthNew);
-        $callback!(crate::rpc::auth::AuthVerify);
-    };
-}
-pub(crate) use for_each_method;
-
 /// RPC call to create a new JWT Token
 pub enum AuthNew {}
 impl RpcMethod<1> for AuthNew {
