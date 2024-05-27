@@ -50,6 +50,8 @@ pub enum ShedCommands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+    /// Dump the OpenRPC definition for the node.
+    OpenRpc,
 }
 
 impl ShedCommands {
@@ -113,6 +115,12 @@ impl ShedCommands {
                 } else {
                     println!("{}", BASE64_STANDARD.encode(keypair_data));
                 }
+            }
+            ShedCommands::OpenRpc => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&crate::rpc::openrpc()).unwrap()
+                );
             }
         }
         Ok(())

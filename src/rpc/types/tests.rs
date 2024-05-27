@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::lotus_json::HasLotusJson as _;
 use quickcheck_macros::quickcheck;
 
 #[quickcheck]
