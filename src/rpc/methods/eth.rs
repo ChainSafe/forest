@@ -1369,13 +1369,17 @@ impl RpcMethod<3> for EthGetStorageAt {
             }
         }
         let Some(api_invoc_result) = api_invoc_result else {
-            return Err(anyhow::anyhow!("no message receipt").into());
+            return Err(anyhow::anyhow!("Call failed").into());
         };
         let Some(msg_rct) = api_invoc_result.msg_rct else {
             return Err(anyhow::anyhow!("no message receipt").into());
         };
-        if !api_invoc_result.error.is_empty() {
-            return Err(anyhow::anyhow!("GetBytecode failed: {}", api_invoc_result.error).into());
+        if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
+            return Err(anyhow::anyhow!(
+                "failed to lookup storage slot: {}",
+                api_invoc_result.error
+            )
+            .into());
         }
 
         let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
