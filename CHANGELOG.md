@@ -29,9 +29,17 @@
 
 ### Added
 
+- [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
+  `Filecoin.StateGetClaim` RPC method.
+- [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
+  `Filecoin.NetProtectAdd` RPC method.
+
 ### Changed
 
 ### Removed
+
+- [#4358](https://github.com/ChainSafe/forest/pull/4358) Remove the
+  `forest-cli attach` command.
 
 ### Fixed
 

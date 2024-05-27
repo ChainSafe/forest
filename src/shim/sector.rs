@@ -203,6 +203,7 @@ impl From<RegisteredPoStProofV2> for RegisteredPoStProof {
 
 /// `SectorSize` indicates one of a set of possible sizes in the network.
 #[derive(Clone, Debug, PartialEq, Eq, Copy, FromPrimitive, Serialize_repr, Deserialize_repr)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[repr(u64)]
 pub enum SectorSize {
     _2KiB = 2 << 10,

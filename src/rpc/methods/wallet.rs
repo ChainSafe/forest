@@ -13,24 +13,6 @@ use crate::shim::{
 };
 use fvm_ipld_blockstore::Blockstore;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::wallet::WalletBalance);
-        $callback!(crate::rpc::wallet::WalletDefaultAddress);
-        $callback!(crate::rpc::wallet::WalletExport);
-        $callback!(crate::rpc::wallet::WalletHas);
-        $callback!(crate::rpc::wallet::WalletImport);
-        $callback!(crate::rpc::wallet::WalletList);
-        $callback!(crate::rpc::wallet::WalletNew);
-        $callback!(crate::rpc::wallet::WalletSetDefault);
-        $callback!(crate::rpc::wallet::WalletSign);
-        $callback!(crate::rpc::wallet::WalletValidateAddress);
-        $callback!(crate::rpc::wallet::WalletVerify);
-        $callback!(crate::rpc::wallet::WalletDelete);
-    };
-}
-pub(crate) use for_each_method;
-
 pub enum WalletBalance {}
 impl RpcMethod<1> for WalletBalance {
     const NAME: &'static str = "Filecoin.WalletBalance";

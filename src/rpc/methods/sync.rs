@@ -14,19 +14,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-// Make sure to add any new methods here.
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::sync::SyncCheckBad);
-        $callback!(crate::rpc::sync::SyncMarkBad);
-        $callback!(crate::rpc::sync::SyncState);
-        $callback!(crate::rpc::sync::SyncSubmitBlock);
-    };
-}
-
 use crate::chain;
 use crate::chain_sync::{SyncStage, TipsetValidator};
-pub(crate) use for_each_method;
 
 pub enum SyncCheckBad {}
 impl RpcMethod<1> for SyncCheckBad {

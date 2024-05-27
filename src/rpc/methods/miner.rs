@@ -42,14 +42,6 @@ use tokio::sync::RwLock;
 
 use std::sync::Arc;
 
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::miner::MinerCreateBlock);
-        $callback!(crate::rpc::miner::MinerGetBaseInfo);
-    };
-}
-pub(crate) use for_each_method;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct BlockTemplate {

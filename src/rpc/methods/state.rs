@@ -36,12 +36,14 @@ use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
+use fil_actor_interface::verifreg::Claim;
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
     power, reward, verifreg,
 };
 use fil_actor_miner_state::v10::{qa_power_for_weight, qa_power_max};
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
@@ -57,55 +59,6 @@ use std::ops::Mul;
 use std::path::PathBuf;
 use std::{sync::Arc, time::Duration};
 use tokio::task::JoinSet;
-
-macro_rules! for_each_method {
-    ($callback:ident) => {
-        $callback!(crate::rpc::state::StateCall);
-        $callback!(crate::rpc::state::StateGetBeaconEntry);
-        $callback!(crate::rpc::state::StateListMessages);
-        $callback!(crate::rpc::state::StateGetNetworkParams);
-        $callback!(crate::rpc::state::StateNetworkName);
-        $callback!(crate::rpc::state::StateReplay);
-        $callback!(crate::rpc::state::StateSectorGetInfo);
-        $callback!(crate::rpc::state::StateSectorPreCommitInfo);
-        $callback!(crate::rpc::state::StateAccountKey);
-        $callback!(crate::rpc::state::StateLookupID);
-        $callback!(crate::rpc::state::StateGetActor);
-        $callback!(crate::rpc::state::StateMinerInfo);
-        $callback!(crate::rpc::state::StateMinerActiveSectors);
-        $callback!(crate::rpc::state::StateMinerPartitions);
-        $callback!(crate::rpc::state::StateMinerSectors);
-        $callback!(crate::rpc::state::StateMinerSectorCount);
-        $callback!(crate::rpc::state::StateMinerPower);
-        $callback!(crate::rpc::state::StateMinerDeadlines);
-        $callback!(crate::rpc::state::StateMinerProvingDeadline);
-        $callback!(crate::rpc::state::StateMinerFaults);
-        $callback!(crate::rpc::state::StateMinerRecoveries);
-        $callback!(crate::rpc::state::StateMinerAvailableBalance);
-        $callback!(crate::rpc::state::StateMinerInitialPledgeCollateral);
-        $callback!(crate::rpc::state::StateGetReceipt);
-        $callback!(crate::rpc::state::StateGetRandomnessFromTickets);
-        $callback!(crate::rpc::state::StateGetRandomnessFromBeacon);
-        $callback!(crate::rpc::state::StateReadState);
-        $callback!(crate::rpc::state::StateCirculatingSupply);
-        $callback!(crate::rpc::state::StateVerifiedClientStatus);
-        $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
-        $callback!(crate::rpc::state::StateListMiners);
-        $callback!(crate::rpc::state::StateNetworkVersion);
-        $callback!(crate::rpc::state::StateMarketBalance);
-        $callback!(crate::rpc::state::StateMarketParticipants);
-        $callback!(crate::rpc::state::StateMarketDeals);
-        $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
-        $callback!(crate::rpc::state::StateMarketStorageDeal);
-        $callback!(crate::rpc::state::StateWaitMsg);
-        $callback!(crate::rpc::state::StateSearchMsg);
-        $callback!(crate::rpc::state::StateSearchMsgLimited);
-        $callback!(crate::rpc::state::StateFetchRoot);
-        $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
-        $callback!(crate::rpc::state::StateVerifierStatus);
-    };
-}
-pub(crate) use for_each_method;
 
 const INITIAL_PLEDGE_NUM: u64 = 110;
 const INITIAL_PLEDGE_DEN: u64 = 100;
@@ -758,7 +711,7 @@ impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
             .state_manager
             .get_required_actor(&Address::REWARD_ACTOR, state)?;
         let reward_state = reward::State::load(ctx.store(), actor.code, actor.state)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         let circ_supply = genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
             &Arc::new(ctx.store()),
@@ -1273,7 +1226,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         let height = ts.epoch();
         let root = ts.parent_state();
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         let supply = genesis_info.get_state_circulating_supply(
             height,
             &ctx.state_manager.blockstore_owned(),
@@ -1320,7 +1273,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         Ok(genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
             &ctx.state_manager.blockstore_owned(),
@@ -1461,7 +1414,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         let power_state = power::State::load(store, power_actor.code, power_actor.state)?;
         let reward_state = reward::State::load(store, reward_actor.code, reward_actor.state)?;
 
-        let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config());
+        let genesis_info = GenesisInfo::from_chain_config(state_manager.chain_config().clone());
 
         let supply = genesis_info.get_vm_circulating_supply(
             ts.epoch(),
@@ -1839,6 +1792,26 @@ impl RpcMethod<3> for StateListMessages {
         }
 
         Ok(out)
+    }
+}
+
+pub enum StateGetClaim {}
+
+impl RpcMethod<3> for StateGetClaim {
+    const NAME: &'static str = "Filecoin.StateGetClaim";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "claim_id", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ClaimID, ApiTipsetKey);
+    type Ok = Option<Claim>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, claim_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_claim(&address, &ts, claim_id)?)
     }
 }
 
