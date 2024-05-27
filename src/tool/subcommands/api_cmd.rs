@@ -313,6 +313,7 @@ struct RpcTest {
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
+    pass_on_rejected: bool,
 }
 
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
@@ -340,6 +341,7 @@ impl RpcTest {
             }),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
+            pass_on_rejected: false,
         }
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
@@ -384,6 +386,7 @@ impl RpcTest {
                 }
             }),
             ignore: None,
+            pass_on_rejected: false,
         }
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
@@ -394,6 +397,11 @@ impl RpcTest {
 
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
+        self
+    }
+
+    fn pass_on_rejected(mut self, flag: bool) -> Self {
+        self.pass_on_rejected = flag;
         self
     }
 
@@ -863,7 +871,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     block.miner_address,
                     sector,
                     tipset.key().into(),
-                ))?),
+                ))?)
+                .pass_on_rejected(true),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
@@ -1390,7 +1399,7 @@ async fn run_tests(
         let future = tokio::spawn(async move {
             let test_result = test.run(&forest, &lotus).await;
             drop(permit); // Release the permit after test execution
-            (test.request.method_name, test_result)
+            (test, test_result)
         });
 
         futures.push(future);
@@ -1399,14 +1408,15 @@ async fn run_tests(
     let mut success_results = HashMap::default();
     let mut failed_results = HashMap::default();
     let mut fail_details = Vec::new();
-    while let Some(Ok((method_name, test_result))) = futures.next().await {
+    while let Some(Ok((test, test_result))) = futures.next().await {
+        let method_name = test.request.method_name;
         let forest_status = test_result.forest_status;
         let lotus_status = test_result.lotus_status;
         let success = match (&forest_status, &lotus_status) {
             (TestSummary::Valid, TestSummary::Valid)
             | (TestSummary::Timeout, TestSummary::Timeout) => true,
             (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus))
-                if reason_forest == reason_lotus =>
+                if test.pass_on_rejected && reason_forest == reason_lotus =>
             {
                 true
             }
