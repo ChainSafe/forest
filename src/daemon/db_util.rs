@@ -5,6 +5,7 @@ use crate::blocks::Tipset;
 use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
+use crate::networks::Height;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
@@ -22,8 +23,6 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 use url::Url;
 use walkdir::WalkDir;
-
-const TIPSET_KEY_LOOKBACK_ENTRIES: usize = 2000;
 
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
@@ -155,14 +154,20 @@ where
 {
     let mut curr = ts.clone();
     tracing::info!("Caching tipset keys for EthAPIs");
-    for _ in 0..TIPSET_KEY_LOOKBACK_ENTRIES {
+    let mut i = 0;
+    loop {
+        if curr.epoch() < state_manager.chain_config().epoch(Height::Hygge) {
+            break;
+        }
         state_manager.chain_store().put_tipset_key(curr.key())?;
+        i += 1;
         if let Ok(ts) = Tipset::load_required(state_manager.blockstore(), curr.parents()) {
             curr = ts;
         } else {
             break;
         }
     }
+    tracing::debug!("Cached {} entries", i);
 
     Ok(())
 }
