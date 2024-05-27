@@ -13,7 +13,7 @@ use libp2p::{
     identity::{Keypair, PeerId},
     kad::QueryId,
     metrics::{Metrics, Recorder},
-    ping,
+    ping, request_response,
     swarm::NetworkBehaviour,
     Multiaddr,
 };
@@ -66,6 +66,12 @@ impl ForestBehaviour {
         config: &Libp2pConfig,
         network_name: &str,
     ) -> anyhow::Result<Self> {
+        const MAX_ESTABLISHED_PER_PEER: u32 = 4;
+        const MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: usize = 10;
+
+        let max_concurrent_request_response_streams = (config.target_peer_count as usize)
+            .saturating_mul(MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
+
         let mut gs_config_builder = gossipsub::ConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
         gs_config_builder.validation_mode(ValidationMode::Strict);
@@ -95,7 +101,8 @@ impl ForestBehaviour {
                 "/chain/ipfs/bitswap/1.0.0",
                 "/chain/ipfs/bitswap",
             ],
-            Default::default(),
+            request_response::Config::default()
+                .with_max_concurrent_streams(max_concurrent_request_response_streams),
         );
         crate::libp2p_bitswap::register_metrics(&mut crate::metrics::default_registry());
 
@@ -106,7 +113,6 @@ impl ForestBehaviour {
             .target_peer_count(config.target_peer_count as u64)
             .finish()?;
 
-        const MAX_ESTABLISHED_PER_PEER: u32 = 4;
         let connection_limits = connection_limits::Behaviour::new(
             connection_limits::ConnectionLimits::default()
                 .with_max_pending_incoming(Some(
@@ -140,8 +146,14 @@ impl ForestBehaviour {
             connection_limits,
             blocked_peers: Default::default(),
             bitswap,
-            hello: HelloBehaviour::default(),
-            chain_exchange: ChainExchangeBehaviour::default(),
+            hello: HelloBehaviour::new(
+                request_response::Config::default()
+                    .with_max_concurrent_streams(max_concurrent_request_response_streams),
+            ),
+            chain_exchange: ChainExchangeBehaviour::new(
+                request_response::Config::default()
+                    .with_max_concurrent_streams(max_concurrent_request_response_streams),
+            ),
         })
     }
 
