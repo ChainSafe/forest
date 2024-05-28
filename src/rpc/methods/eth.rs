@@ -1286,6 +1286,41 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     }
 }
 
+pub enum EthGetMessageCidByTransactionHash {}
+impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
+    const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Option<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let cid = tx_hash.to_cid();
+
+        let result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            return Ok(Some(cid));
+        }
+
+        let result: Result<Vec<Message>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is a BLS message
+            return Ok(Some(cid));
+        }
+
+        // Ethereum clients expect an empty response when the message was not found
+        Ok(None)
+    }
+}
+
 fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Result<usize> {
     let mut message_cids = CidHashSet::default();
     for block in ts.block_headers() {
