@@ -212,7 +212,7 @@ impl PeerManager {
 
     /// Removes a peer from the set and returns true if the value was present
     /// previously
-    pub fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
+    pub fn mark_peer_bad(&self, peer_id: PeerId, reason: impl Into<String>) -> bool {
         let mut peers = self.peers.write();
         let removed = remove_peer(&mut peers, &peer_id);
         if removed {
@@ -220,7 +220,8 @@ impl PeerManager {
         }
 
         // Add peer to bad peer set
-        debug!("marked peer {} bad", peer_id);
+        let reason = reason.into();
+        tracing::warn!(%peer_id, %reason, "marked peer bad");
         if peers.bad_peers.insert(peer_id) {
             metrics::BAD_PEERS.inc();
         }
@@ -260,6 +261,12 @@ impl PeerManager {
         {
             warn!("ban_peer err: {e}");
         }
+    }
+
+    /// Bans a peer with the default duration(1h)
+    pub async fn ban_peer_with_default_duration(&self, peer: PeerId, reason: impl Into<String>) {
+        const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
+        self.ban_peer(peer, reason, Some(BAN_PEER_DURATION)).await
     }
 
     pub async fn peer_operation_event_loop_task(self: Arc<Self>) -> anyhow::Result<()> {
