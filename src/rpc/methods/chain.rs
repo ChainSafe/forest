@@ -622,6 +622,9 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     let mut subscriber = data.chain_store.publisher().subscribe();
 
     tokio::spawn(async move {
+        // Skip first message
+        let _ = subscriber.recv().await;
+
         while let Ok(v) = subscriber.recv().await {
             let (change, tipset) = match v {
                 HeadChange::Apply(ts) => ("apply".into(), ts),
