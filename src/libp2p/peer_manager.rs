@@ -263,7 +263,7 @@ impl PeerManager {
         }
     }
 
-    /// Bans a peer with the default duration(1h)
+    /// Bans a peer with the default duration(`1h`)
     pub async fn ban_peer_with_default_duration(&self, peer: PeerId, reason: impl Into<String>) {
         const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
         self.ban_peer(peer, reason, Some(BAN_PEER_DURATION)).await
