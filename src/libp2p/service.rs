@@ -81,8 +81,6 @@ const PUBSUB_TOPICS: [&str; 2] = [PUBSUB_BLOCK_STR, PUBSUB_MSG_STR];
 
 pub const BITSWAP_TIMEOUT: Duration = Duration::from_secs(30);
 
-const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
-
 /// Events emitted by this Service.
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
@@ -409,16 +407,16 @@ fn handle_peer_ops(
 ) {
     use PeerOperation::*;
     match peer_ops {
-        Ban(peer_id, reason) => {
+        Ban(peer, reason) => {
             // Do not ban bootstrap nodes
-            if !bootstrap_peers.contains_key(&peer_id) {
-                warn!("Banning {peer_id}, reason: {reason}");
-                swarm.behaviour_mut().blocked_peers.block_peer(peer_id);
+            if !bootstrap_peers.contains_key(&peer) {
+                warn!(%peer, %reason, "Banning peer");
+                swarm.behaviour_mut().blocked_peers.block_peer(peer);
             }
         }
-        Unban(peer_id) => {
-            info!("Unbanning {peer_id}");
-            swarm.behaviour_mut().blocked_peers.unblock_peer(peer_id);
+        Unban(peer) => {
+            info!(%peer, "Unbanning peer");
+            swarm.behaviour_mut().blocked_peers.unblock_peer(peer);
         }
     }
 }
@@ -679,13 +677,12 @@ async fn handle_hello_event(
                 trace!("Received hello request: {:?}", request);
                 if &request.genesis_cid != genesis_cid {
                     peer_manager
-                        .ban_peer(
+                        .ban_peer_with_default_duration(
                             peer,
                             format!(
                                 "Genesis hash mismatch: {} received, {genesis_cid} expected",
                                 request.genesis_cid
                             ),
-                            Some(BAN_PEER_DURATION),
                         )
                         .await;
                 } else {
@@ -727,10 +724,19 @@ async fn handle_hello_event(
         request_response::Event::OutboundFailure {
             request_id,
             peer,
-            error: _,
+            error,
         } => {
             hello.on_outbound_failure(&request_id);
-            peer_manager.mark_peer_bad(peer);
+            match error {
+                request_response::OutboundFailure::UnsupportedProtocols => {
+                    peer_manager
+                        .ban_peer_with_default_duration(peer, "Hello protocol unsupported")
+                        .await;
+                }
+                _ => {
+                    peer_manager.mark_peer_bad(peer, format!("Hello outbound failure {error}"));
+                }
+            }
         }
         request_response::Event::InboundFailure { .. } => {}
         request_response::Event::ResponseSent { .. } => (),
@@ -748,11 +754,7 @@ async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManag
         }
         Err(ping::Failure::Unsupported) => {
             peer_manager
-                .ban_peer(
-                    ping_event.peer,
-                    format!("Ping protocol unsupported: {}", ping_event.peer),
-                    Some(BAN_PEER_DURATION),
-                )
+                .ban_peer_with_default_duration(ping_event.peer, "Ping protocol unsupported")
                 .await;
         }
         Err(ping::Failure::Timeout) => {
