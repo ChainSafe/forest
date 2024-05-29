@@ -366,6 +366,7 @@ where
         genesis: Arc<Tipset>,
         message_processing_strategy: PubsubMessageProcessingStrategy,
         block_delay: u32,
+        stateless_mode: bool,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
             NetworkEvent::HelloRequestInbound { source, request } => {
@@ -441,7 +442,10 @@ where
                     metrics::LIBP2P_MESSAGE_TOTAL
                         .get_or_create(&metrics::values::PUBSUB_BLOCK)
                         .inc();
-                    // Assemble full tipset from block
+                    if stateless_mode {
+                        return Ok(None);
+                    }
+                    // Assemble full tipset from block only in stateful mode
                     let tipset =
                         Self::gossipsub_block_to_full_tipset(b, source, network.clone()).await?;
                     (tipset, source)
@@ -531,6 +535,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
 
         let future = async move {
             loop {
@@ -551,6 +556,7 @@ where
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
                     block_delay,
+                    stateless_mode,
                 )
                 .await
                 {
@@ -575,6 +581,7 @@ where
         let mem_pool = self.mpool.clone();
         let tipset_sample_size = self.state_manager.sync_config().tipset_sample_size;
         let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
 
         let evaluator = async move {
             // If `local_epoch >= now_epoch`, return `NetworkHeadEvaluation::InSync`
@@ -615,6 +622,7 @@ where
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::Process,
                     block_delay,
+                    stateless_mode,
                 )
                 .await
                 {
@@ -733,6 +741,7 @@ where
         let bad_block_cache = self.bad_blocks.clone();
         let mem_pool = self.mpool.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
         let stream_processor: ChainMuxerFuture<(), ChainMuxerError> = Box::pin(async move {
             loop {
                 let event = match p2p_messages.recv_async().await {
@@ -752,6 +761,7 @@ where
                     genesis.clone(),
                     PubsubMessageProcessingStrategy::DoNotProcess,
                     block_delay,
+                    stateless_mode,
                 )
                 .await
                 {
@@ -824,6 +834,7 @@ where
         let mem_pool = self.mpool.clone();
         let tipset_sender = self.tipset_sender.clone();
         let block_delay = self.state_manager.chain_config().block_delay_secs;
+        let stateless_mode = self.stateless_mode;
         let stream_processor: ChainMuxerFuture<UnexpectedReturnKind, ChainMuxerError> = Box::pin(
             async move {
                 // If a tipset has been provided, pass it to the tipset processor
@@ -854,6 +865,7 @@ where
                         genesis.clone(),
                         PubsubMessageProcessingStrategy::Process,
                         block_delay,
+                        stateless_mode,
                     )
                     .await
                     {

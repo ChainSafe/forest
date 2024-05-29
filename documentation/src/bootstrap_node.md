@@ -1,5 +1,10 @@
 # Bootstrap node
 
+⚠️ **The Forest bootstrap node connectivity turned out to be below expectations,
+as were the hardware requirements. As such, it's better to hold off hosting
+Forest as a bootstrap node until issue
+[#4346](https://github.com/ChainSafe/forest/issues/4346) is resolved.**
+
 ## Introduction
 
 A bootstrap node is the first node a new node contacts when it joins the
