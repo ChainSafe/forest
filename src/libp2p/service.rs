@@ -585,6 +585,8 @@ async fn handle_discovery_event(
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
             debug!("Peer disconnected, {:?}", peer_id);
+            // Remove peer id labels for disconnected peers
+            super::metrics::PEER_TIPSET_EPOCH.remove(&super::metrics::PeerLabel::new(peer_id));
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
         DiscoveryEvent::Discovery(_) => {}

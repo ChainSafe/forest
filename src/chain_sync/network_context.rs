@@ -10,7 +10,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::blocks::{FullTipset, Tipset, TipsetKey};
 use crate::libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -19,6 +18,10 @@ use crate::libp2p::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
+};
+use crate::{
+    blocks::{FullTipset, Tipset, TipsetKey},
+    shim::clock::ChainEpoch,
 };
 use anyhow::Context as _;
 use cid::Cid;
@@ -139,9 +142,10 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
+        epoch: ChainEpoch,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |_| true)
+        self.handle_chain_exchange_request(peer_id, tsk, epoch, count, HEADERS, |_| true)
             .await
     }
     /// Send a `chain_exchange` request for only messages (ignore block
@@ -163,7 +167,7 @@ where
         );
         self.handle_chain_exchange_request(
             peer_id,
-            tsk,
+            tsk,head.epoch(),
             tipsets.len() as _,
             MESSAGES,
             |compacted_messages_vec: &Vec<CompactedMessages>| {
@@ -193,9 +197,10 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
+        epoch: ChainEpoch,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES, |_| true)
+            .handle_chain_exchange_request(peer_id, tsk, epoch, 1, HEADERS | MESSAGES, |_| true)
             .await?;
 
         if fts.len() != 1 {
@@ -254,6 +259,7 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
+        epoch: ChainEpoch,
         request_len: u64,
         options: u64,
         validate: F,
@@ -288,8 +294,7 @@ where
             None => {
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
-                let peers = self.peer_manager.top_peers_shuffled();
-
+                let peers = self.peer_manager.top_chain_exchange_peers_shuffled(epoch);
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
@@ -395,7 +400,7 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                peer_manager.log_success(peer_id, res_duration);
+                peer_manager.log_success(&peer_id, res_duration);
                 debug!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
@@ -416,7 +421,7 @@ where
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
                     RequestResponseError::Timeout | RequestResponseError::Io(_) => {
-                        peer_manager.log_failure(peer_id, res_duration);
+                        peer_manager.log_failure(&peer_id, res_duration);
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
@@ -425,7 +430,7 @@ where
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
-                peer_manager.log_failure(peer_id, res_duration);
+                peer_manager.log_failure(&peer_id, res_duration);
                 debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }

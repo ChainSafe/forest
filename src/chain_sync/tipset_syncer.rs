@@ -840,7 +840,12 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         let epoch_diff = oldest_parent.epoch() - current_head.epoch();
         let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
         let network_tipsets = network
-            .chain_exchange_headers(None, oldest_parent.parents(), window as u64)
+            .chain_exchange_headers(
+                None,
+                oldest_parent.parents(),
+                oldest_parent.epoch() - 1,
+                window as u64,
+            )
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
 
@@ -865,7 +870,12 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         info!("Fork detected, searching for a common ancestor between the local chain and the network chain");
         const FORK_LENGTH_THRESHOLD: u64 = 500;
         let fork_tipsets = network
-            .chain_exchange_headers(None, oldest_tipset.parents(), FORK_LENGTH_THRESHOLD)
+            .chain_exchange_headers(
+                None,
+                oldest_tipset.parents(),
+                oldest_tipset.epoch() - 1,
+                FORK_LENGTH_THRESHOLD,
+            )
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
         let mut potential_common_ancestor = chain_store
