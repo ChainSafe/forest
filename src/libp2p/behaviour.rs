@@ -17,6 +17,7 @@ use libp2p::{
     swarm::NetworkBehaviour,
     Multiaddr,
 };
+use once_cell::sync::Lazy;
 use tracing::info;
 
 use crate::libp2p::{
@@ -67,10 +68,23 @@ impl ForestBehaviour {
         network_name: &str,
     ) -> anyhow::Result<Self> {
         const MAX_ESTABLISHED_PER_PEER: u32 = 4;
-        const MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: usize = 10;
+        static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: Lazy<usize> = Lazy::new(|| {
+            std::env::var("FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER")
+                .ok()
+                .and_then(|it| {
+                    if let Ok(n) = it.parse() {
+                        if n > 0 {
+                            return Some(n);
+                        }
+                    }
+                    tracing::warn!("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer expected, got {it}.");
+                    None
+                })
+                .unwrap_or(10)
+        });
 
         let max_concurrent_request_response_streams = (config.target_peer_count as usize)
-            .saturating_mul(MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
+            .saturating_mul(*MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
 
         let mut gs_config_builder = gossipsub::ConfigBuilder::default();
         gs_config_builder.max_transmit_size(1 << 20);
