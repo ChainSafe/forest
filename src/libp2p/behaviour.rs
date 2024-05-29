@@ -1,6 +1,16 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::num::NonZeroUsize;
+
+use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
+use crate::libp2p::{
+    chain_exchange::ChainExchangeBehaviour,
+    config::Libp2pConfig,
+    discovery::{DiscoveryBehaviour, DiscoveryConfig},
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
+    hello::HelloBehaviour,
+};
 use crate::libp2p_bitswap::BitswapBehaviour;
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use ahash::{HashMap, HashSet};
@@ -19,16 +29,6 @@ use libp2p::{
 };
 use once_cell::sync::Lazy;
 use tracing::info;
-
-use crate::libp2p::{
-    chain_exchange::ChainExchangeBehaviour,
-    config::Libp2pConfig,
-    discovery::{DiscoveryBehaviour, DiscoveryConfig},
-    gossip_params::{build_peer_score_params, build_peer_score_threshold},
-    hello::HelloBehaviour,
-};
-
-use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
 /// for a Filecoin node.
@@ -71,14 +71,10 @@ impl ForestBehaviour {
         static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: Lazy<usize> = Lazy::new(|| {
             std::env::var("FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER")
                 .ok()
-                .map(|it| {
-                    if let Ok(n) = it.parse() {
-                        if n > 0 {
-                            return n;
-                        }
-                    }
-                    panic!("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer expected, got `{it}`.");
-                })
+                .map(|it|
+                    it.parse::<NonZeroUsize>()
+                        .expect("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer is expected.")
+                        .get())
                 .unwrap_or(10)
         });
 
