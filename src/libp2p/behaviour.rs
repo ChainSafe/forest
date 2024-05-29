@@ -71,14 +71,13 @@ impl ForestBehaviour {
         static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: Lazy<usize> = Lazy::new(|| {
             std::env::var("FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER")
                 .ok()
-                .and_then(|it| {
+                .map(|it| {
                     if let Ok(n) = it.parse() {
                         if n > 0 {
-                            return Some(n);
+                            return n;
                         }
                     }
-                    tracing::warn!("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer expected, got {it}.");
-                    None
+                    panic!("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer expected, got `{it}`.");
                 })
                 .unwrap_or(10)
         });
