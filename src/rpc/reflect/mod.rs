@@ -17,7 +17,6 @@
 //! - [`RpcMethod`] defining arity and actually dispatching the function calls.
 
 pub mod jsonrpc_types;
-pub mod openrpc_types;
 
 mod parser;
 mod util;
@@ -28,7 +27,7 @@ use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::RpcModule;
-use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};
+use openrpc_types::{ContentDescriptor, Method, ParamStructure};
 use parser::Parser;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::Serialize;
@@ -114,31 +113,29 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
     /// Generate a full `OpenRPC` method definition for this endpoint.
-    fn openrpc<'de>(
-        gen: &mut SchemaGenerator,
-        calling_convention: ParamStructure,
-    ) -> Result<Method, ParamListError>
+    fn openrpc<'de>(gen: &mut SchemaGenerator, calling_convention: ParamStructure) -> Method
     where
         <Self::Ok as HasLotusJson>::LotusJson: JsonSchema + Deserialize<'de>,
     {
-        Ok(Method {
+        Method {
             name: String::from(Self::NAME),
-            params: openrpc_types::Params::new(
-                itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen)).map(
-                    |(name, (schema, optional))| ContentDescriptor {
-                        name: String::from(name),
-                        schema,
-                        required: !optional,
-                    },
-                ),
-            )?,
-            param_structure: calling_convention,
+            params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
+                .map(|(name, (schema, optional))| ContentDescriptor {
+                    name: String::from(name),
+                    schema,
+                    required: Some(!optional),
+                    ..Default::default()
+                })
+                .collect(),
+            param_structure: Some(calling_convention),
             result: Some(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
                 schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
-                required: !<Self::Ok as HasLotusJson>::LotusJson::optional(),
+                required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
+                ..Default::default()
             }),
-        })
+            ..Default::default()
+        }
     }
     /// Register this method with an [`RpcModule`].
     fn register(

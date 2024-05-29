@@ -283,7 +283,7 @@ use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 use tracing::info;
 
-use self::reflect::openrpc_types::{self, ParamStructure};
+use openrpc_types::{self, ParamStructure};
 
 pub const DEFAULT_PORT: u16 = 2345;
 
@@ -420,15 +420,23 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            methods.push(<$ty>::openrpc(&mut gen, ParamStructure::ByPosition).unwrap());
+            methods.push(<$ty>::openrpc(&mut gen, ParamStructure::ByPosition));
         };
     }
     for_each_method!(callback);
     openrpc_types::OpenRPC {
-        methods: openrpc_types::Methods::new(methods).unwrap(),
-        components: openrpc_types::Components {
-            schemas: gen.take_definitions().into_iter().collect(),
+        methods,
+        components: Some(openrpc_types::Components {
+            schemas: Some(gen.take_definitions().into_iter().collect()),
+            ..Default::default()
+        }),
+        openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,
+        info: openrpc_types::Info {
+            title: String::from("forest"),
+            version: env!("CARGO_PKG_VERSION").into(),
+            ..Default::default()
         },
+        ..Default::default()
     }
 }
 
