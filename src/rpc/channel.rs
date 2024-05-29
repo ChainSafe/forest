@@ -67,7 +67,7 @@ use jsonrpsee::{
         ResponsePayload,
     },
     types::{error::ErrorCode, ErrorObjectOwned, Id, Params},
-    MethodResponse, MethodSink,
+    ConnectionId, MethodResponse, MethodSink,
 };
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -84,7 +84,7 @@ pub type ChannelId = u64;
 
 /// Type-alias for subscribers.
 pub type Subscribers =
-    Arc<Mutex<HashMap<Id<'static>, (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
+    Arc<Mutex<HashMap<(ConnectionId, Id<'static>), (MethodSink, mpsc::Receiver<()>, ChannelId)>>>;
 
 /// Represents a single subscription that is waiting to be accepted or rejected.
 ///
@@ -108,6 +108,8 @@ pub struct PendingSubscriptionSink {
     pub(crate) subscribe: oneshot::Sender<MethodResponse>,
     /// Channel identifier.
     pub(crate) channel_id: ChannelId,
+    /// Connection identifier.
+    pub(crate) connection_id: ConnectionId,
 }
 
 impl PendingSubscriptionSink {
@@ -140,9 +142,15 @@ impl PendingSubscriptionSink {
 
         if success {
             let (tx, rx) = mpsc::channel(1);
-            self.subscribers
-                .lock()
-                .insert(id, (self.inner.clone(), rx, self.channel_id));
+            self.subscribers.lock().insert(
+                (self.connection_id, id),
+                (self.inner.clone(), rx, self.channel_id),
+            );
+            tracing::debug!(
+                "Accepting subscription (conn_id={}, chann_id={})",
+                self.connection_id,
+                self.channel_id
+            );
             Ok(SubscriptionSink {
                 inner: self.inner,
                 method: self.method,
@@ -281,16 +289,16 @@ impl Default for RpcModule {
         methods
             .verify_and_insert(
                 CANCEL_METHOD_NAME,
-                MethodCallback::Sync(Arc::new({
+                MethodCallback::Unsubscription(Arc::new({
                     let channels = channels.clone();
-                    move |id, params: Params, _max_response| {
+                    move |id, params: Params, connection_id: ConnectionId, _max_response| {
                         let cb = || {
                             let arr: [Id<'_>; 1] = params.parse()?;
                             let sub_id = arr[0].clone().into_owned();
 
-                            tracing::debug!("Got cancel request: id={sub_id}");
+                            tracing::debug!("Got cancel request (id={sub_id})");
 
-                            let opt = channels.lock().remove(&sub_id);
+                            let opt = channels.lock().remove(&(connection_id, sub_id));
                             match opt {
                                 Some((_, _, channel_id)) => {
                                     Ok::<ChannelId, ServerError>(channel_id)
@@ -374,7 +382,7 @@ impl RpcModule {
                         }
                     }
 
-                    tracing::debug!("Send notification task ended");
+                    tracing::debug!("Send notification task ended (chann_id={})", sink.channel_id);
                 });
             }
         })
@@ -397,7 +405,7 @@ impl RpcModule {
             subscribe_method_name,
             MethodCallback::Subscription(Arc::new({
                 let id_provider = self.id_provider.clone();
-                move |id, params, method_sink, _conn| {
+                move |id, params, method_sink, conn| {
                     let channel_id = id_provider.fetch_add(1, Ordering::Relaxed);
 
                     // response to the subscription call.
@@ -410,6 +418,7 @@ impl RpcModule {
                         id: id.clone().into_owned(),
                         subscribe: tx,
                         channel_id,
+                        connection_id: conn.conn_id,
                     };
 
                     callback(params, sink);
