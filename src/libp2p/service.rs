@@ -171,6 +171,7 @@ pub enum NetRPCMethods {
 /// The `Libp2pService` listens to events from the libp2p swarm.
 pub struct Libp2pService<DB> {
     swarm: Swarm<ForestBehaviour>,
+    config: Libp2pConfig,
     bootstrap_peers: HashMap<PeerId, Multiaddr>,
     cs: Arc<ChainStore<DB>>,
     peer_manager: Arc<PeerManager>,
@@ -264,6 +265,7 @@ where
 
         Ok(Libp2pService {
             swarm,
+            config,
             bootstrap_peers,
             cs,
             peer_manager,
@@ -279,7 +281,7 @@ where
     /// Starts the libp2p service networking stack. This Future resolves when
     /// shutdown occurs.
     pub async fn run(mut self) -> anyhow::Result<()> {
-        info!("Running libp2p service");
+        info!(is_bootstrap_node=%self.config.bootstrap, "Running libp2p service");
 
         // Bootstrap with Kademlia
         if let Err(e) = self.swarm.behaviour_mut().bootstrap() {
