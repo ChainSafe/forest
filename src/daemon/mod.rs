@@ -362,6 +362,14 @@ pub(super) async fn start(
         });
     }
 
+    const ETH_MAPPER: bool = true;
+    if ETH_MAPPER {
+        tracing::info!("Populate eth mapping...");
+        chain_store
+            .eth_mapper
+            .populate(&chain_store.heaviest_tipset())?;
+    }
+
     // Start services
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);

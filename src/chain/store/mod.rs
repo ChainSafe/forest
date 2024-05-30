@@ -4,6 +4,7 @@
 pub mod base_fee;
 mod chain_store;
 mod errors;
+pub mod eth_mapper;
 pub mod index;
 mod tipset_tracker;
 

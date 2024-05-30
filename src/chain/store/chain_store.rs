@@ -28,6 +28,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast::{self, Sender as Publisher};
 use tracing::{debug, info, warn};
 
+use super::eth_mapper::EthMapper;
 use super::{
     index::{ChainIndex, ResolveNullTipset},
     tipset_tracker::TipsetTracker,
@@ -73,6 +74,9 @@ pub struct ChainStore<DB> {
 
     /// validated blocks
     validated_blocks: Mutex<HashSet<Cid>>,
+
+    /// Used for Ethereum RPC methods.
+    pub eth_mapper: EthMapper<Arc<DB>>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -125,7 +129,8 @@ where
         let cs = Self {
             publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
+            eth_mapper: EthMapper::new(Arc::clone(&db), chain_config),
             db,
             settings,
             genesis_block_header,

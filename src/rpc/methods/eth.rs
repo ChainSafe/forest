@@ -6,7 +6,7 @@ pub mod types;
 use self::types::*;
 use super::gas;
 use crate::blocks::{Tipset, TipsetKey};
-use crate::chain::{index::ResolveNullTipset, ChainStore};
+use crate::chain::{index::ResolveNullTipset, ChainStore, Error};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
 use crate::lotus_json::LotusJson;
@@ -153,7 +153,7 @@ pub struct Bytes(
 
 lotus_json_with_self!(Bytes);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(Eq, PartialEq, Hash, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
@@ -872,7 +872,7 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
+pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -1300,6 +1300,16 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (tx_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
+        let result = ctx.chain_store.eth_mapper.get_cid_from_hash(&tx_hash);
+        if let Ok(cid) = result {
+            return Ok(Some(cid));
+        } else if let Err(Error::UndefinedKey(s)) = result {
+            tracing::debug!("{}", s);
+        } else {
+            // TODO: handle db error?
+        }
+
+        // This isn't an eth transaction we have the mapping for, so let's try looking it up as a filecoin message
         let cid = tx_hash.to_cid();
 
         let result: Result<Vec<SignedMessage>, crate::chain::Error> =
