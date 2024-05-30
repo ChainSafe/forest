@@ -1290,18 +1290,17 @@ impl RpcMethod<2> for EthGetCode {
             gas_limit: BLOCK_GAS_LIMIT,
             ..Default::default()
         };
-        let mut api_invoc_result = None;
-        for ts in ts.chain_arc(ctx.store()) {
-            match ctx.state_manager.call(&message, Some(ts)) {
-                Ok(res) => {
-                    api_invoc_result = Some(res);
-                    break;
+
+        let api_invoc_result = 'invoc: {
+            for ts in ts.chain_arc(ctx.store()) {
+                match ctx.state_manager.call(&message, Some(ts)) {
+                    Ok(res) => {
+                        break 'invoc res;
+                    }
+                    Err(e) => tracing::warn!(%e),
                 }
-                Err(e) => tracing::warn!(%e),
             }
-        }
-        let Some(api_invoc_result) = api_invoc_result else {
-            return Err(anyhow::anyhow!("no message receipt").into());
+            return Err(anyhow::anyhow!("Call failed").into());
         };
         let Some(msg_rct) = api_invoc_result.msg_rct else {
             return Err(anyhow::anyhow!("no message receipt").into());
@@ -1358,17 +1357,15 @@ impl RpcMethod<3> for EthGetStorageAt {
             params,
             ..Default::default()
         };
-        let mut api_invoc_result = None;
-        for ts in ts.chain_arc(ctx.store()) {
-            match ctx.state_manager.call(&message, Some(ts)) {
-                Ok(res) => {
-                    api_invoc_result = Some(res);
-                    break;
+        let api_invoc_result = 'invoc: {
+            for ts in ts.chain_arc(ctx.store()) {
+                match ctx.state_manager.call(&message, Some(ts)) {
+                    Ok(res) => {
+                        break 'invoc res;
+                    }
+                    Err(e) => tracing::warn!(%e),
                 }
-                Err(e) => tracing::warn!(%e),
             }
-        }
-        let Some(api_invoc_result) = api_invoc_result else {
             return Err(anyhow::anyhow!("Call failed").into());
         };
         let Some(msg_rct) = api_invoc_result.msg_rct else {
