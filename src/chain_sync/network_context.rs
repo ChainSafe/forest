@@ -402,10 +402,16 @@ where
             Ok(Ok(Err(e))) => {
                 // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
-                    RequestResponseError::ConnectionClosed
-                    | RequestResponseError::DialFailure
-                    | RequestResponseError::UnsupportedProtocols => {
-                        peer_manager.mark_peer_bad(peer_id);
+                    RequestResponseError::UnsupportedProtocols => {
+                        peer_manager
+                            .ban_peer_with_default_duration(
+                                peer_id,
+                                "ChainExchange protocol unsupported",
+                            )
+                            .await;
+                    }
+                    RequestResponseError::ConnectionClosed | RequestResponseError::DialFailure => {
+                        peer_manager.mark_peer_bad(peer_id, format!("chain exchange error {e:?}"));
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
