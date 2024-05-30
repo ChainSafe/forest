@@ -22,6 +22,8 @@ pub struct Libp2pConfig {
         }
     )))]
     pub listening_multiaddrs: Vec<Multiaddr>,
+    /// Configure the P2P network as a bootstrap node
+    pub bootstrap: bool,
     /// Bootstrap peer list.
     #[cfg_attr(test, arbitrary(gen(
         |g| vec![Ipv4Addr::arbitrary(g).into()]
@@ -39,6 +41,7 @@ impl Default for Libp2pConfig {
     fn default() -> Self {
         Self {
             listening_multiaddrs: vec!["/ip4/0.0.0.0/tcp/0".parse().expect("Infallible")],
+            bootstrap: false,
             bootstrap_peers: vec![],
             mdns: false,
             kademlia: true,
