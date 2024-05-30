@@ -527,7 +527,7 @@ mod lotus_json {
     pub struct TipsetLotusJson(#[schemars(with = "TipsetLotusJsonInner")] Tipset);
 
     #[derive(Serialize, Deserialize, JsonSchema)]
-    #[schemars(rename = "Tipset")]
+    #[schemars(rename = "TipsetInner")]
     #[serde(rename_all = "PascalCase")]
     struct TipsetLotusJsonInner {
         #[serde(with = "crate::lotus_json")]
