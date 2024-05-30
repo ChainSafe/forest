@@ -8,14 +8,15 @@ mod request;
 
 pub use client::Client;
 pub use error::ServerError;
-use reflect::Ctx;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
+use reflect::{AsTagExt as _, Ctx, Tag};
 pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
 use reflect::Permission;
+use strum::IntoEnumIterator as _;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -428,6 +429,13 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {
             schemas: Some(gen.take_definitions().into_iter().collect()),
+            tags: Some(
+                ApiVersion::iter()
+                    .map(|it| it.as_tag())
+                    .chain(Tag::iter().map(|it| it.as_tag()))
+                    .map(|it| (it.name.clone(), it))
+                    .collect(),
+            ),
             ..Default::default()
         }),
         openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,
