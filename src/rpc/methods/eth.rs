@@ -1333,7 +1333,7 @@ impl RpcMethod<3> for EthGetStorageAt {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (eth_address, position, block_number_or_hash): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let make_empty_result = || EthBytes(vec![0; 32]);
+        let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
 
         let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_number_or_hash)?;
         let to_address = FilecoinAddress::try_from(&eth_address)?;
@@ -1382,8 +1382,8 @@ impl RpcMethod<3> for EthGetStorageAt {
         let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
             .bytes()
             .to_vec();
-        if ret.len() < 32 {
-            let mut with_padding = vec![0; 32_usize.saturating_sub(ret.len())];
+        if ret.len() < EVM_WORD_LENGTH {
+            let mut with_padding = vec![0; EVM_WORD_LENGTH.saturating_sub(ret.len())];
             with_padding.append(&mut ret);
             Ok(EthBytes(with_padding))
         } else {
