@@ -11,7 +11,7 @@ use fvm_ipld_blockstore::Blockstore;
 
 use crate::{
     rpc::{state::SectorLocation, types::SectorOnChainInfo},
-    shim::sector::SectorNumber,
+    shim::{policy::Policy, sector::SectorNumber},
 };
 
 pub trait MinerStateExt {
@@ -28,7 +28,7 @@ pub trait MinerStateExt {
         &self,
         store: &BS,
         sector_number: SectorNumber,
-        policy: &fil_actors_shared::v13::runtime::policy::Policy,
+        policy: &Policy,
     ) -> anyhow::Result<SectorLocation>;
 }
 

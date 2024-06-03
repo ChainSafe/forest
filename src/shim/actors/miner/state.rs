@@ -1,10 +1,6 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::actors::convert::{
-    from_policy_v13_to_v10, from_policy_v13_to_v11, from_policy_v13_to_v9,
-};
-
 use super::*;
 
 impl MinerStateExt for State {
@@ -123,21 +119,13 @@ impl MinerStateExt for State {
         &self,
         store: &BS,
         sector_number: SectorNumber,
-        policy: &fil_actors_shared::v13::runtime::policy::Policy,
+        policy: &Policy,
     ) -> anyhow::Result<SectorLocation> {
         let (deadline, partition) = match self {
-            State::V8(st) => {
-                st.find_sector(&from_policy_v13_to_v9(policy), store, sector_number)?
-            }
-            State::V9(st) => {
-                st.find_sector(&from_policy_v13_to_v9(policy), store, sector_number)?
-            }
-            State::V10(st) => {
-                st.find_sector(&from_policy_v13_to_v10(policy), store, sector_number)?
-            }
-            State::V11(st) => {
-                st.find_sector(&from_policy_v13_to_v11(policy), store, sector_number)?
-            }
+            State::V8(st) => st.find_sector(&policy.into(), store, sector_number)?,
+            State::V9(st) => st.find_sector(&policy.into(), store, sector_number)?,
+            State::V10(st) => st.find_sector(&policy.into(), store, sector_number)?,
+            State::V11(st) => st.find_sector(&policy.into(), store, sector_number)?,
             State::V12(st) => st.find_sector(store, sector_number)?,
             State::V13(st) => st.find_sector(store, sector_number)?,
         };
