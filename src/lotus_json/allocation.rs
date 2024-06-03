@@ -37,17 +37,15 @@ impl HasLotusJson for Allocation {
     type LotusJson = AllocationLotusJson;
     #[cfg(test)]
     fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        use num::{BigInt, Zero};
-
         vec![(
             json! {{
-                "TermMin": "0",
-                "TermMax": "0",
-                "Provider": "0",
-                "Client": "0",
-                "Expiration": "0",
-                "Size": "0",
-                "Data": "123",
+                "TermMin": 0,
+                "TermMax": 0,
+                "Provider": 0,
+                "Client": 0,
+                "Expiration": 0,
+                "Size": 0,
+                "Data": {"/":"baeaaaaa"},
             }},
             Allocation {
                 term_min: 0,
@@ -55,7 +53,7 @@ impl HasLotusJson for Allocation {
                 provider: 0,
                 client: 0,
                 expiration: 0,
-                size: 0.into(),
+                size: PaddedPieceSize(0),
                 data: Cid::default(),
             },
         )]
