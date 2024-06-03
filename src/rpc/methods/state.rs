@@ -13,8 +13,10 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
-use crate::shim::actors::miner::PartitionExt as _;
-use crate::shim::actors::{market::BalanceTableExt as _, miner::MinerStateExt as _};
+use crate::shim::actors::{
+    market::BalanceTableExt as _,
+    miner::{MinerStateExt as _, PartitionExt as _},
+};
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
 use crate::shim::state_tree::StateTree;
@@ -1790,6 +1792,35 @@ impl RpcMethod<3> for StateSectorExpiration {
         } else {
             Ok(SectorExpiration { early, on_time })
         }
+    }
+}
+
+pub enum StateSectorPartition {}
+
+impl RpcMethod<3> for StateSectorPartition {
+    const NAME: &'static str = "Filecoin.StateSectorPartition";
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, u64, ApiTipsetKey);
+    type Ok = SectorLocation;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let store = ctx.store();
+        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&miner_address, *ts.parent_state())?;
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        Ok(state.find_sector(store, sector_number, policy)?)
     }
 }
 
