@@ -4,6 +4,7 @@
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::shim::{
     address::Address,
+    clock::ChainEpoch,
     econ::TokenAmount,
     error::ExitCode,
     executor::Receipt,
@@ -174,3 +175,11 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 lotus_json_with_self!(InvocResult);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorExpiration {
+    pub on_time: ChainEpoch,
+    pub early: ChainEpoch,
+}
+lotus_json_with_self!(SectorExpiration);

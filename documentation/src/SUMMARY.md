@@ -12,7 +12,6 @@
   - [Healthcheck](./healthcheck.md)
   - [Snapshot exporting](./snapshot_export.md)
   - [JSON-RPC API](./jsonrpc.md)
-  - [JavaScript Console](./js_console.md)
   - [Backups](./backups.md)
   - [Troubleshooting](./trouble_shooting.md)
   - [Glossary](./glossary.md)

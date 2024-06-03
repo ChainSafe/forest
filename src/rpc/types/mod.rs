@@ -6,9 +6,7 @@
 //! If a type here is used by only one API, it should be relocated.
 
 mod address_impl;
-mod beneficiary_impl;
 mod deal_impl;
-mod miner_impl;
 mod sector_impl;
 mod tsk_impl;
 
@@ -18,7 +16,7 @@ mod tests;
 use crate::beacon::BeaconEntry;
 use crate::blocks::TipsetKey;
 use crate::libp2p::Multihash;
-use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
+use crate::lotus_json::{lotus_json_with_self, LotusJson};
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -31,25 +29,17 @@ use crate::shim::{
 };
 use cid::Cid;
 use fil_actor_interface::market::AllocationID;
-use fil_actor_interface::miner::{DeadlineInfo, MinerInfo};
-use fil_actor_interface::{
-    market::{DealProposal, DealState},
-    miner::MinerPower,
-    power::Claim,
-};
-use fil_actor_miner_state::v12::{BeneficiaryTerm, PendingBeneficiaryChange};
+use fil_actor_interface::market::{DealProposal, DealState};
+use fil_actor_interface::miner::DeadlineInfo;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
-use fvm_ipld_encoding::{BytesDe, RawBytes};
+use fvm_ipld_encoding::RawBytes;
 use fvm_shared4::piece::PaddedPieceSize;
 use fvm_shared4::ActorID;
 use libipld_core::ipld::Ipld;
-use libp2p::PeerId;
 use num_bigint::BigInt;
 use nunny::Vec as NonEmpty;
 use schemars::JsonSchema;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-#[cfg(test)]
-use serde_json::Value;
 use std::str::FromStr;
 
 // Chain API
@@ -188,88 +178,6 @@ pub struct ClaimLotusJson {
     pub term_start: ChainEpoch,
     // ID of the provider's sector in which the data is committed.
     pub sector: SectorNumber,
-}
-
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct MinerInfoLotusJson {
-    #[schemars(with = "LotusJson<Address>")]
-    #[serde(with = "crate::lotus_json")]
-    pub owner: Address,
-    #[schemars(with = "LotusJson<Address>")]
-    #[serde(with = "crate::lotus_json")]
-    pub worker: Address,
-    #[schemars(with = "LotusJson<Option<Address>>")]
-    pub new_worker: AddressOrEmpty,
-    #[schemars(with = "LotusJson<Vec<Address>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub control_addresses: Vec<Address>, // Must all be ID addresses.
-    pub worker_change_epoch: ChainEpoch,
-    #[schemars(with = "LotusJson<Option<String>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub peer_id: Option<String>,
-    #[schemars(with = "LotusJson<Vec<Vec<u8>>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub multiaddrs: Vec<Vec<u8>>,
-    #[schemars(with = "String")]
-    pub window_po_st_proof_type: fvm_shared2::sector::RegisteredPoStProof,
-    #[schemars(with = "u64")]
-    pub sector_size: fvm_shared2::sector::SectorSize,
-    pub window_po_st_partition_sectors: u64,
-    pub consensus_fault_elapsed: ChainEpoch,
-    #[schemars(with = "LotusJson<Option<Address>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub pending_owner_address: Option<Address>,
-    #[schemars(with = "LotusJson<Address>")]
-    #[serde(with = "crate::lotus_json")]
-    pub beneficiary: Address,
-    #[schemars(with = "LotusJson<BeneficiaryTerm>")]
-    #[serde(with = "crate::lotus_json")]
-    pub beneficiary_term: BeneficiaryTerm,
-    #[schemars(with = "LotusJson<Option<PendingBeneficiaryChange>>")]
-    #[serde(with = "crate::lotus_json")]
-    pub pending_beneficiary_term: Option<PendingBeneficiaryChange>,
-}
-
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct BeneficiaryTermLotusJson {
-    /// The total amount the current beneficiary can withdraw. Monotonic, but reset when beneficiary changes.
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
-    pub quota: TokenAmount,
-    /// The amount of quota the current beneficiary has already withdrawn
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
-    pub used_quota: TokenAmount,
-    /// The epoch at which the beneficiary's rights expire and revert to the owner
-    pub expiration: ChainEpoch,
-}
-
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct PendingBeneficiaryChangeLotusJson {
-    #[schemars(with = "LotusJson<Address>")]
-    #[serde(with = "crate::lotus_json")]
-    pub new_beneficiary: Address,
-    #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
-    pub new_quota: TokenAmount,
-    pub new_expiration: ChainEpoch,
-    pub approved_by_beneficiary: bool,
-    pub approved_by_nominee: bool,
-}
-
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "PascalCase")]
-pub struct MinerPowerLotusJson {
-    #[schemars(with = "LotusJson<Claim>")]
-    #[serde(with = "crate::lotus_json")]
-    miner_power: Claim,
-    #[schemars(with = "LotusJson<Claim>")]
-    #[serde(with = "crate::lotus_json")]
-    total_power: Claim,
-    has_min_power: bool,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, JsonSchema)]

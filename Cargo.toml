@@ -36,7 +36,6 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cid = { version = "0.10", default-features = false, features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 colored = "2.0"
-convert_case = "0.6"
 crypto_secretbox = "0.1"
 daemonize-me = "2"
 data-encoding = "2"
@@ -159,7 +158,6 @@ reqwest = { version = "0.12", default-features = false, features = [
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
 rs-car-ipfs = "0.3"
-rustyline = "14"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
@@ -200,11 +198,6 @@ uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
 zstd = "0.13"
 
-# Optional deps
-boa_engine = { version = "0.18", optional = true }
-boa_interner = { version = "0.18", optional = true }
-boa_parser = { version = "0.18", optional = true }
-boa_runtime = { version = "0.18", optional = true }
 ## memory leak, see https://github.com/tokio-rs/console/pull/501
 console-subscriber = { version = "0.2", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
@@ -236,7 +229,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.216"
+ra_ap_syntax = "0.0.217"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
@@ -262,10 +255,10 @@ overflow-checks = true
 
 # These should be refactored (probably removed) in #2984
 [features]
-default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome", "attach"]
-slim = ["rustalloc", "attach"]
-doctest-private = []                                                                # see lib.rs::doctest_private
-benchmark-private = []                                                              # see lib.rs::benchmark_private
+default = ["jemalloc", "tokio-console", "tracing-loki", "tracing-chrome"]
+slim = ["rustalloc"]
+doctest-private = []                                                      # see lib.rs::doctest_private
+benchmark-private = []                                                    # see lib.rs::benchmark_private
 
 # Allocator
 rustalloc = []
@@ -275,8 +268,6 @@ mimalloc = ["dep:mimalloc"]
 tokio-console = ["dep:console-subscriber"]
 tracing-loki = ["dep:tracing-loki"]
 tracing-chrome = ["dep:tracing-chrome"]
-
-attach = ["dep:boa_engine", "dep:boa_interner", "dep:boa_parser", "dep:boa_runtime"]
 
 [[bench]]
 name = "example-benchmark"

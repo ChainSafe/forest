@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use crate::lotus_json::HasLotusJson;
 
 impl From<TipsetKey> for ApiTipsetKey {
     fn from(value: TipsetKey) -> Self {
