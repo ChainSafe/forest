@@ -90,7 +90,7 @@ indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
-itertools = "0.12"
+itertools = "0.13"
 jsonrpsee = { version = "0.22", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 kubert-prometheus-process = "0.1"

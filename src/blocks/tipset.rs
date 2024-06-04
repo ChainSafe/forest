@@ -343,25 +343,28 @@ impl Tipset {
     }
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
-        itertools::unfold(Some(self), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
-                child
-            })
-        })
+        let mut parent_tsk = self.parents().clone();
+        std::iter::once(self).chain(std::iter::from_fn(move || {
+            if let Ok(tipset) = Tipset::load_required(&store, &parent_tsk) {
+                parent_tsk = tipset.parents().clone();
+                Some(tipset)
+            } else {
+                None
+            }
+        }))
     }
 
     /// Returns an iterator of all tipsets
     pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
-        itertools::unfold(Some(self), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = Tipset::load(&store, child.parents())
-                    .ok()
-                    .flatten()
-                    .map(Arc::new);
-                child
-            })
-        })
+        let mut parent_tsk = self.parents().clone();
+        std::iter::once(self).chain(std::iter::from_fn(move || {
+            if let Ok(tipset) = Tipset::load_required(&store, &parent_tsk) {
+                parent_tsk = tipset.parents().clone();
+                Some(Arc::new(tipset))
+            } else {
+                None
+            }
+        }))
     }
 
     /// Fetch the genesis block header for a given tipset.
