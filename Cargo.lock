@@ -338,9 +338,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c90a406b4495d129f00461241616194cb8a032c8d1c53c657f0961d5f8e0498"
+checksum = "cd066d0b4ef8ecb03a55319dc13aa6910616d0f44008a045bb1835af830abff5"
 dependencies = [
  "futures-core",
  "memchr",
@@ -3137,7 +3137,7 @@ dependencies = [
  "tokio-stream",
  "tokio-test",
  "tokio-util",
- "toml 0.8.13",
+ "toml 0.8.14",
  "tower",
  "tracing",
  "tracing-appender",
@@ -6766,9 +6766,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.84"
+version = "1.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec96c6a92621310b51366f1e28d05ef11489516e93be030060e5fc12024a49d6"
+checksum = "22244ce15aa966053a896d1accb3a6e68469b97c7f33f284b99f0d576879fc23"
 dependencies = [
  "unicode-ident",
 ]
@@ -7034,15 +7034,15 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_limit"
-version = "0.0.217"
+version = "0.0.218"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "771ed9fac1cc153c7b785f5c3eb0fa2ea7c2a993a592ef253e18f1dd376ef428"
+checksum = "044a566b107d94c1cdf5f0ca94a34abbda390594a62c52ade40eb28a4b2514cb"
 
 [[package]]
 name = "ra_ap_parser"
-version = "0.0.217"
+version = "0.0.218"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a918d8ea5472db852078d92f5114db7dd7c871ac2d71b00f31cd2dce02592e8"
+checksum = "fc42dd00e7bf2f471aecd7b060a3e637d9ec0298d997782aa2f4c7ca16c0ceaa"
 dependencies = [
  "drop_bomb",
  "ra-ap-rustc_lexer",
@@ -7052,9 +7052,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_stdx"
-version = "0.0.217"
+version = "0.0.218"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b402aca8a8f687fcaf1fef16d47ec6a5c41c10eb99086759f1a89ae952465adf"
+checksum = "d79c770b6dfe23a839ebdbf62bcedf81c2733fae690029909fd6477cd5a4e8a3"
 dependencies = [
  "always-assert",
  "crossbeam-channel",
@@ -7067,9 +7067,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_syntax"
-version = "0.0.217"
+version = "0.0.218"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f679bea099cdfbf0db298d50b13815c076d22ddc999b78683b0a15be3bba6d3a"
+checksum = "6eea4e1097d71ac98316a9afe8260600a8151ff769de64892e1ffed480c2ecad"
 dependencies = [
  "cov-mark",
  "either",
@@ -7089,9 +7089,9 @@ dependencies = [
 
 [[package]]
 name = "ra_ap_text_edit"
-version = "0.0.217"
+version = "0.0.218"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fe7303b2c9be7287f89b340ee06c9f0a2c1b14e2098f33c65642b6a391a815d"
+checksum = "6bcb2fb2715cfd4740747c645faa134256650f236c9ef4c9c756aa98c86c7162"
 dependencies = [
  "itertools 0.12.1",
  "text-size",
@@ -8354,9 +8354,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "statrs"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d08e5e1748192713cc281da8b16924fb46be7b0c2431854eadc785823e5696e"
+checksum = "b35a062dbadac17a42e0fc64c27f419b25d6fae98572eb43c8814c9e873d7721"
 dependencies = [
  "approx",
  "lazy_static",
@@ -8535,11 +8535,11 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.26.2"
+version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
+checksum = "f7993a8e3a9e88a00351486baae9522c91b123a088f76469e5bd5cc17198ea87"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -8962,14 +8962,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.13"
+version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4e43f8cc456c9704c851ae29c67e17ef65d2c30017c17a9765b89c382dc8bba"
+checksum = "6f49eb2ab21d2f26bd6db7bf383edc527a7ebaee412d17af4d40fdccd442f335"
 dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_edit 0.22.13",
+ "toml_edit 0.22.14",
 ]
 
 [[package]]
@@ -9005,9 +9005,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.13"
+version = "0.22.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c127785850e8c20836d49732ae6abfa47616e60bf9d9f57c43c250361a9db96c"
+checksum = "f21c7aaf97f1bd9ca9d4f9e73b0a6c74bd5afef56f2bc931943a6e1c37e04e38"
 dependencies = [
  "indexmap 2.2.6",
  "serde",
