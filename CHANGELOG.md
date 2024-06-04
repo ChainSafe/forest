@@ -33,6 +33,8 @@
   `Filecoin.StateGetClaim` RPC method.
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
+- [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
+  `Filecoin.StateGetAllocation` RPC method.
 
 ### Changed
 
