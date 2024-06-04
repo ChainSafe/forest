@@ -20,6 +20,13 @@ pub struct HelloBehaviour {
 }
 
 impl HelloBehaviour {
+    pub fn new(cfg: request_response::Config) -> Self {
+        Self {
+            inner: InnerBehaviour::new([(HELLO_PROTOCOL_NAME, ProtocolSupport::Full)], cfg),
+            response_channels: Default::default(),
+        }
+    }
+
     pub fn send_request(
         &mut self,
         peer: &PeerId,
@@ -63,18 +70,6 @@ impl HelloBehaviour {
         metrics::NETWORK_CONTAINER_CAPACITIES
             .get_or_create(&metrics::values::HELLO_REQUEST_TABLE)
             .set(self.response_channels.capacity() as _);
-    }
-}
-
-impl Default for HelloBehaviour {
-    fn default() -> Self {
-        Self {
-            inner: InnerBehaviour::new(
-                [(HELLO_PROTOCOL_NAME, ProtocolSupport::Full)],
-                Default::default(),
-            ),
-            response_channels: Default::default(),
-        }
     }
 }
 

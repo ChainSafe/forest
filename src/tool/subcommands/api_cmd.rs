@@ -846,6 +846,13 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 0,
                 tipset.key().into(),
             ))?),
+            // NOTE: Once StateGetAllocations is implemented we need to retrieve a valid
+            // allocation_id and use that for testing.
+            RpcTest::identity(StateGetAllocation::request((
+                block.miner_address,
+                0,
+                tipset.key().into(),
+            ))?),
         ]);
 
         for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?
