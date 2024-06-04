@@ -21,7 +21,9 @@ use crate::shim::version::NetworkVersion;
 use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, make_mainnet_policy};
 
 mod actors_bundle;
-pub use actors_bundle::{generate_actor_bundle, ActorBundleInfo, ACTOR_BUNDLES};
+pub use actors_bundle::{
+    generate_actor_bundle, get_actor_bundles_metadata, ActorBundleInfo, ACTOR_BUNDLES,
+};
 
 mod drand;
 
@@ -37,7 +39,7 @@ pub const NEWEST_NETWORK_VERSION: NetworkVersion = NetworkVersion::V17;
 
 /// Forest builtin `filecoin` network chains. In general only `mainnet` and its
 /// chain information should be considered stable.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(tag = "type", content = "name", rename_all = "lowercase")]
 pub enum NetworkChain {

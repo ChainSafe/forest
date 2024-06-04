@@ -12,8 +12,9 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 
 use super::{
+    actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_INCENTINET, DRAND_MAINNET, DRAND_QUICKNET},
-    parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+    parse_bootstrap_peers, DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
 const SMOKE_HEIGHT: ChainEpoch = 51000;
@@ -61,37 +62,24 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Chocolate, 1_231_620),
         make_height!(OhSnap, 1_594_680),
         make_height!(Skyr, 1_960_320),
-        make_height!(
-            Shark,
-            2_383_680,
-            "bafy2bzaceb6j6666h36xnhksu3ww4kxb6e25niayfgkdnifaqi6m6ooc66i6i"
-        ),
-        make_height!(
-            Hygge,
-            2_683_348,
-            "bafy2bzacecsuyf7mmvrhkx2evng5gnz5canlnz2fdlzu2lvcgptiq2pzuovos"
-        ),
-        make_height!(
-            Lightning,
-            2_809_800,
-            "bafy2bzacecnhaiwcrpyjvzl4uv4q3jzoif26okl3m66q3cijp3dfwlcxwztwo"
-        ),
+        make_height!(Shark, 2_383_680, get_bundle_cid("v9.0.3")),
+        make_height!(Hygge, 2_683_348, get_bundle_cid("v10.0.0")),
+        make_height!(Lightning, 2_809_800, get_bundle_cid("v11.0.0")),
         make_height!(Thunder, 2_809_800 + LIGHTNING_ROLLOVER_PERIOD),
-        make_height!(
-            Watermelon,
-            3_469_380,
-            "bafy2bzaceapkgfggvxyllnmuogtwasmsv5qi2qzhc2aybockd6kag2g5lzaio"
-        ),
+        make_height!(Watermelon, 3_469_380, get_bundle_cid("v12.0.0")),
         // Thu Apr 24 02:00:00 PM UTC 2024
-        make_height!(
-            Dragon,
-            3_855_360,
-            "bafy2bzacecdhvfmtirtojwhw2tyciu4jkbpsbk5g53oe24br27oy62sn4dc4e"
-        ),
+        make_height!(Dragon, 3_855_360, get_bundle_cid("v13.0.0")),
         make_height!(Phoenix, 3_855_480),
         make_height!(Aussie, 9999999999),
     ])
 });
+
+fn get_bundle_cid(version: &str) -> Cid {
+    ACTOR_BUNDLES_METADATA
+        .get(&(NetworkChain::Mainnet, version.into()))
+        .expect("bundle must be defined")
+        .bundle_cid
+}
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 3]> = Lazy::new(|| {
     [
