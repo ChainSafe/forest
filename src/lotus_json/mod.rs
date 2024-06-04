@@ -123,7 +123,7 @@
 
 use derive_more::From;
 use fil_actor_interface::miner::DeadlineInfo;
-use fvm_shared2::piece::PaddedPieceSize;
+use fvm_shared4::piece::PaddedPieceSize;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(test)]
@@ -216,6 +216,7 @@ decl_and_test!(
 
 // If a module cannot be tested normally above, you MAY declare it separately here
 // but you MUST document any tech debt - the reason WHY it cannot be tested above.
+mod allocation;
 mod beneficiary_term; // fil_actor_miner_state::v12::BeneficiaryTerm: !quickcheck::Arbitrary
 mod bit_field; //  fil_actors_shared::fvm_ipld_bitfield::BitField: !quickcheck::Arbitrary
 mod cid; // can't make snapshots of generic type

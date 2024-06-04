@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -12,6 +13,7 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::actors::miner::PartitionExt as _;
 use crate::shim::actors::{market::BalanceTableExt as _, miner::MinerStateExt as _};
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
@@ -36,7 +38,7 @@ use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
-use fil_actor_interface::verifreg::Claim;
+use fil_actor_interface::verifreg::{Allocation, Claim};
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
@@ -1729,6 +1731,68 @@ impl StateSectorGetInfo {
     }
 }
 
+pub enum StateSectorExpiration {}
+
+impl RpcMethod<3> for StateSectorExpiration {
+    const NAME: &'static str = "Filecoin.StateSectorExpiration";
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, u64, ApiTipsetKey);
+    type Ok = SectorExpiration;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let store = ctx.store();
+        let policy = &ctx.state_manager.chain_config().policy;
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&miner_address, *ts.parent_state())?;
+        let state = miner::State::load(store, actor.code, actor.state)?;
+        let mut early = 0;
+        let mut on_time = 0;
+        let mut terminated = false;
+        state.for_each_deadline(policy, store, |_deadline_index, deadline| {
+            deadline.for_each(store, |_partition_index, partition| {
+                if !terminated && partition.all_sectors().get(sector_number) {
+                    if partition.terminated().get(sector_number) {
+                        terminated = true;
+                        early = 0;
+                        on_time = 0;
+                        return Ok(());
+                    }
+                    let expirations: Amt<fil_actor_miner_state::v13::ExpirationSet, _> =
+                        Amt::load(&partition.expirations_epochs(), store)?;
+                    expirations.for_each(|epoch, expiration| {
+                        if expiration.early_sectors.get(sector_number) {
+                            early = epoch as _;
+                        }
+                        if expiration.on_time_sectors.get(sector_number) {
+                            on_time = epoch as _;
+                        }
+                        Ok(())
+                    })?;
+                }
+
+                Ok(())
+            })?;
+            Ok(())
+        })?;
+        if early == 0 && on_time == 0 {
+            Err(anyhow::anyhow!("failed to find sector {sector_number}").into())
+        } else {
+            Ok(SectorExpiration { early, on_time })
+        }
+    }
+}
+
 /// Looks back and returns all messages with a matching to or from address, stopping at the given height.
 pub enum StateListMessages {}
 
@@ -1812,6 +1876,28 @@ impl RpcMethod<3> for StateGetClaim {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.get_claim(&address, &ts, claim_id)?)
+    }
+}
+
+pub enum StateGetAllocation {}
+
+impl RpcMethod<3> for StateGetAllocation {
+    const NAME: &'static str = "Filecoin.StateGetAllocation";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "allocation_id", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ClaimID, ApiTipsetKey);
+    type Ok = Option<Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, allocation_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx
+            .state_manager
+            .get_allocation(&address, &ts, allocation_id)?)
     }
 }
 

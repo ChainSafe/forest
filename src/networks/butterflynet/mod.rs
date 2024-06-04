@@ -11,8 +11,10 @@ use url::Url;
 use crate::{db::SettingsStore, make_height, shim::version::NetworkVersion, utils::net::http_get};
 
 use super::{
+    actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
     get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+    NetworkChain,
 };
 
 pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V21;
@@ -94,16 +96,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Hygge, -21),
         make_height!(Lightning, -22),
         make_height!(Thunder, -23),
-        make_height!(
-            Watermelon,
-            -1,
-            "bafy2bzacectxvbk77ntedhztd6sszp2btrtvsmy7lp2ypnrk6yl74zb34t2cq"
-        ),
-        make_height!(
-            Dragon,
-            480,
-            "bafy2bzacec75zk7ufzwx6tg5avls5fxdjx5asaqmd2bfqdvkqrkzoxgyflosu"
-        ),
+        make_height!(Watermelon, -1, get_bundle_cid("v12.0.0")),
+        make_height!(Dragon, 480, get_bundle_cid("v13.0.0")),
         (
             Height::Phoenix,
             HeightInfo {
@@ -114,6 +108,13 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Aussie, 9999999999),
     ])
 });
+
+fn get_bundle_cid(version: &str) -> Cid {
+    ACTOR_BUNDLES_METADATA
+        .get(&(NetworkChain::Butterflynet, version.into()))
+        .expect("bundle must be defined")
+        .bundle_cid
+}
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
     [
