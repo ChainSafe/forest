@@ -40,7 +40,7 @@ use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
-use fil_actor_interface::verifreg::Claim;
+use fil_actor_interface::verifreg::{Allocation, Claim};
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
@@ -1910,6 +1910,28 @@ impl RpcMethod<3> for StateGetClaim {
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.get_claim(&address, &ts, claim_id)?)
+    }
+}
+
+pub enum StateGetAllocation {}
+
+impl RpcMethod<3> for StateGetAllocation {
+    const NAME: &'static str = "Filecoin.StateGetAllocation";
+    const PARAM_NAMES: [&'static str; 3] = ["address", "allocation_id", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ClaimID, ApiTipsetKey);
+    type Ok = Option<Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, allocation_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx
+            .state_manager
+            .get_allocation(&address, &ts, allocation_id)?)
     }
 }
 
