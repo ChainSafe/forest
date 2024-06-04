@@ -117,7 +117,7 @@ pub struct ApiMarketDeal {
 
 lotus_json_with_self!(ApiMarketDeal);
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct MarketDeal {
     pub proposal: DealProposal,
