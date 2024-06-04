@@ -1819,11 +1819,15 @@ impl RpcMethod<3> for StateSectorPartition {
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(store, actor.code, actor.state)?;
-        Ok(state.find_sector(
+        let (deadline, partition) = state.find_sector(
             store,
             sector_number,
-            &ctx.state_manager.chain_config().policy.clone().into(),
-        )?)
+            &ctx.state_manager.chain_config().policy,
+        )?;
+        Ok(SectorLocation {
+            deadline,
+            partition,
+        })
     }
 }
 

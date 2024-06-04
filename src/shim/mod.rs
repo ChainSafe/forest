@@ -16,7 +16,6 @@ pub mod kernel;
 pub mod machine;
 pub mod message;
 pub mod piece;
-pub mod policy;
 pub mod randomness;
 pub mod sector;
 pub mod state_tree;

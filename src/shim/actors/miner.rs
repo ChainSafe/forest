@@ -9,10 +9,7 @@ use fil_actor_interface::miner::State;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 
-use crate::{
-    rpc::{state::SectorLocation, types::SectorOnChainInfo},
-    shim::{policy::Policy, sector::SectorNumber},
-};
+use crate::rpc::types::SectorOnChainInfo;
 
 pub trait MinerStateExt {
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed
@@ -22,14 +19,6 @@ pub trait MinerStateExt {
         store: &BS,
         sectors: Option<&BitField>,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>>;
-
-    /// Returns the deadline and partition index for a sector number.
-    fn find_sector<BS: Blockstore>(
-        &self,
-        store: &BS,
-        sector_number: SectorNumber,
-        policy: &Policy,
-    ) -> anyhow::Result<SectorLocation>;
 }
 
 pub trait PartitionExt {

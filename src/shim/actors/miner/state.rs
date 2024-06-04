@@ -114,25 +114,4 @@ impl MinerStateExt for State {
             }
         }
     }
-
-    fn find_sector<BS: Blockstore>(
-        &self,
-        store: &BS,
-        sector_number: SectorNumber,
-        policy: &Policy,
-    ) -> anyhow::Result<SectorLocation> {
-        let (deadline, partition) = match self {
-            State::V8(st) => st.find_sector(&policy.into(), store, sector_number)?,
-            State::V9(st) => st.find_sector(&policy.into(), store, sector_number)?,
-            State::V10(st) => st.find_sector(&policy.into(), store, sector_number)?,
-            State::V11(st) => st.find_sector(&policy.into(), store, sector_number)?,
-            State::V12(st) => st.find_sector(store, sector_number)?,
-            State::V13(st) => st.find_sector(store, sector_number)?,
-        };
-
-        Ok(SectorLocation {
-            deadline,
-            partition,
-        })
-    }
 }
