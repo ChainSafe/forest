@@ -244,7 +244,7 @@ mod test {
 
 /// Parsed tree of [`fvm4::trace::ExecutionEvent`]s
 pub mod structured {
-    use crate::rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace};
+    use crate::{rpc::state::{ActorTrace, ExecutionTrace, GasTrace, MessageTrace, ReturnTrace}, shim::kernel::ErrorNumber};
     use std::collections::VecDeque;
 
     use crate::shim::{
@@ -454,10 +454,19 @@ pub mod structured {
                 r#return: RawBytes::default(),
                 return_codec: 0,
             },
-            CallTreeReturn::Error(_syscall_error) => ReturnTrace {
-                exit_code: ExitCode::from(0),
-                r#return: RawBytes::default(),
-                return_codec: 0,
+            CallTreeReturn::Error(syscall_error) => {
+                match syscall_error.number {
+                    ErrorNumber::InsufficientFunds => ReturnTrace {
+                        exit_code: ExitCode::from(6),
+                        r#return: RawBytes::default(),
+                        return_codec: 0,
+                    },
+                    _ => ReturnTrace {
+                        exit_code: ExitCode::from(0),
+                        r#return: RawBytes::default(),
+                        return_codec: 0,
+                    }
+                }
             },
         }
     }
