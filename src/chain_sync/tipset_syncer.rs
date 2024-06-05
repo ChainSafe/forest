@@ -783,14 +783,14 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     // At this point the head is synced and it can be set in the store as the
     // heaviest
     debug!(
-        "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {:?}",
+        "Tipset range successfully verified: EPOCH = [{}, {}], HEAD_KEY = {}",
         proposed_head.epoch(),
         current_head.epoch(),
         proposed_head.key()
     );
     if let Err(why) = chain_store.put_tipset(&proposed_head) {
         error!(
-            "Putting tipset range head [EPOCH = {}, KEYS = {:?}] in the store failed: {}",
+            "Putting tipset range head [EPOCH = {}, KEYS = {}] in the store failed: {}",
             proposed_head.epoch(),
             proposed_head.key(),
             why
@@ -1137,7 +1137,7 @@ async fn validate_tipset<DB: Blockstore + Send + Sync + 'static>(
         "Validating tipset: EPOCH = {epoch}, N blocks = {}",
         blocks.len()
     );
-    debug!("Tipset keys: {full_tipset_key}");
+    trace!("Tipset keys: {full_tipset_key}");
 
     for b in blocks {
         let validation_fn = tokio::task::spawn(validate_block(state_manager.clone(), Arc::new(b)));
