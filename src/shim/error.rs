@@ -31,6 +31,10 @@ impl ExitCode {
     pub fn value(&self) -> u32 {
         self.0.value()
     }
+
+    pub fn is_success(&self) -> bool {
+        self.0.is_success()
+    }
 }
 
 impl From<u32> for ExitCode {
