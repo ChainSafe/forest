@@ -880,6 +880,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     tipset.key().into(),
                 ))?)
                 .pass_on_rejected(true),
+                RpcTest::identity(StateSectorPartition::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?

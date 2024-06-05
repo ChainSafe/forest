@@ -26,7 +26,7 @@ use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 
 use super::{
     index::{ChainIndex, ResolveNullTipset},
@@ -228,7 +228,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            debug!("Block {cid} was previously validated");
+            trace!("Block {cid} was previously validated");
         }
         validated
     }

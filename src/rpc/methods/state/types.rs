@@ -183,3 +183,11 @@ pub struct SectorExpiration {
     pub early: ChainEpoch,
 }
 lotus_json_with_self!(SectorExpiration);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorLocation {
+    pub deadline: u64,
+    pub partition: u64,
+}
+lotus_json_with_self!(SectorLocation);
