@@ -157,6 +157,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
+        $callback!(crate::rpc::state::StateGetAllocation);
         $callback!(crate::rpc::state::StateSectorExpiration);
 
         // sync vertical

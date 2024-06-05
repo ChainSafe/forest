@@ -4,18 +4,24 @@
 use std::io::{self, Cursor};
 use std::path::Path;
 
+use ahash::HashMap;
 use anyhow::ensure;
 use async_compression::tokio::write::ZstdEncoder;
 use cid::Cid;
 use futures::stream::FuturesUnordered;
 use futures::{stream, StreamExt, TryStreamExt};
+use fvm_ipld_blockstore::MemoryBlockstore;
 use itertools::Itertools;
 use nunny::Vec as NonEmpty;
 use once_cell::sync::Lazy;
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use tokio::fs::File;
 use tracing::warn;
 
+use crate::daemon::bundle::load_actor_bundles_from_server;
+use crate::shim::machine::BuiltinActorManifest;
 use crate::utils::db::car_stream::{CarStream, CarWriter};
 use crate::utils::net::http_get;
 
@@ -32,6 +38,7 @@ pub struct ActorBundleInfo {
     /// ourselves when a new bundle is released.
     pub alt_url: Url,
     pub network: NetworkChain,
+    pub version: String,
 }
 
 macro_rules! actor_bundle_info {
@@ -55,6 +62,7 @@ macro_rules! actor_bundle_info {
                             ".car"
                         ).parse().unwrap(),
                     network: NetworkChain::from_str($network).unwrap(),
+                    version: $version.to_string(),
                 },
             )*
         ]
@@ -86,6 +94,57 @@ pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
     ])
 });
 
+#[serde_as]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ActorBundleMetadata {
+    pub network: NetworkChain,
+    pub version: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub bundle_cid: Cid,
+    pub manifest: BuiltinActorManifest,
+}
+
+type ActorBundleMetadataMap = HashMap<(NetworkChain, String), ActorBundleMetadata>;
+
+pub static ACTOR_BUNDLES_METADATA: Lazy<ActorBundleMetadataMap> = Lazy::new(|| {
+    let json: &str = include_str!("../../build/manifest.json");
+    let metadata_vec: Vec<ActorBundleMetadata> =
+        serde_json::from_str(json).expect("invalid manifest");
+    metadata_vec
+        .into_iter()
+        .map(|metadata| {
+            (
+                (metadata.network.clone(), metadata.version.clone()),
+                metadata,
+            )
+        })
+        .collect()
+});
+
+pub async fn get_actor_bundles_metadata() -> anyhow::Result<Vec<ActorBundleMetadata>> {
+    let store = MemoryBlockstore::new();
+    for network in [
+        NetworkChain::Mainnet,
+        NetworkChain::Calibnet,
+        NetworkChain::Butterflynet,
+        NetworkChain::Devnet(Default::default()),
+    ] {
+        load_actor_bundles_from_server(&store, &network, &ACTOR_BUNDLES).await?;
+    }
+
+    ACTOR_BUNDLES
+        .iter()
+        .map(|bundle| -> anyhow::Result<_> {
+            Ok(ActorBundleMetadata {
+                network: bundle.network.clone(),
+                version: bundle.version.clone(),
+                bundle_cid: bundle.manifest,
+                manifest: BuiltinActorManifest::load_manifest(&store, &bundle.manifest)?,
+            })
+        })
+        .collect()
+}
+
 pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
     let (mut roots, blocks) = FuturesUnordered::from_iter(ACTOR_BUNDLES.iter().map(
         |ActorBundleInfo {
@@ -93,6 +152,7 @@ pub async fn generate_actor_bundle(output: &Path) -> anyhow::Result<()> {
              url,
              alt_url,
              network: _,
+             version: _,
          }| async move {
             let response = if let Ok(response) = http_get(url).await {
                 response
@@ -167,6 +227,7 @@ mod tests {
                  url,
                  alt_url,
                  network: _,
+                 version: _,
              }| async move {
                 let (primary, alt) = match (http_get(url).await, http_get(alt_url).await) {
                     (Ok(primary), Ok(alt)) => (primary, alt),

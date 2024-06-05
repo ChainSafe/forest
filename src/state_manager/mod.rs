@@ -48,10 +48,10 @@ use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
-use fil_actor_interface::verifreg::Claim;
+use fil_actor_interface::verifreg::{Allocation, Claim};
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
-use fil_actor_verifreg_state::v13::ClaimID;
+use fil_actor_verifreg_state::v13::{AllocationID, ClaimID};
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
@@ -1330,6 +1330,17 @@ where
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
         state.get_claim(self.blockstore(), id_address.into(), claim_id)
+    }
+
+    pub fn get_allocation(
+        self: &Arc<Self>,
+        addr: &Address,
+        ts: &Arc<Tipset>,
+        allocation_id: AllocationID,
+    ) -> anyhow::Result<Option<Allocation>> {
+        let id_address = self.lookup_required_id(addr, ts)?;
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
     }
 
     pub fn verified_client_status(
