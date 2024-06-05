@@ -86,6 +86,8 @@ pub struct ExecutionTrace {
     pub msg_rct: ReturnTrace,
     pub invoked_actor: Option<ActorTrace>,
     pub gas_charges: Vec<GasTrace>,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Option<Vec<ExecutionTrace>>>")]
     pub subcalls: Option<Vec<ExecutionTrace>>,
 }
 
