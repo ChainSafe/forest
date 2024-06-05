@@ -35,6 +35,8 @@
   `Filecoin.NetProtectAdd` RPC method.
 - [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
   `Filecoin.StateGetAllocation` RPC method.
+- [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
+  `Filecoin.StateSectorPartition` RPC method.
 
 ### Changed
 
