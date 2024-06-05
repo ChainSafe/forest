@@ -69,6 +69,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthBlockNumber);
         $callback!(crate::rpc::eth::EthChainId);
         $callback!(crate::rpc::eth::EthGetCode);
+        $callback!(crate::rpc::eth::EthGetStorageAt);
         $callback!(crate::rpc::eth::EthGasPrice);
         $callback!(crate::rpc::eth::EthGetBalance);
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
@@ -159,6 +160,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateGetClaim);
         $callback!(crate::rpc::state::StateGetAllocation);
         $callback!(crate::rpc::state::StateSectorExpiration);
+        $callback!(crate::rpc::state::StateSectorPartition);
 
         // sync vertical
         $callback!(crate::rpc::sync::SyncCheckBad);

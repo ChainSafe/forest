@@ -278,7 +278,7 @@ impl Builder {
         };
         let collisions = slots
             .iter()
-            .group_by(|(_, it)| it.hash)
+            .chunk_by(|(_, it)| it.hash)
             .into_iter()
             // subtract one because a lone item is not a collision
             .map(|(_, group)| group.count() - 1)
@@ -723,7 +723,7 @@ mod tests {
                 Slot::Empty => None,
                 Slot::Occupied(it) => Some(it),
             })
-            .group_by(|it| it.hash)
+            .chunk_by(|it| it.hash)
             .into_iter()
             .map(|(hash, group)| (hash, HashSet::from_iter(group.map(|it| it.frame_offset))))
             .collect::<HashMap<_, _>>();

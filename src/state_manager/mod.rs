@@ -71,7 +71,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, trace, warn};
 pub use utils::is_valid_for_sending;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -395,7 +395,7 @@ where
                 let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                debug!("Completed tipset state calculation {:?}", tipset.cids());
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
             })
             .await
@@ -1281,17 +1281,11 @@ where
             })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
-        let tipsets = itertools::unfold(Some(end), |tipset| {
-            let child = tipset.take()?;
-            // if this has parents, unfold them in the next iteration
-            *tipset = self
-                .cs
-                .chain_index
-                .load_required_tipset(child.parents())
-                .ok();
-            Some(child)
-        })
-        .take_while(|tipset| tipset.epoch() >= *epochs.start());
+        let tipsets = self
+            .cs
+            .chain_index
+            .chain(end)
+            .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
         self.validate_tipsets(tipsets)
     }

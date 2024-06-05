@@ -343,24 +343,23 @@ impl Tipset {
     }
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
-        itertools::unfold(Some(self), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
-                child
-            })
+        let mut tipset = Some(self);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = Tipset::load_required(&store, child.parents()).ok();
+            Some(child)
         })
     }
 
     /// Returns an iterator of all tipsets
     pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
-        itertools::unfold(Some(self), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = Tipset::load(&store, child.parents())
-                    .ok()
-                    .flatten()
-                    .map(Arc::new);
-                child
-            })
+        let mut tipset = Some(self);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = Tipset::load_required(&store, child.parents())
+                .ok()
+                .map(Arc::new);
+            Some(child)
         })
     }
 
@@ -402,6 +401,13 @@ impl Tipset {
             }
         }
         anyhow::bail!("Genesis block not found")
+    }
+
+    /// Check if `self` is the child of `other`
+    pub fn is_child_of(&self, other: &Self) -> bool {
+        // Note: the extra `&& self.epoch() > other.epoch()` check in lotus is dropped
+        // See <https://github.com/filecoin-project/lotus/blob/01ec22974942fb7328a1e665704c6cfd75d93372/chain/types/tipset.go#L258>
+        self.parents() == other.key()
     }
 }
 

@@ -35,6 +35,8 @@
   `Filecoin.NetProtectAdd` RPC method.
 - [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
   `Filecoin.StateGetAllocation` RPC method.
+- [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
+  `Filecoin.StateSectorPartition` RPC method.
 
 ### Changed
 
@@ -44,6 +46,15 @@
   `forest-cli attach` command.
 
 ### Fixed
+
+- [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
+  `Filecoin.ChainNotify` RPC method.
+
+- [#4371](https://github.com/ChainSafe/forest/pull/4371) Fix extra `Apply`
+  change in the `Filecoin.ChainNotify` RPC method.
+
+- [#4002](https://github.com/ChainSafe/forest/issues/4002) Add support for
+  multiple WebSocket clients for `Filecoin.ChainNotify` RPC method.
 
 ## Forest 0.18.0 "Big Bang"
 
