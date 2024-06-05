@@ -33,7 +33,7 @@ pub async fn p2p_ping(addr: Multiaddr) -> Result<Duration, ping::Failure> {
                 conn_established_in = Some(established_in);
             }
             Ok(e) => {
-                tracing::debug!("{e:?}");
+                tracing::trace!("{e:?}");
             }
             Err(_e) => {
                 return conn_established_in.ok_or(ping::Failure::Timeout);
