@@ -149,15 +149,12 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// short. Semantically identical to [`Tipset::chain`] but the results are
     /// cached.
     pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
-        let mut parent_tsk = from.parents().clone();
-        std::iter::once(from).chain(std::iter::from_fn(move || {
-            if let Ok(tipset) = self.load_required_tipset(&parent_tsk) {
-                parent_tsk = tipset.parents().clone();
-                Some(tipset)
-            } else {
-                None
-            }
-        }))
+        let mut tipset = Some(from);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = self.load_required_tipset(child.parents()).ok();
+            Some(child)
+        })
     }
 
     /// Finds the latest beacon entry given a tipset up to 20 tipsets behind
