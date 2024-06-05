@@ -86,7 +86,7 @@ pub struct ExecutionTrace {
     pub msg_rct: ReturnTrace,
     pub invoked_actor: Option<ActorTrace>,
     pub gas_charges: Vec<GasTrace>,
-    pub subcalls: Vec<ExecutionTrace>,
+    pub subcalls: Option<Vec<ExecutionTrace>>,
 }
 
 lotus_json_with_self!(ExecutionTrace);
