@@ -343,15 +343,12 @@ impl Tipset {
     }
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
-        let mut parent_tsk = self.parents().clone();
-        std::iter::once(self).chain(std::iter::from_fn(move || {
-            if let Ok(tipset) = Tipset::load_required(&store, &parent_tsk) {
-                parent_tsk = tipset.parents().clone();
-                Some(tipset)
-            } else {
-                None
-            }
-        }))
+        let mut tipset = Some(self);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = Tipset::load_required(&store, child.parents()).ok();
+            Some(child)
+        })
     }
 
     /// Returns an iterator of all tipsets
