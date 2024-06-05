@@ -343,24 +343,23 @@ impl Tipset {
     }
     /// Returns an iterator of all tipsets
     pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
-        itertools::unfold(Some(self), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = Tipset::load(&store, child.parents()).ok().flatten();
-                child
-            })
+        let mut tipset = Some(self);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = Tipset::load_required(&store, child.parents()).ok();
+            Some(child)
         })
     }
 
     /// Returns an iterator of all tipsets
     pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
-        itertools::unfold(Some(self), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = Tipset::load(&store, child.parents())
-                    .ok()
-                    .flatten()
-                    .map(Arc::new);
-                child
-            })
+        let mut tipset = Some(self);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = Tipset::load_required(&store, child.parents())
+                .ok()
+                .map(Arc::new);
+            Some(child)
         })
     }
 

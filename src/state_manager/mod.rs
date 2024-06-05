@@ -1281,17 +1281,11 @@ where
             })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
-        let tipsets = itertools::unfold(Some(end), |tipset| {
-            let child = tipset.take()?;
-            // if this has parents, unfold them in the next iteration
-            *tipset = self
-                .cs
-                .chain_index
-                .load_required_tipset(child.parents())
-                .ok();
-            Some(child)
-        })
-        .take_while(|tipset| tipset.epoch() >= *epochs.start());
+        let tipsets = self
+            .cs
+            .chain_index
+            .chain(end)
+            .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
         self.validate_tipsets(tipsets)
     }
