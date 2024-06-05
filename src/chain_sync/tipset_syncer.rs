@@ -803,6 +803,8 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
 /// Download headers between the proposed head and the current one available
 /// locally. If they turn out to be on different forks, download more headers up
 /// to a certain limit to try to find a common ancestor.
+/// 
+/// Also checkout corresponding lotus code at <https://github.com/filecoin-project/lotus/blob/v1.27.0/chain/sync.go#L684>
 async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     tracker: crate::chain_sync::chain_muxer::WorkerState,
     proposed_head: Arc<Tipset>,
@@ -867,8 +869,6 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         return Ok(pending_tipsets);
     }
 
-    // Fork detected, sync the fork tipset range by iteratively walking back
-    // from the oldest tipset synced until we find a common ancestor
     info!("Fork detected, searching for a common ancestor between the local chain and the network chain");
     const FORK_LENGTH_THRESHOLD: u64 = 500;
     let fork_tipsets = network
