@@ -417,7 +417,7 @@ pub mod structured {
                         msg: to_message_trace(call),
                         msg_rct: to_return_trace(ret),
                         gas_charges,
-                        subcalls: Some(subcalls),
+                        subcalls,
                         invoked_actor: actor_trace,
                     });
                 }
