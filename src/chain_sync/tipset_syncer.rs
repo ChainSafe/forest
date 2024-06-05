@@ -803,7 +803,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
 /// Download headers between the proposed head and the current one available
 /// locally. If they turn out to be on different forks, download more headers up
 /// to a certain limit to try to find a common ancestor.
-/// 
+///
 /// Also checkout corresponding lotus code at <https://github.com/filecoin-project/lotus/blob/v1.27.0/chain/sync.go#L684>
 async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     tracker: crate::chain_sync::chain_muxer::WorkerState,
