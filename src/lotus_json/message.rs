@@ -55,9 +55,6 @@ impl HasLotusJson for Message {
                 "To": "f00",
                 "Value": "0",
                 "Version": 0,
-                "CID": {
-                    "/": "bafy2bzaced3xdk2uf6azekyxgcttujvy3fzyeqmibtpjf2fxcpfdx2zcx4s3g"
-                }
             }),
             Message::default(),
         )]
