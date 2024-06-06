@@ -762,7 +762,8 @@ impl HasLotusJson for PathChange {
         use serde_json::json;
         vec![(
             json!({
-                "revert": {
+                "Type": "revert",
+                "Val": {
                     "Blocks": [
                         {
                             "BeaconEntries": null,
