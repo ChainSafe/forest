@@ -56,6 +56,9 @@
 - [#4002](https://github.com/ChainSafe/forest/issues/4002) Add support for
   multiple WebSocket clients for `Filecoin.ChainNotify` RPC method.
 
+- [#4390](https://github.com/ChainSafe/forest/issues/4390) Fix `SignedMessage`
+  JSON formatting to match Lotus.
+
 ## Forest 0.18.0 "Big Bang"
 
 This is a non-mandatory release including a fair number of new RPC methods and
