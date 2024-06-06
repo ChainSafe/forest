@@ -48,10 +48,10 @@ use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
-use fil_actor_interface::verifreg::{Allocation, Claim};
+use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
-use fil_actor_verifreg_state::v13::{AllocationID, ClaimID};
+use fil_actor_verifreg_state::v13::ClaimID;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fil_actors_shared::v12::runtime::DomainSeparationTag;
@@ -1305,9 +1305,9 @@ where
         )
     }
 
-    fn get_verified_registry_actor_state(
-        self: &Arc<Self>,
-        ts: &Arc<Tipset>,
+    pub fn get_verified_registry_actor_state(
+        &self,
+        ts: &Tipset,
     ) -> anyhow::Result<verifreg::State> {
         let act = self
             .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
@@ -1316,9 +1316,9 @@ where
         verifreg::State::load(self.blockstore(), act.code, act.state)
     }
     pub fn get_claim(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
         claim_id: ClaimID,
     ) -> anyhow::Result<Option<Claim>> {
         let id_address = self.lookup_required_id(addr, ts)?;
@@ -1327,9 +1327,9 @@ where
     }
 
     pub fn get_allocation(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
         allocation_id: AllocationID,
     ) -> anyhow::Result<Option<Allocation>> {
         let id_address = self.lookup_required_id(addr, ts)?;
@@ -1338,9 +1338,9 @@ where
     }
 
     pub fn verified_client_status(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Option<DataCap>> {
         let id = self.lookup_required_id(addr, ts)?;
         let network_version = self.get_network_version(ts.epoch());
