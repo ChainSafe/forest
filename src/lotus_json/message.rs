@@ -4,7 +4,6 @@
 use super::*;
 
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
-use ::cid::Cid;
 use fvm_ipld_encoding::RawBytes;
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
