@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
+use fil_actor_interface::init;
 use fil_actors_shared::fvm_ipld_amt::Amt;
 use fvm_shared3::sector::RegisteredSealProof;
 use schemars::JsonSchema;
@@ -13,6 +14,7 @@ use crate::cid_collections::CidHashSet;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
     market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
@@ -35,12 +37,12 @@ use crate::{
     beacon::BeaconEntry,
     rpc::{types::*, ApiVersion, Ctx, Permission, RpcMethod, ServerError},
 };
-use ahash::{HashMap, HashMapExt};
+use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
 use anyhow::Result;
 use cid::Cid;
 use fil_actor_interface::market::DealState;
-use fil_actor_interface::verifreg::{Allocation, Claim};
+use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
 use fil_actor_interface::{
     market, miner,
     miner::{MinerInfo, MinerPower},
@@ -1925,7 +1927,7 @@ impl RpcMethod<3> for StateGetAllocation {
     const API_VERSION: ApiVersion = ApiVersion::V1;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Address, ClaimID, ApiTipsetKey);
+    type Params = (Address, AllocationID, ApiTipsetKey);
     type Ok = Option<Allocation>;
 
     async fn handle(
@@ -1936,6 +1938,146 @@ impl RpcMethod<3> for StateGetAllocation {
         Ok(ctx
             .state_manager
             .get_allocation(&address, &ts, allocation_id)?)
+    }
+}
+
+pub enum StateGetAllocations {}
+
+impl RpcMethod<2> for StateGetAllocations {
+    const NAME: &'static str = "Filecoin.StateGetAllocations";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = HashMap<AllocationID, Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(Self::get_allocations(
+            &ctx.state_manager.blockstore_owned(),
+            &address,
+            &ts,
+        )?)
+    }
+}
+
+impl StateGetAllocations {
+    // For testing
+    pub fn get_valid_actor_addresses<'a>(
+        store: &'a Arc<impl Blockstore>,
+        tipset: &'a Tipset,
+    ) -> anyhow::Result<impl Iterator<Item = Address> + 'a> {
+        let mut addresses = HashSet::default();
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+
+        let verifreg_actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
+        let verifreg_state =
+            verifreg::State::load(store, verifreg_actor.code, verifreg_actor.state)?;
+        match verifreg_state {
+            verifreg::State::V13(s) => {
+                let map = s.load_allocs(store)?;
+                map.for_each(|k, _| {
+                    let actor_id = fil_actors_shared::v13::parse_uint_key(k)?;
+                    addresses.insert(Address::new_id(actor_id));
+                    Ok(())
+                })?;
+            }
+            verifreg::State::V12(s) => {
+                let map = s.load_allocs(store)?;
+                map.for_each(|k, _| {
+                    let actor_id = fil_actors_shared::v12::parse_uint_key(k)?;
+                    addresses.insert(Address::new_id(actor_id));
+                    Ok(())
+                })?;
+            }
+            _ => (),
+        };
+
+        if addresses.is_empty() {
+            let init_actor = state_tree.get_required_actor(&Address::INIT_ACTOR)?;
+            let init_state = init::State::load(store, init_actor.code, init_actor.state)?;
+            match init_state {
+                init::State::V0(_) => unimplemented!(),
+                init::State::V8(s) => {
+                    let map =
+                        fil_actors_shared::v8::make_map_with_root::<_, u64>(&s.address_map, store)?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V9(s) => {
+                    let map =
+                        fil_actors_shared::v9::make_map_with_root::<_, u64>(&s.address_map, store)?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V10(s) => {
+                    let map = fil_actors_shared::v10::make_map_with_root::<_, u64>(
+                        &s.address_map,
+                        store,
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V11(s) => {
+                    let map = fil_actors_shared::v11::make_map_with_root::<_, u64>(
+                        &s.address_map,
+                        store,
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V12(s) => {
+                    let map = fil_actors_shared::v12::make_map_with_root::<_, u64>(
+                        &s.address_map,
+                        store,
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+                init::State::V13(s) => {
+                    let map = fil_actors_shared::v13::make_map_with_root::<_, u64>(
+                        &s.address_map,
+                        store,
+                    )?;
+                    map.for_each(|_k, v| {
+                        addresses.insert(Address::new_id(*v));
+                        Ok(())
+                    })?;
+                }
+            };
+        }
+
+        Ok(addresses
+            .into_iter()
+            .filter(|addr| match Self::get_allocations(store, addr, tipset) {
+                Ok(r) => !r.is_empty(),
+                _ => false,
+            }))
+    }
+
+    pub fn get_allocations(
+        store: &Arc<impl Blockstore>,
+        address: &Address,
+        tipset: &Tipset,
+    ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
+        let state = verifreg::State::load(store, actor.code, actor.state)?;
+        state.get_allocations(store, address)
     }
 }
 
