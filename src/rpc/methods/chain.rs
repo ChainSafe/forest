@@ -749,7 +749,7 @@ pub struct ApiHeadChange {
 lotus_json_with_self!(ApiHeadChange);
 
 #[derive(PartialEq, Debug, Serialize, Deserialize, Clone, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "Type", content = "Val", rename_all = "snake_case")]
 pub enum PathChange<T = Arc<Tipset>> {
     Revert(T),
     Apply(T),
