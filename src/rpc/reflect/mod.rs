@@ -162,20 +162,22 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Method {
             name: String::from(Self::NAME),
             params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
-                .map(|(name, (schema, optional))| ContentDescriptor {
-                    name: String::from(name),
-                    schema,
-                    required: Some(!optional),
-                    ..Default::default()
+                .map(|(name, (schema, optional))| {
+                    ReferenceOr::Item(ContentDescriptor {
+                        name: String::from(name),
+                        schema,
+                        required: Some(!optional),
+                        ..Default::default()
+                    })
                 })
                 .collect(),
             param_structure: Some(calling_convention),
-            result: Some(ContentDescriptor {
+            result: Some(ReferenceOr::Item(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
                 schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
                 required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
                 ..Default::default()
-            }),
+            })),
             tags: Some(
                 iter::once(&Self::API_VERSION as &dyn AsTag)
                     .chain(Self::TAGS.iter().map(|it| it as &dyn AsTag))

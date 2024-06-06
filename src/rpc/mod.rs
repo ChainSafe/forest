@@ -421,7 +421,10 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            methods.push(<$ty>::openrpc(&mut gen, ParamStructure::ByPosition));
+            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                &mut gen,
+                ParamStructure::ByPosition,
+            )));
         };
     }
     for_each_method!(callback);
