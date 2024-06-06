@@ -4,3 +4,4 @@
 pub mod market;
 pub mod miner;
 pub mod multisig;
+pub mod verifreg;

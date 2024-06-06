@@ -846,15 +846,25 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 0,
                 tipset.key().into(),
             ))?),
-            // NOTE: Once StateGetAllocations is implemented we need to retrieve a valid
-            // allocation_id and use that for testing.
-            RpcTest::identity(StateGetAllocation::request((
-                block.miner_address,
-                0,
-                tipset.key().into(),
-            ))?),
         ]);
-
+        for address in StateGetAllocations::get_valid_actor_addresses(store, tipset)?
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateGetAllocations::request((
+                address,
+                tipset.key().into(),
+            ))?)]);
+            for allocation_id in StateGetAllocations::get_allocations(store, &address, tipset)?
+                .keys()
+                .take(COLLECTION_SAMPLE_SIZE)
+            {
+                tests.extend([RpcTest::identity(StateGetAllocation::request((
+                    address,
+                    *allocation_id,
+                    tipset.key().into(),
+                ))?)]);
+            }
+        }
         for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?
             .into_iter()
             .take(COLLECTION_SAMPLE_SIZE)
