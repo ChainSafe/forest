@@ -6,10 +6,14 @@ use std::path::PathBuf;
 
 use super::SettingsStore;
 
+use super::EthMappingsStore;
+
 use crate::db::{
     parity_db_config::ParityDbConfig, truncated_hash, DBStatistics, GarbageCollectable,
 };
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+
+use crate::rpc::eth;
 
 use anyhow::{anyhow, Context as _};
 use cid::multihash::Code::Blake2b256;
@@ -41,6 +45,8 @@ enum DbColumn {
     GraphFull,
     /// Column for storing Forest-specific settings.
     Settings,
+    /// Column for storing Ethereum mappings.
+    EthMappings,
 }
 
 impl DbColumn {
@@ -63,6 +69,13 @@ impl DbColumn {
                     DbColumn::Settings => parity_db::ColumnOptions {
                         // explicitly disable preimage for settings column
                         // othewise we are not able to overwrite entries
+                        preimage: false,
+                        // This is needed for key retrieval.
+                        btree_index: true,
+                        compression,
+                        ..Default::default()
+                    },
+                    DbColumn::EthMappings => parity_db::ColumnOptions {
                         preimage: false,
                         // This is needed for key retrieval.
                         btree_index: true,
@@ -166,6 +179,23 @@ impl SettingsStore for ParityDb {
     }
 }
 
+impl EthMappingsStore for ParityDb {
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+        self.read_from_column(key.0.as_bytes(), DbColumn::EthMappings)
+    }
+
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+        self.write_to_column(key.0.as_bytes(), value, DbColumn::EthMappings)
+    }
+
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+        self.db
+            .get_size(DbColumn::EthMappings as u8, key.0.as_bytes())
+            .map(|size| size.is_some())
+            .context("error checking if key exists")
+    }
+}
+
 impl Blockstore for ParityDb {
     fn get(&self, k: &Cid) -> anyhow::Result<Option<Vec<u8>>> {
         let column = Self::choose_column(k);
@@ -173,7 +203,7 @@ impl Blockstore for ParityDb {
             DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
                 self.read_from_column(k.to_bytes(), column)
             }
-            DbColumn::Settings => panic!("invalid column for IPLD data"),
+            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
         }
     }
 
@@ -185,7 +215,7 @@ impl Blockstore for ParityDb {
             DbColumn::GraphDagCborBlake2b256 | DbColumn::GraphFull => {
                 self.write_to_column(k.to_bytes(), block, column)
             }
-            DbColumn::Settings => panic!("invalid column for IPLD data"),
+            DbColumn::Settings | DbColumn::EthMappings => panic!("invalid column for IPLD data"),
         }
     }
 
@@ -393,6 +423,7 @@ mod test {
                 DbColumn::GraphDagCborBlake2b256 => DbColumn::GraphFull,
                 DbColumn::GraphFull => DbColumn::GraphDagCborBlake2b256,
                 DbColumn::Settings => panic!("invalid column for IPLD data"),
+                DbColumn::EthMappings => panic!("invalid column for IPLD data"),
             };
             let actual = db.read_from_column(cid.to_bytes(), other_column).unwrap();
             assert!(actual.is_none());

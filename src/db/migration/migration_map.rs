@@ -8,6 +8,8 @@ use std::{
 };
 
 use crate::db::migration::v0_16_0::Migration0_15_2_0_16_0;
+use crate::db::migration::v0_19_0::Migration0_18_0_0_19_0;
+use crate::Config;
 use anyhow::bail;
 use anyhow::Context as _;
 use itertools::Itertools;
@@ -33,7 +35,7 @@ pub(super) trait MigrationOperation {
     /// Ideally, the migration should use as little of the Forest codebase as possible to avoid
     /// potential issues with the migration code itself and having to update it in the future.
     /// Returns the path to the migrated database (which is not yet validated)
-    fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf>;
+    fn migrate(&self, chain_data_path: &Path, config: &Config) -> anyhow::Result<PathBuf>;
     /// Performs post-migration checks. This is the place to check if the migration database is
     /// ready to be used by Forest and renamed into a versioned database.
     fn post_checks(&self, chain_data_path: &Path) -> anyhow::Result<()>;
@@ -77,6 +79,7 @@ pub(super) static MIGRATIONS: Lazy<MigrationsMap> = Lazy::new(|| {
 create_migrations!(
     "0.12.1" -> "0.13.0" @ Migration0_12_1_0_13_0,
     "0.15.2" -> "0.16.0" @ Migration0_15_2_0_16_0,
+    "0.18.0" -> "0.19.0" @ Migration0_18_0_0_19_0,
 );
 
 pub struct Migration {
@@ -86,20 +89,26 @@ pub struct Migration {
 }
 
 impl Migration {
-    pub fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<()> {
+    pub fn migrate(&self, chain_data_path: &Path, config: &Config) -> anyhow::Result<()> {
         info!(
             "Migrating database from version {} to {}",
             self.from, self.to
         );
 
         self.pre_checks(chain_data_path)?;
-        let migrated_db = self.migrator.migrate(chain_data_path)?;
+        let migrated_db = self.migrator.migrate(chain_data_path, config)?;
         self.post_checks(chain_data_path)?;
 
         let new_db = chain_data_path.join(format!("{}", self.to));
+        info!(
+            "Renaming database {} to {}",
+            migrated_db.display(),
+            new_db.display()
+        );
         std::fs::rename(migrated_db, new_db)?;
 
         let old_db = chain_data_path.join(format!("{}", self.from));
+        info!("Deleting database {}", old_db.display());
         std::fs::remove_dir_all(old_db)?;
 
         info!("Database migration complete");
@@ -286,7 +295,7 @@ mod tests {
             Ok(())
         }
 
-        fn migrate(&self, _chain_data_path: &Path) -> anyhow::Result<PathBuf> {
+        fn migrate(&self, _chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
             Ok("".into())
         }
 
@@ -481,7 +490,7 @@ mod tests {
             Ok(())
         }
 
-        fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
+        fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
             let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
             fs::create_dir(&temp_db_path).unwrap();
             Ok(temp_db_path)
@@ -519,7 +528,9 @@ mod tests {
         fs::create_dir(temp_dir.path().join("0.1.0")).unwrap();
         assert!(migration.pre_checks(temp_dir.path()).is_ok());
 
-        migration.migrate(temp_dir.path()).unwrap();
+        migration
+            .migrate(temp_dir.path(), &Config::default())
+            .unwrap();
         assert!(temp_dir.path().join("0.2.0").exists());
 
         assert!(migration.post_checks(temp_dir.path()).is_err());

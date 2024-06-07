@@ -9,8 +9,9 @@
 //! A single z-frame cache is shared between all read-only stores.
 
 use super::{AnyCar, ZstdFrameCache};
-use crate::db::{MemoryDB, SettingsStore};
+use crate::db::{EthMappingsStore, MemoryDB, SettingsStore};
 use crate::libp2p_bitswap::BitswapStoreReadWrite;
+use crate::rpc::eth;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
 use crate::{blocks::Tipset, libp2p_bitswap::BitswapStoreRead};
@@ -201,6 +202,20 @@ impl<WriterT: SettingsStore> SettingsStore for ManyCar<WriterT> {
 
     fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
         SettingsStore::setting_keys(self.writer())
+    }
+}
+
+impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+        EthMappingsStore::read_bin(self.writer(), key)
+    }
+
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+        EthMappingsStore::write_bin(self.writer(), key, value)
+    }
+
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+        EthMappingsStore::exists(self.writer(), key)
     }
 }
 
