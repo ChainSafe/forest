@@ -60,7 +60,7 @@ async fn republish_pending_messages<T>(
     cur_tipset: &Mutex<Arc<Tipset>>,
     republished: &SyncRwLock<HashSet<Cid>>,
     local_addrs: &SyncRwLock<Vec<Address>>,
-    chain_config: &Arc<ChainConfig>,
+    chain_config: &ChainConfig,
 ) -> Result<(), Error>
 where
     T: Provider,

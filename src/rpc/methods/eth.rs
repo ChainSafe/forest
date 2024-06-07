@@ -212,10 +212,6 @@ impl BlockNumberOrHash {
     pub fn from_block_number(number: i64) -> Self {
         Self::BlockNumber(number)
     }
-
-    pub fn from_block_hash(hash: Hash) -> Self {
-        Self::BlockHash(hash, false)
-    }
 }
 
 // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
@@ -684,7 +680,7 @@ impl RpcMethod<2> for EthGetBalance {
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
-    chain: &Arc<ChainStore<DB>>,
+    chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
