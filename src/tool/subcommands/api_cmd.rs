@@ -1049,6 +1049,9 @@ fn eth_tests() -> Vec<RpcTest> {
 }
 
 fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let block_cid = shared_tipset.key().cid().unwrap();
+    let block_hash: Hash = block_cid.into();
+
     vec![
         RpcTest::identity(
             EthGetBalance::request((
@@ -1065,6 +1068,20 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockByNumber::request((
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 false,
@@ -1077,6 +1094,9 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 true,
             ))
             .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),

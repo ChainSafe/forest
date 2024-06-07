@@ -38,6 +38,12 @@
 - [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
   `Filecoin.StateSectorPartition` RPC method.
 
+- [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
+  `Filecoin.EthGetBlockByHash` RPC method.
+
+- [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
+  `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
 ### Changed
 
 ### Removed
