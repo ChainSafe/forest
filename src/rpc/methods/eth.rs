@@ -27,7 +27,10 @@ use anyhow::Context;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
-use cid::Cid;
+use cid::{
+    multihash::{self, MultihashDigest},
+    Cid,
+};
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
@@ -145,6 +148,14 @@ lotus_json_with_self!(Int64);
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
+    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+    pub fn to_cid(&self) -> cid::Cid {
+        let mh = multihash::Code::Blake2b256
+            .wrap(self.0.as_bytes())
+            .expect("should not fail");
+        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+    }
+
     pub fn empty_uncles() -> Self {
         Self(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap())
     }
@@ -1202,6 +1213,52 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
         )?;
         let count = count_messages_in_tipset(ctx.store(), &ts)?;
         Ok(Uint64(count as _))
+    }
+}
+
+pub enum EthGetMessageCidByTransactionHash {}
+impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
+    const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Option<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let result = ctx.chain_store.get_mapping(&tx_hash);
+        match result {
+            Ok(Some(cid)) => return Ok(Some(cid)),
+            Ok(None) => tracing::debug!("Undefined key {tx_hash}"),
+            _ => {
+                // handle db error?
+                ()
+            }
+        }
+
+        // This isn't an eth transaction we have the mapping for, so let's try looking it up as a filecoin message
+        let cid = tx_hash.to_cid();
+
+        let result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            return Ok(Some(cid));
+        }
+
+        let result: Result<Vec<Message>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is a BLS message
+            return Ok(Some(cid));
+        }
+
+        // Ethereum clients expect an empty response when the message was not found
+        Ok(None)
     }
 }
 
