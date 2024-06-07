@@ -150,6 +150,7 @@ fn default_env_filter() -> EnvFilter {
         "rpc=error",
         "storage_proofs_core=warn",
         "tracing_loki=off",
+        "quinn_udp=error",
     ];
     EnvFilter::try_new(default_directives.join(",")).unwrap()
 }
