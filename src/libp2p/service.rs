@@ -647,7 +647,7 @@ async fn handle_gossip_event(
 async fn handle_hello_event(
     hello: &mut HelloBehaviour,
     event: request_response::Event<HelloRequest, HelloResponse, HelloResponse>,
-    peer_manager: &Arc<PeerManager>,
+    peer_manager: &PeerManager,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
@@ -743,7 +743,7 @@ async fn handle_hello_event(
     }
 }
 
-async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManager>) {
+async fn handle_ping_event(ping_event: ping::Event, peer_manager: &PeerManager) {
     match ping_event.result {
         Ok(rtt) => {
             trace!(

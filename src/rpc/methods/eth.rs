@@ -680,7 +680,7 @@ impl RpcMethod<2> for EthGetBalance {
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
-    chain: &Arc<ChainStore<DB>>,
+    chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
