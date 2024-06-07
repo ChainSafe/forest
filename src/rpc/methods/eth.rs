@@ -212,10 +212,6 @@ impl BlockNumberOrHash {
     pub fn from_block_number(number: i64) -> Self {
         Self::BlockNumber(number)
     }
-
-    pub fn from_block_hash(hash: Hash) -> Self {
-        Self::BlockHash(hash, false)
-    }
 }
 
 // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
