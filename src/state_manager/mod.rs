@@ -370,7 +370,7 @@ where
     pub fn get_all_sectors(
         self: &Arc<Self>,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
@@ -1064,19 +1064,19 @@ where
     }
 
     /// Retrieves miner faults.
-    pub fn miner_faults(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
+    pub fn miner_faults(&self, addr: &Address, ts: &Tipset) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
 
     /// Retrieves miner recoveries.
-    pub fn miner_recoveries(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
+    pub fn miner_recoveries(&self, addr: &Address, ts: &Tipset) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
         &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
         get_sector: impl Fn(Partition<'_>) -> BitField,
     ) -> Result<BitField, Error> {
         let actor = self

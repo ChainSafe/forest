@@ -2096,7 +2096,7 @@ impl RpcMethod<0> for StateGetNetworkParams {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let config = ctx.state_manager.chain_config();
+        let config = ctx.state_manager.chain_config().as_ref();
         let policy = &config.policy;
 
         // This is the correct implementation, but for conformance with Lotus,
@@ -2191,9 +2191,9 @@ pub struct ForkUpgradeParams {
     // upgrade_aussie_height: ChainEpoch,
 }
 
-impl TryFrom<&Arc<ChainConfig>> for ForkUpgradeParams {
+impl TryFrom<&ChainConfig> for ForkUpgradeParams {
     type Error = anyhow::Error;
-    fn try_from(config: &Arc<ChainConfig>) -> anyhow::Result<Self> {
+    fn try_from(config: &ChainConfig) -> anyhow::Result<Self> {
         let height_infos = &config.height_infos;
         let get_height = |height| -> anyhow::Result<ChainEpoch> {
             let height = height_infos
