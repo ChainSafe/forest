@@ -158,6 +158,8 @@ where
 {
     let mut delegated_messages = vec![];
 
+    info!("Populating column EthMappings");
+
     for ts in head_ts
         .clone()
         .chain(&state_manager.chain_store().blockstore())

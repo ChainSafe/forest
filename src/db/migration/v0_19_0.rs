@@ -117,7 +117,6 @@ impl MigrationOperation for Migration0_18_0_0_19_0 {
         drop(new_db);
 
         // open the new database to populate the Ethereum mappings
-        info!("Populating column EthMappings");
         let handle = tokio::runtime::Handle::current();
         futures::executor::block_on(async {
             let mut cloned_config = config.clone();
