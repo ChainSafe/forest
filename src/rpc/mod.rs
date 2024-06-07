@@ -8,14 +8,15 @@ mod request;
 
 pub use client::Client;
 pub use error::ServerError;
-use reflect::Ctx;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
+use reflect::{AsTagExt as _, Ctx, Tag};
 pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
 use reflect::Permission;
+use strum::IntoEnumIterator as _;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -287,7 +288,7 @@ use tokio::sync::{mpsc, RwLock};
 use tower::Service;
 use tracing::info;
 
-use self::reflect::openrpc_types::{self, ParamStructure};
+use openrpc_types::{self, ParamStructure};
 
 pub const DEFAULT_PORT: u16 = 2345;
 
@@ -424,15 +425,33 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            methods.push(<$ty>::openrpc(&mut gen, ParamStructure::ByPosition).unwrap());
+            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                &mut gen,
+                ParamStructure::ByPosition,
+            )));
         };
     }
     for_each_method!(callback);
     openrpc_types::OpenRPC {
-        methods: openrpc_types::Methods::new(methods).unwrap(),
-        components: openrpc_types::Components {
-            schemas: gen.take_definitions().into_iter().collect(),
+        methods,
+        components: Some(openrpc_types::Components {
+            schemas: Some(gen.take_definitions().into_iter().collect()),
+            tags: Some(
+                ApiVersion::iter()
+                    .map(|it| it.as_tag())
+                    .chain(Tag::iter().map(|it| it.as_tag()))
+                    .map(|it| (it.name.clone(), it))
+                    .collect(),
+            ),
+            ..Default::default()
+        }),
+        openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,
+        info: openrpc_types::Info {
+            title: String::from("forest"),
+            version: env!("CARGO_PKG_VERSION").into(),
+            ..Default::default()
         },
+        ..Default::default()
     }
 }
 
