@@ -1451,11 +1451,19 @@ impl RpcMethod<3> for EthGetStorageAt {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ethereum_types::H160;
+    use ethereum_types::{H160, H256};
     use num_bigint;
     use num_traits::{FromBytes, Signed};
+    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
+
+    impl Arbitrary for Hash {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
+            Self(H256(arr))
+        }
+    }
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
@@ -1464,6 +1472,29 @@ mod test {
         assert_eq!(encoded, format!("\"{i:#x}\""));
         let decoded: BigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r.0, decoded.0);
+    }
+
+    #[test]
+    fn test_hash() {
+        let test_cases = [
+            r#""0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184""#,
+            r#""0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738""#,
+        ];
+
+        for hash in test_cases {
+            let h: Hash = serde_json::from_str(hash).unwrap();
+
+            let c = h.to_cid();
+            let h1: Hash = c.into();
+            assert_eq!(h, h1);
+        }
+    }
+
+    #[quickcheck]
+    fn test_eth_hash_roundtrip(eth_hash: Hash) {
+        let cid = eth_hash.to_cid();
+        let hash = cid.into();
+        assert_eq!(eth_hash, hash);
     }
 
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
