@@ -1235,8 +1235,7 @@ impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
             Ok(Some(cid)) => return Ok(Some(cid)),
             Ok(None) => tracing::debug!("Undefined key {tx_hash}"),
             _ => {
-                // handle db error?
-                ()
+                result?;
             }
         }
 
