@@ -8,6 +8,7 @@ mod request;
 
 pub use client::Client;
 pub use error::ServerError;
+use futures::FutureExt as _;
 pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
 use reflect::{AsTagExt as _, Ctx, Tag};
 pub use request::Request;
@@ -274,8 +275,6 @@ pub use crate::rpc::channel::CANCEL_METHOD_NAME;
 
 use crate::blocks::Tipset;
 use fvm_ipld_blockstore::Blockstore;
-use hyper::server::conn::AddrStream;
-use hyper::service::{make_service_fn, service_fn};
 use jsonrpsee::{
     server::{stop_channel, RpcModule, RpcServiceBuilder, Server, StopHandle, TowerServiceBuilder},
     Methods,
@@ -287,7 +286,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use tower::Service;
-use tracing::info;
 
 use openrpc_types::{self, ParamStructure};
 
@@ -352,7 +350,7 @@ where
     })?;
     module.merge(pubsub_module)?;
 
-    let (stop_handle, _handle) = stop_channel();
+    let (stop_handle, _server_handle) = stop_channel();
 
     let per_conn = PerConnection {
         methods: module.into(),
@@ -365,39 +363,87 @@ where
         keystore,
     };
 
-    let make_service = make_service_fn(move |_conn: &AddrStream| {
-        let per_conn = per_conn.clone();
+    let listener = tokio::net::TcpListener::bind(rpc_endpoint).await.unwrap();
+    loop {
+        let sock = tokio::select! {
+        res = listener.accept() => {
+            match res {
+              Ok((stream, _remote_addr)) => stream,
+              Err(e) => {
+                tracing::error!("failed to accept v4 connection: {:?}", e);
+                continue;
+              }
+            }
+          }
+          _ = per_conn.stop_handle.clone().shutdown() => break,
+        };
 
-        async move {
-            anyhow::Ok(service_fn(move |req| {
+        let svc = tower::service_fn({
+            let per_conn = per_conn.clone();
+            move |req| {
+                let is_websocket = jsonrpsee::server::ws::is_upgrade_request(&req);
                 let PerConnection {
                     methods,
                     stop_handle,
                     svc_builder,
                     keystore,
                 } = per_conn.clone();
-
+                // NOTE, the rpc middleware must be initialized here to be able to created once per connection
+                // with data from the connection such as the headers in this example
                 let headers = req.headers().clone();
                 let rpc_middleware = RpcServiceBuilder::new().layer(AuthLayer {
                     headers,
                     keystore: keystore.clone(),
                 });
-
-                let mut svc = svc_builder
+                let mut jsonrpsee_svc = svc_builder
                     .set_rpc_middleware(rpc_middleware)
                     .build(methods, stop_handle);
 
-                async move { svc.call(req).await }
-            }))
-        }
-    });
+                if is_websocket {
+                    // Utilize the session close future to know when the actual WebSocket
+                    // session was closed.
+                    let session_close = jsonrpsee_svc.on_session_closed();
 
-    info!("Ready for RPC connections");
-    hyper::Server::bind(&rpc_endpoint)
-        .serve(make_service)
-        .await?;
+                    // A little bit weird API but the response to HTTP request must be returned below
+                    // and we spawn a task to register when the session is closed.
+                    tokio::spawn(async move {
+                        session_close.await;
+                        tracing::trace!("Closed WebSocket connection");
+                    });
 
-    info!("Stopped accepting RPC connections");
+                    async move {
+                        tracing::trace!("Opened WebSocket connection");
+                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
+                        // as workaround.
+                        jsonrpsee_svc
+                            .call(req)
+                            .await
+                            .map_err(|e| anyhow::anyhow!("{:?}", e))
+                    }
+                    .boxed()
+                } else {
+                    // HTTP.
+                    async move {
+                        tracing::trace!("Opened HTTP connection");
+                        let rp = jsonrpsee_svc.call(req).await;
+                        tracing::trace!("Closed HTTP connection");
+                        // https://github.com/rust-lang/rust/issues/102211 the error type can't be inferred
+                        // to be `Box<dyn std::error::Error + Send + Sync>` so we need to convert it to a concrete type
+                        // as workaround.
+                        rp.map_err(|e| anyhow::anyhow!("{:?}", e))
+                    }
+                    .boxed()
+                }
+            }
+        });
+
+        tokio::spawn(jsonrpsee::server::serve_with_graceful_shutdown(
+            sock,
+            svc,
+            stop_handle.clone().shutdown(),
+        ));
+    }
 
     Ok(())
 }

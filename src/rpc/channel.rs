@@ -148,7 +148,7 @@ impl PendingSubscriptionSink {
             );
             tracing::debug!(
                 "Accepting subscription (conn_id={}, chann_id={})",
-                self.connection_id,
+                self.connection_id.0,
                 self.channel_id
             );
             Ok(SubscriptionSink {
@@ -291,7 +291,11 @@ impl Default for RpcModule {
                 CANCEL_METHOD_NAME,
                 MethodCallback::Unsubscription(Arc::new({
                     let channels = channels.clone();
-                    move |id, params: Params, connection_id: ConnectionId, _max_response| {
+                    move |id,
+                          params: Params,
+                          connection_id: ConnectionId,
+                          _max_response,
+                          _extensions| {
                         let cb = || {
                             let arr: [Id<'_>; 1] = params.parse()?;
                             let sub_id = arr[0].clone().into_owned();
@@ -405,7 +409,7 @@ impl RpcModule {
             subscribe_method_name,
             MethodCallback::Subscription(Arc::new({
                 let id_provider = self.id_provider.clone();
-                move |id, params, method_sink, conn| {
+                move |id, params, method_sink, conn, _extensions| {
                     let channel_id = id_provider.fetch_add(1, Ordering::Relaxed);
 
                     // response to the subscription call.
