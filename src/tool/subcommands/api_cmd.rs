@@ -839,14 +839,21 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            // NOTE: Once StateGetClaims is implemented we need to retrieve a valid claim_id and
-            // use that for testing.
-            RpcTest::identity(StateGetClaim::request((
+            RpcTest::identity(StateGetClaims::request((
                 block.miner_address,
-                0,
                 tipset.key().into(),
             ))?),
         ]);
+        for claim_id in StateGetClaims::get_claims(store, &block.miner_address, tipset)?
+            .keys()
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateGetClaim::request((
+                block.miner_address,
+                *claim_id,
+                tipset.key().into(),
+            ))?)]);
+        }
         for address in StateGetAllocations::get_valid_actor_addresses(store, tipset)?
             .take(COLLECTION_SAMPLE_SIZE)
         {
