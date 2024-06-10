@@ -7,8 +7,10 @@ use crate::rpc::{chain, Permission, RpcMethod as _, CANCEL_METHOD_NAME};
 use ahash::{HashMap, HashMapExt as _};
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use hyper::header::{HeaderValue, AUTHORIZATION};
-use hyper::HeaderMap;
+use http::{
+    header::{HeaderValue, AUTHORIZATION},
+    HeaderMap,
+};
 use jsonrpsee::server::middleware::rpc::RpcServiceT;
 use jsonrpsee::types::{error::ErrorCode, ErrorObject};
 use jsonrpsee::MethodResponse;
