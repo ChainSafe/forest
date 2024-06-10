@@ -1904,7 +1904,7 @@ pub enum StateGetClaim {}
 impl RpcMethod<3> for StateGetClaim {
     const NAME: &'static str = "Filecoin.StateGetClaim";
     const PARAM_NAMES: [&'static str; 3] = ["address", "claim_id", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ClaimID, ApiTipsetKey);
@@ -1919,12 +1919,51 @@ impl RpcMethod<3> for StateGetClaim {
     }
 }
 
+pub enum StateGetClaims {}
+
+impl RpcMethod<2> for StateGetClaims {
+    const NAME: &'static str = "Filecoin.StateGetClaims";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = HashMap<ClaimID, Claim>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(Self::get_claims(
+            &ctx.state_manager.blockstore_owned(),
+            &address,
+            &ts,
+        )?)
+    }
+}
+
+impl StateGetClaims {
+    pub fn get_claims(
+        store: &Arc<impl Blockstore>,
+        address: &Address,
+        tipset: &Tipset,
+    ) -> anyhow::Result<HashMap<ClaimID, Claim>> {
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor_id = state_tree.lookup_required_id(address)?;
+        let actor_id_address = Address::new_id(actor_id);
+        let actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
+        let state = verifreg::State::load(store, actor.code, actor.state)?;
+        state.get_claims(store, &actor_id_address)
+    }
+}
+
 pub enum StateGetAllocation {}
 
 impl RpcMethod<3> for StateGetAllocation {
     const NAME: &'static str = "Filecoin.StateGetAllocation";
     const PARAM_NAMES: [&'static str; 3] = ["address", "allocation_id", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, AllocationID, ApiTipsetKey);
@@ -1946,7 +1985,7 @@ pub enum StateGetAllocations {}
 impl RpcMethod<2> for StateGetAllocations {
     const NAME: &'static str = "Filecoin.StateGetAllocations";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);

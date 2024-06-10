@@ -77,7 +77,7 @@ impl DbColumn {
                     },
                     DbColumn::EthMappings => parity_db::ColumnOptions {
                         preimage: false,
-                        // This is needed for key retrieval.
+                        // This is needed for key iteration.
                         btree_index: true,
                         compression,
                         ..Default::default()

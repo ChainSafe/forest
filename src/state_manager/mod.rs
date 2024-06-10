@@ -1030,11 +1030,7 @@ where
     /// Retrieves market balance in escrow and locked tables.
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
         let market_state = self.market_state(ts)?;
-
-        let new_addr = self
-            .lookup_id(addr, ts)?
-            .ok_or_else(|| Error::State(format!("Failed to resolve address {addr}")))?;
-
+        let new_addr = self.lookup_required_id(addr, ts)?;
         let out = MarketBalance {
             escrow: {
                 market_state

@@ -1160,9 +1160,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.98"
+version = "1.0.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41c270e7540d725e65ac7f1b212ac8ce349719624d7bcff99f8e2e488e8cf03f"
+checksum = "96c51067fd44124faa7f870b4b1c969379ad32b2ba805aa959430ceaa384f695"
 dependencies = [
  "jobserver",
  "libc",
@@ -1281,9 +1281,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.4"
+version = "4.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90bc066a67923782aa8515dbaea16946c5bcc5addbd668bb80af688e53e548a0"
+checksum = "a9689a29b593160de5bc4aacab7b5d54fb52231de70122626c178e6a368994c7"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1291,9 +1291,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.2"
+version = "4.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae129e2e766ae0ec03484e609954119f123cc1fe650337e155d03b022f24f7b4"
+checksum = "2e5387378c84f6faa26890ebf9f0a92989f8873d4d380467bcd0d8d8620424df"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1303,9 +1303,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.4"
+version = "4.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "528131438037fd55894f62d6e9f068b8f45ac57ffa77517819645d10aed04f64"
+checksum = "c780290ccf4fb26629baa7a1081e68ced113f1d3ec302fa5948f1c381ebf06c6"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -1315,9 +1315,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
+checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
 name = "colorchoice"
@@ -2477,9 +2477,9 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb8c0c8a4d501f9ea314f158e0a0693b8b360f7385463fe90f6a7b8704e93f4"
+checksum = "5086e088cb3a55b25bd7a62c1cf6f32fa8297710d2812b3b1a913f9eb47fc2ef"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2493,9 +2493,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fae5643af9c7961b8be247f77a3abd84f9f7bc636d72585ac1eda7595c7bc3e"
+checksum = "f3b82034b688711d18878e35ea8be021235361a1404e5478521415462e4af8f0"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.6.0",
@@ -2508,9 +2508,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80cc92aea8ba781cc692c1ec10c1fe61b048a3b55ab1fbb07ee81cbc252efbd0"
+checksum = "412daaa14838693e2e8d53e85c267177008288f4942418565f82dc8c159f30a2"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2528,9 +2528,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "075dece06264363a8a7b90ae7a446a3d8262618fab60fad398834b8bf95fcd04"
+checksum = "43432e2b4a1d2c060b655742899d3293618e34fe2ba2b8d612c7f6393b26f5db"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2548,9 +2548,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5296854f258008a88a5cf7a7bcad4f91e1fe9dcc272521c82709c88182eebf1f"
+checksum = "4fcbb0c0c28e4b6db74450432b3e613023c45e79f96f6f5ca773132533c4efd1"
 dependencies = [
  "anyhow",
  "cid",
@@ -2569,9 +2569,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c0deb70a5cf792dbc378c8e22bf69d1efcdc4ab8bceb24d9c8477d7e6ffaa9d"
+checksum = "34a066fc5d72a0910eb8e13d143a13e074f7d451dbda5056344898d4e31b0e63"
 dependencies = [
  "anyhow",
  "cid",
@@ -2607,9 +2607,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b1d8ac8fe3eb758ce17e23821631e7ba35e512066f0121391fce22c3c7402fa"
+checksum = "349ed46ea4602b2045abe26be414e8d375b94defe789423280b375b7f20408d2"
 dependencies = [
  "anyhow",
  "cid",
@@ -2632,9 +2632,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1677b876f009014a74f1593f527cea673f120bcf2f0cc4ec2d68f6e830dec1a"
+checksum = "d5eeea47e2aa228b66e5091df1c705b4a537bca7cf298053423d340c0586c214"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
@@ -2662,9 +2662,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19a2182e93ab397e09beeb09d07ee3a35390ce08b2ef11bf62b96f1a18f658de"
+checksum = "bd791ccd1d317e185b8a305fc55414431d98a53325b9abb8986e2525ed19c632"
 dependencies = [
  "anyhow",
  "cid",
@@ -2685,9 +2685,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07f982df17bfdb3b137c38b85cb011873c53c3f2e270050e67a076220aace91a"
+checksum = "42ec79735db3d9c464e0874c82846e09988f46f8a7448c343d89224dbe359a36"
 dependencies = [
  "anyhow",
  "cid",
@@ -2708,9 +2708,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4fb2cd32b340cf0cce2fc1092e2ecaaceed7f6ae05dcd12941c60e6f54d0419"
+checksum = "5859260c210457bfba58f81b69f33676ea0184c2cbdf5b15db288becf0eb0a68"
 dependencies = [
  "fil_actor_miner_state",
  "fvm_ipld_encoding",
@@ -2725,9 +2725,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "669acd9fbe83fd6d435df0a97d862e8f62d7148afaea4edf2fc2a6b8f6f13a65"
+checksum = "33abd5f8ccf277f620092020d05672e62ea75ec39827159047dc9d2f1ed13bda"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2742,9 +2742,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "251827d2b3dbafb8a5466ba155b82436fb2d0da39fd287099428c10818b17ca3"
+checksum = "af67c3795ab856b8e4b748e002c95b54b272001fd023b57d56ca51f52461c9cb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2762,9 +2762,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "13.1.0"
+version = "13.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10b81e6f771380c4df69f152697c4b5fbb0dcfe170f5dbab4acdfcfd51f0255a"
+checksum = "efb89ee4d9085e08c067a3302d96d6ccbc7e776b82f6b404891db6dc5a605ac8"
 dependencies = [
  "anyhow",
  "cid",
@@ -9006,7 +9006,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.11",
+ "winnow 0.6.13",
 ]
 
 [[package]]
@@ -9789,9 +9789,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.22"
+version = "0.7.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c5cb32c74fe55350a3272ba792f050613e692253ae0d89ad5d83eb0dcea15e1"
+checksum = "1134eff459f1063780b94cc78b704e2212cac12abd554e4268f5b8f9dfcc1883"
 dependencies = [
  "bytemuck",
  "safe_arch",
@@ -10064,9 +10064,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.11"
+version = "0.6.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56c52728401e1dc672a56e81e593e912aa54c78f40246869f78359a2bf24d29d"
+checksum = "59b5e5f6c299a3c7890b876a2a587f3115162487e704907d9b6cd29473052ba1"
 dependencies = [
  "memchr",
 ]
