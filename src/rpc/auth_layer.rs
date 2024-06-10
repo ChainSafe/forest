@@ -85,7 +85,15 @@ where
             let res = check_permissions(keystore, auth_header, req.method_name()).await;
 
             match res {
-                Ok(()) => service.call(req).await,
+                Ok(true) => service.call(req).await,
+                Ok(false) => MethodResponse::error(
+                    req.id(),
+                    ErrorObject::borrowed(
+                        http::StatusCode::UNAUTHORIZED.as_u16() as _,
+                        "Unauthorized",
+                        None,
+                    ),
+                ),
                 Err(code) => MethodResponse::error(req.id(), ErrorObject::from(code)),
             }
         }
@@ -105,7 +113,7 @@ async fn check_permissions(
     keystore: Arc<RwLock<KeyStore>>,
     auth_header: Option<HeaderValue>,
     method: &str,
-) -> anyhow::Result<(), ErrorCode> {
+) -> anyhow::Result<bool, ErrorCode> {
     let claims = match auth_header {
         Some(token) => {
             let token = token
@@ -125,13 +133,7 @@ async fn check_permissions(
     debug!("Decoded JWT Claims: {}", claims.join(","));
 
     match METHOD_NAME2REQUIRED_PERMISSION.get(&method) {
-        Some(required_by_method) => {
-            if is_allowed(*required_by_method, &claims) {
-                Ok(())
-            } else {
-                Err(ErrorCode::InvalidRequest)
-            }
-        }
+        Some(required_by_method) => Ok(is_allowed(*required_by_method, &claims)),
         None => Err(ErrorCode::MethodNotFound),
     }
 }
@@ -150,13 +152,13 @@ mod tests {
         ));
 
         let res = check_permissions(keystore.clone(), None, ChainHead::NAME).await;
-        assert!(res.is_ok());
+        assert_eq!(res, Ok(true));
 
         let res = check_permissions(keystore.clone(), None, "Cthulhu.InvokeElderGods").await;
         assert_eq!(res.unwrap_err(), ErrorCode::MethodNotFound);
 
         let res = check_permissions(keystore.clone(), None, wallet::WalletNew::NAME).await;
-        assert_eq!(res.unwrap_err(), ErrorCode::InvalidRequest);
+        assert_eq!(res, Ok(false));
     }
 
     #[tokio::test]
@@ -200,7 +202,7 @@ mod tests {
         let auth_header = HeaderValue::from_str(&format!("Bearer {token}")).unwrap();
         let res =
             check_permissions(keystore.clone(), Some(auth_header.clone()), ChainHead::NAME).await;
-        assert!(res.is_ok());
+        assert_eq!(res, Ok(true));
 
         let res = check_permissions(
             keystore.clone(),
@@ -208,12 +210,12 @@ mod tests {
             wallet::WalletNew::NAME,
         )
         .await;
-        assert!(res.is_ok());
+        assert_eq!(res, Ok(true));
 
         // Should work without the `Bearer` prefix
         let auth_header = HeaderValue::from_str(&token).unwrap();
         let res =
             check_permissions(keystore.clone(), Some(auth_header), wallet::WalletNew::NAME).await;
-        assert!(res.is_ok());
+        assert_eq!(res, Ok(true));
     }
 }
