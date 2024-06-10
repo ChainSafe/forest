@@ -5,7 +5,8 @@ mod state;
 
 use crate::shim::address::Address;
 use ahash::HashMap;
-use fil_actor_interface::verifreg::{Allocation, AllocationID, State};
+use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim, State};
+use fil_actor_verifreg_state::v13::ClaimID;
 use fvm_ipld_blockstore::Blockstore;
 
 pub trait VerifiedRegistryStateExt {
@@ -14,4 +15,10 @@ pub trait VerifiedRegistryStateExt {
         store: &BS,
         address: &Address,
     ) -> anyhow::Result<HashMap<AllocationID, Allocation>>;
+
+    fn get_claims<BS: Blockstore>(
+        &self,
+        store: &BS,
+        provider_id_address: &Address,
+    ) -> anyhow::Result<HashMap<ClaimID, Claim>>;
 }

@@ -16,7 +16,7 @@ use itertools::Itertools;
 use multimap::MultiMap;
 use once_cell::sync::Lazy;
 use semver::Version;
-use tracing::info;
+use tracing::{debug, info};
 
 use super::v0_12_1::Migration0_12_1_0_13_0;
 use super::void_migration::MigrationVoid;
@@ -100,7 +100,7 @@ impl Migration {
         self.post_checks(chain_data_path)?;
 
         let new_db = chain_data_path.join(format!("{}", self.to));
-        info!(
+        debug!(
             "Renaming database {} to {}",
             migrated_db.display(),
             new_db.display()
@@ -108,7 +108,7 @@ impl Migration {
         std::fs::rename(migrated_db, new_db)?;
 
         let old_db = chain_data_path.join(format!("{}", self.from));
-        info!("Deleting database {}", old_db.display());
+        debug!("Deleting database {}", old_db.display());
         std::fs::remove_dir_all(old_db)?;
 
         info!("Database migration complete");
