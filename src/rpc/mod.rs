@@ -364,6 +364,7 @@ where
     };
 
     let listener = tokio::net::TcpListener::bind(rpc_endpoint).await.unwrap();
+    tracing::info!("Ready for RPC connections");
     loop {
         let sock = tokio::select! {
         res = listener.accept() => {
