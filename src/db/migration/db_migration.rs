@@ -117,15 +117,15 @@ mod tests {
         let mut config = Config::default();
         temp_dir.path().clone_into(&mut config.client.data_dir);
 
-        let db_dir = temp_dir.path().join("0.1.0");
-        std::fs::create_dir(&db_dir).unwrap();
+        let db_dir = temp_dir.path().join("mainnet/0.1.0");
+        std::fs::create_dir_all(&db_dir).unwrap();
         let db_migration = DbMigration::new(&config);
 
         std::env::set_var(FOREST_DB_DEV_MODE, "latest");
         assert!(!db_migration.is_migration_required().unwrap());
 
         std::fs::remove_dir(db_dir).unwrap();
-        std::fs::create_dir(temp_dir.path().join("cthulhu")).unwrap();
+        std::fs::create_dir_all(temp_dir.path().join("mainnet/cthulhu")).unwrap();
 
         std::env::set_var(FOREST_DB_DEV_MODE, "cthulhu");
         assert!(!db_migration.is_migration_required().unwrap());
@@ -137,8 +137,8 @@ mod tests {
         let mut config = Config::default();
         temp_dir.path().clone_into(&mut config.client.data_dir);
 
-        let db_dir = temp_dir.path().join("0.1.0");
-        std::fs::create_dir(db_dir).unwrap();
+        let db_dir = temp_dir.path().join("mainnet/0.1.0");
+        std::fs::create_dir_all(db_dir).unwrap();
         let db_migration = DbMigration::new(&config);
 
         std::env::set_var(FOREST_DB_DEV_MODE, "current");
