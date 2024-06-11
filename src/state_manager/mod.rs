@@ -48,7 +48,7 @@ use cid::Cid;
 pub use circulating_supply::GenesisInfo;
 use fil_actor_interface::init::{self, State};
 use fil_actor_interface::miner::{MinerInfo, MinerPower, Partition};
-use fil_actor_interface::verifreg::Claim;
+use fil_actor_interface::verifreg::{Allocation, AllocationID, Claim};
 use fil_actor_interface::*;
 use fil_actor_verifreg_state::v12::DataCap;
 use fil_actor_verifreg_state::v13::ClaimID;
@@ -71,7 +71,7 @@ use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::{num::NonZeroUsize, sync::Arc};
 use tokio::sync::{broadcast::error::RecvError, Mutex as TokioMutex, RwLock};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, trace, warn};
 pub use utils::is_valid_for_sending;
 
 const DEFAULT_TIPSET_CACHE_SIZE: NonZeroUsize = nonzero!(1024usize);
@@ -370,7 +370,7 @@ where
     pub fn get_all_sectors(
         self: &Arc<Self>,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>> {
         let actor = self
             .get_actor(addr, *ts.parent_state())?
@@ -395,7 +395,7 @@ where
                 let ts_state = self
                     .compute_tipset_state(Arc::clone(tipset), NO_CALLBACK, VMTrace::NotTraced)
                     .await?;
-                debug!("Completed tipset state calculation {:?}", tipset.cids());
+                trace!("Completed tipset state calculation {:?}", tipset.cids());
                 Ok(ts_state)
             })
             .await
@@ -1030,11 +1030,7 @@ where
     /// Retrieves market balance in escrow and locked tables.
     pub fn market_balance(&self, addr: &Address, ts: &Tipset) -> Result<MarketBalance, Error> {
         let market_state = self.market_state(ts)?;
-
-        let new_addr = self
-            .lookup_id(addr, ts)?
-            .ok_or_else(|| Error::State(format!("Failed to resolve address {addr}")))?;
-
+        let new_addr = self.lookup_required_id(addr, ts)?;
         let out = MarketBalance {
             escrow: {
                 market_state
@@ -1064,19 +1060,19 @@ where
     }
 
     /// Retrieves miner faults.
-    pub fn miner_faults(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
+    pub fn miner_faults(&self, addr: &Address, ts: &Tipset) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.faulty_sectors().clone())
     }
 
     /// Retrieves miner recoveries.
-    pub fn miner_recoveries(&self, addr: &Address, ts: &Arc<Tipset>) -> Result<BitField, Error> {
+    pub fn miner_recoveries(&self, addr: &Address, ts: &Tipset) -> Result<BitField, Error> {
         self.all_partition_sectors(addr, ts, |partition| partition.recovering_sectors().clone())
     }
 
     fn all_partition_sectors(
         &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
         get_sector: impl Fn(Partition<'_>) -> BitField,
     ) -> Result<BitField, Error> {
         let actor = self
@@ -1281,17 +1277,11 @@ where
             })?;
 
         // lookup tipset parents as we go along, iterating DOWN from `end`
-        let tipsets = itertools::unfold(Some(end), |tipset| {
-            let child = tipset.take()?;
-            // if this has parents, unfold them in the next iteration
-            *tipset = self
-                .cs
-                .chain_index
-                .load_required_tipset(child.parents())
-                .ok();
-            Some(child)
-        })
-        .take_while(|tipset| tipset.epoch() >= *epochs.start());
+        let tipsets = self
+            .cs
+            .chain_index
+            .chain(end)
+            .take_while(|tipset| tipset.epoch() >= *epochs.start());
 
         self.validate_tipsets(tipsets)
     }
@@ -1311,9 +1301,9 @@ where
         )
     }
 
-    fn get_verified_registry_actor_state(
-        self: &Arc<Self>,
-        ts: &Arc<Tipset>,
+    pub fn get_verified_registry_actor_state(
+        &self,
+        ts: &Tipset,
     ) -> anyhow::Result<verifreg::State> {
         let act = self
             .get_actor(&Address::VERIFIED_REGISTRY_ACTOR, *ts.parent_state())
@@ -1322,9 +1312,9 @@ where
         verifreg::State::load(self.blockstore(), act.code, act.state)
     }
     pub fn get_claim(
-        self: &Arc<Self>,
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
         claim_id: ClaimID,
     ) -> anyhow::Result<Option<Claim>> {
         let id_address = self.lookup_required_id(addr, ts)?;
@@ -1332,10 +1322,21 @@ where
         state.get_claim(self.blockstore(), id_address.into(), claim_id)
     }
 
-    pub fn verified_client_status(
-        self: &Arc<Self>,
+    pub fn get_allocation(
+        &self,
         addr: &Address,
-        ts: &Arc<Tipset>,
+        ts: &Tipset,
+        allocation_id: AllocationID,
+    ) -> anyhow::Result<Option<Allocation>> {
+        let id_address = self.lookup_required_id(addr, ts)?;
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
+    }
+
+    pub fn verified_client_status(
+        &self,
+        addr: &Address,
+        ts: &Tipset,
     ) -> anyhow::Result<Option<DataCap>> {
         let id = self.lookup_required_id(addr, ts)?;
         let network_version = self.get_network_version(ts.epoch());

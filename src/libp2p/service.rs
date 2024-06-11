@@ -348,13 +348,13 @@ where
                 },
                 interval_event = interval.next() => if interval_event.is_some() {
                     // Print peer count on an interval.
-                    debug!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
+                    trace!("Peers connected: {}", swarm_stream.get_mut().behaviour_mut().peers().len());
                 },
                 cs_pair_opt = cx_response_rx_stream.next() => {
                     if let Some((_request_id, channel, cx_response)) = cs_pair_opt {
                         let behaviour = swarm_stream.get_mut().behaviour_mut();
                         if let Err(e) = behaviour.chain_exchange.send_response(channel, cx_response) {
-                            warn!("Error sending chain exchange response: {e:?}");
+                            debug!("Error sending chain exchange response: {e:?}");
                         }
                     }
                 },
@@ -412,12 +412,12 @@ fn handle_peer_ops(
         Ban(peer, reason) => {
             // Do not ban bootstrap nodes
             if !bootstrap_peers.contains_key(&peer) {
-                warn!(%peer, %reason, "Banning peer");
+                debug!(%peer, %reason, "Banning peer");
                 swarm.behaviour_mut().blocked_peers.block_peer(peer);
             }
         }
         Unban(peer) => {
-            info!(%peer, "Unbanning peer");
+            debug!(%peer, "Unbanning peer");
             swarm.behaviour_mut().blocked_peers.unblock_peer(peer);
         }
     }
@@ -582,11 +582,11 @@ async fn handle_discovery_event(
 ) {
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
-            debug!("Peer connected, {:?}", peer_id);
+            trace!("Peer connected, {peer_id}");
             emit_event(network_sender_out, NetworkEvent::PeerConnected(peer_id)).await;
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
-            debug!("Peer disconnected, {:?}", peer_id);
+            trace!("Peer disconnected, {peer_id}");
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
         DiscoveryEvent::Discovery(_) => {}
@@ -649,7 +649,7 @@ async fn handle_gossip_event(
 async fn handle_hello_event(
     hello: &mut HelloBehaviour,
     event: request_response::Event<HelloRequest, HelloResponse, HelloResponse>,
-    peer_manager: &Arc<PeerManager>,
+    peer_manager: &PeerManager,
     genesis_cid: &Cid,
     network_sender_out: &Sender<NetworkEvent>,
 ) {
@@ -745,7 +745,7 @@ async fn handle_hello_event(
     }
 }
 
-async fn handle_ping_event(ping_event: ping::Event, peer_manager: &Arc<PeerManager>) {
+async fn handle_ping_event(ping_event: ping::Event, peer_manager: &PeerManager) {
     match ping_event.result {
         Ok(rtt) => {
             trace!(

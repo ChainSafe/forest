@@ -142,6 +142,7 @@ mod lotus_json {
     use serde_json::json;
 
     #[derive(Serialize, Deserialize, schemars::JsonSchema)]
+    #[schemars(rename = "SyncState")]
     #[serde(rename_all = "PascalCase")]
     pub struct SyncStateLotusJson {
         #[schemars(with = "LotusJson<Option<Tipset>>")]

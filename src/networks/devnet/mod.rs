@@ -8,8 +8,9 @@ use once_cell::sync::Lazy;
 use crate::{make_height, shim::version::NetworkVersion};
 
 use super::{
+    actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
-    get_upgrade_height_from_env, DrandPoint, Height, HeightInfo,
+    get_upgrade_height_from_env, DrandPoint, Height, HeightInfo, NetworkChain,
 };
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
@@ -113,17 +114,17 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(
             Shark,
             get_upgrade_height_from_env("FOREST_SHARK_HEIGHT").unwrap_or(-20),
-            "bafy2bzacedozk3jh2j4nobqotkbofodq4chbrabioxbfrygpldgoxs3zwgggk"
+            get_bundle_cid("v9.0.3")
         ),
         make_height!(
             Hygge,
             get_upgrade_height_from_env("FOREST_HYGGE_HEIGHT").unwrap_or(-21),
-            "bafy2bzacebzz376j5kizfck56366kdz5aut6ktqrvqbi3efa2d4l2o2m653ts"
+            get_bundle_cid("v10.0.0")
         ),
         make_height!(
             Lightning,
             get_upgrade_height_from_env("FOREST_LIGHTNING_HEIGHT").unwrap_or(-22),
-            "bafy2bzaceay35go4xbjb45km6o46e5bib3bi46panhovcbedrynzwmm3drr4i"
+            get_bundle_cid("v11.0.0")
         ),
         make_height!(
             Thunder,
@@ -132,12 +133,12 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(
             Watermelon,
             get_upgrade_height_from_env("FOREST_WATERMELON_HEIGHT").unwrap_or(-1),
-            "bafy2bzaceasjdukhhyjbegpli247vbf5h64f7uvxhhebdihuqsj2mwisdwa6o"
+            get_bundle_cid("v12.0.0")
         ),
         make_height!(
             Dragon,
             get_upgrade_height_from_env("FOREST_DRAGON_HEIGHT").unwrap_or(20),
-            "bafy2bzacecn7uxgehrqbcs462ktl2h23u23cmduy2etqj6xrd6tkkja56fna4"
+            get_bundle_cid("v13.0.0")
         ),
         make_height!(
             Phoenix,
@@ -149,6 +150,13 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         ),
     ])
 });
+
+fn get_bundle_cid(version: &str) -> Cid {
+    ACTOR_BUNDLES_METADATA
+        .get(&(NetworkChain::Devnet("devnet".into()), version.into()))
+        .expect("bundle must be defined")
+        .bundle_cid
+}
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
     [

@@ -17,7 +17,6 @@
 //! - [`RpcMethod`] defining arity and actually dispatching the function calls.
 
 pub mod jsonrpc_types;
-pub mod openrpc_types;
 
 mod parser;
 mod util;
@@ -28,7 +27,7 @@ use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::RpcModule;
-use openrpc_types::{ContentDescriptor, Method, ParamListError, ParamStructure};
+use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
 use serde::Serialize;
@@ -36,7 +35,22 @@ use serde::{
     de::{Error as _, Unexpected},
     Deserialize,
 };
+use std::iter;
 use std::{future::Future, sync::Arc};
+
+/// Narrow list of categories emitted by our OpenRPC machinery.
+/// Destined to become a [`openrpc_types::Tag`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::EnumIter)]
+pub enum Tag {
+    ClientInteroperability,
+}
+impl AsTag for Tag {
+    fn slug(&self) -> String {
+        match self {
+            Tag::ClientInteroperability => "client_interoperability".into(),
+        }
+    }
+}
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -61,6 +75,12 @@ pub trait RpcMethod<const ARITY: usize> {
     const API_VERSION: ApiVersion;
     /// See [`Permission`]
     const PERMISSION: Permission;
+    /// See [`Tag`].
+    const TAGS: &'static [Tag] = &[];
+    /// Becomes [`openrpc_types::Method::summary`].
+    const SUMMARY: Option<&'static str> = None;
+    /// Becomes [`openrpc_types::Method::description`].
+    const DESCRIPTION: Option<&'static str> = None;
     /// Types of each argument. [`Option`]-al arguments MUST follow mandatory ones.
     type Params: Params<ARITY>;
     /// Return value of this method.
@@ -87,10 +107,31 @@ pub enum Permission {
 /// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
 ///
 /// This information is important when using [`crate::rpc::client`].
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    strum::EnumIter,
+)]
 pub enum ApiVersion {
     V0,
     V1,
+}
+
+impl AsTag for ApiVersion {
+    fn slug(&self) -> String {
+        match self {
+            ApiVersion::V0 => "v0".into(),
+            ApiVersion::V1 => "v1".into(),
+        }
+    }
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
@@ -114,31 +155,39 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         }
     }
     /// Generate a full `OpenRPC` method definition for this endpoint.
-    fn openrpc<'de>(
-        gen: &mut SchemaGenerator,
-        calling_convention: ParamStructure,
-    ) -> Result<Method, ParamListError>
+    fn openrpc<'de>(gen: &mut SchemaGenerator, calling_convention: ParamStructure) -> Method
     where
         <Self::Ok as HasLotusJson>::LotusJson: JsonSchema + Deserialize<'de>,
     {
-        Ok(Method {
+        Method {
             name: String::from(Self::NAME),
-            params: openrpc_types::Params::new(
-                itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen)).map(
-                    |(name, (schema, optional))| ContentDescriptor {
+            params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
+                .map(|(name, (schema, optional))| {
+                    ReferenceOr::Item(ContentDescriptor {
                         name: String::from(name),
                         schema,
-                        required: !optional,
-                    },
-                ),
-            )?,
-            param_structure: calling_convention,
-            result: Some(ContentDescriptor {
+                        required: Some(!optional),
+                        ..Default::default()
+                    })
+                })
+                .collect(),
+            param_structure: Some(calling_convention),
+            result: Some(ReferenceOr::Item(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
                 schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
-                required: !<Self::Ok as HasLotusJson>::LotusJson::optional(),
-            }),
-        })
+                required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
+                ..Default::default()
+            })),
+            tags: Some(
+                iter::once(&Self::API_VERSION as &dyn AsTag)
+                    .chain(Self::TAGS.iter().map(|it| it as &dyn AsTag))
+                    .map(AsTagExt::reference)
+                    .collect(),
+            ),
+            summary: Self::SUMMARY.map(Into::into),
+            description: Self::DESCRIPTION.map(Into::into),
+            ..Default::default()
+        }
     }
     /// Register this method with an [`RpcModule`].
     fn register(
@@ -148,7 +197,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     where
         <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
-        module.register_async_method(Self::NAME, move |params, ctx| async move {
+        module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
             let raw = params
                 .as_str()
                 .map(serde_json::from_str)
@@ -297,3 +346,30 @@ pub enum ConcreteCallingConvention {
     #[allow(unused)] // included for completeness
     ByName,
 }
+
+/// A type that can be represented as an [`openrpc_types::Tag`].
+pub trait AsTag {
+    fn slug(&self) -> String;
+    fn summary(&self) -> Option<String> {
+        None
+    }
+    fn description(&self) -> Option<String> {
+        None
+    }
+}
+
+pub trait AsTagExt: AsTag {
+    fn as_tag(&self) -> openrpc_types::Tag {
+        openrpc_types::Tag {
+            name: self.slug(),
+            summary: self.summary(),
+            description: self.description(),
+            external_docs: None,
+            extensions: Default::default(),
+        }
+    }
+    fn reference(&self) -> ReferenceOr<openrpc_types::Tag> {
+        ReferenceOr::Reference(format!("#/components/tags/{}", self.slug()))
+    }
+}
+impl<T: ?Sized> AsTagExt for T where T: AsTag {}

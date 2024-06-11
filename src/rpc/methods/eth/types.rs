@@ -4,9 +4,44 @@
 use super::*;
 
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
+pub const METHOD_GET_STORAGE_AT: u64 = 5;
+
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+pub struct EthBytes(
+    #[schemars(with = "String")]
+    #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
+    pub Vec<u8>,
+);
+lotus_json_with_self!(EthBytes);
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetBytecodeReturn(pub Option<Cid>);
+
+const GET_STORAGE_AT_PARAMS_ARRAY_LENGTH: usize = 32;
+
+#[derive(Debug, Clone)]
+pub struct GetStorageAtParams(pub [u8; GET_STORAGE_AT_PARAMS_ARRAY_LENGTH]);
+
+impl GetStorageAtParams {
+    pub fn new(position: Vec<u8>) -> anyhow::Result<Self> {
+        if position.len() > GET_STORAGE_AT_PARAMS_ARRAY_LENGTH {
+            anyhow::bail!("supplied storage key is too long");
+        }
+        let mut bytes = [0; GET_STORAGE_AT_PARAMS_ARRAY_LENGTH];
+        bytes
+            .get_mut(GET_STORAGE_AT_PARAMS_ARRAY_LENGTH.saturating_sub(position.len())..)
+            .expect("Infallible")
+            .copy_from_slice(&position);
+        Ok(Self(bytes))
+    }
+
+    pub fn serialize_params(&self) -> anyhow::Result<Vec<u8>> {
+        const LENGTH_BUF_GET_STORAGE_AT_PARAMS: u8 = 129;
+        let mut encoded = fvm_ipld_encoding::to_vec(&RawBytes::new(self.0.to_vec()))?;
+        encoded.insert(0, LENGTH_BUF_GET_STORAGE_AT_PARAMS);
+        Ok(encoded)
+    }
+}
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct EthAddress(
@@ -14,7 +49,6 @@ pub struct EthAddress(
     #[serde(with = "crate::lotus_json::hexify_bytes")]
     pub ethereum_types::Address,
 );
-
 lotus_json_with_self!(EthAddress);
 
 impl EthAddress {
@@ -151,5 +185,14 @@ mod tests {
         );
         let ser = fvm_ipld_encoding::to_vec(&des).unwrap();
         assert_eq!(ser, bytes);
+    }
+
+    #[test]
+    fn get_storage_at_params() {
+        let param = GetStorageAtParams::new(vec![0xa]).unwrap();
+        assert_eq!(
+            &hex::encode(param.serialize_params().unwrap()),
+            "815820000000000000000000000000000000000000000000000000000000000000000a"
+        );
     }
 }

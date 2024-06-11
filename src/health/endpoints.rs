@@ -82,7 +82,7 @@ pub(crate) async fn healthz(
     }
 }
 
-fn check_sync_state_complete(state: &Arc<ForestState>, acc: &mut MessageAccumulator) -> bool {
+fn check_sync_state_complete(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
     if state.sync_state.read().stage() == SyncStage::Complete {
         acc.push_ok("sync complete");
@@ -93,7 +93,7 @@ fn check_sync_state_complete(state: &Arc<ForestState>, acc: &mut MessageAccumula
     }
 }
 
-fn check_sync_state_not_error(state: &Arc<ForestState>, acc: &mut MessageAccumulator) -> bool {
+fn check_sync_state_not_error(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // Forest must be in sync with the network
     if state.sync_state.read().stage() != SyncStage::Error {
         acc.push_ok("sync ok");
@@ -107,7 +107,7 @@ fn check_sync_state_not_error(state: &Arc<ForestState>, acc: &mut MessageAccumul
 /// Checks if the current epoch of the node is not too far behind the network.
 /// Making the threshold too strict can cause the node to repeatedly report as not ready, especially
 /// in case of forking.
-fn check_epoch_up_to_date(state: &Arc<ForestState>, acc: &mut MessageAccumulator) -> bool {
+fn check_epoch_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     const MAX_EPOCH_DIFF: i64 = 5;
 
     let now_epoch = calculate_expected_epoch(
@@ -126,7 +126,7 @@ fn check_epoch_up_to_date(state: &Arc<ForestState>, acc: &mut MessageAccumulator
     }
 }
 
-async fn check_rpc_server_running(state: &Arc<ForestState>, acc: &mut MessageAccumulator) -> bool {
+async fn check_rpc_server_running(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     if !state.config.client.enable_rpc {
         acc.push_ok("rpc server disabled");
         true
@@ -142,7 +142,7 @@ async fn check_rpc_server_running(state: &Arc<ForestState>, acc: &mut MessageAcc
     }
 }
 
-fn check_peers_connected(state: &Arc<ForestState>, acc: &mut MessageAccumulator) -> bool {
+fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
     // At least 1 peer is connected
     if state.peer_manager.peer_count() > 0 {
         acc.push_ok("peers connected");

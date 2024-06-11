@@ -1,8 +1,17 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
+use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
+use crate::libp2p::{
+    chain_exchange::ChainExchangeBehaviour,
+    config::Libp2pConfig,
+    discovery::{DiscoveryBehaviour, DiscoveryConfig},
+    gossip_params::{build_peer_score_params, build_peer_score_threshold},
+    hello::HelloBehaviour,
+};
 use crate::libp2p_bitswap::BitswapBehaviour;
 use crate::utils::{encoding::blake2b_256, version::FOREST_VERSION_STRING};
 use ahash::{HashMap, HashSet};
@@ -15,21 +24,12 @@ use libp2p::{
     identity::{Keypair, PeerId},
     kad::QueryId,
     metrics::{Metrics, Recorder},
-    ping,
+    ping, request_response,
     swarm::NetworkBehaviour,
     Multiaddr,
 };
+use once_cell::sync::Lazy;
 use tracing::info;
-
-use crate::libp2p::{
-    chain_exchange::ChainExchangeBehaviour,
-    config::Libp2pConfig,
-    discovery::{DiscoveryBehaviour, DiscoveryConfig},
-    gossip_params::{build_peer_score_params, build_peer_score_threshold},
-    hello::HelloBehaviour,
-};
-
-use super::discovery::{DerivedDiscoveryBehaviourEvent, DiscoveryEvent, PeerInfo};
 
 /// Libp2p behavior for the Forest node. This handles all sub protocols needed
 /// for a Filecoin node.
@@ -68,6 +68,20 @@ impl ForestBehaviour {
         config: &Libp2pConfig,
         network_name: &str,
     ) -> anyhow::Result<Self> {
+        const MAX_ESTABLISHED_PER_PEER: u32 = 4;
+        static MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER: Lazy<usize> = Lazy::new(|| {
+            std::env::var("FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER")
+                .ok()
+                .map(|it|
+                    it.parse::<NonZeroUsize>()
+                        .expect("Failed to parse the `FOREST_MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER` environment variable value, a positive integer is expected.")
+                        .get())
+                .unwrap_or(10)
+        });
+
+        let max_concurrent_request_response_streams = (config.target_peer_count as usize)
+            .saturating_mul(*MAX_CONCURRENT_REQUEST_RESPONSE_STREAMS_PER_PEER);
+
         let gossipsub_config = {
             let mut builder = gossipsub::ConfigBuilder::default();
             builder
@@ -124,7 +138,8 @@ impl ForestBehaviour {
                 "/chain/ipfs/bitswap/1.0.0",
                 "/chain/ipfs/bitswap",
             ],
-            Default::default(),
+            request_response::Config::default()
+                .with_max_concurrent_streams(max_concurrent_request_response_streams),
         );
         crate::libp2p_bitswap::register_metrics(&mut crate::metrics::default_registry());
 
@@ -135,7 +150,6 @@ impl ForestBehaviour {
             .target_peer_count(config.target_peer_count as u64)
             .finish()?;
 
-        const MAX_ESTABLISHED_PER_PEER: u32 = 4;
         let connection_limits = connection_limits::Behaviour::new(
             connection_limits::ConnectionLimits::default()
                 .with_max_pending_incoming(Some(
@@ -169,8 +183,14 @@ impl ForestBehaviour {
             connection_limits,
             blocked_peers: Default::default(),
             bitswap,
-            hello: HelloBehaviour::default(),
-            chain_exchange: ChainExchangeBehaviour::default(),
+            hello: HelloBehaviour::new(
+                request_response::Config::default()
+                    .with_max_concurrent_streams(max_concurrent_request_response_streams),
+            ),
+            chain_exchange: ChainExchangeBehaviour::new(
+                request_response::Config::default()
+                    .with_max_concurrent_streams(max_concurrent_request_response_streams),
+            ),
         })
     }
 

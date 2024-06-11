@@ -30,7 +30,7 @@ type RunMigration<DB> = fn(&ChainConfig, &Arc<DB>, &Cid, ChainEpoch) -> anyhow::
 /// Run state migrations
 pub fn run_state_migrations<DB>(
     epoch: ChainEpoch,
-    chain_config: &Arc<ChainConfig>,
+    chain_config: &ChainConfig,
     db: &Arc<DB>,
     parent_state: &Cid,
 ) -> anyhow::Result<Option<Cid>>
