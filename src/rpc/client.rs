@@ -14,7 +14,7 @@ use std::fmt::{self, Debug};
 use std::time::Duration;
 
 use anyhow::bail;
-use http02::{header, HeaderMap, HeaderValue};
+use http::{header, HeaderMap, HeaderValue};
 use jsonrpsee::core::client::ClientT as _;
 use jsonrpsee::core::params::{ArrayParams, ObjectParams};
 use jsonrpsee::core::ClientError;

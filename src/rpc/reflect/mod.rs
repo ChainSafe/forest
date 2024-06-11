@@ -197,7 +197,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     where
         <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
-        module.register_async_method(Self::NAME, move |params, ctx| async move {
+        module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
             let raw = params
                 .as_str()
                 .map(serde_json::from_str)

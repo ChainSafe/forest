@@ -75,24 +75,17 @@ git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
 http = "1"
-keccak-hash = "0.10"
-rlp = "0.5"
-# TODO(forest): https://github.com/ChainSafe/forest/issues/3961
-#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
-http02 = { version = "0.2", package = "http" }
 human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
-# TODO(forest): https://github.com/ChainSafe/forest/issues/3961
-#               bump hyper to 1.0 after https://github.com/paritytech/jsonrpsee/issues/1257
-hyper = { version = "0.14", features = ["full"] }
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.13"
-jsonrpsee = { version = "0.22", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.23", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
+keccak-hash = "0.10"
 kubert-prometheus-process = "0.1"
 libc = "0.2"
 libipld = { version = "0.16", default-features = false, features = ["dag-cbor", "dag-json", "derive", "serde-codec"] }
@@ -158,6 +151,7 @@ reqwest = { version = "0.12", default-features = false, features = [
   "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
+rlp = "0.5"
 rs-car-ipfs = "0.3"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
