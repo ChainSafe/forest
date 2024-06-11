@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 use std::collections::VecDeque;
 
+use openrpc_types::ParamStructure;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{jsonrpc_types::RequestParameters, openrpc_types::ParamStructure, util::Optional as _};
+use super::{jsonrpc_types::RequestParameters, util::Optional as _};
 use crate::rpc::error::ServerError;
 
 /// Parser for JSON-RPC parameters.

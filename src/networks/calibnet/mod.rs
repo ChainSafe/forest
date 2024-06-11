@@ -10,8 +10,10 @@ use std::str::FromStr;
 use crate::{make_height, shim::version::NetworkVersion};
 
 use super::{
+    actors_bundle::ACTOR_BUNDLES_METADATA,
     drand::{DRAND_MAINNET, DRAND_QUICKNET},
     get_upgrade_height_from_env, parse_bootstrap_peers, DrandPoint, Height, HeightInfo,
+    NetworkChain,
 };
 
 /// Default genesis car file bytes.
@@ -60,51 +62,26 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Chocolate, 450),
         make_height!(OhSnap, 480),
         make_height!(Skyr, 510),
-        make_height!(
-            Shark,
-            16_800,
-            "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy"
-        ),
-        make_height!(
-            Hygge,
-            322_354,
-            "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo"
-        ),
-        make_height!(
-            Lightning,
-            LIGHTNING_EPOCH,
-            "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco"
-        ),
+        make_height!(Shark, 16_800, get_bundle_cid("v9.0.3")),
+        make_height!(Hygge, 322_354, get_bundle_cid("v10.0.0-rc.1")),
+        make_height!(Lightning, LIGHTNING_EPOCH, get_bundle_cid("v11.0.0-rc2")),
         make_height!(Thunder, LIGHTNING_EPOCH + LIGHTNING_ROLLOVER_PERIOD),
-        make_height!(
-            Watermelon,
-            1_013_134,
-            "bafy2bzacedrunxfqta5skb7q7x32lnp4efz2oq7fn226ffm7fu5iqs62jkmvs"
-        ),
-        make_height!(
-            WatermelonFix,
-            1_070_494,
-            "bafy2bzacebl4w5ptfvuw6746w7ev562idkbf5ppq72e6zub22435ws2rukzru"
-        ),
-        make_height!(
-            WatermelonFix2,
-            1_108_174,
-            "bafy2bzacednzb3pkrfnbfhmoqtb3bc6dgvxszpqklf3qcc7qzcage4ewzxsca"
-        ),
-        make_height!(
-            Dragon,
-            1_427_974,
-            "bafy2bzacea4firkyvt2zzdwqjrws5pyeluaesh6uaid246tommayr4337xpmi"
-        ),
-        make_height!(
-            DragonFix,
-            1_493_854,
-            "bafy2bzacect4ktyujrwp6mjlsitnpvuw2pbuppz6w52sfljyo4agjevzm75qs"
-        ),
+        make_height!(Watermelon, 1_013_134, get_bundle_cid("v12.0.0-rc.1")),
+        make_height!(WatermelonFix, 1_070_494, get_bundle_cid("v12.0.0-rc.2")),
+        make_height!(WatermelonFix2, 1_108_174, get_bundle_cid("v12.0.0")),
+        make_height!(Dragon, 1_427_974, get_bundle_cid("v13.0.0-rc.3")),
+        make_height!(DragonFix, 1_493_854, get_bundle_cid("v13.0.0")),
         make_height!(Phoenix, 1_428_094),
         make_height!(Aussie, 999999999999999),
     ])
 });
+
+fn get_bundle_cid(version: &str) -> Cid {
+    ACTOR_BUNDLES_METADATA
+        .get(&(NetworkChain::Calibnet, version.into()))
+        .expect("bundle must be defined")
+        .bundle_cid
+}
 
 pub(super) static DRAND_SCHEDULE: Lazy<[DrandPoint<'static>; 2]> = Lazy::new(|| {
     [

@@ -86,6 +86,8 @@ pub struct ExecutionTrace {
     pub msg_rct: ReturnTrace,
     pub invoked_actor: Option<ActorTrace>,
     pub gas_charges: Vec<GasTrace>,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
 }
 
@@ -183,3 +185,11 @@ pub struct SectorExpiration {
     pub early: ChainEpoch,
 }
 lotus_json_with_self!(SectorExpiration);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorLocation {
+    pub deadline: u64,
+    pub partition: u64,
+}
+lotus_json_with_self!(SectorLocation);

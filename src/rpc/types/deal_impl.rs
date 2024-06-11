@@ -59,26 +59,3 @@ impl From<MarketDeal> for ApiMarketDeal {
         }
     }
 }
-
-// TODO(elmattic): https://github.com/ChainSafe/fil-actor-states/issues/255
-//                 Remove this impl
-impl Clone for MarketDeal {
-    fn clone(&self) -> Self {
-        Self {
-            proposal: DealProposal {
-                piece_cid: self.proposal.piece_cid,
-                piece_size: self.proposal.piece_size,
-                verified_deal: self.proposal.verified_deal,
-                client: self.proposal.client,
-                provider: self.proposal.provider,
-                label: self.proposal.label.clone(),
-                start_epoch: self.proposal.start_epoch,
-                end_epoch: self.proposal.end_epoch,
-                storage_price_per_epoch: self.proposal.storage_price_per_epoch.clone(),
-                provider_collateral: self.proposal.provider_collateral.clone(),
-                client_collateral: self.proposal.client_collateral.clone(),
-            },
-            state: DealState { ..self.state },
-        }
-    }
-}

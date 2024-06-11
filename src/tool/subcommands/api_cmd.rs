@@ -14,7 +14,7 @@ use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
-use crate::rpc::eth::types::EthAddress;
+use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
@@ -230,7 +230,6 @@ impl TestSummary {
             | rpc::ClientError::RestartNeeded(_)
             | rpc::ClientError::InvalidSubscriptionId
             | rpc::ClientError::InvalidRequestId(_)
-            | rpc::ClientError::MaxSlotsExceeded
             | rpc::ClientError::Custom(_)
             | rpc::ClientError::HttpNotImplemented
             | rpc::ClientError::EmptyBatchRequest(_)
@@ -839,15 +838,39 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            // NOTE: Once StateGetClaims is implemented we need to retrieve a valid claim_id and
-            // use that for testing.
-            RpcTest::identity(StateGetClaim::request((
+            RpcTest::identity(StateGetClaims::request((
                 block.miner_address,
-                0,
                 tipset.key().into(),
             ))?),
         ]);
-
+        for claim_id in StateGetClaims::get_claims(store, &block.miner_address, tipset)?
+            .keys()
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateGetClaim::request((
+                block.miner_address,
+                *claim_id,
+                tipset.key().into(),
+            ))?)]);
+        }
+        for address in StateGetAllocations::get_valid_actor_addresses(store, tipset)?
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateGetAllocations::request((
+                address,
+                tipset.key().into(),
+            ))?)]);
+            for allocation_id in StateGetAllocations::get_allocations(store, &address, tipset)?
+                .keys()
+                .take(COLLECTION_SAMPLE_SIZE)
+            {
+                tests.extend([RpcTest::identity(StateGetAllocation::request((
+                    address,
+                    *allocation_id,
+                    tipset.key().into(),
+                ))?)]);
+            }
+        }
         for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?
             .into_iter()
             .take(COLLECTION_SAMPLE_SIZE)
@@ -873,6 +896,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     tipset.key().into(),
                 ))?)
                 .pass_on_rejected(true),
+                RpcTest::identity(StateSectorPartition::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
@@ -1058,6 +1086,15 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetStorageAt::request((
+                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                EthBytes(vec![0xa]),
+                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+            ))
+            .unwrap(),
         ),
         RpcTest::identity(
             EthGetCode::request((

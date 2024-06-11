@@ -186,7 +186,7 @@ impl PeerManager {
     /// Logs a success for the given peer, and updates the average request
     /// duration.
     pub fn log_success(&self, peer: &PeerId, dur: Duration) {
-        debug!("logging success for {:?}", peer);
+        trace!("logging success for {peer}");
         let mut peers = self.peers.write();
         // Attempt to remove the peer and decrement bad peer count
         if peers.bad_peers.remove(peer) {
@@ -201,7 +201,7 @@ impl PeerManager {
     /// Logs a failure for the given peer, and updates the average request
     /// duration.
     pub fn log_failure(&self, peer: &PeerId, dur: Duration) {
-        debug!("logging failure for {:?}", peer);
+        trace!("logging failure for {peer}");
         let mut peers = self.peers.write();
         if !peers.bad_peers.contains(peer) {
             metrics::PEER_FAILURE_TOTAL.inc();
@@ -220,7 +220,7 @@ impl PeerManager {
 
         // Add peer to bad peer set
         let reason = reason.into();
-        tracing::warn!(%peer_id, %reason, "marked peer bad");
+        tracing::debug!(%peer_id, %reason, "marked peer bad");
         if peers.bad_peers.insert(peer_id) {
             metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
         }
@@ -311,9 +311,8 @@ fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) {
     if peers.full_peers.remove(peer_id).is_some() {
         metrics::FULL_PEERS.set(peers.full_peers.len() as _);
     }
-    debug!(
-        "removing peer {:?}, remaining chain exchange peers: {}",
-        peer_id,
+    trace!(
+        "removing peer {peer_id}, remaining chain exchange peers: {}",
         peers.full_peers.len()
     );
 }

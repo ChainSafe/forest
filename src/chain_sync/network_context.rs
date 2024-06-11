@@ -160,7 +160,7 @@ where
             .last()
             .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
         let tsk = head.key();
-        tracing::debug!(
+        tracing::trace!(
             "ChainExchange message sync tipsets: epoch: {}, len: {}",
             head.epoch(),
             tipsets.len()
@@ -349,7 +349,7 @@ where
                     .get_ok_validated(validate)
                     .await
                     .ok_or_else(make_failure_message)?;
-                debug!("Succeed: handle_chain_exchange_request");
+                trace!("Succeed: handle_chain_exchange_request");
                 v
             }
         };
@@ -372,7 +372,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        debug!("Sending ChainExchange Request to {peer_id}");
+        trace!("Sending ChainExchange Request to {peer_id}");
 
         let req_pre_time = SystemTime::now();
 
@@ -401,7 +401,7 @@ where
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
                 peer_manager.log_success(&peer_id, res_duration);
-                debug!("Succeeded: ChainExchange Request to {peer_id}");
+                trace!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
