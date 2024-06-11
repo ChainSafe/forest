@@ -226,7 +226,7 @@ pub struct DiscoveryBehaviour {
 #[derive(Default)]
 pub struct PeerInfo {
     pub addresses: HashSet<Multiaddr>,
-    pub agent_version: Option<String>,
+    pub identify_info: Option<identify::Info>,
 }
 
 impl DiscoveryBehaviour {
@@ -420,8 +420,8 @@ impl NetworkBehaviour for DiscoveryBehaviour {
                     match &ev {
                         DerivedDiscoveryBehaviourEvent::Identify(ev) => {
                             if let identify::Event::Received { peer_id, info } = ev {
-                                self.peer_info.entry(*peer_id).or_default().agent_version =
-                                    Some(info.agent_version.clone());
+                                self.peer_info.entry(*peer_id).or_default().identify_info =
+                                    Some(info.clone());
                                 if let Some(kademlia) = self.discovery.kademlia.as_mut() {
                                     for address in &info.listen_addrs {
                                         kademlia.add_address(peer_id, address.clone());
