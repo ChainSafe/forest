@@ -227,7 +227,7 @@ where
             let mut chain_deps = vec![];
             let mut cur_chain = node.prev;
             while let Some(cur_chn) = cur_chain {
-                let node = chains.get_mut(cur_chn).context("out of bound")?;
+                let node = chains.get(cur_chn).context("out of bound")?;
                 if !node.merged {
                     chain_deps.push(cur_chn);
                     chain_gas_limit += node.gas_limit;
