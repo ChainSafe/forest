@@ -142,12 +142,14 @@ where
         // 2. Sort the chains
         chains.sort(false);
 
-        if chains.get_at(0).is_some_and(|it| it.gas_perf < 0.0) {
-            // tracing::warn!(
-            //     "all messages in mpool have non-positive gas performance {}",
-            //     chains[0].gas_perf
-            // );
-            return Ok(result);
+        if let Some(node) = chains.get_at(0) {
+            if node.gas_perf < 0.0 {
+                tracing::warn!(
+                    "all messages in mpool have non-positive gas performance {}",
+                    node.gas_perf
+                );
+                return Ok(result);
+            }
         }
 
         // 3. Partition chains into blocks (without trimming)
