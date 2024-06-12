@@ -8,6 +8,7 @@ use std::{
     time::SystemTime,
 };
 
+use crate::chain::{ChainStore, Error as ChainStoreError};
 use crate::chain_sync::{
     bad_block_cache::BadBlockCache,
     metrics,
@@ -28,10 +29,6 @@ use crate::state_manager::StateManager;
 use crate::{
     blocks::{Block, CreateTipsetError, FullTipset, GossipBlock, Tipset, TipsetKey},
     networks::calculate_expected_epoch,
-};
-use crate::{
-    chain::{ChainStore, Error as ChainStoreError},
-    shim::clock::ChainEpoch,
 };
 use cid::Cid;
 use futures::{
@@ -220,7 +217,6 @@ where
         chain_store: Arc<ChainStore<DB>>,
         peer_id: PeerId,
         tipset_keys: TipsetKey,
-        epoch: ChainEpoch,
     ) -> Result<FullTipset, ChainMuxerError> {
         // Attempt to load from the store
         if let Ok(full_tipset) = Self::load_full_tipset(chain_store, tipset_keys.clone()) {
@@ -228,7 +224,7 @@ where
         }
         // Load from the network
         network
-            .chain_exchange_fts(Some(peer_id), &tipset_keys.clone(), epoch)
+            .chain_exchange_fts(Some(peer_id), &tipset_keys.clone())
             .await
             .map_err(ChainMuxerError::ChainExchange)
     }
@@ -389,7 +385,6 @@ where
                     chain_store.clone(),
                     source,
                     tipset_keys,
-                    1, // Use epoch 1 to not target stateless nodes
                 )
                 .await
                 {

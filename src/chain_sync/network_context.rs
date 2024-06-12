@@ -10,6 +10,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use crate::blocks::{FullTipset, Tipset, TipsetKey};
 use crate::libp2p::{
     chain_exchange::{
         ChainExchangeRequest, ChainExchangeResponse, CompactedMessages, TipsetBundle, HEADERS,
@@ -18,10 +19,6 @@ use crate::libp2p::{
     hello::{HelloRequest, HelloResponse},
     rpc::RequestResponseError,
     NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
-};
-use crate::{
-    blocks::{FullTipset, Tipset, TipsetKey},
-    shim::clock::ChainEpoch,
 };
 use anyhow::Context as _;
 use cid::Cid;
@@ -142,10 +139,9 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        epoch: ChainEpoch,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, epoch, count, HEADERS, |_| true)
+        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |_| true)
             .await
     }
     /// Send a `chain_exchange` request for only messages (ignore block
@@ -167,7 +163,7 @@ where
         );
         self.handle_chain_exchange_request(
             peer_id,
-            tsk,head.epoch(),
+            tsk,
             tipsets.len() as _,
             MESSAGES,
             |compacted_messages_vec: &Vec<CompactedMessages>| {
@@ -197,10 +193,9 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        epoch: ChainEpoch,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, epoch, 1, HEADERS | MESSAGES, |_| true)
+            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES, |_| true)
             .await?;
 
         if fts.len() != 1 {
@@ -259,7 +254,6 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        epoch: ChainEpoch,
         request_len: u64,
         options: u64,
         validate: F,
@@ -294,7 +288,7 @@ where
             None => {
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
-                let peers = self.peer_manager.top_chain_exchange_peers_shuffled(epoch);
+                let peers = self.peer_manager.top_peers_shuffled();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();

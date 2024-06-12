@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{blocks::Tipset, shim::clock::ChainEpoch};
+use crate::blocks::Tipset;
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
 use parking_lot::RwLock;
@@ -121,44 +121,41 @@ impl PeerManager {
 
     /// Sort peers based on a score function with the success rate and latency
     /// of requests.
-    pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<(PeerId, ChainEpoch)> {
+    pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<PeerId> {
         let peer_lk = self.peers.read();
         let average_time = self.avg_global_time.read();
         let mut peers: Vec<_> = peer_lk
             .full_peers
             .iter()
-            .map(|(p, info)| {
-                let cost = if (info.successes + info.failures) > 0 {
-                    // Calculate cost based on fail rate and latency
-                    let fail_rate = f64::from(info.failures) / f64::from(info.successes);
-                    info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
+            .filter_map(|(p, info)| {
+                // Filter out nodes that are stateless (or far behind)
+                if info.head.epoch() > 0 {
+                    let cost = if (info.successes + info.failures) > 0 {
+                        // Calculate cost based on fail rate and latency
+                        let fail_rate = f64::from(info.failures) / f64::from(info.successes);
+                        info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
+                    } else {
+                        // There have been no failures or successes
+                        average_time.as_secs_f64() * NEW_PEER_MUL
+                    };
+                    Some((p, cost))
                 } else {
-                    // There have been no failures or successes
-                    average_time.as_secs_f64() * NEW_PEER_MUL
-                };
-                (p, info.head.epoch(), cost)
+                    None
+                }
             })
             .collect();
 
         // Unstable sort because hashmap iter order doesn't need to be preserved.
-        peers.sort_unstable_by(|(_, _, v1), (_, _, v2)| {
-            v1.partial_cmp(v2).unwrap_or(Ordering::Equal)
-        });
-        peers
-            .into_iter()
-            .map(|(&peer, head_epoch, _)| (peer, head_epoch))
-            .collect()
+        peers.sort_unstable_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap_or(Ordering::Equal));
+        peers.into_iter().map(|(&peer, _)| peer).collect()
     }
 
     /// Return shuffled slice of ordered peers from the peer manager. Ordering
     /// is based on failure rate and latency of the peer.
-    pub fn top_chain_exchange_peers_shuffled(&self, epoch: ChainEpoch) -> Vec<PeerId> {
+    pub fn top_peers_shuffled(&self) -> Vec<PeerId> {
         let mut peers: Vec<_> = self
             .sorted_peers()
             .into_iter()
-            // Filter out out-of-sync nodes (including stateless nodes whose head epochs are 0)
-            .filter(|(_, head_epoch)| head_epoch >= &epoch)
-            .map(|(peer, _)| peer)
             .take(SHUFFLE_PEERS_PREFIX)
             .collect();
 
