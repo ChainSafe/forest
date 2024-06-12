@@ -1,6 +1,5 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
-#![allow(clippy::indexing_slicing)]
 use std::{
     cmp::Ordering,
     mem,
@@ -16,6 +15,7 @@ use crate::shim::{
     gas::{price_list_by_network_version, Gas},
 };
 use ahash::HashMap;
+use anyhow::Context;
 use fvm_ipld_encoding::to_vec;
 use num_traits::Zero;
 use slotmap::{new_key_type, SlotMap};
@@ -60,15 +60,19 @@ impl Chains {
     pub(in crate::message_pool) fn sort_range_effective(
         &mut self,
         range: std::ops::RangeFrom<usize>,
-    ) {
+    ) -> Result<(), Error> {
         let mut chains = mem::take(&mut self.key_vec);
-        chains[range].sort_by(|a, b| {
-            self.map
-                .get(*a)
-                .unwrap()
-                .cmp_effective(self.map.get(*b).unwrap())
-        });
+        chains
+            .get_mut(range)
+            .context("out of bound")?
+            .sort_by(|a, b| {
+                self.map
+                    .get(*a)
+                    .unwrap()
+                    .cmp_effective(self.map.get(*b).unwrap())
+            });
         let _ = mem::replace(&mut self.key_vec, chains);
+        Ok(())
     }
 
     /// Retrieves the `msg` chain node by the given `NodeKey` along with the

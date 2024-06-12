@@ -6,13 +6,13 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-#![allow(clippy::indexing_slicing)]
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
 use crate::blocks::Tipset;
 use crate::message::{Message, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
+use anyhow::Context;
 use parking_lot::RwLock;
 use rand::{prelude::SliceRandom, thread_rng};
 
@@ -95,7 +95,7 @@ where
             )?;
         }
 
-        let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS);
+        let (msgs, _) = merge_and_trim(&mut chains, result, &base_fee, gas_limit, MIN_GAS)?;
         Ok(msgs)
     }
 
@@ -143,10 +143,10 @@ where
         chains.sort(false);
 
         if chains.get_at(0).is_some_and(|it| it.gas_perf < 0.0) {
-            tracing::warn!(
-                "all messages in mpool have non-positive gas performance {}",
-                chains[0].gas_perf
-            );
+            // tracing::warn!(
+            //     "all messages in mpool have non-positive gas performance {}",
+            //     chains[0].gas_perf
+            // );
             return Ok(result);
         }
 
@@ -159,11 +159,12 @@ where
         let mut i = 0;
         while i < MAX_BLOCKS && next_chain < chains.len() {
             let mut gas_limit = crate::shim::econ::BLOCK_GAS_LIMIT;
+            let partition = partitions.get_mut(i).context("out of bound")?;
             while next_chain < chains.len() {
-                let chain_key = chains.key_vec[next_chain];
+                let chain_key = chains.key_vec.get(next_chain).context("out of bound")?;
                 next_chain += 1;
-                partitions[i].push(chain_key);
-                let chain_gas_limit = chains.get(chain_key).unwrap().gas_limit;
+                partition.push(*chain_key);
+                let chain_gas_limit = chains.get(*chain_key).context("out of bound")?.gas_limit;
                 if gas_limit < chain_gas_limit {
                     break;
                 }
@@ -181,12 +182,13 @@ where
         let block_prob = crate::message_pool::block_probabilities(ticket_quality);
         let mut eff_chains = 0;
         for i in 0..MAX_BLOCKS {
-            for k in &partitions[i] {
+            let partition = partitions.get(i).context("out of bound")?;
+            for k in partition.iter() {
                 if let Some(node) = chains.get_mut(*k) {
-                    node.eff_perf = node.gas_perf * block_prob[i];
+                    node.eff_perf = node.gas_perf * block_prob.get(i).context("out of bound")?;
                 }
             }
-            eff_chains += partitions[i].len();
+            eff_chains += partition.len();
         }
 
         // nullify the effective performance of chains that don't fit in any partition
@@ -205,23 +207,25 @@ where
         // be    merged in or we'll have a broken block
         let mut last = chains.len();
         for i in 0..chains.len() {
+            let node = chains.get_at(i).context("out of bound")?.clone();
+
             // did we run out of performing chains?
-            if chains[i].gas_perf < 0.0 {
+            if node.gas_perf < 0.0 {
                 break;
             }
 
             // has it already been merged?
-            if chains[i].merged {
+            if node.merged {
                 continue;
             }
 
             // compute the dependencies that must be merged and the gas limit including
             // dependencies
-            let mut chain_gas_limit = chains[i].gas_limit;
+            let mut chain_gas_limit = node.gas_limit;
             let mut chain_deps = vec![];
-            let mut cur_chain = chains[i].prev;
+            let mut cur_chain = node.prev;
             while let Some(cur_chn) = cur_chain {
-                let node = chains.get(cur_chn).unwrap();
+                let node = chains.get_mut(cur_chn).context("out of bound")?;
                 if !node.merged {
                     chain_deps.push(cur_chn);
                     chain_gas_limit += node.gas_limit;
@@ -241,11 +245,12 @@ where
                     }
                 });
 
-                chains[i].merged = true;
+                let node_mut = chains.get_mut_at(i).context("out of bound")?;
+                node_mut.merged = true;
 
                 // adjust the effective performance for all subsequent chains
-                if let Some(next_key) = chains[i].next {
-                    let next_node = chains.get_mut(next_key).unwrap();
+                if let Some(next_key) = node.next {
+                    let next_node = chains.get_mut(next_key).context("out of bound")?;
                     if next_node.eff_perf > 0.0 {
                         next_node.eff_perf += next_node.parent_offset;
                         let mut next_next_key = next_node.next;
@@ -265,13 +270,13 @@ where
                     }
                 }
 
-                result.extend(chains[i].msgs.clone());
+                result.extend(node.msgs.clone());
                 gas_limit -= chain_gas_limit;
 
                 // re-sort to account for already merged chains and effective performance
                 // adjustments the sort *must* be stable or we end up getting
                 // negative gasPerfs pushed up.
-                chains.sort_range_effective(i + 1..);
+                chains.sort_range_effective(i + 1..)?;
 
                 continue;
             }
@@ -291,14 +296,19 @@ where
         // multiple times to satisfy tail packing
         'tail_loop: while gas_limit >= MIN_GAS && last < chains.len() {
             // trim if necessary
-            if chains[last].gas_limit > gas_limit {
+            let node = chains.get_at(last).context("out of bound")?.clone();
+
+            if node.gas_limit > gas_limit {
                 chains.trim_msgs_at(last, gas_limit, &base_fee);
             }
 
             // push down if it hasn't been invalidated
-            if chains[last].valid {
+            if node.valid {
                 for i in last..chains.len() - 1 {
-                    if chains[i].cmp_effective(&chains[i + 1]) == Ordering::Greater {
+                    let node0 = chains.get_at(i).context("out of bound")?.clone();
+                    let node1 = chains.get_at(i + 1).context("out of bound")?.clone();
+
+                    if node0.cmp_effective(&node1) == Ordering::Greater {
                         break;
                     }
                 }
@@ -309,7 +319,7 @@ where
             // select the next (valid and fitting) chain and its dependencies for inclusion
             let lst = last; // to make clippy happy, see: https://rust-lang.github.io/rust-clippy/master/index.html#mut_range_bound
             for i in lst..chains.len() {
-                let chain = &mut chains[i];
+                let chain = chains.get_at(i).context("out of bound")?.clone();
                 // has the chain been invalidated
                 if !chain.valid {
                     continue;
@@ -329,10 +339,10 @@ where
                 let mut chain_gas_limit = chain.gas_limit;
                 let mut dep_gas_limit = 0;
                 let mut chain_deps = vec![];
-                let mut cur_chain = chains[i].prev;
+                let mut cur_chain = chain.prev;
                 while let Some(cur_chn) = cur_chain {
                     chain_deps.push(cur_chn);
-                    let node = chains.get(cur_chn).unwrap();
+                    let node = chains.get(cur_chn).context("out of bound")?;
                     chain_gas_limit += node.gas_limit;
                     dep_gas_limit += node.gas_limit;
                     cur_chain = node.prev;
@@ -343,13 +353,14 @@ where
                     // include it together with all dependencies
                     for i in (0..=chain_deps.len()).rev() {
                         if let Some(cur_chain) = chain_deps.get(i) {
-                            let node = chains.get_mut(*cur_chain).unwrap();
+                            let node = chains.get_mut(*cur_chain).context("out of bound")?;
                             node.merged = true;
                             result.extend(node.msgs.clone());
                         }
 
-                        chains[i].merged = true;
-                        result.extend(chains[i].msgs.clone());
+                        let node = chains.get_mut_at(i).context("out of bound")?;
+                        node.merged = true;
+                        result.extend(node.msgs.clone());
                         gas_limit -= chain_gas_limit;
                         continue;
                     }
@@ -387,28 +398,30 @@ where
             chains.key_vec.shuffle(&mut thread_rng());
 
             for i in 0..chains.len() {
+                let node = chains.get_at(i).context("out of bound")?.clone();
+
                 if gas_limit < MIN_GAS {
                     break;
                 }
 
                 // has it been merged or invalidated?
-                if chains[i].merged || !chains[i].valid {
+                if node.merged || !node.valid {
                     continue;
                 }
 
                 // is it negative?
-                if chains[i].gas_perf < 0.0 {
+                if node.gas_perf < 0.0 {
                     continue;
                 }
 
                 // compute the dependencies that must be merged and the gas limit including deps
-                let mut chain_gas_limit = chains[i].gas_limit;
+                let mut chain_gas_limit = node.gas_limit;
                 let mut dep_gas_limit = 0;
                 let mut chain_deps = vec![];
-                let mut cur_chain = chains[i].prev;
+                let mut cur_chain = node.prev;
                 while let Some(cur_chn) = cur_chain {
                     chain_deps.push(cur_chn);
-                    let node = chains.get(cur_chn).unwrap();
+                    let node = chains.get(cur_chn).context("message chain not found")?;
                     chain_gas_limit += node.gas_limit;
                     dep_gas_limit += node.gas_limit;
                     cur_chain = node.prev;
@@ -425,23 +438,25 @@ where
                 if chain_gas_limit > gas_limit {
                     chains.trim_msgs_at(i, gas_limit - dep_gas_limit, &base_fee);
 
-                    if !chains[i].valid {
+                    let node = chains.get_at(i).context("out of bound")?.clone();
+                    if !node.valid {
                         continue;
                     }
                 }
 
                 // include it together with all dependencies
                 for i in (0..chain_deps.len()).rev() {
-                    let cur_chain = chain_deps[i];
-                    let node = chains.get_mut(cur_chain).unwrap();
+                    let cur_chain = *chain_deps.get(i).context("out of bound")?;
+                    let node = chains.get_mut(cur_chain).context("out of bound")?;
                     node.merged = true;
                     result.extend(node.msgs.clone());
                     random_count += node.msgs.len();
                 }
 
-                chains[i].merged = true;
-                result.extend(chains[i].msgs.clone());
-                random_count += chains[i].msgs.len();
+                let node = chains.get_mut_at(i).context("out of bound")?;
+                node.merged = true;
+                result.extend(node.msgs.clone());
+                random_count += node.msgs.len();
                 gas_limit -= chain_gas_limit;
             }
 
@@ -522,13 +537,7 @@ where
             return Ok((Vec::new(), gas_limit));
         }
 
-        Ok(merge_and_trim(
-            &mut chains,
-            result,
-            base_fee,
-            gas_limit,
-            min_gas,
-        ))
+        merge_and_trim(&mut chains, result, base_fee, gas_limit, min_gas)
     }
 }
 
@@ -539,23 +548,23 @@ fn merge_and_trim(
     base_fee: &TokenAmount,
     gas_limit: u64,
     min_gas: u64,
-) -> (Vec<SignedMessage>, u64) {
+) -> Result<(Vec<SignedMessage>, u64), Error> {
     if chains.is_empty() {
-        return (result, gas_limit);
+        return Ok((result, gas_limit));
     }
 
     let mut gas_limit = gas_limit;
     // 2. Sort the chains
     chains.sort(true);
 
-    let first_chain_gas_perf = chains[0].gas_perf;
+    let first_chain_gas_perf = chains.get_at(0).context("out of bound")?.gas_perf;
 
     if !chains.is_empty() && first_chain_gas_perf < 0.0 {
         tracing::warn!(
             "all priority messages in mpool have negative gas performance bestGasPerf: {}",
             first_chain_gas_perf
         );
-        return (Vec::new(), gas_limit);
+        return Ok((Vec::new(), gas_limit));
     }
 
     // 3. Merge chains until the block limit, as long as they have non-negative gas
@@ -563,7 +572,7 @@ fn merge_and_trim(
     let mut last = chains.len();
     let chain_len = chains.len();
     for i in 0..chain_len {
-        let node = &chains[i];
+        let node = chains.get_at(i).context("out of bound")?;
 
         if node.gas_perf < 0.0 {
             break;
@@ -583,12 +592,13 @@ fn merge_and_trim(
         chains.trim_msgs_at(last, gas_limit, base_fee);
 
         // push down if it hasn't been invalidated
-        let node = &chains[last];
+        let node = chains.get_at(last).context("out of bound")?;
         if node.valid {
             for i in last..chain_len - 1 {
                 // slot_chains
-                let cur_node = &chains[i];
-                let next_node = &chains[i + 1];
+                let cur_node = chains.get_at(i).context("out of bound")?;
+                let next_node = chains.get_at(i + 1).context("out of bound")?;
+
                 if cur_node.compare(next_node) == Ordering::Greater {
                     break;
                 }
@@ -600,7 +610,7 @@ fn merge_and_trim(
         // select the next (valid and fitting) chain for inclusion
         let lst = last; // to make clippy happy, see: https://rust-lang.github.io/rust-clippy/master/index.html#mut_range_bound
         for i in lst..chains.len() {
-            let chain = &mut chains[i];
+            let chain = chains.get_mut_at(i).context("out of bound")?;
             if !chain.valid {
                 continue;
             }
@@ -624,7 +634,7 @@ fn merge_and_trim(
         break;
     }
 
-    (result, gas_limit)
+    Ok((result, gas_limit))
 }
 
 /// Like `head_change`, except it doesn't change the state of the `MessagePool`.
