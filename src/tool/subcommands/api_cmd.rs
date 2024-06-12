@@ -238,7 +238,6 @@ impl TestSummary {
             | rpc::ClientError::RestartNeeded(_)
             | rpc::ClientError::InvalidSubscriptionId
             | rpc::ClientError::InvalidRequestId(_)
-            | rpc::ClientError::MaxSlotsExceeded
             | rpc::ClientError::Custom(_)
             | rpc::ClientError::HttpNotImplemented
             | rpc::ClientError::EmptyBatchRequest(_)
