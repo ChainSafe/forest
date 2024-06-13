@@ -194,9 +194,10 @@ where
 
     /// Reads the `Cid` from the blockstore for `EthAPI` queries.
     pub fn get_mapping(&self, hash: &eth::Hash) -> Result<Option<Cid>, Error> {
-        let cid = self.eth_mappings.read_obj(hash)?;
-
-        Ok(cid)
+        Ok(self
+            .eth_mappings
+            .read_obj::<(Cid, u64)>(hash)?
+            .map(|(cid, _)| cid))
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using
