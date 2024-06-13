@@ -81,7 +81,7 @@ impl EthMappingsStore for MemoryDB {
         Ok(self.eth_mappings_db.read().contains_key(key))
     }
 
-    fn get_tx_hashes(&self, _duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+    fn get_message_cids(&self, _duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
         todo!()
     }
 }

@@ -274,9 +274,8 @@ pub(super) async fn start(
                 tokio::time::sleep(Duration::from_secs(30)).await;
 
                 // First get all transactions CIDs older than ttl.
-                let tx_hashes = chain_store.db.get_tx_hashes(Some(TTL))?;
                 let mut i = 0;
-                for cid in tx_hashes.iter() {
+                for cid in chain_store.db.get_message_cids(Some(TTL))? {
                     let message = crate::chain::get_chain_message(chain_store.db.as_ref(), &cid);
                     match message {
                         Ok(ChainMessage::Signed(_msg)) => {

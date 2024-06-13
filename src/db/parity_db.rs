@@ -195,7 +195,7 @@ impl EthMappingsStore for ParityDb {
             .context("error checking if key exists")
     }
 
-    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
         let mut values = Vec::new();
 
         self.db

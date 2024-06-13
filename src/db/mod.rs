@@ -108,9 +108,9 @@ pub trait EthMappingsStore {
     /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
 
-    /// Returns all Ethereum message CIDs older than `duration`.
-    /// If `duration` equals `None,` it returns all transaction indistinctly of their age.
-    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>>;
+    /// Returns all message CIDs older than `duration`. If `duration` equals `None`,
+    /// it returns all message CIDs indistinctly of their age.
+    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
@@ -126,8 +126,8 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
         EthMappingsStore::exists(self.as_ref(), key)
     }
 
-    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
-        EthMappingsStore::get_tx_hashes(self.as_ref(), duration)
+    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+        EthMappingsStore::get_message_cids(self.as_ref(), duration)
     }
 }
 

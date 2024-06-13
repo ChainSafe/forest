@@ -219,8 +219,8 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         EthMappingsStore::exists(self.writer(), key)
     }
 
-    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
-        EthMappingsStore::get_tx_hashes(self.writer(), duration)
+    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+        EthMappingsStore::get_message_cids(self.writer(), duration)
     }
 }
 
