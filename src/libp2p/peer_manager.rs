@@ -130,7 +130,7 @@ impl PeerManager {
             .filter_map(|(p, info)| {
                 // Filter out nodes that are stateless (or far behind)
                 if info.head.epoch() > 0 {
-                    let cost = if (info.successes + info.failures) > 0 {
+                    let cost = if info.successes > 0 {
                         // Calculate cost based on fail rate and latency
                         let fail_rate = f64::from(info.failures) / f64::from(info.successes);
                         info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
