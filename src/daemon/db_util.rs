@@ -201,7 +201,7 @@ where
 fn process_signed_messages<DB>(
     state_manager: &StateManager<DB>,
     messages: &[SignedMessage],
-) -> anyhow::Result<usize>
+) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore,
 {
@@ -226,10 +226,10 @@ where
     let filtered = filter_lowest_index(eth_txs);
 
     // write back
-    for (k, v) in filtered.iter() {
+    for (k, v) in filtered.into_iter() {
         state_manager.chain_store().put_mapping(k, v)?;
     }
-    Ok(filtered.len())
+    Ok(())
 }
 
 fn filter_lowest_index(values: Vec<(eth::Hash, Cid, usize)>) -> Vec<(eth::Hash, Cid)> {
