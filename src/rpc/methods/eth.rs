@@ -350,6 +350,8 @@ pub struct Tx {
     pub gas: Uint64,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
+    #[schemars(with = "Option<Vec<Hash>>")]
+    #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
     pub v: BigInt,
     pub r: BigInt,
