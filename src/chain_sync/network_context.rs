@@ -289,7 +289,6 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
-
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
@@ -395,7 +394,7 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                peer_manager.log_success(peer_id, res_duration);
+                peer_manager.log_success(&peer_id, res_duration);
                 trace!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
@@ -416,7 +415,7 @@ where
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
                     RequestResponseError::Timeout | RequestResponseError::Io(_) => {
-                        peer_manager.log_failure(peer_id, res_duration);
+                        peer_manager.log_failure(&peer_id, res_duration);
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
@@ -425,7 +424,7 @@ where
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
-                peer_manager.log_failure(peer_id, res_duration);
+                peer_manager.log_failure(&peer_id, res_duration);
                 debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }
