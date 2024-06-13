@@ -15,10 +15,11 @@ pub mod migration;
 use crate::rpc::eth;
 use ahash::HashSet;
 use anyhow::Context as _;
-use cid::multihash;
+use cid::{multihash, Cid};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
+use std::time::Duration;
 
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKey`]s
@@ -106,6 +107,10 @@ pub trait EthMappingsStore {
 
     /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
+
+    /// Returns all Ethereum message CIDs older than `duration`.
+    /// If `duration` equals `None,` it returns all transaction indistinctly of their age.
+    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
@@ -119,6 +124,10 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
 
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.as_ref(), key)
+    }
+
+    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+        EthMappingsStore::get_tx_hashes(self.as_ref(), duration)
     }
 }
 

@@ -3,6 +3,7 @@
 
 use ahash::{HashSet, HashSetExt};
 use std::path::PathBuf;
+use std::time::Duration;
 
 use super::SettingsStore;
 
@@ -192,6 +193,39 @@ impl EthMappingsStore for ParityDb {
             .get_size(DbColumn::EthMappings as u8, key.0.as_bytes())
             .map(|size| size.is_some())
             .context("error checking if key exists")
+    }
+
+    fn get_tx_hashes(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+        let mut values = Vec::new();
+
+        self.db
+            .iter_column_while(DbColumn::EthMappings as u8, |val| {
+                values.push(val.value);
+                true
+            })?;
+
+        let now = chrono::Utc::now().timestamp() as u64;
+
+        let cids = values
+            .iter()
+            .filter_map(|value| {
+                if let Ok((cid, timestamp)) = fvm_ipld_encoding::from_slice::<(Cid, u64)>(value) {
+                    if let Some(duration) = duration {
+                        if Duration::from_secs(now - timestamp) > duration {
+                            Some(cid)
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(cid)
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(cids)
     }
 }
 

@@ -1,6 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::time::Duration;
+
 use crate::db::{truncated_hash, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth;
@@ -77,6 +79,10 @@ impl EthMappingsStore for MemoryDB {
 
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         Ok(self.eth_mappings_db.read().contains_key(key))
+    }
+
+    fn get_tx_hashes(&self, _duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+        todo!()
     }
 }
 

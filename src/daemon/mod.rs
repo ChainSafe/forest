@@ -20,12 +20,13 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::MarkAndSweep;
+use crate::db::{EthMappingsStore, MarkAndSweep};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
+use crate::message::ChainMessage;
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig, NetworkChain};
 use crate::rpc::start_rpc;
@@ -260,6 +261,33 @@ pub(super) async fn start(
             )
         };
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
+    }
+
+    {
+        let chain_store = chain_store.clone();
+        services.spawn(async move {
+            tracing::info!("Starting GC for eth_mappings");
+
+            const TTL: Duration = std::time::Duration::from_secs(24 * 3600);
+
+            loop {
+                tokio::time::sleep(Duration::from_secs(30)).await;
+
+                // First get all transactions CIDs older than ttl.
+                let tx_hashes = chain_store.db.get_tx_hashes(Some(TTL))?;
+                let mut i = 0;
+                for cid in tx_hashes.iter() {
+                    let message = crate::chain::get_chain_message(chain_store.db.as_ref(), &cid);
+                    match message {
+                        Ok(ChainMessage::Signed(_msg)) => {
+                            i += 1;
+                        }
+                        _ => (),
+                    }
+                }
+                tracing::debug!("Found {} messages older than {:?}", i, TTL);
+            }
+        });
     }
 
     let publisher = chain_store.publisher();
