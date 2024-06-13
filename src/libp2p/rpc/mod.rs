@@ -36,23 +36,28 @@ impl<P, RQ, RS> Default for CborRequestResponse<P, RQ, RS> {
 ///
 /// This type mirrors the internal libp2p type, but this avoids having to expose
 /// that internal type.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum RequestResponseError {
     /// The request could not be sent because a dialing attempt failed.
+    #[error("DialFailure")]
     DialFailure,
     /// The request timed out before a response was received.
     ///
     /// It is not known whether the request may have been
     /// received (and processed) by the remote peer.
+    #[error("Timeout")]
     Timeout,
     /// The connection closed before a response was received.
     ///
     /// It is not known whether the request may have been
     /// received (and processed) by the remote peer.
+    #[error("ConnectionClosed")]
     ConnectionClosed,
     /// The remote supports none of the requested protocols.
+    #[error("UnsupportedProtocols")]
     UnsupportedProtocols,
     /// An IO failure happened on an outbound stream.
+    #[error("{0}")]
     Io(io::Error),
 }
 

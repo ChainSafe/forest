@@ -90,32 +90,17 @@ pub enum NetworkEvent {
         source: PeerId,
         message: PubsubMessage,
     },
-    HelloRequestInbound {
-        source: PeerId,
-        request: HelloRequest,
-    },
+    HelloRequestInbound,
     HelloResponseOutbound {
         source: PeerId,
         request: HelloRequest,
     },
-    HelloRequestOutbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    HelloResponseInbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeRequestOutbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeResponseInbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeRequestInbound {
-        request_id: request_response::InboundRequestId,
-    },
-    ChainExchangeResponseOutbound {
-        request_id: request_response::InboundRequestId,
-    },
+    HelloRequestOutbound,
+    HelloResponseInbound,
+    ChainExchangeRequestOutbound,
+    ChainExchangeResponseInbound,
+    ChainExchangeRequestInbound,
+    ChainExchangeResponseOutbound,
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
 }
@@ -441,30 +426,26 @@ async fn handle_network_message(
             request,
             response_channel,
         } => {
-            let request_id =
+            let _request_id =
                 swarm
                     .behaviour_mut()
                     .hello
                     .send_request(&peer_id, request, response_channel);
-            emit_event(
-                network_sender_out,
-                NetworkEvent::HelloRequestOutbound { request_id },
-            )
-            .await;
+            emit_event(network_sender_out, NetworkEvent::HelloRequestOutbound).await;
         }
         NetworkMessage::ChainExchangeRequest {
             peer_id,
             request,
             response_channel,
         } => {
-            let request_id = swarm.behaviour_mut().chain_exchange.send_request(
+            let _request_id = swarm.behaviour_mut().chain_exchange.send_request(
                 &peer_id,
                 request,
                 response_channel,
             );
             emit_event(
                 network_sender_out,
-                NetworkEvent::ChainExchangeRequestOutbound { request_id },
+                NetworkEvent::ChainExchangeRequestOutbound,
             )
             .await;
         }
@@ -683,14 +664,7 @@ async fn handle_hello_event(
                 channel,
                 request_id: _,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloRequestInbound {
-                        source: peer,
-                        request: request.clone(),
-                    },
-                )
-                .await;
+                emit_event(network_sender_out, NetworkEvent::HelloRequestInbound).await;
 
                 let arrival = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -738,11 +712,7 @@ async fn handle_hello_event(
                 request_id,
                 response,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloResponseInbound { request_id },
-                )
-                .await;
+                emit_event(network_sender_out, NetworkEvent::HelloResponseInbound).await;
                 hello.handle_response(&request_id, response).await;
             }
         },
@@ -814,7 +784,7 @@ async fn handle_chain_exchange_event<DB>(
                 );
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::ChainExchangeRequestInbound { request_id },
+                    NetworkEvent::ChainExchangeRequestInbound,
                 )
                 .await;
 
@@ -835,7 +805,7 @@ async fn handle_chain_exchange_event<DB>(
             } => {
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::ChainExchangeResponseInbound { request_id },
+                    NetworkEvent::ChainExchangeResponseInbound,
                 )
                 .await;
                 chain_exchange
@@ -860,10 +830,10 @@ async fn handle_chain_exchange_event<DB>(
                 peer, error
             );
         }
-        request_response::Event::ResponseSent { request_id, .. } => {
+        request_response::Event::ResponseSent { .. } => {
             emit_event(
                 network_sender_out,
-                NetworkEvent::ChainExchangeResponseOutbound { request_id },
+                NetworkEvent::ChainExchangeResponseOutbound,
             )
             .await;
         }
