@@ -192,7 +192,7 @@ where
         }
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
-    let _ = process_signed_messages(state_manager, &delegated_messages)?;
+    process_signed_messages(state_manager, &delegated_messages)?;
 
     Ok(())
 }
