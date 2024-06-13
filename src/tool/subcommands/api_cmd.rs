@@ -901,6 +901,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     sector,
                     tipset.key().into(),
                 ))?),
+                RpcTest::identity(StateMinerSectorAllocated::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
