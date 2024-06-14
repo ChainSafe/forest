@@ -195,6 +195,13 @@ impl EthMappingsStore for ParityDb {
             .context("error checking if key exists")
     }
 
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        Ok(self.db.commit_changes(keys.into_iter().map(|key| {
+            let bytes = key.0.as_bytes().to_vec();
+            (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
+        }))?)
+    }
+
     fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
         let mut values = Vec::new();
 

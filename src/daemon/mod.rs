@@ -29,6 +29,7 @@ use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
 use crate::message::ChainMessage;
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig, NetworkChain};
+use crate::rpc::eth::eth_tx_from_signed_eth_message;
 use crate::rpc::start_rpc;
 use crate::rpc::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -265,6 +266,7 @@ pub(super) async fn start(
 
     {
         let chain_store = chain_store.clone();
+        let chain_config = chain_config.clone();
         services.spawn(async move {
             tracing::info!("Starting GC for eth_mappings");
 
@@ -273,18 +275,20 @@ pub(super) async fn start(
             loop {
                 tokio::time::sleep(Duration::from_secs(30)).await;
 
-                // First get all transactions CIDs older than ttl.
-                let mut i = 0;
+                // First, get all transactions hashes older than ttl.
+                let mut hashes = Vec::new();
                 for cid in chain_store.db.get_message_cids(Some(TTL))? {
                     let message = crate::chain::get_chain_message(chain_store.db.as_ref(), &cid);
-                    match message {
-                        Ok(ChainMessage::Signed(_msg)) => {
-                            i += 1;
-                        }
-                        _ => (),
+                    if let Ok(ChainMessage::Signed(smsg)) = message {
+                        let tx = eth_tx_from_signed_eth_message(&smsg, chain_config.eth_chain_id)?;
+                        hashes.push(tx.eth_hash()?);
                     }
                 }
-                tracing::debug!("Found {} messages older than {:?}", i, TTL);
+                // Then, delete all db entries older than ttl.
+                let count = hashes.len();
+                chain_store.db.delete(hashes)?;
+
+                tracing::debug!("Found and deleted {count} entries older than {:?}", TTL);
             }
         });
     }

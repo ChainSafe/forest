@@ -108,6 +108,9 @@ pub trait EthMappingsStore {
     /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
 
+    /// Deletes `keys` if keys exist in store.
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()>;
+
     /// Returns all message CIDs older than `duration`. If `duration` equals `None`,
     /// it returns all message CIDs indistinctly of their age.
     fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>>;
@@ -124,6 +127,10 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
 
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.as_ref(), key)
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.as_ref(), keys)
     }
 
     fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
