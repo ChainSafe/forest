@@ -369,7 +369,7 @@ where
         stateless_mode: bool,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
-            NetworkEvent::HelloRequestInbound { .. } => {
+            NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
                     .inc();
@@ -396,13 +396,13 @@ where
                 };
                 (tipset, source)
             }
-            NetworkEvent::HelloRequestOutbound { .. } => {
+            NetworkEvent::HelloRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::HelloResponseInbound { .. } => {
+            NetworkEvent::HelloResponseInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_RESPONSE_INBOUND)
                     .inc();
@@ -455,25 +455,25 @@ where
                     return Ok(None);
                 }
             },
-            NetworkEvent::ChainExchangeRequestOutbound { .. } => {
+            NetworkEvent::ChainExchangeRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeResponseInbound { .. } => {
+            NetworkEvent::ChainExchangeResponseInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeRequestInbound { .. } => {
+            NetworkEvent::ChainExchangeRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeResponseOutbound { .. } => {
+            NetworkEvent::ChainExchangeResponseOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND)
                     .inc();
