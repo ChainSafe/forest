@@ -132,6 +132,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerPartitions);
         $callback!(crate::rpc::state::StateMinerSectors);
         $callback!(crate::rpc::state::StateMinerSectorCount);
+        $callback!(crate::rpc::state::StateMinerSectorAllocated);
         $callback!(crate::rpc::state::StateMinerPower);
         $callback!(crate::rpc::state::StateMinerDeadlines);
         $callback!(crate::rpc::state::StateMinerProvingDeadline);
