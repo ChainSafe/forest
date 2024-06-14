@@ -81,7 +81,7 @@ where
     T: JsonSchema,
 {
     fn schema_name() -> String {
-        std::any::type_name::<T>().to_string()
+        format!("Nullable_Array_of_{}", T::schema_name())
     }
 
     fn json_schema(gen: &mut SchemaGenerator) -> Schema {
