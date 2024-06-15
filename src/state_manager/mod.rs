@@ -577,10 +577,7 @@ where
                             msg_rct: Some(ctx.apply_ret.msg_receipt()),
                             error: ctx.apply_ret.failure_info().unwrap_or_default(),
                             duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
-                            gas_cost: MessageGasCost::try_new(
-                                ctx.message.message(),
-                                ctx.apply_ret,
-                            )?,
+                            gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
                             execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
                                 .unwrap_or_default(),
                         })?;

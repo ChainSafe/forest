@@ -82,7 +82,7 @@ pub struct MessageGasCost {
 lotus_json_with_self!(MessageGasCost);
 
 impl MessageGasCost {
-    pub fn try_new(message: &Message, apply_ret: &ApplyRet) -> anyhow::Result<Self> {
+    pub fn new(message: &Message, apply_ret: &ApplyRet) -> anyhow::Result<Self> {
         Ok(Self {
             message: Some(message.cid()?),
             gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),
