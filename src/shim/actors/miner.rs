@@ -10,6 +10,7 @@ use fil_actors_shared::fvm_ipld_bitfield::BitField;
 use fvm_ipld_blockstore::Blockstore;
 
 use crate::rpc::types::SectorOnChainInfo;
+use crate::utils::db::CborStoreExt as _;
 
 pub trait MinerStateExt {
     /// Loads sectors corresponding to the bitfield. If no bitfield is passed
@@ -19,6 +20,10 @@ pub trait MinerStateExt {
         store: &BS,
         sectors: Option<&BitField>,
     ) -> anyhow::Result<Vec<SectorOnChainInfo>>;
+
+    /// Loads the allocated sector numbers
+    fn load_allocated_sector_numbers<BS: Blockstore>(&self, store: &BS)
+        -> anyhow::Result<BitField>;
 }
 
 pub trait PartitionExt {

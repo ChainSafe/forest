@@ -751,6 +751,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .key()
             .into(),))?),
         RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
+        RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
     ];
 
     // Get deals
@@ -897,6 +898,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 ))?)
                 .pass_on_rejected(true),
                 RpcTest::identity(StateSectorPartition::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
+                RpcTest::identity(StateMinerSectorAllocated::request((
                     block.miner_address,
                     sector,
                     tipset.key().into(),
