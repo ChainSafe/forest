@@ -1345,6 +1345,32 @@ impl RpcMethod<1> for StateListMiners {
     }
 }
 
+pub enum StateListActors {}
+
+impl RpcMethod<1> for StateListActors {
+    const NAME: &'static str = "Filecoin.StateListActors";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = Vec<Address>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut actors = vec![];
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+        state_tree.for_each(|addr, _state| {
+            actors.push(addr);
+            Ok(())
+        })?;
+        Ok(actors)
+    }
+}
+
 pub enum StateMarketStorageDeal {}
 
 impl RpcMethod<2> for StateMarketStorageDeal {
