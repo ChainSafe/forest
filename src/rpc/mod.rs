@@ -132,6 +132,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMinerPartitions);
         $callback!(crate::rpc::state::StateMinerSectors);
         $callback!(crate::rpc::state::StateMinerSectorCount);
+        $callback!(crate::rpc::state::StateMinerSectorAllocated);
         $callback!(crate::rpc::state::StateMinerPower);
         $callback!(crate::rpc::state::StateMinerDeadlines);
         $callback!(crate::rpc::state::StateMinerProvingDeadline);
@@ -147,6 +148,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateVerifiedClientStatus);
         $callback!(crate::rpc::state::StateVMCirculatingSupplyInternal);
         $callback!(crate::rpc::state::StateListMiners);
+        $callback!(crate::rpc::state::StateListActors);
         $callback!(crate::rpc::state::StateNetworkVersion);
         $callback!(crate::rpc::state::StateMarketBalance);
         $callback!(crate::rpc::state::StateMarketParticipants);

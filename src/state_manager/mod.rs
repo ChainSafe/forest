@@ -262,15 +262,20 @@ where
         &self.sync_config
     }
 
+    /// Gets the state tree
+    pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DB>> {
+        StateTree::new_from_root(self.blockstore_owned(), state_cid)
+    }
+
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = self.get_state_tree(&state_cid)?;
         state.get_actor(addr)
     }
 
     /// Gets required actor from given [`Cid`].
     pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = self.get_state_tree(&state_cid)?;
         state.get_actor(addr)?.with_context(|| {
             format!("Failed to load actor with addr={addr}, state_cid={state_cid}")
         })

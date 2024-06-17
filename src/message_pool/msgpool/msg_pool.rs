@@ -30,7 +30,6 @@ use fvm_ipld_encoding::to_vec;
 use itertools::Itertools;
 use lru::LruCache;
 use nonzero_ext::nonzero;
-use num::BigInt;
 use parking_lot::{Mutex, RwLock as SyncRwLock};
 use tokio::{sync::broadcast::error::RecvError, task::JoinSet, time::interval};
 use tracing::warn;
@@ -176,9 +175,6 @@ pub struct MessagePool<T> {
     pub cur_tipset: Arc<Mutex<Arc<Tipset>>>,
     /// The underlying provider
     pub api: Arc<T>,
-    /// The minimum gas price needed for executing the transaction based on
-    /// number of included blocks
-    pub min_gas_price: BigInt,
     pub network_name: String,
     /// Sender half to send messages to other components
     pub network_sender: flume::Sender<NetworkMessage>,
@@ -475,7 +471,6 @@ where
             pending,
             cur_tipset: tipset,
             api: Arc::new(api),
-            min_gas_price: Default::default(),
             network_name,
             bls_sig_cache,
             sig_val_cache,
