@@ -23,7 +23,7 @@ use libp2p::{
     autonat::NatStatus,
     connection_limits::Exceeded,
     core::Multiaddr,
-    gossipsub,
+    gossipsub, identify,
     identity::Keypair,
     metrics::{Metrics, Recorder},
     multiaddr::Protocol,
@@ -36,6 +36,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use super::{
     chain_exchange::{make_chain_exchange_response, ChainExchangeRequest, ChainExchangeResponse},
+    discovery::DerivedDiscoveryBehaviourEvent,
     ForestBehaviour, ForestBehaviourEvent, Libp2pConfig,
 };
 use crate::libp2p::{
@@ -89,32 +90,17 @@ pub enum NetworkEvent {
         source: PeerId,
         message: PubsubMessage,
     },
-    HelloRequestInbound {
-        source: PeerId,
-        request: HelloRequest,
-    },
+    HelloRequestInbound,
     HelloResponseOutbound {
         source: PeerId,
         request: HelloRequest,
     },
-    HelloRequestOutbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    HelloResponseInbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeRequestOutbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeResponseInbound {
-        request_id: request_response::OutboundRequestId,
-    },
-    ChainExchangeRequestInbound {
-        request_id: request_response::InboundRequestId,
-    },
-    ChainExchangeResponseOutbound {
-        request_id: request_response::InboundRequestId,
-    },
+    HelloRequestOutbound,
+    HelloResponseInbound,
+    ChainExchangeRequestOutbound,
+    ChainExchangeResponseInbound,
+    ChainExchangeRequestInbound,
+    ChainExchangeResponseOutbound,
     PeerConnected(PeerId),
     PeerDisconnected(PeerId),
 }
@@ -440,30 +426,26 @@ async fn handle_network_message(
             request,
             response_channel,
         } => {
-            let request_id =
+            let _request_id =
                 swarm
                     .behaviour_mut()
                     .hello
                     .send_request(&peer_id, request, response_channel);
-            emit_event(
-                network_sender_out,
-                NetworkEvent::HelloRequestOutbound { request_id },
-            )
-            .await;
+            emit_event(network_sender_out, NetworkEvent::HelloRequestOutbound).await;
         }
         NetworkMessage::ChainExchangeRequest {
             peer_id,
             request,
             response_channel,
         } => {
-            let request_id = swarm.behaviour_mut().chain_exchange.send_request(
+            let _request_id = swarm.behaviour_mut().chain_exchange.send_request(
                 &peer_id,
                 request,
                 response_channel,
             );
             emit_event(
                 network_sender_out,
-                NetworkEvent::ChainExchangeRequestOutbound { request_id },
+                NetworkEvent::ChainExchangeRequestOutbound,
             )
             .await;
         }
@@ -554,11 +536,11 @@ async fn handle_network_message(
                     }
                 }
                 NetRPCMethods::AgentVersion(response_channel, peer_id) => {
-                    let agent_version = swarm
-                        .behaviour()
-                        .peer_info(&peer_id)
-                        .and_then(|info| info.agent_version.clone());
-
+                    let agent_version = swarm.behaviour().peer_info(&peer_id).and_then(|info| {
+                        info.identify_info
+                            .as_ref()
+                            .map(|id| id.agent_version.clone())
+                    });
                     if response_channel.send(agent_version).is_err() {
                         warn!("Failed to get agent version");
                     }
@@ -577,6 +559,7 @@ async fn handle_network_message(
 async fn handle_discovery_event(
     discovery_out: DiscoveryEvent,
     network_sender_out: &Sender<NetworkEvent>,
+    peer_manager: &PeerManager,
 ) {
     match discovery_out {
         DiscoveryEvent::PeerConnected(peer_id) => {
@@ -585,9 +568,32 @@ async fn handle_discovery_event(
         }
         DiscoveryEvent::PeerDisconnected(peer_id) => {
             trace!("Peer disconnected, {peer_id}");
+            // Remove peer id labels for disconnected peers
+            super::metrics::PEER_TIPSET_EPOCH.remove(&super::metrics::PeerLabel::new(peer_id));
             emit_event(network_sender_out, NetworkEvent::PeerDisconnected(peer_id)).await;
         }
-        DiscoveryEvent::Discovery(_) => {}
+        DiscoveryEvent::Discovery(discovery_event) => match &*discovery_event {
+            DerivedDiscoveryBehaviourEvent::Identify(identify::Event::Received {
+                peer_id,
+                info,
+            }) => {
+                let protocols = HashSet::from_iter(info.protocols.iter().map(|p| p.to_string()));
+                if !protocols.contains(super::hello::HELLO_PROTOCOL_NAME) {
+                    peer_manager
+                        .ban_peer_with_default_duration(*peer_id, "hello protocol unsupported")
+                        .await;
+                } else if !protocols.contains(super::chain_exchange::CHAIN_EXCHANGE_PROTOCOL_NAME) {
+                    peer_manager
+                        .ban_peer_with_default_duration(
+                            *peer_id,
+                            "chain exchange protocol unsupported",
+                        )
+                        .await;
+                }
+            }
+            DerivedDiscoveryBehaviourEvent::Identify(_) => {}
+            _ => {}
+        },
     }
 }
 
@@ -658,14 +664,7 @@ async fn handle_hello_event(
                 channel,
                 request_id: _,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloRequestInbound {
-                        source: peer,
-                        request: request.clone(),
-                    },
-                )
-                .await;
+                emit_event(network_sender_out, NetworkEvent::HelloRequestInbound).await;
 
                 let arrival = SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -713,11 +712,7 @@ async fn handle_hello_event(
                 request_id,
                 response,
             } => {
-                emit_event(
-                    network_sender_out,
-                    NetworkEvent::HelloResponseInbound { request_id },
-                )
-                .await;
+                emit_event(network_sender_out, NetworkEvent::HelloResponseInbound).await;
                 hello.handle_response(&request_id, response).await;
             }
         },
@@ -743,22 +738,20 @@ async fn handle_hello_event(
     }
 }
 
-async fn handle_ping_event(ping_event: ping::Event, peer_manager: &PeerManager) {
+async fn handle_ping_event(ping_event: ping::Event) {
     match ping_event.result {
         Ok(rtt) => {
             trace!(
                 "PingSuccess::Ping rtt to {} is {} ms",
-                ping_event.peer.to_base58(),
+                ping_event.peer,
                 rtt.as_millis()
             );
         }
         Err(ping::Failure::Unsupported) => {
-            peer_manager
-                .ban_peer_with_default_duration(ping_event.peer, "Ping protocol unsupported")
-                .await;
+            debug!(peer=%ping_event.peer, "Ping protocol unsupported");
         }
         Err(ping::Failure::Timeout) => {
-            warn!("Ping timeout: {}", ping_event.peer);
+            debug!("Ping timeout: {}", ping_event.peer);
         }
         Err(ping::Failure::Other { error }) => {
             debug!("Ping failure: {error}");
@@ -791,7 +784,7 @@ async fn handle_chain_exchange_event<DB>(
                 );
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::ChainExchangeRequestInbound { request_id },
+                    NetworkEvent::ChainExchangeRequestInbound,
                 )
                 .await;
 
@@ -812,7 +805,7 @@ async fn handle_chain_exchange_event<DB>(
             } => {
                 emit_event(
                     network_sender_out,
-                    NetworkEvent::ChainExchangeResponseInbound { request_id },
+                    NetworkEvent::ChainExchangeResponseInbound,
                 )
                 .await;
                 chain_exchange
@@ -837,10 +830,10 @@ async fn handle_chain_exchange_event<DB>(
                 peer, error
             );
         }
-        request_response::Event::ResponseSent { request_id, .. } => {
+        request_response::Event::ResponseSent { .. } => {
             emit_event(
                 network_sender_out,
-                NetworkEvent::ChainExchangeResponseOutbound { request_id },
+                NetworkEvent::ChainExchangeResponseOutbound,
             )
             .await;
         }
@@ -868,7 +861,7 @@ async fn handle_forest_behaviour_event<DB>(
 {
     match event {
         ForestBehaviourEvent::Discovery(discovery_out) => {
-            handle_discovery_event(discovery_out, network_sender_out).await
+            handle_discovery_event(discovery_out, network_sender_out, peer_manager).await
         }
         ForestBehaviourEvent::Gossipsub(e) => {
             handle_gossip_event(e, network_sender_out, pubsub_block_str, pubsub_msg_str).await
@@ -892,7 +885,7 @@ async fn handle_forest_behaviour_event<DB>(
                 warn!("bitswap: {e}");
             }
         }
-        ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event, peer_manager).await,
+        ForestBehaviourEvent::Ping(ping_event) => handle_ping_event(ping_event).await,
         ForestBehaviourEvent::ConnectionLimits(_) => {}
         ForestBehaviourEvent::BlockedPeers(_) => {}
         ForestBehaviourEvent::ChainExchange(ce_event) => {

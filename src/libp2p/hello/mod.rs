@@ -7,3 +7,6 @@ mod behaviour;
 pub use behaviour::*;
 mod codec;
 use codec::*;
+
+/// Libp2p Hello protocol name.
+pub const HELLO_PROTOCOL_NAME: &str = "/fil/hello/1.0.0";

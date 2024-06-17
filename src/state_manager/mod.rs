@@ -32,7 +32,7 @@ use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
     econ::TokenAmount,
-    executor::{ApplyRet, Receipt},
+    executor::Receipt,
     message::Message,
     randomness::Randomness,
     state_tree::{ActorState, StateTree},
@@ -262,15 +262,20 @@ where
         &self.sync_config
     }
 
+    /// Gets the state tree
+    pub fn get_state_tree(&self, state_cid: &Cid) -> anyhow::Result<StateTree<DB>> {
+        StateTree::new_from_root(self.blockstore_owned(), state_cid)
+    }
+
     /// Gets actor from given [`Cid`], if it exists.
     pub fn get_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<Option<ActorState>> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = self.get_state_tree(&state_cid)?;
         state.get_actor(addr)
     }
 
     /// Gets required actor from given [`Cid`].
     pub fn get_required_actor(&self, addr: &Address, state_cid: Cid) -> anyhow::Result<ActorState> {
-        let state = StateTree::new_from_root(self.blockstore_owned(), &state_cid)?;
+        let state = self.get_state_tree(&state_cid)?;
         state.get_actor(addr)?.with_context(|| {
             format!("Failed to load actor with addr={addr}, state_cid={state_cid}")
         })
@@ -560,20 +565,27 @@ where
         self: &Arc<Self>,
         ts: &Arc<Tipset>,
         mcid: Cid,
-    ) -> Result<(Message, ApplyRet), Error> {
+    ) -> Result<ApiInvocResult, Error> {
         const ERROR_MSG: &str = "replay_halt";
 
         // This isn't ideal to have, since the execution is synchronous, but this needs
         // to be the case because the state transition has to be in blocking
         // thread to avoid starving executor
-        let (m_tx, m_rx) = std::sync::mpsc::channel();
-        let (r_tx, r_rx) = std::sync::mpsc::channel();
+        let (tx, rx) = flume::bounded(1);
         let callback = move |ctx: &MessageCallbackCtx| {
             match ctx.at {
                 CalledAt::Applied | CalledAt::Reward => {
                     if ctx.cid == mcid {
-                        m_tx.send(ctx.message.message().clone())?;
-                        r_tx.send(ctx.apply_ret.clone())?;
+                        tx.send(ApiInvocResult {
+                            msg_cid: ctx.message.cid()?,
+                            msg: ctx.message.message().clone(),
+                            msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                            error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                            duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                            gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                            execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                                .unwrap_or_default(),
+                        })?;
                         anyhow::bail!(ERROR_MSG);
                     }
                     Ok(())
@@ -582,7 +594,7 @@ where
             }
         };
         let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::NotTraced)
+            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::Traced)
             .await;
 
         if let Err(error_message) = result {
@@ -594,13 +606,8 @@ where
         }
 
         // Use try_recv here assuming callback execution is synchronous
-        let out_mes = m_rx
-            .try_recv()
-            .map_err(|err| Error::Other(format!("given message not found in tipset: {err}")))?;
-        let out_ret = r_rx
-            .try_recv()
-            .map_err(|err| Error::Other(format!("message did not have a return: {err}")))?;
-        Ok((out_mes, out_ret))
+        rx.try_recv()
+            .map_err(|err| Error::Other(format!("failed to replay: {err}")))
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that

@@ -28,6 +28,12 @@ use tracing::{debug, info};
 use url::Url;
 use walkdir::WalkDir;
 
+#[cfg(doc)]
+use crate::rpc::eth::Hash;
+
+#[cfg(doc)]
+use crate::blocks::TipsetKey;
+
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
@@ -149,6 +155,12 @@ async fn transcode_into_forest_car(from: &Path, to: &Path) -> anyhow::Result<()>
     Ok(())
 }
 
+/// For the need for Ethereum RPC API, a new column in parity-db has been introduced to handle
+/// mapping of:
+/// - [`struct@Hash`] to [`TipsetKey`].
+/// - [`struct@Hash`] to delegated message [`Cid`].
+///
+/// This function traverses the chain store and populates the column.
 pub fn populate_eth_mappings<DB>(
     state_manager: &StateManager<DB>,
     head_ts: &Tipset,
@@ -180,15 +192,16 @@ where
         }
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
-    let _ = process_signed_messages(state_manager, &delegated_messages)?;
+    process_signed_messages(state_manager, &delegated_messages)?;
 
     Ok(())
 }
 
+/// Filter [`SignedMessage`]'s to keep only delegated ones and the most recent ones, then write them to the chain store.
 fn process_signed_messages<DB>(
     state_manager: &StateManager<DB>,
     messages: &[SignedMessage],
-) -> anyhow::Result<usize>
+) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore,
 {
@@ -213,10 +226,10 @@ where
     let filtered = filter_lowest_index(eth_txs);
 
     // write back
-    for (k, v) in filtered.iter() {
+    for (k, v) in filtered.into_iter() {
         state_manager.chain_store().put_mapping(k, v)?;
     }
-    Ok(filtered.len())
+    Ok(())
 }
 
 fn filter_lowest_index(values: Vec<(eth::Hash, Cid, usize)>) -> Vec<(eth::Hash, Cid)> {

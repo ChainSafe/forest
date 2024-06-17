@@ -230,7 +230,6 @@ impl TestSummary {
             | rpc::ClientError::RestartNeeded(_)
             | rpc::ClientError::InvalidSubscriptionId
             | rpc::ClientError::InvalidRequestId(_)
-            | rpc::ClientError::MaxSlotsExceeded
             | rpc::ClientError::Custom(_)
             | rpc::ClientError::HttpNotImplemented
             | rpc::ClientError::EmptyBatchRequest(_)
@@ -713,6 +712,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         ))?),
         RpcTest::identity(StateNetworkVersion::request((tipset.key().into(),))?),
         RpcTest::identity(StateListMiners::request((tipset.key().into(),))?),
+        RpcTest::identity(StateListActors::request((tipset.key().into(),))?),
         RpcTest::identity(MsigGetAvailableBalance::request((
             Address::new_id(18101), // msig address id
             tipset.key().into(),
@@ -752,6 +752,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .key()
             .into(),))?),
         RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
+        RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
     ];
 
     // Get deals
@@ -902,6 +903,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     sector,
                     tipset.key().into(),
                 ))?),
+                RpcTest::identity(StateMinerSectorAllocated::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
             ]);
         }
         for sector in StateSectorPreCommitInfo::get_sectors(store, &block.miner_address, tipset)?
@@ -949,6 +955,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
+                RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
                     StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
                 ),

@@ -296,8 +296,7 @@ mod paritydb_0_19_0 {
                         },
                         DbColumn::EthMappings => parity_db::ColumnOptions {
                             preimage: false,
-                            // This is needed for key iteration.
-                            btree_index: true,
+                            btree_index: false,
                             compression,
                             ..Default::default()
                         },

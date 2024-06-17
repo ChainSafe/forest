@@ -9,6 +9,16 @@ use std::{
 };
 
 use crate::chain::{ChainStore, Error as ChainStoreError};
+use crate::chain_sync::{
+    bad_block_cache::BadBlockCache,
+    metrics,
+    network_context::SyncNetworkContext,
+    sync_state::SyncState,
+    tipset_syncer::{
+        TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
+    },
+    validation::{TipsetValidationError, TipsetValidator},
+};
 use crate::libp2p::{
     hello::HelloRequest, NetworkEvent, NetworkMessage, PeerId, PeerManager, PubsubMessage,
 };
@@ -32,17 +42,6 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, error, info, trace, warn};
-
-use crate::chain_sync::{
-    bad_block_cache::BadBlockCache,
-    metrics,
-    network_context::SyncNetworkContext,
-    sync_state::SyncState,
-    tipset_syncer::{
-        TipsetProcessor, TipsetProcessorError, TipsetRangeSyncer, TipsetRangeSyncerError,
-    },
-    validation::{TipsetValidationError, TipsetValidator},
-};
 
 // Sync the messages for one or many tipsets @ a time
 // Lotus uses a window size of 8: https://github.com/filecoin-project/lotus/blob/c1d22d8b3298fdce573107413729be608e72187d/chain/sync.go#L56
@@ -288,10 +287,10 @@ where
             // Update the peer metadata based on the response
             match response {
                 Some(_) => {
-                    network.peer_manager().log_success(peer_id, dur);
+                    network.peer_manager().log_success(&peer_id, dur);
                 }
                 None => {
-                    network.peer_manager().log_failure(peer_id, dur);
+                    network.peer_manager().log_failure(&peer_id, dur);
                 }
             }
         }
@@ -299,6 +298,7 @@ where
 
     async fn handle_peer_disconnected_event(network: SyncNetworkContext<DB>, peer_id: PeerId) {
         network.peer_manager().remove_peer(&peer_id);
+        network.peer_manager().unmark_peer_bad(&peer_id);
     }
 
     async fn gossipsub_block_to_full_tipset(
@@ -369,13 +369,10 @@ where
         stateless_mode: bool,
     ) -> Result<Option<(FullTipset, PeerId)>, ChainMuxerError> {
         let (tipset, source) = match event {
-            NetworkEvent::HelloRequestInbound { source, request } => {
+            NetworkEvent::HelloRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_INBOUND)
                     .inc();
-                metrics::PEER_TIPSET_EPOCH
-                    .get_or_create(&metrics::PeerLabel::new(source))
-                    .set(request.heaviest_tipset_height);
                 return Ok(None);
             }
             NetworkEvent::HelloResponseOutbound { request, source } => {
@@ -399,13 +396,13 @@ where
                 };
                 (tipset, source)
             }
-            NetworkEvent::HelloRequestOutbound { .. } => {
+            NetworkEvent::HelloRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::HelloResponseInbound { .. } => {
+            NetworkEvent::HelloResponseInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::HELLO_RESPONSE_INBOUND)
                     .inc();
@@ -428,8 +425,6 @@ where
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::PEER_DISCONNECTED)
                     .inc();
-                // Remove peer id labels for disconnected peers
-                metrics::PEER_TIPSET_EPOCH.remove(&metrics::PeerLabel::new(peer_id));
                 // Spawn and immediately move on to the next event
                 tokio::task::spawn(Self::handle_peer_disconnected_event(
                     network.clone(),
@@ -460,25 +455,25 @@ where
                     return Ok(None);
                 }
             },
-            NetworkEvent::ChainExchangeRequestOutbound { .. } => {
+            NetworkEvent::ChainExchangeRequestOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_OUTBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeResponseInbound { .. } => {
+            NetworkEvent::ChainExchangeResponseInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_INBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeRequestInbound { .. } => {
+            NetworkEvent::ChainExchangeRequestInbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_REQUEST_INBOUND)
                     .inc();
                 return Ok(None);
             }
-            NetworkEvent::ChainExchangeResponseOutbound { .. } => {
+            NetworkEvent::ChainExchangeResponseOutbound => {
                 metrics::LIBP2P_MESSAGE_TOTAL
                     .get_or_create(&metrics::values::CHAIN_EXCHANGE_RESPONSE_OUTBOUND)
                     .inc();
@@ -520,9 +515,6 @@ where
         network
             .peer_manager()
             .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
-        metrics::PEER_TIPSET_EPOCH
-            .get_or_create(&metrics::PeerLabel::new(source))
-            .set(tipset.epoch());
 
         Ok(Some((tipset, source)))
     }
