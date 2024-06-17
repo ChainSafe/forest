@@ -80,7 +80,7 @@ impl<'a> DiscoveryConfig<'a> {
             local_peer_id: local_public_key.to_peer_id(),
             local_public_key,
             user_defined: Vec::new(),
-            target_peer_count: std::u64::MAX,
+            target_peer_count: u64::MAX,
             enable_mdns: false,
             enable_kademlia: true,
             network_name,

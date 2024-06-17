@@ -21,6 +21,7 @@ use crate::shim::actors::{
 };
 use crate::shim::message::Message;
 use crate::shim::piece::PaddedPieceSize;
+use crate::shim::sector::SectorNumber;
 use crate::shim::state_tree::StateTree;
 use crate::shim::{
     address::Address, clock::ChainEpoch, deal::DealID, econ::TokenAmount, executor::Receipt,
@@ -486,6 +487,33 @@ impl RpcMethod<2> for StateMinerSectorCount {
             })
         })?;
         Ok(MinerSectors::new(live_count, active_count, faulty_count))
+    }
+}
+
+/// Checks if a sector is allocated
+pub enum StateMinerSectorAllocated {}
+
+impl RpcMethod<3> for StateMinerSectorAllocated {
+    const NAME: &'static str = "Filecoin.StateMinerSectorAllocated";
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, SectorNumber, ApiTipsetKey);
+    type Ok = bool;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&miner_address, *ts.parent_state())?;
+        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        let allocated_sector_numbers: BitField =
+            miner_state.load_allocated_sector_numbers(ctx.store())?;
+        Ok(allocated_sector_numbers.get(sector_number))
     }
 }
 
@@ -1314,6 +1342,32 @@ impl RpcMethod<1> for StateListMiners {
             .map(From::from)
             .collect();
         Ok(miners)
+    }
+}
+
+pub enum StateListActors {}
+
+impl RpcMethod<1> for StateListActors {
+    const NAME: &'static str = "Filecoin.StateListActors";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = Vec<Address>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut actors = vec![];
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let state_tree = ctx.state_manager.get_state_tree(ts.parent_state())?;
+        state_tree.for_each(|addr, _state| {
+            actors.push(addr);
+            Ok(())
+        })?;
+        Ok(actors)
     }
 }
 

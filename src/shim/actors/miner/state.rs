@@ -114,4 +114,19 @@ impl MinerStateExt for State {
             }
         }
     }
+
+    fn load_allocated_sector_numbers<BS: Blockstore>(
+        &self,
+        store: &BS,
+    ) -> anyhow::Result<BitField> {
+        let allocated_sectors = match self {
+            Self::V8(s) => s.allocated_sectors,
+            Self::V9(s) => s.allocated_sectors,
+            Self::V10(s) => s.allocated_sectors,
+            Self::V11(s) => s.allocated_sectors,
+            Self::V12(s) => s.allocated_sectors,
+            Self::V13(s) => s.allocated_sectors,
+        };
+        store.get_cbor_required(&allocated_sectors)
+    }
 }
