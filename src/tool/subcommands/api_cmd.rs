@@ -5,7 +5,7 @@ use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::download_to;
+use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -955,6 +955,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
+                RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
                     StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
                 ),
@@ -1309,6 +1310,7 @@ async fn start_offline_server(
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         db.clone(),
+        db.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -1322,6 +1324,8 @@ async fn start_offline_server(
     state_manager
         .chain_store()
         .set_heaviest_tipset(head_ts.clone())?;
+
+    populate_eth_mappings(&state_manager, &head_ts)?;
 
     let beacon = Arc::new(
         state_manager

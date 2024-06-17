@@ -12,6 +12,7 @@ pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;
 
+use crate::rpc::eth;
 use ahash::HashSet;
 use anyhow::Context as _;
 use cid::multihash;
@@ -89,6 +90,53 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
         self.read_bin(key)?
             .with_context(|| format!("Key {key} not found"))
             .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
+    }
+}
+
+/// Interface used to store and retrieve Ethereum mappings from the database.
+/// To store IPLD blocks, use the `BlockStore` trait.
+pub trait EthMappingsStore {
+    /// Reads binary field from the `EthMappings` store. This should be used for
+    /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::read_obj`].
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>>;
+
+    /// Writes binary field to the `EthMappings` store. This should be used for
+    /// non-serializable data. For serializable data, use [`EthMappingsStoreExt::write_obj`].
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()>;
+
+    /// Returns `Ok(true)` if key exists in store.
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
+}
+
+impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+        EthMappingsStore::read_bin(self.as_ref(), key)
+    }
+
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+        EthMappingsStore::write_bin(self.as_ref(), key, value)
+    }
+
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+        EthMappingsStore::exists(self.as_ref(), key)
+    }
+}
+
+pub trait EthMappingsStoreExt {
+    fn read_obj<V: DeserializeOwned>(&self, key: &eth::Hash) -> anyhow::Result<Option<V>>;
+    fn write_obj<V: Serialize>(&self, key: &eth::Hash, value: &V) -> anyhow::Result<()>;
+}
+
+impl<T: ?Sized + EthMappingsStore> EthMappingsStoreExt for T {
+    fn read_obj<V: DeserializeOwned>(&self, key: &eth::Hash) -> anyhow::Result<Option<V>> {
+        match self.read_bin(key)? {
+            Some(bytes) => Ok(Some(fvm_ipld_encoding::from_slice(&bytes)?)),
+            None => Ok(None),
+        }
+    }
+
+    fn write_obj<V: Serialize>(&self, key: &eth::Hash, value: &V) -> anyhow::Result<()> {
+        self.write_bin(key, &fvm_ipld_encoding::to_vec(value)?)
     }
 }
 

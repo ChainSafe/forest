@@ -5,7 +5,7 @@ pub mod types;
 
 use self::types::*;
 use super::gas;
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
@@ -23,20 +23,17 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
+use anyhow::Context;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
-use cid::{
-    multihash::{self, MultihashDigest},
-    Cid,
-};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
 use keccak_hash::keccak;
 use num_bigint::{self, Sign};
 use num_traits::{Signed as _, Zero as _};
-use nunny::vec as nonempty;
 use rlp::RlpStream;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -144,16 +141,10 @@ pub struct Int64(
 
 lotus_json_with_self!(Int64);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
-    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
-    pub fn to_cid(&self) -> cid::Cid {
-        let mh = multihash::Code::Blake2b256.digest(self.0.as_bytes());
-        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
-    }
-
     pub fn empty_uncles() -> Self {
         Self(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap())
     }
@@ -223,6 +214,8 @@ impl BlockNumberOrHash {
     }
 }
 
+// TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
+//                 implement EIP-1898
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
 //                  this shouldn't exist
 impl HasLotusJson for BlockNumberOrHash {
@@ -248,6 +241,10 @@ impl HasLotusJson for BlockNumberOrHash {
             "latest" => return Self::PredefinedBlock(Predefined::Latest),
             _ => (),
         };
+
+        if let Ok(hash) = Hash::from_str(&lotus_json) {
+            return Self::BlockHash(hash, false);
+        }
 
         #[allow(clippy::indexing_slicing)]
         if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
@@ -711,7 +708,9 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Ok(ts)
         }
         BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let tsk = TipsetKey::from(nonempty![hash.to_cid()]);
+            let tsk = chain
+                .get_tipset_key(&hash)?
+                .with_context(|| format!("cannot find tipset with hash {}", &hash))?;
             let ts = chain.chain_index.load_required_tipset(&tsk)?;
             // verify that the tipset is in the canonical chain
             if require_canonical {
@@ -839,7 +838,7 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
+pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {

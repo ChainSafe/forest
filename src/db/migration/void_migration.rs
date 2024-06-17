@@ -4,6 +4,7 @@
 //! Migration logic from any version that requires no migration logic.
 
 use crate::db::migration::migration_map::temporary_db_name;
+use crate::Config;
 use fs_extra::dir::CopyOptions;
 use semver::Version;
 use std::path::{Path, PathBuf};
@@ -21,7 +22,7 @@ impl MigrationOperation for MigrationVoid {
         Ok(())
     }
 
-    fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
+    fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
         let source_db = chain_data_path.join(self.from.to_string());
 
         let temp_db_path = chain_data_path.join(temporary_db_name(&self.from, &self.to));
@@ -88,7 +89,7 @@ mod test {
 
         let path = chain_data_path.path();
         migration.pre_checks(path).unwrap();
-        let temp_db_path = migration.migrate(path).unwrap();
+        let temp_db_path = migration.migrate(path, &Config::default()).unwrap();
         migration.post_checks(path).unwrap();
 
         // check that the temporary database directory exists and contains the file with the

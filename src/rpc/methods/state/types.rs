@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::message::Message as _;
+use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
     clock::ChainEpoch,
@@ -78,6 +80,21 @@ pub struct MessageGasCost {
 }
 
 lotus_json_with_self!(MessageGasCost);
+
+impl MessageGasCost {
+    pub fn new(message: &Message, apply_ret: &ApplyRet) -> anyhow::Result<Self> {
+        Ok(Self {
+            message: Some(message.cid()?),
+            gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),
+            base_fee_burn: apply_ret.base_fee_burn(),
+            over_estimation_burn: apply_ret.over_estimation_burn(),
+            miner_penalty: apply_ret.penalty(),
+            miner_tip: apply_ret.miner_tip(),
+            refund: apply_ret.refund(),
+            total_cost: message.required_funds() - &apply_ret.refund(),
+        })
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]

@@ -6,36 +6,44 @@ use std::path::PathBuf;
 use tracing::info;
 
 use crate::{
+    cli_shared::chain_path,
     db::{
         db_mode::{get_latest_versioned_database, DbMode},
         migration::migration_map::create_migration_chain,
     },
     utils::version::FOREST_VERSION,
+    Config,
 };
 
 /// Governs the database migration process. This is the entry point for the migration process.
 pub struct DbMigration {
-    /// Root of the chain data directory. This is where all the databases are stored.
-    chain_data_path: PathBuf,
+    /// Forest configuration used.
+    config: Config,
 }
 
 impl DbMigration {
-    pub fn new(chain_data_path: PathBuf) -> Self {
-        Self { chain_data_path }
+    pub fn new(config: &Config) -> Self {
+        Self {
+            config: config.clone(),
+        }
+    }
+
+    pub fn chain_data_path(&self) -> PathBuf {
+        chain_path(&self.config)
     }
 
     /// Verifies if a migration is needed for the current Forest process.
     /// Note that migration can possibly happen only if the DB is in `current` mode.
     pub fn is_migration_required(&self) -> anyhow::Result<bool> {
         // No chain data means that this is a fresh instance. No migration required.
-        if !self.chain_data_path.exists() {
+        if !self.chain_data_path().exists() {
             return Ok(false);
         }
 
         // migration is required only if the DB is in `current` mode and the current db version is
         // smaller than the current binary version
         if let DbMode::Current = DbMode::read() {
-            let current_db = get_latest_versioned_database(&self.chain_data_path)?
+            let current_db = get_latest_versioned_database(&self.chain_data_path())?
                 .unwrap_or_else(|| FOREST_VERSION.clone());
             Ok(current_db < *FOREST_VERSION)
         } else {
@@ -54,7 +62,7 @@ impl DbMigration {
             return Ok(());
         }
 
-        let latest_db_version = get_latest_versioned_database(&self.chain_data_path)?
+        let latest_db_version = get_latest_versioned_database(&self.chain_data_path())?
             .unwrap_or_else(|| FOREST_VERSION.clone());
 
         info!(
@@ -67,7 +75,7 @@ impl DbMigration {
         let migrations = create_migration_chain(&latest_db_version, target_db_version)?;
 
         for migration in migrations {
-            migration.migrate(&self.chain_data_path)?;
+            migration.migrate(&self.chain_data_path(), &self.config)?;
         }
 
         info!(
@@ -88,30 +96,36 @@ mod tests {
     #[test]
     fn test_migration_not_required_no_chain_path() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let db_migration = DbMigration::new(temp_dir.path().join("azathoth"));
+        let mut config = Config::default();
+        config.client.data_dir = temp_dir.path().join("azathoth");
+        let db_migration = DbMigration::new(&config);
         assert!(!db_migration.is_migration_required().unwrap());
     }
 
     #[test]
     fn test_migration_not_required_no_databases() {
         let temp_dir = tempfile::tempdir().unwrap();
-        let db_migration = DbMigration::new(temp_dir.path().to_owned());
+        let mut config = Config::default();
+        temp_dir.path().clone_into(&mut config.client.data_dir);
+        let db_migration = DbMigration::new(&config);
         assert!(!db_migration.is_migration_required().unwrap());
     }
 
     #[test]
     fn test_migration_not_required_under_non_current_mode() {
         let temp_dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        temp_dir.path().clone_into(&mut config.client.data_dir);
 
-        let db_dir = temp_dir.path().join("0.1.0");
-        std::fs::create_dir(&db_dir).unwrap();
-        let db_migration = DbMigration::new(temp_dir.path().to_owned());
+        let db_dir = temp_dir.path().join("mainnet/0.1.0");
+        std::fs::create_dir_all(&db_dir).unwrap();
+        let db_migration = DbMigration::new(&config);
 
         std::env::set_var(FOREST_DB_DEV_MODE, "latest");
         assert!(!db_migration.is_migration_required().unwrap());
 
         std::fs::remove_dir(db_dir).unwrap();
-        std::fs::create_dir(temp_dir.path().join("cthulhu")).unwrap();
+        std::fs::create_dir_all(temp_dir.path().join("mainnet/cthulhu")).unwrap();
 
         std::env::set_var(FOREST_DB_DEV_MODE, "cthulhu");
         assert!(!db_migration.is_migration_required().unwrap());
@@ -120,10 +134,12 @@ mod tests {
     #[test]
     fn test_migration_required_current_mode() {
         let temp_dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        temp_dir.path().clone_into(&mut config.client.data_dir);
 
-        let db_dir = temp_dir.path().join("0.1.0");
-        std::fs::create_dir(db_dir).unwrap();
-        let db_migration = DbMigration::new(temp_dir.path().to_owned());
+        let db_dir = temp_dir.path().join("mainnet/0.1.0");
+        std::fs::create_dir_all(db_dir).unwrap();
+        let db_migration = DbMigration::new(&config);
 
         std::env::set_var(FOREST_DB_DEV_MODE, "current");
         assert!(db_migration.is_migration_required().unwrap());
