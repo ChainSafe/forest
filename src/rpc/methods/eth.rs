@@ -212,6 +212,10 @@ impl BlockNumberOrHash {
     pub fn from_block_number(number: i64) -> Self {
         Self::BlockNumber(number)
     }
+
+    pub fn from_block_hash(hash: Hash) -> Self {
+        Self::BlockHash(hash, false)
+    }
 }
 
 // TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
@@ -1158,6 +1162,26 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     })
 }
 
+pub enum EthGetBlockByHash {}
+impl RpcMethod<2> for EthGetBlockByHash {
+    const NAME: &'static str = "Filecoin.EthGetBlockByHash";
+    const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (BlockNumberOrHash, bool);
+    type Ok = Block;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_param, full_tx_info): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
+        Ok(block)
+    }
+}
+
 pub enum EthGetBlockByNumber {}
 impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
@@ -1175,6 +1199,35 @@ impl RpcMethod<2> for EthGetBlockByNumber {
         let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
         let block = block_from_filecoin_tipset(ctx, ts, full_tx_info).await?;
         Ok(block)
+    }
+}
+
+pub enum EthGetBlockTransactionCountByHash {}
+impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
+    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
+    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tsk = ctx
+            .chain_store
+            .get_tipset_key(&block_hash)?
+            .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
+        let ts = ctx.chain_store.chain_index.load_required_tipset(&tsk)?;
+
+        let head = ctx.chain_store.heaviest_tipset();
+        if ts.epoch() > head.epoch() {
+            return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
+        }
+        let count = count_messages_in_tipset(ctx.store(), &ts)?;
+        Ok(Uint64(count as _))
     }
 }
 

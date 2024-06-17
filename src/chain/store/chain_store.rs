@@ -188,7 +188,6 @@ where
     pub fn put_mapping(&self, k: eth::Hash, v: Cid) -> Result<(), Error> {
         let timestamp = chrono::Utc::now().timestamp() as u64;
         self.eth_mappings.write_obj(&k, &(v, timestamp))?;
-
         Ok(())
     }
 
