@@ -279,7 +279,14 @@ mod test {
             let gen_block: CachingBlockHeader = mock_block(1, 1);
             db.put_cbor_default(&gen_block).unwrap();
             let store = Arc::new(
-                ChainStore::new(db.clone(), db.clone(), Arc::new(config), gen_block).unwrap(),
+                ChainStore::new(
+                    db.clone(),
+                    db.clone(),
+                    db.clone(),
+                    Arc::new(config),
+                    gen_block,
+                )
+                .unwrap(),
             );
 
             GCTester { db, store }

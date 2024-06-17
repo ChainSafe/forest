@@ -15,7 +15,9 @@ use crate::cli_shared::{
     cli::{CliOpts, Config},
 };
 
-use crate::daemon::db_util::{import_chain_as_forest_car, load_all_forest_cars};
+use crate::daemon::db_util::{
+    import_chain_as_forest_car, load_all_forest_cars, populate_eth_mappings,
+};
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::MarkAndSweep;
@@ -171,7 +173,7 @@ pub(super) async fn start(
 
     // Try to migrate the database if needed. In case the migration fails, we fallback to creating a new database
     // to avoid breaking the node.
-    let db_migration = crate::db::migration::DbMigration::new(chain_data_path.clone());
+    let db_migration = crate::db::migration::DbMigration::new(&config);
     if let Err(e) = db_migration.migrate() {
         warn!("Failed to migrate database: {e}");
     }
@@ -234,6 +236,7 @@ pub(super) async fn start(
     // Initialize ChainStore
     let chain_store = Arc::new(ChainStore::new(
         Arc::clone(&db),
+        db.writer().clone(),
         db.writer().clone(),
         chain_config.clone(),
         genesis_header.clone(),
@@ -434,7 +437,9 @@ pub(super) async fn start(
             debug!("Loaded car DB at {}", car_db_path.display());
             state_manager
                 .chain_store()
-                .set_heaviest_tipset(Arc::new(ts))?;
+                .set_heaviest_tipset(Arc::new(ts.clone()))?;
+
+            populate_eth_mappings(&state_manager, &ts)?;
         }
     }
 

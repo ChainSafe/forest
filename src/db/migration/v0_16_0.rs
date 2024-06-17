@@ -8,6 +8,7 @@
 use crate::db::db_engine::Db;
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_16_0::paritydb_0_15_1::{DbColumn, ParityDb};
+use crate::Config;
 use anyhow::Context;
 use cid::multihash::Code::Blake2b256;
 use cid::multihash::MultihashDigest;
@@ -40,7 +41,7 @@ impl MigrationOperation for Migration0_15_2_0_16_0 {
         Ok(())
     }
 
-    fn migrate(&self, chain_data_path: &Path) -> anyhow::Result<PathBuf> {
+    fn migrate(&self, chain_data_path: &Path, _config: &Config) -> anyhow::Result<PathBuf> {
         let source_db = chain_data_path.join(self.from.to_string());
 
         let db_paths: Vec<PathBuf> = source_db
