@@ -181,7 +181,7 @@ where
         if ts.epoch() < state_manager.chain_config().epoch(Height::Hygge) {
             break;
         }
-        delegated_messages.append(&mut delegated_tipset_messages(&state_manager, &ts)?);
+        delegated_messages.append(&mut delegated_tipset_messages(state_manager, &ts)?);
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
     process_signed_messages(state_manager, &delegated_messages)?;
