@@ -5,7 +5,7 @@ pub mod types;
 
 use self::types::*;
 use super::gas;
-use crate::blocks::{Tipset, TipsetKey};
+use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
@@ -145,16 +145,6 @@ lotus_json_with_self!(Int64);
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
-    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
-    pub fn to_cid(&self) -> cid::Cid {
-        use cid::multihash::MultihashDigest;
-
-        let mh = cid::multihash::Code::Blake2b256
-            .wrap(self.0.as_bytes())
-            .expect("should not fail");
-        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
-    }
-
     pub fn empty_uncles() -> Self {
         Self(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap())
     }
@@ -678,18 +668,10 @@ fn get_tipset_from_hash<DB: Blockstore>(
     chain_store: &ChainStore<DB>,
     block_hash: &Hash,
 ) -> anyhow::Result<Tipset> {
-    // TODO: fixme
     let tsk = chain_store
         .get_tipset_key(block_hash)?
         .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
     Tipset::load_required(chain_store.blockstore(), &tsk)
-
-    // let cid = block_hash.to_cid();
-    // let bytes = store
-    //     .get(&cid)?
-    //     .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
-    // let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
-    // Tipset::load_required(store, &tsk)
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
@@ -1228,11 +1210,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx
-            .chain_store
-            .get_tipset_key(&block_hash)?
-            .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
-        let ts = ctx.chain_store.chain_index.load_required_tipset(&tsk)?;
+        let ts = get_tipset_from_hash(&ctx.chain_store, &block_hash)?;
 
         let head = ctx.chain_store.heaviest_tipset();
         if ts.epoch() > head.epoch() {
@@ -1462,19 +1440,10 @@ impl RpcMethod<3> for EthGetStorageAt {
 mod test {
     use super::*;
     use ethereum_types::H160;
-    use ethereum_types::H256;
     use num_bigint;
     use num_traits::{FromBytes, Signed};
-    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
-
-    impl Arbitrary for Hash {
-        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
-            let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
-            Self(H256(arr))
-        }
-    }
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
@@ -1647,29 +1616,6 @@ mod test {
             assert!(protocol == Protocol::ID || protocol == Protocol::Delegated);
             assert_eq!(addr, fil_addr);
         }
-    }
-
-    #[test]
-    fn test_hash() {
-        let test_cases = [
-            r#""0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184""#,
-            r#""0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738""#,
-        ];
-
-        for hash in test_cases {
-            let h: Hash = serde_json::from_str(hash).unwrap();
-
-            let c = h.to_cid();
-            let h1: Hash = c.into();
-            assert_eq!(h, h1);
-        }
-    }
-
-    #[quickcheck]
-    fn test_eth_hash_roundtrip(eth_hash: Hash) {
-        let cid = eth_hash.to_cid();
-        let hash = cid.into();
-        assert_eq!(eth_hash, hash);
     }
 
     #[test]
