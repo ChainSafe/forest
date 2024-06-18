@@ -18,6 +18,7 @@ use crate::shim::{
 };
 use crate::utils::db::{BlockstoreExt, CborStoreExt};
 use ahash::{HashMap, HashMapExt, HashSet};
+use anyhow::Context;
 use cid::Cid;
 use fil_actors_shared::fvm_ipld_amt::Amtv0 as Amt;
 use fvm_ipld_blockstore::Blockstore;
@@ -177,8 +178,12 @@ where
     }
 
     /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
-    pub fn get_tipset_key(&self, hash: &eth::Hash) -> Result<Option<TipsetKey>, Error> {
-        let tsk = self.eth_mappings.read_obj(hash)?;
+    pub fn get_required_tipset_key(&self, hash: &eth::Hash) -> Result<TipsetKey, Error> {
+        let tsk = self
+            .eth_mappings
+            .read_obj::<TipsetKey>(hash)?
+            .with_context(|| format!("cannot find tipset with hash {}", hash))?;
+
         Ok(tsk)
     }
 

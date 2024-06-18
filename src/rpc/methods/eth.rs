@@ -23,7 +23,6 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::Context;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
@@ -672,9 +671,7 @@ fn get_tipset_from_hash<DB: Blockstore>(
     chain_store: &ChainStore<DB>,
     block_hash: &Hash,
 ) -> anyhow::Result<Tipset> {
-    let tsk = chain_store
-        .get_tipset_key(block_hash)?
-        .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
+    let tsk = chain_store.get_required_tipset_key(block_hash)?;
     Tipset::load_required(chain_store.blockstore(), &tsk)
 }
 
