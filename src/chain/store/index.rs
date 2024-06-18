@@ -149,11 +149,11 @@ impl<DB: Blockstore> ChainIndex<DB> {
     /// short. Semantically identical to [`Tipset::chain`] but the results are
     /// cached.
     pub fn chain(&self, from: Arc<Tipset>) -> impl Iterator<Item = Arc<Tipset>> + '_ {
-        itertools::unfold(Some(from), move |tipset| {
-            tipset.take().map(|child| {
-                *tipset = self.load_required_tipset(child.parents()).ok();
-                child
-            })
+        let mut tipset = Some(from);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = self.load_required_tipset(child.parents()).ok();
+            Some(child)
         })
     }
 

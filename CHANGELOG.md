@@ -33,6 +33,16 @@
   `Filecoin.StateGetClaim` RPC method.
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
+- [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
+  `Filecoin.StateGetAllocation` RPC method.
+- [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
+  `Filecoin.StateSectorPartition` RPC method.
+
+- [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
+  `Filecoin.EthGetBlockByHash` RPC method.
+
+- [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
+  `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
 
 - [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
   `Filecoin.EthGetBlockByHash` RPC method.
@@ -44,7 +54,22 @@
 
 ### Removed
 
+- [#4358](https://github.com/ChainSafe/forest/pull/4358) Remove the
+  `forest-cli attach` command.
+
 ### Fixed
+
+- [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
+  `Filecoin.ChainNotify` RPC method.
+
+- [#4371](https://github.com/ChainSafe/forest/pull/4371) Fix extra `Apply`
+  change in the `Filecoin.ChainNotify` RPC method.
+
+- [#4002](https://github.com/ChainSafe/forest/issues/4002) Add support for
+  multiple WebSocket clients for `Filecoin.ChainNotify` RPC method.
+
+- [#4390](https://github.com/ChainSafe/forest/issues/4390) Fix `SignedMessage`
+  JSON formatting to match Lotus.
 
 ## Forest 0.18.0 "Big Bang"
 

@@ -244,6 +244,12 @@ where
         }
     }
 
+    /// Get an required ID address from any Address
+    pub fn lookup_required_id(&self, addr: &Address) -> anyhow::Result<ActorID> {
+        self.lookup_id(addr)?
+            .with_context(|| format!("actor id not found for address {addr}"))
+    }
+
     pub fn for_each<F>(&self, mut f: F) -> anyhow::Result<()>
     where
         F: FnMut(Address, &ActorState) -> anyhow::Result<()>,

@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::lotus_json::{lotus_json_with_self, LotusJson};
+use crate::message::Message as _;
+use crate::shim::executor::ApplyRet;
 use crate::shim::{
     address::Address,
+    clock::ChainEpoch,
     econ::TokenAmount,
     error::ExitCode,
     executor::Receipt,
@@ -78,6 +81,21 @@ pub struct MessageGasCost {
 
 lotus_json_with_self!(MessageGasCost);
 
+impl MessageGasCost {
+    pub fn new(message: &Message, apply_ret: &ApplyRet) -> anyhow::Result<Self> {
+        Ok(Self {
+            message: Some(message.cid()?),
+            gas_used: TokenAmount::from_atto(apply_ret.msg_receipt().gas_used()),
+            base_fee_burn: apply_ret.base_fee_burn(),
+            over_estimation_burn: apply_ret.over_estimation_burn(),
+            miner_penalty: apply_ret.penalty(),
+            miner_tip: apply_ret.miner_tip(),
+            refund: apply_ret.refund(),
+            total_cost: message.required_funds() - &apply_ret.refund(),
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ExecutionTrace {
@@ -85,6 +103,8 @@ pub struct ExecutionTrace {
     pub msg_rct: ReturnTrace,
     pub invoked_actor: Option<ActorTrace>,
     pub gas_charges: Vec<GasTrace>,
+    #[serde(with = "crate::lotus_json")]
+    #[schemars(with = "LotusJson<Vec<ExecutionTrace>>")]
     pub subcalls: Vec<ExecutionTrace>,
 }
 
@@ -174,3 +194,19 @@ pub struct InvocResult {
     pub error: Option<String>,
 }
 lotus_json_with_self!(InvocResult);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorExpiration {
+    pub on_time: ChainEpoch,
+    pub early: ChainEpoch,
+}
+lotus_json_with_self!(SectorExpiration);
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
+pub struct SectorLocation {
+    pub deadline: u64,
+    pub partition: u64,
+}
+lotus_json_with_self!(SectorLocation);

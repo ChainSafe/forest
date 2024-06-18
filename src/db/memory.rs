@@ -3,18 +3,20 @@
 
 use crate::db::{truncated_hash, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
+use crate::rpc::eth;
 use ahash::{HashMap, HashSet, HashSetExt};
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
 use parking_lot::RwLock;
 
-use super::SettingsStore;
+use super::{EthMappingsStore, SettingsStore};
 
 #[derive(Debug, Default)]
 pub struct MemoryDB {
     blockchain_db: RwLock<HashMap<Vec<u8>, Vec<u8>>>,
     settings_db: RwLock<HashMap<String, Vec<u8>>>,
+    eth_mappings_db: RwLock<HashMap<eth::Hash, Vec<u8>>>,
 }
 
 impl GarbageCollectable for MemoryDB {
@@ -58,6 +60,23 @@ impl SettingsStore for MemoryDB {
 
     fn setting_keys(&self) -> anyhow::Result<Vec<String>> {
         Ok(self.settings_db.read().keys().cloned().collect_vec())
+    }
+}
+
+impl EthMappingsStore for MemoryDB {
+    fn read_bin(&self, key: &eth::Hash) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(self.eth_mappings_db.read().get(key).cloned())
+    }
+
+    fn write_bin(&self, key: &eth::Hash, value: &[u8]) -> anyhow::Result<()> {
+        self.eth_mappings_db
+            .write()
+            .insert(key.to_owned(), value.to_vec());
+        Ok(())
+    }
+
+    fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
+        Ok(self.eth_mappings_db.read().contains_key(key))
     }
 }
 

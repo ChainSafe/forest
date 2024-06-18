@@ -5,7 +5,7 @@ use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
 use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
-use crate::daemon::db_util::{cache_tipset_keys, download_to};
+use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
@@ -14,7 +14,7 @@ use crate::message::{Message as _, SignedMessage};
 use crate::message_pool::{MessagePool, MpoolRpcProvider};
 use crate::networks::{parse_bootstrap_peers, ChainConfig, NetworkChain};
 use crate::rpc::beacon::BeaconGetEntry;
-use crate::rpc::eth::types::EthAddress;
+use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
@@ -198,12 +198,12 @@ pub enum RunIgnored {
 }
 
 /// Brief description of a single method call against a single host
-#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 enum TestSummary {
     /// Server spoke JSON-RPC: no such method
     MissingMethod,
     /// Server spoke JSON-RPC: bad request (or other error)
-    Rejected,
+    Rejected(String),
     /// Server doesn't seem to be speaking JSON-RPC
     NotJsonRPC,
     /// Transport or ask task management errors
@@ -221,7 +221,7 @@ impl TestSummary {
         match err {
             rpc::ClientError::Call(it) => match it.code().into() {
                 ErrorCode::MethodNotFound => Self::MissingMethod,
-                _ => Self::Rejected,
+                _ => Self::Rejected(it.message().to_string()),
             },
             rpc::ClientError::ParseError(_) => Self::NotJsonRPC,
             rpc::ClientError::RequestTimeout => Self::Timeout,
@@ -230,7 +230,6 @@ impl TestSummary {
             | rpc::ClientError::RestartNeeded(_)
             | rpc::ClientError::InvalidSubscriptionId
             | rpc::ClientError::InvalidRequestId(_)
-            | rpc::ClientError::MaxSlotsExceeded
             | rpc::ClientError::Custom(_)
             | rpc::ClientError::HttpNotImplemented
             | rpc::ClientError::EmptyBatchRequest(_)
@@ -313,6 +312,7 @@ struct RpcTest {
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
+    pass_on_rejected: bool,
 }
 
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
@@ -340,6 +340,7 @@ impl RpcTest {
             }),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
+            pass_on_rejected: false,
         }
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
@@ -384,6 +385,7 @@ impl RpcTest {
                 }
             }),
             ignore: None,
+            pass_on_rejected: false,
         }
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
@@ -394,6 +396,11 @@ impl RpcTest {
 
     fn ignore(mut self, msg: &'static str) -> Self {
         self.ignore = Some(msg);
+        self
+    }
+
+    fn pass_on_rejected(mut self, flag: bool) -> Self {
+        self.pass_on_rejected = flag;
         self
     }
 
@@ -705,6 +712,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         ))?),
         RpcTest::identity(StateNetworkVersion::request((tipset.key().into(),))?),
         RpcTest::identity(StateListMiners::request((tipset.key().into(),))?),
+        RpcTest::identity(StateListActors::request((tipset.key().into(),))?),
         RpcTest::identity(MsigGetAvailableBalance::request((
             Address::new_id(18101), // msig address id
             tipset.key().into(),
@@ -744,6 +752,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .key()
             .into(),))?),
         RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
+        RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
     ];
 
     // Get deals
@@ -831,15 +840,39 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            // NOTE: Once StateGetClaims is implemented we need to retrieve a valid claim_id and
-            // use that for testing.
-            RpcTest::identity(StateGetClaim::request((
+            RpcTest::identity(StateGetClaims::request((
                 block.miner_address,
-                0,
                 tipset.key().into(),
             ))?),
         ]);
-
+        for claim_id in StateGetClaims::get_claims(store, &block.miner_address, tipset)?
+            .keys()
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateGetClaim::request((
+                block.miner_address,
+                *claim_id,
+                tipset.key().into(),
+            ))?)]);
+        }
+        for address in StateGetAllocations::get_valid_actor_addresses(store, tipset)?
+            .take(COLLECTION_SAMPLE_SIZE)
+        {
+            tests.extend([RpcTest::identity(StateGetAllocations::request((
+                address,
+                tipset.key().into(),
+            ))?)]);
+            for allocation_id in StateGetAllocations::get_allocations(store, &address, tipset)?
+                .keys()
+                .take(COLLECTION_SAMPLE_SIZE)
+            {
+                tests.extend([RpcTest::identity(StateGetAllocation::request((
+                    address,
+                    *allocation_id,
+                    tipset.key().into(),
+                ))?)]);
+            }
+        }
         for sector in StateSectorGetInfo::get_sectors(store, &block.miner_address, tipset)?
             .into_iter()
             .take(COLLECTION_SAMPLE_SIZE)
@@ -857,6 +890,22 @@ fn state_tests_with_tipset<DB: Blockstore>(
                         bf.set(sector);
                         Some(bf)
                     },
+                    tipset.key().into(),
+                ))?),
+                RpcTest::identity(StateSectorExpiration::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?)
+                .pass_on_rejected(true),
+                RpcTest::identity(StateSectorPartition::request((
+                    block.miner_address,
+                    sector,
+                    tipset.key().into(),
+                ))?),
+                RpcTest::identity(StateMinerSectorAllocated::request((
+                    block.miner_address,
+                    sector,
                     tipset.key().into(),
                 ))?),
             ]);
@@ -906,6 +955,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
+                RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
                     StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
                 ),
@@ -1067,7 +1117,19 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetStorageAt::request((
+                // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
+                EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
+                EthBytes(vec![0xa]),
+                BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
+            ))
+            .unwrap(),
         ),
         RpcTest::identity(
             EthGetCode::request((
@@ -1096,8 +1158,11 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockByHash::request((BlockNumberOrHash::from_block_hash(block_hash), true))
-                .unwrap(),
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                true,
+            ))
+            .unwrap(),
         ),
     ]
 }
@@ -1286,6 +1351,7 @@ async fn start_offline_server(
     let chain_store = Arc::new(ChainStore::new(
         db.clone(),
         db.clone(),
+        db.clone(),
         chain_config.clone(),
         genesis_header.clone(),
     )?);
@@ -1300,7 +1366,7 @@ async fn start_offline_server(
         .chain_store()
         .set_heaviest_tipset(head_ts.clone())?;
 
-    cache_tipset_keys(state_manager.clone(), &head_ts)?;
+    populate_eth_mappings(&state_manager, &head_ts)?;
 
     let beacon = Arc::new(
         state_manager
@@ -1422,7 +1488,7 @@ async fn run_tests(
         let future = tokio::spawn(async move {
             let test_result = test.run(&forest, &lotus).await;
             drop(permit); // Release the permit after test execution
-            (test.request.method_name, test_result)
+            (test, test_result)
         });
 
         futures.push(future);
@@ -1431,13 +1497,22 @@ async fn run_tests(
     let mut success_results = HashMap::default();
     let mut failed_results = HashMap::default();
     let mut fail_details = Vec::new();
-    while let Some(Ok((method_name, test_result))) = futures.next().await {
+    while let Some(Ok((test, test_result))) = futures.next().await {
+        let method_name = test.request.method_name;
         let forest_status = test_result.forest_status;
         let lotus_status = test_result.lotus_status;
+        let success = match (&forest_status, &lotus_status) {
+            (TestSummary::Valid, TestSummary::Valid)
+            | (TestSummary::Timeout, TestSummary::Timeout) => true,
+            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus))
+                if test.pass_on_rejected && reason_forest == reason_lotus =>
+            {
+                true
+            }
+            _ => false,
+        };
         let result_entry = (method_name, forest_status, lotus_status);
-        if (forest_status == TestSummary::Valid && lotus_status == TestSummary::Valid)
-            || (forest_status == TestSummary::Timeout && lotus_status == TestSummary::Timeout)
-        {
+        if success {
             success_results
                 .entry(result_entry)
                 .and_modify(|v| *v += 1)
@@ -1478,8 +1553,8 @@ fn print_test_results(
 ) {
     // Combine all results
     let mut combined_results = success_results.clone();
-    for (key, value) in failed_results {
-        combined_results.insert(*key, *value);
+    for (key, &value) in failed_results {
+        combined_results.insert(key.clone(), value);
     }
 
     // Collect and display results in Markdown format

@@ -156,7 +156,7 @@ where
             .last()
             .ok_or_else(|| "tipsets cannot be empty".to_owned())?;
         let tsk = head.key();
-        tracing::debug!(
+        tracing::trace!(
             "ChainExchange message sync tipsets: epoch: {}, len: {}",
             head.epoch(),
             tipsets.len()
@@ -289,7 +289,6 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
-
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
@@ -344,7 +343,7 @@ where
                     .get_ok_validated(validate)
                     .await
                     .ok_or_else(make_failure_message)?;
-                debug!("Succeed: handle_chain_exchange_request");
+                trace!("Succeed: handle_chain_exchange_request");
                 v
             }
         };
@@ -367,7 +366,7 @@ where
         peer_id: PeerId,
         request: ChainExchangeRequest,
     ) -> Result<ChainExchangeResponse, String> {
-        debug!("Sending ChainExchange Request to {peer_id}");
+        trace!("Sending ChainExchange Request to {peer_id}");
 
         let req_pre_time = SystemTime::now();
 
@@ -395,22 +394,28 @@ where
         match res {
             Ok(Ok(Ok(bs_res))) => {
                 // Successful response
-                peer_manager.log_success(peer_id, res_duration);
-                debug!("Succeeded: ChainExchange Request to {peer_id}");
+                peer_manager.log_success(&peer_id, res_duration);
+                trace!("Succeeded: ChainExchange Request to {peer_id}");
                 Ok(bs_res)
             }
             Ok(Ok(Err(e))) => {
                 // Internal libp2p error, score failure for peer and potentially disconnect
                 match e {
-                    RequestResponseError::ConnectionClosed
-                    | RequestResponseError::DialFailure
-                    | RequestResponseError::UnsupportedProtocols => {
-                        peer_manager.mark_peer_bad(peer_id);
+                    RequestResponseError::UnsupportedProtocols => {
+                        peer_manager
+                            .ban_peer_with_default_duration(
+                                peer_id,
+                                "ChainExchange protocol unsupported",
+                            )
+                            .await;
+                    }
+                    RequestResponseError::ConnectionClosed | RequestResponseError::DialFailure => {
+                        peer_manager.mark_peer_bad(peer_id, format!("chain exchange error {e:?}"));
                     }
                     // Ignore dropping peer on timeout for now. Can't be confident yet that the
                     // specified timeout is adequate time.
                     RequestResponseError::Timeout | RequestResponseError::Io(_) => {
-                        peer_manager.log_failure(peer_id, res_duration);
+                        peer_manager.log_failure(&peer_id, res_duration);
                     }
                 }
                 debug!("Failed: ChainExchange Request to {peer_id}");
@@ -419,7 +424,7 @@ where
             Ok(Err(_)) | Err(_) => {
                 // Sender channel internally dropped or timeout, both should log failure which
                 // will negatively score the peer, but not drop yet.
-                peer_manager.log_failure(peer_id, res_duration);
+                peer_manager.log_failure(&peer_id, res_duration);
                 debug!("Timeout: ChainExchange Request to {peer_id}");
                 Err(format!("Chain exchange request to {peer_id} timed out"))
             }

@@ -10,6 +10,7 @@ use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::ChainConfig;
+use crate::rpc::eth;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -26,7 +27,7 @@ use nunny::vec as nonempty;
 use parking_lot::Mutex;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::broadcast::{self, Sender as Publisher};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, trace, warn};
 
 use super::{
     index::{ChainIndex, ResolveNullTipset},
@@ -34,7 +35,7 @@ use super::{
     Error,
 };
 use crate::db::setting_keys::HEAD_KEY;
-use crate::db::{SettingsStore, SettingsStoreExt};
+use crate::db::{EthMappingsStore, EthMappingsStoreExt, SettingsStore, SettingsStoreExt};
 
 // A cap on the size of the future_sink
 const SINK_CAP: usize = 200;
@@ -73,6 +74,9 @@ pub struct ChainStore<DB> {
 
     /// validated blocks
     validated_blocks: Mutex<HashSet<Cid>>,
+
+    /// Ethereum mappings store
+    eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -106,6 +110,7 @@ where
     pub fn new(
         db: Arc<DB>,
         settings: Arc<dyn SettingsStore + Sync + Send>,
+        eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
         chain_config: Arc<ChainConfig>,
         genesis_block_header: CachingBlockHeader,
     ) -> anyhow::Result<Self> {
@@ -130,6 +135,7 @@ where
             settings,
             genesis_block_header,
             validated_blocks,
+            eth_mappings,
         };
 
         Ok(cs)
@@ -163,11 +169,23 @@ where
         Ok(())
     }
 
-    /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries
+    /// Writes the `TipsetKey` to the blockstore for `EthAPI` queries.
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
-        self.blockstore()
-            .put_keyed(&tsk.cid()?, &fvm_ipld_encoding::to_vec(&tsk)?)?;
+        let hash = tsk.cid()?.into();
+        self.eth_mappings.write_obj(&hash, tsk)?;
+        Ok(())
+    }
 
+    /// Reads the `TipsetKey` from the blockstore for `EthAPI` queries.
+    pub fn get_tipset_key(&self, hash: &eth::Hash) -> Result<Option<TipsetKey>, Error> {
+        let tsk = self.eth_mappings.read_obj(hash)?;
+        Ok(tsk)
+    }
+
+    /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
+    pub fn put_mapping(&self, k: eth::Hash, v: Cid) -> Result<(), Error> {
+        let timestamp = chrono::Utc::now().timestamp() as u64;
+        self.eth_mappings.write_obj(&k, &(v, timestamp))?;
         Ok(())
     }
 
@@ -238,7 +256,7 @@ where
     pub fn is_block_validated(&self, cid: &Cid) -> bool {
         let validated = self.validated_blocks.lock().contains(cid);
         if validated {
-            debug!("Block {cid} was previously validated");
+            trace!("Block {cid} was previously validated");
         }
         validated
     }
@@ -558,7 +576,8 @@ mod tests {
             message_receipts: Cid::new_v1(DAG_CBOR, Identity.digest(&[])),
             ..Default::default()
         });
-        let cs = ChainStore::new(db.clone(), db, chain_config, gen_block.clone()).unwrap();
+        let cs =
+            ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block.clone()).unwrap();
 
         assert_eq!(cs.genesis_block_header(), &gen_block);
     }
@@ -572,7 +591,7 @@ mod tests {
             ..Default::default()
         });
 
-        let cs = ChainStore::new(db.clone(), db, chain_config, gen_block).unwrap();
+        let cs = ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block).unwrap();
 
         let cid = Cid::new_v1(DAG_CBOR, Blake2b256.digest(&[1, 2, 3]));
         assert!(!cs.is_block_validated(&cid));

@@ -27,12 +27,9 @@ use anyhow::Context;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
-use cid::{
-    multihash::{self, MultihashDigest},
-    Cid,
-};
+use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
-use fvm_ipld_encoding::{CBOR, DAG_CBOR, IPLD_RAW};
+use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
 use keccak_hash::keccak;
 use num_bigint::{self, Sign};
@@ -144,22 +141,15 @@ pub struct Int64(
 
 lotus_json_with_self!(Int64);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
-pub struct Bytes(
-    #[schemars(with = "String")]
-    #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
-    pub Vec<u8>,
-);
-
-lotus_json_with_self!(Bytes);
-
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
     // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
     pub fn to_cid(&self) -> cid::Cid {
-        let mh = multihash::Code::Blake2b256
+        use cid::multihash::MultihashDigest;
+
+        let mh = cid::multihash::Code::Blake2b256
             .wrap(self.0.as_bytes())
             .expect("should not fail");
         Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
@@ -291,7 +281,7 @@ pub struct Block {
     pub gas_limit: Uint64,
     pub gas_used: Uint64,
     pub timestamp: Uint64,
-    pub extra_data: Bytes,
+    pub extra_data: EthBytes,
     pub mix_hash: Hash,
     pub nonce: Nonce,
     pub base_fee_per_gas: BigInt,
@@ -338,10 +328,12 @@ pub struct Tx {
     pub to: Option<EthAddress>,
     pub value: BigInt,
     pub r#type: Uint64,
-    pub input: Bytes,
+    pub input: EthBytes,
     pub gas: Uint64,
     pub max_fee_per_gas: BigInt,
     pub max_priority_fee_per_gas: BigInt,
+    #[schemars(with = "Option<Vec<Hash>>")]
+    #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
     pub v: BigInt,
     pub r: BigInt,
@@ -682,17 +674,26 @@ impl RpcMethod<2> for EthGetBalance {
     }
 }
 
-fn get_tipset_from_hash(store: &impl Blockstore, block_hash: &Hash) -> anyhow::Result<Tipset> {
-    let cid = block_hash.to_cid();
-    let bytes = store
-        .get(&cid)?
-        .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
-    let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
-    Tipset::load_required(store, &tsk)
+fn get_tipset_from_hash<DB: Blockstore>(
+    chain_store: &ChainStore<DB>,
+    block_hash: &Hash,
+) -> anyhow::Result<Tipset> {
+    // TODO: fixme
+    let tsk = chain_store
+        .get_tipset_key(block_hash)?
+        .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
+    Tipset::load_required(chain_store.blockstore(), &tsk)
+
+    // let cid = block_hash.to_cid();
+    // let bytes = store
+    //     .get(&cid)?
+    //     .with_context(|| format!("cannot find tipset with cid {}", &cid))?;
+    // let tsk = fvm_ipld_encoding::from_slice::<TipsetKey>(&bytes)?;
+    // Tipset::load_required(store, &tsk)
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
-    chain: &Arc<ChainStore<DB>>,
+    chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
 ) -> anyhow::Result<Arc<Tipset>> {
     let head = chain.heaviest_tipset();
@@ -719,14 +720,14 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             Ok(ts)
         }
         BlockNumberOrHash::BlockHash(block_hash) => {
-            let ts = Arc::new(get_tipset_from_hash(chain.blockstore(), &block_hash)?);
+            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
             Ok(ts)
         }
         BlockNumberOrHash::Hash(BlockHash {
             block_hash,
             require_canonical,
         }) => {
-            let ts = Arc::new(get_tipset_from_hash(chain.blockstore(), &block_hash)?);
+            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
             // verify that the tipset is in the canonical chain
             if require_canonical {
                 // walk up the current chain (our head) until we reach ts.epoch()
@@ -853,7 +854,7 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
+pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -888,7 +889,7 @@ fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result
         v,
         r,
         s,
-        input: Bytes(tx_args.input),
+        input: EthBytes(tx_args.input),
         ..Tx::default()
     })
 }
@@ -940,10 +941,10 @@ fn encode_filecoin_params_as_abi(
     method: MethodNum,
     codec: u64,
     params: &fvm_ipld_encoding::RawBytes,
-) -> Result<Bytes> {
+) -> Result<EthBytes> {
     let mut buffer: Vec<u8> = vec![0x86, 0x8e, 0x10, 0xc4];
     buffer.append(&mut encode_filecoin_returns_as_abi(method, codec, params));
-    Ok(Bytes(buffer))
+    Ok(EthBytes(buffer))
 }
 
 fn encode_filecoin_returns_as_abi(
@@ -991,16 +992,16 @@ fn encode_as_abi_helper(param1: u64, param2: u64, data: &[u8]) -> Vec<u8> {
 }
 
 /// Decodes the payload using the given codec.
-fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<Bytes> {
+fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<EthBytes> {
     match codec {
         DAG_CBOR | CBOR => {
             let result: Result<Vec<u8>, _> = serde_ipld_dagcbor::de::from_reader(payload.reader());
             match result {
-                Ok(buffer) => Ok(Bytes(buffer)),
+                Ok(buffer) => Ok(EthBytes(buffer)),
                 Err(err) => bail!("decode_payload: failed to decode cbor payload: {err}"),
             }
         }
-        IPLD_RAW => Ok(Bytes(payload.to_vec())),
+        IPLD_RAW => Ok(EthBytes(payload.to_vec())),
         _ => bail!("decode_payload: unsupported codec {codec}"),
     }
 }
@@ -1213,6 +1214,35 @@ impl RpcMethod<2> for EthGetBlockByNumber {
     }
 }
 
+pub enum EthGetBlockTransactionCountByHash {}
+impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
+    const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
+    const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (block_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tsk = ctx
+            .chain_store
+            .get_tipset_key(&block_hash)?
+            .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
+        let ts = ctx.chain_store.chain_index.load_required_tipset(&tsk)?;
+
+        let head = ctx.chain_store.heaviest_tipset();
+        if ts.epoch() > head.epoch() {
+            return Err(anyhow::anyhow!("requested a future epoch (beyond \"latest\")").into());
+        }
+        let count = count_messages_in_tipset(ctx.store(), &ts)?;
+        Ok(Uint64(count as _))
+    }
+}
+
 pub enum EthGetBlockTransactionCountByNumber {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
@@ -1302,7 +1332,7 @@ impl RpcMethod<2> for EthGetCode {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = Bytes;
+    type Ok = EthBytes;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1326,18 +1356,17 @@ impl RpcMethod<2> for EthGetCode {
             gas_limit: BLOCK_GAS_LIMIT,
             ..Default::default()
         };
-        let mut api_invoc_result = None;
-        for ts in ts.chain_arc(ctx.store()) {
-            match ctx.state_manager.call(&message, Some(ts)) {
-                Ok(res) => {
-                    api_invoc_result = Some(res);
-                    break;
+
+        let api_invoc_result = 'invoc: {
+            for ts in ts.chain_arc(ctx.store()) {
+                match ctx.state_manager.call(&message, Some(ts)) {
+                    Ok(res) => {
+                        break 'invoc res;
+                    }
+                    Err(e) => tracing::warn!(%e),
                 }
-                Err(e) => tracing::warn!(%e),
             }
-        }
-        let Some(api_invoc_result) = api_invoc_result else {
-            return Err(anyhow::anyhow!("no message receipt").into());
+            return Err(anyhow::anyhow!("Call failed").into());
         };
         let Some(msg_rct) = api_invoc_result.msg_rct else {
             return Err(anyhow::anyhow!("no message receipt").into());
@@ -1349,9 +1378,82 @@ impl RpcMethod<2> for EthGetCode {
         let get_bytecode_return: GetBytecodeReturn =
             fvm_ipld_encoding::from_slice(msg_rct.return_data().as_slice())?;
         if let Some(cid) = get_bytecode_return.0 {
-            Ok(Bytes(ctx.store().get_required(&cid)?))
+            Ok(EthBytes(ctx.store().get_required(&cid)?))
         } else {
             Ok(Default::default())
+        }
+    }
+}
+
+pub enum EthGetStorageAt {}
+impl RpcMethod<3> for EthGetStorageAt {
+    const NAME: &'static str = "Filecoin.EthGetStorageAt";
+    const PARAM_NAMES: [&'static str; 3] = ["eth_address", "position", "block_number_or_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, EthBytes, BlockNumberOrHash);
+    type Ok = EthBytes;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (eth_address, position, block_number_or_hash): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let make_empty_result = || EthBytes(vec![0; EVM_WORD_LENGTH]);
+
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_number_or_hash)?;
+        let to_address = FilecoinAddress::try_from(&eth_address)?;
+        let Some(actor) = ctx
+            .state_manager
+            .get_actor(&to_address, *ts.parent_state())?
+        else {
+            return Ok(make_empty_result());
+        };
+
+        if !fil_actor_interface::is_evm_actor(&actor.code) {
+            return Ok(make_empty_result());
+        }
+
+        let params = RawBytes::new(GetStorageAtParams::new(position.0)?.serialize_params()?);
+        let message = Message {
+            from: FilecoinAddress::SYSTEM_ACTOR,
+            to: to_address,
+            method_num: METHOD_GET_STORAGE_AT,
+            gas_limit: BLOCK_GAS_LIMIT,
+            params,
+            ..Default::default()
+        };
+        let api_invoc_result = 'invoc: {
+            for ts in ts.chain_arc(ctx.store()) {
+                match ctx.state_manager.call(&message, Some(ts)) {
+                    Ok(res) => {
+                        break 'invoc res;
+                    }
+                    Err(e) => tracing::warn!(%e),
+                }
+            }
+            return Err(anyhow::anyhow!("Call failed").into());
+        };
+        let Some(msg_rct) = api_invoc_result.msg_rct else {
+            return Err(anyhow::anyhow!("no message receipt").into());
+        };
+        if !msg_rct.exit_code().is_success() || !api_invoc_result.error.is_empty() {
+            return Err(anyhow::anyhow!(
+                "failed to lookup storage slot: {}",
+                api_invoc_result.error
+            )
+            .into());
+        }
+
+        let mut ret = fvm_ipld_encoding::from_slice::<RawBytes>(msg_rct.return_data().as_slice())?
+            .bytes()
+            .to_vec();
+        if ret.len() < EVM_WORD_LENGTH {
+            let mut with_padding = vec![0; EVM_WORD_LENGTH.saturating_sub(ret.len())];
+            with_padding.append(&mut ret);
+            Ok(EthBytes(with_padding))
+        } else {
+            Ok(EthBytes(ret))
         }
     }
 }

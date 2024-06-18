@@ -27,11 +27,11 @@ const LOCAL_INV_ALPHA: u32 = 5;
 /// Global duration multiplier, affects duration delta change.
 const GLOBAL_INV_ALPHA: u32 = 20;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 /// Contains info about the peer's head [Tipset], as well as the request stats.
 struct PeerInfo {
     /// Head tipset received from hello message.
-    head: Option<Arc<Tipset>>,
+    head: Arc<Tipset>,
     /// Number of successful requests.
     successes: u32,
     /// Number of failed requests.
@@ -43,7 +43,7 @@ struct PeerInfo {
 impl PeerInfo {
     fn new(head: Arc<Tipset>) -> Self {
         Self {
-            head: Some(head),
+            head,
             successes: 0,
             failures: 0,
             average_time: Default::default(),
@@ -96,21 +96,21 @@ impl PeerManager {
     pub fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
         let mut peers = self.peers.write();
         trace!("Updating head for PeerId {}", &peer_id);
+        metrics::PEER_TIPSET_EPOCH
+            .get_or_create(&metrics::PeerLabel::new(peer_id))
+            .set(ts.epoch());
         if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
-            pi.head = Some(ts);
+            pi.head = ts;
         } else {
             peers.full_peers.insert(peer_id, PeerInfo::new(ts));
-            metrics::FULL_PEERS.inc();
+            metrics::FULL_PEERS.set(peers.full_peers.len() as _);
         }
     }
 
     /// Gets the head epoch of a peer
     pub fn get_peer_head_epoch(&self, peer_id: &PeerId) -> Option<i64> {
         let peers = self.peers.read();
-        peers
-            .full_peers
-            .get(peer_id)
-            .and_then(|pi| pi.head.as_ref().map(|ts| ts.epoch()))
+        peers.full_peers.get(peer_id).map(|pi| pi.head.epoch())
     }
 
     /// Returns true if peer is not marked as bad or not already in set.
@@ -127,22 +127,27 @@ impl PeerManager {
         let mut peers: Vec<_> = peer_lk
             .full_peers
             .iter()
-            .map(|(p, info)| {
-                let cost = if (info.successes + info.failures) > 0 {
-                    // Calculate cost based on fail rate and latency
-                    let fail_rate = f64::from(info.failures) / f64::from(info.successes);
-                    info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
+            .filter_map(|(p, info)| {
+                // Filter out nodes that are stateless (or far behind)
+                if info.head.epoch() > 0 {
+                    let cost = if info.successes > 0 {
+                        // Calculate cost based on fail rate and latency
+                        let fail_rate = f64::from(info.failures) / f64::from(info.successes);
+                        info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
+                    } else {
+                        // There have been no failures or successes
+                        average_time.as_secs_f64() * NEW_PEER_MUL
+                    };
+                    Some((p, cost))
                 } else {
-                    // There have been no failures or successes
-                    average_time.as_secs_f64() * NEW_PEER_MUL
-                };
-                (p, cost)
+                    None
+                }
             })
             .collect();
 
         // Unstable sort because hashmap iter order doesn't need to be preserved.
         peers.sort_unstable_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap_or(Ordering::Equal));
-        peers.into_iter().map(|(p, _)| p).cloned().collect()
+        peers.into_iter().map(|(&peer, _)| peer).collect()
     }
 
     /// Return shuffled slice of ordered peers from the peer manager. Ordering
@@ -156,7 +161,6 @@ impl PeerManager {
 
         // Shuffle top peers, to avoid sending all requests to same predictable peer.
         peers.shuffle(&mut rand::rngs::OsRng);
-
         peers
     }
 
@@ -178,65 +182,58 @@ impl PeerManager {
 
     /// Logs a success for the given peer, and updates the average request
     /// duration.
-    pub fn log_success(&self, peer: PeerId, dur: Duration) {
-        debug!("logging success for {:?}", peer);
+    pub fn log_success(&self, peer: &PeerId, dur: Duration) {
+        trace!("logging success for {peer}");
         let mut peers = self.peers.write();
         // Attempt to remove the peer and decrement bad peer count
-        if peers.bad_peers.remove(&peer) {
-            metrics::BAD_PEERS.dec();
+        if peers.bad_peers.remove(peer) {
+            metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
         };
-        // If the peer is not already accounted for, increment full peer count
-        if !peers.full_peers.contains_key(&peer) {
-            metrics::FULL_PEERS.inc();
+        if let Some(peer_stats) = peers.full_peers.get_mut(peer) {
+            peer_stats.successes += 1;
+            log_time(peer_stats, dur);
         }
-        let peer_stats = peers.full_peers.entry(peer).or_default();
-        peer_stats.successes += 1;
-        log_time(peer_stats, dur);
     }
 
     /// Logs a failure for the given peer, and updates the average request
     /// duration.
-    pub fn log_failure(&self, peer: PeerId, dur: Duration) {
-        debug!("logging failure for {:?}", peer);
+    pub fn log_failure(&self, peer: &PeerId, dur: Duration) {
+        trace!("logging failure for {peer}");
         let mut peers = self.peers.write();
-        if !peers.bad_peers.contains(&peer) {
+        if !peers.bad_peers.contains(peer) {
             metrics::PEER_FAILURE_TOTAL.inc();
-            if !peers.full_peers.contains_key(&peer) {
-                metrics::FULL_PEERS.inc();
+            if let Some(peer_stats) = peers.full_peers.get_mut(peer) {
+                peer_stats.failures += 1;
+                log_time(peer_stats, dur);
             }
-            let peer_stats = peers.full_peers.entry(peer).or_default();
-            peer_stats.failures += 1;
-            log_time(peer_stats, dur);
         }
     }
 
     /// Removes a peer from the set and returns true if the value was present
     /// previously
-    pub fn mark_peer_bad(&self, peer_id: PeerId) -> bool {
+    pub fn mark_peer_bad(&self, peer_id: PeerId, reason: impl Into<String>) {
         let mut peers = self.peers.write();
-        let removed = remove_peer(&mut peers, &peer_id);
-        if removed {
-            metrics::FULL_PEERS.dec();
-        }
+        remove_peer(&mut peers, &peer_id);
 
         // Add peer to bad peer set
-        debug!("marked peer {} bad", peer_id);
+        let reason = reason.into();
+        tracing::debug!(%peer_id, %reason, "marked peer bad");
         if peers.bad_peers.insert(peer_id) {
-            metrics::BAD_PEERS.inc();
+            metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
         }
+    }
 
-        removed
+    pub fn unmark_peer_bad(&self, peer_id: &PeerId) {
+        let mut peers = self.peers.write();
+        if peers.bad_peers.remove(peer_id) {
+            metrics::BAD_PEERS.set(peers.bad_peers.len() as _);
+        }
     }
 
     /// Remove peer from managed set, does not mark as bad
-    pub fn remove_peer(&self, peer_id: &PeerId) -> bool {
+    pub fn remove_peer(&self, peer_id: &PeerId) {
         let mut peers = self.peers.write();
-        debug!("removed peer {}", peer_id);
-        let removed = remove_peer(&mut peers, peer_id);
-        if removed {
-            metrics::FULL_PEERS.dec();
-        }
-        removed
+        remove_peer(&mut peers, peer_id);
     }
 
     /// Gets peer operation receiver
@@ -260,6 +257,12 @@ impl PeerManager {
         {
             warn!("ban_peer err: {e}");
         }
+    }
+
+    /// Bans a peer with the default duration(`1h`)
+    pub async fn ban_peer_with_default_duration(&self, peer: PeerId, reason: impl Into<String>) {
+        const BAN_PEER_DURATION: Duration = Duration::from_secs(60 * 60); //1h
+        self.ban_peer(peer, reason, Some(BAN_PEER_DURATION)).await
     }
 
     pub async fn peer_operation_event_loop_task(self: Arc<Self>) -> anyhow::Result<()> {
@@ -301,14 +304,14 @@ impl PeerManager {
     }
 }
 
-fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) -> bool {
-    debug!(
-        "removing peer {:?}, remaining chain exchange peers: {}",
-        peer_id,
+fn remove_peer(peers: &mut PeerSets, peer_id: &PeerId) {
+    if peers.full_peers.remove(peer_id).is_some() {
+        metrics::FULL_PEERS.set(peers.full_peers.len() as _);
+    }
+    trace!(
+        "removing peer {peer_id}, remaining chain exchange peers: {}",
         peers.full_peers.len()
     );
-
-    peers.full_peers.remove(peer_id).is_some()
 }
 
 fn log_time(info: &mut PeerInfo, dur: Duration) {

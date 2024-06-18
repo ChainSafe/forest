@@ -126,7 +126,7 @@ impl RawBlockHeader {
         let (cb_epoch, curr_beacon) = b_schedule
             .beacon_for_epoch(self.epoch)
             .map_err(|e| Error::Validation(e.to_string()))?;
-        tracing::debug!(
+        tracing::trace!(
             "beacon network at {}: {:?}, is_chained: {}",
             self.epoch,
             curr_beacon.network(),
