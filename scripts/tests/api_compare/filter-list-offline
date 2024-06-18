@@ -3,6 +3,8 @@
 !Filecoin.MinerGetBaseInfo
 # Internal Server Error on Lotus: https://github.com/ChainSafe/forest/actions/runs/8619314467/job/23624081698
 !Filecoin.MpoolGetNonce
+!Filecoin.EthGetBlockByHash
+!Filecoin.EthGetBlockTransactionCountByHash
 !Filecoin.EthSyncing
 !Filecoin.NetAddrsListen
 !Filecoin.NetAgentVersion
