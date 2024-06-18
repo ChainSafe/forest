@@ -1090,16 +1090,23 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash.clone()),
-                false,
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash.clone()),
-                true,
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), false),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
             ))
             .unwrap(),
         ),
@@ -1128,7 +1135,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
-                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+                BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
             ))
             .unwrap(),
         ),
@@ -1136,7 +1143,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             EthGetCode::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
@@ -1147,7 +1154,21 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                     .unwrap()
                     .try_into()
                     .unwrap(),
-                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                true,
             ))
             .unwrap(),
         ),

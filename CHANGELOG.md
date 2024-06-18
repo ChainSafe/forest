@@ -33,8 +33,10 @@
   `Filecoin.StateGetClaim` RPC method.
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
+
 - [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
   `Filecoin.StateGetAllocation` RPC method.
+
 - [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
   `Filecoin.StateSectorPartition` RPC method.
 - [#4368](https://github.com/ChainSafe/forest/issues/4368) Add support for the
@@ -45,6 +47,9 @@
 
 - [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
   `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
+- [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
+  `EIP-1898` object scheme.
 
 ### Changed
 
