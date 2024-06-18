@@ -81,12 +81,39 @@ impl EthMappingsStore for MemoryDB {
         Ok(self.eth_mappings_db.read().contains_key(key))
     }
 
-    fn delete(&self, _keys: Vec<eth::Hash>) -> anyhow::Result<()> {
-        todo!()
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        let mut lock = self.eth_mappings_db.write();
+        for hash in keys.iter() {
+            lock.remove(hash);
+        }
+        Ok(())
     }
 
-    fn get_message_cids(&self, _duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
-        todo!()
+    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
+        let now = chrono::Utc::now().timestamp() as u64;
+
+        let cids = self
+            .eth_mappings_db
+            .read()
+            .iter()
+            .filter_map(|(_, value)| {
+                if let Ok((cid, timestamp)) = fvm_ipld_encoding::from_slice::<(Cid, u64)>(value) {
+                    if let Some(duration) = duration {
+                        if Duration::from_secs(now - timestamp) > duration {
+                            Some(cid)
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(cid)
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(cids)
     }
 }
 
