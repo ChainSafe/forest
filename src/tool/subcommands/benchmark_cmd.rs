@@ -3,19 +3,22 @@
 
 use crate::chain::{
     index::{ChainIndex, ResolveNullTipset},
-    ChainEpochDelta,
+    ChainEpochDelta, ChainStore,
 };
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
+use crate::db::{GarbageCollectable, MarkAndSweep};
 use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
 use crate::utils::stream::par_buffer;
+use ahash::{HashSet, HashSetExt};
 use anyhow::Context as _;
 use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
@@ -26,6 +29,7 @@ use tokio::{
     fs::File,
     io::{AsyncWrite, AsyncWriteExt, BufReader},
 };
+use tracing::info;
 
 #[derive(Debug, Subcommand)]
 pub enum BenchmarkCommands {
@@ -37,6 +41,12 @@ pub enum BenchmarkCommands {
         /// Whether or not we want to expect [`libipld_core::ipld::Ipld`] data for each block.
         #[arg(long)]
         inspect: bool,
+    },
+    /// Benchmark GC
+    GC {
+        /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
+        #[arg(required = true)]
+        snapshot_files: Vec<PathBuf>,
     },
     /// Depth-first traversal of the Filecoin graph
     GraphTraversal {
@@ -111,8 +121,34 @@ impl BenchmarkCommands {
                 benchmark_exporting(snapshot_files, compression_level, frame_size, epoch, depth)
                     .await
             }
+            Self::GC { snapshot_files } => benchmark_gc_sweep(snapshot_files).await,
         }
     }
+}
+
+// Load a set of CAR files into ParityDB and see how long it takes to run the simulated GC sweep.
+async fn benchmark_gc_sweep(input: Vec<PathBuf>) -> anyhow::Result<()> {
+    use crate::db::db_utils::parity::TempParityDB;
+
+    let temp_db = Arc::new(TempParityDB::new());
+    let mut s = Box::pin(
+        futures::stream::iter(input)
+            .then(File::open)
+            .map_ok(BufReader::new)
+            .and_then(CarStream::new)
+            .try_flatten(),
+    );
+    info!("populating temp db");
+    while let Some(block) = s.try_next().await? {
+        temp_db.put_keyed(&block.cid, &block.data)?;
+    }
+    info!("finished populating temp db");
+
+    info!("removing keys");
+    let _ = temp_db.remove_keys(HashSet::new())?;
+    info!("finished removing keys");
+
+    Ok(())
 }
 
 // Concatenate a set of CAR files and measure how quickly we can stream the

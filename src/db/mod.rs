@@ -10,6 +10,7 @@ mod gc;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
+pub mod db_utils;
 pub mod migration;
 
 use crate::rpc::eth;
@@ -205,7 +206,6 @@ pub mod db_engine {
 
 #[cfg(test)]
 mod tests {
-    pub mod db_utils;
     mod mem_test;
     mod parity_test;
     pub mod subtests;

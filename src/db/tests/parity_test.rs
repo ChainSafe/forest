@@ -1,7 +1,8 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::{db_utils::parity::TempParityDB, subtests};
+use super::subtests;
+use crate::db::db_utils::parity::TempParityDB;
 
 #[test]
 fn db_write() {

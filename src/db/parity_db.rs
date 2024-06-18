@@ -382,7 +382,7 @@ mod test {
     use fvm_ipld_encoding::IPLD_RAW;
     use nom::AsBytes;
 
-    use crate::db::tests::db_utils::parity::TempParityDB;
+    use crate::db::db_utils::parity::TempParityDB;
 
     use super::*;
 
