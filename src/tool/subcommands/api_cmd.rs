@@ -963,6 +963,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for msg_cid in sample_message_cids(bls_messages.iter(), secp_messages.iter()) {
             tests.extend([
+                RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
                     StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
                 ),
@@ -1070,6 +1071,9 @@ fn eth_tests() -> Vec<RpcTest> {
 }
 
 fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+    let block_cid = shared_tipset.key().cid().unwrap();
+    let block_hash: Hash = block_cid.into();
+
     vec![
         RpcTest::identity(
             EthGetBalance::request((
@@ -1086,6 +1090,20 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                true,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetBlockByNumber::request((
                 BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
                 false,
@@ -1098,6 +1116,9 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 true,
             ))
             .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockTransactionCountByHash::request((block_hash.clone(),)).unwrap(),
         ),
         RpcTest::identity(
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),

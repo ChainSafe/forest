@@ -98,31 +98,25 @@ impl RpcMethod<2> for StateCall {
 pub enum StateReplay {}
 impl RpcMethod<2> for StateReplay {
     const NAME: &'static str = "Filecoin.StateReplay";
-    const PARAM_NAMES: [&'static str; 2] = ["cid", "tsk"];
+    const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "message_cid"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
 
-    type Params = (Cid, ApiTipsetKey);
-    type Ok = InvocResult;
+    type Params = (ApiTipsetKey, Cid);
+    type Ok = ApiInvocResult;
 
     /// returns the result of executing the indicated message, assuming it was
     /// executed in the indicated tipset.
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (cid, ApiTipsetKey(tsk)): Self::Params,
+        (ApiTipsetKey(tsk), message_cid): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let state_manager = &ctx.state_manager;
         let tipset = ctx
             .state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        let (msg, ret) = state_manager.replay(&tipset, cid).await?;
-
-        Ok(InvocResult {
-            msg,
-            msg_rct: Some(ret.msg_receipt()),
-            error: ret.failure_info(),
-        })
+        Ok(state_manager.replay(&tipset, message_cid).await?)
     }
 }
 

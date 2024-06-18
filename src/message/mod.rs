@@ -73,7 +73,7 @@ impl Message for ShimMessage {
         self.sequence = new_sequence;
     }
     fn required_funds(&self) -> TokenAmount {
-        &self.gas_fee_cap * self.gas_limit + &self.value
+        &self.gas_fee_cap * self.gas_limit
     }
     fn gas_fee_cap(&self) -> TokenAmount {
         self.gas_fee_cap.clone()

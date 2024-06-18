@@ -40,6 +40,12 @@
 - [#4368](https://github.com/ChainSafe/forest/issues/4368) Add support for the
   `Filecoin.EthGetMessageCidByTransactionHash` RPC method.
 
+- [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
+  `Filecoin.EthGetBlockByHash` RPC method.
+
+- [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
+  `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
 ### Changed
 
 ### Removed
