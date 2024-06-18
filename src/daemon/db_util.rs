@@ -19,7 +19,6 @@ use futures::TryStreamExt;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
-// use std::sync::Arc;
 use std::{
     path::{Path, PathBuf},
     time,
