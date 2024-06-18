@@ -9,7 +9,6 @@ use crate::blocks::{Tipset, TipsetKey};
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
@@ -92,13 +91,20 @@ enum EVMMethod {
     InvokeContract = 3844450837,
 }
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
-pub struct BigInt(
-    #[schemars(with = "LotusJson<num_bigint::BigInt>")]
-    #[serde(with = "crate::lotus_json::hexify")]
-    pub num_bigint::BigInt,
-);
+// TODO(aatifsyed): just use ethereum_types::H265
+#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone)]
+pub struct BigInt(#[serde(with = "crate::lotus_json::hexify")] pub num_bigint::BigInt);
 lotus_json_with_self!(BigInt);
+
+impl JsonSchema for BigInt {
+    fn schema_name() -> String {
+        "BigInt".into()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
+    }
+}
 
 impl From<TokenAmount> for BigInt {
     fn from(amount: TokenAmount) -> Self {
