@@ -181,15 +181,7 @@ where
         if ts.epoch() < state_manager.chain_config().epoch(Height::Hygge) {
             break;
         }
-        for bh in ts.block_headers() {
-            if let Ok((_, secp_cids)) = block_messages(&state_manager.blockstore(), bh) {
-                let mut messages = secp_cids
-                    .into_iter()
-                    .filter(|msg| msg.is_delegated())
-                    .collect();
-                delegated_messages.append(&mut messages);
-            }
-        }
+        delegated_messages.append(&mut delegated_tipset_messages(&state_manager, &ts)?);
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
     process_signed_messages(state_manager, &delegated_messages)?;
@@ -197,7 +189,29 @@ where
     Ok(())
 }
 
-/// Filter [`SignedMessage`]'s to keep only delegated ones and the most recent ones, then write them to the chain store.
+fn delegated_tipset_messages<DB>(
+    state_manager: &StateManager<DB>,
+    ts: &Tipset,
+) -> anyhow::Result<Vec<SignedMessage>>
+where
+    DB: fvm_ipld_blockstore::Blockstore,
+{
+    let mut delegated_messages = vec![];
+
+    for bh in ts.block_headers() {
+        if let Ok((_, secp_cids)) = block_messages(&state_manager.blockstore(), bh) {
+            let mut messages = secp_cids
+                .into_iter()
+                .filter(|msg| msg.is_delegated())
+                .collect();
+            delegated_messages.append(&mut messages);
+        }
+    }
+
+    Ok(delegated_messages)
+}
+
+/// Filter [`SignedMessage`]'s to keep only the most recent ones, then write them to the chain store.
 fn process_signed_messages<DB>(
     state_manager: &StateManager<DB>,
     messages: &[SignedMessage],
@@ -205,10 +219,10 @@ fn process_signed_messages<DB>(
 where
     DB: fvm_ipld_blockstore::Blockstore,
 {
-    let delegated_messages = messages.iter().filter(|msg| msg.is_delegated());
     let eth_chain_id = state_manager.chain_config().eth_chain_id;
 
-    let eth_txs: Vec<(eth::Hash, Cid, usize)> = delegated_messages
+    let eth_txs: Vec<(eth::Hash, Cid, usize)> = messages
+        .iter()
         .enumerate()
         .filter_map(|(i, smsg)| {
             if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id) {
