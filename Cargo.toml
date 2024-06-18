@@ -64,12 +64,12 @@ fs_extra = "1"
 futures = "0.3"
 fvm2 = { package = "fvm", version = "~2.8", default-features = false }
 fvm3 = { package = "fvm", default-features = false, version = "~3.10", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.3", features = ["arb"] }
+fvm4 = { package = "fvm", default-features = false, version = "~4.3", features = ["arb", "verify-signature"] }
 fvm_ipld_blockstore = "0.2"
 fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.7" }
-fvm_shared3 = { package = "fvm_shared", version = "~3.10", features = ["testing", "proofs"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.3", features = ["testing", "proofs"] }
+fvm_shared3 = { package = "fvm_shared", version = "~3.10", features = ["arb", "testing", "proofs"] }
+fvm_shared4 = { package = "fvm_shared", version = "~4.3", features = ["arb", "testing", "proofs"] }
 gethostname = "0.4"
 git-version = "0.3"
 group = "0.13"
@@ -211,10 +211,6 @@ cargo_metadata = "0.18"
 criterion = { version = "0.5", features = ["async_tokio", "csv"] }
 cs_serde_bytes = "0.12"
 derive-quickcheck-arbitrary = "0.1"
-fvm3 = { package = "fvm", default-features = false, version = "~3.10", features = ["arb"] }
-fvm4 = { package = "fvm", default-features = false, version = "~4.3", features = ["arb"] }
-fvm_shared3 = { package = "fvm_shared", version = "~3.10", default-features = false, features = ["arb"] }
-fvm_shared4 = { package = "fvm_shared", version = "~4.3", default-features = false, features = ["arb"] }
 glob = "0.3"
 http-range-header = "0.4"
 insta = { version = "1", features = ["yaml"] }
