@@ -206,8 +206,8 @@ pub enum BlockNumberOrHash {
     PredefinedBlock(Predefined),
     BlockNumber(Int64),
     BlockHash(Hash),
-    Number(BlockNumber),
-    Hash(BlockHash),
+    BlockNumberObject(BlockNumber),
+    BlockHashObject(BlockHash),
 }
 
 lotus_json_with_self!(BlockNumberOrHash);
@@ -226,15 +226,19 @@ impl BlockNumberOrHash {
     }
 
     /// Construct a block number using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
     pub fn from_block_number_object(number: i64) -> Self {
-        Self::Number(BlockNumber {
+        Self::BlockNumberObject(BlockNumber {
             block_number: Int64(number),
         })
     }
 
     /// Construct a block hash using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
     pub fn from_block_hash_object(hash: Hash, require_canonical: bool) -> Self {
-        Self::Hash(BlockHash {
+        Self::BlockHashObject(BlockHash {
             block_hash: hash,
             require_canonical,
         })
@@ -690,7 +694,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             }
         },
         BlockNumberOrHash::BlockNumber(block_number)
-        | BlockNumberOrHash::Number(BlockNumber { block_number }) => {
+        | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
             let height = ChainEpoch::from(block_number.0);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
@@ -705,7 +709,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
             let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
             Ok(ts)
         }
-        BlockNumberOrHash::Hash(BlockHash {
+        BlockNumberOrHash::BlockHashObject(BlockHash {
             block_hash,
             require_canonical,
         }) => {
