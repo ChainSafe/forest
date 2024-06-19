@@ -46,6 +46,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::chain::ChainExport);
         $callback!(crate::rpc::chain::ChainReadObj);
         $callback!(crate::rpc::chain::ChainHasObj);
+        $callback!(crate::rpc::chain::ChainStatObj);
         $callback!(crate::rpc::chain::ChainGetBlockMessages);
         $callback!(crate::rpc::chain::ChainGetPath);
         $callback!(crate::rpc::chain::ChainGetTipSetByHeight);

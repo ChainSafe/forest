@@ -546,6 +546,11 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
             RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
             RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
+            RpcTest::identity(ChainStatObj::request((block.messages, None))?),
+            RpcTest::identity(ChainStatObj::request((
+                block.messages,
+                Some(block.messages),
+            ))?),
         ]);
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
