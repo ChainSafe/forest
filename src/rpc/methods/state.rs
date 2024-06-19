@@ -116,7 +116,7 @@ impl RpcMethod<2> for StateReplay {
             .state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        Ok(state_manager.replay(&tipset, message_cid).await?)
+        Ok(state_manager.replay(tipset, message_cid).await?)
     }
 }
 
