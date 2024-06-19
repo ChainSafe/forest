@@ -23,7 +23,6 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::Context;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
@@ -177,7 +176,8 @@ impl fmt::Display for Hash {
 
 lotus_json_with_self!(Hash);
 
-#[derive(Debug, Default, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub enum Predefined {
     Earliest,
     Pending,
@@ -185,24 +185,31 @@ pub enum Predefined {
     Latest,
 }
 
-impl fmt::Display for Predefined {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            Predefined::Earliest => "earliest",
-            Predefined::Pending => "pending",
-            Predefined::Latest => "latest",
-        };
-        write!(f, "{}", s)
-    }
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockNumber {
+    block_number: Int64,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum BlockNumberOrHash {
-    PredefinedBlock(Predefined),
-    BlockNumber(i64),
-    BlockHash(Hash, bool),
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockHash {
+    block_hash: Hash,
+    require_canonical: bool,
 }
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BlockNumberOrHash {
+    #[schemars(with = "String")]
+    PredefinedBlock(Predefined),
+    BlockNumber(Int64),
+    BlockHash(Hash),
+    BlockNumberObject(BlockNumber),
+    BlockHashObject(BlockHash),
+}
+
+lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {
     pub fn from_predefined(predefined: Predefined) -> Self {
@@ -210,55 +217,30 @@ impl BlockNumberOrHash {
     }
 
     pub fn from_block_number(number: i64) -> Self {
-        Self::BlockNumber(number)
+        Self::BlockNumber(Int64(number))
     }
 
     pub fn from_block_hash(hash: Hash) -> Self {
-        Self::BlockHash(hash, false)
-    }
-}
-
-// TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
-//                 implement EIP-1898
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this shouldn't exist
-impl HasLotusJson for BlockNumberOrHash {
-    type LotusJson = String;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        Self::BlockHash(hash)
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        match self {
-            Self::PredefinedBlock(predefined) => predefined.to_string(),
-            Self::BlockNumber(number) => format!("{:#x}", number),
-            Self::BlockHash(hash, _require_canonical) => format!("{:#x}", hash.0),
-        }
+    /// Construct a block number using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
+    pub fn from_block_number_object(number: i64) -> Self {
+        Self::BlockNumberObject(BlockNumber {
+            block_number: Int64(number),
+        })
     }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        match lotus_json.as_str() {
-            "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
-            "pending" => return Self::PredefinedBlock(Predefined::Pending),
-            "latest" => return Self::PredefinedBlock(Predefined::Latest),
-            _ => (),
-        };
-
-        if let Ok(hash) = Hash::from_str(&lotus_json) {
-            return Self::BlockHash(hash, false);
-        }
-
-        #[allow(clippy::indexing_slicing)]
-        if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
-            if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
-                return Self::BlockNumber(number);
-            }
-        }
-
-        // Return some default value if we can't convert
-        Self::PredefinedBlock(Predefined::Latest)
+    /// Construct a block hash using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
+    pub fn from_block_hash_object(hash: Hash, require_canonical: bool) -> Self {
+        Self::BlockHashObject(BlockHash {
+            block_hash: hash,
+            require_canonical,
+        })
     }
 }
 
@@ -685,6 +667,14 @@ impl RpcMethod<2> for EthGetBalance {
     }
 }
 
+fn get_tipset_from_hash<DB: Blockstore>(
+    chain_store: &ChainStore<DB>,
+    block_hash: &Hash,
+) -> anyhow::Result<Tipset> {
+    let tsk = chain_store.get_required_tipset_key(block_hash)?;
+    Tipset::load_required(chain_store.blockstore(), &tsk)
+}
+
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
     chain: &ChainStore<DB>,
     block_param: BlockNumberOrHash,
@@ -700,8 +690,9 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 Ok(parent)
             }
         },
-        BlockNumberOrHash::BlockNumber(number) => {
-            let height = ChainEpoch::from(number);
+        BlockNumberOrHash::BlockNumber(block_number)
+        | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
+            let height = ChainEpoch::from(block_number.0);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
             }
@@ -711,11 +702,15 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                     .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
             Ok(ts)
         }
-        BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let tsk = chain
-                .get_tipset_key(&hash)?
-                .with_context(|| format!("cannot find tipset with hash {}", &hash))?;
-            let ts = chain.chain_index.load_required_tipset(&tsk)?;
+        BlockNumberOrHash::BlockHash(block_hash) => {
+            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
+            Ok(ts)
+        }
+        BlockNumberOrHash::BlockHashObject(BlockHash {
+            block_hash,
+            require_canonical,
+        }) => {
+            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
             // verify that the tipset is in the canonical chain
             if require_canonical {
                 // walk up the current chain (our head) until we reach ts.epoch()
@@ -1216,11 +1211,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx
-            .chain_store
-            .get_tipset_key(&block_hash)?
-            .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
-        let ts = ctx.chain_store.chain_index.load_required_tipset(&tsk)?;
+        let ts = get_tipset_from_hash(&ctx.chain_store, &block_hash)?;
 
         let head = ctx.chain_store.heaviest_tipset();
         if ts.epoch() > head.epoch() {

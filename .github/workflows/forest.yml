@@ -44,7 +44,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Cargo Check
@@ -68,7 +68,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Cargo Install
@@ -88,7 +88,7 @@ jobs:
       - name: Checkout Sources
         uses: actions/checkout@v4
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.4
+        uses: mozilla-actions/sccache-action@v0.0.5
         timeout-minutes: '${{ fromJSON(env.CACHE_TIMEOUT_MINUTES) }}'
         continue-on-error: true
       - name: Install Apt Dependencies
