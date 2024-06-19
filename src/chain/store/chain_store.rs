@@ -4,14 +4,14 @@
 use std::sync::Arc;
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
-use crate::daemon::db_util::{delegated_tipset_messages, process_signed_messages};
+use crate::daemon::db_util::tipset_delegated_messages;
 use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
 use crate::networks::{ChainConfig, Height};
-use crate::rpc::eth;
+use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -173,9 +173,9 @@ where
             self.put_tipset_key(ts.key())?;
 
             let mut delegated_messages = vec![];
-            delegated_messages.append(&mut delegated_tipset_messages(self, ts)?);
+            delegated_messages.append(&mut tipset_delegated_messages(self.blockstore(), ts)?);
 
-            process_signed_messages(self, self.chain_config.eth_chain_id, &delegated_messages)?;
+            self.process_signed_messages(&delegated_messages)?;
         }
 
         // Expand tipset to include other compatible blocks at the epoch.
@@ -376,6 +376,65 @@ where
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
     }
+
+    /// Returns the `ChainConfig`.
+    pub fn chain_config(&self) -> &ChainConfig {
+        &self.chain_config
+    }
+
+    /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write them to the chain store.
+    pub fn process_signed_messages(&self, messages: &[SignedMessage]) -> anyhow::Result<()>
+    where
+        DB: fvm_ipld_blockstore::Blockstore,
+    {
+        let eth_txs: Vec<(eth::Hash, Cid, usize)> = messages
+            .iter()
+            .enumerate()
+            .filter_map(|(i, smsg)| {
+                if let Ok(tx) =
+                    eth_tx_from_signed_eth_message(smsg, self.chain_config().eth_chain_id)
+                {
+                    if let Ok(hash) = tx.eth_hash() {
+                        // newest messages are the ones with lowest index
+                        Some((hash, smsg.cid().unwrap(), i))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let filtered = filter_lowest_index(eth_txs);
+        let num_entries = filtered.len();
+
+        // write back
+        for (k, v) in filtered.into_iter() {
+            self.put_mapping(k, v)?;
+        }
+        tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
+        Ok(())
+    }
+}
+
+fn filter_lowest_index(values: Vec<(eth::Hash, Cid, usize)>) -> Vec<(eth::Hash, Cid)> {
+    let map: HashMap<eth::Hash, (Cid, usize)> =
+        values
+            .into_iter()
+            .fold(HashMap::default(), |mut acc, (hash, cid, index)| {
+                acc.entry(hash)
+                    .and_modify(|&mut (_, ref mut min_index)| {
+                        if index < *min_index {
+                            *min_index = index;
+                        }
+                    })
+                    .or_insert((cid, index));
+                acc
+            });
+
+    map.into_iter()
+        .map(|(hash, (cid, _))| (hash, cid))
+        .collect()
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
