@@ -433,7 +433,7 @@ fn print_computed_state(snapshot: PathBuf, epoch: ChainEpoch, json: bool) -> any
         &MultiEngine::default(),
         tipset,
         if json {
-            Some(|ctx: &MessageCallbackCtx| {
+            Some(|ctx: MessageCallbackCtx<'_>| {
                 message_calls.push((
                     ctx.message.clone(),
                     ctx.apply_ret.clone(),

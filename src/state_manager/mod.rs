@@ -221,7 +221,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-pub const NO_CALLBACK: Option<fn(&MessageCallbackCtx) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(MessageCallbackCtx<'_>) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -581,7 +581,7 @@ where
         const REPLAY_HALT: &str = "replay_halt";
 
         let mut api_invoc_result = None;
-        let callback = |ctx: &MessageCallbackCtx| {
+        let callback = |ctx: MessageCallbackCtx<'_>| {
             match ctx.at {
                 CalledAt::Applied | CalledAt::Reward
                     if api_invoc_result.is_none() && ctx.cid == mcid =>
@@ -690,7 +690,7 @@ where
     pub async fn compute_tipset_state(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         let this = Arc::clone(self);
@@ -705,7 +705,7 @@ where
     pub fn compute_tipset_state_blocking(
         &self,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
@@ -1539,7 +1539,7 @@ pub fn apply_block_messages<DB>(
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-    mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+    mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
 ) -> Result<CidPair, anyhow::Error>
 where
