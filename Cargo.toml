@@ -45,20 +45,18 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "5"
 ethereum-types = "0.14"
-fil_actor_account_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_cron_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_datacap_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_init_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_interface = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_market_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_miner_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_power_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_reward_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_system_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actor_verifreg_state = { version = "14", git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
-fil_actors_shared = { version = "14", features = [
-  "json",
-], git = "https://github.com/ChainSafe/fil-actor-states", branch = "hm/bump-fvm-4" }
+fil_actor_account_state = { version = "14" }
+fil_actor_cron_state = { version = "14" }
+fil_actor_datacap_state = { version = "14" }
+fil_actor_init_state = { version = "14" }
+fil_actor_interface = { version = "14" }
+fil_actor_market_state = { version = "14" }
+fil_actor_miner_state = { version = "14" }
+fil_actor_power_state = { version = "14" }
+fil_actor_reward_state = { version = "14" }
+fil_actor_system_state = { version = "14" }
+fil_actor_verifreg_state = { version = "14" }
+fil_actors_shared = { version = "14", features = ["json"] }
 flume = "0.11"
 fs_extra = "1"
 futures = "0.3"
