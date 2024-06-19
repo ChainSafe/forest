@@ -31,6 +31,9 @@ use crate::rpc::eth::Hash;
 #[cfg(doc)]
 use crate::blocks::TipsetKey;
 
+#[cfg(doc)]
+use cid::Cid;
+
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
         fs::create_dir_all(forest_car_db_dir)?;
