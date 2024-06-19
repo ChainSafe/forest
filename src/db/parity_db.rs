@@ -321,7 +321,7 @@ impl GarbageCollectable for ParityDb {
     fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
         let mut set = HashSet::new();
 
-        // First iterate over all of the indexed entries.
+        // First iterate over all the indexed entries.
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
@@ -340,38 +340,28 @@ impl GarbageCollectable for ParityDb {
 
     fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
+        // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
+        // conversion with allocation.
+        let mut deref_vec = Vec::new();
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
 
             if keys.contains(&truncated_hash(cid.hash())) {
-                self.db
-                    .commit_changes([Self::dereference_operation(&cid)])
-                    .context("error remove")?
+                deref_vec.push(Self::dereference_operation(&cid));
             }
         }
-
-        // An unfortunate consequence of having to use `iter_column_while`.
-        let mut result = Ok(());
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
                 if keys.contains(&truncated_hash(&hash)) {
                     let cid = Cid::new_v1(DAG_CBOR, hash);
-                    let res = self
-                        .db
-                        .commit_changes([Self::dereference_operation(&cid)])
-                        .context("error remove");
-
-                    if res.is_err() {
-                        result = res;
-                        return false;
-                    }
+                    deref_vec.push(Self::dereference_operation(&cid));
                 }
                 true
             })?;
 
-        result
+        self.db.commit_changes(deref_vec).context("error remove")
     }
 }
 
