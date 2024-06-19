@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::chain::block_messages;
+use crate::chain::{block_messages, ChainStore};
 use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
@@ -181,16 +181,23 @@ where
         if ts.epoch() < state_manager.chain_config().epoch(Height::Hygge) {
             break;
         }
-        delegated_messages.append(&mut delegated_tipset_messages(state_manager, &ts)?);
+        delegated_messages.append(&mut delegated_tipset_messages(
+            state_manager.chain_store(),
+            &ts,
+        )?);
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
-    process_signed_messages(state_manager, &delegated_messages)?;
+    process_signed_messages(
+        state_manager.chain_store(),
+        state_manager.chain_config().eth_chain_id,
+        &delegated_messages,
+    )?;
 
     Ok(())
 }
 
-fn delegated_tipset_messages<DB>(
-    state_manager: &StateManager<DB>,
+pub fn delegated_tipset_messages<DB>(
+    chain_store: &ChainStore<DB>,
     ts: &Tipset,
 ) -> anyhow::Result<Vec<SignedMessage>>
 where
@@ -199,7 +206,7 @@ where
     let mut delegated_messages = vec![];
 
     for bh in ts.block_headers() {
-        if let Ok((_, secp_cids)) = block_messages(&state_manager.blockstore(), bh) {
+        if let Ok((_, secp_cids)) = block_messages(chain_store.blockstore(), bh) {
             let mut messages = secp_cids
                 .into_iter()
                 .filter(|msg| msg.is_delegated())
@@ -212,15 +219,14 @@ where
 }
 
 /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write them to the chain store.
-fn process_signed_messages<DB>(
-    state_manager: &StateManager<DB>,
+pub fn process_signed_messages<DB>(
+    chain_store: &ChainStore<DB>,
+    eth_chain_id: u32,
     messages: &[SignedMessage],
 ) -> anyhow::Result<()>
 where
     DB: fvm_ipld_blockstore::Blockstore,
 {
-    let eth_chain_id = state_manager.chain_config().eth_chain_id;
-
     let eth_txs: Vec<(eth::Hash, Cid, usize)> = messages
         .iter()
         .enumerate()
@@ -238,11 +244,13 @@ where
         })
         .collect();
     let filtered = filter_lowest_index(eth_txs);
+    let num_entries = filtered.len();
 
     // write back
     for (k, v) in filtered.into_iter() {
-        state_manager.chain_store().put_mapping(k, v)?;
+        chain_store.put_mapping(k, v)?;
     }
+    tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
     Ok(())
 }
 

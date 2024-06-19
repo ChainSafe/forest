@@ -4,12 +4,13 @@
 use std::sync::Arc;
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
+use crate::daemon::db_util::{delegated_tipset_messages, process_signed_messages};
 use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::networks::ChainConfig;
+use crate::networks::{ChainConfig, Height};
 use crate::rpc::eth;
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
@@ -78,6 +79,9 @@ pub struct ChainStore<DB> {
 
     /// Ethereum mappings store
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
+
+    /// Needed by the Ethereum mapping.
+    chain_config: Arc<ChainConfig>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -131,12 +135,13 @@ where
         let cs = Self {
             publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             settings,
             genesis_block_header,
             validated_blocks,
             eth_mappings,
+            chain_config,
         };
 
         Ok(cs)
@@ -162,7 +167,16 @@ where
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.block_headers().iter())?;
 
-        self.put_tipset_key(ts.key())?;
+        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+        // Before this height, no notion of an Ethereum-like API existed.
+        if ts.epoch() >= self.chain_config.epoch(Height::Hygge) {
+            self.put_tipset_key(ts.key())?;
+
+            let mut delegated_messages = vec![];
+            delegated_messages.append(&mut delegated_tipset_messages(self, ts)?);
+
+            process_signed_messages(self, self.chain_config.eth_chain_id, &delegated_messages)?;
+        }
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
