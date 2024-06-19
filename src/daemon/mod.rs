@@ -264,20 +264,19 @@ pub(super) async fn start(
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
     }
 
-    {
+    if let Some(ttl) = config.client.eth_mapping_ttl {
         let chain_store = chain_store.clone();
         let chain_config = chain_config.clone();
         services.spawn(async move {
             tracing::info!("Starting GC for eth_mappings");
 
-            const TTL: Duration = std::time::Duration::from_secs(24 * 3600);
-
+            let duration = Some(std::time::Duration::from_secs(ttl.into()));
             loop {
                 tokio::time::sleep(Duration::from_secs(30)).await;
 
                 // First, get all transactions hashes older than ttl.
                 let mut hashes = Vec::new();
-                for cid in chain_store.db.get_message_cids(Some(TTL))? {
+                for cid in chain_store.db.get_message_cids(duration)? {
                     let message = crate::chain::get_chain_message(chain_store.db.as_ref(), &cid);
                     if let Ok(ChainMessage::Signed(smsg)) = message {
                         let tx = eth_tx_from_signed_eth_message(&smsg, chain_config.eth_chain_id)?;
@@ -288,7 +287,10 @@ pub(super) async fn start(
                 let count = hashes.len();
                 chain_store.db.delete(hashes)?;
 
-                tracing::debug!("Found and deleted {count} entries older than {:?}", TTL);
+                tracing::debug!(
+                    "Found and deleted {count} entries older than {:?}",
+                    duration
+                );
             }
         });
     }
