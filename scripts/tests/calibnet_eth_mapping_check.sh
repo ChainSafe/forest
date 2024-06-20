@@ -19,7 +19,7 @@ EPOCH=$((HEAD_EPOCH - 1))
 ETH_BLOCK_HASHES=()
 ETH_TX_HASHES=()
 
-for i in {0..200}; do
+for _ in {0..200}; do
   EPOCH_HEX=$(printf "0x%x" $EPOCH)
   #echo "$EPOCH_HEX"
   JSON=$(curl -s -X POST 'http://127.0.0.1:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetBlockByNumber\",\"params\":[\"$EPOCH_HEX\", false]}")
@@ -41,8 +41,8 @@ for i in {0..200}; do
 done
 
 
-echo "ETH_BLOCK_HASHES: ${ETH_BLOCK_HASHES[@]}"
-echo "\nETH_TX_HASHES: ${ETH_TX_HASHES[@]}"
+# echo "ETH_BLOCK_HASHES: ${ETH_BLOCK_HASHES[@]}"
+# echo "ETH_TX_HASHES: ${ETH_TX_HASHES[@]}"
 
 echo "Use hashes to call Filecoin.EthGetBlockByHash and Filecoin.EthGetMessageCidByTransactionHash"
 
