@@ -144,7 +144,7 @@ pub struct ActorTrace {
 
 lotus_json_with_self!(ActorTrace);
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct ReturnTrace {
     pub exit_code: ExitCode,
@@ -155,6 +155,14 @@ pub struct ReturnTrace {
 }
 
 lotus_json_with_self!(ReturnTrace);
+
+// TODO(forest): https://github.com/ChainSafe/forest/issues/4432
+// remove this manual implementation once fvm@4 are upgraded in both forest and lotus
+impl PartialEq for ReturnTrace {
+    fn eq(&self, other: &Self) -> bool {
+        self.r#return.eq(&other.r#return) && self.return_codec.eq(&other.return_codec)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
