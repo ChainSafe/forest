@@ -1,12 +1,16 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+mod types;
+use types::*;
+
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey};
 use crate::chain::index::ResolveNullTipset;
 use crate::chain::{ChainStore, HeadChange};
 use crate::cid_collections::CidHashSet;
+use crate::ipld::DfsIter;
 #[cfg(test)]
 use crate::lotus_json::{assert_all_snapshots, assert_unchanged_via_json};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson, LotusJson};
@@ -26,11 +30,13 @@ use fvm_ipld_encoding::{CborStore, RawBytes};
 use hex::ToHex;
 use jsonrpsee::types::error::ErrorObjectOwned;
 use jsonrpsee::types::Params;
+use libipld::Ipld;
 use num::BigInt;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{
@@ -266,6 +272,60 @@ impl RpcMethod<1> for ChainHasObj {
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
+    }
+}
+
+/// Returns statistics about the graph referenced by 'obj'.
+/// If 'base' is also specified, then the returned stat will be a diff between the two objects.
+pub enum ChainStatObj {}
+impl RpcMethod<2> for ChainStatObj {
+    const NAME: &'static str = "Filecoin.ChainStatObj";
+    const PARAM_NAMES: [&'static str; 2] = ["obj_cid", "base_cid"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid, Option<Cid>);
+    type Ok = ObjStat;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (obj_cid, base_cid): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let mut stats = ObjStat::default();
+        let mut seen = CidHashSet::default();
+        let mut walk = |cid, collect| {
+            let mut queue = VecDeque::new();
+            queue.push_back(cid);
+            while let Some(link_cid) = queue.pop_front() {
+                if !seen.insert(link_cid) {
+                    continue;
+                }
+                let data = ctx.store().get(&link_cid)?;
+                if let Some(data) = data {
+                    if collect {
+                        stats.links += 1;
+                        stats.size += data.len();
+                    }
+                    if matches!(link_cid.codec(), fvm_ipld_encoding::DAG_CBOR) {
+                        if let Ok(ipld) =
+                            crate::utils::encoding::from_slice_with_fallback::<Ipld>(&data)
+                        {
+                            for ipld in DfsIter::new(ipld) {
+                                if let Ipld::Link(cid) = ipld {
+                                    queue.push_back(cid);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            anyhow::Ok(())
+        };
+        if let Some(base_cid) = base_cid {
+            walk(base_cid, false)?;
+        }
+        walk(obj_cid, true)?;
+        Ok(stats)
     }
 }
 

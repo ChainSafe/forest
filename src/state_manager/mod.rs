@@ -221,7 +221,7 @@ pub struct StateManager<DB> {
 }
 
 #[allow(clippy::type_complexity)]
-pub const NO_CALLBACK: Option<fn(&MessageCallbackCtx) -> anyhow::Result<()>> = None;
+pub const NO_CALLBACK: Option<fn(MessageCallbackCtx<'_>) -> anyhow::Result<()>> = None;
 
 impl<DB> StateManager<DB>
 where
@@ -563,51 +563,53 @@ where
     /// indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay(
         self: &Arc<Self>,
-        ts: &Arc<Tipset>,
+        ts: Arc<Tipset>,
         mcid: Cid,
     ) -> Result<ApiInvocResult, Error> {
-        const ERROR_MSG: &str = "replay_halt";
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid))
+            .await
+            .map_err(|e| Error::Other(format!("{e}")))?
+    }
 
-        // This isn't ideal to have, since the execution is synchronous, but this needs
-        // to be the case because the state transition has to be in blocking
-        // thread to avoid starving executor
-        let (tx, rx) = flume::bounded(1);
-        let callback = move |ctx: &MessageCallbackCtx| {
+    /// Blocking version of `replay`
+    pub fn replay_blocking(
+        self: &Arc<Self>,
+        ts: Arc<Tipset>,
+        mcid: Cid,
+    ) -> Result<ApiInvocResult, Error> {
+        const REPLAY_HALT: &str = "replay_halt";
+
+        let mut api_invoc_result = None;
+        let callback = |ctx: MessageCallbackCtx<'_>| {
             match ctx.at {
-                CalledAt::Applied | CalledAt::Reward => {
-                    if ctx.cid == mcid {
-                        tx.send(ApiInvocResult {
-                            msg_cid: ctx.message.cid()?,
-                            msg: ctx.message.message().clone(),
-                            msg_rct: Some(ctx.apply_ret.msg_receipt()),
-                            error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                            duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
-                            gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
-                            execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
-                                .unwrap_or_default(),
-                        })?;
-                        anyhow::bail!(ERROR_MSG);
-                    }
-                    Ok(())
+                CalledAt::Applied | CalledAt::Reward
+                    if api_invoc_result.is_none() && ctx.cid == mcid =>
+                {
+                    api_invoc_result = Some(ApiInvocResult {
+                        msg_cid: ctx.message.cid()?,
+                        msg: ctx.message.message().clone(),
+                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                        duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                            .unwrap_or_default(),
+                    });
+                    anyhow::bail!(REPLAY_HALT);
                 }
-                CalledAt::Cron => Ok(()), // ignored
+                _ => Ok(()), // ignored
             }
         };
-        let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::Traced)
-            .await;
-
+        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
         if let Err(error_message) = result {
-            if error_message.to_string() != ERROR_MSG {
+            if error_message.to_string() != REPLAY_HALT {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {error_message:}"
                 )));
             }
         }
-
-        // Use try_recv here assuming callback execution is synchronous
-        rx.try_recv()
-            .map_err(|err| Error::Other(format!("failed to replay: {err}")))
+        api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -688,7 +690,7 @@ where
     pub async fn compute_tipset_state(
         self: &Arc<Self>,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         let this = Arc::clone(self);
@@ -703,7 +705,7 @@ where
     pub fn compute_tipset_state_blocking(
         &self,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()> + Send + 'static>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
@@ -1537,7 +1539,7 @@ pub fn apply_block_messages<DB>(
     beacon: Arc<BeaconSchedule>,
     engine: &crate::shim::machine::MultiEngine,
     tipset: Arc<Tipset>,
-    mut callback: Option<impl FnMut(&MessageCallbackCtx) -> anyhow::Result<()>>,
+    mut callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
     enable_tracing: VMTrace,
 ) -> Result<CidPair, anyhow::Error>
 where
