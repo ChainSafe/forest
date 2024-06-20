@@ -285,7 +285,7 @@ jobs:
   calibnet-eth-mapping-check:
     needs:
       - build-ubuntu
-    name: Calibnet stateless mode check
+    name: Calibnet eth mapping check
     runs-on: ubuntu-latest
     steps:
       - run: lscpu
