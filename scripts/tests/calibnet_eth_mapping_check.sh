@@ -10,7 +10,7 @@ forest_init
 
 echo "First get Ethereum block hashes and transactions hashes (e.g. 200)"
 
-OUTPUT=$(FOREST_CLI_PATH info show)
+OUTPUT=$($FOREST_CLI_PATH info show)
 
 HEAD_EPOCH=$(echo "$OUTPUT" | sed -n 's/.*epoch: \([0-9]*\).*/\1/p')
 EPOCH=$((HEAD_EPOCH - 1))
