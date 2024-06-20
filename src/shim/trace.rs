@@ -107,7 +107,10 @@ impl From<E3> for ExecutionEvent {
                 data: Either::Right(data),
             }),
             E3::CallError(err) => EShim::CallError(err.into()),
-            E3::InvokeActor(cid) => EShim::InvokeActor(Either::Left(cid)),
+            E3::InvokeActor { id, state } => EShim::InvokeActor(Either::Right(InvokeActor {
+                id,
+                state: state.into(),
+            })),
             e => EShim::Unknown(Either::Left(e)),
         }
     }
