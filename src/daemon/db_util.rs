@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::chain::block_messages;
 use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
-use crate::message::SignedMessage;
 use crate::networks::Height;
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
@@ -181,10 +179,11 @@ where
         if ts.epoch() < state_manager.chain_config().epoch(Height::Hygge) {
             break;
         }
-        delegated_messages.append(&mut tipset_delegated_messages(
-            state_manager.chain_store().blockstore(),
-            &ts,
-        )?);
+        delegated_messages.append(
+            &mut state_manager
+                .chain_store()
+                .headers_delegated_messages(ts.block_headers().iter())?,
+        );
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
     state_manager
@@ -192,25 +191,6 @@ where
         .process_signed_messages(&delegated_messages)?;
 
     Ok(())
-}
-
-pub fn tipset_delegated_messages<DB>(db: &DB, ts: &Tipset) -> anyhow::Result<Vec<SignedMessage>>
-where
-    DB: fvm_ipld_blockstore::Blockstore,
-{
-    let mut delegated_messages = vec![];
-
-    for bh in ts.block_headers() {
-        if let Ok((_, secp_cids)) = block_messages(db, bh) {
-            let mut messages = secp_cids
-                .into_iter()
-                .filter(|msg| msg.is_delegated())
-                .collect();
-            delegated_messages.append(&mut messages);
-        }
-    }
-
-    Ok(delegated_messages)
 }
 
 #[cfg(test)]

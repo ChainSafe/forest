@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use crate::blocks::{CachingBlockHeader, Tipset, TipsetKey, TxMeta};
-use crate::daemon::db_util::tipset_delegated_messages;
 use crate::fil_cns;
 use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
@@ -166,17 +165,6 @@ where
     /// with other compatible tracked headers.
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.block_headers().iter())?;
-
-        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
-        // Before this height, no notion of an Ethereum-like API existed.
-        if ts.epoch() >= self.chain_config.epoch(Height::Hygge) {
-            self.put_tipset_key(ts.key())?;
-
-            let mut delegated_messages = vec![];
-            delegated_messages.append(&mut tipset_delegated_messages(self.blockstore(), ts)?);
-
-            self.process_signed_messages(&delegated_messages)?;
-        }
 
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
@@ -382,7 +370,7 @@ where
         &self.chain_config
     }
 
-    /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write them to the chain store.
+    /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
     pub fn process_signed_messages(&self, messages: &[SignedMessage]) -> anyhow::Result<()>
     where
         DB: fvm_ipld_blockstore::Blockstore,
@@ -414,6 +402,33 @@ where
         }
         tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
         Ok(())
+    }
+
+    pub fn headers_delegated_messages<'a>(
+        &self,
+        headers: impl Iterator<Item = &'a CachingBlockHeader>,
+    ) -> anyhow::Result<Vec<SignedMessage>>
+    where
+        DB: fvm_ipld_blockstore::Blockstore,
+    {
+        let mut delegated_messages = vec![];
+
+        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+        // Before this height, no notion of an Ethereum-like API existed.
+        let filtered_headers =
+            headers.filter(|bh| bh.epoch >= self.chain_config().epoch(Height::Hygge));
+
+        for bh in filtered_headers {
+            if let Ok((_, secp_cids)) = block_messages(self.blockstore(), bh) {
+                let mut messages: Vec<_> = secp_cids
+                    .into_iter()
+                    .filter(|msg| msg.is_delegated())
+                    .collect();
+                delegated_messages.append(&mut messages);
+            }
+        }
+
+        Ok(delegated_messages)
     }
 }
 
@@ -497,6 +512,22 @@ where
     for chunk in &headers.chunks(256) {
         db.bulk_put(chunk, DB::default_code())?;
     }
+    Ok(())
+}
+
+pub fn persist_delegated_messages<'a, DB>(
+    chain_store: &ChainStore<DB>,
+    headers: impl Iterator<Item = &'a CachingBlockHeader>,
+) -> Result<(), Error>
+where
+    DB: Blockstore,
+{
+    tracing::debug!("persist eth mapping");
+
+    // The messages will be ordered from most recent block to less recent
+    let delegated_messages = chain_store.headers_delegated_messages(headers)?;
+
+    chain_store.process_signed_messages(&delegated_messages)?;
     Ok(())
 }
 
