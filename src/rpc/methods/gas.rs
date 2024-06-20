@@ -174,7 +174,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_gas_limit(&ctx, msg, tsk).await
+        estimate_gas_limit(&ctx, msg, &tsk).await
     }
 }
 
@@ -200,7 +200,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
 async fn estimate_gas_limit<DB>(
     data: &Ctx<DB>,
     msg: Message,
-    ApiTipsetKey(tsk): ApiTipsetKey,
+    ApiTipsetKey(tsk): &ApiTipsetKey,
 ) -> Result<i64, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -213,7 +213,7 @@ where
     let curr_ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+        .load_required_tipset_or_heaviest(tsk)?;
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)
@@ -268,7 +268,7 @@ where
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {
-        let gl = estimate_gas_limit::<DB>(data, msg.clone(), tsk.clone()).await?;
+        let gl = estimate_gas_limit::<DB>(data, msg.clone(), &tsk).await?;
         let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }
