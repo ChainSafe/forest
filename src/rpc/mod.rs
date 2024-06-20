@@ -465,6 +465,7 @@ where
     module
 }
 
+/// If `include` is not [`None`], only methods that are listed will be returned
 pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::gen::{SchemaGenerator, SchemaSettings};
     let mut methods = vec![];
