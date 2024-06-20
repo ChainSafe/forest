@@ -2,7 +2,7 @@
 # This script is checking the correctness of the ethereum mapping feature
 # It requires both the `forest` and `forest-cli` binaries to be in the PATH.
 
-set -eu
+set -eux
 
 source "$(dirname "$0")/harness.sh"
 
@@ -10,7 +10,7 @@ forest_init
 
 echo "First get Ethereum block hashes and transactions hashes (e.g. 200)"
 
-OUTPUT=$(./target/release/forest-cli info show)
+OUTPUT=$(FOREST_CLI_PATH info show)
 
 HEAD_EPOCH=$(echo "$OUTPUT" | sed -n 's/.*epoch: \([0-9]*\).*/\1/p')
 EPOCH=$((HEAD_EPOCH - 1))
