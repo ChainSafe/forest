@@ -1582,7 +1582,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
                 .get_precommitted_sector(ctx.store(), sector_number)?
                 .map(SectorPreCommitOnChainInfo::from),
         }
-        .context("SectorPreCommitOnChainInfo not found")?)
+        .context("precommit info does not exist")?)
     }
 }
 

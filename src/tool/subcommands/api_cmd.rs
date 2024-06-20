@@ -307,12 +307,18 @@ impl From<&RpcTest> for RpcTestHashable {
     }
 }
 
+enum PolicyOnRejected {
+    Fail,
+    Pass,
+    PassWithIdenticalError,
+}
+
 struct RpcTest {
     request: rpc::Request,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
-    pass_on_rejected: bool,
+    policy_on_rejected: PolicyOnRejected,
 }
 
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
@@ -340,7 +346,7 @@ impl RpcTest {
             }),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
-            pass_on_rejected: false,
+            policy_on_rejected: PolicyOnRejected::Fail,
         }
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
@@ -385,7 +391,7 @@ impl RpcTest {
                 }
             }),
             ignore: None,
-            pass_on_rejected: false,
+            policy_on_rejected: PolicyOnRejected::Fail,
         }
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
@@ -399,8 +405,8 @@ impl RpcTest {
         self
     }
 
-    fn pass_on_rejected(mut self, flag: bool) -> Self {
-        self.pass_on_rejected = flag;
+    fn policy_on_rejected(mut self, policy: PolicyOnRejected) -> Self {
+        self.policy_on_rejected = policy;
         self
     }
 
@@ -758,6 +764,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .into(),))?),
         RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
         RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
+        RpcTest::identity(StateSectorPreCommitInfo::request((
+            Default::default(), // invalid address
+            u64::MAX,
+            tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::Pass),
     ];
 
     // Get deals
@@ -849,6 +861,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateSectorPreCommitInfo::request((
+                block.miner_address,
+                u64::MAX, // invalid sector number
+                tipset.key().into(),
+            ))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         ]);
         for claim_id in StateGetClaims::get_claims(store, &block.miner_address, tipset)?
             .keys()
@@ -902,7 +920,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     sector,
                     tipset.key().into(),
                 ))?)
-                .pass_on_rejected(true),
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
                 RpcTest::identity(StateSectorPartition::request((
                     block.miner_address,
                     sector,
@@ -1509,10 +1527,14 @@ async fn run_tests(
         let success = match (&forest_status, &lotus_status) {
             (TestSummary::Valid, TestSummary::Valid)
             | (TestSummary::Timeout, TestSummary::Timeout) => true,
-            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus))
-                if test.pass_on_rejected && reason_forest == reason_lotus =>
-            {
-                true
+            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus)) => {
+                match test.policy_on_rejected {
+                    PolicyOnRejected::Pass => true,
+                    PolicyOnRejected::PassWithIdenticalError if reason_forest == reason_lotus => {
+                        true
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         };
