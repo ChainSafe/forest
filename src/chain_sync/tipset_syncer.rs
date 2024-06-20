@@ -761,6 +761,11 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         return Err(why.into());
     };
 
+    // Persist tipset keys
+    for ts in parent_tipsets.iter() {
+        chain_store.put_tipset_key(ts.key())?;
+    }
+
     // Sync and validate messages from the tipsets
     tracker.write().set_stage(SyncStage::Messages);
     if let Err(why) = sync_messages_check_state(
