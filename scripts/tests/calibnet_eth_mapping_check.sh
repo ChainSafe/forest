@@ -8,7 +8,7 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init
 
-NUM_TIPSETS=200
+NUM_TIPSETS=600
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
 
