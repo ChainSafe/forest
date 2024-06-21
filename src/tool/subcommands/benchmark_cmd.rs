@@ -211,7 +211,7 @@ async fn benchmark_sim_gc_sweep(input: Vec<PathBuf>) -> anyhow::Result<()> {
     info!("finished populating temp db");
 
     info!("removing keys");
-    let _ = temp_db.remove_keys(HashSet::new())?;
+    temp_db.remove_keys(HashSet::new())?;
     info!("finished removing keys");
 
     Ok(())
