@@ -10,6 +10,7 @@ use fvm_ipld_encoding::RawBytes;
 #[serde(rename_all = "PascalCase")]
 #[schemars(rename = "Message")]
 pub struct MessageLotusJson {
+    #[serde(default)]
     version: u64,
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
@@ -17,17 +18,20 @@ pub struct MessageLotusJson {
     #[schemars(with = "LotusJson<Address>")]
     #[serde(with = "crate::lotus_json")]
     from: Address,
+    #[serde(default)]
     nonce: u64,
     #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", default)]
     value: TokenAmount,
+    #[serde(default)]
     gas_limit: u64,
     #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", default)]
     gas_fee_cap: TokenAmount,
     #[schemars(with = "LotusJson<TokenAmount>")]
-    #[serde(with = "crate::lotus_json")]
+    #[serde(with = "crate::lotus_json", default)]
     gas_premium: TokenAmount,
+    #[serde(default)]
     method: u64,
     #[schemars(with = "LotusJson<Option<RawBytes>>")]
     #[serde(
