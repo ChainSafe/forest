@@ -46,20 +46,27 @@ done
 # echo "ETH_BLOCK_HASHES: ${ETH_BLOCK_HASHES[@]}"
 # echo "ETH_TX_HASHES: ${ETH_TX_HASHES[@]}"
 
-echo "Use hashes to call Filecoin.EthGetBlockByHash and Filecoin.EthGetMessageCidByTransactionHash"
+ERROR=0
+echo "Testing Ethereum mapping"
 
 for hash in "${ETH_BLOCK_HASHES[@]}"; do
-  JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetBlockByHash\",\"params\":[\"$hash\", false]}")
-  #echo "$JSON"
-done
-
-ERROR=0
-for hash in "${ETH_TX_HASHES[@]}"; do
-  JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetMessageCidByTransactionHash\",\"params\":[\"$hash\"]}")
+  JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetBalance\",\"params\":[\"0xff38c072f286e3b20b3954ca9f99c05fbecc64aa\", \"$hash\"]}")
+  # echo "$JSON"
   if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
     echo "Missing result for hash $hash"
     ERROR=1
   fi
 done
+
+for hash in "${ETH_TX_HASHES[@]}"; do
+  JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetMessageCidByTransactionHash\",\"params\":[\"$hash\"]}")
+  # echo "$JSON"
+  if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
+    echo "Missing result for hash $hash"
+    ERROR=1
+  fi
+done
+
+echo "Done"
 
 exit $ERROR
