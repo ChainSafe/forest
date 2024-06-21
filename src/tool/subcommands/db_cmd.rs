@@ -5,10 +5,8 @@ use std::path::PathBuf;
 
 use crate::cli::subcommands::prompt_confirm;
 use crate::cli_shared::{chain_path, read_config};
-use crate::db::car::ForestCar;
 use crate::db::db_engine::db_root;
 use crate::networks::NetworkChain;
-use crate::utils::db::car_stream::CarStream;
 use clap::Subcommand;
 use tracing::error;
 

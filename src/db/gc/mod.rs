@@ -94,7 +94,7 @@ const SETTINGS_KEY: &str = "LAST_GC_RUN";
 /// taking care of the latter.
 pub struct MarkAndSweep<DB> {
     db: Arc<DB>,
-    get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
+    get_heaviest_tipset: Box<dyn FnMut() -> Arc<Tipset> + Send>,
     marked: HashSet<u32>,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
@@ -112,7 +112,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static
     /// * `block_time` - An average block production time.
     pub fn new(
         db: Arc<DB>,
-        get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
+        get_heaviest_tipset: Box<dyn FnMut() -> Arc<Tipset> + Send>,
         depth: ChainEpochDelta,
         block_time: Duration,
     ) -> Self {
@@ -185,9 +185,16 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static
         Ok(epoch)
     }
 
-    // This function yields to the main GC loop if the conditions are not met for execution of the
-    // next step.
-    async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
+    /// This function yields to the main GC loop if the conditions are not met for execution of the
+    /// next step.
+    ///
+    /// # Arguments
+    ///
+    /// * `interval` - GC Interval to avoid constantly consuming node's resources.
+    ///
+    /// Note: This function is exposed to allow for more fine-grained control over the GC loop and
+    /// better testability.
+    pub async fn gc_workflow(&mut self, interval: Duration) -> anyhow::Result<()> {
         let depth = self.depth;
         let tipset = (self.get_heaviest_tipset)();
         let current_epoch = tipset.epoch();
@@ -302,7 +309,7 @@ mod test {
             insert_unreachable(&self.db, block_number as u64);
         }
 
-        fn get_heaviest_tipset_fn(&self) -> Box<dyn Fn() -> Arc<Tipset> + Send> {
+        fn get_heaviest_tipset_fn(&self) -> Box<dyn FnMut() -> Arc<Tipset> + Send> {
             let store = self.store.clone();
             Box::new(move || store.heaviest_tipset())
         }

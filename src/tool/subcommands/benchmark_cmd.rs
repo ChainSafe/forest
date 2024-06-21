@@ -8,7 +8,9 @@ use crate::chain::{
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
 use crate::db::{GarbageCollectable, MarkAndSweep};
+use crate::genesis::read_genesis_header;
 use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
+use crate::networks::ChainConfig;
 use crate::shim::clock::ChainEpoch;
 use crate::utils::db::car_stream::{CarBlock, CarStream};
 use crate::utils::encoding::extract_cids;
@@ -47,6 +49,8 @@ pub enum BenchmarkCommands {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
+        /// Run a simulated GC sweep step, directly calling `db.remove_keys()`.\
+        simulated_sweep: bool,
     },
     /// Depth-first traversal of the Filecoin graph
     GraphTraversal {
@@ -121,16 +125,25 @@ impl BenchmarkCommands {
                 benchmark_exporting(snapshot_files, compression_level, frame_size, epoch, depth)
                     .await
             }
-            Self::GC { snapshot_files } => benchmark_gc_sweep(snapshot_files).await,
+            Self::GC {
+                snapshot_files,
+                simulated_sweep,
+            } => match simulated_sweep {
+                true => benchmark_sim_gc_sweep(snapshot_files).await,
+                false => benchmark_gc(snapshot_files).await,
+            },
         }
     }
 }
 
-// Load a set of CAR files into ParityDB and see how long it takes to run the simulated GC sweep.
-async fn benchmark_gc_sweep(input: Vec<PathBuf>) -> anyhow::Result<()> {
+// Load a set of CAR files into ParityDB and run GC.
+async fn benchmark_gc(input: Vec<PathBuf>) -> anyhow::Result<()> {
     use crate::db::db_utils::parity::TempParityDB;
+    let mut sink = indicatif_sink("populated");
 
     let temp_db = Arc::new(TempParityDB::new());
+    let db = temp_db.arc();
+
     let mut s = Box::pin(
         futures::stream::iter(input)
             .then(File::open)
@@ -141,6 +154,59 @@ async fn benchmark_gc_sweep(input: Vec<PathBuf>) -> anyhow::Result<()> {
     info!("populating temp db");
     while let Some(block) = s.try_next().await? {
         temp_db.put_keyed(&block.cid, &block.data)?;
+        sink.write_all(&block.data).await?;
+    }
+    info!("finished populating temp db");
+
+    let config = Arc::new(ChainConfig::mainnet());
+    let genesis_header =
+        read_genesis_header(None, config.genesis_bytes(&db).await?.as_deref(), &db).await?;
+
+    let cs = ChainStore::new(
+        db.clone(),
+        db.clone(),
+        db.clone(),
+        config.clone(),
+        genesis_header,
+    )?;
+
+    let mut chain_arc = cs.heaviest_tipset().chain_arc(db.clone());
+    // Make sure we have enough garbage to collect.
+    let get_heaviest_tipset = Box::new(move || chain_arc.next().unwrap());
+    let depth = 0;
+    let interval = std::time::Duration::from_secs(0);
+
+    let mut gc = MarkAndSweep::new(db.clone(), get_heaviest_tipset, depth, interval);
+
+    info!("marking keys for deletion");
+    gc.gc_workflow(interval).await?;
+    info!("marked keys for deletion");
+
+    info!("filter and sweep");
+    gc.gc_workflow(interval).await?;
+    info!("finished filter and sweep");
+
+    Ok(())
+}
+
+// Load a set of CAR files into ParityDB and see how long it takes to run the simulated GC sweep.
+async fn benchmark_sim_gc_sweep(input: Vec<PathBuf>) -> anyhow::Result<()> {
+    let mut sink = indicatif_sink("populated");
+    use crate::db::db_utils::parity::TempParityDB;
+
+    let temp_db = Arc::new(TempParityDB::new());
+    let mut s = Box::pin(
+        futures::stream::iter(input)
+            .then(File::open)
+            .map_ok(BufReader::new)
+            .and_then(CarStream::new)
+            .try_flatten(),
+    );
+
+    info!("populating temp db");
+    while let Some(block) = s.try_next().await? {
+        temp_db.put_keyed(&block.cid, &block.data)?;
+        sink.write_all(&block.data).await?;
     }
     info!("finished populating temp db");
 
