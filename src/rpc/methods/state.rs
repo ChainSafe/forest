@@ -116,7 +116,7 @@ impl RpcMethod<2> for StateReplay {
             .state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-        Ok(state_manager.replay(&tipset, message_cid).await?)
+        Ok(state_manager.replay(tipset, message_cid).await?)
     }
 }
 
@@ -1582,7 +1582,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
                 .get_precommitted_sector(ctx.store(), sector_number)?
                 .map(SectorPreCommitOnChainInfo::from),
         }
-        .context("SectorPreCommitOnChainInfo not found")?)
+        .context("precommit info does not exist")?)
     }
 }
 

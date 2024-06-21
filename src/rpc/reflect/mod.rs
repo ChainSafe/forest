@@ -310,7 +310,7 @@ macro_rules! do_impls {
 
         impl<$($arg),*> Params<$arity> for ($($arg,)*)
         where
-            $($arg: HasLotusJson, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
+            $($arg: HasLotusJson + Clone, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
         {
             fn parse(
                 raw: Option<RequestParameters>,
