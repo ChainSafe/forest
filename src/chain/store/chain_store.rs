@@ -383,11 +383,6 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
-    /// Returns the `ChainConfig`.
-    pub fn chain_config(&self) -> &ChainConfig {
-        &self.chain_config
-    }
-
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
     pub fn process_signed_messages(&self, messages: &[SignedMessage]) -> anyhow::Result<()>
     where
@@ -397,8 +392,7 @@ where
             .iter()
             .enumerate()
             .filter_map(|(i, smsg)| {
-                if let Ok(tx) =
-                    eth_tx_from_signed_eth_message(smsg, self.chain_config().eth_chain_id)
+                if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
                 {
                     if let Ok(hash) = tx.eth_hash() {
                         // newest messages are the ones with lowest index
@@ -434,7 +428,7 @@ where
         // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
         // Before this height, no notion of an Ethereum-like API existed.
         let filtered_headers =
-            headers.filter(|bh| bh.epoch >= self.chain_config().epoch(Height::Hygge));
+            headers.filter(|bh| bh.epoch >= self.chain_config.epoch(Height::Hygge));
 
         for bh in filtered_headers {
             if let Ok((_, secp_cids)) = block_messages(self.blockstore(), bh) {
