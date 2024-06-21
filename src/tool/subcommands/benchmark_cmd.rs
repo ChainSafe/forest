@@ -7,7 +7,8 @@ use crate::chain::{
 };
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
-use crate::db::MarkAndSweep;
+use crate::db::db_utils::parity::TempParityDB;
+use crate::db::{GarbageCollectable, MarkAndSweep};
 use crate::genesis::read_genesis_header;
 use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
 use crate::networks::ChainConfig;
@@ -20,6 +21,7 @@ use anyhow::Context as _;
 use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
+use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
@@ -137,7 +139,6 @@ impl BenchmarkCommands {
 
 // Load a set of CAR files into ParityDB and run GC.
 async fn benchmark_gc(input: Vec<PathBuf>) -> anyhow::Result<()> {
-    use crate::db::db_utils::parity::TempParityDB;
     let mut sink = indicatif_sink("populated");
 
     let temp_db = Arc::new(TempParityDB::new());
@@ -152,7 +153,7 @@ async fn benchmark_gc(input: Vec<PathBuf>) -> anyhow::Result<()> {
     );
     info!("populating temp db");
     while let Some(block) = s.try_next().await? {
-        temp_db.put_keyed(&block.cid, &block.data)?;
+        db.put_keyed(&block.cid, &block.data)?;
         sink.write_all(&block.data).await?;
     }
     info!("finished populating temp db");
