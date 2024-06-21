@@ -7,7 +7,7 @@ use crate::chain::{
 };
 use crate::db::car::forest::DEFAULT_FOREST_CAR_FRAME_SIZE;
 use crate::db::car::ManyCar;
-use crate::db::{GarbageCollectable, MarkAndSweep};
+use crate::db::MarkAndSweep;
 use crate::genesis::read_genesis_header;
 use crate::ipld::{stream_chain, stream_graph, unordered_stream_graph};
 use crate::networks::ChainConfig;
@@ -20,7 +20,6 @@ use anyhow::Context as _;
 use cid::Cid;
 use clap::Subcommand;
 use futures::{StreamExt, TryStreamExt};
-use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::DAG_CBOR;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
