@@ -10,6 +10,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use crate::libp2p::chain_exchange::TipsetBundle;
 use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
@@ -23,7 +24,6 @@ use crate::{
     blocks::{Block, CachingBlockHeader, Error as ForestBlockError, FullTipset, Tipset, TipsetKey},
     fil_cns::{self, FilecoinConsensus, FilecoinConsensusError},
 };
-use crate::{chain::persist_delegated_messages, libp2p::chain_exchange::TipsetBundle};
 use crate::{
     chain::{persist_objects, ChainStore, Error as ChainStoreError},
     metrics::HistogramTimerExt,
@@ -786,7 +786,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
     };
 
     // Call only once messages persisted
-    persist_delegated_messages(&chain_store, headers.into_iter())?;
+    chain_store.put_delegated_message_hashes(headers.into_iter())?;
 
     // At this point the head is synced and it can be set in the store as the
     // heaviest
