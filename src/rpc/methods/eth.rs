@@ -9,7 +9,6 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
@@ -88,21 +87,23 @@ enum EVMMethod {
     InvokeContract = 3844450837,
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
+//                  use ethereum_types::U256 or use lotus_json::big_int
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
-pub struct BigInt(
-    #[schemars(with = "LotusJson<num_bigint::BigInt>")]
+pub struct EthBigInt(
     #[serde(with = "crate::lotus_json::hexify")]
+    #[schemars(with = "String")]
     pub num_bigint::BigInt,
 );
-lotus_json_with_self!(BigInt);
+lotus_json_with_self!(EthBigInt);
 
-impl From<TokenAmount> for BigInt {
+impl From<TokenAmount> for EthBigInt {
     fn from(amount: TokenAmount) -> Self {
         Self(amount.atto().to_owned())
     }
 }
 
-type GasPriceResult = BigInt;
+type GasPriceResult = EthBigInt;
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Nonce(
@@ -277,7 +278,7 @@ pub struct Block {
     pub extra_data: EthBytes,
     pub mix_hash: Hash,
     pub nonce: Nonce,
-    pub base_fee_per_gas: BigInt,
+    pub base_fee_per_gas: EthBigInt,
     pub size: Uint64,
     // can be Vec<Tx> or Vec<String> depending on query params
     pub transactions: Transactions,
@@ -319,18 +320,18 @@ pub struct Tx {
         default
     )]
     pub to: Option<EthAddress>,
-    pub value: BigInt,
+    pub value: EthBigInt,
     pub r#type: Uint64,
     pub input: EthBytes,
     pub gas: Uint64,
-    pub max_fee_per_gas: BigInt,
-    pub max_priority_fee_per_gas: BigInt,
+    pub max_fee_per_gas: EthBigInt,
+    pub max_priority_fee_per_gas: EthBigInt,
     #[schemars(with = "Option<Vec<Hash>>")]
     #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
-    pub v: BigInt,
-    pub r: BigInt,
-    pub s: BigInt,
+    pub v: EthBigInt,
+    pub r: EthBigInt,
+    pub s: EthBigInt,
 }
 
 impl Tx {
@@ -347,14 +348,14 @@ struct TxArgs {
     pub chain_id: u64,
     pub nonce: u64,
     pub to: Option<EthAddress>,
-    pub value: BigInt,
-    pub max_fee_per_gas: BigInt,
-    pub max_priority_fee_per_gas: BigInt,
+    pub value: EthBigInt,
+    pub max_fee_per_gas: EthBigInt,
+    pub max_priority_fee_per_gas: EthBigInt,
     pub gas_limit: u64,
     pub input: Vec<u8>,
-    pub v: BigInt,
-    pub r: BigInt,
-    pub s: BigInt,
+    pub v: EthBigInt,
+    pub r: EthBigInt,
+    pub s: EthBigInt,
 }
 
 impl From<Tx> for TxArgs {
@@ -389,7 +390,7 @@ fn format_u64(value: u64) -> BytesMut {
     }
 }
 
-fn format_bigint(value: &BigInt) -> Result<BytesMut> {
+fn format_bigint(value: &EthBigInt) -> Result<BytesMut> {
     Ok(if value.0.is_positive() {
         BytesMut::from_iter(value.0.to_bytes_be().1.iter())
     } else {
@@ -637,9 +638,9 @@ impl RpcMethod<0> for EthGasPrice {
         let base_fee = &block0.parent_base_fee;
         if let Ok(premium) = gas::estimate_gas_premium(&ctx, 10000).await {
             let gas_price = base_fee.add(premium);
-            Ok(BigInt(gas_price.atto().clone()))
+            Ok(EthBigInt(gas_price.atto().clone()))
         } else {
-            Ok(BigInt(num_bigint::BigInt::zero()))
+            Ok(EthBigInt(num_bigint::BigInt::zero()))
         }
     }
 }
@@ -652,7 +653,7 @@ impl RpcMethod<2> for EthGetBalance {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = BigInt;
+    type Ok = EthBigInt;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -663,7 +664,7 @@ impl RpcMethod<2> for EthGetBalance {
         let state =
             StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&fil_addr)?;
-        Ok(BigInt(actor.balance.atto().clone()))
+        Ok(EthBigInt(actor.balance.atto().clone()))
     }
 }
 
@@ -804,7 +805,7 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     })
 }
 
-fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
+fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
     if sig.signature_type() != SignatureType::Delegated {
         bail!("recover_sig only supports Delegated signature");
     }
@@ -829,7 +830,7 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
         sig.bytes().get(64..65).expect("failed to get slice"),
     );
 
-    Ok((BigInt(r), BigInt(s), BigInt(v)))
+    Ok((EthBigInt(r), EthBigInt(s), EthBigInt(v)))
 }
 
 /// `eth_tx_from_signed_eth_message` does NOT populate:
@@ -1448,10 +1449,10 @@ mod test {
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
-        let r = BigInt(i.into());
+        let r = EthBigInt(i.into());
         let encoded = serde_json::to_string(&r).unwrap();
         assert_eq!(encoded, format!("\"{i:#x}\""));
-        let decoded: BigInt = serde_json::from_str(&encoded).unwrap();
+        let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r.0, decoded.0);
     }
 
@@ -1503,19 +1504,19 @@ mod test {
                 ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
                     .unwrap(),
             )),
-            value: BigInt(num_bigint::BigInt::from(0)),
-            max_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000120)),
-            max_priority_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000000)),
+            value: EthBigInt(num_bigint::BigInt::from(0)),
+            max_fee_per_gas: EthBigInt(num_bigint::BigInt::from(1500000120)),
+            max_priority_fee_per_gas: EthBigInt(num_bigint::BigInt::from(1500000000)),
             gas_limit: 37442471,
             input: decode_hex("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap(),
-            v: BigInt(num_bigint::BigInt::from_str("1").unwrap()),
-            r: BigInt(
+            v: EthBigInt(num_bigint::BigInt::from_str("1").unwrap()),
+            r: EthBigInt(
                 num_bigint::BigInt::from_str(
                     "84103132941276310528712440865285269631208564772362393569572880532520338257200",
                 )
                 .unwrap(),
             ),
-            s: BigInt(
+            s: EthBigInt(
                 num_bigint::BigInt::from_str(
                     "7820796778417228639067439047870612492553874254089570360061550763595363987236",
                 )
@@ -1552,7 +1553,7 @@ mod test {
 
     #[quickcheck]
     fn bigint_roundtrip(bi: num_bigint::BigInt) {
-        let eth_bi = BigInt(bi.clone());
+        let eth_bi = EthBigInt(bi.clone());
 
         match format_bigint(&eth_bi) {
             Ok(bm) => {

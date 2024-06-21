@@ -468,7 +468,8 @@ where
     module
 }
 
-pub fn openrpc() -> openrpc_types::OpenRPC {
+/// If `include` is not [`None`], only methods that are listed will be returned
+pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::gen::{SchemaGenerator, SchemaSettings};
     let mut methods = vec![];
     // spec says draft07
@@ -478,10 +479,19 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                &mut gen,
-                ParamStructure::ByPosition,
-            )));
+            match include {
+                Some(include) => match include.contains(&<$ty>::NAME) {
+                    true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                        &mut gen,
+                        ParamStructure::ByPosition,
+                    ))),
+                    false => {}
+                },
+                None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                    &mut gen,
+                    ParamStructure::ByPosition,
+                ))),
+            }
         };
     }
     for_each_method!(callback);
@@ -514,7 +524,7 @@ mod tests {
     // `cargo insta review`
     #[test]
     fn openrpc() {
-        let _spec = super::openrpc();
+        let _spec = super::openrpc(None);
         // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
         //                  this is disabled because it causes lots of merge
         //                  conflicts.
