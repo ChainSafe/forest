@@ -50,7 +50,7 @@ pub enum BenchmarkCommands {
         /// Snapshot input files (`.car.`, `.car.zst`, `.forest.car.zst`)
         #[arg(required = true)]
         snapshot_files: Vec<PathBuf>,
-        /// Run a simulated GC sweep step, directly calling `db.remove_keys()`.\
+        /// Run a simulated GC sweep step, directly calling `db.remove_keys()`.
         simulated_sweep: bool,
     },
     /// Depth-first traversal of the Filecoin graph
