@@ -119,7 +119,7 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
   if [[ $(echo "$JSON" | jq -e '.result.transactions') != "null" ]]; then
     TRANSACTIONS=$(echo "$JSON" | jq -r '.result.transactions[]')
     TIMESTAMP=$(echo "$JSON" | jq -r '.result.timestamp')
-    TIMESTAMP=$(convert_hex_to_date $TIMESTAMP)
+    TIMESTAMP=$(convert_hex_to_date "$TIMESTAMP")
     echo "$TIMESTAMP:"
     for tx in $TRANSACTIONS; do
         ETH_TX_HASHES+=("$tx")
