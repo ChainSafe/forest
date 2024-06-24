@@ -1539,10 +1539,12 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     }
 }
 
-pub enum StateSectorPreCommitInfo {}
+pub enum StateSectorPreCommitInfoV0 {}
 
-impl RpcMethod<3> for StateSectorPreCommitInfo {
-    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
+impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
+    // point v0 implementation back to this one
+    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
@@ -1562,27 +1564,36 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        Ok(match state {
-            miner::State::V8(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V9(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V10(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V11(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V12(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V13(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-        }
-        .context("precommit info does not exist")?)
+        Ok(state
+            .load_precommit_on_chain_info(ctx.store(), sector_number)?
+            .context("precommit info does not exist")?)
+    }
+}
+
+pub enum StateSectorPreCommitInfo {}
+
+impl RpcMethod<3> for StateSectorPreCommitInfo {
+    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, u64, ApiTipsetKey);
+    type Ok = Option<SectorPreCommitOnChainInfo>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&miner_address, *ts.parent_state())?;
+        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(state.load_precommit_on_chain_info(ctx.store(), sector_number)?)
     }
 }
 
