@@ -79,11 +79,12 @@ forest_run_node_mapping_ttl_detached
 # if we retrieve Ethereum blocks of the last 20 tipsets and collect Ethereum txs hashes
 # we should be able to retrieve them using those hashes
 
-NUM_TIPSETS=20
+# We name NUM_TIPSETS - 2 tipsets to give us some slack
+NUM_TIPSETS=18
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
 
-OUTPUT=$(./target/release/forest-cli info show)
+OUTPUT=$($FOREST_CLI_PATH info show)
 
 HEAD_EPOCH=$(echo "$OUTPUT" | sed -n 's/.*epoch: \([0-9]*\).*/\1/p')
 EPOCH=$((HEAD_EPOCH - 1))
