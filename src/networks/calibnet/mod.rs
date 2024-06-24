@@ -72,7 +72,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Dragon, 1_427_974, get_bundle_cid("v13.0.0-rc.3")),
         make_height!(DragonFix, 1_493_854, get_bundle_cid("v13.0.0")),
         make_height!(Phoenix, 1_428_094),
-        make_height!(Waffle, 999999999999999),
+        // 2024-07-11 12:00:00Z
+        make_height!(Waffle, 1_779_094),
     ])
 });
 
