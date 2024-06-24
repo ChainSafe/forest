@@ -158,6 +158,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMarketDeals);
         $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!(crate::rpc::state::StateMarketStorageDeal);
+        $callback!(crate::rpc::state::StateWaitMsgV0);
         $callback!(crate::rpc::state::StateWaitMsg);
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
