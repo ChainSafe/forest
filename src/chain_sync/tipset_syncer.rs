@@ -944,6 +944,9 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         proposed_head.block_headers().iter(),
     )?;
 
+    // Persist tipset key
+    chain_store.put_tipset_key(proposed_head.key())?;
+
     // Sync and validate messages from the tipsets
     if let Err(e) = sync_messages_check_state(
         // Include a dummy WorkerState
