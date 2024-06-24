@@ -4,9 +4,11 @@
 
 # Convert an u64 hex timestamp to human-readable date
 convert_hex_to_date() {
-    local hex_timestamp=$1
-    local decimal_timestamp=$((hex_timestamp))
-    local hr_date=$(date -d @$decimal_timestamp)
+    local hex_timestamp="$1"
+    local decimal_timestamp
+    decimal_timestamp=$((hex_timestamp))
+    local hr_date
+    hr_date=$(date -d @"$decimal_timestamp")
 
     echo "$hr_date"
 }
