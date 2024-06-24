@@ -31,6 +31,7 @@
 
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
+
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
 
@@ -48,6 +49,9 @@
 
 - [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
   `EIP-1898` object scheme.
+
+- [#4443](https://github.com/ChainSafe/forest/issues/4443) Update
+  `Filecoin.StateSectorPreCommitInfo` RPC method to be API-V1-compatible
 
 ### Changed
 
