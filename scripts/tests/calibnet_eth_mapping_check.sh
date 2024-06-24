@@ -2,6 +2,15 @@
 # This script is checking the correctness of the ethereum mapping feature
 # It requires both the `forest` and `forest-cli` binaries to be in the PATH.
 
+# Convert an u64 hex timestamp to human-readable date
+convert_hex_to_date() {
+    local hex_timestamp=$1
+    local decimal_timestamp=$((hex_timestamp))
+    local hr_date=$(date -d @$decimal_timestamp)
+
+    echo "$hr_date"
+}
+
 set -eu
 
 source "$(dirname "$0")/harness.sh"
@@ -67,6 +76,11 @@ for hash in "${ETH_TX_HASHES[@]}"; do
   fi
 done
 
+echo "Done"
+if [[ $ERROR -ne 0 ]]; then
+  exit 1
+fi
+
 # We now shutdown forest and restart it with ttl for the Ethereum mapping enabled
 
 $FOREST_CLI_PATH shutdown --force
@@ -102,8 +116,12 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
 
   if [[ $(echo "$JSON" | jq -e '.result.transactions') != "null" ]]; then
     TRANSACTIONS=$(echo "$JSON" | jq -r '.result.transactions[]')
+    TIMESTAMP=$(echo "$JSON" | jq -r '.result.timestamp')
+    TIMESTAMP=$(convert_hex_to_date $TIMESTAMP)
+    echo "$TIMESTAMP:"
     for tx in $TRANSACTIONS; do
         ETH_TX_HASHES+=("$tx")
+        echo "$tx"
     done
   else
     echo "No transactions found for block hash: $EPOCH_HEX"
@@ -122,6 +140,10 @@ for hash in "${ETH_TX_HASHES[@]}"; do
     ERROR=1
   fi
 done
+
+if [[ $ERROR -ne 0 ]]; then
+  exit 1
+fi
 
 # TODO: modify tx timestamp to use block timestamp when we populate the eth_mapping column
 # This will make testing gc more easy
