@@ -135,7 +135,7 @@ pub enum Height {
     Dragon,
     DragonFix,
     Phoenix,
-    Aussie,
+    Waffle,
 }
 
 impl Default for Height {
@@ -176,7 +176,7 @@ impl From<Height> for NetworkVersion {
             Height::Dragon => NetworkVersion::V22,
             Height::DragonFix => NetworkVersion::V22,
             Height::Phoenix => NetworkVersion::V22,
-            Height::Aussie => NetworkVersion::V23,
+            Height::Waffle => NetworkVersion::V23,
         }
     }
 }
@@ -480,7 +480,7 @@ mod tests {
             Height::Watermelon,
             Height::Dragon,
             Height::Phoenix,
-            Height::Aussie,
+            Height::Waffle,
         ];
 
         for height in &REQUIRED_HEIGHTS {

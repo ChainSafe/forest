@@ -145,7 +145,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT").unwrap_or(i64::MAX)
         ),
         make_height!(
-            Aussie,
+            Waffle,
             get_upgrade_height_from_env("FOREST_AUSSIE_HEIGHT").unwrap_or(9999999999)
         ),
     ])

@@ -71,7 +71,7 @@ where
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
                 // TODO uncomment this! Add for other chains as needed!
-                // (Height::Aussie, nv23::run_migration::<DB>),
+                // (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
     };

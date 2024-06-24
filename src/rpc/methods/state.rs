@@ -2319,7 +2319,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_watermelon_height: get_height(Watermelon)?,
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
-            // upgrade_aussie_height: get_height(Aussie)?,
+            // upgrade_aussie_height: get_height(Waffle)?,
         })
     }
 }

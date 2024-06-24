@@ -105,7 +105,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
                 bundle: None,
             },
         ),
-        make_height!(Aussie, 9999999999),
+        make_height!(Waffle, 9999999999),
     ])
 });
 

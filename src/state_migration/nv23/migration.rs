@@ -32,7 +32,7 @@ impl<BS: Blockstore> StateMigration<BS> {
     ) -> anyhow::Result<()> {
         let upgrade_epoch = chain_config
             .height_infos
-            .get(&Height::Aussie)
+            .get(&Height::Waffle)
             .context("no height info for network version NV23")?
             .epoch;
 
