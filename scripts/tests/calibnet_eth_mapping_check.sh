@@ -79,8 +79,8 @@ forest_run_node_mapping_ttl_detached
 # if we retrieve Ethereum blocks of the last 20 tipsets and collect Ethereum txs hashes
 # we should be able to retrieve them using those hashes
 
-# We name NUM_TIPSETS - 2 tipsets to give us some slack
-NUM_TIPSETS=18
+# We take NUM_TIPSETS=(20 - 4) tipsets to give us enough slack
+NUM_TIPSETS=16
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
 
