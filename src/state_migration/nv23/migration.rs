@@ -28,14 +28,8 @@ impl<BS: Blockstore> StateMigration<BS> {
         store: &Arc<BS>,
         state: &Cid,
         new_manifest: &BuiltinActorManifest,
-        chain_config: &ChainConfig,
+        _chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
-        let upgrade_epoch = chain_config
-            .height_infos
-            .get(&Height::Waffle)
-            .context("no height info for network version NV23")?
-            .epoch;
-
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
         let system_actor = state_tree.get_required_actor(&Address::new_id(0))?;
         let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;

@@ -58,10 +58,12 @@ where
                 (Height::WatermelonFix2, nv21fix2::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
                 (Height::DragonFix, nv22fix::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
         NetworkChain::Butterflynet => {
             vec![(Height::Dragon, nv22::run_migration::<DB>)]
+            // TODO: test on Butterflynet
         }
         NetworkChain::Devnet(_) => {
             vec![
@@ -70,8 +72,7 @@ where
                 (Height::Lightning, nv19::run_migration::<DB>),
                 (Height::Watermelon, nv21::run_migration::<DB>),
                 (Height::Dragon, nv22::run_migration::<DB>),
-                // TODO uncomment this! Add for other chains as needed!
-                // (Height::Waffle, nv23::run_migration::<DB>),
+                (Height::Waffle, nv23::run_migration::<DB>),
             ]
         }
     };

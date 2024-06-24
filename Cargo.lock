@@ -2600,8 +2600,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "fil_actor_account_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df862fbc729aad096ca2d86b2e601f0f1271651da0ec628b2a8e87e571e9c6b0"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2616,8 +2615,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7975f05b356bb9427b9b9b29e2832e1e21a0b3fc939a8407f157d1bb29e13439"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.7.0",
@@ -2631,8 +2629,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55262d78bccdf947713e1b37c93b97742101a31ff3e3cb3e5bcc1321e7dddfea"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2651,8 +2648,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af36150c1951d2e646c22d1ba408f171879a59dd60a5bc47a81d0d5667730051"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2671,8 +2667,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1519d3cc042978ac658969809de47c8b5ce1d0698ee980638a82dbc3b7a50f3c"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
@@ -2692,8 +2687,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25318d52938f29faf9480d76bc49ddefd52c2ac17c62219da9ef0f655cbabf19"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
@@ -2730,13 +2724,13 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "204dc5dfb78d8eccbc46020d242e66f28b899b569dafca5843ebfb293954d9cd"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actor_verifreg_state",
  "fil_actors_shared",
+ "frc42_dispatch",
  "frc42_macros",
  "fvm_ipld_bitfield",
  "fvm_ipld_blockstore",
@@ -2745,6 +2739,7 @@ dependencies = [
  "fvm_shared 2.7.0",
  "fvm_shared 3.10.0",
  "fvm_shared 4.3.0",
+ "lazy_static",
  "libipld-core",
  "num-bigint",
  "num-derive",
@@ -2755,14 +2750,14 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "013ed63c8deb1169812129fa85e3399daa3e08ae29f226643ebdf3edd8bb4275"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
  "cid",
  "fil_actor_verifreg_state",
  "fil_actors_shared",
+ "frc42_dispatch",
  "frc42_macros",
  "fvm_ipld_amt",
  "fvm_ipld_bitfield",
@@ -2785,12 +2780,12 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e31254757c5be501fd5be51f677977aff94cde23924756aa555f6e88eb03a9d"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
+ "frc42_dispatch",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2808,12 +2803,12 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e9113734f65fd6d2f634123fbf881198fc75b8f2fc5a72ceb1a238dd1188d94"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
+ "frc42_dispatch",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
@@ -2831,8 +2826,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cce3b35f5f57133dc9c5706ff55875c9dc74eae3b8150c2a6f8506bb58e3345"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "fil_actor_miner_state",
  "fvm_ipld_encoding",
@@ -2848,8 +2842,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2737a9e1621080981e59e3b87e5db1a64024fab194fa475567d78c515ba098de"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2865,18 +2858,19 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "519b35d0caf12f8cb8aafbad9e989d52fa805a27174ffe8970ff067d561d123a"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
  "fil_actors_shared",
+ "frc42_dispatch",
  "frc42_macros",
  "fvm_ipld_blockstore",
  "fvm_ipld_encoding",
  "fvm_shared 2.7.0",
  "fvm_shared 3.10.0",
  "fvm_shared 4.3.0",
+ "log",
  "num-derive",
  "num-traits",
  "serde",
@@ -2885,8 +2879,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "14.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f343720f910d5f295b69f79c7bb29a1ee043737c9b924a9e877d170025923d4"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
 dependencies = [
  "anyhow",
  "cid",
@@ -2902,6 +2895,7 @@ dependencies = [
  "fvm_shared 4.3.0",
  "integer-encoding",
  "itertools 0.13.0",
+ "lazy_static",
  "multihash 0.18.1",
  "num",
  "num-bigint",
@@ -3289,6 +3283,7 @@ dependencies = [
  "frc42_hasher",
  "frc42_macros",
  "fvm_ipld_encoding",
+ "fvm_sdk",
  "fvm_shared 4.3.0",
  "thiserror",
 ]

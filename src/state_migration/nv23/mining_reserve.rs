@@ -24,7 +24,7 @@ impl<BS: Blockstore> PostMigrator<BS> for MiningReservePostMigrator {
         let f090_old_actor = actors_out.get_required_actor(&Address::RESERVE_ACTOR)?;
 
         // TODO bump!
-        let f090_new_state = fil_actor_account_state::v13::State {
+        let f090_new_state = fil_actor_account_state::v14::State {
             address: Address::RESERVE_ACTOR.into(),
         };
         let f090_new_state = store.put_cbor_default(&f090_new_state)?;
