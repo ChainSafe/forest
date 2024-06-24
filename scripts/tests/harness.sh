@@ -62,6 +62,18 @@ function forest_run_node_stateless_detached {
   $FOREST_PATH --detach --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --save-token ./stateless_admin_token --skip-load-actors --stateless
 }
 
+function forest_run_node_mapping_ttl_detached {
+  CONFIG_PATH="./mapping_ttl_forest_config.toml"
+  echo "${CONFIG_PATH}"
+  echo "Running forest with mapping ttl and detached mode"
+  cat <<- EOF > $CONFIG_PATH
+		[client]
+		eth_mapping_ttl = 600
+	EOF
+
+  $FOREST_PATH --chain calibnet --encrypt-keystore false --config "$CONFIG_PATH" --log-dir "$LOG_DIRECTORY" --detach --save-token ./admin_token --track-peak-rss
+}
+
 function forest_wait_for_sync {
   echo "Waiting for sync"
   timeout 30m $FOREST_CLI_PATH sync wait
