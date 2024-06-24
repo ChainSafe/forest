@@ -206,8 +206,7 @@ where
     }
 
     /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
-    pub fn put_mapping(&self, k: eth::Hash, v: Cid) -> Result<(), Error> {
-        let timestamp = chrono::Utc::now().timestamp() as u64;
+    pub fn put_mapping(&self, k: eth::Hash, v: Cid, timestamp: u64) -> Result<(), Error> {
         self.eth_mappings.write_obj(&k, &(v, timestamp))?;
         Ok(())
     }
@@ -382,19 +381,19 @@ where
     }
 
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
-    pub fn process_signed_messages(&self, messages: &[SignedMessage]) -> anyhow::Result<()>
+    pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()>
     where
         DB: fvm_ipld_blockstore::Blockstore,
     {
-        let eth_txs: Vec<(eth::Hash, Cid, usize)> = messages
+        let eth_txs: Vec<(eth::Hash, Cid, u64, usize)> = messages
             .iter()
             .enumerate()
-            .filter_map(|(i, smsg)| {
+            .filter_map(|(i, (smsg, timestamp))| {
                 if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
                 {
                     if let Ok(hash) = tx.eth_hash() {
                         // newest messages are the ones with lowest index
-                        Some((hash, smsg.cid().unwrap(), i))
+                        Some((hash, smsg.cid().unwrap(), *timestamp, i))
                     } else {
                         None
                     }
@@ -407,8 +406,8 @@ where
         let num_entries = filtered.len();
 
         // write back
-        for (k, v) in filtered.into_iter() {
-            self.put_mapping(k, v)?;
+        for (k, v, timestamp) in filtered.into_iter() {
+            self.put_mapping(k, v, timestamp)?;
         }
         tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
         Ok(())
@@ -417,7 +416,7 @@ where
     pub fn headers_delegated_messages<'a>(
         &self,
         headers: impl Iterator<Item = &'a CachingBlockHeader>,
-    ) -> anyhow::Result<Vec<SignedMessage>>
+    ) -> anyhow::Result<Vec<(SignedMessage, u64)>>
     where
         DB: fvm_ipld_blockstore::Blockstore,
     {
@@ -433,6 +432,7 @@ where
                 let mut messages: Vec<_> = secp_cids
                     .into_iter()
                     .filter(|msg| msg.is_delegated())
+                    .map(|m| (m, bh.timestamp))
                     .collect();
                 delegated_messages.append(&mut messages);
             }
@@ -442,23 +442,23 @@ where
     }
 }
 
-fn filter_lowest_index(values: Vec<(eth::Hash, Cid, usize)>) -> Vec<(eth::Hash, Cid)> {
-    let map: HashMap<eth::Hash, (Cid, usize)> =
-        values
-            .into_iter()
-            .fold(HashMap::default(), |mut acc, (hash, cid, index)| {
-                acc.entry(hash)
-                    .and_modify(|&mut (_, ref mut min_index)| {
-                        if index < *min_index {
-                            *min_index = index;
-                        }
-                    })
-                    .or_insert((cid, index));
-                acc
-            });
+fn filter_lowest_index(values: Vec<(eth::Hash, Cid, u64, usize)>) -> Vec<(eth::Hash, Cid, u64)> {
+    let map: HashMap<eth::Hash, (Cid, u64, usize)> = values.into_iter().fold(
+        HashMap::default(),
+        |mut acc, (hash, cid, timestamp, index)| {
+            acc.entry(hash)
+                .and_modify(|&mut (_, _, ref mut min_index)| {
+                    if index < *min_index {
+                        *min_index = index;
+                    }
+                })
+                .or_insert((cid, timestamp, index));
+            acc
+        },
+    );
 
     map.into_iter()
-        .map(|(hash, (cid, _))| (hash, cid))
+        .map(|(hash, (cid, timestamp, _))| (hash, cid, timestamp))
         .collect()
 }
 
