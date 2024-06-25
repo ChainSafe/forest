@@ -270,13 +270,13 @@ pub(super) async fn start(
         services.spawn(async move {
             tracing::info!("Starting GC for eth_mappings");
 
-            let duration = Some(std::time::Duration::from_secs(ttl.into()));
+            let duration = std::time::Duration::from_secs(ttl.into());
             loop {
                 tokio::time::sleep(Duration::from_secs(30)).await;
 
                 // First, get all transactions hashes older than ttl.
                 let mut hashes = Vec::new();
-                for cid in chain_store.db.get_message_cids(duration)? {
+                for cid in chain_store.db.get_message_cids(Some(duration))? {
                     let message = crate::chain::get_chain_message(chain_store.db.as_ref(), &cid);
                     if let Ok(ChainMessage::Signed(smsg)) = message {
                         let tx = eth_tx_from_signed_eth_message(&smsg, chain_config.eth_chain_id)?;
