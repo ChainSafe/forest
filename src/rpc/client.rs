@@ -138,7 +138,10 @@ impl Client {
             let url = self
                 .base_url
                 .join(match version {
-                    ApiVersion::V0 => "rpc/v0",
+                    // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
+                    // Use v1 for now to favor v1 compatibility over v0.
+                    // Switch back to v0 after the above issue is resolved.
+                    ApiVersion::V0 => "rpc/v1",
                     ApiVersion::V1 => "rpc/v1",
                 })
                 .map_err(|it| {
