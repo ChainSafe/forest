@@ -14,3 +14,5 @@
 !Filecoin.StateCall
 # These methods don't make sense in the context of an offline node
 !Filecoin.MinerCreateBlock
+# CustomCheckFailed in Forest: https://github.com/ChainSafe/forest/issues/4446
+!Filecoin.StateCirculatingSupply
