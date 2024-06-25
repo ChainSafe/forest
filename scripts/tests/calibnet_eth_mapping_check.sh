@@ -144,19 +144,18 @@ for idx in "${!ETH_TX_HASHES[@]}"; do
   TIMESTAMP_SEC=$(date -d "$TIMESTAMP" +%s)
   CURRENT_DATE_SEC=$(date +%s)
   TX_AGE=$((CURRENT_DATE_SEC - TIMESTAMP_SEC))
-  echo "Age: $TX_AGE seconds"
 
-  # We will probably need to add some slack because GC only runs every 30 seconds
+  # We add 120 seconds of slack because GC only runs every 30 seconds
   # and is not instantaneous
-  if (( TX_AGE > 600 )); then
+  if (( TX_AGE > 720 )); then
     if [[ $(echo "$JSON" | jq -e '.result') != "null" ]]; then
-      echo "Found cid for hash $hash, mapping should be gced"
+      echo "Found cid for hash $hash, mapping should be GCed (tx age: $TX_AGE seconds)"
       ERROR=1
     fi
   fi
   if (( TX_AGE <= 600 )); then
     if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
-      echo "Missing cid for hash $hash"
+      echo "Missing cid for hash $hash (tx age: $TX_AGE seconds)"
       ERROR=1
     fi
   fi
