@@ -53,6 +53,9 @@
 - [#4443](https://github.com/ChainSafe/forest/issues/4443) Update
   `Filecoin.StateSectorPreCommitInfo` RPC method to be API-V1-compatible
 
+- [#4444](https://github.com/ChainSafe/forest/issues/4444) Update
+  `Filecoin.StateWaitMsg` RPC method to be API-V1-compatible
+
 ### Changed
 
 ### Removed
