@@ -965,6 +965,9 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         return Err(e);
     }
 
+    // Call only once messages persisted
+    chain_store.put_delegated_message_hashes(proposed_head.block_headers().iter())?;
+
     // Add the tipset to the store. The tipset will be expanded with other blocks
     // with the same [epoch, parents] before updating the heaviest Tipset in
     // the store.
