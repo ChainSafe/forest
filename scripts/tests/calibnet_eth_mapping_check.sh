@@ -120,10 +120,10 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
     TRANSACTIONS=$(echo "$JSON" | jq -r '.result.transactions[]')
     TIMESTAMP=$(echo "$JSON" | jq -r '.result.timestamp')
     TIMESTAMP=$(convert_hex_to_date "$TIMESTAMP")
-    echo "$TIMESTAMP:"
+    #echo "$TIMESTAMP:"
     for tx in $TRANSACTIONS; do
         ETH_TX_HASHES+=("$tx")
-        echo "$tx"
+        #echo "$tx"
     done
   else
     echo "No transactions found for block hash: $EPOCH_HEX"
@@ -146,10 +146,6 @@ done
 if [[ $ERROR -ne 0 ]]; then
   exit 1
 fi
-
-# TODO: modify tx timestamp to use block timestamp when we populate the eth_mapping column
-# This will make testing gc more easy
-
 echo "Done"
 
 exit $ERROR
