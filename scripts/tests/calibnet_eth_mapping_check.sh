@@ -91,12 +91,11 @@ sleep 5
 
 forest_run_node_mapping_ttl_detached
 
-# Filecoin has a block time of around 30 seconds. Given a ttl of 600s for the mapping,
-# if we retrieve Ethereum blocks of the last 20 tipsets and collect Ethereum txs hashes
-# we should be able to retrieve them using those hashes
+# Filecoin has a block time of around 30 seconds. Given a TTL of 600s for the mapping,
+# if we retrieve Ethereum blocks of the last 20 tipsets and collect Ethereum tx hashes
+# We should only be able to retrieve CIDs for the ones where age < TTL
 
-# We take NUM_TIPSETS=(20 - 4) tipsets to give us enough slack
-NUM_TIPSETS=16
+NUM_TIPSETS=20
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
 
@@ -105,8 +104,9 @@ OUTPUT=$($FOREST_CLI_PATH info show)
 HEAD_EPOCH=$(echo "$OUTPUT" | sed -n 's/.*epoch: \([0-9]*\).*/\1/p')
 EPOCH=$((HEAD_EPOCH - 1))
 
-# Initialize arrays and sets
+# Initialize arrays
 ETH_TX_HASHES=()
+TIMESTAMPS=()
 
 for ((i=0; i<=NUM_TIPSETS; i++)); do
   EPOCH_HEX=$(printf "0x%x" $EPOCH)
@@ -123,6 +123,7 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
     #echo "$TIMESTAMP:"
     for tx in $TRANSACTIONS; do
         ETH_TX_HASHES+=("$tx")
+        TIMESTAMPS+=("$TIMESTAMP")
         #echo "$tx"
     done
   else
@@ -134,18 +135,33 @@ done
 
 echo "Testing Ethereum transactions ttl"
 
-for hash in "${ETH_TX_HASHES[@]}"; do
+for idx in "${!ETH_TX_HASHES[@]}"; do
+  hash=${ETH_TX_HASHES[$idx]}
+  TIMESTAMP=${TIMESTAMPS[$idx]}
   JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetMessageCidByTransactionHash\",\"params\":[\"$hash\"]}")
   # echo "$JSON"
-  if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
-    echo "Missing cid for hash $hash"
-    ERROR=1
+
+  TIMESTAMP_SEC=$(date -d "$TIMESTAMP" +%s)
+  CURRENT_DATE_SEC=$(date +%s)
+  TX_AGE=$((CURRENT_DATE_SEC - TIMESTAMP_SEC))
+  echo "Age: $TX_AGE seconds"
+
+  # We will probably need to add some slack because GC only runs every 30 seconds
+  # and is not instantaneous
+  if (( TX_AGE > 600 )); then
+    if [[ $(echo "$JSON" | jq -e '.result') != "null" ]]; then
+      echo "Found cid for hash $hash, mapping should be gced"
+      ERROR=1
+    fi
+  fi
+  if (( TX_AGE <= 600 )); then
+    if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
+      echo "Missing cid for hash $hash"
+      ERROR=1
+    fi
   fi
 done
 
-if [[ $ERROR -ne 0 ]]; then
-  exit 1
-fi
 echo "Done"
 
 exit $ERROR
