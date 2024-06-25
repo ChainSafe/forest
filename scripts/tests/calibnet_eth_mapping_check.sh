@@ -2,8 +2,6 @@
 # This script is checking the correctness of the ethereum mapping feature
 # It requires both the `forest` and `forest-cli` binaries to be in the PATH.
 
-
-
 set -eu
 
 source "$(dirname "$0")/harness.sh"
