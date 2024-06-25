@@ -49,6 +49,9 @@
 - [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
   `EIP-1898` object scheme.
 
+- [#4444](https://github.com/ChainSafe/forest/issues/4444) Update
+  `Filecoin.StateWaitMsg` RPC method to be API-V1-compatible
+
 ### Changed
 
 ### Removed
