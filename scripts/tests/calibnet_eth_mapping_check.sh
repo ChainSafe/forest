@@ -2,16 +2,7 @@
 # This script is checking the correctness of the ethereum mapping feature
 # It requires both the `forest` and `forest-cli` binaries to be in the PATH.
 
-# Convert an u64 hex timestamp to human-readable date
-convert_hex_to_date() {
-    local hex_timestamp="$1"
-    local decimal_timestamp
-    decimal_timestamp=$((hex_timestamp))
-    local hr_date
-    hr_date=$(date -d @"$decimal_timestamp")
 
-    echo "$hr_date"
-}
 
 set -eu
 
@@ -106,7 +97,7 @@ EPOCH=$((HEAD_EPOCH - 1))
 
 # Initialize arrays
 ETH_TX_HASHES=()
-TIMESTAMPS=()
+TX_AGES=()
 
 for ((i=0; i<=NUM_TIPSETS; i++)); do
   EPOCH_HEX=$(printf "0x%x" $EPOCH)
@@ -119,11 +110,13 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
   if [[ $(echo "$JSON" | jq -e '.result.transactions') != "null" ]]; then
     TRANSACTIONS=$(echo "$JSON" | jq -r '.result.transactions[]')
     TIMESTAMP=$(echo "$JSON" | jq -r '.result.timestamp')
-    TIMESTAMP=$(convert_hex_to_date "$TIMESTAMP")
-    #echo "$TIMESTAMP:"
+
+    decimal_timestamp=$((TIMESTAMP))
+    CURRENT_DATE_SEC=$(date +%s)
+    TX_AGE_IN_SECS=$((CURRENT_DATE_SEC - decimal_timestamp))
     for tx in $TRANSACTIONS; do
         ETH_TX_HASHES+=("$tx")
-        TIMESTAMPS+=("$TIMESTAMP")
+        TX_AGES+=("$TX_AGE_IN_SECS")
         #echo "$tx"
     done
   else
@@ -137,26 +130,27 @@ echo "Testing Ethereum transactions ttl"
 
 for idx in "${!ETH_TX_HASHES[@]}"; do
   hash=${ETH_TX_HASHES[$idx]}
-  TIMESTAMP=${TIMESTAMPS[$idx]}
+  TX_AGE=${TX_AGES[$idx]}
   JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetMessageCidByTransactionHash\",\"params\":[\"$hash\"]}")
   # echo "$JSON"
-
-  TIMESTAMP_SEC=$(date -d "$TIMESTAMP" +%s)
-  CURRENT_DATE_SEC=$(date +%s)
-  TX_AGE=$((CURRENT_DATE_SEC - TIMESTAMP_SEC))
 
   # We add 120 seconds of slack because GC only runs every 30 seconds
   # and is not instantaneous
   if (( TX_AGE > 720 )); then
     if [[ $(echo "$JSON" | jq -e '.result') != "null" ]]; then
+      #echo "$JSON"
       echo "Found cid for hash $hash, mapping should be GCed (tx age: $TX_AGE seconds)"
       ERROR=1
+    else
+      echo "Ok"
     fi
   fi
   if (( TX_AGE <= 600 )); then
     if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
       echo "Missing cid for hash $hash (tx age: $TX_AGE seconds)"
       ERROR=1
+    else
+      echo "Ok"
     fi
   fi
 done
