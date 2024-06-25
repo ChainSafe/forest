@@ -263,14 +263,22 @@ impl DerefMut for Address {
 /// will fail to parse addresses unless they have the correct tag indicated by [`CurrentNetwork`].
 ///
 /// For more information, see: <https://spec.filecoin.io/appendix/address/>
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    displaydoc::Display,
+)]
 #[serde(transparent)]
+#[displaydoc("{0}")]
 pub struct StrictAddress(pub Address);
-impl Display for StrictAddress {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 impl FromStr for StrictAddress {
     type Err = <Address_latest as FromStr>::Err;
