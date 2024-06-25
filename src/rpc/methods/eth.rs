@@ -35,7 +35,7 @@ use num_traits::{Signed as _, Zero as _};
 use rlp::RlpStream;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::{fmt, str::FromStr};
+use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -141,7 +141,19 @@ pub struct Int64(
 
 lotus_json_with_self!(Int64);
 
-#[derive(PartialEq, Eq, Hash, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    displaydoc::Display,
+)]
+#[displaydoc("{0:#x}")]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
@@ -176,12 +188,6 @@ impl From<Cid> for Hash {
     fn from(cid: Cid) -> Self {
         let (_, digest, _) = cid.hash().into_inner();
         Hash(ethereum_types::H256::from_slice(&digest[0..32]))
-    }
-}
-
-impl fmt::Display for Hash {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
     }
 }
 

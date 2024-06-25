@@ -13,6 +13,7 @@ BLAKE2b
 blockchain/M
 blockstore/SM
 BLS
+butterflynet
 calibnet
 callee
 canonicalization
