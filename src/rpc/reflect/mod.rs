@@ -19,11 +19,10 @@
 pub mod jsonrpc_types;
 
 mod parser;
-mod util;
 
 use crate::lotus_json::HasLotusJson;
 
-use self::{jsonrpc_types::RequestParameters, util::Optional as _};
+use self::jsonrpc_types::RequestParameters;
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
 use jsonrpsee::RpcModule;
@@ -162,11 +161,11 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Method {
             name: String::from(Self::NAME),
             params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
-                .map(|(name, (schema, optional))| {
+                .map(|(name, schema)| {
                     ReferenceOr::Item(ContentDescriptor {
                         name: String::from(name),
                         schema,
-                        required: Some(!optional),
+                        required: Some(true),
                         ..Default::default()
                     })
                 })
@@ -175,7 +174,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             result: Some(ReferenceOr::Item(ContentDescriptor {
                 name: format!("{}::Result", Self::NAME),
                 schema: gen.subschema_for::<<Self::Ok as HasLotusJson>::LotusJson>(),
-                required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
+                required: Some(true),
                 ..Default::default()
             })),
             tags: Some(
@@ -255,7 +254,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 pub trait Params<const ARITY: usize>: HasLotusJson {
     /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
     /// pair for argument, in-order.
-    fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
+    fn schemas(gen: &mut SchemaGenerator) -> [Schema; ARITY];
     /// Convert from raw request parameters, to the argument tuple required by
     /// [`RpcMethod::handle`]
     fn parse(
@@ -320,8 +319,10 @@ macro_rules! do_impls {
                 let mut _parser = Parser::new(raw, &arg_names, calling_convention)?;
                 Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
-            fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {
-                [$((_gen.subschema_for::<$arg::LotusJson>(), $arg::LotusJson::optional())),*]
+            fn schemas(_gen: &mut SchemaGenerator) -> [Schema; $arity] {
+                [$(
+                    _gen.subschema_for::<$arg::LotusJson>()
+                ),*]
             }
         }
     };

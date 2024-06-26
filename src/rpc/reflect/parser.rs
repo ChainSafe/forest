@@ -6,7 +6,7 @@ use openrpc_types::ParamStructure;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{jsonrpc_types::RequestParameters, util::Optional as _};
+use super::jsonrpc_types::RequestParameters;
 use crate::rpc::error::ServerError;
 
 /// Parser for JSON-RPC parameters.
@@ -126,29 +126,20 @@ impl<'a> Parser<'a> {
             error,
         };
         let t = match &mut self.params {
-            None => match T::optional() {
-                true => T::unwrap_none(),
-                false => self.error(missing_parameter)?,
-            },
+            None => self.error(missing_parameter)?,
             Some(ParserInner::ByName(it)) => match it.remove(name) {
                 Some(it) => match serde_json::from_value::<T>(it) {
                     Ok(it) => it,
                     Err(e) => self.error(deserialize_error(e))?,
                 },
-                None => match T::optional() {
-                    true => T::unwrap_none(),
-                    false => self.error(missing_parameter)?,
-                },
+                None => self.error(missing_parameter)?,
             },
             Some(ParserInner::ByPosition(it)) => match it.pop_front() {
                 Some(it) => match serde_json::from_value::<T>(it) {
                     Ok(it) => it,
                     Err(e) => self.error(deserialize_error(e))?,
                 },
-                None => match T::optional() {
-                    true => T::unwrap_none(),
-                    false => self.error(missing_parameter)?,
-                },
+                None => self.error(missing_parameter)?,
             },
         };
         let final_arg = self.call_count >= self.argument_names.len();
@@ -240,37 +231,6 @@ mod tests {
         ($tt:tt) => {
             serde_json::from_value(serde_json::json!($tt)).unwrap()
         };
-    }
-
-    #[test]
-    fn optional() {
-        // no params where optional
-        let mut parser = Parser::_new(None, &["p0"], ParamStructure::Either).unwrap();
-        assert_eq!(None::<i32>, parser._parse().unwrap());
-
-        // positional optional
-        let mut parser = Parser::_new(from_value!([]), &["opt"], ParamStructure::Either).unwrap();
-        assert_eq!(None::<i32>, parser._parse().unwrap());
-
-        // named optional
-        let mut parser = Parser::_new(from_value!({}), &["opt"], ParamStructure::Either).unwrap();
-        assert_eq!(None::<i32>, parser._parse().unwrap());
-
-        // postional optional with mandatory
-        let mut parser =
-            Parser::_new(from_value!([0]), &["p0", "opt"], ParamStructure::Either).unwrap();
-        assert_eq!(Some(0), parser._parse().unwrap());
-        assert_eq!(None::<i32>, parser._parse().unwrap());
-
-        // named optional with mandatory
-        let mut parser = Parser::_new(
-            from_value!({"p0": 0}),
-            &["p0", "opt"],
-            ParamStructure::Either,
-        )
-        .unwrap();
-        assert_eq!(Some(0), parser._parse().unwrap());
-        assert_eq!(None::<i32>, parser._parse().unwrap());
     }
 
     #[test]
