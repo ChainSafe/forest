@@ -980,7 +980,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tests.extend([
                 RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
-                    StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
+                    StateWaitMsg::request((msg_cid, 0, 10101, true))?
+                        .with_timeout(Duration::from_secs(15)),
+                ),
+                validate_message_lookup(
+                    StateWaitMsg::request((msg_cid, 0, 10101, false))?
+                        .with_timeout(Duration::from_secs(15)),
                 ),
                 validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
                 validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
