@@ -3,6 +3,7 @@
 
 use std::{
     convert::TryFrom,
+    num::NonZeroU64,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -139,7 +140,7 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        count: u64,
+        count: NonZeroU64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
         self.handle_chain_exchange_request(
             peer_id,
@@ -160,6 +161,7 @@ where
                     }
                     true
                 } else {
+                    tracing::warn!(%count, "invalid empty chain_exchange_headers response");
                     false
                 }
             },
@@ -186,7 +188,7 @@ where
         self.handle_chain_exchange_request(
             peer_id,
             tsk,
-            tipsets.len() as _,
+            NonZeroU64::new(tipsets.len() as _).expect("Infallible"),
             MESSAGES,
             |compacted_messages_vec: &Vec<CompactedMessages>| {
                 for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
@@ -217,7 +219,13 @@ where
         tsk: &TipsetKey,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES, |_| true)
+            .handle_chain_exchange_request(
+                peer_id,
+                tsk,
+                NonZeroU64::new(1).expect("Infallible"),
+                HEADERS | MESSAGES,
+                |_| true,
+            )
             .await?;
 
         if fts.len() != 1 {
@@ -276,7 +284,7 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        request_len: u64,
+        request_len: NonZeroU64,
         options: u64,
         validate: F,
     ) -> Result<Vec<T>, String>
@@ -284,13 +292,9 @@ where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
         F: Fn(&Vec<T>) -> bool,
     {
-        if request_len == 0 {
-            return Ok(vec![]);
-        }
-
         let request = ChainExchangeRequest {
             start: tsk.to_cids(),
-            request_len,
+            request_len: request_len.get(),
             options,
         };
 
