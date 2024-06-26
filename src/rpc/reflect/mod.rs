@@ -252,8 +252,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 ///
 /// This should NOT be manually implemented.
 pub trait Params<const ARITY: usize>: HasLotusJson {
-    /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
-    /// pair for argument, in-order.
+    /// A [`Schema`] for each argument, in-order.
     fn schemas(gen: &mut SchemaGenerator) -> [Schema; ARITY];
     /// Convert from raw request parameters, to the argument tuple required by
     /// [`RpcMethod::handle`]
