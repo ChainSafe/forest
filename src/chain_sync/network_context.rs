@@ -141,8 +141,30 @@ where
         tsk: &TipsetKey,
         count: u64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |_| true)
-            .await
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            count,
+            HEADERS,
+            |tipsets: &Vec<Arc<Tipset>>| {
+                if let Some(start) = tipsets.first() {
+                    if start.key() != tsk {
+                        tracing::warn!(epoch=%start.epoch(), expected=%tsk, actual=%start.key(), "start tipset key mismatch");
+                        return false;
+                    }
+                    for (ts, pts) in tipsets.iter().zip(tipsets.iter().skip(1)) {
+                        if ts.parents() != pts.key() {
+                            tracing::warn!(epoch=%ts.epoch(), expected_parent=%pts.key(), actual_parent=%ts.parents(), "invalid chain");
+                            return false;
+                        }
+                    }
+                    true
+                } else {
+                    false
+                }
+            },
+        )
+        .await
     }
     /// Send a `chain_exchange` request for only messages (ignore block
     /// headers). If `peer_id` is `None`, requests will be sent to a set of
@@ -289,6 +311,10 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
+                if peers.is_empty() {
+                    return Err("chain exchange failed: no peers are available".into());
+                }
+                let n_peers = peers.len();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
@@ -308,17 +334,17 @@ where
                             Ok(chain_exchange_result) => {
                                 match chain_exchange_result.into_result::<T>() {
                                     Ok(r) => Ok(r),
-                                    Err(e) => {
+                                    Err(error) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
-                                        debug!("Failed chain_exchange response: {e}");
-                                        Err(e)
+                                        debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange response");
+                                        Err(error)
                                     }
                                 }
                             }
-                            Err(e) => {
+                            Err(error) => {
                                 network_failures.fetch_add(1, Ordering::Relaxed);
-                                debug!("Failed chain_exchange request to peer {peer_id:?}: {e}");
-                                Err(e)
+                                debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange request to peer");
+                                Err(error)
                             }
                         }
                     });

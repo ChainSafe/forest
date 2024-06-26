@@ -848,6 +848,11 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             .chain_exchange_headers(None, oldest_pending_tipset.parents(), window as u64)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
+        if network_tipsets.is_empty() {
+            return Err(TipsetRangeSyncerError::NetworkTipsetQueryFailed(
+                "0 network tipsets have been fetched".into(),
+            ));
+        }
 
         for tipset in network_tipsets
             .into_iter()
