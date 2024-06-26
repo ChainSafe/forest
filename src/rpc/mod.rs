@@ -126,6 +126,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateNetworkName);
         $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfoV0);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
         $callback!(crate::rpc::state::StateAccountKey);
         $callback!(crate::rpc::state::StateLookupID);
