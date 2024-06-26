@@ -147,24 +147,7 @@ where
             tsk,
             count,
             HEADERS,
-            |tipsets: &Vec<Arc<Tipset>>| {
-                if let Some(start) = tipsets.first() {
-                    if start.key() != tsk {
-                        tracing::warn!(epoch=%start.epoch(), expected=%tsk, actual=%start.key(), "start tipset key mismatch");
-                        return false;
-                    }
-                    for (ts, pts) in tipsets.iter().zip(tipsets.iter().skip(1)) {
-                        if ts.parents() != pts.key() {
-                            tracing::warn!(epoch=%ts.epoch(), expected_parent=%pts.key(), actual_parent=%ts.parents(), "invalid chain");
-                            return false;
-                        }
-                    }
-                    true
-                } else {
-                    tracing::warn!(%count, "invalid empty chain_exchange_headers response");
-                    false
-                }
-            },
+            |tipsets: &Vec<Arc<Tipset>>| validate_network_tipsets(tipsets, tsk),
         )
         .await
     }
@@ -489,6 +472,28 @@ where
             .await?
             .ok();
         Ok((peer_id, sent, res))
+    }
+}
+
+/// Validates network tipsets that are sorted by epoch in descending order with the below checks
+/// 1. The latest(first) tipset has the desired tipset key
+/// 2. The sorted tipsets are chained by their tipset keys
+fn validate_network_tipsets(tipsets: &[Arc<Tipset>], start_tipset_key: &TipsetKey) -> bool {
+    if let Some(start) = tipsets.first() {
+        if start.key() != start_tipset_key {
+            tracing::warn!(epoch=%start.epoch(), expected=%start_tipset_key, actual=%start.key(), "start tipset key mismatch");
+            return false;
+        }
+        for (ts, pts) in tipsets.iter().zip(tipsets.iter().skip(1)) {
+            if ts.parents() != pts.key() {
+                tracing::warn!(epoch=%ts.epoch(), expected_parent=%pts.key(), actual_parent=%ts.parents(), "invalid chain");
+                return false;
+            }
+        }
+        true
+    } else {
+        tracing::warn!("invalid empty chain_exchange_headers response");
+        false
     }
 }
 
