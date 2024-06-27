@@ -597,4 +597,37 @@ mod tests {
         assert_eq!(batch.get_ok().await, None);
         assert!(exceeded.load(Ordering::Relaxed));
     }
+
+    #[test]
+    #[allow(unused_variables)]
+    fn validate_network_tipsets_tests() {
+        use crate::blocks::{chain4u, Chain4U};
+
+        let c4u = Chain4U::new();
+        chain4u! {
+            in c4u;
+            t0 @ [genesis_header]
+            -> t1 @ [first_header]
+            -> t2 @ [second_left, second_right]
+            -> t3 @ [third]
+            -> t4 @ [fourth]
+        };
+        let t0 = Arc::new(t0.clone());
+        let t1 = Arc::new(t1.clone());
+        let t2 = Arc::new(t2.clone());
+        let t3 = Arc::new(t3.clone());
+        let t4 = Arc::new(t4.clone());
+        assert!(validate_network_tipsets(
+            &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t4.key()
+        ));
+        assert!(!validate_network_tipsets(
+            &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t3.key()
+        ));
+        assert!(!validate_network_tipsets(
+            &[t4.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t4.key()
+        ));
+    }
 }
