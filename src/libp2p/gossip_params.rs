@@ -16,6 +16,7 @@ use crate::libp2p::{PUBSUB_BLOCK_STR, PUBSUB_MSG_STR};
 // parameters when they are needed.
 
 fn build_msg_topic_config() -> TopicScoreParams {
+    // https://github.com/filecoin-project/lotus/blob/v1.27.0/node/modules/lp2p/pubsub.go#L200
     TopicScoreParams {
         // expected 10 blocks/min
         topic_weight: 0.1,
@@ -48,6 +49,7 @@ fn build_msg_topic_config() -> TopicScoreParams {
 }
 
 fn build_block_topic_config() -> TopicScoreParams {
+    // https://github.com/filecoin-project/lotus/blob/v1.27.0/node/modules/lp2p/pubsub.go#L159
     TopicScoreParams {
         topic_weight: 0.1,
 
@@ -80,7 +82,7 @@ fn build_block_topic_config() -> TopicScoreParams {
 
 pub(in crate::libp2p) fn build_peer_score_params(network_name: &str) -> PeerScoreParams {
     #[allow(clippy::disallowed_types)]
-    let mut psp_topics = std::collections::HashMap::new();
+    let mut psp_topics = std::collections::HashMap::with_capacity(2);
 
     // msg topic
     let msg_topic = IdentTopic::new(format!("{PUBSUB_MSG_STR}/{network_name}"));
@@ -111,6 +113,7 @@ pub(in crate::libp2p) fn build_peer_score_params(network_name: &str) -> PeerScor
 }
 
 pub(in crate::libp2p) fn build_peer_score_threshold() -> PeerScoreThresholds {
+    // https://github.com/filecoin-project/lotus/blob/v1.27.0/node/modules/lp2p/pubsub.go#L41
     PeerScoreThresholds {
         gossip_threshold: -500.0,
         publish_threshold: -1000.0,
