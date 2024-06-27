@@ -80,7 +80,7 @@ enum EAMMethod {
 }
 
 #[repr(u64)]
-enum EVMMethod {
+pub enum EVMMethod {
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.
     // InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),

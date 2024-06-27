@@ -7,6 +7,7 @@ pub mod parity_db;
 pub mod parity_db_config;
 
 mod gc;
+pub mod ttl;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
@@ -19,7 +20,6 @@ use cid::{multihash, Cid};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
-use std::time::Duration;
 
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKey`]s
@@ -108,12 +108,11 @@ pub trait EthMappingsStore {
     /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
 
+    /// Returns all message CIDs with their timestamp.
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
+
     /// Deletes `keys` if keys exist in store.
     fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()>;
-
-    /// Returns all message CIDs older than `duration`. If `duration` equals `None`,
-    /// it returns all message CIDs indistinctly of their age.
-    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
@@ -129,12 +128,12 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
         EthMappingsStore::exists(self.as_ref(), key)
     }
 
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
-        EthMappingsStore::delete(self.as_ref(), keys)
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        EthMappingsStore::get_message_cids(self.as_ref())
     }
 
-    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
-        EthMappingsStore::get_message_cids(self.as_ref(), duration)
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.as_ref(), keys)
     }
 }
 

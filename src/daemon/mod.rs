@@ -20,16 +20,14 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{EthMappingsStore, MarkAndSweep};
+use crate::db::{ttl::EthMappingCollector, MarkAndSweep};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
 };
 use crate::libp2p::{Libp2pConfig, Libp2pService, PeerManager};
-use crate::message::ChainMessage;
 use crate::message_pool::{MessagePool, MpoolConfig, MpoolRpcProvider};
 use crate::networks::{self, ChainConfig, NetworkChain};
-use crate::rpc::eth::eth_tx_from_signed_eth_message;
 use crate::rpc::start_rpc;
 use crate::rpc::RPCState;
 use crate::shim::address::{CurrentNetwork, Network};
@@ -268,30 +266,16 @@ pub(super) async fn start(
         let chain_store = chain_store.clone();
         let chain_config = chain_config.clone();
         services.spawn(async move {
-            tracing::info!("Starting GC for eth_mappings");
+            tracing::info!("Starting collector for eth_mappings");
 
-            let duration = std::time::Duration::from_secs(ttl.into());
-            loop {
-                tokio::time::sleep(Duration::from_secs(30)).await;
+            let mut collector = EthMappingCollector::new(
+                chain_store.db.clone(),
+                chain_config.eth_chain_id,
+                Duration::from_secs(ttl.into()),
+            );
+            collector.run().await?;
 
-                // First, get all transactions hashes older than ttl.
-                let mut hashes = Vec::new();
-                for cid in chain_store.db.get_message_cids(Some(duration))? {
-                    let message = crate::chain::get_chain_message(chain_store.db.as_ref(), &cid);
-                    if let Ok(ChainMessage::Signed(smsg)) = message {
-                        let tx = eth_tx_from_signed_eth_message(&smsg, chain_config.eth_chain_id)?;
-                        hashes.push(tx.eth_hash()?);
-                    }
-                }
-                // Then, delete all db entries older than ttl.
-                let count = hashes.len();
-                chain_store.db.delete(hashes)?;
-
-                tracing::debug!(
-                    "Found and deleted {count} entries older than {:?}",
-                    duration
-                );
-            }
+            Ok(())
         });
     }
 

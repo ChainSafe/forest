@@ -21,7 +21,6 @@ use fvm_ipld_blockstore::Blockstore;
 use parking_lot::{Mutex, RwLock};
 use std::cmp::Ord;
 use std::collections::BinaryHeap;
-use std::time::Duration;
 use std::{path::PathBuf, sync::Arc};
 
 struct WithHeaviestEpoch {
@@ -219,12 +218,12 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
         EthMappingsStore::exists(self.writer(), key)
     }
 
-    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
-        EthMappingsStore::delete(self.writer(), keys)
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        EthMappingsStore::get_message_cids(self.writer())
     }
 
-    fn get_message_cids(&self, duration: Option<Duration>) -> anyhow::Result<Vec<Cid>> {
-        EthMappingsStore::get_message_cids(self.writer(), duration)
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.writer(), keys)
     }
 }
 
