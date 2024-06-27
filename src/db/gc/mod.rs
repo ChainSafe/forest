@@ -76,8 +76,6 @@ use crate::cid_collections::CidHashSet;
 use crate::db::{GarbageCollectable, SettingsStore};
 use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
-use ahash::{HashSet, HashSetExt};
-use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use std::mem;
@@ -336,7 +334,7 @@ mod test {
 
         // test insufficient epochs
         gc.gc_workflow(ZERO_DURATION).await.unwrap();
-        assert!(gc.marked.is_empty());
+        assert_eq!(gc.marked.len(), 0);
 
         // test marked
         tester.run_epochs(depth);

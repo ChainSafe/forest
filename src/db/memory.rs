@@ -5,7 +5,7 @@ use crate::cid_collections::CidHashSet;
 use crate::db::GarbageCollectable;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth;
-use ahash::{HashMap, HashSet, HashSetExt};
+use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;

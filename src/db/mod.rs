@@ -13,7 +13,6 @@ mod db_mode;
 pub mod migration;
 
 use crate::rpc::eth;
-use ahash::HashSet;
 use anyhow::Context as _;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
