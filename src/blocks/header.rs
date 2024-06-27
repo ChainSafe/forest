@@ -271,7 +271,7 @@ impl CachingBlockHeader {
         self.uncached
     }
     /// Returns [`None`] if the blockstore doesn't contain the CID.
-    pub fn load(store: impl Blockstore, cid: Cid) -> anyhow::Result<Option<Self>> {
+    pub fn load(store: &impl Blockstore, cid: Cid) -> anyhow::Result<Option<Self>> {
         if let Some(uncached) = store.get_cbor::<RawBlockHeader>(&cid)? {
             Ok(Some(Self {
                 uncached,

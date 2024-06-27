@@ -208,11 +208,11 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This call fails if the tipset is
     /// present but invalid. If the tipset is missing, None is returned.
-    pub fn load(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
+    pub fn load(store: &impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .to_cids()
             .into_iter()
-            .map(|key| CachingBlockHeader::load(&store, key))
+            .map(|key| CachingBlockHeader::load(store, key))
             .collect::<anyhow::Result<Option<Vec<_>>>>()?
             .map(Tipset::new)
             .transpose()?)
@@ -239,12 +239,12 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This calls fails if the tipset is
     /// missing or invalid.
-    pub fn load_required(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
+    pub fn load_required(store: &impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
         Tipset::load(store, tsk)?.context("Required tipset missing from database")
     }
 
     /// Constructs and returns a full tipset if messages from storage exists
-    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
+    pub fn fill_from_blockstore(&self, store: &impl Blockstore) -> Option<FullTipset> {
         // Find tipset messages. If any are missing, return `None`.
         let blocks = self
             .block_headers()
@@ -252,7 +252,7 @@ impl Tipset {
             .cloned()
             .map(|header| {
                 let (bls_messages, secp_messages) =
-                    crate::chain::store::block_messages(&store, &header).ok()?;
+                    crate::chain::store::block_messages(store, &header).ok()?;
                 Some(Block {
                     header,
                     bls_messages,

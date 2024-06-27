@@ -7,9 +7,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::blocks::Tipset;
+use crate::{
+    blocks::{Tipset, TipsetKey},
+    shim::clock::ChainEpoch,
+};
 use ahash::{HashMap, HashSet};
 use flume::{Receiver, Sender};
+use itertools::Either;
 use parking_lot::RwLock;
 use rand::seq::SliceRandom;
 use tracing::{debug, trace, warn};
@@ -30,8 +34,8 @@ const GLOBAL_INV_ALPHA: u32 = 20;
 #[derive(Debug)]
 /// Contains info about the peer's head [Tipset], as well as the request stats.
 struct PeerInfo {
-    /// Head tipset received from hello message.
-    head: Arc<Tipset>,
+    /// Head tipset key received from hello message or gossip sub message.
+    head: Either<TipsetKey, Arc<Tipset>>,
     /// Number of successful requests.
     successes: u32,
     /// Number of failed requests.
@@ -41,12 +45,19 @@ struct PeerInfo {
 }
 
 impl PeerInfo {
-    fn new(head: Arc<Tipset>) -> Self {
+    fn new(head: Either<TipsetKey, Arc<Tipset>>) -> Self {
         Self {
             head,
             successes: 0,
             failures: 0,
             average_time: Default::default(),
+        }
+    }
+
+    fn head_epoch(&self) -> Option<ChainEpoch> {
+        match &self.head {
+            Either::Left(_) => None,
+            Either::Right(ts) => Some(ts.epoch()),
         }
     }
 }
@@ -93,24 +104,28 @@ impl Default for PeerManager {
 impl PeerManager {
     /// Updates peer's heaviest tipset. If the peer does not exist in the set, a
     /// new `PeerInfo` will be generated.
-    pub fn update_peer_head(&self, peer_id: PeerId, ts: Arc<Tipset>) {
+    pub fn update_peer_head(&self, peer_id: PeerId, head: Either<TipsetKey, Arc<Tipset>>) {
         let mut peers = self.peers.write();
         trace!("Updating head for PeerId {}", &peer_id);
+        let head_epoch = if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
+            pi.head = head;
+            pi.head_epoch()
+        } else {
+            let pi = PeerInfo::new(head);
+            let head_epoch = pi.head_epoch();
+            peers.full_peers.insert(peer_id, pi);
+            metrics::FULL_PEERS.set(peers.full_peers.len() as _);
+            head_epoch
+        };
         metrics::PEER_TIPSET_EPOCH
             .get_or_create(&metrics::PeerLabel::new(peer_id))
-            .set(ts.epoch());
-        if let Some(pi) = peers.full_peers.get_mut(&peer_id) {
-            pi.head = ts;
-        } else {
-            peers.full_peers.insert(peer_id, PeerInfo::new(ts));
-            metrics::FULL_PEERS.set(peers.full_peers.len() as _);
-        }
+            .set(head_epoch.unwrap_or(-1));
     }
 
     /// Gets the head epoch of a peer
     pub fn get_peer_head_epoch(&self, peer_id: &PeerId) -> Option<i64> {
         let peers = self.peers.read();
-        peers.full_peers.get(peer_id).map(|pi| pi.head.epoch())
+        peers.full_peers.get(peer_id).and_then(|pi| pi.head_epoch())
     }
 
     /// Returns true if peer is not marked as bad or not already in set.
@@ -129,7 +144,7 @@ impl PeerManager {
             .iter()
             .filter_map(|(p, info)| {
                 // Filter out nodes that are stateless (or far behind)
-                if info.head.epoch() > 0 {
+                if info.head_epoch() != Some(0) {
                     let cost = if info.successes > 0 {
                         // Calculate cost based on fail rate and latency
                         let fail_rate = f64::from(info.failures) / f64::from(info.successes);
