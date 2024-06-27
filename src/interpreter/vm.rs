@@ -90,7 +90,7 @@ pub struct BlockMessages {
 
 impl BlockMessages {
     /// Retrieves block messages to be passed through the VM and removes duplicate messages which appear in multiple blocks.
-    pub fn for_tipset(db: impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
+    pub fn for_tipset(db: &impl Blockstore, ts: &Tipset) -> Result<Vec<BlockMessages>, Error> {
         let mut applied = HashMap::new();
         let mut select_msg = |m: ChainMessage| -> Option<ChainMessage> {
             // The first match for a sender is guaranteed to have correct nonce
@@ -108,7 +108,7 @@ impl BlockMessages {
         ts.block_headers()
             .iter()
             .map(|b| {
-                let (usm, sm) = block_messages(&db, b)?;
+                let (usm, sm) = block_messages(db, b)?;
 
                 let mut messages = Vec::with_capacity(usm.len() + sm.len());
                 messages.extend(
