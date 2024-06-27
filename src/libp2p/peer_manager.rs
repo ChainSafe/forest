@@ -139,30 +139,51 @@ impl PeerManager {
     pub(in crate::libp2p) fn sorted_peers(&self) -> Vec<PeerId> {
         let peer_lk = self.peers.read();
         let average_time = self.avg_global_time.read();
+        let mut n_stateful = 0;
         let mut peers: Vec<_> = peer_lk
             .full_peers
             .iter()
-            .filter_map(|(p, info)| {
-                // Filter out nodes that are stateless (or far behind)
-                if info.head_epoch() != Some(0) {
-                    let cost = if info.successes > 0 {
-                        // Calculate cost based on fail rate and latency
-                        let fail_rate = f64::from(info.failures) / f64::from(info.successes);
-                        info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
-                    } else {
-                        // There have been no failures or successes
-                        average_time.as_secs_f64() * NEW_PEER_MUL
-                    };
-                    Some((p, cost))
-                } else {
-                    None
+            .map(|(&p, info)| {
+                let is_stateful = info.head_epoch() != Some(0);
+                if is_stateful {
+                    n_stateful += 1;
                 }
+
+                let cost = if info.successes + info.failures > 0 {
+                    // Calculate cost based on fail rate and latency
+                    // Note that when `success` is zero, the result is `inf`
+                    let fail_rate = f64::from(info.failures) / f64::from(info.successes);
+                    info.average_time.as_secs_f64() + fail_rate * average_time.as_secs_f64()
+                } else {
+                    // There have been no failures or successes
+                    average_time.as_secs_f64() * NEW_PEER_MUL
+                };
+                (p, is_stateful, cost)
             })
             .collect();
 
         // Unstable sort because hashmap iter order doesn't need to be preserved.
-        peers.sort_unstable_by(|(_, v1), (_, v2)| v1.partial_cmp(v2).unwrap_or(Ordering::Equal));
-        peers.into_iter().map(|(&peer, _)| peer).collect()
+        peers.sort_unstable_by(|(_, _, v1), (_, _, v2)| {
+            v1.partial_cmp(v2).unwrap_or(Ordering::Equal)
+        });
+
+        // Filter out nodes that are stateless when `n_stateful > 0`
+        if n_stateful > 0 {
+            peers
+                .into_iter()
+                .filter_map(
+                    |(peer, is_stateful, _)| {
+                        if is_stateful {
+                            Some(peer)
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .collect()
+        } else {
+            peers.into_iter().map(|(peer, _, _)| peer).collect()
+        }
     }
 
     /// Return shuffled slice of ordered peers from the peer manager. Ordering
