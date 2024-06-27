@@ -72,6 +72,7 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
+use crate::cid_collections::CidHashSet;
 use crate::db::{GarbageCollectable, SettingsStore};
 use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
@@ -96,13 +97,13 @@ const SETTINGS_KEY: &str = "LAST_GC_RUN";
 pub struct MarkAndSweep<DB> {
     db: Arc<DB>,
     get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
-    marked: HashSet<Cid>,
+    marked: CidHashSet,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
 
-impl<DB: Blockstore + SettingsStore + GarbageCollectable<Cid> + Sync + Send + 'static>
+impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Send + 'static>
     MarkAndSweep<DB>
 {
     /// Creates a new mark-and-sweep garbage collector.
@@ -123,7 +124,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<Cid> + Sync + Send + 's
             db,
             get_heaviest_tipset,
             depth,
-            marked: HashSet::new(),
+            marked: CidHashSet::new(),
             epoch_marked: 0,
             block_time,
         }
@@ -203,7 +204,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<Cid> + Sync + Send + 's
         }
 
         // This signifies a new run.
-        if self.marked.is_empty() {
+        if self.marked.len() == 0 {
             // Make sure we don't run the GC too often.
             time::sleep(interval).await;
 

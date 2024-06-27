@@ -36,6 +36,16 @@ impl CidHashSet {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    /// Returns `true` if the set contains a `Cid`.
+    pub fn contains(&self, cid: &Cid) -> bool {
+        self.inner.contains_key(cid)
+    }
+
+    /// Removes a `Cid` from the set. Returns whether the value was present in the set.
+    pub fn remove(&mut self, cid: &Cid) -> bool {
+        self.inner.remove(cid).is_some()
+    }
 }
 
 ////////////////////

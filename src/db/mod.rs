@@ -161,14 +161,14 @@ pub trait GarbageCollectable<T> {
     ///
     /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too
     /// much time and memory.
-    fn get_keys(&self) -> anyhow::Result<HashSet<T>>;
+    fn get_keys(&self) -> anyhow::Result<T>;
 
     /// Removes all the keys marked for deletion.
     ///
     /// # Arguments
     ///
     /// * `keys` - A set of keys to be removed from the database.
-    fn remove_keys(&self, keys: HashSet<T>) -> anyhow::Result<()>;
+    fn remove_keys(&self, keys: T) -> anyhow::Result<()>;
 }
 
 pub mod db_engine {

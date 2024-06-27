@@ -26,6 +26,7 @@ use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use crate::cid_collections::CidHashSet;
 use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
@@ -315,9 +316,9 @@ impl ParityDb {
     }
 }
 
-impl GarbageCollectable<Cid> for ParityDb {
-    fn get_keys(&self) -> anyhow::Result<HashSet<Cid>> {
-        let mut set = HashSet::new();
+impl GarbageCollectable<CidHashSet> for ParityDb {
+    fn get_keys(&self) -> anyhow::Result<CidHashSet> {
+        let mut set = CidHashSet::new();
 
         // First iterate over all the indexed entries.
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
@@ -337,7 +338,7 @@ impl GarbageCollectable<Cid> for ParityDb {
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: HashSet<Cid>) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<()> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
         // conversion with allocation.
