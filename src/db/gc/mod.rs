@@ -72,10 +72,11 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
-use crate::db::{truncated_hash, GarbageCollectable, SettingsStore};
+use crate::db::{GarbageCollectable, SettingsStore};
 use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
 use ahash::{HashSet, HashSetExt};
+use cid::Cid;
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use std::mem;
@@ -95,13 +96,15 @@ const SETTINGS_KEY: &str = "LAST_GC_RUN";
 pub struct MarkAndSweep<DB> {
     db: Arc<DB>,
     get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
-    marked: HashSet<u32>,
+    marked: HashSet<Cid>,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
 
-impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<DB> {
+impl<DB: Blockstore + SettingsStore + GarbageCollectable<Cid> + Sync + Send + 'static>
+    MarkAndSweep<DB>
+{
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -143,7 +146,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static
 
         while let Some(block) = stream.next().await {
             let block = block?;
-            self.marked.remove(&truncated_hash(block.cid.hash()));
+            self.marked.remove(&block.cid);
         }
 
         anyhow::Ok(())

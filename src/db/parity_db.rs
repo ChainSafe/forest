@@ -8,9 +8,7 @@ use super::SettingsStore;
 
 use super::EthMappingsStore;
 
-use crate::db::{
-    parity_db_config::ParityDbConfig, truncated_hash, DBStatistics, GarbageCollectable,
-};
+use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
 use crate::rpc::eth;
@@ -317,28 +315,29 @@ impl ParityDb {
     }
 }
 
-impl GarbageCollectable for ParityDb {
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
+impl GarbageCollectable<Cid> for ParityDb {
+    fn get_keys(&self) -> anyhow::Result<HashSet<Cid>> {
         let mut set = HashSet::new();
 
         // First iterate over all the indexed entries.
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
-            set.insert(truncated_hash(cid.hash()));
+            set.insert(cid);
         }
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
-                set.insert(truncated_hash(&hash));
+                let cid = Cid::new_v1(DAG_CBOR, hash);
+                set.insert(cid);
                 true
             })?;
 
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: HashSet<Cid>) -> anyhow::Result<()> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
         // conversion with allocation.
@@ -346,7 +345,7 @@ impl GarbageCollectable for ParityDb {
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
 
-            if keys.contains(&truncated_hash(cid.hash())) {
+            if keys.contains(&cid) {
                 deref_vec.push(Self::dereference_operation(&cid));
             }
         }
@@ -354,8 +353,9 @@ impl GarbageCollectable for ParityDb {
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
-                if keys.contains(&truncated_hash(&hash)) {
-                    let cid = Cid::new_v1(DAG_CBOR, hash);
+                let cid = Cid::new_v1(DAG_CBOR, hash);
+
+                if keys.contains(&cid) {
                     deref_vec.push(Self::dereference_operation(&cid));
                 }
                 true

@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::{truncated_hash, GarbageCollectable};
+use crate::db::GarbageCollectable;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth;
 use ahash::{HashMap, HashSet, HashSetExt};
@@ -19,22 +19,22 @@ pub struct MemoryDB {
     eth_mappings_db: RwLock<HashMap<eth::Hash, Vec<u8>>>,
 }
 
-impl GarbageCollectable for MemoryDB {
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
+impl GarbageCollectable<Cid> for MemoryDB {
+    fn get_keys(&self) -> anyhow::Result<HashSet<Cid>> {
         let mut set = HashSet::with_capacity(self.blockchain_db.read().len());
         for key in self.blockchain_db.read().keys() {
             let cid = Cid::try_from(key.as_slice())?;
-            set.insert(truncated_hash(cid.hash()));
+            set.insert(cid);
         }
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: HashSet<Cid>) -> anyhow::Result<()> {
         let mut db = self.blockchain_db.write();
         db.retain(|key, _| {
             let cid = Cid::try_from(key.as_slice());
             match cid {
-                Ok(cid) => !keys.contains(&truncated_hash(cid.hash())),
+                Ok(cid) => !keys.contains(&cid),
                 _ => true,
             }
         });
