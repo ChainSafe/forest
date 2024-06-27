@@ -208,11 +208,11 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This call fails if the tipset is
     /// present but invalid. If the tipset is missing, None is returned.
-    pub fn load(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
+    pub fn load(store: &impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Option<Tipset>> {
         Ok(tsk
             .to_cids()
             .into_iter()
-            .map(|key| CachingBlockHeader::load(&store, key))
+            .map(|key| CachingBlockHeader::load(store, key))
             .collect::<anyhow::Result<Option<Vec<_>>>>()?
             .map(Tipset::new)
             .transpose()?)
@@ -239,12 +239,12 @@ impl Tipset {
 
     /// Fetch a tipset from the blockstore. This calls fails if the tipset is
     /// missing or invalid.
-    pub fn load_required(store: impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
+    pub fn load_required(store: &impl Blockstore, tsk: &TipsetKey) -> anyhow::Result<Tipset> {
         Tipset::load(store, tsk)?.context("Required tipset missing from database")
     }
 
     /// Constructs and returns a full tipset if messages from storage exists
-    pub fn fill_from_blockstore(&self, store: impl Blockstore) -> Option<FullTipset> {
+    pub fn fill_from_blockstore(&self, store: &impl Blockstore) -> Option<FullTipset> {
         // Find tipset messages. If any are missing, return `None`.
         let blocks = self
             .block_headers()
@@ -341,8 +341,9 @@ impl Tipset {
         }
         broken
     }
-    /// Returns an iterator of all tipsets
-    pub fn chain(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
+
+    /// Returns an iterator of all tipsets, taking an owned [`Blockstore`]
+    pub fn chain_owned(self, store: impl Blockstore) -> impl Iterator<Item = Tipset> {
         let mut tipset = Some(self);
         std::iter::from_fn(move || {
             let child = tipset.take()?;
@@ -352,11 +353,24 @@ impl Tipset {
     }
 
     /// Returns an iterator of all tipsets
-    pub fn chain_arc(self: Arc<Self>, store: impl Blockstore) -> impl Iterator<Item = Arc<Tipset>> {
+    pub fn chain(self, store: &impl Blockstore) -> impl Iterator<Item = Tipset> + '_ {
         let mut tipset = Some(self);
         std::iter::from_fn(move || {
             let child = tipset.take()?;
-            tipset = Tipset::load_required(&store, child.parents())
+            tipset = Tipset::load_required(store, child.parents()).ok();
+            Some(child)
+        })
+    }
+
+    /// Returns an iterator of all tipsets
+    pub fn chain_arc(
+        self: Arc<Self>,
+        store: &impl Blockstore,
+    ) -> impl Iterator<Item = Arc<Tipset>> + '_ {
+        let mut tipset = Some(self);
+        std::iter::from_fn(move || {
+            let child = tipset.take()?;
+            tipset = Tipset::load_required(store, child.parents())
                 .ok()
                 .map(Arc::new);
             Some(child)
@@ -364,7 +378,7 @@ impl Tipset {
     }
 
     /// Fetch the genesis block header for a given tipset.
-    pub fn genesis(&self, store: impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
+    pub fn genesis(&self, store: &impl Blockstore) -> anyhow::Result<CachingBlockHeader> {
         // Scanning through millions of epochs to find the genesis is quite
         // slow. Let's use a list of known blocks to short-circuit the search.
         // The blocks are hash-chained together and known blocks are guaranteed
@@ -380,7 +394,7 @@ impl Tipset {
             serde_yaml::from_str(include_str!("../../build/known_blocks.yaml")).unwrap()
         });
 
-        for tipset in self.clone().chain(&store) {
+        for tipset in self.clone().chain(store) {
             // Search for known calibnet and mainnet blocks
             for (genesis_cid, known_blocks) in [
                 (*calibnet::GENESIS_CID, &headers.calibnet),
