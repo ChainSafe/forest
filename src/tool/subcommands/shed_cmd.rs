@@ -51,7 +51,7 @@ pub enum ShedCommands {
         output: Option<PathBuf>,
     },
     /// Dump the OpenRPC definition for the node.
-    Openrpc,
+    Openrpc { include: Vec<String> },
 }
 
 impl ShedCommands {
@@ -116,10 +116,15 @@ impl ShedCommands {
                     println!("{}", BASE64_STANDARD.encode(keypair_data));
                 }
             }
-            ShedCommands::Openrpc => {
+            ShedCommands::Openrpc { include } => {
+                let include = include.iter().map(String::as_str).collect::<Vec<_>>();
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&crate::rpc::openrpc()).unwrap()
+                    serde_json::to_string_pretty(&crate::rpc::openrpc(match include.is_empty() {
+                        true => None,
+                        false => Some(&include),
+                    }))
+                    .unwrap()
                 );
             }
         }

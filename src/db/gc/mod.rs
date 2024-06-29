@@ -137,11 +137,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = stream_graph(
-            self.db.clone(),
-            (*tipset).clone().chain(self.db.clone()),
-            depth,
-        );
+        let mut stream = stream_graph(self.db.clone(), (*tipset).clone().chain(&self.db), depth);
 
         while let Some(block) = stream.next().await {
             let block = block?;
@@ -249,14 +245,14 @@ mod test {
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
 
-    fn insert_unreachable(db: impl Blockstore, quantity: u64) {
+    fn insert_unreachable(db: &impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
             let block: CachingBlockHeader = mock_block(1 + idx, 1 + quantity);
             db.put_cbor_default(&block).unwrap();
         }
     }
 
-    fn run_to_epoch(db: impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
+    fn run_to_epoch(db: &impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
         let mut heaviest_tipset = cs.heaviest_tipset();
 
         for _ in heaviest_tipset.epoch()..epoch {
