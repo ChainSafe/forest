@@ -87,7 +87,7 @@ use tracing::info;
 const SETTINGS_KEY: &str = "LAST_GC_RUN";
 
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
-/// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
+/// keys writing them to a [`CidHashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
