@@ -26,7 +26,8 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
         }
     }
 
-    /// Remove keys whose (duration - timestamp) > TTL from the database.
+    /// Remove keys whose `(duration - timestamp) > TTL` from the database
+    /// where `duration` is the elapsed time since "UNIX timestamp".
     fn ttl_workflow(&self, duration: Duration) -> anyhow::Result<()> {
         let keys: Vec<eth::Hash> = self
             .db
