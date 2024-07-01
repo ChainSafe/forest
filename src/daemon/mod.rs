@@ -273,9 +273,7 @@ pub(super) async fn start(
                 chain_config.eth_chain_id,
                 Duration::from_secs(ttl.into()),
             );
-            collector.run().await?;
-
-            Ok(())
+            collector.run().await
         });
     }
 
