@@ -198,7 +198,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
         }
 
         // This signifies a new run.
-        if self.marked.len() == 0 {
+        if self.marked.is_empty() {
             // Make sure we don't run the GC too often.
             time::sleep(interval).await;
 

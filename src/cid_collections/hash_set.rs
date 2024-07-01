@@ -46,6 +46,11 @@ impl CidHashSet {
     pub fn remove(&mut self, cid: &Cid) -> bool {
         self.inner.remove(cid).is_some()
     }
+
+    /// Returns `true` if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
 }
 
 ////////////////////

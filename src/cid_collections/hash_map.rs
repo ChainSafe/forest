@@ -91,6 +91,12 @@ impl<V> CidHashMap<V> {
             MaybeCompactedCid::Uncompactable(u) => self.uncompact.remove(&u),
         }
     }
+    /// Returns `true` if the map is empty.
+    ///
+    /// See also [`HashMap::is_empty`].
+    pub fn is_empty(&self) -> bool {
+        self.compact.is_empty() && self.uncompact.is_empty()
+    }
 }
 
 ///////////////
@@ -284,6 +290,7 @@ impl<V> IntoIterator for CidHashMap<V> {
 
 #[cfg(test)]
 use std::collections::hash_map::Keys as StdKeys;
+use std::collections::HashMap;
 
 #[cfg(test)]
 impl<V> CidHashMap<V> {

@@ -145,7 +145,6 @@ pub struct CliOpts {
     /// Track peak physical memory usage and print on exit
     #[arg(long)]
     pub track_peak_rss: bool,
-    // GC is broken. Tracking issue: https://github.com/ChainSafe/forest/issues/3863
     /// Disable the automatic database garbage collection.
     #[arg(long)]
     pub no_gc: bool,
