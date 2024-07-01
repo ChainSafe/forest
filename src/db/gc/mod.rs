@@ -330,7 +330,7 @@ mod test {
 
         // test insufficient epochs
         gc.gc_workflow(ZERO_DURATION).await.unwrap();
-        assert_eq!(gc.marked.len(), 0);
+        assert!(gc.marked.is_empty());
 
         // test marked
         tester.run_epochs(depth);
