@@ -407,6 +407,7 @@ where
 
         // write back
         for (k, v, timestamp) in filtered.into_iter() {
+            tracing::trace!("Insert mapping {} => {}", k, v);
             self.put_mapping(k, v, timestamp)?;
         }
         tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
