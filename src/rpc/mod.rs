@@ -127,6 +127,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateNetworkName);
         $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfoV0);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
         $callback!(crate::rpc::state::StateAccountKey);
         $callback!(crate::rpc::state::StateLookupID);
@@ -159,6 +160,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMarketDeals);
         $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!(crate::rpc::state::StateMarketStorageDeal);
+        $callback!(crate::rpc::state::StateWaitMsgV0);
         $callback!(crate::rpc::state::StateWaitMsg);
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);

@@ -784,7 +784,9 @@ where
         mut current: Arc<Tipset>,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+        let allow_replaced = allow_replaced.unwrap_or(true);
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
@@ -811,7 +813,7 @@ where
                     && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
             {
                 let receipt = self
-                    .tipset_executed_message(current.as_ref(), message, true)?
+                    .tipset_executed_message(current.as_ref(), message, allow_replaced)?
                     .context("Failed to get receipt with tipset_executed_message")?;
                 return Ok(Some((current, receipt)));
             }
@@ -832,8 +834,9 @@ where
         current: Arc<Tipset>,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
-        self.check_search(current, message, look_back_limit)
+        self.check_search(current, message, look_back_limit, allow_replaced)
     }
 
     /// Returns a message receipt from a given tipset and message CID.
@@ -845,7 +848,7 @@ where
             return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset, &m, None)?;
+        let maybe_tuple = self.search_back_for_message(tipset, &m, None, None)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -862,6 +865,8 @@ where
         self: &Arc<Self>,
         msg_cid: Cid,
         confidence: i64,
+        look_back_limit: Option<ChainEpoch>,
+        allow_replaced: Option<bool>,
     ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -882,8 +887,12 @@ where
         let message_for_task = message.clone();
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
-            let back_tuple =
-                sm_cloned.search_back_for_message(current_tipset, &message_for_task, None)?;
+            let back_tuple = sm_cloned.search_back_for_message(
+                current_tipset,
+                &message_for_task,
+                look_back_limit,
+                allow_replaced,
+            )?;
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
@@ -980,16 +989,18 @@ where
         from: Option<Arc<Tipset>>,
         msg_cid: Cid,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.cs.heaviest_tipset();
-        let maybe_message_reciept = self.tipset_executed_message(&from, &message, true)?;
+        let maybe_message_reciept =
+            self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
         if let Some(r) = maybe_message_reciept {
             Ok(Some((from, r)))
         } else {
-            self.search_back_for_message(current_tipset, &message, look_back_limit)
+            self.search_back_for_message(current_tipset, &message, look_back_limit, allow_replaced)
         }
     }
 

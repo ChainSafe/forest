@@ -848,10 +848,12 @@ impl RpcMethod<2> for StateGetReceipt {
 
 /// looks back in the chain for a message. If not found, it blocks until the
 /// message arrives on chain, and gets to the indicated confidence depth.
-pub enum StateWaitMsg {}
+pub enum StateWaitMsgV0 {}
 
-impl RpcMethod<2> for StateWaitMsg {
-    const NAME: &'static str = "Filecoin.StateWaitMsg";
+impl RpcMethod<2> for StateWaitMsgV0 {
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
+    // point v0 implementation back to this one
+    const NAME: &'static str = "Filecoin.StateWaitMsgV0";
     const PARAM_NAMES: [&'static str; 2] = ["message_cid", "confidence"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
@@ -865,7 +867,51 @@ impl RpcMethod<2> for StateWaitMsg {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .wait_for_message(message_cid, confidence)
+            .wait_for_message(message_cid, confidence, None, None)
+            .await?;
+        let tipset = tipset.context("wait for msg returned empty tuple")?;
+        let receipt = receipt.context("wait for msg returned empty receipt")?;
+        let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
+        Ok(MessageLookup {
+            receipt,
+            tipset: tipset.key().clone(),
+            height: tipset.epoch(),
+            message: message_cid,
+            return_dec: ipld,
+        })
+    }
+}
+
+/// looks back in the chain for a message. If not found, it blocks until the
+/// message arrives on chain, and gets to the indicated confidence depth.
+pub enum StateWaitMsg {}
+
+impl RpcMethod<4> for StateWaitMsg {
+    const NAME: &'static str = "Filecoin.StateWaitMsg";
+    const PARAM_NAMES: [&'static str; 4] = [
+        "message_cid",
+        "confidence",
+        "look_back_limit",
+        "allow_replaced",
+    ];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid, i64, ChainEpoch, bool);
+    type Ok = MessageLookup;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (message_cid, confidence, look_back_limit, allow_replaced): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let (tipset, receipt) = ctx
+            .state_manager
+            .wait_for_message(
+                message_cid,
+                confidence,
+                Some(look_back_limit),
+                Some(allow_replaced),
+            )
             .await?;
         let tipset = tipset.context("wait for msg returned empty tuple")?;
         let receipt = receipt.context("wait for msg returned empty receipt")?;
@@ -899,7 +945,7 @@ impl RpcMethod<1> for StateSearchMsg {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .search_for_message(None, message_cid, None)
+            .search_for_message(None, message_cid, None, None)
             .await?
             .with_context(|| format!("message {message_cid} not found."))?;
         let ipld = receipt.return_data().deserialize().unwrap_or(Ipld::Null);
@@ -932,7 +978,7 @@ impl RpcMethod<2> for StateSearchMsgLimited {
     ) -> Result<Self::Ok, ServerError> {
         let (tipset, receipt) = ctx
             .state_manager
-            .search_for_message(None, message_cid, Some(look_back_limit))
+            .search_for_message(None, message_cid, Some(look_back_limit), None)
             .await?
             .with_context(|| {
                 format!("message {message_cid} not found within the last {look_back_limit} epochs")
@@ -1539,10 +1585,12 @@ impl RpcMethod<1> for StateGetBeaconEntry {
     }
 }
 
-pub enum StateSectorPreCommitInfo {}
+pub enum StateSectorPreCommitInfoV0 {}
 
-impl RpcMethod<3> for StateSectorPreCommitInfo {
-    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
+impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/3960
+    // point v0 implementation back to this one
+    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
@@ -1562,27 +1610,36 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
-        Ok(match state {
-            miner::State::V8(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V9(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V10(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V11(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V12(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-            miner::State::V13(s) => s
-                .get_precommitted_sector(ctx.store(), sector_number)?
-                .map(SectorPreCommitOnChainInfo::from),
-        }
-        .context("precommit info does not exist")?)
+        Ok(state
+            .load_precommit_on_chain_info(ctx.store(), sector_number)?
+            .context("precommit info does not exist")?)
+    }
+}
+
+pub enum StateSectorPreCommitInfo {}
+
+impl RpcMethod<3> for StateSectorPreCommitInfo {
+    const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
+    const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, u64, ApiTipsetKey);
+    type Ok = Option<SectorPreCommitOnChainInfo>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx
+            .state_manager
+            .chain_store()
+            .load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&miner_address, *ts.parent_state())?;
+        let state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(state.load_precommit_on_chain_info(ctx.store(), sector_number)?)
     }
 }
 

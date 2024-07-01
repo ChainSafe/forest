@@ -129,4 +129,31 @@ impl MinerStateExt for State {
         };
         store.get_cbor_required(&allocated_sectors)
     }
+
+    fn load_precommit_on_chain_info<BS: Blockstore>(
+        &self,
+        store: &BS,
+        sector_number: u64,
+    ) -> anyhow::Result<Option<SectorPreCommitOnChainInfo>> {
+        Ok(match self {
+            Self::V8(s) => s
+                .get_precommitted_sector(store, sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            Self::V9(s) => s
+                .get_precommitted_sector(store, sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            Self::V10(s) => s
+                .get_precommitted_sector(store, sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            Self::V11(s) => s
+                .get_precommitted_sector(store, sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            Self::V12(s) => s
+                .get_precommitted_sector(store, sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+            Self::V13(s) => s
+                .get_precommitted_sector(store, sector_number)?
+                .map(SectorPreCommitOnChainInfo::from),
+        })
+    }
 }

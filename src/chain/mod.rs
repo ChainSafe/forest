@@ -17,14 +17,13 @@ use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 pub use self::{store::*, weight::*};
 
 pub async fn export<D: Digest>(
-    db: impl Blockstore + Send + Sync + 'static,
+    db: Arc<impl Blockstore + Send + Sync + 'static>,
     tipset: &Tipset,
     lookup_depth: ChainEpochDelta,
     writer: impl AsyncWrite + Unpin,
     seen: CidHashSet,
     skip_checksum: bool,
 ) -> anyhow::Result<Option<digest::Output<D>>, Error> {
-    let db = Arc::new(db);
     let stateroot_lookup_limit = tipset.epoch() - lookup_depth;
     let roots = tipset.key().to_cids();
 
@@ -40,7 +39,7 @@ pub async fn export<D: Digest>(
         1024,
         stream_chain(
             Arc::clone(&db),
-            tipset.clone().chain(Arc::clone(&db)),
+            tipset.clone().chain_owned(Arc::clone(&db)),
             stateroot_lookup_limit,
         )
         .with_seen(seen),

@@ -150,7 +150,7 @@ impl ArchiveCommands {
                 let store = ManyCar::try_from(snapshot_files)?;
                 let heaviest_tipset = store.heaviest_tipset()?;
                 do_export(
-                    store,
+                    store.into(),
                     heaviest_tipset,
                     output_path,
                     epoch,
@@ -308,16 +308,16 @@ fn print_checkpoints(snapshot_files: Vec<PathBuf>) -> anyhow::Result<()> {
         NetworkChain::from_genesis(genesis.cid()).context("Unrecognizable genesis block")?;
 
     println!("{}:", chain_name);
-    for (epoch, cid) in list_checkpoints(store, root) {
+    for (epoch, cid) in list_checkpoints(&store, root) {
         println!("  {}: {}", epoch, cid);
     }
     Ok(())
 }
 
 fn list_checkpoints(
-    db: impl Blockstore,
+    db: &impl Blockstore,
     root: Tipset,
-) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> {
+) -> impl Iterator<Item = (ChainEpoch, cid::Cid)> + '_ {
     let interval = EPOCHS_IN_DAY * 30;
     let mut target_epoch = root.epoch() - root.epoch() % interval;
     root.chain(db).filter_map(move |tipset| {
@@ -355,7 +355,7 @@ fn build_output_path(
 
 #[allow(clippy::too_many_arguments)]
 async fn do_export(
-    store: impl Blockstore + Send + Sync + 'static,
+    store: Arc<impl Blockstore + Send + Sync + 'static>,
     root: Tipset,
     output_path: PathBuf,
     epoch_option: Option<ChainEpoch>,
@@ -365,7 +365,6 @@ async fn do_export(
     force: bool,
 ) -> anyhow::Result<()> {
     let ts = Arc::new(root);
-    let store = Arc::new(store);
 
     let genesis = ts.genesis(&store)?;
     let network = NetworkChain::from_genesis_or_devnet_placeholder(genesis.cid());
@@ -396,7 +395,7 @@ async fn do_export(
         let diff_limit = diff_depth.map(|depth| diff_ts.epoch() - depth).unwrap_or(0);
         let mut stream = unordered_stream_graph(
             store.clone(),
-            diff_ts.clone().chain(store.clone()),
+            diff_ts.clone().chain_owned(store.clone()),
             diff_limit,
         );
         while stream.try_next().await?.is_some() {}
@@ -601,7 +600,7 @@ mod tests {
         let store = AnyCar::try_from(calibnet::DEFAULT_GENESIS).unwrap();
         let heaviest_tipset = store.heaviest_tipset().unwrap();
         do_export(
-            store,
+            store.into(),
             heaviest_tipset,
             output_path.path().into(),
             Some(0),
