@@ -842,13 +842,21 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             continue;
         }
 
-        let epoch_diff = oldest_pending_tipset.epoch() - current_head.epoch();
-        let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
+        let window = min(
+            oldest_pending_tipset.epoch() - until_epoch, // (oldest_pending_tipset.epoch() - 1) - until_epoch + 1
+            MAX_TIPSETS_TO_REQUEST as i64,
+        );
         let network_tipsets = network
             .chain_exchange_headers(None, oldest_pending_tipset.parents(), window as u64)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
 
+        // Break when the until_epoch is a null epoch
+        if let Some(first) = network_tipsets.first() {
+            if first.epoch() < until_epoch {
+                break;
+            }
+        }
         for tipset in network_tipsets
             .into_iter()
             .take_while(|ts| ts.epoch() >= until_epoch)
