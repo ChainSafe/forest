@@ -16,7 +16,7 @@ pub struct EthMappingCollector<DB> {
 }
 
 impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollector<DB> {
-    /// Creates a TTL collector for the Ethereum mapping.
+    /// Creates a `TTL` collector for the Ethereum mapping.
     ///
     pub fn new(db: Arc<DB>, eth_chain_id: u32, ttl: Duration) -> Self {
         Self {
