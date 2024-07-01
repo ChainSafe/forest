@@ -1,14 +1,18 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::shim::{
-    address::{Address, Payload},
-    randomness::Randomness,
-    sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
-    state_tree::ActorState,
-    version::NetworkVersion,
-};
+use crate::eth::{EthChainId, EthTx};
 use crate::utils::encoding::prover_id_from_u64;
+use crate::{
+    message::SignedMessage,
+    shim::{
+        address::{Address, Payload},
+        randomness::Randomness,
+        sector::{RegisteredPoStProof, RegisteredSealProof, SectorInfo},
+        state_tree::ActorState,
+        version::NetworkVersion,
+    },
+};
 use cid::Cid;
 use fil_actor_interface::{is_account_actor, is_eth_account_actor, is_placeholder_actor, miner};
 use fil_actors_shared::filecoin_proofs_api::post;
@@ -103,6 +107,22 @@ where
             .collect();
 
         Ok(out)
+    }
+}
+
+pub fn is_valid_eth_tx_for_sending(
+    eth_chain_id: EthChainId,
+    network_version: NetworkVersion,
+    message: &SignedMessage,
+) -> bool {
+    let eth_tx = EthTx::from_signed_message(eth_chain_id, message);
+
+    if let Ok(eth_tx) = eth_tx {
+        // EIP-1559 transactions are valid for all network versions.
+        // Legacy transactions are only valid for network versions >= V23.
+        network_version >= NetworkVersion::V23 || eth_tx.is_eip1559()
+    } else {
+        false
     }
 }
 

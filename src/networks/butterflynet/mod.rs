@@ -8,7 +8,10 @@ use once_cell::sync::Lazy;
 use std::str::FromStr;
 use url::Url;
 
-use crate::{db::SettingsStore, make_height, shim::version::NetworkVersion, utils::net::http_get};
+use crate::{
+    db::SettingsStore, eth::EthChainId, make_height, shim::version::NetworkVersion,
+    utils::net::http_get,
+};
 
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
@@ -66,7 +69,7 @@ pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
     Lazy::new(|| parse_bootstrap_peers(include_str!("../../../build/bootstrap/butterflynet")));
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
-pub const ETH_CHAIN_ID: u64 = 3141592;
+pub const ETH_CHAIN_ID: EthChainId = 3141592;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 

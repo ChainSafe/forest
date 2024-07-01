@@ -11,6 +11,7 @@ pub use types::*;
 
 use crate::blocks::Tipset;
 use crate::cid_collections::CidHashSet;
+use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
@@ -2239,7 +2240,7 @@ pub struct NetworkParams {
     pre_commit_challenge_delay: ChainEpoch,
     fork_upgrade_params: ForkUpgradeParams,
     #[serde(rename = "Eip155ChainID")]
-    eip155_chain_id: u32,
+    eip155_chain_id: EthChainId,
 }
 
 lotus_json_with_self!(NetworkParams);

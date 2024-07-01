@@ -7,7 +7,7 @@ use libp2p::Multiaddr;
 use once_cell::sync::Lazy;
 use std::str::FromStr;
 
-use crate::{make_height, shim::version::NetworkVersion};
+use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
@@ -36,7 +36,7 @@ const LIGHTNING_EPOCH: i64 = 489_094;
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 3120;
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314159.json
-pub const ETH_CHAIN_ID: u64 = 314159;
+pub const ETH_CHAIN_ID: EthChainId = 314159;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 

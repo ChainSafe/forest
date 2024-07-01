@@ -5,7 +5,7 @@ use ahash::HashMap;
 use cid::Cid;
 use once_cell::sync::Lazy;
 
-use crate::{make_height, shim::version::NetworkVersion};
+use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
@@ -14,7 +14,7 @@ use super::{
 };
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
-pub const ETH_CHAIN_ID: u64 = 31415926;
+pub const ETH_CHAIN_ID: EthChainId = 31415926;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 0;
 
