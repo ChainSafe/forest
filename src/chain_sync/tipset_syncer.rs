@@ -861,7 +861,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
         // Breaks the loop when `until_epoch` is overreached, which happens
         // when there are null tipsets in the queried range.
         // Note that when the `until_epoch` is null, the outer while condition
-        // is always true, and it relies on the returned boolean flag(until epoch is overreached)
+        // is always true, and it relies on the returned boolean value(until epoch is overreached)
         // to break the loop.
         if for_each_tipset_until_epoch_overreached(network_tipsets, until_epoch, callback)? {
             // Breaks when the `until_epoch` is overreached.
