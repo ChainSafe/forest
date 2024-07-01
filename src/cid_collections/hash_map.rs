@@ -290,7 +290,6 @@ impl<V> IntoIterator for CidHashMap<V> {
 
 #[cfg(test)]
 use std::collections::hash_map::Keys as StdKeys;
-use std::collections::HashMap;
 
 #[cfg(test)]
 impl<V> CidHashMap<V> {
