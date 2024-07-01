@@ -822,7 +822,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
 
     #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
-    while pending_tipsets.last().epoch() > until_epoch {
+    'outer: while pending_tipsets.last().epoch() > until_epoch {
         let oldest_pending_tipset = pending_tipsets.last();
         let work_to_be_done = oldest_pending_tipset.epoch() - until_epoch + 1;
         wp.set((work_to_be_done - total_size).unsigned_abs());
@@ -851,16 +851,11 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
 
-        // Break when the until_epoch is a null epoch
-        if let Some(first) = network_tipsets.first() {
-            if first.epoch() < until_epoch {
-                break;
+        for tipset in network_tipsets {
+            // This could happen when the `until_epoch` is a null epoch
+            if tipset.epoch() < until_epoch {
+                break 'outer;
             }
-        }
-        for tipset in network_tipsets
-            .into_iter()
-            .take_while(|ts| ts.epoch() >= until_epoch)
-        {
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &accepted_blocks)?;
             accepted_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
