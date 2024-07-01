@@ -823,7 +823,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
 
     #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
-    while pending_tipsets.last().epoch() > until_epoch {
+    'outer: while pending_tipsets.last().epoch() > until_epoch {
         let oldest_pending_tipset = pending_tipsets.last();
         let work_to_be_done = oldest_pending_tipset.epoch() - until_epoch + 1;
         wp.set((work_to_be_done - total_size).unsigned_abs());
@@ -843,8 +843,10 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             continue;
         }
 
-        let epoch_diff = oldest_pending_tipset.epoch() - current_head.epoch();
-        let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
+        let window = min(
+            oldest_pending_tipset.epoch() - until_epoch, // (oldest_pending_tipset.epoch() - 1) - until_epoch + 1
+            MAX_TIPSETS_TO_REQUEST as i64,
+        );
         let network_tipsets = network
             .chain_exchange_headers(
                 None,
@@ -859,10 +861,11 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             ));
         }
 
-        for tipset in network_tipsets
-            .into_iter()
-            .take_while(|ts| ts.epoch() >= until_epoch)
-        {
+        for tipset in network_tipsets {
+            // This could happen when the `until_epoch` is a null epoch
+            if tipset.epoch() < until_epoch {
+                break 'outer;
+            }
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &accepted_blocks)?;
             accepted_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
