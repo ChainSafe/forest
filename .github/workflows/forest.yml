@@ -282,6 +282,32 @@ jobs:
           chmod +x ~/.cargo/bin/forest*
       - run: ./scripts/tests/calibnet_kademlia_check.sh
         timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
+  calibnet-eth-mapping-check:
+    needs:
+      - build-ubuntu
+    name: Calibnet eth mapping check
+    runs-on: ubuntu-latest
+    steps:
+      - run: lscpu
+      - uses: actions/cache@v4
+        with:
+          path: '${{ env.FIL_PROOFS_PARAMETER_CACHE }}'
+          key: proof-params-keys
+      - name: Checkout Sources
+        uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+          path: ~/.cargo/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: 'forest-${{ runner.os }}'
+          path: ~/.cargo/bin
+      - name: Set permissions
+        run: |
+          chmod +x ~/.cargo/bin/forest*
+      - run: ./scripts/tests/calibnet_eth_mapping_check.sh
+        timeout-minutes: '${{ fromJSON(env.SCRIPT_TIMEOUT_MINUTES) }}'
   db-migration-checks:
     needs:
       - build-ubuntu
