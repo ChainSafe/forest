@@ -19,6 +19,9 @@ pub struct Parser<'a> {
     argument_names: &'a [&'a str],
     /// How many times has the user called us so far?
     call_count: usize,
+    /// How many positional parameters are required?
+    n_required: usize,
+    /// Has any error occurred?
     has_errored: bool,
 }
 
@@ -48,13 +51,15 @@ impl<'a> Parser<'a> {
         params: Option<RequestParameters>,
         names: &'a [&'a str], // in position order
         calling_convention: ParamStructure,
+        n_required: usize,
     ) -> Result<Self, ServerError> {
-        Self::_new(params, names, calling_convention).map_err(Into::into)
+        Self::_new(params, names, calling_convention, n_required).map_err(Into::into)
     }
     fn _new(
         params: Option<RequestParameters>,
         names: &'a [&'a str],
         calling_convention: ParamStructure,
+        n_required: usize,
     ) -> Result<Self, ParseError> {
         let params = match (params, calling_convention) {
             // ignore the calling convention if there are no arguments to parse
@@ -90,6 +95,7 @@ impl<'a> Parser<'a> {
             params,
             argument_names: names,
             call_count: 0,
+            n_required,
             has_errored: false,
         })
     }
@@ -118,7 +124,12 @@ impl<'a> Parser<'a> {
             ),
         };
         let ty = std::any::type_name::<T>();
-        let missing_parameter = ParseError::Missing { index, name, ty };
+        let missing_parameter = ParseError::Missing {
+            index,
+            n_required: self.n_required,
+            name,
+            ty,
+        };
         let deserialize_error = |error| ParseError::Deser {
             index,
             name,
@@ -146,8 +157,8 @@ impl<'a> Parser<'a> {
                     Err(e) => self.error(deserialize_error(e))?,
                 },
                 None => match T::optional() {
-                    true => T::unwrap_none(),
-                    false => self.error(missing_parameter)?,
+                    true if self.call_count > self.n_required => T::unwrap_none(),
+                    _ => self.error(missing_parameter)?,
                 },
             },
         };
@@ -176,6 +187,7 @@ impl<'a> Parser<'a> {
 enum ParseError<'a> {
     Missing {
         index: usize,
+        n_required: usize,
         name: &'a str,
         ty: &'a str,
     },
@@ -194,10 +206,16 @@ enum ParseError<'a> {
 impl<'a> From<ParseError<'a>> for ServerError {
     fn from(value: ParseError<'a>) -> Self {
         match value {
-            ParseError::Missing { index, name, ty } => ServerError::invalid_params(
+            ParseError::Missing {
+                index,
+                n_required,
+                name,
+                ty,
+            } => ServerError::invalid_params(
                 "missing required parameter",
                 json!({
                     "index": index,
+                    "n_required": n_required,
                     "name": name,
                     "type": ty
                 }),
@@ -245,20 +263,22 @@ mod tests {
     #[test]
     fn optional() {
         // no params where optional
-        let mut parser = Parser::_new(None, &["p0"], ParamStructure::Either).unwrap();
+        let mut parser = Parser::_new(None, &["p0"], ParamStructure::Either, 0).unwrap();
         assert_eq!(None::<i32>, parser._parse().unwrap());
 
         // positional optional
-        let mut parser = Parser::_new(from_value!([]), &["opt"], ParamStructure::Either).unwrap();
+        let mut parser =
+            Parser::_new(from_value!([]), &["opt"], ParamStructure::Either, 0).unwrap();
         assert_eq!(None::<i32>, parser._parse().unwrap());
 
         // named optional
-        let mut parser = Parser::_new(from_value!({}), &["opt"], ParamStructure::Either).unwrap();
+        let mut parser =
+            Parser::_new(from_value!({}), &["opt"], ParamStructure::Either, 0).unwrap();
         assert_eq!(None::<i32>, parser._parse().unwrap());
 
         // postional optional with mandatory
         let mut parser =
-            Parser::_new(from_value!([0]), &["p0", "opt"], ParamStructure::Either).unwrap();
+            Parser::_new(from_value!([0]), &["p0", "opt"], ParamStructure::Either, 0).unwrap();
         assert_eq!(Some(0), parser._parse().unwrap());
         assert_eq!(None::<i32>, parser._parse().unwrap());
 
@@ -267,6 +287,7 @@ mod tests {
             from_value!({"p0": 0}),
             &["p0", "opt"],
             ParamStructure::Either,
+            0,
         )
         .unwrap();
         assert_eq!(Some(0), parser._parse().unwrap());
@@ -276,16 +297,23 @@ mod tests {
     #[test]
     fn missing() {
         // missing only named
-        let mut parser = Parser::_new(from_value!({}), &["p0"], ParamStructure::Either).unwrap();
+        let mut parser = Parser::_new(from_value!({}), &["p0"], ParamStructure::Either, 0).unwrap();
         assert!(matches!(
             parser._parse::<i32>().unwrap_err(),
             ParseError::Missing { name: "p0", .. },
         ));
 
         // missing only positional
-        let mut parser = Parser::_new(from_value!([]), &["p0"], ParamStructure::Either).unwrap();
+        let mut parser = Parser::_new(from_value!([]), &["p0"], ParamStructure::Either, 0).unwrap();
         assert!(matches!(
             parser._parse::<i32>().unwrap_err(),
+            ParseError::Missing { name: "p0", .. },
+        ));
+
+        // missing only positional
+        let mut parser = Parser::_new(from_value!([]), &["p0"], ParamStructure::Either, 1).unwrap();
+        assert!(matches!(
+            parser._parse::<Option<i32>>().unwrap_err(),
             ParseError::Missing { name: "p0", .. },
         ));
 
@@ -294,6 +322,7 @@ mod tests {
             from_value!({"p0": 0}),
             &["p0", "p1"],
             ParamStructure::Either,
+            0,
         )
         .unwrap();
         assert_eq!(0, parser._parse::<i32>().unwrap());
@@ -304,7 +333,7 @@ mod tests {
 
         // missing a positional
         let mut parser =
-            Parser::_new(from_value!([0]), &["p0", "p1"], ParamStructure::Either).unwrap();
+            Parser::_new(from_value!([0]), &["p0", "p1"], ParamStructure::Either, 0).unwrap();
         assert_eq!(0, parser._parse::<i32>().unwrap());
         assert!(matches!(
             parser._parse::<i32>().unwrap_err(),
@@ -316,13 +345,13 @@ mod tests {
     fn unexpected() {
         // named but expected none
         assert!(matches!(
-            Parser::_new(from_value!({ "surprise": () }), &[], ParamStructure::Either).unwrap_err(),
+            Parser::_new(from_value!({ "surprise": () }), &[], ParamStructure::Either,0).unwrap_err(),
             ParseError::UnexpectedNamed(it) if it == ["surprise"],
         ));
 
         // positional but expected none
         assert!(matches!(
-            Parser::_new(from_value!(["surprise"]), &[], ParamStructure::Either).unwrap_err(),
+            Parser::_new(from_value!(["surprise"]), &[], ParamStructure::Either, 0).unwrap_err(),
             ParseError::UnexpectedPositional(1),
         ));
 
@@ -331,6 +360,7 @@ mod tests {
             from_value!({ "p0": 0, "surprise": () }),
             &["p0"],
             ParamStructure::Either,
+            0,
         )
         .unwrap();
         assert!(matches!(
@@ -343,6 +373,7 @@ mod tests {
             from_value!([1, "surprise"]),
             &["p0"],
             ParamStructure::Either,
+            0,
         )
         .unwrap();
         assert!(matches!(
@@ -354,7 +385,7 @@ mod tests {
     #[test]
     #[should_panic = "`Parser` was initialized with 0 arguments, but `parse` was called 1 times"]
     fn called_too_much() {
-        let mut parser = Parser::_new(None, &[], ParamStructure::Either).unwrap();
+        let mut parser = Parser::_new(None, &[], ParamStructure::Either, 0).unwrap();
         let _ = parser._parse::<()>();
         unreachable!()
     }
@@ -362,6 +393,6 @@ mod tests {
     #[test]
     #[should_panic = "`Parser` has unhandled parameters - did you forget to call `parse`?"]
     fn called_too_little() {
-        Parser::_new(None, &["p0"], ParamStructure::Either).unwrap();
+        Parser::_new(None, &["p0"], ParamStructure::Either, 0).unwrap();
     }
 }
