@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 mod types;
-use types::*;
+pub use types::*;
 
 #[cfg(test)]
 use crate::blocks::RawBlockHeader;
@@ -24,6 +24,7 @@ use crate::shim::message::Message;
 use crate::utils::db::CborStoreExt as _;
 use crate::utils::io::VoidAsyncWriter;
 use anyhow::{Context as _, Result};
+use cid::multihash::Code::Blake2b256;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{CborStore, RawBytes};
@@ -272,6 +273,26 @@ impl RpcMethod<1> for ChainHasObj {
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
+    }
+}
+
+pub enum ChainPutObj {}
+impl RpcMethod<1> for ChainPutObj {
+    const NAME: &'static str = "Filecoin.ChainPutObj";
+    const PARAM_NAMES: [&'static str; 1] = ["obj"];
+    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (crate::rpc::chain::BasicBlock,);
+    type Ok = ();
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore>,
+        (obj,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let block = fvm_ipld_blockstore::Block::new(fvm_ipld_encoding::DAG_CBOR, obj.raw_data());
+        ctx.state_manager.blockstore().put(Blake2b256, &block)?;
+        Ok(())
     }
 }
 

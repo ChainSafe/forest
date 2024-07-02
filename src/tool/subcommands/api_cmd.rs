@@ -533,6 +533,9 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             .clone()
             .into(),))?),
         RpcTest::identity(ChainTipSetWeight::request((tipset.key().into(),))?),
+        RpcTest::identity(ChainPutObj::request((crate::rpc::chain::BasicBlock::new(
+            Vec::new(),
+        ),))?),
     ];
 
     for block in tipset.block_headers() {
