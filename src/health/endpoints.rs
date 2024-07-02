@@ -49,12 +49,13 @@ pub(crate) async fn readyz(
 ) -> Result<String, AppError> {
     let mut acc = MessageAccumulator::new_with_enabled(params.contains_key(VERBOSE_PARAM));
 
-    let mut healthy = true;
-    healthy &= check_sync_state_complete(&state, &mut acc);
-    healthy &= check_epoch_up_to_date(&state, &mut acc);
-    healthy &= check_rpc_server_running(&state, &mut acc).await;
+    let mut ready = true;
+    ready &= check_sync_state_complete(&state, &mut acc);
+    ready &= check_epoch_up_to_date(&state, &mut acc);
+    ready &= check_rpc_server_running(&state, &mut acc).await;
+    ready &= check_eth_mapping_created(&state, &mut acc);
 
-    if healthy {
+    if ready {
         Ok(acc.result_ok())
     } else {
         Err(AppError(anyhow::anyhow!(acc.result_err())))
@@ -150,6 +151,19 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
     } else {
         acc.push_err("no peers connected");
         false
+    }
+}
+
+fn check_eth_mapping_created(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+    match state.chain_store.get_eth_mapping_created() {
+        Ok(Some(true)) => {
+            acc.push_ok("eth mapping up to date");
+            true
+        }
+        Ok(None) | Ok(Some(false)) | Err(_) => {
+            acc.push_err("no eth mapping");
+            true
+        }
     }
 }
 

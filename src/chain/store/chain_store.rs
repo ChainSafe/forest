@@ -34,7 +34,7 @@ use super::{
     tipset_tracker::TipsetTracker,
     Error,
 };
-use crate::db::setting_keys::HEAD_KEY;
+use crate::db::setting_keys::{ETH_MAPPING_CREATED_KEY, HEAD_KEY};
 use crate::db::{EthMappingsStore, EthMappingsStoreExt, SettingsStore, SettingsStoreExt};
 
 // A cap on the size of the future_sink
@@ -350,6 +350,14 @@ where
             .load_required_tipset(next_ts.parents())
             .map_err(|e| Error::Other(format!("Could not get tipset from keys {e:?}")))?;
         Ok((lbts, *next_ts.parent_state()))
+    }
+
+    pub fn set_eth_mapping_created(&self) -> anyhow::Result<()> {
+        self.settings.write_obj(ETH_MAPPING_CREATED_KEY, &true)
+    }
+
+    pub fn get_eth_mapping_created(&self) -> anyhow::Result<Option<bool>> {
+        self.settings.read_obj(ETH_MAPPING_CREATED_KEY)
     }
 }
 

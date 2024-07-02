@@ -9,7 +9,7 @@ use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainMuxer;
-use crate::cli_shared::snapshot;
+use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
@@ -21,6 +21,7 @@ use crate::daemon::db_util::{
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
 use crate::db::MarkAndSweep;
+use crate::db::MemoryDB;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -353,6 +354,7 @@ pub(super) async fn start(
             genesis_timestamp: genesis_header.timestamp,
             sync_state: sync_state.clone(),
             peer_manager,
+            chain_store: chain_store.clone(),
         };
 
         let listener =
@@ -403,6 +405,28 @@ pub(super) async fn start(
         debug!("RPC disabled.");
     };
 
+    match state_manager.chain_store().get_eth_mapping_created()? {
+        Some(false) | None => {
+            let state_manager = Arc::clone(&state_manager);
+            let car_db_path = car_db_path(&config)?;
+            //dbg!(&car_db_path);
+
+            let db: Arc<ManyCar<MemoryDB>> = Arc::new(ManyCar::default());
+            load_all_forest_cars(&db, &car_db_path)?;
+            let ts = db.heaviest_tipset()?;
+
+            services.spawn(async move {
+                populate_eth_mappings(&state_manager, &ts)?;
+
+                tracing::debug!("Populate task finished successfully");
+
+                state_manager.chain_store().set_eth_mapping_created()?;
+                Ok(())
+            });
+        }
+        Some(true) => tracing::debug!("Eth mapping up to date"),
+    }
+
     if opts.detach {
         unblock_parent_process()?;
     }
@@ -439,7 +463,7 @@ pub(super) async fn start(
                 .chain_store()
                 .set_heaviest_tipset(Arc::new(ts.clone()))?;
 
-            populate_eth_mappings(&state_manager, &ts)?;
+            // populate_eth_mappings(&state_manager, &ts)?;
         }
     }
 
