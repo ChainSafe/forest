@@ -31,7 +31,7 @@ impl<BS: Blockstore> StateMigration<BS> {
         _chain_config: &ChainConfig,
     ) -> anyhow::Result<()> {
         let state_tree = StateTree::new_from_root(store.clone(), state)?;
-        let system_actor = state_tree.get_required_actor(&Address::new_id(0))?;
+        let system_actor = state_tree.get_required_actor(&Address::SYSTEM_ACTOR)?;
         let system_actor_state = store.get_cbor_required::<SystemStateOld>(&system_actor.state)?;
 
         let current_manifest_data = system_actor_state.builtin_actors;
@@ -70,7 +70,7 @@ where
 {
     let new_manifest_cid = chain_config
         .height_infos
-        .get(&Height::Dragon)
+        .get(&Height::Waffle)
         .context("no height info for network version NV23")?
         .bundle
         .as_ref()

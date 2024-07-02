@@ -20,7 +20,7 @@ use super::{
     NetworkChain,
 };
 
-pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V21;
+pub const GENESIS_NETWORK_VERSION: NetworkVersion = NetworkVersion::V22;
 
 /// Fetches the genesis CAR from the local database or downloads it if it does not exist.
 /// The result bytes may be compressed.
@@ -42,7 +42,7 @@ pub async fn fetch_genesis<DB: SettingsStore>(db: &DB) -> anyhow::Result<Vec<u8>
 
 /// Genesis CID
 pub static GENESIS_CID: Lazy<Cid> = Lazy::new(|| {
-    Cid::from_str("bafy2bzaceddfs2mf6ufmvszvwho2n6c7zvrnywpwkyq5wudtsknxhfvhwrhhs").unwrap()
+    Cid::from_str("bafy2bzaceajpno2eryhvocvmol7s3urztu7aie2sk3fp2ecl72qhxj7a3vone").unwrap()
 });
 
 /// Compressed genesis file. It is compressed with zstd and cuts the download size by 80% (from 10 MB to 2 MB).
@@ -57,7 +57,7 @@ static GENESIS_URL: Lazy<Url> = Lazy::new(|| {
 /// The genesis file does not live on the `master` branch, currently on a draft PR.
 /// `<https://github.com/filecoin-project/lotus/pull/11458>`
 static GENESIS_URL_ALT: Lazy<Url> = Lazy::new(|| {
-    "https://github.com/filecoin-project/lotus/raw/c643e174798202e77b3e8f8a080d81e1ea32f7c5/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
+    "https://github.com/filecoin-project/lotus/raw/4dfe16f58e55b3bbb87c5ff95fbe80bb41d44b80/build/genesis/butterflynet.car".parse().expect("hard-coded URL must parse")
 });
 
 pub(crate) const MINIMUM_CONSENSUS_POWER: i64 = 2 << 30;
@@ -99,16 +99,10 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         make_height!(Hygge, -21),
         make_height!(Lightning, -22),
         make_height!(Thunder, -23),
-        make_height!(Watermelon, -1, get_bundle_cid("v12.0.0")),
-        make_height!(Dragon, 480, get_bundle_cid("v13.0.0")),
-        (
-            Height::Phoenix,
-            HeightInfo {
-                epoch: 600,
-                bundle: None,
-            },
-        ),
-        make_height!(Waffle, 9999999999),
+        make_height!(Watermelon, -24),
+        make_height!(Dragon, -25, get_bundle_cid("v13.0.0")),
+        make_height!(Phoenix, i64::MAX),
+        make_height!(Waffle, 100, get_bundle_cid("v14.0.0-rc.1")),
     ])
 });
 
@@ -204,11 +198,13 @@ mod tests {
         let v11 = make_butterfly_policy!(v11);
         let v12 = make_butterfly_policy!(v12);
         let v13 = make_butterfly_policy!(v13);
+        let v14 = make_butterfly_policy!(v14);
 
         // basic sanity checks
         assert_eq!(v10.minimum_consensus_power, MINIMUM_CONSENSUS_POWER.into());
         assert_eq!(v11.minimum_consensus_power, MINIMUM_CONSENSUS_POWER.into());
         assert_eq!(v12.minimum_consensus_power, MINIMUM_CONSENSUS_POWER.into());
         assert_eq!(v13.minimum_consensus_power, MINIMUM_CONSENSUS_POWER.into());
+        assert_eq!(v14.minimum_consensus_power, MINIMUM_CONSENSUS_POWER.into());
     }
 }
