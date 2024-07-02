@@ -1,10 +1,15 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use std::{
+    task::Poll,
+    time::{Duration, Instant},
+};
+
 use ahash::HashMap;
 use libp2p::{
     request_response::{self, OutboundRequestId, ProtocolSupport, ResponseChannel},
-    swarm::{derive_prelude::*, NetworkBehaviour, THandlerOutEvent},
+    swarm::{derive_prelude::*, CloseConnection, NetworkBehaviour, THandlerOutEvent},
     PeerId,
 };
 use tracing::warn;
@@ -17,6 +22,7 @@ type InnerBehaviour = request_response::Behaviour<HelloCodec>;
 pub struct HelloBehaviour {
     inner: InnerBehaviour,
     response_channels: HashMap<OutboundRequestId, flume::Sender<HelloResponse>>,
+    pending_inbound_hello_peers: HashMap<PeerId, Instant>,
 }
 
 impl HelloBehaviour {
@@ -24,6 +30,7 @@ impl HelloBehaviour {
         Self {
             inner: InnerBehaviour::new([(HELLO_PROTOCOL_NAME, ProtocolSupport::Full)], cfg),
             response_channels: Default::default(),
+            pending_inbound_hello_peers: Default::default(),
         }
     }
 
@@ -140,13 +147,55 @@ impl NetworkBehaviour for HelloBehaviour {
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm) {
+        if let FromSwarm::ConnectionEstablished(e) = &event {
+            if e.other_established == 0 {
+                self.pending_inbound_hello_peers
+                    .insert(e.peer_id, Instant::now());
+            }
+        }
+
         self.inner.on_swarm_event(event)
     }
 
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
-        self.inner.poll(cx)
+    ) -> Poll<ToSwarm<Self::ToSwarm, THandlerInEvent<Self>>> {
+        if let Poll::Ready(ev) = self.inner.poll(cx) {
+            // Remove a peer from `pending_inbound_hello_peers` when its hello request is received.
+            if let ToSwarm::GenerateEvent(request_response::Event::Message {
+                peer,
+                message:
+                    request_response::Message::Request {
+                        request: HelloRequest { .. },
+                        ..
+                    },
+            }) = &ev
+            {
+                self.pending_inbound_hello_peers.remove(peer);
+            }
+
+            return Poll::Ready(ev);
+        }
+
+        // Disconnect peers whose hello request are not received after a TIMEOUT
+        const INBOUND_HELLO_WAIT_TIMEOUT: Duration = Duration::from_secs(30);
+        let now = Instant::now();
+        if let Some((&peer_to_disconnect, _)) =
+            self.pending_inbound_hello_peers
+                .iter()
+                .find(|(_, &connected_instant)| {
+                    now.duration_since(connected_instant) > INBOUND_HELLO_WAIT_TIMEOUT
+                })
+        {
+            tracing::warn!(peer=%peer_to_disconnect, "Disconnecting peer for not receiving hello in 30s");
+            self.pending_inbound_hello_peers.remove(&peer_to_disconnect);
+            return Poll::Ready(ToSwarm::CloseConnection {
+                peer_id: peer_to_disconnect,
+                connection: CloseConnection::All,
+            });
+        }
+
+        Poll::Pending
     }
 }
