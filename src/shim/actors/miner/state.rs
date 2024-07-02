@@ -112,6 +112,23 @@ impl MinerStateExt for State {
                     Ok(infos)
                 }
             }
+            State::V14(st) => {
+                if let Some(sectors) = sectors {
+                    Ok(st
+                        .load_sector_infos(&store, sectors)?
+                        .into_iter()
+                        .map(From::from)
+                        .collect())
+                } else {
+                    let sectors = fil_actor_miner_state::v14::Sectors::load(&store, &st.sectors)?;
+                    let mut infos = Vec::with_capacity(sectors.amt.count() as usize);
+                    sectors.amt.for_each(|_, info| {
+                        infos.push(info.clone().into());
+                        Ok(())
+                    })?;
+                    Ok(infos)
+                }
+            }
         }
     }
 
@@ -126,6 +143,7 @@ impl MinerStateExt for State {
             Self::V11(s) => s.allocated_sectors,
             Self::V12(s) => s.allocated_sectors,
             Self::V13(s) => s.allocated_sectors,
+            Self::V14(s) => s.allocated_sectors,
         };
         store.get_cbor_required(&allocated_sectors)
     }

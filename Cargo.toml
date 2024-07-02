@@ -45,18 +45,18 @@ dialoguer = "0.11"
 digest = "0.10"
 directories = "5"
 ethereum-types = "0.14"
-fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors" }
-fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "shashank/v14-actors", features = ["json"] }
+fil_actor_account_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_cron_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_datacap_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_init_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_interface = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_market_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_miner_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_power_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_reward_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_system_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actor_verifreg_state = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes" }
+fil_actors_shared = { git = "https://github.com/ChainSafe/fil-actor-states/", branch = "v14-actors-fixes", features = ["json"] }
 flume = "0.11"
 fs_extra = "1"
 futures = "0.3"

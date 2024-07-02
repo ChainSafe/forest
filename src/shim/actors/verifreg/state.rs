@@ -54,6 +54,14 @@ impl VerifiedRegistryStateExt for State {
                     Ok(())
                 })?;
             }
+            State::V14(state) => {
+                let mut map = state.load_allocs(store)?;
+                map.for_each_in(address_id, |k, v| {
+                    let allocation_id = fil_actors_shared::v14::parse_uint_key(k)?;
+                    result.insert(allocation_id, v.into());
+                    Ok(())
+                })?;
+            }
         };
         Ok(result)
     }
@@ -105,6 +113,14 @@ impl VerifiedRegistryStateExt for State {
                 let mut claims = s.load_claims(store)?;
                 claims.for_each_in(provider_id, |k, v| {
                     let claim_id = fil_actors_shared::v13::parse_uint_key(k)?;
+                    result.insert(claim_id, v.into());
+                    Ok(())
+                })?;
+            }
+            Self::V14(s) => {
+                let mut claims = s.load_claims(store)?;
+                claims.for_each_in(provider_id, |k, v| {
+                    let claim_id = fil_actors_shared::v14::parse_uint_key(k)?;
                     result.insert(claim_id, v.into());
                     Ok(())
                 })?;

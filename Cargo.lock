@@ -2600,7 +2600,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "fil_actor_account_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2615,7 +2615,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_cron_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.7.0",
@@ -2629,7 +2629,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_datacap_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2648,7 +2648,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_evm_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2667,7 +2667,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_init_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2687,7 +2687,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_interface"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2724,7 +2724,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_market_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2750,7 +2750,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_miner_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "bitflags 2.5.0",
@@ -2780,7 +2780,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_multisig_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2803,7 +2803,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_power_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2826,9 +2826,10 @@ dependencies = [
 [[package]]
 name = "fil_actor_reward_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "fil_actor_miner_state",
+ "fil_actors_shared",
  "fvm_ipld_encoding",
  "fvm_shared 2.7.0",
  "fvm_shared 3.10.0",
@@ -2842,7 +2843,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_system_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2858,7 +2859,7 @@ dependencies = [
 [[package]]
 name = "fil_actor_verifreg_state"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -2879,7 +2880,7 @@ dependencies = [
 [[package]]
 name = "fil_actors_shared"
 version = "14.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=shashank/v14-actors#55f8fc275a61265f8c284d803619ae461260a351"
+source = "git+https://github.com/ChainSafe/fil-actor-states/?branch=v14-actors-fixes#da1fd64300e66cb2e432dde0a12575af5383e6fb"
 dependencies = [
  "anyhow",
  "cid",
@@ -4357,7 +4358,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
