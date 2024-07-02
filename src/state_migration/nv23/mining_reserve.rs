@@ -13,6 +13,7 @@ use fvm_ipld_blockstore::Blockstore;
 
 pub struct MiningReservePostMigrator {
     pub new_account_code_cid: Cid,
+    pub new_multisig_code_cid: Cid,
 }
 
 impl<BS: Blockstore> PostMigrator<BS> for MiningReservePostMigrator {
@@ -22,8 +23,10 @@ impl<BS: Blockstore> PostMigrator<BS> for MiningReservePostMigrator {
         actors_out: &mut crate::shim::state_tree::StateTree<BS>,
     ) -> anyhow::Result<()> {
         let f090_old_actor = actors_out.get_required_actor(&Address::RESERVE_ACTOR)?;
-
-        // TODO bump!
+        // only migrate f090 if it is a `multisig`
+        if f090_old_actor.code != self.new_multisig_code_cid {
+            return Ok(());
+        }
         let f090_new_state = fil_actor_account_state::v14::State {
             address: Address::RESERVE_ACTOR.into(),
         };
@@ -36,9 +39,7 @@ impl<BS: Blockstore> PostMigrator<BS> for MiningReservePostMigrator {
                 f090_new_state,
                 f090_old_actor.balance.clone().into(),
                 f090_old_actor.sequence,
-                f090_old_actor
-                    .delegated_address
-                    .map(|address| address.into()),
+                None,
             ),
         )?;
 

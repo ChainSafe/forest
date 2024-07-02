@@ -51,6 +51,7 @@ impl<BS: Blockstore> StateMigration<BS> {
 
         self.add_post_migrator(Arc::new(MiningReservePostMigrator {
             new_account_code_cid: new_manifest.get(BuiltinActor::Account)?,
+            new_multisig_code_cid: new_manifest.get(BuiltinActor::Multisig)?,
         }));
 
         Ok(())
