@@ -8,6 +8,8 @@ source "$(dirname "$0")/harness.sh"
 
 forest_init
 
+FOREST_URL='http://127.0.0.1:2345/rpc/v1'
+
 NUM_TIPSETS=600
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
@@ -22,7 +24,10 @@ ETH_TX_HASHES=()
 
 for ((i=0; i<=NUM_TIPSETS; i++)); do
   EPOCH_HEX=$(printf "0x%x" $EPOCH)
-  JSON=$(curl -s -X POST 'http://127.0.0.1:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetBlockByNumber\",\"params\":[\"$EPOCH_HEX\", false]}")
+  JSON=$(curl -s -X POST "$FOREST_URL" \
+    -H 'Content-Type: application/json' \
+    --data "$(jq -n --arg epoch "$EPOCH_HEX" '{jsonrpc: "2.0", id: 1, method: "Filecoin.EthGetBlockByNumber", params: [$epoch, false]}')")
+
 
   HASH=$(echo "$JSON" | jq -r '.result.hash')
   ETH_BLOCK_HASHES+=("$HASH")
@@ -43,7 +48,10 @@ ERROR=0
 echo "Testing Ethereum mapping"
 
 for hash in "${ETH_BLOCK_HASHES[@]}"; do
-  JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetBalance\",\"params\":[\"0xff38c072f286e3b20b3954ca9f99c05fbecc64aa\", \"$hash\"]}")
+  JSON=$(curl -s -X POST "$FOREST_URL" \
+    -H 'Content-Type: application/json' \
+    --data "$(jq -n --arg hash "$hash" '{jsonrpc: "2.0", id: 1, method: "Filecoin.EthGetBalance", params: ["0xff38c072f286e3b20b3954ca9f99c05fbecc64aa", $hash]}')")
+
   if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
     echo "Missing tipset key for hash $hash"
     ERROR=1
@@ -51,7 +59,10 @@ for hash in "${ETH_BLOCK_HASHES[@]}"; do
 done
 
 for hash in "${ETH_TX_HASHES[@]}"; do
-  JSON=$(curl -s -X POST 'http://localhost:2345/rpc/v1' -H 'Content-Type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"Filecoin.EthGetMessageCidByTransactionHash\",\"params\":[\"$hash\"]}")
+  JSON=$(curl -s -X POST "$FOREST_URL" \
+    -H 'Content-Type: application/json' \
+    --data "$(jq -n --arg hash "$hash" '{jsonrpc: "2.0", id: 1, method: "Filecoin.EthGetMessageCidByTransactionHash", params: [$hash]}')")
+
   if [[ $(echo "$JSON" | jq -e '.result') == "null" ]]; then
     echo "Missing cid for hash $hash"
     ERROR=1
