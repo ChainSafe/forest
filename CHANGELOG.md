@@ -68,6 +68,9 @@
 
 ### Fixed
 
+- [#4425](https://github.com/ChainSafe/forest/pull/4425) Fix GC collision
+  issues.
+
 - [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
   `Filecoin.ChainNotify` RPC method.
 
