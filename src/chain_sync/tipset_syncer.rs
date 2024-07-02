@@ -823,7 +823,7 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
 
     #[allow(deprecated)] // Tracking issue: https://github.com/ChainSafe/forest/issues/3157
     let wp = WithProgressRaw::new("Downloading headers", total_size as u64);
-    'outer: while pending_tipsets.last().epoch() > until_epoch {
+    while pending_tipsets.last().epoch() > until_epoch {
         let oldest_pending_tipset = pending_tipsets.last();
         let work_to_be_done = oldest_pending_tipset.epoch() - until_epoch + 1;
         wp.set((work_to_be_done - total_size).unsigned_abs());
@@ -861,15 +861,21 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             ));
         }
 
-        for tipset in network_tipsets {
-            // This could happen when the `until_epoch` is a null epoch
-            if tipset.epoch() < until_epoch {
-                break 'outer;
-            }
+        let callback = |tipset: Arc<Tipset>| {
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &accepted_blocks)?;
             accepted_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
             pending_tipsets.push(tipset);
+            Ok(())
+        };
+        // Breaks the loop when `until_epoch` is overreached, which happens
+        // when there are null tipsets in the queried range.
+        // Note that when the `until_epoch` is null, the outer while condition
+        // is always true, and it relies on the returned boolean value(until epoch is overreached)
+        // to break the loop.
+        if for_each_tipset_until_epoch_overreached(network_tipsets, until_epoch, callback)? {
+            // Breaks when the `until_epoch` is overreached.
+            break;
         }
     }
     drop(wp);
@@ -936,6 +942,22 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     }
 
     Ok(pending_tipsets)
+}
+
+// tipsets is sorted by epoch in descending order
+// returns true when `until_epoch_inclusive` is overreached
+fn for_each_tipset_until_epoch_overreached(
+    tipsets: impl IntoIterator<Item = Arc<Tipset>>,
+    until_epoch_inclusive: ChainEpoch,
+    mut callback: impl FnMut(Arc<Tipset>) -> Result<(), TipsetRangeSyncerError>,
+) -> Result<bool, TipsetRangeSyncerError> {
+    for tipset in tipsets {
+        if tipset.epoch() < until_epoch_inclusive {
+            return Ok(true);
+        }
+        callback(tipset)?;
+    }
+    Ok(false)
 }
 
 #[allow(clippy::too_many_arguments)]
