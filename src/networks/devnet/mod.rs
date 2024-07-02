@@ -146,7 +146,8 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         ),
         make_height!(
             Waffle,
-            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(9999999999)
+            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(9999999999),
+            get_bundle_cid("v14.0.0-rc.1")
         ),
     ])
 });
