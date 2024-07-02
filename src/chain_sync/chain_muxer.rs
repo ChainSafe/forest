@@ -481,6 +481,11 @@ where
             }
         };
 
+        // Update the peer head
+        network
+            .peer_manager()
+            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
+
         if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
             < chain_store.heaviest_tipset().epoch()
         {
@@ -510,11 +515,6 @@ where
         for block in tipset.blocks() {
             block.persist(&chain_store.db)?;
         }
-
-        // Update the peer head
-        network
-            .peer_manager()
-            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
 
         Ok(Some((tipset, source)))
     }

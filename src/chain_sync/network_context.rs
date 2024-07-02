@@ -3,6 +3,7 @@
 
 use std::{
     convert::TryFrom,
+    num::NonZeroU64,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -139,10 +140,16 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        count: u64,
+        count: NonZeroU64,
     ) -> Result<Vec<Arc<Tipset>>, String> {
-        self.handle_chain_exchange_request(peer_id, tsk, count, HEADERS, |_| true)
-            .await
+        self.handle_chain_exchange_request(
+            peer_id,
+            tsk,
+            count,
+            HEADERS,
+            |tipsets: &Vec<Arc<Tipset>>| validate_network_tipsets(tipsets, tsk),
+        )
+        .await
     }
     /// Send a `chain_exchange` request for only messages (ignore block
     /// headers). If `peer_id` is `None`, requests will be sent to a set of
@@ -164,7 +171,7 @@ where
         self.handle_chain_exchange_request(
             peer_id,
             tsk,
-            tipsets.len() as _,
+            NonZeroU64::new(tipsets.len() as _).expect("Infallible"),
             MESSAGES,
             |compacted_messages_vec: &Vec<CompactedMessages>| {
                 for (msg, ts ) in compacted_messages_vec.iter().zip(tipsets.iter().rev()) {
@@ -195,7 +202,13 @@ where
         tsk: &TipsetKey,
     ) -> Result<FullTipset, String> {
         let mut fts = self
-            .handle_chain_exchange_request(peer_id, tsk, 1, HEADERS | MESSAGES, |_| true)
+            .handle_chain_exchange_request(
+                peer_id,
+                tsk,
+                NonZeroU64::new(1).expect("Infallible"),
+                HEADERS | MESSAGES,
+                |_| true,
+            )
             .await?;
 
         if fts.len() != 1 {
@@ -254,7 +267,7 @@ where
         &self,
         peer_id: Option<PeerId>,
         tsk: &TipsetKey,
-        request_len: u64,
+        request_len: NonZeroU64,
         options: u64,
         validate: F,
     ) -> Result<Vec<T>, String>
@@ -262,13 +275,9 @@ where
         T: TryFrom<TipsetBundle, Error = String> + Send + Sync + 'static,
         F: Fn(&Vec<T>) -> bool,
     {
-        if request_len == 0 {
-            return Ok(vec![]);
-        }
-
         let request = ChainExchangeRequest {
             start: tsk.to_cids(),
-            request_len,
+            request_len: request_len.get(),
             options,
         };
 
@@ -289,6 +298,10 @@ where
                 // No specific peer set, send requests to a shuffled set of top peers until
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
+                if peers.is_empty() {
+                    return Err("chain exchange failed: no peers are available".into());
+                }
+                let n_peers = peers.len();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
@@ -308,17 +321,17 @@ where
                             Ok(chain_exchange_result) => {
                                 match chain_exchange_result.into_result::<T>() {
                                     Ok(r) => Ok(r),
-                                    Err(e) => {
+                                    Err(error) => {
                                         lookup_failures.fetch_add(1, Ordering::Relaxed);
-                                        debug!("Failed chain_exchange response: {e}");
-                                        Err(e)
+                                        debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange response");
+                                        Err(error)
                                     }
                                 }
                             }
-                            Err(e) => {
+                            Err(error) => {
                                 network_failures.fetch_add(1, Ordering::Relaxed);
-                                debug!("Failed chain_exchange request to peer {peer_id:?}: {e}");
-                                Err(e)
+                                debug!(%peer_id, %request_len, %options, %n_peers, %error, "Failed chain_exchange request to peer");
+                                Err(error)
                             }
                         }
                     });
@@ -462,6 +475,28 @@ where
     }
 }
 
+/// Validates network tipsets that are sorted by epoch in descending order with the below checks
+/// 1. The latest(first) tipset has the desired tipset key
+/// 2. The sorted tipsets are chained by their tipset keys
+fn validate_network_tipsets(tipsets: &[Arc<Tipset>], start_tipset_key: &TipsetKey) -> bool {
+    if let Some(start) = tipsets.first() {
+        if start.key() != start_tipset_key {
+            tracing::warn!(epoch=%start.epoch(), expected=%start_tipset_key, actual=%start.key(), "start tipset key mismatch");
+            return false;
+        }
+        for (ts, pts) in tipsets.iter().zip(tipsets.iter().skip(1)) {
+            if ts.parents() != pts.key() {
+                tracing::warn!(epoch=%ts.epoch(), expected_parent=%pts.key(), actual_parent=%ts.parents(), "invalid chain");
+                return false;
+            }
+        }
+        true
+    } else {
+        tracing::warn!("invalid empty chain_exchange_headers response");
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -561,5 +596,38 @@ mod tests {
 
         assert_eq!(batch.get_ok().await, None);
         assert!(exceeded.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    #[allow(unused_variables)]
+    fn validate_network_tipsets_tests() {
+        use crate::blocks::{chain4u, Chain4U};
+
+        let c4u = Chain4U::new();
+        chain4u! {
+            in c4u;
+            t0 @ [genesis_header]
+            -> t1 @ [first_header]
+            -> t2 @ [second_left, second_right]
+            -> t3 @ [third]
+            -> t4 @ [fourth]
+        };
+        let t0 = Arc::new(t0.clone());
+        let t1 = Arc::new(t1.clone());
+        let t2 = Arc::new(t2.clone());
+        let t3 = Arc::new(t3.clone());
+        let t4 = Arc::new(t4.clone());
+        assert!(validate_network_tipsets(
+            &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t4.key()
+        ));
+        assert!(!validate_network_tipsets(
+            &[t4.clone(), t3.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t3.key()
+        ));
+        assert!(!validate_network_tipsets(
+            &[t4.clone(), t2.clone(), t1.clone(), t0.clone()],
+            t4.key()
+        ));
     }
 }
