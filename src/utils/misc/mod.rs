@@ -3,6 +3,8 @@
 
 use is_terminal::IsTerminal;
 
+mod adaptive_value_provider;
+pub use adaptive_value_provider::*;
 mod logo;
 pub use logo::*;
 
