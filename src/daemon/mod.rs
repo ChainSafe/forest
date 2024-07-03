@@ -20,8 +20,7 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::MarkAndSweep;
-use crate::db::MemoryDB;
+use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -261,6 +260,21 @@ pub(super) async fn start(
             )
         };
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
+    }
+
+    if let Some(ttl) = config.client.eth_mapping_ttl {
+        let chain_store = chain_store.clone();
+        let chain_config = chain_config.clone();
+        services.spawn(async move {
+            tracing::info!("Starting collector for eth_mappings");
+
+            let mut collector = EthMappingCollector::new(
+                chain_store.db.clone(),
+                chain_config.eth_chain_id,
+                Duration::from_secs(ttl.into()),
+            );
+            collector.run().await
+        });
     }
 
     let publisher = chain_store.publisher();

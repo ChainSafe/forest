@@ -2,19 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
-use crate::chain::block_messages;
 use crate::cli_shared::snapshot;
 use crate::db::car::forest::FOREST_CAR_FILE_EXTENSION;
 use crate::db::car::{ForestCar, ManyCar};
-use crate::message::SignedMessage;
 use crate::networks::Height;
-use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
 use crate::state_manager::StateManager;
 use crate::utils::db::car_stream::CarStream;
 use crate::utils::io::EitherMmapOrRandomAccessFile;
-use ahash::HashMap;
 use anyhow::Context as _;
-use cid::Cid;
 use futures::TryStreamExt;
 use std::ffi::OsStr;
 use std::fs;
@@ -33,6 +28,9 @@ use crate::rpc::eth::Hash;
 
 #[cfg(doc)]
 use crate::blocks::TipsetKey;
+
+#[cfg(doc)]
+use cid::Cid;
 
 pub fn load_all_forest_cars<T>(store: &ManyCar<T>, forest_car_db_dir: &Path) -> anyhow::Result<()> {
     if !forest_car_db_dir.is_dir() {
@@ -186,75 +184,18 @@ where
         if ts.epoch() < hygge {
             break;
         }
-        for bh in ts.block_headers() {
-            if let Ok((_, secp_cids)) = block_messages(&state_manager.blockstore(), bh) {
-                let mut messages = secp_cids
-                    .into_iter()
-                    .filter(|msg| msg.is_delegated())
-                    .collect();
-                delegated_messages.append(&mut messages);
-            }
-        }
+        delegated_messages.append(
+            &mut state_manager
+                .chain_store()
+                .headers_delegated_messages(ts.block_headers().iter())?,
+        );
         state_manager.chain_store().put_tipset_key(ts.key())?;
     }
-    process_signed_messages(state_manager, &delegated_messages)?;
+    state_manager
+        .chain_store()
+        .process_signed_messages(&delegated_messages)?;
 
     Ok(())
-}
-
-/// Filter [`SignedMessage`]'s to keep only delegated ones and the most recent ones, then write them to the chain store.
-fn process_signed_messages<DB>(
-    state_manager: &StateManager<DB>,
-    messages: &[SignedMessage],
-) -> anyhow::Result<()>
-where
-    DB: fvm_ipld_blockstore::Blockstore,
-{
-    let delegated_messages = messages.iter().filter(|msg| msg.is_delegated());
-    let eth_chain_id = state_manager.chain_config().eth_chain_id;
-
-    let eth_txs: Vec<(eth::Hash, Cid, usize)> = delegated_messages
-        .enumerate()
-        .filter_map(|(i, smsg)| {
-            if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, eth_chain_id) {
-                if let Ok(hash) = tx.eth_hash() {
-                    // newest messages are the ones with lowest index
-                    Some((hash, smsg.cid().unwrap(), i))
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .collect();
-    let filtered = filter_lowest_index(eth_txs);
-
-    // write back
-    for (k, v) in filtered.into_iter() {
-        state_manager.chain_store().put_mapping(k, v)?;
-    }
-    Ok(())
-}
-
-fn filter_lowest_index(values: Vec<(eth::Hash, Cid, usize)>) -> Vec<(eth::Hash, Cid)> {
-    let map: HashMap<eth::Hash, (Cid, usize)> =
-        values
-            .into_iter()
-            .fold(HashMap::default(), |mut acc, (hash, cid, index)| {
-                acc.entry(hash)
-                    .and_modify(|&mut (_, ref mut min_index)| {
-                        if index < *min_index {
-                            *min_index = index;
-                        }
-                    })
-                    .or_insert((cid, index));
-                acc
-            });
-
-    map.into_iter()
-        .map(|(hash, (cid, _))| (hash, cid))
-        .collect()
 }
 
 #[cfg(test)]

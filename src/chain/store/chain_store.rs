@@ -9,8 +9,8 @@ use crate::interpreter::BlockMessages;
 use crate::interpreter::VMTrace;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::networks::ChainConfig;
-use crate::rpc::eth;
+use crate::networks::{ChainConfig, Height};
+use crate::rpc::eth::{self, eth_tx_from_signed_eth_message};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::{
     address::Address, econ::TokenAmount, executor::Receipt, message::Message,
@@ -78,6 +78,9 @@ pub struct ChainStore<DB> {
 
     /// Ethereum mappings store
     eth_mappings: Arc<dyn EthMappingsStore + Sync + Send>,
+
+    /// Needed by the Ethereum mapping.
+    chain_config: Arc<ChainConfig>,
 }
 
 impl<DB> BitswapStoreRead for ChainStore<DB>
@@ -131,12 +134,13 @@ where
         let cs = Self {
             publisher,
             chain_index,
-            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config),
+            tipset_tracker: TipsetTracker::new(Arc::clone(&db), chain_config.clone()),
             db,
             settings,
             genesis_block_header,
             validated_blocks,
             eth_mappings,
+            chain_config,
         };
 
         Ok(cs)
@@ -162,10 +166,10 @@ where
     pub fn put_tipset(&self, ts: &Tipset) -> Result<(), Error> {
         persist_objects(self.blockstore(), ts.block_headers().iter())?;
 
-        self.put_tipset_key(ts.key())?;
-
         // Expand tipset to include other compatible blocks at the epoch.
         let expanded = self.expand_tipset(ts.min_ticket_block().clone())?;
+        self.put_tipset_key(expanded.key())?;
+
         self.update_heaviest(Arc::new(expanded))?;
         Ok(())
     }
@@ -174,6 +178,20 @@ where
     pub fn put_tipset_key(&self, tsk: &TipsetKey) -> Result<(), Error> {
         let hash = tsk.cid()?.into();
         self.eth_mappings.write_obj(&hash, tsk)?;
+        Ok(())
+    }
+
+    /// Writes the delegated message `Cid`s to the blockstore for `EthAPI` queries.
+    pub fn put_delegated_message_hashes<'a>(
+        &self,
+        headers: impl Iterator<Item = &'a CachingBlockHeader>,
+    ) -> Result<(), Error> {
+        tracing::debug!("persist eth mapping");
+
+        // The messages will be ordered from most recent block to less recent
+        let delegated_messages = self.headers_delegated_messages(headers)?;
+
+        self.process_signed_messages(&delegated_messages)?;
         Ok(())
     }
 
@@ -188,10 +206,17 @@ where
     }
 
     /// Writes with timestamp the `Hash` to `Cid` mapping to the blockstore for `EthAPI` queries.
-    pub fn put_mapping(&self, k: eth::Hash, v: Cid) -> Result<(), Error> {
-        let timestamp = chrono::Utc::now().timestamp() as u64;
+    pub fn put_mapping(&self, k: eth::Hash, v: Cid, timestamp: u64) -> Result<(), Error> {
         self.eth_mappings.write_obj(&k, &(v, timestamp))?;
         Ok(())
+    }
+
+    /// Reads the `Cid` from the blockstore for `EthAPI` queries.
+    pub fn get_mapping(&self, hash: &eth::Hash) -> Result<Option<Cid>, Error> {
+        Ok(self
+            .eth_mappings
+            .read_obj::<(Cid, u64)>(hash)?
+            .map(|(cid, _)| cid))
     }
 
     /// Expands tipset to tipset with all other headers in the same epoch using
@@ -358,6 +383,88 @@ where
     pub fn settings(&self) -> Arc<dyn SettingsStore + Sync + Send> {
         self.settings.clone()
     }
+
+    /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
+    pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()>
+    where
+        DB: fvm_ipld_blockstore::Blockstore,
+    {
+        let eth_txs: Vec<(eth::Hash, Cid, u64, usize)> = messages
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (smsg, timestamp))| {
+                if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
+                {
+                    if let Ok(hash) = tx.eth_hash() {
+                        // newest messages are the ones with lowest index
+                        Some((hash, smsg.cid().unwrap(), *timestamp, i))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let filtered = filter_lowest_index(eth_txs);
+        let num_entries = filtered.len();
+
+        // write back
+        for (k, v, timestamp) in filtered.into_iter() {
+            tracing::trace!("Insert mapping {} => {}", k, v);
+            self.put_mapping(k, v, timestamp)?;
+        }
+        tracing::debug!("Wrote {} entries in Ethereum mapping", num_entries);
+        Ok(())
+    }
+
+    pub fn headers_delegated_messages<'a>(
+        &self,
+        headers: impl Iterator<Item = &'a CachingBlockHeader>,
+    ) -> anyhow::Result<Vec<(SignedMessage, u64)>>
+    where
+        DB: fvm_ipld_blockstore::Blockstore,
+    {
+        let mut delegated_messages = vec![];
+
+        // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
+        // Before this height, no notion of an Ethereum-like API existed.
+        let filtered_headers =
+            headers.filter(|bh| bh.epoch >= self.chain_config.epoch(Height::Hygge));
+
+        for bh in filtered_headers {
+            if let Ok((_, secp_cids)) = block_messages(self.blockstore(), bh) {
+                let mut messages: Vec<_> = secp_cids
+                    .into_iter()
+                    .filter(|msg| msg.is_delegated())
+                    .map(|m| (m, bh.timestamp))
+                    .collect();
+                delegated_messages.append(&mut messages);
+            }
+        }
+
+        Ok(delegated_messages)
+    }
+}
+
+fn filter_lowest_index(values: Vec<(eth::Hash, Cid, u64, usize)>) -> Vec<(eth::Hash, Cid, u64)> {
+    let map: HashMap<eth::Hash, (Cid, u64, usize)> = values.into_iter().fold(
+        HashMap::default(),
+        |mut acc, (hash, cid, timestamp, index)| {
+            acc.entry(hash)
+                .and_modify(|&mut (_, _, ref mut min_index)| {
+                    if index < *min_index {
+                        *min_index = index;
+                    }
+                })
+                .or_insert((cid, timestamp, index));
+            acc
+        },
+    );
+
+    map.into_iter()
+        .map(|(hash, (cid, timestamp, _))| (hash, cid, timestamp))
+        .collect()
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
