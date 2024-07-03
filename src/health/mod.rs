@@ -10,8 +10,7 @@ use axum::{
 use parking_lot::RwLock;
 
 use crate::{
-    chain::ChainStore, chain_sync::SyncState, db::parity_db::ParityDb, libp2p::PeerManager,
-    networks::ChainConfig, Config,
+    chain_sync::SyncState, db::SettingsStore, libp2p::PeerManager, networks::ChainConfig, Config,
 };
 
 mod endpoints;
@@ -27,7 +26,7 @@ pub(crate) struct ForestState {
     pub genesis_timestamp: u64,
     pub sync_state: Arc<RwLock<SyncState>>,
     pub peer_manager: Arc<PeerManager>,
-    pub chain_store: Arc<ChainStore<crate::db::car::ManyCar<Arc<ParityDb>>>>,
+    pub settings_store: Arc<dyn SettingsStore + Sync + Send>,
 }
 
 /// Initializes the healthcheck server. The server listens on the address specified in the
@@ -83,13 +82,6 @@ mod test {
         let sync_state = Arc::new(RwLock::new(SyncState::default()));
 
         let db = Arc::new(crate::db::MemoryDB::default());
-        let chain_config = Arc::new(ChainConfig::default());
-        let gen_block = CachingBlockHeader::new(RawBlockHeader {
-            miner_address: Address::new_id(0),
-            ..Default::default()
-        });
-        let chain_store =
-            Arc::new(ChainStore::new(db.clone(), db.clone(), db, chain_config, gen_block).unwrap());
 
         let forest_state = ForestState {
             config: Config {
@@ -104,7 +96,7 @@ mod test {
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: Arc::new(PeerManager::default()),
-            chain_store: todo!(),
+            settings_store: db,
         };
 
         let listener =
@@ -166,6 +158,7 @@ mod test {
 
         let sync_state = Arc::new(RwLock::new(SyncState::default()));
         let peer_manager = Arc::new(PeerManager::default());
+        let db = Arc::new(crate::db::MemoryDB::default());
         let forest_state = ForestState {
             config: Config {
                 client: Client {
@@ -178,7 +171,7 @@ mod test {
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: peer_manager.clone(),
-            chain_store: todo!(),
+            settings_store: db,
         };
 
         let listener =
@@ -241,6 +234,7 @@ mod test {
         let healthcheck_address = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
         let rpc_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let peer_manager = Arc::new(PeerManager::default());
+        let db = Arc::new(crate::db::MemoryDB::default());
 
         let sync_state = Arc::new(RwLock::new(SyncState::default()));
         let forest_state = ForestState {
@@ -256,7 +250,7 @@ mod test {
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: peer_manager.clone(),
-            chain_store: todo!(),
+            settings_store: db,
         };
 
         let listener =
@@ -335,7 +329,7 @@ mod test {
             genesis_timestamp: 0,
             sync_state: Arc::default(),
             peer_manager: Arc::default(),
-            chain_store: todo!(),
+            settings_store: Arc::new(crate::db::MemoryDB::default()),
         };
         let listener =
             tokio::net::TcpListener::bind(forest_state.config.client.healthcheck_address)

@@ -354,7 +354,7 @@ pub(super) async fn start(
             genesis_timestamp: genesis_header.timestamp,
             sync_state: sync_state.clone(),
             peer_manager,
-            chain_store: chain_store.clone(),
+            settings_store: chain_store.settings(),
         };
 
         let listener =

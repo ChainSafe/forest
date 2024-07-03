@@ -5,7 +5,11 @@ use std::sync::Arc;
 use ahash::HashMap;
 use axum::extract::{self, Query};
 
-use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
+use crate::{
+    chain_sync::SyncStage,
+    db::{setting_keys::ETH_MAPPING_UP_TO_DATE_KEY, SettingsStoreExt},
+    networks::calculate_expected_epoch,
+};
 
 use super::{AppError, ForestState};
 
@@ -156,7 +160,7 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
 }
 
 fn check_eth_mapping_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
-    match state.chain_store.eth_mapping_up_to_date() {
+    match state.settings_store.read_obj(ETH_MAPPING_UP_TO_DATE_KEY) {
         Ok(Some(true)) => {
             acc.push_ok("eth mapping up to date");
             true

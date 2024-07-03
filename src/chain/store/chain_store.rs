@@ -362,6 +362,10 @@ where
     pub fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
         self.settings.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
     }
+
+    pub fn settings(&self) -> Arc<dyn SettingsStore + Sync + Send> {
+        self.settings.clone()
+    }
 }
 
 /// Returns a Tuple of BLS messages of type `UnsignedMessage` and SECP messages
