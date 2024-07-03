@@ -233,7 +233,18 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
         // hardcode calling convention because lotus is by-position only
         let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
-            RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
+            RequestParameters::ByPosition(mut it) => {
+                // Omit optional parameters when they are null
+                // This can be refactored into using `while pop_if`
+                // when the API is stablized.
+                while Self::N_REQUIRED_PARAMS < it.len() {
+                    match it.last() {
+                        Some(last) if last.is_null() => it.pop(),
+                        _ => break,
+                    };
+                }
+                serde_json::Value::Array(it)
+            }
             RequestParameters::ByName(it) => serde_json::Value::Object(it),
         };
         Ok(crate::rpc::Request {
