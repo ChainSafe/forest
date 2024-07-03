@@ -19,7 +19,6 @@ mod endpoints;
 pub const DEFAULT_HEALTHCHECK_PORT: u16 = 2346;
 
 /// State shared between the healthcheck server and the main application.
-// #[derive(Default)]
 pub(crate) struct ForestState {
     pub config: Config,
     pub chain_config: Arc<ChainConfig>,
