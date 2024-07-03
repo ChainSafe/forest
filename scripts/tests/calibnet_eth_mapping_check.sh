@@ -13,7 +13,7 @@ FOREST_URL='http://127.0.0.1:2345/rpc/v1'
 FOREST_READY_URL='http://127.0.0.1:2346/readyz'
 
 check_ready() {
-  response=$(curl $FOREST_READY_URL)
+  response=$(curl -s $FOREST_READY_URL)
   if [[ "$response" == "OK" ]]; then
     return 0
   else
@@ -55,9 +55,10 @@ for ((i=0; i<=NUM_TIPSETS; i++)); do
   EPOCH=$((EPOCH - 1))
 done
 
+echo "Done"
+
 while ! check_ready; do
-  echo "Not ready, waiting..."
-  sleep 1
+  sleep 3
 done
 
 ERROR=0

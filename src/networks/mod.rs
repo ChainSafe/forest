@@ -98,7 +98,7 @@ impl NetworkChain {
     }
 
     pub fn is_devnet(&self) -> bool {
-        !matches!(self, NetworkChain::Devnet(..))
+        matches!(self, NetworkChain::Devnet(..))
     }
 }
 
