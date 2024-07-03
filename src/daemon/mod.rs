@@ -440,8 +440,6 @@ pub(super) async fn start(
             state_manager
                 .chain_store()
                 .set_heaviest_tipset(Arc::new(ts.clone()))?;
-
-            // populate_eth_mappings(&state_manager, &ts)?;
         }
     }
 
