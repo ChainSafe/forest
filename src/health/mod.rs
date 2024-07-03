@@ -64,9 +64,8 @@ mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     use crate::{
-        blocks::{CachingBlockHeader, RawBlockHeader, Tipset},
+        blocks::{CachingBlockHeader, Tipset},
         chain_sync::SyncStage,
-        shim::address::Address,
         Client,
     };
 

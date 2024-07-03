@@ -22,8 +22,7 @@ pub fn chain_path(config: &Config) -> PathBuf {
 
 /// Gets car db path
 pub fn car_db_path(config: &Config) -> anyhow::Result<PathBuf> {
-    let chain_data_path = chain_path(&config);
-    dbg!(&chain_data_path);
+    let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
     let forest_car_db_dir = db_root_dir.join("car_db");
     Ok(forest_car_db_dir)

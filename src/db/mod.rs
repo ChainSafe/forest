@@ -9,6 +9,7 @@ pub mod parity_db_config;
 mod gc;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
+use setting_keys::ETH_MAPPING_UP_TO_DATE_KEY;
 mod db_mode;
 pub mod migration;
 
@@ -43,6 +44,14 @@ pub trait SettingsStore {
 
     /// Returns all setting keys.
     fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
+
+    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
+        self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
+    }
+
+    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
+        self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
+    }
 }
 
 impl<T: SettingsStore> SettingsStore for Arc<T> {

@@ -471,7 +471,11 @@ pub(super) async fn start(
     }
 
     // Populate task
-    match state_manager.chain_store().eth_mapping_up_to_date()? {
+    match state_manager
+        .chain_store()
+        .settings()
+        .eth_mapping_up_to_date()?
+    {
         Some(false) | None => {
             let state_manager = Arc::clone(&state_manager);
             let car_db_path = car_db_path(&config)?;
@@ -482,7 +486,10 @@ pub(super) async fn start(
             services.spawn(async move {
                 populate_eth_mappings(&state_manager, &ts)?;
 
-                state_manager.chain_store().set_eth_mapping_up_to_date()?;
+                state_manager
+                    .chain_store()
+                    .settings()
+                    .set_eth_mapping_up_to_date()?;
                 Ok(())
             });
         }
