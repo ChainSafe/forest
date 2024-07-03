@@ -99,6 +99,12 @@ lotus_json_with_self!(EthBigInt);
 
 impl From<TokenAmount> for EthBigInt {
     fn from(amount: TokenAmount) -> Self {
+        (&amount).into()
+    }
+}
+
+impl From<&TokenAmount> for EthBigInt {
+    fn from(amount: &TokenAmount) -> Self {
         Self(amount.atto().to_owned())
     }
 }
@@ -123,7 +129,17 @@ pub struct Bloom(
 
 lotus_json_with_self!(Bloom);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct Uint64(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify")]
@@ -132,7 +148,17 @@ pub struct Uint64(
 
 lotus_json_with_self!(Uint64);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct Int64(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify")]
@@ -737,7 +763,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 }
 
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
-    data: Ctx<DB>,
+    data: &Ctx<DB>,
     tipset: &Arc<Tipset>,
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store.messages_for_tipset(tipset)?;
@@ -1109,7 +1135,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let block_cid = tsk.cid()?;
     let block_hash: Hash = block_cid.into();
 
-    let (state_root, msgs_and_receipts) = execute_tipset(data.clone(), &tipset).await?;
+    let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
 
     let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
 
@@ -1307,6 +1333,134 @@ impl RpcMethod<0> for EthSyncing {
             },
             None => Err(ServerError::internal_error("sync state not found", None)),
         }
+    }
+}
+
+pub enum EthFeeHistory {}
+
+impl RpcMethod<3> for EthFeeHistory {
+    const NAME: &'static str = "Filecoin.EthFeeHistory";
+    const N_REQUIRED_PARAMS: usize = 2;
+    const PARAM_NAMES: [&'static str; 3] =
+        ["block_count", "newest_block_number", "reward_percentiles"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Uint64, BlockNumberOrPredefined, Option<Vec<f64>>);
+    type Ok = EthFeeHistoryResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (Uint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if block_count > 1024 {
+            return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
+        }
+
+        let reward_percentiles = reward_percentiles.unwrap_or_default();
+        Self::validate_reward_precentiles(&reward_percentiles)?;
+
+        let tipset = tipset_by_block_number_or_hash(&ctx.chain_store, newest_block_number.into())?;
+        let base_fee = tipset.block_headers().first().parent_base_fee.clone();
+        let mut oldest_block_height = 1;
+        // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
+        //  because the next base fee can be inferred from the messages in the newest block.
+        //  However, this is NOT the case in Filecoin due to deferred execution, so the best
+        //  we can do is duplicate the last value.
+        let mut base_fee_array = vec![EthBigInt::from(&base_fee)];
+        let mut rewards_array = vec![];
+        let mut gas_used_ratio_array = vec![];
+        for ts in tipset
+            .chain_arc(ctx.store())
+            .filter(|i| i.epoch() > 0)
+            .take(block_count as _)
+        {
+            let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
+            let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
+            for (message, receipt) in messages_and_receipts {
+                let premium = message.effective_gas_premium(&base_fee);
+                tx_gas_rewards.push(GasReward {
+                    gas_used: receipt.gas_used(),
+                    premium,
+                });
+            }
+            let (rewards, total_gas_used) =
+                Self::calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
+            let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
+
+            // arrays should be reversed at the end
+            base_fee_array.push(EthBigInt::from(&base_fee));
+            gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
+            rewards_array.push(rewards);
+
+            oldest_block_height = ts.epoch();
+        }
+
+        // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
+        base_fee_array.reverse();
+        gas_used_ratio_array.reverse();
+        rewards_array.reverse();
+
+        Ok(EthFeeHistoryResult {
+            oldest_block: Uint64(oldest_block_height as _),
+            base_fee_per_gas: base_fee_array,
+            gas_used_ratio: gas_used_ratio_array,
+            reward: if reward_percentiles.is_empty() {
+                None
+            } else {
+                Some(rewards_array)
+            },
+        })
+    }
+}
+
+impl EthFeeHistory {
+    fn validate_reward_precentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
+        if reward_percentiles.len() > 100 {
+            anyhow::bail!("length of the reward percentile array cannot be greater than 100");
+        }
+
+        for (&rp, &rp_prev) in reward_percentiles
+            .iter()
+            .zip(std::iter::once(&0.).chain(reward_percentiles.iter()))
+        {
+            if !(0. ..=100.).contains(&rp) {
+                anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
+            }
+            if rp < rp_prev {
+                anyhow::bail!("invalid reward percentile: {rp} should be larger than {rp_prev}");
+            }
+        }
+
+        Ok(())
+    }
+
+    fn calculate_rewards_and_gas_used(
+        reward_percentiles: &[f64],
+        mut tx_gas_rewards: Vec<GasReward>,
+    ) -> (Vec<EthBigInt>, u64) {
+        const MIN_GAS_PREMIUM: u64 = 100000;
+
+        let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
+        let mut rewards = reward_percentiles
+            .iter()
+            .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
+            .collect_vec();
+        if !tx_gas_rewards.is_empty() {
+            tx_gas_rewards.sort_by_key(|i| i.premium.clone());
+            let mut idx = 0;
+            let mut sum = 0;
+            #[allow(clippy::indexing_slicing)]
+            for (i, &percentile) in reward_percentiles.iter().enumerate() {
+                let threshold = ((gas_used_total as f64) * percentile / 100.) as u64;
+                while sum < threshold && idx < tx_gas_rewards.len() - 1 {
+                    sum += tx_gas_rewards[idx].gas_used;
+                    idx += 1;
+                }
+                rewards[i] = (&tx_gas_rewards[idx].premium).into();
+            }
+        }
+        (rewards, gas_used_total)
     }
 }
 

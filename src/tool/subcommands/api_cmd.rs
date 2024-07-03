@@ -61,6 +61,7 @@ use tokio::{
     task::JoinSet,
 };
 use tracing::{debug, info, warn};
+use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 
@@ -1156,6 +1157,22 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
                 BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistory::request((
+                10.into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistory::request((
+                10.into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                Some(vec![10., 50., 90.]),
             ))
             .unwrap(),
         ),
