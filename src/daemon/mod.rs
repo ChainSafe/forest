@@ -468,30 +468,32 @@ pub(super) async fn start(
         return Ok(());
     }
 
-    // Populate task
-    match state_manager
-        .chain_store()
-        .settings()
-        .eth_mapping_up_to_date()?
-    {
-        Some(false) | None => {
-            let state_manager = Arc::clone(&state_manager);
-            let car_db_path = car_db_path(&config)?;
-            let db: Arc<ManyCar<MemoryDB>> = Arc::default();
-            load_all_forest_cars(&db, &car_db_path)?;
-            let ts = db.heaviest_tipset()?;
+    if !opts.stateless {
+        // Populate task
+        match state_manager
+            .chain_store()
+            .settings()
+            .eth_mapping_up_to_date()?
+        {
+            Some(false) | None => {
+                let state_manager = Arc::clone(&state_manager);
+                let car_db_path = car_db_path(&config)?;
+                let db: Arc<ManyCar<MemoryDB>> = Arc::default();
+                load_all_forest_cars(&db, &car_db_path)?;
+                let ts = db.heaviest_tipset()?;
 
-            services.spawn(async move {
-                populate_eth_mappings(&state_manager, &ts)?;
+                services.spawn(async move {
+                    populate_eth_mappings(&state_manager, &ts)?;
 
-                state_manager
-                    .chain_store()
-                    .settings()
-                    .set_eth_mapping_up_to_date()?;
-                Ok(())
-            });
+                    state_manager
+                        .chain_store()
+                        .settings()
+                        .set_eth_mapping_up_to_date()?;
+                    Ok(())
+                });
+            }
+            Some(true) => tracing::info!("Ethereum mapping up to date"),
         }
-        Some(true) => tracing::info!("Ethereum mapping up to date"),
     }
 
     if !opts.stateless {
