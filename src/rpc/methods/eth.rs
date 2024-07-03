@@ -80,7 +80,7 @@ enum EAMMethod {
 }
 
 #[repr(u64)]
-enum EVMMethod {
+pub enum EVMMethod {
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.
     // InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
@@ -183,6 +183,16 @@ lotus_json_with_self!(Int64);
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
+    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+    pub fn to_cid(&self) -> cid::Cid {
+        use cid::multihash::MultihashDigest;
+
+        let mh = cid::multihash::Code::Blake2b256
+            .wrap(self.0.as_bytes())
+            .expect("should not fail");
+        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+    }
+
     pub fn empty_uncles() -> Self {
         Self(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap())
     }
@@ -1284,6 +1294,51 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     }
 }
 
+pub enum EthGetMessageCidByTransactionHash {}
+impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
+    const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Option<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let result = ctx.chain_store.get_mapping(&tx_hash);
+        match result {
+            Ok(Some(cid)) => return Ok(Some(cid)),
+            Ok(None) => tracing::debug!("Undefined key {tx_hash}"),
+            _ => {
+                result?;
+            }
+        }
+
+        // This isn't an eth transaction we have the mapping for, so let's try looking it up as a filecoin message
+        let cid = tx_hash.to_cid();
+
+        let result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            return Ok(Some(cid));
+        }
+
+        let result: Result<Vec<Message>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is a BLS message
+            return Ok(Some(cid));
+        }
+
+        // Ethereum clients expect an empty response when the message was not found
+        Ok(None)
+    }
+}
+
 fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Result<usize> {
     let mut message_cids = CidHashSet::default();
     for block in ts.block_headers() {
@@ -1601,11 +1656,19 @@ impl RpcMethod<3> for EthGetStorageAt {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ethereum_types::H160;
+    use ethereum_types::{H160, H256};
     use num_bigint;
     use num_traits::{FromBytes, Signed};
+    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
+
+    impl Arbitrary for Hash {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
+            Self(H256(arr))
+        }
+    }
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
@@ -1778,6 +1841,29 @@ mod test {
             assert!(protocol == Protocol::ID || protocol == Protocol::Delegated);
             assert_eq!(addr, fil_addr);
         }
+    }
+
+    #[test]
+    fn test_hash() {
+        let test_cases = [
+            r#""0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184""#,
+            r#""0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738""#,
+        ];
+
+        for hash in test_cases {
+            let h: Hash = serde_json::from_str(hash).unwrap();
+
+            let c = h.to_cid();
+            let h1: Hash = c.into();
+            assert_eq!(h, h1);
+        }
+    }
+
+    #[quickcheck]
+    fn test_eth_hash_roundtrip(eth_hash: Hash) {
+        let cid = eth_hash.to_cid();
+        let hash = cid.into();
+        assert_eq!(eth_hash, hash);
     }
 
     #[test]

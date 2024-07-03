@@ -511,6 +511,9 @@ where
             block.persist(&chain_store.db)?;
         }
 
+        // This is needed for the Ethereum mapping
+        chain_store.put_tipset_key(tipset.key())?;
+
         // Update the peer head
         network
             .peer_manager()
