@@ -482,8 +482,8 @@ pub(super) async fn start(
         return Ok(());
     }
 
-    if !opts.stateless {
-        // Populate task
+    // Populate task
+    if !opts.stateless && !chain_config.is_devnet() {
         match state_manager
             .chain_store()
             .settings()
