@@ -405,28 +405,6 @@ pub(super) async fn start(
         debug!("RPC disabled.");
     };
 
-    match state_manager.chain_store().get_eth_mapping_created()? {
-        Some(false) | None => {
-            let state_manager = Arc::clone(&state_manager);
-            let car_db_path = car_db_path(&config)?;
-            //dbg!(&car_db_path);
-
-            let db: Arc<ManyCar<MemoryDB>> = Arc::new(ManyCar::default());
-            load_all_forest_cars(&db, &car_db_path)?;
-            let ts = db.heaviest_tipset()?;
-
-            services.spawn(async move {
-                populate_eth_mappings(&state_manager, &ts)?;
-
-                tracing::debug!("Populate task finished successfully");
-
-                state_manager.chain_store().set_eth_mapping_created()?;
-                Ok(())
-            });
-        }
-        Some(true) => tracing::debug!("Eth mapping up to date"),
-    }
-
     if opts.detach {
         unblock_parent_process()?;
     }
@@ -490,6 +468,25 @@ pub(super) async fn start(
         // Cancel all async services
         services.shutdown().await;
         return Ok(());
+    }
+
+    // Populate task
+    match state_manager.chain_store().eth_mapping_up_to_date()? {
+        Some(false) | None => {
+            let state_manager = Arc::clone(&state_manager);
+            let car_db_path = car_db_path(&config)?;
+            let db: Arc<ManyCar<MemoryDB>> = Arc::default();
+            load_all_forest_cars(&db, &car_db_path)?;
+            let ts = db.heaviest_tipset()?;
+
+            services.spawn(async move {
+                populate_eth_mappings(&state_manager, &ts)?;
+
+                state_manager.chain_store().set_eth_mapping_up_to_date()?;
+                Ok(())
+            });
+        }
+        Some(true) => tracing::info!("Ethereum mapping up to date"),
     }
 
     if !opts.stateless {

@@ -24,7 +24,7 @@ pub mod setting_keys {
     /// Key used to store the memory pool configuration in the settings store.
     pub const MPOOL_CONFIG_KEY: &str = "/mpool/config";
     /// Key used to store the state of the Ethereum mapping. This is expected to be a [`bool`].
-    pub const ETH_MAPPING_CREATED_KEY: &str = "eth_mapping_created";
+    pub const ETH_MAPPING_UP_TO_DATE_KEY: &str = "eth_mapping_up_to_date";
 }
 
 /// Interface used to store and retrieve settings from the database.

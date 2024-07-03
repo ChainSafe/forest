@@ -41,6 +41,7 @@ pub(crate) async fn livez(
 /// - The node is in sync with the network
 /// - The current epoch of the node is not too far behind the network
 /// - The RPC server is running
+/// - The Ethereum mapping is up to date
 ///
 /// If any of these conditions are not met, the nod is **not** ready to serve requests.
 pub(crate) async fn readyz(
@@ -53,7 +54,7 @@ pub(crate) async fn readyz(
     ready &= check_sync_state_complete(&state, &mut acc);
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
-    ready &= check_eth_mapping_created(&state, &mut acc);
+    ready &= check_eth_mapping_up_to_date(&state, &mut acc);
 
     if ready {
         Ok(acc.result_ok())
@@ -154,8 +155,8 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
     }
 }
 
-fn check_eth_mapping_created(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
-    match state.chain_store.get_eth_mapping_created() {
+fn check_eth_mapping_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+    match state.chain_store.eth_mapping_up_to_date() {
         Ok(Some(true)) => {
             acc.push_ok("eth mapping up to date");
             true
