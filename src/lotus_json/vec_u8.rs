@@ -2,20 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
+use schemars::schema::*;
 
 // This code looks odd so we can
 // - use #[serde(with = "...")]
 // - de/ser empty vecs as null
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-#[schemars(rename = "Base64String")]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct VecU8LotusJson(Option<Inner>);
 
-#[derive(Clone, Serialize, Deserialize, JsonSchema)]
-struct Inner(
-    #[serde(with = "base64_standard")]
-    #[schemars(with = "String")]
-    Vec<u8>,
-);
+impl JsonSchema for VecU8LotusJson {
+    fn schema_name() -> String {
+        "Base64String".into()
+    }
+
+    fn json_schema(_: &mut schemars::gen::SchemaGenerator) -> Schema {
+        Schema::Object(SchemaObject {
+            instance_type: Some(SingleOrVec::Vec(vec![
+                InstanceType::String,
+                InstanceType::Null,
+            ])),
+            ..Default::default()
+        })
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Inner(#[serde(with = "base64_standard")] Vec<u8>);
 
 impl HasLotusJson for Vec<u8> {
     type LotusJson = VecU8LotusJson;

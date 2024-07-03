@@ -76,7 +76,7 @@ jobs:
             type=edge
       
       - name: Build fat image and push to GitHub Container Registry
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           tags: ${{ steps.metafat.outputs.tags }}
@@ -102,7 +102,7 @@ jobs:
             type=edge
 
       - name: Build slim image and push to GitHub Container Registry
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           tags: ${{ steps.meta.outputs.tags }}

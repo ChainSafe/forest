@@ -11,16 +11,22 @@ use crate::shim::crypto::SignatureType;
 // and
 // https://github.com/filecoin-project/lotus/blob/7bb1f98ac6f5a6da2cc79afc26d8cd9fe323eb30/chain/types/keystore.go#L47
 
-#[derive(Deserialize, Serialize, JsonSchema)]
+#[derive(Deserialize, Serialize)]
 #[serde(untagged)] // try an int, then a string
-#[schemars(rename = "SignatureType")]
 pub enum SignatureTypeLotusJson {
     Integer(SignatureType),
-    String(
-        #[serde(with = "crate::lotus_json::stringify")]
-        #[schemars(with = "String")]
-        SignatureType,
-    ),
+    String(#[serde(with = "crate::lotus_json::stringify")] SignatureType),
+}
+
+// only advertise the string
+impl JsonSchema for SignatureTypeLotusJson {
+    fn schema_name() -> String {
+        SignatureType::schema_name()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> Schema {
+        SignatureType::json_schema(gen)
+    }
 }
 
 impl HasLotusJson for SignatureType {

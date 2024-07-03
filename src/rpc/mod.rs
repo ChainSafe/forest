@@ -46,6 +46,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::chain::ChainExport);
         $callback!(crate::rpc::chain::ChainReadObj);
         $callback!(crate::rpc::chain::ChainHasObj);
+        $callback!(crate::rpc::chain::ChainStatObj);
         $callback!(crate::rpc::chain::ChainGetBlockMessages);
         $callback!(crate::rpc::chain::ChainGetPath);
         $callback!(crate::rpc::chain::ChainGetTipSetByHeight);
@@ -125,6 +126,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateNetworkName);
         $callback!(crate::rpc::state::StateReplay);
         $callback!(crate::rpc::state::StateSectorGetInfo);
+        $callback!(crate::rpc::state::StateSectorPreCommitInfoV0);
         $callback!(crate::rpc::state::StateSectorPreCommitInfo);
         $callback!(crate::rpc::state::StateAccountKey);
         $callback!(crate::rpc::state::StateLookupID);
@@ -157,6 +159,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateMarketDeals);
         $callback!(crate::rpc::state::StateDealProviderCollateralBounds);
         $callback!(crate::rpc::state::StateMarketStorageDeal);
+        $callback!(crate::rpc::state::StateWaitMsgV0);
         $callback!(crate::rpc::state::StateWaitMsg);
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
@@ -467,7 +470,8 @@ where
     module
 }
 
-pub fn openrpc() -> openrpc_types::OpenRPC {
+/// If `include` is not [`None`], only methods that are listed will be returned
+pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::gen::{SchemaGenerator, SchemaSettings};
     let mut methods = vec![];
     // spec says draft07
@@ -477,10 +481,19 @@ pub fn openrpc() -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                &mut gen,
-                ParamStructure::ByPosition,
-            )));
+            match include {
+                Some(include) => match include.contains(&<$ty>::NAME) {
+                    true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                        &mut gen,
+                        ParamStructure::ByPosition,
+                    ))),
+                    false => {}
+                },
+                None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                    &mut gen,
+                    ParamStructure::ByPosition,
+                ))),
+            }
         };
     }
     for_each_method!(callback);
@@ -513,7 +526,7 @@ mod tests {
     // `cargo insta review`
     #[test]
     fn openrpc() {
-        let _spec = super::openrpc();
+        let _spec = super::openrpc(None);
         // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
         //                  this is disabled because it causes lots of merge
         //                  conflicts.

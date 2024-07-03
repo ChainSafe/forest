@@ -307,12 +307,18 @@ impl From<&RpcTest> for RpcTestHashable {
     }
 }
 
+enum PolicyOnRejected {
+    Fail,
+    Pass,
+    PassWithIdenticalError,
+}
+
 struct RpcTest {
     request: rpc::Request,
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
-    pass_on_rejected: bool,
+    policy_on_rejected: PolicyOnRejected,
 }
 
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
@@ -340,7 +346,7 @@ impl RpcTest {
             }),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
-            pass_on_rejected: false,
+            policy_on_rejected: PolicyOnRejected::Fail,
         }
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
@@ -385,7 +391,7 @@ impl RpcTest {
                 }
             }),
             ignore: None,
-            pass_on_rejected: false,
+            policy_on_rejected: PolicyOnRejected::Fail,
         }
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
@@ -399,8 +405,8 @@ impl RpcTest {
         self
     }
 
-    fn pass_on_rejected(mut self, flag: bool) -> Self {
-        self.pass_on_rejected = flag;
+    fn policy_on_rejected(mut self, policy: PolicyOnRejected) -> Self {
+        self.policy_on_rejected = policy;
         self
     }
 
@@ -538,6 +544,11 @@ fn chain_tests_with_tipset<DB: Blockstore>(
             RpcTest::identity(ChainGetBlockMessages::request((block_cid,))?),
             RpcTest::identity(ChainGetParentMessages::request((block_cid,))?),
             RpcTest::identity(ChainGetParentReceipts::request((block_cid,))?),
+            RpcTest::identity(ChainStatObj::request((block.messages, None))?),
+            RpcTest::identity(ChainStatObj::request((
+                block.messages,
+                Some(block.messages),
+            ))?),
         ]);
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(&store, block)?;
@@ -753,6 +764,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .into(),))?),
         RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
         RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
+        RpcTest::identity(StateSectorPreCommitInfo::request((
+            Default::default(), // invalid address
+            u64::MAX,
+            tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::Pass),
     ];
 
     // Get deals
@@ -844,6 +861,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateSectorPreCommitInfo::request((
+                block.miner_address,
+                u64::MAX, // invalid sector number
+                tipset.key().into(),
+            ))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         ]);
         for claim_id in StateGetClaims::get_claims(store, &block.miner_address, tipset)?
             .keys()
@@ -897,7 +920,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     sector,
                     tipset.key().into(),
                 ))?)
-                .pass_on_rejected(true),
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
                 RpcTest::identity(StateSectorPartition::request((
                     block.miner_address,
                     sector,
@@ -957,7 +980,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tests.extend([
                 RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
-                    StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
+                    StateWaitMsg::request((msg_cid, 0, 10101, true))?
+                        .with_timeout(Duration::from_secs(15)),
+                ),
+                validate_message_lookup(
+                    StateWaitMsg::request((msg_cid, 0, 10101, false))?
+                        .with_timeout(Duration::from_secs(15)),
                 ),
                 validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
                 validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
@@ -1082,16 +1110,23 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash.clone()),
-                false,
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_number_object(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
         RpcTest::identity(
-            EthGetBlockByHash::request((
-                BlockNumberOrHash::from_block_hash(block_hash.clone()),
-                true,
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), false),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBalance::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
             ))
             .unwrap(),
         ),
@@ -1120,7 +1155,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
-                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+                BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
             ))
             .unwrap(),
         ),
@@ -1128,7 +1163,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             EthGetCode::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
-                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
             ))
             .unwrap(),
         ),
@@ -1139,7 +1174,21 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
                     .unwrap()
                     .try_into()
                     .unwrap(),
-                BlockNumberOrHash::BlockNumber(shared_tipset.epoch()),
+                BlockNumberOrHash::from_block_number(shared_tipset.epoch()),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                false,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthGetBlockByHash::request((
+                BlockNumberOrHash::from_block_hash(block_hash.clone()),
+                true,
             ))
             .unwrap(),
         ),
@@ -1483,10 +1532,14 @@ async fn run_tests(
         let success = match (&forest_status, &lotus_status) {
             (TestSummary::Valid, TestSummary::Valid)
             | (TestSummary::Timeout, TestSummary::Timeout) => true,
-            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus))
-                if test.pass_on_rejected && reason_forest == reason_lotus =>
-            {
-                true
+            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus)) => {
+                match test.policy_on_rejected {
+                    PolicyOnRejected::Pass => true,
+                    PolicyOnRejected::PassWithIdenticalError if reason_forest == reason_lotus => {
+                        true
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         };

@@ -67,6 +67,8 @@ pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
 /// - All `Ctx`s must be `Send + Sync + 'static` due to bounds on [`RpcModule`].
 /// - Handlers don't specialize on top of the given bounds, but they MAY relax them.
 pub trait RpcMethod<const ARITY: usize> {
+    /// Number of required parameters, defaults to `ARITY`.
+    const N_REQUIRED_PARAMS: usize = ARITY;
     /// Method name.
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
@@ -162,11 +164,18 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Method {
             name: String::from(Self::NAME),
             params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
-                .map(|(name, (schema, optional))| {
+                .enumerate()
+                .map(|(pos, (name, (schema, nullable)))| {
+                    let required = pos <= Self::N_REQUIRED_PARAMS;
+                    if !required && !nullable {
+                        panic!(
+                            "Optional parameter at position {pos} should be of an optional type. method={}, param_name={name}", Self::NAME
+                        );
+                    }
                     ReferenceOr::Item(ContentDescriptor {
                         name: String::from(name),
                         schema,
-                        required: Some(!optional),
+                        required: Some(required),
                         ..Default::default()
                     })
                 })
@@ -197,13 +206,25 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     where
         <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
+        assert!(
+            Self::N_REQUIRED_PARAMS <= ARITY,
+            "N_REQUIRED_PARAMS({}) can not be greater than ARITY({ARITY}) in {}",
+            Self::N_REQUIRED_PARAMS,
+            Self::NAME
+        );
+
         module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
             let raw = params
                 .as_str()
                 .map(serde_json::from_str)
                 .transpose()
                 .map_err(|e| Error::invalid_params(e, None))?;
-            let params = Self::Params::parse(raw, Self::PARAM_NAMES, calling_convention)?;
+            let params = Self::Params::parse(
+                raw,
+                Self::PARAM_NAMES,
+                calling_convention,
+                Self::N_REQUIRED_PARAMS,
+            )?;
             let ok = Self::handle(ctx, params).await?;
             Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
         })
@@ -254,7 +275,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 /// This should NOT be manually implemented.
 pub trait Params<const ARITY: usize>: HasLotusJson {
     /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
-    /// pair for argument, in-order.
+    /// schema-nullable pair for argument, in-order.
     fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
     /// Convert from raw request parameters, to the argument tuple required by
     /// [`RpcMethod::handle`]
@@ -262,6 +283,7 @@ pub trait Params<const ARITY: usize>: HasLotusJson {
         raw: Option<RequestParameters>,
         names: [&str; ARITY],
         calling_convention: ParamStructure,
+        n_required: usize,
     ) -> Result<Self, Error>
     where
         Self: Sized;
@@ -310,14 +332,15 @@ macro_rules! do_impls {
 
         impl<$($arg),*> Params<$arity> for ($($arg,)*)
         where
-            $($arg: HasLotusJson, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
+            $($arg: HasLotusJson + Clone, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
         {
             fn parse(
                 raw: Option<RequestParameters>,
                 arg_names: [&str; $arity],
                 calling_convention: ParamStructure,
+                n_required: usize,
             ) -> Result<Self, Error> {
-                let mut _parser = Parser::new(raw, &arg_names, calling_convention)?;
+                let mut _parser = Parser::new(raw, &arg_names, calling_convention, n_required)?;
                 Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
             fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {

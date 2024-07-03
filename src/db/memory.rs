@@ -1,10 +1,11 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use crate::db::{truncated_hash, GarbageCollectable};
+use crate::cid_collections::CidHashSet;
+use crate::db::GarbageCollectable;
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 use crate::rpc::eth;
-use ahash::{HashMap, HashSet, HashSetExt};
+use ahash::HashMap;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::Itertools;
@@ -19,22 +20,22 @@ pub struct MemoryDB {
     eth_mappings_db: RwLock<HashMap<eth::Hash, Vec<u8>>>,
 }
 
-impl GarbageCollectable for MemoryDB {
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
-        let mut set = HashSet::with_capacity(self.blockchain_db.read().len());
+impl GarbageCollectable<CidHashSet> for MemoryDB {
+    fn get_keys(&self) -> anyhow::Result<CidHashSet> {
+        let mut set = CidHashSet::new();
         for key in self.blockchain_db.read().keys() {
             let cid = Cid::try_from(key.as_slice())?;
-            set.insert(truncated_hash(cid.hash()));
+            set.insert(cid);
         }
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<()> {
         let mut db = self.blockchain_db.write();
         db.retain(|key, _| {
             let cid = Cid::try_from(key.as_slice());
             match cid {
-                Ok(cid) => !keys.contains(&truncated_hash(cid.hash())),
+                Ok(cid) => !keys.contains(&cid),
                 _ => true,
             }
         });

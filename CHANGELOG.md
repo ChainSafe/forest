@@ -31,10 +31,13 @@
 
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
+
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
+
 - [#4382](https://github.com/ChainSafe/forest/pull/4382) Add support for the
   `Filecoin.StateGetAllocation` RPC method.
+
 - [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
   `Filecoin.StateSectorPartition` RPC method.
 
@@ -44,6 +47,15 @@
 - [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
   `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
 
+- [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
+  `EIP-1898` object scheme.
+
+- [#4443](https://github.com/ChainSafe/forest/issues/4443) Update
+  `Filecoin.StateSectorPreCommitInfo` RPC method to be API-V1-compatible
+
+- [#4444](https://github.com/ChainSafe/forest/issues/4444) Update
+  `Filecoin.StateWaitMsg` RPC method to be API-V1-compatible
+
 ### Changed
 
 ### Removed
@@ -52,6 +64,9 @@
   `forest-cli attach` command.
 
 ### Fixed
+
+- [#4425](https://github.com/ChainSafe/forest/pull/4425) Fix GC collision
+  issues.
 
 - [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
   `Filecoin.ChainNotify` RPC method.

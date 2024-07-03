@@ -9,7 +9,6 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::lotus_json::LotusJson;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
@@ -23,7 +22,6 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::Context;
 use anyhow::{bail, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
@@ -37,7 +35,7 @@ use num_traits::{Signed as _, Zero as _};
 use rlp::RlpStream;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::{fmt, str::FromStr};
+use std::str::FromStr;
 use std::{ops::Add, sync::Arc};
 
 const MASKED_ID_PREFIX: [u8; 12] = [0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -89,21 +87,23 @@ enum EVMMethod {
     InvokeContract = 3844450837,
 }
 
+// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
+//                  use ethereum_types::U256 or use lotus_json::big_int
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
-pub struct BigInt(
-    #[schemars(with = "LotusJson<num_bigint::BigInt>")]
+pub struct EthBigInt(
     #[serde(with = "crate::lotus_json::hexify")]
+    #[schemars(with = "String")]
     pub num_bigint::BigInt,
 );
-lotus_json_with_self!(BigInt);
+lotus_json_with_self!(EthBigInt);
 
-impl From<TokenAmount> for BigInt {
+impl From<TokenAmount> for EthBigInt {
     fn from(amount: TokenAmount) -> Self {
         Self(amount.atto().to_owned())
     }
 }
 
-type GasPriceResult = BigInt;
+type GasPriceResult = EthBigInt;
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
 pub struct Nonce(
@@ -141,7 +141,19 @@ pub struct Int64(
 
 lotus_json_with_self!(Int64);
 
-#[derive(PartialEq, Eq, Hash, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    displaydoc::Display,
+)]
+#[displaydoc("{0:#x}")]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
@@ -169,15 +181,10 @@ impl From<Cid> for Hash {
     }
 }
 
-impl fmt::Display for Hash {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#x}", self.0)
-    }
-}
-
 lotus_json_with_self!(Hash);
 
-#[derive(Debug, Default, Clone)]
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub enum Predefined {
     Earliest,
     Pending,
@@ -185,24 +192,31 @@ pub enum Predefined {
     Latest,
 }
 
-impl fmt::Display for Predefined {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s = match self {
-            Predefined::Earliest => "earliest",
-            Predefined::Pending => "pending",
-            Predefined::Latest => "latest",
-        };
-        write!(f, "{}", s)
-    }
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockNumber {
+    block_number: Int64,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum BlockNumberOrHash {
-    PredefinedBlock(Predefined),
-    BlockNumber(i64),
-    BlockHash(Hash, bool),
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockHash {
+    block_hash: Hash,
+    require_canonical: bool,
 }
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BlockNumberOrHash {
+    #[schemars(with = "String")]
+    PredefinedBlock(Predefined),
+    BlockNumber(Int64),
+    BlockHash(Hash),
+    BlockNumberObject(BlockNumber),
+    BlockHashObject(BlockHash),
+}
+
+lotus_json_with_self!(BlockNumberOrHash);
 
 impl BlockNumberOrHash {
     pub fn from_predefined(predefined: Predefined) -> Self {
@@ -210,55 +224,30 @@ impl BlockNumberOrHash {
     }
 
     pub fn from_block_number(number: i64) -> Self {
-        Self::BlockNumber(number)
+        Self::BlockNumber(Int64(number))
     }
 
     pub fn from_block_hash(hash: Hash) -> Self {
-        Self::BlockHash(hash, false)
-    }
-}
-
-// TODO(elmattic): https://github.com/ChainSafe/forest/issues/4359
-//                 implement EIP-1898
-// TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-//                  this shouldn't exist
-impl HasLotusJson for BlockNumberOrHash {
-    type LotusJson = String;
-
-    #[cfg(test)]
-    fn snapshots() -> Vec<(serde_json::Value, Self)> {
-        vec![]
+        Self::BlockHash(hash)
     }
 
-    fn into_lotus_json(self) -> Self::LotusJson {
-        match self {
-            Self::PredefinedBlock(predefined) => predefined.to_string(),
-            Self::BlockNumber(number) => format!("{:#x}", number),
-            Self::BlockHash(hash, _require_canonical) => format!("{:#x}", hash.0),
-        }
+    /// Construct a block number using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
+    pub fn from_block_number_object(number: i64) -> Self {
+        Self::BlockNumberObject(BlockNumber {
+            block_number: Int64(number),
+        })
     }
 
-    fn from_lotus_json(lotus_json: Self::LotusJson) -> Self {
-        match lotus_json.as_str() {
-            "earliest" => return Self::PredefinedBlock(Predefined::Earliest),
-            "pending" => return Self::PredefinedBlock(Predefined::Pending),
-            "latest" => return Self::PredefinedBlock(Predefined::Latest),
-            _ => (),
-        };
-
-        if let Ok(hash) = Hash::from_str(&lotus_json) {
-            return Self::BlockHash(hash, false);
-        }
-
-        #[allow(clippy::indexing_slicing)]
-        if lotus_json.len() > 2 && &lotus_json[..2] == "0x" {
-            if let Ok(number) = i64::from_str_radix(&lotus_json[2..], 16) {
-                return Self::BlockNumber(number);
-            }
-        }
-
-        // Return some default value if we can't convert
-        Self::PredefinedBlock(Predefined::Latest)
+    /// Construct a block hash using EIP-1898 Object scheme.
+    ///
+    /// For details see <https://eips.ethereum.org/EIPS/eip-1898>
+    pub fn from_block_hash_object(hash: Hash, require_canonical: bool) -> Self {
+        Self::BlockHashObject(BlockHash {
+            block_hash: hash,
+            require_canonical,
+        })
     }
 }
 
@@ -295,7 +284,7 @@ pub struct Block {
     pub extra_data: EthBytes,
     pub mix_hash: Hash,
     pub nonce: Nonce,
-    pub base_fee_per_gas: BigInt,
+    pub base_fee_per_gas: EthBigInt,
     pub size: Uint64,
     // can be Vec<Tx> or Vec<String> depending on query params
     pub transactions: Transactions,
@@ -337,18 +326,18 @@ pub struct Tx {
         default
     )]
     pub to: Option<EthAddress>,
-    pub value: BigInt,
+    pub value: EthBigInt,
     pub r#type: Uint64,
     pub input: EthBytes,
     pub gas: Uint64,
-    pub max_fee_per_gas: BigInt,
-    pub max_priority_fee_per_gas: BigInt,
+    pub max_fee_per_gas: EthBigInt,
+    pub max_priority_fee_per_gas: EthBigInt,
     #[schemars(with = "Option<Vec<Hash>>")]
     #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
-    pub v: BigInt,
-    pub r: BigInt,
-    pub s: BigInt,
+    pub v: EthBigInt,
+    pub r: EthBigInt,
+    pub s: EthBigInt,
 }
 
 impl Tx {
@@ -365,14 +354,14 @@ struct TxArgs {
     pub chain_id: u64,
     pub nonce: u64,
     pub to: Option<EthAddress>,
-    pub value: BigInt,
-    pub max_fee_per_gas: BigInt,
-    pub max_priority_fee_per_gas: BigInt,
+    pub value: EthBigInt,
+    pub max_fee_per_gas: EthBigInt,
+    pub max_priority_fee_per_gas: EthBigInt,
     pub gas_limit: u64,
     pub input: Vec<u8>,
-    pub v: BigInt,
-    pub r: BigInt,
-    pub s: BigInt,
+    pub v: EthBigInt,
+    pub r: EthBigInt,
+    pub s: EthBigInt,
 }
 
 impl From<Tx> for TxArgs {
@@ -407,7 +396,7 @@ fn format_u64(value: u64) -> BytesMut {
     }
 }
 
-fn format_bigint(value: &BigInt) -> Result<BytesMut> {
+fn format_bigint(value: &EthBigInt) -> Result<BytesMut> {
     Ok(if value.0.is_positive() {
         BytesMut::from_iter(value.0.to_bytes_be().1.iter())
     } else {
@@ -655,9 +644,9 @@ impl RpcMethod<0> for EthGasPrice {
         let base_fee = &block0.parent_base_fee;
         if let Ok(premium) = gas::estimate_gas_premium(&ctx, 10000).await {
             let gas_price = base_fee.add(premium);
-            Ok(BigInt(gas_price.atto().clone()))
+            Ok(EthBigInt(gas_price.atto().clone()))
         } else {
-            Ok(BigInt(num_bigint::BigInt::zero()))
+            Ok(EthBigInt(num_bigint::BigInt::zero()))
         }
     }
 }
@@ -670,7 +659,7 @@ impl RpcMethod<2> for EthGetBalance {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = BigInt;
+    type Ok = EthBigInt;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -681,8 +670,16 @@ impl RpcMethod<2> for EthGetBalance {
         let state =
             StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
         let actor = state.get_required_actor(&fil_addr)?;
-        Ok(BigInt(actor.balance.atto().clone()))
+        Ok(EthBigInt(actor.balance.atto().clone()))
     }
+}
+
+fn get_tipset_from_hash<DB: Blockstore>(
+    chain_store: &ChainStore<DB>,
+    block_hash: &Hash,
+) -> anyhow::Result<Tipset> {
+    let tsk = chain_store.get_required_tipset_key(block_hash)?;
+    Tipset::load_required(chain_store.blockstore(), &tsk)
 }
 
 fn tipset_by_block_number_or_hash<DB: Blockstore>(
@@ -700,8 +697,9 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                 Ok(parent)
             }
         },
-        BlockNumberOrHash::BlockNumber(number) => {
-            let height = ChainEpoch::from(number);
+        BlockNumberOrHash::BlockNumber(block_number)
+        | BlockNumberOrHash::BlockNumberObject(BlockNumber { block_number }) => {
+            let height = ChainEpoch::from(block_number.0);
             if height > head.epoch() - 1 {
                 bail!("requested a future epoch (beyond \"latest\")");
             }
@@ -711,11 +709,15 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
                     .tipset_by_height(height, head, ResolveNullTipset::TakeOlder)?;
             Ok(ts)
         }
-        BlockNumberOrHash::BlockHash(hash, require_canonical) => {
-            let tsk = chain
-                .get_tipset_key(&hash)?
-                .with_context(|| format!("cannot find tipset with hash {}", &hash))?;
-            let ts = chain.chain_index.load_required_tipset(&tsk)?;
+        BlockNumberOrHash::BlockHash(block_hash) => {
+            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
+            Ok(ts)
+        }
+        BlockNumberOrHash::BlockHashObject(BlockHash {
+            block_hash,
+            require_canonical,
+        }) => {
+            let ts = Arc::new(get_tipset_from_hash(chain, &block_hash)?);
             // verify that the tipset is in the canonical chain
             if require_canonical {
                 // walk up the current chain (our head) until we reach ts.epoch()
@@ -809,7 +811,7 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     })
 }
 
-fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
+fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
     if sig.signature_type() != SignatureType::Delegated {
         bail!("recover_sig only supports Delegated signature");
     }
@@ -834,7 +836,7 @@ fn recover_sig(sig: &Signature) -> Result<(BigInt, BigInt, BigInt)> {
         sig.bytes().get(64..65).expect("failed to get slice"),
     );
 
-    Ok((BigInt(r), BigInt(s), BigInt(v)))
+    Ok((EthBigInt(r), EthBigInt(s), EthBigInt(v)))
 }
 
 /// `eth_tx_from_signed_eth_message` does NOT populate:
@@ -1216,11 +1218,7 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_hash,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx
-            .chain_store
-            .get_tipset_key(&block_hash)?
-            .with_context(|| format!("cannot find tipset with hash {}", &block_hash))?;
-        let ts = ctx.chain_store.chain_index.load_required_tipset(&tsk)?;
+        let ts = get_tipset_from_hash(&ctx.chain_store, &block_hash)?;
 
         let head = ctx.chain_store.heaviest_tipset();
         if ts.epoch() > head.epoch() {
@@ -1457,10 +1455,10 @@ mod test {
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
-        let r = BigInt(i.into());
+        let r = EthBigInt(i.into());
         let encoded = serde_json::to_string(&r).unwrap();
         assert_eq!(encoded, format!("\"{i:#x}\""));
-        let decoded: BigInt = serde_json::from_str(&encoded).unwrap();
+        let decoded: EthBigInt = serde_json::from_str(&encoded).unwrap();
         assert_eq!(r.0, decoded.0);
     }
 
@@ -1512,19 +1510,19 @@ mod test {
                 ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
                     .unwrap(),
             )),
-            value: BigInt(num_bigint::BigInt::from(0)),
-            max_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000120)),
-            max_priority_fee_per_gas: BigInt(num_bigint::BigInt::from(1500000000)),
+            value: EthBigInt(num_bigint::BigInt::from(0)),
+            max_fee_per_gas: EthBigInt(num_bigint::BigInt::from(1500000120)),
+            max_priority_fee_per_gas: EthBigInt(num_bigint::BigInt::from(1500000000)),
             gas_limit: 37442471,
             input: decode_hex("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap(),
-            v: BigInt(num_bigint::BigInt::from_str("1").unwrap()),
-            r: BigInt(
+            v: EthBigInt(num_bigint::BigInt::from_str("1").unwrap()),
+            r: EthBigInt(
                 num_bigint::BigInt::from_str(
                     "84103132941276310528712440865285269631208564772362393569572880532520338257200",
                 )
                 .unwrap(),
             ),
-            s: BigInt(
+            s: EthBigInt(
                 num_bigint::BigInt::from_str(
                     "7820796778417228639067439047870612492553874254089570360061550763595363987236",
                 )
@@ -1561,7 +1559,7 @@ mod test {
 
     #[quickcheck]
     fn bigint_roundtrip(bi: num_bigint::BigInt) {
-        let eth_bi = BigInt(bi.clone());
+        let eth_bi = EthBigInt(bi.clone());
 
         match format_bigint(&eth_bi) {
             Ok(bm) => {

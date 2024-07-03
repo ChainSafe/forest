@@ -842,21 +842,30 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             continue;
         }
 
-        let epoch_diff = oldest_pending_tipset.epoch() - current_head.epoch();
-        let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
+        let window = min(
+            oldest_pending_tipset.epoch() - until_epoch, // (oldest_pending_tipset.epoch() - 1) - until_epoch + 1
+            MAX_TIPSETS_TO_REQUEST as i64,
+        );
         let network_tipsets = network
             .chain_exchange_headers(None, oldest_pending_tipset.parents(), window as u64)
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
 
-        for tipset in network_tipsets
-            .into_iter()
-            .take_while(|ts| ts.epoch() >= until_epoch)
-        {
+        let callback = |tipset: Arc<Tipset>| {
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &accepted_blocks)?;
             accepted_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
             pending_tipsets.push(tipset);
+            Ok(())
+        };
+        // Breaks the loop when `until_epoch` is overreached, which happens
+        // when there are null tipsets in the queried range.
+        // Note that when the `until_epoch` is null, the outer while condition
+        // is always true, and it relies on the returned boolean value(until epoch is overreached)
+        // to break the loop.
+        if for_each_tipset_until_epoch_overreached(network_tipsets, until_epoch, callback)? {
+            // Breaks when the `until_epoch` is overreached.
+            break;
         }
     }
     drop(wp);
@@ -919,6 +928,22 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     }
 
     Ok(pending_tipsets)
+}
+
+// tipsets is sorted by epoch in descending order
+// returns true when `until_epoch_inclusive` is overreached
+fn for_each_tipset_until_epoch_overreached(
+    tipsets: impl IntoIterator<Item = Arc<Tipset>>,
+    until_epoch_inclusive: ChainEpoch,
+    mut callback: impl FnMut(Arc<Tipset>) -> Result<(), TipsetRangeSyncerError>,
+) -> Result<bool, TipsetRangeSyncerError> {
+    for tipset in tipsets {
+        if tipset.epoch() < until_epoch_inclusive {
+            return Ok(true);
+        }
+        callback(tipset)?;
+    }
+    Ok(false)
 }
 
 #[allow(clippy::too_many_arguments)]
