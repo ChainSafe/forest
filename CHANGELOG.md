@@ -41,11 +41,17 @@
 - [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
   `Filecoin.StateSectorPartition` RPC method.
 
+- [#4368](https://github.com/ChainSafe/forest/issues/4368) Add support for the
+  `Filecoin.EthGetMessageCidByTransactionHash` RPC method.
+
 - [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
   `Filecoin.EthGetBlockByHash` RPC method.
 
 - [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
   `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
+- [#4475](https://github.com/ChainSafe/forest/pull/4475) Add support for the
+  `Filecoin.EthFeeHistory` RPC method.
 
 - [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
   `EIP-1898` object scheme.

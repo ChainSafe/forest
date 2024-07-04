@@ -7,6 +7,7 @@ pub mod parity_db;
 pub mod parity_db_config;
 
 mod gc;
+pub mod ttl;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
@@ -14,6 +15,7 @@ pub mod migration;
 
 use crate::rpc::eth;
 use anyhow::Context as _;
+use cid::Cid;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
@@ -104,6 +106,12 @@ pub trait EthMappingsStore {
 
     /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
+
+    /// Returns all message CIDs with their timestamp.
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
+
+    /// Deletes `keys` if keys exist in store.
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
@@ -117,6 +125,14 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
 
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.as_ref(), key)
+    }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        EthMappingsStore::get_message_cids(self.as_ref())
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.as_ref(), keys)
     }
 }
 

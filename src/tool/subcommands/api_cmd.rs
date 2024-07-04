@@ -61,8 +61,11 @@ use tokio::{
     task::JoinSet,
 };
 use tracing::{debug, info, warn};
+use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
+
+const CALIBNET_CHAIN_ID: u32 = crate::networks::calibnet::ETH_CHAIN_ID as u32;
 
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
@@ -123,6 +126,9 @@ pub enum ApiCommands {
         /// Worker address to use where key is applicable. Worker key must be in the key-store.
         #[arg(long)]
         worker_address: Option<Address>,
+        /// Ethereum chain ID. Default to the calibnet chain ID.
+        #[arg(long, default_value_t = CALIBNET_CHAIN_ID)]
+        eth_chain_id: u32,
     },
 }
 
@@ -137,6 +143,7 @@ struct ApiTestFlags {
     max_concurrent_requests: usize,
     miner_address: Option<Address>,
     worker_address: Option<Address>,
+    eth_chain_id: u32,
 }
 
 impl ApiCommands {
@@ -164,6 +171,7 @@ impl ApiCommands {
                 max_concurrent_requests,
                 miner_address,
                 worker_address,
+                eth_chain_id,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -174,6 +182,7 @@ impl ApiCommands {
                     max_concurrent_requests,
                     miner_address,
                     worker_address,
+                    eth_chain_id,
                 };
 
                 compare_apis(
@@ -1167,6 +1176,22 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::identity(
+            EthFeeHistory::request((
+                10.into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistory::request((
+                10.into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                Some(vec![10., 50., 90.]),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetCode::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -1200,6 +1225,35 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             .unwrap(),
         ),
     ]
+}
+
+fn eth_state_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    shared_tipset: &Tipset,
+    eth_chain_id: u32,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+
+    for block in shared_tipset.block_headers() {
+        let state = StateTree::new_from_root(store.clone(), shared_tipset.parent_state())?;
+
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
+        for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
+            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
+            tests.push(RpcTest::identity(
+                EthGetMessageCidByTransactionHash::request((tx.hash,)).unwrap(),
+            ));
+        }
+    }
+    tests.push(RpcTest::identity(
+        EthGetMessageCidByTransactionHash::request((Hash::from_str(
+            "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
+        )
+        .unwrap(),))
+        .unwrap(),
+    ));
+
+    Ok(tests)
 }
 
 fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
@@ -1248,6 +1302,11 @@ fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<
         tests.extend(eth_tests_with_tipset(&tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
+        tests.extend(eth_state_tests_with_tipset(
+            &store,
+            &tipset,
+            config.eth_chain_id,
+        )?);
     }
     Ok(tests)
 }
@@ -1282,6 +1341,21 @@ fn sample_messages<'a>(
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )
+        .unique()
+}
+
+fn sample_signed_messages<'a>(
+    bls_messages: impl Iterator<Item = &'a Message> + 'a,
+    secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
+) -> impl Iterator<Item = SignedMessage> + 'a {
+    bls_messages
+        .unique()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .map(|msg| {
+            let sig = Signature::new_bls(vec![]);
+            SignedMessage::new_unchecked(msg.clone(), sig)
+        })
+        .chain(secp_messages.cloned().unique().take(COLLECTION_SAMPLE_SIZE))
         .unique()
 }
 

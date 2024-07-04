@@ -79,6 +79,25 @@ impl EthMappingsStore for MemoryDB {
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         Ok(self.eth_mappings_db.read().contains_key(key))
     }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        let cids = self
+            .eth_mappings_db
+            .read()
+            .iter()
+            .filter_map(|(_, value)| fvm_ipld_encoding::from_slice::<(Cid, u64)>(value).ok())
+            .collect();
+
+        Ok(cids)
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        let mut lock = self.eth_mappings_db.write();
+        for hash in keys.iter() {
+            lock.remove(hash);
+        }
+        Ok(())
+    }
 }
 
 impl Blockstore for MemoryDB {
