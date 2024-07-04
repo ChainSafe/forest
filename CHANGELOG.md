@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4473](https://github.com/ChainSafe/forest/pull/4473) Add support for NV23
+  _Waffle_ network upgrade (FIP-0085, FIP-0091, v14 actors).
+
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
 

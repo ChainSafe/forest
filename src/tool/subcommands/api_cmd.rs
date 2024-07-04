@@ -7,6 +7,7 @@ use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
+use crate::eth::EthChainId as EthChainIdType;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
@@ -65,7 +66,7 @@ use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 
-const CALIBNET_CHAIN_ID: u32 = crate::networks::calibnet::ETH_CHAIN_ID as u32;
+const CALIBNET_CHAIN_ID: EthChainIdType = crate::networks::calibnet::ETH_CHAIN_ID;
 
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
@@ -128,7 +129,7 @@ pub enum ApiCommands {
         worker_address: Option<Address>,
         /// Ethereum chain ID. Default to the calibnet chain ID.
         #[arg(long, default_value_t = CALIBNET_CHAIN_ID)]
-        eth_chain_id: u32,
+        eth_chain_id: EthChainIdType,
     },
 }
 
@@ -143,7 +144,7 @@ struct ApiTestFlags {
     max_concurrent_requests: usize,
     miner_address: Option<Address>,
     worker_address: Option<Address>,
-    eth_chain_id: u32,
+    eth_chain_id: EthChainIdType,
 }
 
 impl ApiCommands {
@@ -1242,7 +1243,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn eth_state_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     shared_tipset: &Tipset,
-    eth_chain_id: u32,
+    eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
 

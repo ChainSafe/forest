@@ -9,6 +9,7 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
@@ -368,6 +369,9 @@ pub struct Tx {
     pub gas: Uint64,
     pub max_fee_per_gas: EthBigInt,
     pub max_priority_fee_per_gas: EthBigInt,
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
+    // RPC methods will need to be updated to support different Ethereum transaction types.
+    // pub gas_price: EthBigInt,
     #[schemars(with = "Option<Vec<Hash>>")]
     #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
@@ -880,7 +884,10 @@ fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
+pub fn eth_tx_from_signed_eth_message(
+    smsg: &SignedMessage,
+    chain_id: EthChainIdType,
+) -> Result<Tx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -903,7 +910,7 @@ pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Re
 
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
-        chain_id: Uint64(chain_id as u64),
+        chain_id: Uint64(chain_id),
         to: tx_args.to,
         from,
         value: tx_args.value,
@@ -911,6 +918,9 @@ pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Re
         gas: Uint64(tx_args.gas_limit),
         max_fee_per_gas: tx_args.max_fee_per_gas,
         max_priority_fee_per_gas: tx_args.max_priority_fee_per_gas,
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
+        // RPC methods will need to be updated to support different Ethereum transaction types.
+        // gas_price: EthBigInt::default(),
         access_list: vec![],
         v,
         r,
@@ -1047,7 +1057,7 @@ fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<E
 fn eth_tx_from_native_message<DB: Blockstore>(
     msg: &Message,
     state: &StateTree<DB>,
-    chain_id: u32,
+    chain_id: EthChainIdType,
 ) -> Result<Tx> {
     // Lookup the from address. This must succeed.
     let from = match lookup_eth_address(&msg.from(), state) {
@@ -1099,12 +1109,15 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         from,
         input,
         nonce: Uint64(msg.sequence),
-        chain_id: Uint64(chain_id as u64),
+        chain_id: Uint64(chain_id),
         value: msg.value.clone().into(),
         r#type: Uint64(EIP_1559_TX_TYPE),
         gas: Uint64(msg.gas_limit),
         max_fee_per_gas: msg.gas_fee_cap.clone().into(),
         max_priority_fee_per_gas: msg.gas_premium.clone().into(),
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
+        // RPC methods will need to be updated to support different Ethereum transaction types.
+        // gas_price: EthBigInt::default(),
         access_list: vec![],
         ..Tx::default()
     })
@@ -1113,7 +1126,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
 pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     smsg: &SignedMessage,
     state: &StateTree<DB>,
-    chain_id: u32,
+    chain_id: EthChainIdType,
 ) -> Result<Tx> {
     let (tx, hash) = if smsg.is_delegated() {
         // This is an eth tx

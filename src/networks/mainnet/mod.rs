@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::{
+    eth::EthChainId,
     make_height,
     shim::{clock::ChainEpoch, version::NetworkVersion},
 };
@@ -36,7 +37,7 @@ pub static DEFAULT_BOOTSTRAP: Lazy<Vec<Multiaddr>> =
 const LIGHTNING_ROLLOVER_PERIOD: i64 = 2880 * 21;
 
 // https://github.com/ethereum-lists/chains/blob/4731f6713c6fc2bf2ae727388642954a6545b3a9/_data/chains/eip155-314.json
-pub const ETH_CHAIN_ID: u64 = 314;
+pub const ETH_CHAIN_ID: EthChainId = 314;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 120;
 
@@ -70,7 +71,7 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
         // Thu Apr 24 02:00:00 PM UTC 2024
         make_height!(Dragon, 3_855_360, get_bundle_cid("v13.0.0")),
         make_height!(Phoenix, 3_855_480),
-        make_height!(Aussie, 9999999999),
+        make_height!(Waffle, 9999999999),
     ])
 });
 
