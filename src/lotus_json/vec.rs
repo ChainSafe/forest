@@ -36,7 +36,7 @@ where
 // an empty `Vec<T>` serializes into `null` lotus json by default,
 // while an empty `NotNullVec<T>` serializes into `[]`
 // this is a temporary workaround and will likely be deprecated once
-// other `TODOs` on serde of `Vec<T>` are addressed.
+// other issues on serde of `Vec<T>` are resolved.
 #[derive(Debug, Clone, PartialEq, JsonSchema)]
 pub struct NotNullVec<T>(pub Vec<T>);
 
