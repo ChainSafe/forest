@@ -58,7 +58,8 @@ done
 echo "Done"
 
 while ! check_ready; do
-  sleep 3
+  echo -n "."
+  sleep 1
 done
 
 ERROR=0

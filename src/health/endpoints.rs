@@ -167,7 +167,7 @@ fn check_eth_mapping_up_to_date(state: &ForestState, acc: &mut MessageAccumulato
         }
         Ok(None) | Ok(Some(false)) | Err(_) => {
             acc.push_err("no eth mapping");
-            true
+            false
         }
     }
 }
