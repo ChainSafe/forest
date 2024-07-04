@@ -576,6 +576,13 @@ fn mpool_tests() -> Vec<RpcTest> {
     ]
 }
 
+fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
+        RpcTest::basic(MpoolPending::request((tipset.key().into(),)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((tipset.key().into(), 0.9_f64)).unwrap()),
+    ]
+}
+
 fn net_tests() -> Vec<RpcTest> {
     let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
     let peer_id = bootstrap_peers
@@ -1294,6 +1301,7 @@ fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
+        tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(
             &store,
             &tipset,
