@@ -1804,7 +1804,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
-    type Ok = SectorOnChainInfo;
+    type Ok = Option<SectorOnChainInfo>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore>,
@@ -1818,8 +1818,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
             .state_manager
             .get_all_sectors(&miner_address, &ts)?
             .into_iter()
-            .find(|info| info.sector_number == sector_number)
-            .context(format!("Info for sector number {sector_number} not found"))?)
+            .find(|info| info.sector_number == sector_number))
     }
 }
 
