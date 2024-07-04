@@ -43,6 +43,7 @@ use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
+use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
@@ -484,30 +485,13 @@ pub(super) async fn start(
 
     // Populate task
     if !opts.stateless && !chain_config.is_devnet() {
-        match state_manager
-            .chain_store()
-            .settings()
-            .eth_mapping_up_to_date()?
-        {
-            Some(false) | None => {
-                let state_manager = Arc::clone(&state_manager);
-                let car_db_path = car_db_path(&config)?;
-                let db: Arc<ManyCar<MemoryDB>> = Arc::default();
-                load_all_forest_cars(&db, &car_db_path)?;
-                let ts = db.heaviest_tipset()?;
-
-                services.spawn(async move {
-                    populate_eth_mappings(&state_manager, &ts)?;
-
-                    state_manager
-                        .chain_store()
-                        .settings()
-                        .set_eth_mapping_up_to_date()?;
-                    Ok(())
-                });
+        let state_manager = Arc::clone(&state_manager);
+        services.spawn(async move {
+            if let Err(err) = init_ethereum_mapping(state_manager, &config) {
+                tracing::warn!("Init Ethereum mapping failed: {}", err)
             }
-            Some(true) => tracing::info!("Ethereum mapping up to date"),
-        }
+            Ok(())
+        });
     }
 
     if !opts.stateless {
@@ -783,5 +767,34 @@ fn display_chain_logo(chain: &NetworkChain) {
     };
     if let Some(logo) = logo {
         info!("\n{logo}");
+    }
+}
+
+fn init_ethereum_mapping<DB: Blockstore>(
+    state_manager: Arc<StateManager<DB>>,
+    config: &Config,
+) -> anyhow::Result<()> {
+    match state_manager
+        .chain_store()
+        .settings()
+        .eth_mapping_up_to_date()?
+    {
+        Some(false) | None => {
+            let car_db_path = car_db_path(config)?;
+            let db: Arc<ManyCar<MemoryDB>> = Arc::default();
+            load_all_forest_cars(&db, &car_db_path)?;
+            let ts = db.heaviest_tipset()?;
+
+            populate_eth_mappings(&state_manager, &ts)?;
+
+            state_manager
+                .chain_store()
+                .settings()
+                .set_eth_mapping_up_to_date()
+        }
+        Some(true) => {
+            tracing::info!("Ethereum mapping up to date");
+            Ok(())
+        }
     }
 }
