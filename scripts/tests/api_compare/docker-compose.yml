@@ -55,8 +55,8 @@ services:
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
-      test: [ "CMD", "forest-cli", "sync", "wait" ]
-      interval: 15s
+      test: [ "CMD", "curl", "http://127.0.0.1:2346/readyz" ]
+      interval: 1s
       timeout: 10m
       retries: 3
       start_period: 10m
