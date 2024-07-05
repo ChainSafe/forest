@@ -72,7 +72,7 @@ services:
     entrypoint: [ "/bin/bash", "-c" ]
     command:
       - |
-        set -euxo pipefail
+        set -uxo pipefail
         URL="http://127.0.0.1:2346/readyz"
         apt-get update
         apt-get install -y curl
