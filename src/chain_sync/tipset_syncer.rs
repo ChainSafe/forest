@@ -11,8 +11,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use crate::libp2p::chain_exchange::TipsetBundle;
-use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::{
@@ -29,6 +27,11 @@ use crate::{
     chain::{persist_objects, ChainStore, Error as ChainStoreError},
     metrics::HistogramTimerExt,
 };
+use crate::{
+    eth::is_valid_eth_tx_for_sending,
+    message::{valid_for_block_inclusion, Message as MessageTrait},
+};
+use crate::{libp2p::chain_exchange::TipsetBundle, shim::crypto::SignatureType};
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::stream::TryStreamExt as _;
@@ -762,7 +765,12 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         return Err(why.into());
     };
 
-    //  Sync and validate messages from the tipsets
+    // Persist tipset keys
+    for ts in parent_tipsets.iter() {
+        chain_store.put_tipset_key(ts.key())?;
+    }
+
+    // Sync and validate messages from the tipsets
     tracker.write().set_stage(SyncStage::Messages);
     if let Err(why) = sync_messages_check_state(
         tracker.clone(),
@@ -770,7 +778,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         network,
         chain_store.clone(),
         &bad_block_cache,
-        parent_tipsets,
+        parent_tipsets.clone(),
         &genesis,
         InvalidBlockStrategy::Forgiving,
     )
@@ -780,6 +788,9 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         tracker.write().error(why.to_string());
         return Err(why);
     };
+
+    // Call only once messages persisted
+    chain_store.put_delegated_message_hashes(headers.into_iter())?;
 
     // At this point the head is synced and it can be set in the store as the
     // heaviest
@@ -975,6 +986,9 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         proposed_head.block_headers().iter(),
     )?;
 
+    // Persist tipset key
+    chain_store.put_tipset_key(proposed_head.key())?;
+
     // Sync and validate messages from the tipsets
     if let Err(e) = sync_messages_check_state(
         // Include a dummy WorkerState
@@ -992,6 +1006,9 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         warn!("Sync messages check state failed for single tipset");
         return Err(e);
     }
+
+    // Call only once messages persisted
+    chain_store.put_delegated_message_hashes(proposed_head.block_headers().iter())?;
 
     // Add the tipset to the store. The tipset will be expanded with other blocks
     // with the same [epoch, parents] before updating the heaviest Tipset in
@@ -1429,6 +1446,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let network_version = state_manager
         .chain_config()
         .network_version(block.header.epoch);
+    let eth_chain_id = state_manager.chain_config().eth_chain_id;
 
     if let Some(sig) = &block.header().bls_aggregate {
         // Do the initial loop here
@@ -1536,6 +1554,13 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        if msg.signature().signature_type() == SignatureType::Delegated
+            && !is_valid_eth_tx_for_sending(eth_chain_id, network_version, msg)
+        {
+            return Err(TipsetRangeSyncerError::Validation(
+                "Network version must be at least NV23 for legacy Ethereum transactions".to_owned(),
+            ));
+        }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::gas::estimate_message_gas;
+use crate::lotus_json::NotNullVec;
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
@@ -42,7 +43,7 @@ impl RpcMethod<1> for MpoolPending {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
-    type Ok = Vec<SignedMessage>;
+    type Ok = NotNullVec<SignedMessage>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -61,7 +62,7 @@ impl RpcMethod<1> for MpoolPending {
         }
 
         if mpts.epoch() > ts.epoch() {
-            return Ok(pending.into_iter().collect::<Vec<_>>());
+            return Ok(NotNullVec(pending.into_iter().collect()));
         }
 
         loop {
@@ -105,7 +106,7 @@ impl RpcMethod<1> for MpoolPending {
                 .chain_index
                 .load_required_tipset(ts.parents())?;
         }
-        Ok(pending.into_iter().collect::<Vec<_>>())
+        Ok(NotNullVec(pending.into_iter().collect()))
     }
 }
 

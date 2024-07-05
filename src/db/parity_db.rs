@@ -191,6 +191,27 @@ impl EthMappingsStore for ParityDb {
             .map(|size| size.is_some())
             .context("error checking if key exists")
     }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        let mut cids = Vec::new();
+
+        self.db
+            .iter_column_while(DbColumn::EthMappings as u8, |val| {
+                if let Ok(value) = fvm_ipld_encoding::from_slice::<(Cid, u64)>(&val.value) {
+                    cids.push(value);
+                }
+                true
+            })?;
+
+        Ok(cids)
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        Ok(self.db.commit_changes(keys.into_iter().map(|key| {
+            let bytes = key.0.as_bytes().to_vec();
+            (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
+        }))?)
+    }
 }
 
 impl Blockstore for ParityDb {

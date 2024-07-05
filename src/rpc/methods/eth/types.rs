@@ -171,6 +171,41 @@ impl TryFrom<EthAddress> for FilecoinAddress {
     }
 }
 
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BlockNumberOrPredefined {
+    #[schemars(with = "String")]
+    PredefinedBlock(Predefined),
+    BlockNumber(Int64),
+}
+lotus_json_with_self!(BlockNumberOrPredefined);
+
+impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
+    fn from(value: BlockNumberOrPredefined) -> Self {
+        match value {
+            BlockNumberOrPredefined::PredefinedBlock(v) => BlockNumberOrHash::PredefinedBlock(v),
+            BlockNumberOrPredefined::BlockNumber(v) => BlockNumberOrHash::BlockNumber(v),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthFeeHistoryResult {
+    pub oldest_block: Uint64,
+    pub base_fee_per_gas: Vec<EthBigInt>,
+    pub gas_used_ratio: Vec<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reward: Option<Vec<Vec<EthBigInt>>>,
+}
+lotus_json_with_self!(EthFeeHistoryResult);
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct GasReward {
+    pub gas_used: u64,
+    pub premium: TokenAmount,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
