@@ -85,7 +85,6 @@ services:
             sleep 1
           fi
         done
-        echo "Forest RPC is ready"
   forest-wallet-import:
     depends_on:
       forest:
