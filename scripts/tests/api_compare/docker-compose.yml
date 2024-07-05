@@ -77,15 +77,17 @@ services:
         URL="http://forest:2346/readyz"
         apt-get update
         apt-get install -y curl
-        # Wait till forest is ready
-        while true; do
+        # Wait till forest is ready, with 1 minute timeout
+        local retries=12
+        local delay=5
+        for ((i = 1; i <= retries; i++)); do
           verbose_response=$(curl -s $URL_VERBOSE)
           echo "$verbose_response"
           response=$(curl -s $URL)
           if [[ "$response" == "OK" ]]; then
             break
           else
-            sleep 2
+            sleep "$delay"
           fi
         done
   forest-wallet-import:
