@@ -233,6 +233,8 @@ mod receipt; // shim type roundtrip is wrong - see module
 mod vec; // can't make snapshots of generic type
 mod verifreg_claim;
 
+pub use vec::*;
+
 #[cfg(any(test, doc))]
 pub fn assert_all_snapshots<T>()
 where

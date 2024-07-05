@@ -12,6 +12,7 @@ use crate::blocks::{CachingBlockHeader, Tipset};
 use crate::chain::{HeadChange, MINIMUM_BASE_FEE};
 #[cfg(test)]
 use crate::db::SettingsStore;
+use crate::eth::is_valid_eth_tx_for_sending;
 use crate::libp2p::{NetworkMessage, Topic, PUBSUB_MSG_STR};
 use crate::message::{valid_for_block_inclusion, ChainMessage, Message, SignedMessage};
 use crate::networks::{ChainConfig, NEWEST_NETWORK_VERSION};
@@ -282,6 +283,14 @@ where
 
         // This message can only be included in the next epoch and beyond, hence the +1.
         let nv = self.chain_config.network_version(cur_ts.epoch() + 1);
+        let eth_chain_id = self.chain_config.eth_chain_id;
+        if msg.signature().signature_type() == SignatureType::Delegated
+            && !is_valid_eth_tx_for_sending(eth_chain_id, nv, &msg)
+        {
+            return Err(Error::Other(
+                "Invalid Ethereum message for the current network version".to_owned(),
+            ));
+        }
         if !is_valid_for_sending(nv, &sender_actor) {
             return Err(Error::Other(
                 "Sender actor is not a valid top-level sender".to_owned(),

@@ -7,15 +7,15 @@ pub mod parity_db;
 pub mod parity_db_config;
 
 mod gc;
+pub mod ttl;
 pub use gc::MarkAndSweep;
 pub use memory::MemoryDB;
 mod db_mode;
 pub mod migration;
 
 use crate::rpc::eth;
-use ahash::HashSet;
 use anyhow::Context as _;
-use cid::multihash;
+use cid::Cid;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
@@ -106,6 +106,12 @@ pub trait EthMappingsStore {
 
     /// Returns `Ok(true)` if key exists in store.
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool>;
+
+    /// Returns all message CIDs with their timestamp.
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>>;
+
+    /// Deletes `keys` if keys exist in store.
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()>;
 }
 
 impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
@@ -119,6 +125,14 @@ impl<T: EthMappingsStore> EthMappingsStore for Arc<T> {
 
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.as_ref(), key)
+    }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        EthMappingsStore::get_message_cids(self.as_ref())
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.as_ref(), keys)
     }
 }
 
@@ -157,32 +171,19 @@ impl<DB: DBStatistics> DBStatistics for std::sync::Arc<DB> {
 ///
 /// NOTE: Since there is no real need for generics here right now - the 'key' type is specified to
 /// avoid wrapping it.
-pub trait GarbageCollectable {
+pub trait GarbageCollectable<T> {
     /// Gets all the keys currently in the database.
     ///
     /// NOTE: This might need to be further enhanced with some sort of limit to avoid taking up too
     /// much time and memory.
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>>;
+    fn get_keys(&self) -> anyhow::Result<T>;
 
     /// Removes all the keys marked for deletion.
     ///
     /// # Arguments
     ///
     /// * `keys` - A set of keys to be removed from the database.
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()>;
-}
-
-/// A function that converts a [`multihash::MultihashGeneric`] digest into a `u32` representation.
-/// We don't care about collisions here as main use-case is garbage collection.
-pub(crate) fn truncated_hash<const S: usize>(hash: &multihash::MultihashGeneric<S>) -> u32 {
-    let digest = hash.digest();
-    u32::from_le_bytes(
-        digest
-            .get(0..4)
-            .expect("shouldn't fail")
-            .try_into()
-            .expect("shouldn't fail"),
-    )
+    fn remove_keys(&self, keys: T) -> anyhow::Result<()>;
 }
 
 pub mod db_engine {

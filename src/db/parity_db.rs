@@ -1,16 +1,13 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use ahash::{HashSet, HashSetExt};
 use std::path::PathBuf;
 
 use super::SettingsStore;
 
 use super::EthMappingsStore;
 
-use crate::db::{
-    parity_db_config::ParityDbConfig, truncated_hash, DBStatistics, GarbageCollectable,
-};
+use crate::db::{parity_db_config::ParityDbConfig, DBStatistics, GarbageCollectable};
 use crate::libp2p_bitswap::{BitswapStoreRead, BitswapStoreReadWrite};
 
 use crate::rpc::eth;
@@ -28,6 +25,7 @@ use fvm_ipld_encoding::DAG_CBOR;
 use parity_db::{CompressionType, Db, Operation, Options};
 use strum::{Display, EnumIter, FromRepr, IntoEnumIterator};
 
+use crate::cid_collections::CidHashSet;
 use tracing::warn;
 
 /// This is specific to Forest's `ParityDb` usage.
@@ -193,6 +191,27 @@ impl EthMappingsStore for ParityDb {
             .map(|size| size.is_some())
             .context("error checking if key exists")
     }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        let mut cids = Vec::new();
+
+        self.db
+            .iter_column_while(DbColumn::EthMappings as u8, |val| {
+                if let Ok(value) = fvm_ipld_encoding::from_slice::<(Cid, u64)>(&val.value) {
+                    cids.push(value);
+                }
+                true
+            })?;
+
+        Ok(cids)
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        Ok(self.db.commit_changes(keys.into_iter().map(|key| {
+            let bytes = key.0.as_bytes().to_vec();
+            (DbColumn::EthMappings as u8, Operation::Dereference(bytes))
+        }))?)
+    }
 }
 
 impl Blockstore for ParityDb {
@@ -317,61 +336,53 @@ impl ParityDb {
     }
 }
 
-impl GarbageCollectable for ParityDb {
-    fn get_keys(&self) -> anyhow::Result<HashSet<u32>> {
-        let mut set = HashSet::new();
+impl GarbageCollectable<CidHashSet> for ParityDb {
+    fn get_keys(&self) -> anyhow::Result<CidHashSet> {
+        let mut set = CidHashSet::new();
 
-        // First iterate over all of the indexed entries.
+        // First iterate over all the indexed entries.
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
-            set.insert(truncated_hash(cid.hash()));
+            set.insert(cid);
         }
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
-                set.insert(truncated_hash(&hash));
+                let cid = Cid::new_v1(DAG_CBOR, hash);
+                set.insert(cid);
                 true
             })?;
 
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: HashSet<u32>) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<()> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
+        // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
+        // conversion with allocation.
+        let mut deref_vec = Vec::new();
         while let Some((key, _)) = iter.next()? {
             let cid = Cid::try_from(key)?;
 
-            if keys.contains(&truncated_hash(cid.hash())) {
-                self.db
-                    .commit_changes([Self::dereference_operation(&cid)])
-                    .context("error remove")?
+            if keys.contains(&cid) {
+                deref_vec.push(Self::dereference_operation(&cid));
             }
         }
-
-        // An unfortunate consequence of having to use `iter_column_while`.
-        let mut result = Ok(());
 
         self.db
             .iter_column_while(DbColumn::GraphDagCborBlake2b256 as u8, |val| {
                 let hash = Blake2b256.digest(&val.value);
-                if keys.contains(&truncated_hash(&hash)) {
-                    let cid = Cid::new_v1(DAG_CBOR, hash);
-                    let res = self
-                        .db
-                        .commit_changes([Self::dereference_operation(&cid)])
-                        .context("error remove");
+                let cid = Cid::new_v1(DAG_CBOR, hash);
 
-                    if res.is_err() {
-                        result = res;
-                        return false;
-                    }
+                if keys.contains(&cid) {
+                    deref_vec.push(Self::dereference_operation(&cid));
                 }
                 true
             })?;
 
-        result
+        self.db.commit_changes(deref_vec).context("error remove")
     }
 }
 

@@ -29,6 +29,24 @@
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Fixed
+
+## Forest 0.19.0 "Pastel de nata"
+
+This is a mandatory release for all calibration network node operators. It
+includes migration logic for the NV23 _Waffle_ network upgrade. It also includes
+a number of new RPC methods, fixes to existing ones, and other improvements,
+most notably, garbage collection fix.
+
+### Added
+
+- [#4473](https://github.com/ChainSafe/forest/pull/4473) Add support for NV23
+  _Waffle_ network upgrade (FIP-0085, FIP-0091, v14 actors).
+
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
 
@@ -41,11 +59,17 @@
 - [#4381](https://github.com/ChainSafe/forest/pull/4381) Add support for the
   `Filecoin.StateSectorPartition` RPC method.
 
+- [#4368](https://github.com/ChainSafe/forest/issues/4368) Add support for the
+  `Filecoin.EthGetMessageCidByTransactionHash` RPC method.
+
 - [#4167](https://github.com/ChainSafe/forest/issues/4167) Add support for the
   `Filecoin.EthGetBlockByHash` RPC method.
 
 - [#4360](https://github.com/ChainSafe/forest/issues/4360) Add support for the
   `Filecoin.EthGetBlockTransactionCountByHash` RPC method.
+
+- [#4475](https://github.com/ChainSafe/forest/pull/4475) Add support for the
+  `Filecoin.EthFeeHistory` RPC method.
 
 - [#4359](https://github.com/ChainSafe/forest/issues/4359) Add support for the
   `EIP-1898` object scheme.
@@ -56,14 +80,15 @@
 - [#4444](https://github.com/ChainSafe/forest/issues/4444) Update
   `Filecoin.StateWaitMsg` RPC method to be API-V1-compatible
 
-### Changed
-
 ### Removed
 
 - [#4358](https://github.com/ChainSafe/forest/pull/4358) Remove the
   `forest-cli attach` command.
 
 ### Fixed
+
+- [#4425](https://github.com/ChainSafe/forest/pull/4425) Fix GC collision
+  issues.
 
 - [#4357](https://github.com/ChainSafe/forest/pull/4357) Fix schema bug in the
   `Filecoin.ChainNotify` RPC method.
