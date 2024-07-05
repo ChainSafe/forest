@@ -60,6 +60,27 @@ services:
       timeout: 10m
       retries: 3
       start_period: 10m
+  forest-rpc-ready:
+    depends_on:
+      forest:
+        condition: service_healthy
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    command:
+      - |
+        set -euxo pipefail
+        URL="http://127.0.0.1:2346/readyz"
+        # Wait till forest is ready
+        while true; do
+          response=$(curl -s $URL)
+          if [[ "$response" == "OK" ]]; then
+            break
+          else
+            sleep 1
+          fi
+        done
+        echo "Forest RPC is ready"
   forest-wallet-import:
     depends_on:
       forest:
@@ -164,6 +185,8 @@ services:
       forest:
         condition: service_healthy
       forest-wallet-import:
+        condition: service_completed_successfully
+      forest-rpc-ready:
         condition: service_completed_successfully
     build:
       context: ../../../.
