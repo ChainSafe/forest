@@ -7,6 +7,7 @@ use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
+use crate::eth::EthChainId as EthChainIdType;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
@@ -17,7 +18,7 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
@@ -65,7 +66,7 @@ use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
 
-const CALIBNET_CHAIN_ID: u32 = crate::networks::calibnet::ETH_CHAIN_ID as u32;
+const CALIBNET_CHAIN_ID: EthChainIdType = crate::networks::calibnet::ETH_CHAIN_ID;
 
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
@@ -128,7 +129,7 @@ pub enum ApiCommands {
         worker_address: Option<Address>,
         /// Ethereum chain ID. Default to the calibnet chain ID.
         #[arg(long, default_value_t = CALIBNET_CHAIN_ID)]
-        eth_chain_id: u32,
+        eth_chain_id: EthChainIdType,
     },
 }
 
@@ -143,7 +144,7 @@ struct ApiTestFlags {
     max_concurrent_requests: usize,
     miner_address: Option<Address>,
     worker_address: Option<Address>,
-    eth_chain_id: u32,
+    eth_chain_id: EthChainIdType,
 }
 
 impl ApiCommands {
@@ -576,6 +577,13 @@ fn mpool_tests() -> Vec<RpcTest> {
     ]
 }
 
+fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
+        RpcTest::basic(MpoolPending::request((tipset.key().into(),)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((tipset.key().into(), 0.9_f64)).unwrap()),
+    ]
+}
+
 fn net_tests() -> Vec<RpcTest> {
     let bootstrap_peers = parse_bootstrap_peers(include_str!("../../../build/bootstrap/calibnet"));
     let peer_id = bootstrap_peers
@@ -775,7 +783,13 @@ fn state_tests_with_tipset<DB: Blockstore>(
         RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
         RpcTest::identity(StateSectorPreCommitInfo::request((
             Default::default(), // invalid address
-            u64::MAX,
+            u16::MAX as _,
+            tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::Pass),
+        RpcTest::identity(StateSectorGetInfo::request((
+            Default::default(), // invalid address
+            u16::MAX as _,
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
@@ -807,7 +821,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
-            validate_sector_on_chain_info_vec(StateMinerActiveSectors::request((
+            RpcTest::identity(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
             ))?),
@@ -815,7 +829,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            validate_sector_on_chain_info_vec(StateMinerSectors::request((
+            RpcTest::identity(StateMinerSectors::request((
                 block.miner_address,
                 None,
                 tipset.key().into(),
@@ -872,7 +886,13 @@ fn state_tests_with_tipset<DB: Blockstore>(
             ))?),
             RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address,
-                u64::MAX, // invalid sector number
+                u16::MAX as _, // invalid sector number
+                tipset.key().into(),
+            ))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(StateSectorGetInfo::request((
+                block.miner_address,
+                u16::MAX as _, // invalid sector number
                 tipset.key().into(),
             ))?)
             .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
@@ -910,12 +930,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .take(COLLECTION_SAMPLE_SIZE)
         {
             tests.extend([
-                validate_sector_on_chain_info(StateSectorGetInfo::request((
+                RpcTest::identity(StateSectorGetInfo::request((
                     block.miner_address,
                     sector,
                     tipset.key().into(),
                 ))?),
-                validate_sector_on_chain_info_vec(StateMinerSectors::request((
+                RpcTest::identity(StateMinerSectors::request((
                     block.miner_address,
                     {
                         let mut bf = BitField::new();
@@ -1223,7 +1243,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
 fn eth_state_tests_with_tipset<DB: Blockstore>(
     store: &Arc<DB>,
     shared_tipset: &Tipset,
-    eth_chain_id: u32,
+    eth_chain_id: EthChainIdType,
 ) -> anyhow::Result<Vec<RpcTest>> {
     let mut tests = vec![];
 
@@ -1294,6 +1314,7 @@ fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
+        tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(
             &store,
             &tipset,
@@ -1696,28 +1717,6 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
-        forest == lotus
-    })
-}
-
-fn validate_sector_on_chain_info(req: rpc::Request<SectorOnChainInfo>) -> RpcTest {
-    RpcTest::validate(req, |mut forest, mut lotus| {
-        // https://github.com/filecoin-project/lotus/issues/11962
-        forest.flags = 0;
-        lotus.flags = 0;
-        forest == lotus
-    })
-}
-
-fn validate_sector_on_chain_info_vec(req: rpc::Request<Vec<SectorOnChainInfo>>) -> RpcTest {
-    RpcTest::validate(req, |mut forest, mut lotus| {
-        // https://github.com/filecoin-project/lotus/issues/11962
-        for f in &mut forest {
-            f.flags = 0;
-        }
-        for l in &mut lotus {
-            l.flags = 0;
-        }
         forest == lotus
     })
 }
