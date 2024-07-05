@@ -71,6 +71,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthAccounts);
         $callback!(crate::rpc::eth::EthBlockNumber);
         $callback!(crate::rpc::eth::EthChainId);
+        $callback!(crate::rpc::eth::EthFeeHistory);
         $callback!(crate::rpc::eth::EthGetCode);
         $callback!(crate::rpc::eth::EthGetStorageAt);
         $callback!(crate::rpc::eth::EthGasPrice);
@@ -79,6 +80,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetBlockByNumber);
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByHash);
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
+        $callback!(crate::rpc::eth::EthGetMessageCidByTransactionHash);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);

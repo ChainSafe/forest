@@ -9,6 +9,7 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
+use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
@@ -80,7 +81,7 @@ enum EAMMethod {
 }
 
 #[repr(u64)]
-enum EVMMethod {
+pub enum EVMMethod {
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.
     // InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
@@ -99,6 +100,12 @@ lotus_json_with_self!(EthBigInt);
 
 impl From<TokenAmount> for EthBigInt {
     fn from(amount: TokenAmount) -> Self {
+        (&amount).into()
+    }
+}
+
+impl From<&TokenAmount> for EthBigInt {
+    fn from(amount: &TokenAmount) -> Self {
         Self(amount.atto().to_owned())
     }
 }
@@ -123,7 +130,17 @@ pub struct Bloom(
 
 lotus_json_with_self!(Bloom);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct Uint64(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify")]
@@ -132,7 +149,17 @@ pub struct Uint64(
 
 lotus_json_with_self!(Uint64);
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct Int64(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify")]
@@ -157,6 +184,16 @@ lotus_json_with_self!(Int64);
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
 
 impl Hash {
+    // Should ONLY be used for blocks and Filecoin messages. Eth transactions expect a different hashing scheme.
+    pub fn to_cid(&self) -> cid::Cid {
+        use cid::multihash::MultihashDigest;
+
+        let mh = cid::multihash::Code::Blake2b256
+            .wrap(self.0.as_bytes())
+            .expect("should not fail");
+        Cid::new_v1(fvm_ipld_encoding::DAG_CBOR, mh)
+    }
+
     pub fn empty_uncles() -> Self {
         Self(ethereum_types::H256::from_str(EMPTY_UNCLES).unwrap())
     }
@@ -332,6 +369,9 @@ pub struct Tx {
     pub gas: Uint64,
     pub max_fee_per_gas: EthBigInt,
     pub max_priority_fee_per_gas: EthBigInt,
+    // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
+    // RPC methods will need to be updated to support different Ethereum transaction types.
+    // pub gas_price: EthBigInt,
     #[schemars(with = "Option<Vec<Hash>>")]
     #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
@@ -737,7 +777,7 @@ fn tipset_by_block_number_or_hash<DB: Blockstore>(
 }
 
 async fn execute_tipset<DB: Blockstore + Send + Sync + 'static>(
-    data: Ctx<DB>,
+    data: &Ctx<DB>,
     tipset: &Arc<Tipset>,
 ) -> Result<(Cid, Vec<(ChainMessage, Receipt)>)> {
     let msgs = data.chain_store.messages_for_tipset(tipset)?;
@@ -844,7 +884,10 @@ fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
 /// - `block_hash`
 /// - `block_number`
 /// - `transaction_index`
-pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Result<Tx> {
+pub fn eth_tx_from_signed_eth_message(
+    smsg: &SignedMessage,
+    chain_id: EthChainIdType,
+) -> Result<Tx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -867,7 +910,7 @@ pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Re
 
     Ok(Tx {
         nonce: Uint64(tx_args.nonce),
-        chain_id: Uint64(chain_id as u64),
+        chain_id: Uint64(chain_id),
         to: tx_args.to,
         from,
         value: tx_args.value,
@@ -875,6 +918,9 @@ pub fn eth_tx_from_signed_eth_message(smsg: &SignedMessage, chain_id: u32) -> Re
         gas: Uint64(tx_args.gas_limit),
         max_fee_per_gas: tx_args.max_fee_per_gas,
         max_priority_fee_per_gas: tx_args.max_priority_fee_per_gas,
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
+        // RPC methods will need to be updated to support different Ethereum transaction types.
+        // gas_price: EthBigInt::default(),
         access_list: vec![],
         v,
         r,
@@ -1011,7 +1057,7 @@ fn decode_payload(payload: &fvm_ipld_encoding::RawBytes, codec: u64) -> Result<E
 fn eth_tx_from_native_message<DB: Blockstore>(
     msg: &Message,
     state: &StateTree<DB>,
-    chain_id: u32,
+    chain_id: EthChainIdType,
 ) -> Result<Tx> {
     // Lookup the from address. This must succeed.
     let from = match lookup_eth_address(&msg.from(), state) {
@@ -1063,12 +1109,15 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         from,
         input,
         nonce: Uint64(msg.sequence),
-        chain_id: Uint64(chain_id as u64),
+        chain_id: Uint64(chain_id),
         value: msg.value.clone().into(),
         r#type: Uint64(EIP_1559_TX_TYPE),
         gas: Uint64(msg.gas_limit),
         max_fee_per_gas: msg.gas_fee_cap.clone().into(),
         max_priority_fee_per_gas: msg.gas_premium.clone().into(),
+        // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
+        // RPC methods will need to be updated to support different Ethereum transaction types.
+        // gas_price: EthBigInt::default(),
         access_list: vec![],
         ..Tx::default()
     })
@@ -1077,7 +1126,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
 pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     smsg: &SignedMessage,
     state: &StateTree<DB>,
-    chain_id: u32,
+    chain_id: EthChainIdType,
 ) -> Result<Tx> {
     let (tx, hash) = if smsg.is_delegated() {
         // This is an eth tx
@@ -1109,7 +1158,7 @@ pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
     let block_cid = tsk.cid()?;
     let block_hash: Hash = block_cid.into();
 
-    let (state_root, msgs_and_receipts) = execute_tipset(data.clone(), &tipset).await?;
+    let (state_root, msgs_and_receipts) = execute_tipset(&data, &tipset).await?;
 
     let state_tree = StateTree::new_from_root(data.state_manager.blockstore_owned(), &state_root)?;
 
@@ -1258,6 +1307,51 @@ impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     }
 }
 
+pub enum EthGetMessageCidByTransactionHash {}
+impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
+    const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
+    const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Hash,);
+    type Ok = Option<Cid>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (tx_hash,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let result = ctx.chain_store.get_mapping(&tx_hash);
+        match result {
+            Ok(Some(cid)) => return Ok(Some(cid)),
+            Ok(None) => tracing::debug!("Undefined key {tx_hash}"),
+            _ => {
+                result?;
+            }
+        }
+
+        // This isn't an eth transaction we have the mapping for, so let's try looking it up as a filecoin message
+        let cid = tx_hash.to_cid();
+
+        let result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is an Eth Tx, Secp message, Or BLS message in the mpool
+            return Ok(Some(cid));
+        }
+
+        let result: Result<Vec<Message>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if result.is_ok() {
+            // This is a BLS message
+            return Ok(Some(cid));
+        }
+
+        // Ethereum clients expect an empty response when the message was not found
+        Ok(None)
+    }
+}
+
 fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Result<usize> {
     let mut message_cids = CidHashSet::default();
     for block in ts.block_headers() {
@@ -1307,6 +1401,134 @@ impl RpcMethod<0> for EthSyncing {
             },
             None => Err(ServerError::internal_error("sync state not found", None)),
         }
+    }
+}
+
+pub enum EthFeeHistory {}
+
+impl RpcMethod<3> for EthFeeHistory {
+    const NAME: &'static str = "Filecoin.EthFeeHistory";
+    const N_REQUIRED_PARAMS: usize = 2;
+    const PARAM_NAMES: [&'static str; 3] =
+        ["block_count", "newest_block_number", "reward_percentiles"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Uint64, BlockNumberOrPredefined, Option<Vec<f64>>);
+    type Ok = EthFeeHistoryResult;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (Uint64(block_count), newest_block_number, reward_percentiles): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        if block_count > 1024 {
+            return Err(anyhow::anyhow!("block count should be smaller than 1024").into());
+        }
+
+        let reward_percentiles = reward_percentiles.unwrap_or_default();
+        Self::validate_reward_precentiles(&reward_percentiles)?;
+
+        let tipset = tipset_by_block_number_or_hash(&ctx.chain_store, newest_block_number.into())?;
+        let base_fee = tipset.block_headers().first().parent_base_fee.clone();
+        let mut oldest_block_height = 1;
+        // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
+        //  because the next base fee can be inferred from the messages in the newest block.
+        //  However, this is NOT the case in Filecoin due to deferred execution, so the best
+        //  we can do is duplicate the last value.
+        let mut base_fee_array = vec![EthBigInt::from(&base_fee)];
+        let mut rewards_array = vec![];
+        let mut gas_used_ratio_array = vec![];
+        for ts in tipset
+            .chain_arc(ctx.store())
+            .filter(|i| i.epoch() > 0)
+            .take(block_count as _)
+        {
+            let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
+            let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
+            for (message, receipt) in messages_and_receipts {
+                let premium = message.effective_gas_premium(&base_fee);
+                tx_gas_rewards.push(GasReward {
+                    gas_used: receipt.gas_used(),
+                    premium,
+                });
+            }
+            let (rewards, total_gas_used) =
+                Self::calculate_rewards_and_gas_used(&reward_percentiles, tx_gas_rewards);
+            let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
+
+            // arrays should be reversed at the end
+            base_fee_array.push(EthBigInt::from(&base_fee));
+            gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
+            rewards_array.push(rewards);
+
+            oldest_block_height = ts.epoch();
+        }
+
+        // Reverse the arrays; we collected them newest to oldest; the client expects oldest to newest.
+        base_fee_array.reverse();
+        gas_used_ratio_array.reverse();
+        rewards_array.reverse();
+
+        Ok(EthFeeHistoryResult {
+            oldest_block: Uint64(oldest_block_height as _),
+            base_fee_per_gas: base_fee_array,
+            gas_used_ratio: gas_used_ratio_array,
+            reward: if reward_percentiles.is_empty() {
+                None
+            } else {
+                Some(rewards_array)
+            },
+        })
+    }
+}
+
+impl EthFeeHistory {
+    fn validate_reward_precentiles(reward_percentiles: &[f64]) -> anyhow::Result<()> {
+        if reward_percentiles.len() > 100 {
+            anyhow::bail!("length of the reward percentile array cannot be greater than 100");
+        }
+
+        for (&rp, &rp_prev) in reward_percentiles
+            .iter()
+            .zip(std::iter::once(&0.).chain(reward_percentiles.iter()))
+        {
+            if !(0. ..=100.).contains(&rp) {
+                anyhow::bail!("invalid reward percentile: {rp} should be between 0 and 100");
+            }
+            if rp < rp_prev {
+                anyhow::bail!("invalid reward percentile: {rp} should be larger than {rp_prev}");
+            }
+        }
+
+        Ok(())
+    }
+
+    fn calculate_rewards_and_gas_used(
+        reward_percentiles: &[f64],
+        mut tx_gas_rewards: Vec<GasReward>,
+    ) -> (Vec<EthBigInt>, u64) {
+        const MIN_GAS_PREMIUM: u64 = 100000;
+
+        let gas_used_total = tx_gas_rewards.iter().map(|i| i.gas_used).sum();
+        let mut rewards = reward_percentiles
+            .iter()
+            .map(|_| EthBigInt(MIN_GAS_PREMIUM.into()))
+            .collect_vec();
+        if !tx_gas_rewards.is_empty() {
+            tx_gas_rewards.sort_by_key(|i| i.premium.clone());
+            let mut idx = 0;
+            let mut sum = 0;
+            #[allow(clippy::indexing_slicing)]
+            for (i, &percentile) in reward_percentiles.iter().enumerate() {
+                let threshold = ((gas_used_total as f64) * percentile / 100.) as u64;
+                while sum < threshold && idx < tx_gas_rewards.len() - 1 {
+                    sum += tx_gas_rewards[idx].gas_used;
+                    idx += 1;
+                }
+                rewards[i] = (&tx_gas_rewards[idx].premium).into();
+            }
+        }
+        (rewards, gas_used_total)
     }
 }
 
@@ -1447,11 +1669,19 @@ impl RpcMethod<3> for EthGetStorageAt {
 #[cfg(test)]
 mod test {
     use super::*;
-    use ethereum_types::H160;
+    use ethereum_types::{H160, H256};
     use num_bigint;
     use num_traits::{FromBytes, Signed};
+    use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
     use std::num::ParseIntError;
+
+    impl Arbitrary for Hash {
+        fn arbitrary(g: &mut quickcheck::Gen) -> Self {
+            let arr: [u8; 32] = std::array::from_fn(|_ix| u8::arbitrary(g));
+            Self(H256(arr))
+        }
+    }
 
     #[quickcheck]
     fn gas_price_result_serde_roundtrip(i: u128) {
@@ -1624,6 +1854,29 @@ mod test {
             assert!(protocol == Protocol::ID || protocol == Protocol::Delegated);
             assert_eq!(addr, fil_addr);
         }
+    }
+
+    #[test]
+    fn test_hash() {
+        let test_cases = [
+            r#""0x013dbb9442ca9667baccc6230fcd5c1c4b2d4d2870f4bd20681d4d47cfd15184""#,
+            r#""0xab8653edf9f51785664a643b47605a7ba3d917b5339a0724e7642c114d0e4738""#,
+        ];
+
+        for hash in test_cases {
+            let h: Hash = serde_json::from_str(hash).unwrap();
+
+            let c = h.to_cid();
+            let h1: Hash = c.into();
+            assert_eq!(h, h1);
+        }
+    }
+
+    #[quickcheck]
+    fn test_eth_hash_roundtrip(eth_hash: Hash) {
+        let cid = eth_hash.to_cid();
+        let hash = cid.into();
+        assert_eq!(eth_hash, hash);
     }
 
     #[test]

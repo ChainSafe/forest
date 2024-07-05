@@ -217,6 +217,14 @@ impl<WriterT: EthMappingsStore> EthMappingsStore for ManyCar<WriterT> {
     fn exists(&self, key: &eth::Hash) -> anyhow::Result<bool> {
         EthMappingsStore::exists(self.writer(), key)
     }
+
+    fn get_message_cids(&self) -> anyhow::Result<Vec<(Cid, u64)>> {
+        EthMappingsStore::get_message_cids(self.writer())
+    }
+
+    fn delete(&self, keys: Vec<eth::Hash>) -> anyhow::Result<()> {
+        EthMappingsStore::delete(self.writer(), keys)
+    }
 }
 
 #[cfg(test)]

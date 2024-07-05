@@ -15,6 +15,7 @@ use tracing::warn;
 
 use crate::beacon::{BeaconPoint, BeaconSchedule, DrandBeacon, DrandConfig};
 use crate::db::SettingsStore;
+use crate::eth::EthChainId;
 use crate::shim::clock::{ChainEpoch, EPOCH_DURATION_SECONDS};
 use crate::shim::sector::{RegisteredPoStProofV3, RegisteredSealProofV3};
 use crate::shim::version::NetworkVersion;
@@ -131,7 +132,7 @@ pub enum Height {
     Dragon,
     DragonFix,
     Phoenix,
-    Aussie,
+    Waffle,
 }
 
 impl Default for Height {
@@ -172,7 +173,7 @@ impl From<Height> for NetworkVersion {
             Height::Dragon => NetworkVersion::V22,
             Height::DragonFix => NetworkVersion::V22,
             Height::Phoenix => NetworkVersion::V22,
-            Height::Aussie => NetworkVersion::V23,
+            Height::Waffle => NetworkVersion::V23,
         }
     }
 }
@@ -211,7 +212,7 @@ pub struct ChainConfig {
     pub height_infos: HashMap<Height, HeightInfo>,
     #[cfg_attr(test, arbitrary(gen(|_g| Policy::default())))]
     pub policy: Policy,
-    pub eth_chain_id: u32,
+    pub eth_chain_id: EthChainId,
     pub breeze_gas_tamping_duration: i64,
 }
 
@@ -227,7 +228,7 @@ impl ChainConfig {
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_mainnet_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -243,7 +244,7 @@ impl ChainConfig {
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_calibnet_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -259,7 +260,7 @@ impl ChainConfig {
             genesis_network: *GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_devnet_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -276,7 +277,7 @@ impl ChainConfig {
             genesis_network: GENESIS_NETWORK_VERSION,
             height_infos: HEIGHT_INFOS.clone(),
             policy: make_butterfly_policy!(v13),
-            eth_chain_id: ETH_CHAIN_ID as u32,
+            eth_chain_id: ETH_CHAIN_ID,
             breeze_gas_tamping_duration: BREEZE_GAS_TAMPING_DURATION,
         }
     }
@@ -476,7 +477,7 @@ mod tests {
             Height::Watermelon,
             Height::Dragon,
             Height::Phoenix,
-            Height::Aussie,
+            Height::Waffle,
         ];
 
         for height in &REQUIRED_HEIGHTS {
