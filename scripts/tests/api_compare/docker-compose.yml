@@ -73,16 +73,19 @@ services:
     command:
       - |
         set -uxo pipefail
-        URL="http://127.0.0.1:2346/readyz"
+        URL_VERBOSE="http://forest:2346/readyz?verbose"
+        URL="http://forest:2346/readyz"
         apt-get update
         apt-get install -y curl
         # Wait till forest is ready
         while true; do
+          verbose_response=$(curl -s $URL_VERBOSE)
+          echo "$verbose_response"
           response=$(curl -s $URL)
           if [[ "$response" == "OK" ]]; then
             break
           else
-            sleep 1
+            sleep 2
           fi
         done
   forest-wallet-import:
