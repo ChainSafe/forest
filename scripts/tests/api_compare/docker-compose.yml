@@ -74,7 +74,7 @@ services:
       - |
         set -uxo pipefail
         # wait to see if this actually fixes api compare
-        sleep 180
+        sleep 300
   forest-wallet-import:
     depends_on:
       forest:
