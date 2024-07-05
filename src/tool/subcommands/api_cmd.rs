@@ -570,17 +570,26 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
+const TICKET_QUALITY_GREEDY: f64 = 0.9;
+const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
+
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
+            .ignore("https://github.com/ChainSafe/forest/issues/4490"),
     ]
 }
 
 fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
     vec![
         RpcTest::basic(MpoolPending::request((tipset.key().into(),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((tipset.key().into(), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((tipset.key().into(), TICKET_QUALITY_GREEDY)).unwrap()),
+        RpcTest::basic(
+            MpoolSelect::request((tipset.key().into(), TICKET_QUALITY_OPTIMAL)).unwrap(),
+        )
+        .ignore("https://github.com/ChainSafe/forest/issues/4490"),
     ]
 }
 

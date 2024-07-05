@@ -391,7 +391,10 @@ where
     //   limit
     // - the total gasReward cannot exceed the actor's balance; drop all messages
     //   that exceed the balance
-    let actor_state = api.get_actor_after(actor, ts)?;
+    let Ok(actor_state) = api.get_actor_after(actor, ts) else {
+        tracing::warn!("failed to load actor state, not building chain for {actor}");
+        return Ok(());
+    };
     let mut cur_seq = actor_state.sequence;
     let mut balance: TokenAmount = TokenAmount::from(&actor_state.balance);
 
