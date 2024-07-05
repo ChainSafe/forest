@@ -1666,6 +1666,39 @@ impl RpcMethod<3> for EthGetStorageAt {
     }
 }
 
+pub enum EthGetTransactionCount {}
+impl RpcMethod<2> for EthGetTransactionCount {
+    const NAME: &'static str = "Filecoin.EthGetTransactionCount";
+    const PARAM_NAMES: [&'static str; 2] = ["sender", "block_param"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, BlockNumberOrHash);
+    type Ok = u64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (sender, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let addr = sender.to_filecoin_address()?;
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let state =
+            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
+        let actor = state.get_required_actor(&addr)?;
+        if fil_actor_interface::is_evm_actor(&actor.code) {
+            let evm_state =
+                fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
+            if !evm_state.is_alive() {
+                return Ok(0);
+            }
+
+            Ok(evm_state.nonce())
+        } else {
+            Ok(ctx.mpool.get_sequence(&addr)?)
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
