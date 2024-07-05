@@ -1674,7 +1674,7 @@ impl RpcMethod<2> for EthGetTransactionCount {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
-    type Ok = u64;
+    type Ok = Uint64;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1689,12 +1689,12 @@ impl RpcMethod<2> for EthGetTransactionCount {
             let evm_state =
                 fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
             if !evm_state.is_alive() {
-                return Ok(0);
+                return Ok(Uint64(0));
             }
 
-            Ok(evm_state.nonce())
+            Ok(Uint64(evm_state.nonce()))
         } else {
-            Ok(ctx.mpool.get_sequence(&addr)?)
+            Ok(Uint64(ctx.mpool.get_sequence(&addr)?))
         }
     }
 }
