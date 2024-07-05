@@ -61,6 +61,9 @@ services:
       retries: 3
       start_period: 10m
   forest-rpc-ready:
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     depends_on:
       forest:
         condition: service_healthy
