@@ -9,6 +9,8 @@ PARENT_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; pwd -P)
 pushd "${PARENT_PATH}" || exit
 source .env
 
+FOREST_READY_URL='http://127.0.0.1:2346/readyz'
+
 # Retry logic for syncing nodes
 function wait_for_sync() {
     local retries=10
@@ -27,10 +29,24 @@ function wait_for_sync() {
     return 1
 }
 
+check_ready() {
+  response=$(curl -s --max-time 5 $FOREST_READY_URL)
+  if [[ "$response" == "OK" ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 if ! wait_for_sync; then
     echo "Failed to sync nodes. Exiting..." >&2
     exit 1
 fi
+
+while ! check_ready; do
+   echo -n "."
+   sleep 1
+done
 
 # We need the network name to attach the comparison tool to the same network as the nodes.
 COMPOSE_NETWORK=$(docker compose config --format json | jq '.networks."api-tests".name' | tr -d '"')
