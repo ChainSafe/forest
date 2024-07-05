@@ -73,23 +73,8 @@ services:
     command:
       - |
         set -uxo pipefail
-        URL_VERBOSE="http://forest:2346/readyz?verbose"
-        URL="http://forest:2346/readyz"
-        apt-get update
-        apt-get install -y curl
-        # Wait till forest is ready, with 1 minute timeout
-        retries=12
-        delay=5
-        for ((i = 1; i <= retries; i++)); do
-          verbose_response=$(curl -s $URL_VERBOSE)
-          echo "$verbose_response"
-          response=$(curl -s $URL)
-          if [[ "$response" == "OK" ]]; then
-            break
-          else
-            sleep "$delay"
-          fi
-        done
+        # wait to see if this actually fixes api compare
+        sleep 180
   forest-wallet-import:
     depends_on:
       forest:
