@@ -78,8 +78,8 @@ services:
         apt-get update
         apt-get install -y curl
         # Wait till forest is ready, with 1 minute timeout
-        local retries=12
-        local delay=5
+        retries=12
+        delay=5
         for ((i = 1; i <= retries; i++)); do
           verbose_response=$(curl -s $URL_VERBOSE)
           echo "$verbose_response"
