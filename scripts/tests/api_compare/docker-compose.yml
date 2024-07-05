@@ -74,6 +74,8 @@ services:
       - |
         set -euxo pipefail
         URL="http://127.0.0.1:2346/readyz"
+        apt-get update
+        apt-get install -y curl
         # Wait till forest is ready
         while true; do
           response=$(curl -s $URL)
