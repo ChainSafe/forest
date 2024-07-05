@@ -114,7 +114,7 @@ impl RpcMethod<1> for MpoolPending {
 pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
-    const PARAM_NAMES: [&'static str; 2] = ["tsk", "tq"];
+    const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "ticket_quality"];
     const API_VERSION: ApiVersion = ApiVersion::V0;
     const PERMISSION: Permission = Permission::Read;
 
@@ -123,14 +123,13 @@ impl RpcMethod<2> for MpoolSelect {
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
-        (ApiTipsetKey(tsk), tq): Self::Params,
+        (ApiTipsetKey(tsk), ticket_quality): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx
             .state_manager
             .chain_store()
             .load_required_tipset_or_heaviest(&tsk)?;
-
-        Ok(ctx.mpool.select_messages(&ts, tq)?)
+        Ok(ctx.mpool.select_messages(&ts, ticket_quality)?)
     }
 }
 

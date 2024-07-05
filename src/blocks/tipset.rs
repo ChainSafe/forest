@@ -252,7 +252,7 @@ impl Tipset {
             .cloned()
             .map(|header| {
                 let (bls_messages, secp_messages) =
-                    crate::chain::store::block_messages(&store, &header).ok()?;
+                    crate::chain::store::block_messages(store, &header).ok()?;
                 Some(Block {
                     header,
                     bls_messages,

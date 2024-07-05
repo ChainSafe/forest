@@ -6,10 +6,9 @@
 //! `select_messages` API which selects an appropriate set of messages such that
 //! it optimizes miner reward and chain capacity. See <https://docs.filecoin.io/mine/lotus/message-pool/#message-selection> for more details
 
-#![allow(clippy::indexing_slicing)]
 use std::{borrow::BorrowMut, cmp::Ordering, sync::Arc};
 
-use crate::blocks::Tipset;
+use crate::blocks::{Tipset, BLOCK_MESSAGE_LIMIT};
 use crate::message::{Message, SignedMessage};
 use crate::shim::{address::Address, econ::TokenAmount};
 use ahash::{HashMap, HashMapExt};
@@ -72,11 +71,12 @@ where
         if pending.is_empty() {
             return Ok(Vec::new());
         }
+
         // 0b. Select all priority messages that fit in the block
         let (result, gas_limit) = self.select_priority_messages(&mut pending, &base_fee, ts)?;
 
         // check if block has been filled
-        if gas_limit < MIN_GAS {
+        if gas_limit < MIN_GAS || result.len() > BLOCK_MESSAGE_LIMIT {
             return Ok(result);
         }
 
@@ -99,6 +99,7 @@ where
         Ok(msgs)
     }
 
+    #[allow(clippy::indexing_slicing)]
     fn select_messages_optimal(
         &self,
         cur_ts: &Tipset,
@@ -533,6 +534,7 @@ where
 }
 
 /// Returns merged and trimmed messages with the gas limit
+#[allow(clippy::indexing_slicing)]
 fn merge_and_trim(
     chains: &mut Chains,
     mut result: Vec<SignedMessage>,

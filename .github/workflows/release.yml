@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
+      - name: Homebrew Utils
+        if: contains(matrix.os, 'macos')
+        run: |
+          brew install --verbose coreutils
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         timeout-minutes: 5
@@ -30,9 +34,6 @@ jobs:
           mkdir -p forest-${{ github.ref_name }}
           cp -v target/release/forest target/release/forest-cli target/release/forest-tool forest-${{ github.ref_name }}
           cp -rv CHANGELOG.md LICENSE-APACHE LICENSE-MIT README.md documentation forest-${{ github.ref_name }}
-          # If `sha256sum` is not defined, then we're likely running MacOS. Use an alias.
-          # An alternative is to install `coreutils`.
-          type sha256sum >/dev/null 2>&1 || alias sha256sum='shasum -a 256'
           sha256sum forest-${{ github.ref_name }}/forest > forest-${{ github.ref_name }}/forest.sha256
           sha256sum forest-${{ github.ref_name }}/forest-cli > forest-${{ github.ref_name }}/forest-cli.sha256
           sha256sum forest-${{ github.ref_name }}/forest-tool > forest-${{ github.ref_name }}/forest-tool.sha256
