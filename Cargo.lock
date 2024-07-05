@@ -3076,6 +3076,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "float_eq"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28a80e3145d8ad11ba0995949bbcf48b9df2be62772b3d351ef017dff6ecb853"
+
+[[package]]
 name = "flume"
 version = "0.10.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3182,6 +3188,7 @@ dependencies = [
  "human-repr",
  "human_bytes",
  "humantime",
+ "incr_stats",
  "indexmap 2.2.6",
  "indicatif",
  "insta",
@@ -4618,6 +4625,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "incr_stats"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d75121db1d7daadf1e434467cce6a87e285de310e4e14dca898c2f93e46293c4"
+dependencies = [
+ "float_eq",
+ "getrandom",
+ "rand",
+ "thiserror",
 ]
 
 [[package]]

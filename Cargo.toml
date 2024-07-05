@@ -78,6 +78,7 @@ http = "1"
 human-repr = "1"
 human_bytes = "0.4"
 humantime = "2"
+incr_stats = "1"
 indexmap = { version = "2", features = ["serde"] }
 indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"

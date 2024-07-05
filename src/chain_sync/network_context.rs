@@ -27,7 +27,9 @@ use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
+use incr_stats::incr::Stats;
 use once_cell::sync::Lazy;
+use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
 use std::future::Future;
 use tokio::sync::Semaphore;
@@ -294,16 +296,14 @@ where
                 // a request succeeds.
                 let peers = self.peer_manager.top_peers_shuffled();
                 let mut batch = RaceBatch::new(MAX_CONCURRENT_CHAIN_EXCHANGE_REQUESTS);
-                let success_time_cost_millis_total = Arc::new(AtomicU64::new(0));
-                let success_count = Arc::new(AtomicU64::new(0));
+                let success_time_cost_millis_stats = Arc::new(Mutex::new(Stats::new()));
                 for peer_id in peers.into_iter() {
                     let peer_manager = self.peer_manager.clone();
                     let network_send = self.network_send.clone();
                     let request = request.clone();
                     let network_failures = network_failures.clone();
                     let lookup_failures = lookup_failures.clone();
-                    let success_time_cost_millis_total = success_time_cost_millis_total.clone();
-                    let success_count = success_count.clone();
+                    let success_time_cost_millis_stats = success_time_cost_millis_stats.clone();
                     batch.add(async move {
                         let start = chrono::Utc::now();
                         match Self::chain_exchange_request(
@@ -317,11 +317,13 @@ where
                             Ok(chain_exchange_result) => {
                                 match chain_exchange_result.into_result::<T>() {
                                     Ok(r) => {
-                                        success_time_cost_millis_total.fetch_add(
-                                            (chrono::Utc::now() - start).num_milliseconds() as _,
-                                            Ordering::Relaxed,
-                                        );
-                                        success_count.fetch_add(1, Ordering::Relaxed);
+                                        if let Err(e) = success_time_cost_millis_stats
+                                            .lock()
+                                            .update((chrono::Utc::now() - start).num_milliseconds()
+                                                as _)
+                                        {
+                                            tracing::warn!("{e}");
+                                        }
                                         Ok(r)
                                     }
                                     Err(e) => {
@@ -364,18 +366,15 @@ where
                     .get_ok_validated(validate)
                     .await
                     .ok_or_else(make_failure_message)?;
-                let success_time_cost_millis_total =
-                    success_time_cost_millis_total.load(Ordering::Relaxed);
-                let success_count = success_count.load(Ordering::Relaxed);
-                if success_count > 0
-                    && CHAIN_EXCHANGE_TIMEOUT_MILLIS
-                        .adapt_on_success(success_time_cost_millis_total / success_count)
-                {
-                    tracing::info!(
-                        "Decreased chain exchange timeout to {}ms. Current average: {}ms",
-                        CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
-                        success_time_cost_millis_total / success_count
-                    );
+                if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
+                    let mean = mean as u64;
+                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean) {
+                        tracing::info!(
+                            "Decreased chain exchange timeout to {}ms. Current average: {}ms",
+                            CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
+                            mean,
+                        );
+                    }
                 }
                 trace!("Succeed: handle_chain_exchange_request");
                 v
