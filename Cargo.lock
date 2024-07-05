@@ -2540,7 +2540,7 @@ checksum = "3a82608ee96ce76aeab659e9b8d3c2b787bffd223199af88c674923d861ada10"
 dependencies = [
  "execute-command-macro",
  "execute-command-tokens",
- "generic-array 1.0.1",
+ "generic-array 1.1.0",
 ]
 
 [[package]]
@@ -2630,8 +2630,9 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "fil_actor_account_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98c001e6c3952f311bb118d2ded5a8895642a033ad5d4558421a86a1e19f64c5"
 dependencies = [
  "frc42_macros",
  "fvm_ipld_encoding",
@@ -2645,8 +2646,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_cron_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff94b767f31f091a2eb17985c5c9eb02b33dcfceb78d4b922caa09b06b448e30"
 dependencies = [
  "fvm_ipld_encoding",
  "fvm_shared 2.7.0",
@@ -2659,8 +2661,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_datacap_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddddc761fc5e463287ef9d25a547f539b79d9be539685aeb35c829bd75debc68"
 dependencies = [
  "fil_actors_shared",
  "frc42_macros",
@@ -2678,8 +2681,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_evm_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1f853a82a3709c31f13d4f6db65ef5da629ed630d7cba23e940845f687fa49b"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2697,8 +2701,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_init_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dad95698b8e0304697acd08aa0330e85ce9ecbf7cfac0af25dbb3af135918bfc"
 dependencies = [
  "anyhow",
  "cid",
@@ -2717,8 +2722,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_interface"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4d9fe53aca285762365b3032a5bff4f976c0d8b34b672cf696916131f2442d4"
 dependencies = [
  "anyhow",
  "cid",
@@ -2754,8 +2760,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_market_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dacd1e836fed9faf71d0dd2371f664a2680254d125eb8d985a99217b4f5f238f"
 dependencies = [
  "anyhow",
  "cid",
@@ -2780,8 +2787,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_miner_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecfafc071444d071d004fc510371ab103795ff0a034c2e7cb09cc67fdfcdf870"
 dependencies = [
  "anyhow",
  "bitflags 2.6.0",
@@ -2810,8 +2818,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_multisig_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d17f929c15f325234c9deb2f4dc7ce0fd14fdd1d008a8d3d0cc6b48a4fb881a"
 dependencies = [
  "anyhow",
  "cid",
@@ -2833,8 +2842,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_power_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5375f201d6d04627364f0cb0aff558911f48945f2933789c94f3339ed048ab2c"
 dependencies = [
  "anyhow",
  "cid",
@@ -2856,8 +2866,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_reward_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "668c981a0bd39198e441526a27141bb1d358397e7104e127cf24fd995f50d866"
 dependencies = [
  "fil_actor_miner_state",
  "fil_actors_shared",
@@ -2873,8 +2884,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_system_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d51b44d50e848a185d05dab7d28f8e8a0131b9ede3ed50df82825c932891236"
 dependencies = [
  "cid",
  "fil_actors_shared",
@@ -2889,8 +2901,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actor_verifreg_state"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ced66872a6b12b9c8106b085a3a5e67c9e1845c52caf777d5cbaaaa12f58b239"
 dependencies = [
  "anyhow",
  "cid",
@@ -2910,8 +2923,9 @@ dependencies = [
 
 [[package]]
 name = "fil_actors_shared"
-version = "15.0.0"
-source = "git+https://github.com/ChainSafe/fil-actor-states.git?branch=shashank/add-evm-method#7a6e22ffb5b1dced990beb2ffef57485c0b779c5"
+version = "15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e6ce31431a0083f6ba25bf3c3572b72e7d032f1cded4973df846503f51bba72"
 dependencies = [
  "anyhow",
  "cid",
@@ -3936,9 +3950,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "1.0.1"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152dd546e5bdac80844ce6befabb9af5784ce375cb6cea554aed99fe2d1fb169"
+checksum = "96512db27971c2c3eece70a1e106fbe6c87760234e31e8f7e5634912fe52794a"
 dependencies = [
  "typenum",
 ]
