@@ -47,10 +47,14 @@ pub trait SettingsStore {
     /// Returns all setting keys.
     fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
 
+    /// Sets the Ethereum mapping status to "up-to-date".
     fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
         self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
     }
 
+    /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
+    /// An "up-to-date" mapping means we can call `Filecoin.EthXXX` methods that
+    /// involve using Ethereum hashes as parameters.
     fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
         self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
     }
