@@ -52,6 +52,7 @@ services:
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
@@ -70,11 +71,19 @@ services:
     networks:
       - api-tests
     entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
     command:
       - |
-        set -uxo pipefail
-        # wait to see if this actually fixes api compare
-        sleep 300
+        set -uo pipefail        
+        echo "Waiting till Forest is ready"
+        curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
+
+        while [[ "$(curl -s -o /dev/null -w '%{http_code}' http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz)" != "200" ]]; do
+            echo "Sleeping a bit..."
+            curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
+            sleep 2
+        done
+        echo "Exiting"
   forest-wallet-import:
     depends_on:
       forest:
