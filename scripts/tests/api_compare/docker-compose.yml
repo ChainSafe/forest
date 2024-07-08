@@ -84,7 +84,8 @@ services:
         echo "Waiting till Forest is ready"
         curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
 
-        retries=120
+        # 10 minutes timeout
+        retries=60
         for (( i=1; i<=retries; i++ )); do
             echo "Attempt $i"
             if [[ "$(curl -s -o /dev/null -w '%{http_code}' http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz)" == "200" ]]; then
@@ -93,7 +94,7 @@ services:
             fi
             echo "Sleeping a bit..."
             curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
-            sleep 1
+            sleep 10
         done
 
         echo "Exiting"
