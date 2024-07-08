@@ -75,7 +75,10 @@ services:
     command:
       - |
         set -uo pipefail
-        type curl >/dev/null 2>&1 || { echo >&2 "curl is required but it's not installed."; exit 1; }
+        type curl >/dev/null 2>&1 || {
+          echo >&2 "curl is required but it's not installed. installing.";
+          apt-get update && apt-get install -y curl
+        }
         curl -V
 
         echo "Waiting till Forest is ready"
