@@ -85,8 +85,8 @@ services:
         curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
 
         retries=120
-        for i in $(seq 1 $retries); do
-            echo "$i"
+        for ((i = 1; i <= $retries; i++)); do
+            echo "Attempt $i"
             if [[ "$(curl -s -o /dev/null -w '%{http_code}' http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz)" == "200" ]]; then
                 echo "Forest is ready"
                 break
