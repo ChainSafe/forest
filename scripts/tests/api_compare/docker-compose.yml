@@ -78,11 +78,17 @@ services:
         echo "Waiting till Forest is ready"
         curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
 
-        while [[ "$(curl -s -o /dev/null -w '%{http_code}' http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz)" != "200" ]]; do
+        retries=120
+        for i in $(seq 1 $retries); do
+            if [[ "$(curl -s -o /dev/null -w '%{http_code}' http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz)" == "200" ]]; then
+                echo "Forest is ready"
+                break
+            fi
             echo "Sleeping a bit..."
             curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
-            sleep 2
+            sleep 1
         done
+
         echo "Exiting"
   forest-wallet-import:
     depends_on:
