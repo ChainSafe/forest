@@ -19,7 +19,10 @@ use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
-use crate::rpc::{self, eth::*};
+use crate::rpc::{
+    self,
+    eth::{types::*, *},
+};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
 use crate::shim::{
@@ -1128,11 +1131,11 @@ fn eth_tests() -> Vec<RpcTest> {
     ]
 }
 
-fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
+fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset) -> Vec<RpcTest> {
     let block_cid = shared_tipset.key().cid().unwrap();
     let block_hash: Hash = block_cid.into();
 
-    vec![
+    let mut tests = vec![
         RpcTest::identity(
             EthGetBalance::request((
                 EthAddress::from_str("0xff38c072f286e3b20b3954ca9f99c05fbecc64aa").unwrap(),
@@ -1253,7 +1256,31 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
-    ]
+    ];
+
+    for block in shared_tipset.block_headers() {
+        let (bls_messages, secp_messages) =
+            crate::chain::store::block_messages(store, block).unwrap();
+        for msg in sample_messages(bls_messages.iter(), secp_messages.iter()) {
+            if let Ok(eth_to_addr) = msg.to.try_into() {
+                tests.extend([RpcTest::identity(
+                    EthEstimateGas::request((
+                        EthCallMessage {
+                            from: None,
+                            to: Some(eth_to_addr),
+                            value: msg.value.clone().into(),
+                            data: msg.params.clone().into(),
+                            ..Default::default()
+                        },
+                        Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
+                    ))
+                    .unwrap(),
+                )]);
+            }
+        }
+    }
+
+    tests
 }
 
 fn eth_state_tests_with_tipset<DB: Blockstore>(
@@ -1297,7 +1324,7 @@ fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
         ..Default::default()
     };
 
-    // The tipset is only used for resolving the 'from' address and not when
+    // The tipset is only used for resolving the 'from' addrepss and not when
     // computing the gas cost. This means that the `GasEstimateGasLimit` method
     // is inherently non-deterministic but I'm fairly sure we're compensated for
     // everything. If not, this test will be flaky. Instead of disabling it, we
@@ -1328,7 +1355,7 @@ fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<
             config.miner_address,
         )?);
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
-        tests.extend(eth_tests_with_tipset(&tipset));
+        tests.extend(eth_tests_with_tipset(&store, &tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
         tests.extend(mpool_tests_with_tipset(&tipset));
         tests.extend(eth_state_tests_with_tipset(

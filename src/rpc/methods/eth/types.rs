@@ -6,13 +6,29 @@ use super::*;
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthBytes(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
     pub Vec<u8>,
 );
 lotus_json_with_self!(EthBytes);
+
+impl From<RawBytes> for EthBytes {
+    fn from(value: RawBytes) -> Self {
+        Self(value.into())
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GetBytecodeReturn(pub Option<Cid>);
@@ -204,6 +220,59 @@ lotus_json_with_self!(EthFeeHistoryResult);
 pub struct GasReward {
     pub gas_used: u64,
     pub premium: TokenAmount,
+}
+
+#[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthCallMessage {
+    pub from: Option<EthAddress>,
+    pub to: Option<EthAddress>,
+    pub gas: Uint64,
+    pub gas_price: EthBigInt,
+    pub value: EthBigInt,
+    pub data: EthBytes,
+}
+lotus_json_with_self!(EthCallMessage);
+
+impl TryFrom<EthCallMessage> for Message {
+    type Error = anyhow::Error;
+    fn try_from(tx: EthCallMessage) -> Result<Self, Self::Error> {
+        let from = match &tx.from {
+            Some(addr) if addr != &EthAddress::default() => {
+                // The from address must be translatable to an f4 address.
+                let from = addr.to_filecoin_address()?;
+                if from.protocol() != Protocol::Delegated {
+                    anyhow::bail!("expected a class 4 address, got: {}", from.protocol());
+                }
+                from
+            }
+            _ => {
+                // Send from the filecoin "system" address.
+                EthAddress::default().to_filecoin_address()?
+            }
+        };
+        let params = RawBytes::new(tx.data.0);
+        let (to, method_num) = if let Some(to) = tx.to {
+            (
+                to.to_filecoin_address()?,
+                EVMMethod::InvokeContract as MethodNum,
+            )
+        } else {
+            (
+                FilecoinAddress::ETHEREUM_ACCOUNT_MANAGER_ACTOR,
+                EAMMethod::CreateExternal as MethodNum,
+            )
+        };
+        Ok(Message {
+            from,
+            to,
+            value: tx.value.0.into(),
+            method_num,
+            params,
+            gas_limit: BLOCK_GAS_LIMIT,
+            ..Default::default()
+        })
+    }
 }
 
 #[cfg(test)]

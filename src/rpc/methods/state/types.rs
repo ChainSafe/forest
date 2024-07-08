@@ -195,6 +195,16 @@ pub struct InvocResult {
 }
 lotus_json_with_self!(InvocResult);
 
+impl InvocResult {
+    pub fn new(msg: Message, ret: &ApplyRet) -> Self {
+        Self {
+            msg,
+            msg_rct: Some(ret.msg_receipt()),
+            error: ret.failure_info(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "PascalCase")]
 pub struct SectorExpiration {
