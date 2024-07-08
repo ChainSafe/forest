@@ -68,6 +68,7 @@ mod test {
         Client,
     };
 
+    use itertools::Either;
     use reqwest::StatusCode;
 
     use super::*;
@@ -197,7 +198,9 @@ mod test {
         let peer = libp2p::PeerId::random();
         peer_manager.update_peer_head(
             peer,
-            Arc::new(Tipset::new(vec![CachingBlockHeader::default()]).unwrap()),
+            Either::Right(Arc::new(
+                Tipset::new(vec![CachingBlockHeader::default()]).unwrap(),
+            )),
         );
 
         assert_eq!(
@@ -277,7 +280,9 @@ mod test {
         let peer = libp2p::PeerId::random();
         peer_manager.update_peer_head(
             peer,
-            Arc::new(Tipset::new(vec![CachingBlockHeader::default()]).unwrap()),
+            Either::Right(Arc::new(
+                Tipset::new(vec![CachingBlockHeader::default()]).unwrap(),
+            )),
         );
 
         assert_eq!(
