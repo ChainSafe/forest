@@ -13,7 +13,7 @@ pub enum BeaconGetEntry {}
 impl RpcMethod<1> for BeaconGetEntry {
     const NAME: &'static str = "Filecoin.BeaconGetEntry";
     const PARAM_NAMES: [&'static str; 1] = ["first"];
-    const API_VERSION: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch,);

@@ -74,7 +74,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
     /// See [`ApiVersion`].
-    const API_VERSION: ApiPaths;
+    const API_PATHS: ApiPaths;
     /// See [`Permission`]
     const PERMISSION: Permission;
     /// See [`Tag`].
@@ -188,7 +188,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 ..Default::default()
             })),
             tags: Some(
-                iter::once(&Self::API_VERSION as &dyn AsTag)
+                iter::once(&Self::API_PATHS as &dyn AsTag)
                     .chain(Self::TAGS.iter().map(|it| it as &dyn AsTag))
                     .map(AsTagExt::reference)
                     .collect(),
@@ -251,7 +251,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             method_name: Self::NAME,
             params,
             result_type: std::marker::PhantomData,
-            api_version: Self::API_VERSION,
+            api_version: Self::API_PATHS,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }

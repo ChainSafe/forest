@@ -100,7 +100,7 @@ pub enum MinerCreateBlock {}
 impl RpcMethod<1> for MinerCreateBlock {
     const NAME: &'static str = "Filecoin.MinerCreateBlock";
     const PARAM_NAMES: [&'static str; 1] = ["block_template"];
-    const API_VERSION: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (BlockTemplate,);
@@ -276,7 +276,7 @@ pub enum MinerGetBaseInfo {}
 impl RpcMethod<3> for MinerGetBaseInfo {
     const NAME: &'static str = "Filecoin.MinerGetBaseInfo";
     const PARAM_NAMES: [&'static str; 3] = ["address", "epoch", "tsk"];
-    const API_VERSION: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, i64, ApiTipsetKey);
