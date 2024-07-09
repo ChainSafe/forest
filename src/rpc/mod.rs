@@ -9,15 +9,14 @@ mod request;
 pub use client::Client;
 pub use error::ServerError;
 use futures::FutureExt as _;
-pub use reflect::{ApiPaths, RpcMethod, RpcMethodExt};
-use reflect::{AsTagExt as _, Ctx, Tag};
+use reflect::Ctx;
+pub use reflect::{ApiPath, ApiPaths, RpcMethod, RpcMethodExt};
 pub use request::Request;
 mod error;
 mod reflect;
 pub mod types;
 pub use methods::*;
 use reflect::Permission;
-use strum::IntoEnumIterator as _;
 
 /// Protocol or transport-specific error
 pub use jsonrpsee::core::ClientError;
@@ -474,7 +473,7 @@ where
 }
 
 /// If `include` is not [`None`], only methods that are listed will be returned
-pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
+pub fn openrpc(path: ApiPath, include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     use schemars::gen::{SchemaGenerator, SchemaSettings};
     let mut methods = vec![];
     // spec says draft07
@@ -484,18 +483,20 @@ pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
     let mut gen = SchemaGenerator::new(settings);
     macro_rules! callback {
         ($ty:ty) => {
-            match include {
-                Some(include) => match include.contains(&<$ty>::NAME) {
-                    true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+            if <$ty>::API_PATHS.contains(path) {
+                match include {
+                    Some(include) => match include.contains(&<$ty>::NAME) {
+                        true => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
+                            &mut gen,
+                            ParamStructure::ByPosition,
+                        ))),
+                        false => {}
+                    },
+                    None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
                         &mut gen,
                         ParamStructure::ByPosition,
                     ))),
-                    false => {}
-                },
-                None => methods.push(openrpc_types::ReferenceOr::Item(<$ty>::openrpc(
-                    &mut gen,
-                    ParamStructure::ByPosition,
-                ))),
+                }
             }
         };
     }
@@ -504,13 +505,6 @@ pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
         methods,
         components: Some(openrpc_types::Components {
             schemas: Some(gen.take_definitions().into_iter().collect()),
-            tags: Some(
-                ApiPaths::iter()
-                    .map(|it| it.as_tag())
-                    .chain(Tag::iter().map(|it| it.as_tag()))
-                    .map(|it| (it.name.clone(), it))
-                    .collect(),
-            ),
             ..Default::default()
         }),
         openrpc: openrpc_types::OPEN_RPC_SPECIFICATION_VERSION,
@@ -525,19 +519,23 @@ pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
 
 #[cfg(test)]
 mod tests {
+    use crate::rpc::ApiPath;
+
     // `cargo test --lib -- --exact 'rpc::tests::openrpc'`
     // `cargo insta review`
     #[test]
     fn openrpc() {
-        let _spec = super::openrpc(None);
-        // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
-        //                  this is disabled because it causes lots of merge
-        //                  conflicts.
-        //                  We should consider re-enabling it when our RPC is
-        //                  more stable.
-        //                  (We still run this test to make sure we're not
-        //                  violating other invariants)
-        #[cfg(never)]
-        insta::assert_yaml_snapshot!(_spec);
+        for path in [ApiPath::V0, ApiPath::V1] {
+            let _spec = super::openrpc(path, None);
+            // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4032
+            //                  this is disabled because it causes lots of merge
+            //                  conflicts.
+            //                  We should consider re-enabling it when our RPC is
+            //                  more stable.
+            //                  (We still run this test to make sure we're not
+            //                  violating other invariants)
+            #[cfg(never)]
+            insta::assert_yaml_snapshot!(_spec);
+        }
     }
 }
