@@ -74,7 +74,7 @@ pub trait RpcMethod<const ARITY: usize> {
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
     /// See [`ApiVersion`].
-    const API_VERSION: ApiVersion;
+    const API_VERSION: ApiPaths;
     /// See [`Permission`]
     const PERMISSION: Permission;
     /// See [`Tag`].
@@ -122,16 +122,16 @@ pub enum Permission {
     Deserialize,
     strum::EnumIter,
 )]
-pub enum ApiVersion {
+pub enum ApiPaths {
     V0,
     V1,
 }
 
-impl AsTag for ApiVersion {
+impl AsTag for ApiPaths {
     fn slug(&self) -> String {
         match self {
-            ApiVersion::V0 => "v0".into(),
-            ApiVersion::V1 => "v1".into(),
+            ApiPaths::V0 => "v0".into(),
+            ApiPaths::V1 => "v1".into(),
         }
     }
 }

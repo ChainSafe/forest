@@ -23,7 +23,7 @@ use serde::de::DeserializeOwned;
 use tracing::{debug, Instrument, Level};
 use url::Url;
 
-use super::{ApiVersion, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
+use super::{ApiPaths, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
@@ -129,17 +129,17 @@ impl Client {
         };
         work.instrument(span.or_current()).await
     }
-    async fn get_or_init_client(&self, version: ApiVersion) -> Result<&UrlClient, ClientError> {
+    async fn get_or_init_client(&self, version: ApiPaths) -> Result<&UrlClient, ClientError> {
         match version {
-            ApiVersion::V0 => &self.v0,
-            ApiVersion::V1 => &self.v1,
+            ApiPaths::V0 => &self.v0,
+            ApiPaths::V1 => &self.v1,
         }
         .get_or_try_init(|| async {
             let url = self
                 .base_url
                 .join(match version {
-                    ApiVersion::V0 => "rpc/v0",
-                    ApiVersion::V1 => "rpc/v1",
+                    ApiPaths::V0 => "rpc/v0",
+                    ApiPaths::V1 => "rpc/v1",
                 })
                 .map_err(|it| {
                     ClientError::Custom(format!("creating url for endpoint failed: {}", it))

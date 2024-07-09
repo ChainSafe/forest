@@ -3,7 +3,7 @@
 
 use crate::lotus_json::lotus_json_with_self;
 use crate::rpc::error::ServerError;
-use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
+use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
 use schemars::JsonSchema;
@@ -18,7 +18,7 @@ pub enum Session {}
 impl RpcMethod<0> for Session {
     const NAME: &'static str = "Filecoin.Session";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -33,7 +33,7 @@ pub enum Version {}
 impl RpcMethod<0> for Version {
     const NAME: &'static str = "Filecoin.Version";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -53,7 +53,7 @@ pub enum Shutdown {}
 impl RpcMethod<0> for Shutdown {
     const NAME: &'static str = "Filecoin.Shutdown";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = ();
@@ -69,7 +69,7 @@ pub enum StartTime {}
 impl RpcMethod<0> for StartTime {
     const NAME: &'static str = "Filecoin.StartTime";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_VERSION: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();

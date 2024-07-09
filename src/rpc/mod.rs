@@ -9,7 +9,7 @@ mod request;
 pub use client::Client;
 pub use error::ServerError;
 use futures::FutureExt as _;
-pub use reflect::{ApiVersion, RpcMethod, RpcMethodExt};
+pub use reflect::{ApiPaths, RpcMethod, RpcMethodExt};
 use reflect::{AsTagExt as _, Ctx, Tag};
 pub use request::Request;
 mod error;
@@ -505,7 +505,7 @@ pub fn openrpc(include: Option<&[&str]>) -> openrpc_types::OpenRPC {
         components: Some(openrpc_types::Components {
             schemas: Some(gen.take_definitions().into_iter().collect()),
             tags: Some(
-                ApiVersion::iter()
+                ApiPaths::iter()
                     .map(|it| it.as_tag())
                     .chain(Tag::iter().map(|it| it.as_tag()))
                     .map(|it| (it.name.clone(), it))

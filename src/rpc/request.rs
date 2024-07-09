@@ -1,7 +1,7 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
-use super::ApiVersion;
+use super::ApiPaths;
 use jsonrpsee::core::traits::ToRpcParams;
 use std::{marker::PhantomData, time::Duration};
 
@@ -12,7 +12,7 @@ pub struct Request<T = serde_json::Value> {
     pub method_name: &'static str,
     pub params: serde_json::Value,
     pub result_type: PhantomData<T>,
-    pub api_version: ApiVersion,
+    pub api_version: ApiPaths,
     pub timeout: Duration,
 }
 
