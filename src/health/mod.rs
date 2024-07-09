@@ -95,7 +95,7 @@ mod test {
             genesis_timestamp: 0,
             sync_state: sync_state.clone(),
             peer_manager: Arc::new(PeerManager::default()),
-            settings_store: db,
+            settings_store: db.clone(),
         };
 
         let listener =
@@ -122,6 +122,8 @@ mod test {
         sync_state.write().set_epoch(i64::MAX);
         sync_state.write().set_stage(SyncStage::Complete);
 
+        db.set_eth_mapping_up_to_date().unwrap();
+
         assert_eq!(
             call_healthcheck(false).await.unwrap().status(),
             StatusCode::OK
@@ -132,6 +134,7 @@ mod test {
         assert!(text.contains("[+] sync complete"));
         assert!(text.contains("[+] epoch up to date"));
         assert!(text.contains("[+] rpc server running"));
+        assert!(text.contains("[+] eth mapping up to date"));
 
         // instrument the state so that the ready requirements are not met
         drop(rpc_listener);
@@ -149,6 +152,7 @@ mod test {
         assert!(text.contains("[!] sync incomplete"));
         assert!(text.contains("[!] epoch outdated"));
         assert!(text.contains("[!] rpc server not running"));
+        assert!(text.contains("[+] eth mapping up to date"));
     }
 
     #[tokio::test]
