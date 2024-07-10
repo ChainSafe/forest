@@ -234,6 +234,18 @@ pub struct EthCallMessage {
 }
 lotus_json_with_self!(EthCallMessage);
 
+impl EthCallMessage {
+    pub fn convert_data_to_message_params(data: EthBytes) -> anyhow::Result<RawBytes> {
+        if data.0.is_empty() {
+            Ok(RawBytes::new(data.0))
+        } else {
+            Ok(RawBytes::new(fvm_ipld_encoding::to_vec(&RawBytes::new(
+                data.0,
+            ))?))
+        }
+    }
+}
+
 impl TryFrom<EthCallMessage> for Message {
     type Error = anyhow::Error;
     fn try_from(tx: EthCallMessage) -> Result<Self, Self::Error> {
@@ -251,7 +263,7 @@ impl TryFrom<EthCallMessage> for Message {
                 EthAddress::default().to_filecoin_address()?
             }
         };
-        let params = RawBytes::new(tx.data.0);
+        let params = EthCallMessage::convert_data_to_message_params(tx.data)?;
         let (to, method_num) = if let Some(to) = tx.to {
             (
                 to.to_filecoin_address()?,
@@ -278,6 +290,7 @@ impl TryFrom<EthCallMessage> for Message {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{prelude::BASE64_STANDARD, Engine as _};
 
     #[test]
     fn get_bytecode_return_roundtrip() {
@@ -298,5 +311,19 @@ mod tests {
             &hex::encode(param.serialize_params().unwrap()),
             "815820000000000000000000000000000000000000000000000000000000000000000a"
         );
+    }
+
+    #[test]
+    fn test_convert_data_to_message_params_empty() {
+        let data = EthBytes(vec![]);
+        let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn test_convert_data_to_message_params() {
+        let data = EthBytes(BASE64_STANDARD.decode("RHt4g0E=").unwrap());
+        let params = EthCallMessage::convert_data_to_message_params(data).unwrap();
+        assert_eq!(BASE64_STANDARD.encode(&*params).as_str(), "RUR7eINB");
     }
 }

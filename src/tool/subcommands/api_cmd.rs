@@ -1275,7 +1275,8 @@ fn eth_tests_with_tipset<DB: Blockstore>(store: &Arc<DB>, shared_tipset: &Tipset
                         Some(BlockNumberOrHash::BlockNumber(shared_tipset.epoch().into())),
                     ))
                     .unwrap(),
-                )]);
+                )
+                .policy_on_rejected(PolicyOnRejected::Pass)]);
             }
         }
     }
