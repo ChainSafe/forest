@@ -384,6 +384,31 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     }
 }
 
+/// Returns a bitfield containing all sector numbers marked as allocated in miner state
+pub enum StateMinerAllocated {}
+
+impl RpcMethod<2> for StateMinerAllocated {
+    const NAME: &'static str = "Filecoin.StateMinerAllocated";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = BitField;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&address, *ts.parent_state())?;
+        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(miner_state.load_allocated_sector_numbers(ctx.store())?)
+    }
+}
+
 /// Return all partitions in the specified deadline
 pub enum StateMinerPartitions {}
 
