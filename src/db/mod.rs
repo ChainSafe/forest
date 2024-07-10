@@ -21,6 +21,8 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
 
+pub const CAR_DB_DIR_NAME: &str = "car_db";
+
 pub mod setting_keys {
     /// Key used to store the heaviest tipset in the settings store. This is expected to be a [`crate::blocks::TipsetKey`]s
     pub const HEAD_KEY: &str = "head";

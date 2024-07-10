@@ -20,6 +20,7 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
+use crate::db::CAR_DB_DIR_NAME;
 use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
@@ -182,7 +183,7 @@ pub(super) async fn start(
     let db_root_dir = db_root(&chain_data_path)?;
     let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
-    let forest_car_db_dir = db_root_dir.join("car_db");
+    let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     if config.client.load_actors && !opts.stateless {

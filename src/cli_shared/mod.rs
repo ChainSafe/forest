@@ -6,6 +6,7 @@ pub mod logger;
 
 use crate::cli_shared::cli::{find_config_path, Config, ConfigPath};
 use crate::db::db_engine::db_root;
+use crate::db::CAR_DB_DIR_NAME;
 use crate::networks::NetworkChain;
 use crate::utils::io::read_toml;
 use std::path::PathBuf;
@@ -24,7 +25,7 @@ pub fn chain_path(config: &Config) -> PathBuf {
 pub fn car_db_path(config: &Config) -> anyhow::Result<PathBuf> {
     let chain_data_path = chain_path(config);
     let db_root_dir = db_root(&chain_data_path)?;
-    let forest_car_db_dir = db_root_dir.join("car_db");
+    let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     Ok(forest_car_db_dir)
 }
 

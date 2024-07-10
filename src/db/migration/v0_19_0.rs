@@ -12,6 +12,7 @@ use crate::db::car::ManyCar;
 use crate::db::db_engine::{open_db, Db};
 use crate::db::migration::migration_map::temporary_db_name;
 use crate::db::migration::v0_19_0::paritydb_0_18_0::{DbColumn, ParityDb};
+use crate::db::CAR_DB_DIR_NAME;
 use crate::genesis::read_genesis_header;
 use crate::networks::ChainConfig;
 use crate::state_manager::StateManager;
@@ -60,8 +61,8 @@ impl MigrationOperation for Migration0_18_0_0_19_0 {
             std::fs::remove_dir_all(&temp_db_path)?;
         }
 
-        let old_car_db_path = source_db.join("car_db");
-        let new_car_db_path = temp_db_path.join("car_db");
+        let old_car_db_path = source_db.join(CAR_DB_DIR_NAME);
+        let new_car_db_path = temp_db_path.join(CAR_DB_DIR_NAME);
 
         // Make sure `car_db` dir exists as it might not be the case when migrating
         // from older versions.
@@ -150,7 +151,7 @@ async fn create_state_manager_and_populate(config: Config, db_name: String) -> a
     let db_root_dir = chain_data_path.join(db_name);
     let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
-    let forest_car_db_dir = db_root_dir.join("car_db");
+    let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     let chain_config = Arc::new(ChainConfig::from_chain(&config.chain));
