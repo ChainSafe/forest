@@ -53,8 +53,6 @@ pub trait SettingsStore {
     }
 
     /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
-    /// An "up-to-date" mapping means we can call `Filecoin.EthXXX` methods that
-    /// involve using Ethereum hashes as parameters.
     fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
         self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
     }
