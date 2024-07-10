@@ -70,7 +70,7 @@ fvm_ipld_encoding = "0.4"
 fvm_shared2 = { package = "fvm_shared", version = "~2.7" }
 fvm_shared3 = { package = "fvm_shared", version = "~3.10", features = ["arb", "testing", "proofs"] }
 fvm_shared4 = { package = "fvm_shared", version = "~4.3.1", features = ["arb", "testing", "proofs"] }
-gethostname = "0.4"
+gethostname = "0.5"
 git-version = "0.3"
 group = "0.13"
 hex = { version = "0.4", features = ["serde"] }
@@ -222,7 +222,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.223"
+ra_ap_syntax = "0.0.224"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
