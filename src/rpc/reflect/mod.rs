@@ -58,7 +58,7 @@ pub trait RpcMethod<const ARITY: usize> {
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
-    /// See [`ApiVersion`].
+    /// See [`ApiPaths`].
     const API_PATHS: ApiPaths;
     /// See [`Permission`]
     const PERMISSION: Permission;
@@ -86,10 +86,7 @@ pub enum Permission {
     Read,
 }
 
-/// Lotus groups methods into API versions.
-///
-/// These are significant because they are expressed in the URL path against which
-/// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
+/// Which paths should this method be exposed on?
 ///
 /// This information is important when using [`crate::rpc::client`].
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
