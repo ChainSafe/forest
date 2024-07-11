@@ -11,7 +11,7 @@ impl MarketStateExt for market::State {
         let mut result = HashMap::default();
         match self {
             Self::V8(_) => {
-                unimplemented!("pending_deal_allocation_ids does not exist in V8 market state")
+                anyhow::bail!("unsupported before actors v9");
             }
             Self::V9(s) => {
                 let map = fil_actors_shared::v9::Map::<_, AllocationID>::load_with_bit_width(
