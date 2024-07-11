@@ -29,6 +29,9 @@
 
 ### Added
 
+- [#4514](https://github.com/ChainSafe/forest/pull/4514) Add support for the
+  `Filecoin.WalletSignMessage` RPC method.
+
 ### Changed
 
 ### Removed
