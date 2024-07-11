@@ -1718,7 +1718,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
             crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
         if let Ok(smsgs) = smsgs_result {
-            if let Some(smsg) = smsgs.iter().next() {
+            if let Some(smsg) = smsgs.first() {
                 let hash = if smsg.is_delegated() {
                     let chain_id = ctx.state_manager.chain_config().eth_chain_id;
                     eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
