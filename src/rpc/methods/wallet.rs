@@ -4,11 +4,13 @@
 use std::any::Any;
 
 use crate::key_management::{Key, KeyInfo};
+use crate::message::SignedMessage;
 use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod, ServerError};
 use crate::shim::{
     address::Address,
     crypto::{Signature, SignatureType},
     econ::TokenAmount,
+    message::Message,
     state_tree::StateTree,
 };
 use fvm_ipld_blockstore::Blockstore;
@@ -220,6 +222,50 @@ impl RpcMethod<2> for WalletSign {
         )?;
 
         Ok(sig)
+    }
+}
+
+pub enum WalletSignMessage {}
+impl RpcMethod<2> for WalletSignMessage {
+    const NAME: &'static str = "Filecoin.WalletSignMessage";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "message"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Sign;
+
+    type Params = (Address, Message);
+    type Ok = SignedMessage;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, message): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.heaviest_tipset();
+        let key_addr = ctx
+            .state_manager
+            .resolve_to_deterministic_address(address, ts)
+            .await?;
+
+        let keystore = &mut *ctx.keystore.write().await;
+        let key = match crate::key_management::find_key(&key_addr, keystore) {
+            Ok(key) => key,
+            Err(_) => {
+                let key_info = crate::key_management::try_find(&key_addr, keystore)?;
+                Key::try_from(key_info)?
+            }
+        };
+
+        let sig = crate::key_management::sign(
+            *key.key_info.key_type(),
+            key.key_info.private_key(),
+            message.cid().unwrap().to_bytes().as_slice(),
+        )?;
+
+        // Could use `SignedMessage::new_unchecked` here but let's make sure
+        // we're actually signing the message as expected.
+        let smsg = SignedMessage::new_from_parts(message, sig)
+            .expect("Internal error: Generated incorrect message signature");
+
+        Ok(smsg)
     }
 }
 
