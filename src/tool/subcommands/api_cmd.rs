@@ -809,6 +809,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
+            RpcTest::identity(StateMinerAllocated::request((
+                block.miner_address,
+                tipset.key().into(),
+            ))?),
             RpcTest::identity(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
