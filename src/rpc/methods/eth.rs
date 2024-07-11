@@ -13,7 +13,7 @@ use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
+use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -577,7 +577,7 @@ pub enum Web3ClientVersion {}
 impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -595,7 +595,7 @@ pub enum EthAccounts {}
 impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -614,7 +614,7 @@ pub enum EthBlockNumber {}
 impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -648,7 +648,7 @@ pub enum EthChainId {}
 impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -669,7 +669,7 @@ pub enum EthGasPrice {}
 impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -695,7 +695,7 @@ pub enum EthGetBalance {}
 impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "block_param"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1217,7 +1217,7 @@ pub enum EthGetBlockByHash {}
 impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrHash, bool);
@@ -1237,7 +1237,7 @@ pub enum EthGetBlockByNumber {}
 impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrHash, bool);
@@ -1257,7 +1257,7 @@ pub enum EthGetBlockTransactionCountByHash {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
     const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Hash,);
@@ -1282,7 +1282,7 @@ pub enum EthGetBlockTransactionCountByNumber {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
     const PARAM_NAMES: [&'static str; 1] = ["block_number"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Int64,);
@@ -1311,7 +1311,7 @@ pub enum EthGetMessageCidByTransactionHash {}
 impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
     const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Hash,);
@@ -1370,7 +1370,7 @@ pub enum EthSyncing {}
 impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -1411,7 +1411,7 @@ impl RpcMethod<3> for EthFeeHistory {
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 3] =
         ["block_count", "newest_block_number", "reward_percentiles"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Uint64, BlockNumberOrPredefined, Option<Vec<f64>>);
@@ -1429,13 +1429,14 @@ impl RpcMethod<3> for EthFeeHistory {
         Self::validate_reward_precentiles(&reward_percentiles)?;
 
         let tipset = tipset_by_block_number_or_hash(&ctx.chain_store, newest_block_number.into())?;
-        let base_fee = tipset.block_headers().first().parent_base_fee.clone();
         let mut oldest_block_height = 1;
         // NOTE: baseFeePerGas should include the next block after the newest of the returned range,
         //  because the next base fee can be inferred from the messages in the newest block.
         //  However, this is NOT the case in Filecoin due to deferred execution, so the best
         //  we can do is duplicate the last value.
-        let mut base_fee_array = vec![EthBigInt::from(&base_fee)];
+        let mut base_fee_array = vec![EthBigInt::from(
+            &tipset.block_headers().first().parent_base_fee,
+        )];
         let mut rewards_array = vec![];
         let mut gas_used_ratio_array = vec![];
         for ts in tipset
@@ -1443,10 +1444,11 @@ impl RpcMethod<3> for EthFeeHistory {
             .filter(|i| i.epoch() > 0)
             .take(block_count as _)
         {
+            let base_fee = &ts.block_headers().first().parent_base_fee;
             let (_state_root, messages_and_receipts) = execute_tipset(&ctx, &ts).await?;
             let mut tx_gas_rewards = Vec::with_capacity(messages_and_receipts.len());
             for (message, receipt) in messages_and_receipts {
-                let premium = message.effective_gas_premium(&base_fee);
+                let premium = message.effective_gas_premium(base_fee);
                 tx_gas_rewards.push(GasReward {
                     gas_used: receipt.gas_used(),
                     premium,
@@ -1457,7 +1459,7 @@ impl RpcMethod<3> for EthFeeHistory {
             let max_gas = BLOCK_GAS_LIMIT * (ts.block_headers().len() as u64);
 
             // arrays should be reversed at the end
-            base_fee_array.push(EthBigInt::from(&base_fee));
+            base_fee_array.push(EthBigInt::from(base_fee));
             gas_used_ratio_array.push((total_gas_used as f64) / (max_gas as f64));
             rewards_array.push(rewards);
 
@@ -1536,7 +1538,7 @@ pub enum EthGetCode {}
 impl RpcMethod<2> for EthGetCode {
     const NAME: &'static str = "Filecoin.EthGetCode";
     const PARAM_NAMES: [&'static str; 2] = ["eth_address", "block_number_or_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1597,7 +1599,7 @@ pub enum EthGetStorageAt {}
 impl RpcMethod<3> for EthGetStorageAt {
     const NAME: &'static str = "Filecoin.EthGetStorageAt";
     const PARAM_NAMES: [&'static str; 3] = ["eth_address", "position", "block_number_or_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
@@ -1662,6 +1664,39 @@ impl RpcMethod<3> for EthGetStorageAt {
             Ok(EthBytes(with_padding))
         } else {
             Ok(EthBytes(ret))
+        }
+    }
+}
+
+pub enum EthGetTransactionCount {}
+impl RpcMethod<2> for EthGetTransactionCount {
+    const NAME: &'static str = "Filecoin.EthGetTransactionCount";
+    const PARAM_NAMES: [&'static str; 2] = ["sender", "block_param"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (EthAddress, BlockNumberOrHash);
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (sender, block_param): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let addr = sender.to_filecoin_address()?;
+        let ts = tipset_by_block_number_or_hash(&ctx.chain_store, block_param)?;
+        let state =
+            StateTree::new_from_root(ctx.state_manager.blockstore_owned(), ts.parent_state())?;
+        let actor = state.get_required_actor(&addr)?;
+        if fil_actor_interface::is_evm_actor(&actor.code) {
+            let evm_state =
+                fil_actor_interface::evm::State::load(ctx.store(), actor.code, actor.state)?;
+            if !evm_state.is_alive() {
+                return Ok(Uint64(0));
+            }
+
+            Ok(Uint64(evm_state.nonce()))
+        } else {
+            Ok(Uint64(ctx.mpool.get_sequence(&addr)?))
         }
     }
 }

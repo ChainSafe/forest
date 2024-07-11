@@ -26,31 +26,16 @@ use crate::lotus_json::HasLotusJson;
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::{Either, Itertools as _};
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
-use serde::Serialize;
 use serde::{
     de::{Error as _, Unexpected},
     Deserialize,
 };
-use std::iter;
-use std::{future::Future, sync::Arc};
-
-/// Narrow list of categories emitted by our OpenRPC machinery.
-/// Destined to become a [`openrpc_types::Tag`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::EnumIter)]
-pub enum Tag {
-    ClientInteroperability,
-}
-impl AsTag for Tag {
-    fn slug(&self) -> String {
-        match self {
-            Tag::ClientInteroperability => "client_interoperability".into(),
-        }
-    }
-}
+use std::{future::Future, iter, sync::Arc};
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -73,12 +58,10 @@ pub trait RpcMethod<const ARITY: usize> {
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
-    /// See [`ApiVersion`].
-    const API_VERSION: ApiVersion;
+    /// See [`ApiPaths`].
+    const API_PATHS: ApiPaths;
     /// See [`Permission`]
     const PERMISSION: Permission;
-    /// See [`Tag`].
-    const TAGS: &'static [Tag] = &[];
     /// Becomes [`openrpc_types::Method::summary`].
     const SUMMARY: Option<&'static str> = None;
     /// Becomes [`openrpc_types::Method::description`].
@@ -103,37 +86,40 @@ pub enum Permission {
     Read,
 }
 
-/// Lotus groups methods into API versions.
-///
-/// These are significant because they are expressed in the URL path against which
-/// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
+/// Which paths should this method be exposed on?
 ///
 /// This information is important when using [`crate::rpc::client`].
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Hash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-)]
-pub enum ApiVersion {
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ApiPaths {
+    /// Only expose this method on `/rpc/v0`
     V0,
+    /// Only expose this method on `/rpc/v1`
     V1,
+    /// Expose this method on both `/rpc/v0` and `/rpc/v1`
+    #[allow(dead_code)]
+    Both,
 }
 
-impl AsTag for ApiVersion {
-    fn slug(&self) -> String {
+impl ApiPaths {
+    fn iter(&self) -> impl Iterator<Item = ApiPath> {
         match self {
-            ApiVersion::V0 => "v0".into(),
-            ApiVersion::V1 => "v1".into(),
+            ApiPaths::V0 => Either::Left(iter::once(ApiPath::V0)),
+            ApiPaths::V1 => Either::Left(iter::once(ApiPath::V1)),
+            ApiPaths::Both => Either::Right([ApiPath::V0, ApiPath::V1].into_iter()),
         }
     }
+    pub fn max(&self) -> ApiPath {
+        self.iter().max().expect("cannot create an empty ApiPaths")
+    }
+    pub fn contains(&self, path: ApiPath) -> bool {
+        self.iter().contains(&path)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum)]
+pub enum ApiPath {
+    V0,
+    V1,
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
@@ -187,12 +173,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
                 ..Default::default()
             })),
-            tags: Some(
-                iter::once(&Self::API_VERSION as &dyn AsTag)
-                    .chain(Self::TAGS.iter().map(|it| it as &dyn AsTag))
-                    .map(AsTagExt::reference)
-                    .collect(),
-            ),
             summary: Self::SUMMARY.map(Into::into),
             description: Self::DESCRIPTION.map(Into::into),
             ..Default::default()
@@ -251,7 +231,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             method_name: Self::NAME,
             params,
             result_type: std::marker::PhantomData,
-            api_version: Self::API_VERSION,
+            api_paths: Self::API_PATHS,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
@@ -380,30 +360,3 @@ pub enum ConcreteCallingConvention {
     #[allow(unused)] // included for completeness
     ByName,
 }
-
-/// A type that can be represented as an [`openrpc_types::Tag`].
-pub trait AsTag {
-    fn slug(&self) -> String;
-    fn summary(&self) -> Option<String> {
-        None
-    }
-    fn description(&self) -> Option<String> {
-        None
-    }
-}
-
-pub trait AsTagExt: AsTag {
-    fn as_tag(&self) -> openrpc_types::Tag {
-        openrpc_types::Tag {
-            name: self.slug(),
-            summary: self.summary(),
-            description: self.description(),
-            external_docs: None,
-            extensions: Default::default(),
-        }
-    }
-    fn reference(&self) -> ReferenceOr<openrpc_types::Tag> {
-        ReferenceOr::Reference(format!("#/components/tags/{}", self.slug()))
-    }
-}
-impl<T: ?Sized> AsTagExt for T where T: AsTag {}

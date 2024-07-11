@@ -296,27 +296,6 @@ struct TestResult {
     test_dump: Option<TestDump>,
 }
 
-/// This struct is the hash-able representation of [`RpcTest`]
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct RpcTestHashable {
-    request: String,
-    ignore: bool,
-}
-
-impl From<&RpcTest> for RpcTestHashable {
-    fn from(t: &RpcTest) -> Self {
-        Self {
-            request: serde_json::to_string(&(
-                t.request.method_name,
-                &t.request.api_version,
-                &t.request.params,
-            ))
-            .unwrap_or_default(),
-            ignore: t.ignore.is_some(),
-        }
-    }
-}
-
 enum PolicyOnRejected {
     Fail,
     Pass,
@@ -570,17 +549,26 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
+const TICKET_QUALITY_GREEDY: f64 = 0.9;
+const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
+
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
+            .ignore("https://github.com/ChainSafe/forest/issues/4490"),
     ]
 }
 
 fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
     vec![
         RpcTest::basic(MpoolPending::request((tipset.key().into(),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((tipset.key().into(), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((tipset.key().into(), TICKET_QUALITY_GREEDY)).unwrap()),
+        RpcTest::basic(
+            MpoolSelect::request((tipset.key().into(), TICKET_QUALITY_OPTIMAL)).unwrap(),
+        )
+        .ignore("https://github.com/ChainSafe/forest/issues/4490"),
     ]
 }
 
@@ -1180,6 +1168,13 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCount::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
@@ -1590,7 +1585,19 @@ async fn run_tests(
     };
 
     // deduplicate tests by their hash-able representations
-    for test in tests.into_iter().unique_by(|t| RpcTestHashable::from(t)) {
+    for test in tests.into_iter().unique_by(
+        |RpcTest {
+             request:
+                 rpc::Request {
+                     method_name,
+                     params,
+                     api_paths,
+                     ..
+                 },
+             ignore,
+             ..
+         }| (*method_name, params.clone(), *api_paths, ignore.is_some()),
+    ) {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
