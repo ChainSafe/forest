@@ -83,7 +83,7 @@ indicatif = { version = "0.17", features = ["tokio"] }
 integer-encoding = "4.0"
 is-terminal = "0.4"
 itertools = "0.13"
-jsonrpsee = { version = "0.23", features = ["server", "ws-client", "http-client"] }
+jsonrpsee = { version = "0.24", features = ["server", "ws-client", "http-client"] }
 jsonwebtoken = "9"
 keccak-hash = "0.10"
 kubert-prometheus-process = "0.1"
@@ -153,6 +153,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10"
 rlp = "0.5"
 rs-car-ipfs = "0.3"
+rustls = { version = "=0.23.10", default-features = false } # https://github.com/libp2p/rust-libp2p/issues/5487
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
@@ -193,7 +194,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 walkdir = "2"
 zstd = "0.13"
 
-## memory leak, see https://github.com/tokio-rs/console/pull/501
+# optional dependencies
 console-subscriber = { version = "0.3", features = ["parking_lot"], optional = true }
 mimalloc = { version = "0.1", optional = true, default-features = false }
 tikv-jemallocator = { version = "0.5", optional = true }
