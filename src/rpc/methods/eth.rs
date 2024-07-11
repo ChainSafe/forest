@@ -1701,6 +1701,45 @@ impl RpcMethod<2> for EthGetTransactionCount {
     }
 }
 
+pub enum EthGetTransactionHashByCid {}
+impl RpcMethod<1> for EthGetTransactionHashByCid {
+    const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid,);
+    type Ok = Hash;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (cid,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if let Ok(smsgs) = smsgs_result {
+            for smsg in smsgs.iter() {
+                let hash = if smsg.is_delegated() {
+                    let chain_id = ctx.state_manager.chain_config().eth_chain_id;
+                    eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
+                } else if smsg.is_secp256k1() {
+                    smsg.cid()?.into()
+                } else {
+                    smsg.message().cid()?.into()
+                };
+                return Ok(hash);
+            }
+        }
+
+        let msg_result = crate::chain::get_chain_message(ctx.chain_store.blockstore(), &cid);
+        if let Ok(msg) = msg_result {
+            return Ok(msg.cid()?.into());
+        }
+
+        Ok(Hash::default())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
