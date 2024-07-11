@@ -258,6 +258,27 @@ impl RpcMethod<2> for StateGetActor {
     }
 }
 
+pub enum StateLookupRobustAddress {}
+
+impl RpcMethod<2> for StateLookupRobustAddress {
+    const NAME: &'static str = "Filecoin.StateLookupRobustAddress";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = Address;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (addr, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let address = ctx.state_manager.lookup_required_id(&addr, &ts)?;
+        Ok(address)
+    }
+}
+
 /// looks up the Escrow and Locked balances of the given address in the Storage
 /// Market
 pub enum StateMarketBalance {}
