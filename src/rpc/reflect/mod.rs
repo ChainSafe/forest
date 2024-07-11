@@ -96,7 +96,6 @@ pub enum ApiPaths {
     /// Only expose this method on `/rpc/v1`
     V1,
     /// Expose this method on both `/rpc/v0` and `/rpc/v1`
-    #[allow(dead_code)]
     Both,
 }
 
