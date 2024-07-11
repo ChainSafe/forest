@@ -1709,7 +1709,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
-    type Ok = Hash;
+    type Ok = Option<Hash>;
 
     async fn handle(
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
@@ -1718,7 +1718,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
         let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
             crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
         if let Ok(smsgs) = smsgs_result {
-            for smsg in smsgs.iter() {
+            if let Some(smsg) = smsgs.iter().next() {
                 let hash = if smsg.is_delegated() {
                     let chain_id = ctx.state_manager.chain_config().eth_chain_id;
                     eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
@@ -1727,16 +1727,16 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
                 } else {
                     smsg.message().cid()?.into()
                 };
-                return Ok(hash);
+                return Ok(Some(hash));
             }
         }
 
         let msg_result = crate::chain::get_chain_message(ctx.chain_store.blockstore(), &cid);
         if let Ok(msg) = msg_result {
-            return Ok(msg.cid()?.into());
+            return Ok(Some(msg.cid()?.into()));
         }
 
-        Ok(Hash::default())
+        Ok(None)
     }
 }
 
