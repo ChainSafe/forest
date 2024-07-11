@@ -21,13 +21,15 @@ use crate::{
         rpc::RequestResponseError,
         NetworkMessage, PeerId, PeerManager, BITSWAP_TIMEOUT,
     },
-    utils::misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
+    utils::{
+        misc::{AdaptiveValueProvider, ExponentialAdaptiveValueProvider},
+        stats::Stats,
+    },
 };
 use anyhow::Context as _;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::CborStore;
-use incr_stats::incr::Stats;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use serde::de::DeserializeOwned;
@@ -317,13 +319,9 @@ where
                             Ok(chain_exchange_result) => {
                                 match chain_exchange_result.into_result::<T>() {
                                     Ok(r) => {
-                                        if let Err(e) = success_time_cost_millis_stats
-                                            .lock()
-                                            .update((chrono::Utc::now() - start).num_milliseconds()
-                                                as _)
-                                        {
-                                            tracing::warn!("{e}");
-                                        }
+                                        success_time_cost_millis_stats.lock().update(
+                                            (chrono::Utc::now() - start).num_milliseconds(),
+                                        );
                                         Ok(r)
                                     }
                                     Err(e) => {
@@ -367,8 +365,7 @@ where
                     .await
                     .ok_or_else(make_failure_message)?;
                 if let Ok(mean) = success_time_cost_millis_stats.lock().mean() {
-                    let mean = mean as u64;
-                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean) {
+                    if CHAIN_EXCHANGE_TIMEOUT_MILLIS.adapt_on_success(mean as _) {
                         tracing::info!(
                             "Decreased chain exchange timeout to {}ms. Current average: {}ms",
                             CHAIN_EXCHANGE_TIMEOUT_MILLIS.get(),
