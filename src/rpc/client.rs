@@ -23,7 +23,7 @@ use serde::de::DeserializeOwned;
 use tracing::{debug, Instrument, Level};
 use url::Url;
 
-use super::{ApiVersion, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
+use super::{ApiPath, ApiPaths, Request, MAX_REQUEST_BODY_SIZE, MAX_RESPONSE_BODY_SIZE};
 
 /// A JSON-RPC client that can dispatch either a [`crate::rpc::Request`] to a single URL.
 pub struct Client {
@@ -75,12 +75,12 @@ impl Client {
         let Request {
             method_name,
             params,
-            api_version,
+            api_paths,
             timeout,
             ..
         } = req;
 
-        let client = self.get_or_init_client(api_version).await?;
+        let client = self.get_or_init_client(api_paths).await?;
         let span = tracing::debug_span!("request", method = %method_name, url = %client.url);
         let work = async {
             // jsonrpsee's clients have a global `timeout`, but not a per-request timeout, which
@@ -129,17 +129,18 @@ impl Client {
         };
         work.instrument(span.or_current()).await
     }
-    async fn get_or_init_client(&self, version: ApiVersion) -> Result<&UrlClient, ClientError> {
-        match version {
-            ApiVersion::V0 => &self.v0,
-            ApiVersion::V1 => &self.v1,
+    async fn get_or_init_client(&self, version: ApiPaths) -> Result<&UrlClient, ClientError> {
+        let path = ApiPaths::max(&version);
+        match path {
+            ApiPath::V0 => &self.v0,
+            ApiPath::V1 => &self.v1,
         }
         .get_or_try_init(|| async {
             let url = self
                 .base_url
-                .join(match version {
-                    ApiVersion::V0 => "rpc/v0",
-                    ApiVersion::V1 => "rpc/v1",
+                .join(match path {
+                    ApiPath::V0 => "rpc/v0",
+                    ApiPath::V1 => "rpc/v1",
                 })
                 .map_err(|it| {
                     ClientError::Custom(format!("creating url for endpoint failed: {}", it))

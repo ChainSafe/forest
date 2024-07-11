@@ -299,27 +299,6 @@ struct TestResult {
     test_dump: Option<TestDump>,
 }
 
-/// This struct is the hash-able representation of [`RpcTest`]
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct RpcTestHashable {
-    request: String,
-    ignore: bool,
-}
-
-impl From<&RpcTest> for RpcTestHashable {
-    fn from(t: &RpcTest) -> Self {
-        Self {
-            request: serde_json::to_string(&(
-                t.request.method_name,
-                &t.request.api_version,
-                &t.request.params,
-            ))
-            .unwrap_or_default(),
-            ignore: t.ignore.is_some(),
-        }
-    }
-}
-
 enum PolicyOnRejected {
     Fail,
     Pass,
@@ -1634,7 +1613,19 @@ async fn run_tests(
     };
 
     // deduplicate tests by their hash-able representations
-    for test in tests.into_iter().unique_by(|t| RpcTestHashable::from(t)) {
+    for test in tests.into_iter().unique_by(
+        |RpcTest {
+             request:
+                 rpc::Request {
+                     method_name,
+                     params,
+                     api_paths,
+                     ..
+                 },
+             ignore,
+             ..
+         }| (*method_name, params.clone(), *api_paths, ignore.is_some()),
+    ) {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
