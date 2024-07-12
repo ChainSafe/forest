@@ -74,30 +74,10 @@ services:
     user: 0:0
     command:
       - |
-        set -uo pipefail
-        type curl >/dev/null 2>&1 || {
-          echo >&2 "curl is required but it's not installed. installing.";
-          apt-get update && apt-get install -y curl
-        }
-        curl -V
-
+        set -euo pipefail
+        
         echo "Waiting till Forest is ready"
-        curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
-
-        # 10 minutes timeout
-        retries=60
-        for (( i=1; i<=retries; i++ )); do
-            echo "Attempt $i"
-            if [[ "$(curl -s -o /dev/null -w '%{http_code}' http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz)" == "200" ]]; then
-                echo "Forest is ready"
-                break
-            fi
-            echo "Sleeping a bit..."
-            curl -s "http://forest:${FOREST_HEALTHZ_RPC_PORT}/readyz?verbose"
-            sleep 10
-        done
-
-        echo "Exiting"
+        forest-cli healthcheck ready --wait
   forest-wallet-import:
     depends_on:
       forest:
