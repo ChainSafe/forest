@@ -1261,6 +1261,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
     ]
 }
 
