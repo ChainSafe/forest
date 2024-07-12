@@ -23,7 +23,7 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context as _, Result};
 use bytes::{Buf, BytesMut};
 use cbor4ii::core::{dec::Decode, utils::SliceReader, Value};
 use cid::Cid;
@@ -369,20 +369,18 @@ pub struct EthTx {
     pub block_number: Uint64,
     pub transaction_index: Uint64,
     pub from: EthAddress,
-    #[schemars(with = "Option<EthAddress>")]
-    #[serde(
-        with = "crate::lotus_json",
-        skip_serializing_if = "Option::is_none",
-        default
-    )]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub to: Option<EthAddress>,
     pub value: EthBigInt,
     pub r#type: Uint64,
     pub input: EthBytes,
     pub gas: Uint64,
-    pub max_fee_per_gas: EthBigInt,
-    pub max_priority_fee_per_gas: EthBigInt,
-    pub gas_price: EthBigInt,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_fee_per_gas: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_priority_fee_per_gas: Option<EthBigInt>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub gas_price: Option<EthBigInt>,
     #[schemars(with = "Option<Vec<Hash>>")]
     #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
@@ -393,8 +391,74 @@ pub struct EthTx {
 
 impl EthTx {
     pub fn eth_hash(&self) -> Result<Hash> {
-        let eth_tx_args: TxArgs = self.clone().into();
-        eth_tx_args.hash()
+        Ok(Hash(keccak(self.rlp_signed_message()?)))
+    }
+
+    pub fn rlp_signed_message(&self) -> Result<Vec<u8>> {
+        let stream = match self.r#type.0 {
+            EIP_1559_TX_TYPE => {
+                let mut stream = RlpStream::new_list(12);
+                stream.append(&format_u64(self.chain_id.0));
+                stream.append(&format_u64(self.nonce.0));
+                stream.append(&format_bigint(
+                    self.max_priority_fee_per_gas.as_ref().with_context(|| {
+                        format!(
+                            "max_priority_fee_per_gas is required for type {}",
+                            self.r#type.0,
+                        )
+                    })?,
+                )?);
+                stream.append(&format_bigint(
+                    self.max_fee_per_gas.as_ref().with_context(|| {
+                        format!("max_fee_per_gas is required for type {}", self.r#type.0)
+                    })?,
+                )?);
+                stream.append(&format_u64(self.gas.0));
+                stream.append(&format_address(&self.to));
+                stream.append(&format_bigint(&self.value)?);
+                stream.append(&self.input.0);
+                let access_list: &[u8] = &[];
+                stream.append_list(access_list);
+
+                stream.append(&format_bigint(&self.v)?);
+                stream.append(&format_bigint(&self.r)?);
+                stream.append(&format_bigint(&self.s)?);
+                stream
+            }
+            EIP_LEGACY_TX_TYPE => {
+                let mut stream = RlpStream::new_list(9);
+                stream.append(&format_u64(self.nonce.0));
+                stream.append(&format_bigint(self.gas_price.as_ref().with_context(
+                    || format!("gas_price is required for type {}", self.r#type.0),
+                )?)?);
+                stream.append(&format_u64(self.gas.0));
+                stream.append(&format_address(&self.to));
+                stream.append(&format_bigint(&self.value)?);
+                stream.append(&self.input.0);
+                stream.append(&format_bigint(&self.v)?);
+                stream.append(&format_bigint(&self.r)?);
+                stream.append(&format_bigint(&self.s)?);
+                stream
+            }
+            t => anyhow::bail!("unsupported type {t}"),
+        };
+
+        let mut rlp = stream.out().to_vec();
+        let mut bytes: Vec<u8> = if self.r#type.0 == EIP_1559_TX_TYPE {
+            vec![EIP_1559_TX_TYPE.try_into()?]
+        } else {
+            vec![]
+        };
+        bytes.append(&mut rlp);
+
+        let hex = bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<Vec<_>>()
+            .join("");
+        tracing::trace!("rlp: {}", &hex);
+
+        Ok(bytes)
     }
 }
 
@@ -422,8 +486,8 @@ impl From<EthTx> for TxArgs {
             nonce: tx.nonce.0,
             to: tx.to,
             value: tx.value,
-            max_fee_per_gas: tx.max_fee_per_gas,
-            max_priority_fee_per_gas: tx.max_priority_fee_per_gas,
+            max_fee_per_gas: tx.max_fee_per_gas.unwrap_or_default(),
+            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap_or_default(),
             gas_limit: tx.gas.0,
             input: tx.input.0,
             v: tx.v,
@@ -467,45 +531,45 @@ fn format_address(value: &Option<EthAddress>) -> BytesMut {
     }
 }
 
-impl TxArgs {
-    pub fn hash(&self) -> Result<Hash> {
-        Ok(Hash(keccak(self.rlp_signed_message()?)))
-    }
+// impl TxArgs {
+//     pub fn hash(&self) -> Result<Hash> {
+//         Ok(Hash(keccak(self.rlp_signed_message()?)))
+//     }
 
-    pub fn rlp_signed_message(&self) -> Result<Vec<u8>> {
-        // An item is either an item list or bytes.
-        const MSG_ITEMS: usize = 12;
+//     pub fn rlp_signed_message(&self) -> Result<Vec<u8>> {
+//         // An item is either an item list or bytes.
+//         const MSG_ITEMS: usize = 12;
 
-        let mut stream = RlpStream::new_list(MSG_ITEMS);
-        stream.append(&format_u64(self.chain_id));
-        stream.append(&format_u64(self.nonce));
-        stream.append(&format_bigint(&self.max_priority_fee_per_gas)?);
-        stream.append(&format_bigint(&self.max_fee_per_gas)?);
-        stream.append(&format_u64(self.gas_limit));
-        stream.append(&format_address(&self.to));
-        stream.append(&format_bigint(&self.value)?);
-        stream.append(&self.input);
-        let access_list: &[u8] = &[];
-        stream.append_list(access_list);
+//         let mut stream = RlpStream::new_list(MSG_ITEMS);
+//         stream.append(&format_u64(self.chain_id));
+//         stream.append(&format_u64(self.nonce));
+//         stream.append(&format_bigint(&self.max_priority_fee_per_gas)?);
+//         stream.append(&format_bigint(&self.max_fee_per_gas)?);
+//         stream.append(&format_u64(self.gas_limit));
+//         stream.append(&format_address(&self.to));
+//         stream.append(&format_bigint(&self.value)?);
+//         stream.append(&self.input);
+//         let access_list: &[u8] = &[];
+//         stream.append_list(access_list);
 
-        stream.append(&format_bigint(&self.v)?);
-        stream.append(&format_bigint(&self.r)?);
-        stream.append(&format_bigint(&self.s)?);
+//         stream.append(&format_bigint(&self.v)?);
+//         stream.append(&format_bigint(&self.r)?);
+//         stream.append(&format_bigint(&self.s)?);
 
-        let mut rlp = stream.out()[..].to_vec();
-        let mut bytes: Vec<u8> = vec![0x02];
-        bytes.append(&mut rlp);
+//         let mut rlp = stream.out()[..].to_vec();
+//         let mut bytes: Vec<u8> = vec![0x02];
+//         bytes.append(&mut rlp);
 
-        let hex = bytes
-            .iter()
-            .map(|b| format!("{:02x}", b))
-            .collect::<Vec<_>>()
-            .join("");
-        tracing::trace!("rlp: {}", &hex);
+//         let hex = bytes
+//             .iter()
+//             .map(|b| format!("{:02x}", b))
+//             .collect::<Vec<_>>()
+//             .join("");
+//         tracing::trace!("rlp: {}", &hex);
 
-        Ok(bytes)
-    }
-}
+//         Ok(bytes)
+//     }
+// }
 
 #[derive(Debug, Clone, Default)]
 pub struct EthSyncingResult {
@@ -1039,8 +1103,6 @@ pub fn eth_tx_from_signed_eth_message(
         to: tx_args.to,
         value: tx_args.value,
         gas: tx_args.gas_limit.into(),
-        max_fee_per_gas: tx_args.max_fee_per_gas,
-        max_priority_fee_per_gas: tx_args.max_priority_fee_per_gas,
         access_list: vec![],
         input: tx_args.input.into(),
         ..EthTx::default()
@@ -1054,6 +1116,8 @@ pub fn eth_tx_from_signed_eth_message(
             Ok(EthTx {
                 chain_id: chain_id.into(),
                 r#type: EIP_1559_TX_TYPE.into(),
+                max_fee_per_gas: Some(tx_args.max_fee_per_gas),
+                max_priority_fee_per_gas: Some(tx_args.max_priority_fee_per_gas),
                 v,
                 r,
                 s,
@@ -1070,7 +1134,7 @@ pub fn eth_tx_from_signed_eth_message(
                     Ok(EthTx {
                         chain_id: ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID.into(),
                         r#type: EIP_LEGACY_TX_TYPE.into(),
-                        gas_price: EthBigInt(smsg.message().gas_fee_cap().into()),
+                        gas_price: Some(EthBigInt(smsg.message().gas_fee_cap().into())),
                         v,
                         r,
                         s,
@@ -1082,7 +1146,7 @@ pub fn eth_tx_from_signed_eth_message(
                     Ok(EthTx {
                         chain_id: chain_id.into(),
                         r#type: EIP_LEGACY_TX_TYPE.into(),
-                        gas_price: EthBigInt(smsg.message().gas_fee_cap().into()),
+                        gas_price: Some(EthBigInt(smsg.message().gas_fee_cap().into())),
                         v,
                         r,
                         s,
@@ -1282,8 +1346,8 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         value: msg.value.clone().into(),
         r#type: Uint64(EIP_1559_TX_TYPE),
         gas: Uint64(msg.gas_limit),
-        max_fee_per_gas: msg.gas_fee_cap.clone().into(),
-        max_priority_fee_per_gas: msg.gas_premium.clone().into(),
+        max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
+        max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
         // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
         // RPC methods will need to be updated to support different Ethereum transaction types.
         // gas_price: EthBigInt::default(),
@@ -1913,6 +1977,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
 mod test {
     use super::*;
     use ethereum_types::{H160, H256};
+    use num::Num as _;
     use num_bigint;
     use num_traits::{FromBytes, Signed};
     use quickcheck::Arbitrary;
@@ -1975,19 +2040,20 @@ mod test {
     }
 
     #[test]
-    fn test_rlp_encoding() {
-        let eth_tx_args = TxArgs {
-            chain_id: 314159,
-            nonce: 486,
+    fn test_rlp_encoding_eip_1559() {
+        let tx = EthTx {
+            r#type: EIP_1559_TX_TYPE.into(),
+            chain_id: 314159.into(),
+            nonce: 486.into(),
             to: Some(EthAddress(
                 ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
                     .unwrap(),
             )),
             value: EthBigInt(num_bigint::BigInt::from(0)),
-            max_fee_per_gas: EthBigInt(num_bigint::BigInt::from(1500000120)),
-            max_priority_fee_per_gas: EthBigInt(num_bigint::BigInt::from(1500000000)),
-            gas_limit: 37442471,
-            input: decode_hex("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap(),
+            max_fee_per_gas: Some(EthBigInt(num_bigint::BigInt::from(1500000120))),
+            max_priority_fee_per_gas: Some(EthBigInt(num_bigint::BigInt::from(1500000000))),
+            gas: 37442471.into(),
+            input: decode_hex("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap().into(),
             v: EthBigInt(num_bigint::BigInt::from_str("1").unwrap()),
             r: EthBigInt(
                 num_bigint::BigInt::from_str(
@@ -2001,6 +2067,7 @@ mod test {
                 )
                 .unwrap(),
             ),
+            ..Default::default()
         };
 
         let expected_hash = Hash(
@@ -2009,7 +2076,46 @@ mod test {
             )
             .unwrap(),
         );
-        assert_eq!(expected_hash, eth_tx_args.hash().unwrap());
+        assert_eq!(expected_hash, tx.eth_hash().unwrap());
+    }
+
+    #[test]
+    fn test_rlp_encoding_legacy() {
+        let tx = EthTx {
+            r#type: EIP_LEGACY_TX_TYPE.into(),
+            chain_id: 314159.into(),
+            nonce: 0x4.into(),
+            to: Some(EthAddress(
+                ethereum_types::H160::from_str("0xd0fb381fc644cdd5d694d35e1afb445527b9244b")
+                    .unwrap(),
+            )),
+            value: EthBigInt(num_bigint::BigInt::from(0)),
+            gas: 0x19ca81cc.into(),
+            gas_price:Some(EthBigInt(0x40696.into())),
+            input: decode_hex("d5b3d76d00000000000000000000000000000000000000000000000045466fa6fdcb80000000000000000000000000000000000000000000000000000000002e90edd0000000000000000000000000000000000000000000000000000000000000015180").unwrap().into(),
+            v: EthBigInt(num_bigint::BigInt::from_str_radix("99681",16).unwrap()),
+            r: EthBigInt(
+                num_bigint::BigInt::from_str_radix(
+                    "580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796",16
+                )
+                .unwrap(),
+            ),
+            s: EthBigInt(
+                num_bigint::BigInt::from_str_radix(
+                    "55e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",16
+                )
+                .unwrap(),
+            ),
+            ..Default::default()
+        };
+
+        let expected_hash = Hash(
+            ethereum_types::H256::from_str(
+                "0x3ebc897150feeff6caa1b2e5992e347e8409e9e35fa30f7f5f8fcda3f7c965c7",
+            )
+            .unwrap(),
+        );
+        assert_eq!(expected_hash, tx.eth_hash().unwrap());
     }
 
     #[quickcheck]
