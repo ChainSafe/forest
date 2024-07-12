@@ -494,8 +494,8 @@ mod structured {
     ) -> anyhow::Result<serde_json::Value> {
         let is_explicit = matches!(called_at.apply_kind(), fvm3::executor::ApplyKind::Explicit);
 
-        let chain_message_cid = chain_message.cid()?;
-        let unsigned_message_cid = chain_message.message().cid()?;
+        let chain_message_cid = chain_message.cid();
+        let unsigned_message_cid = chain_message.message().cid();
 
         Ok(json!({
             "MsgCid": chain_message_cid.into_lotus_json(),
