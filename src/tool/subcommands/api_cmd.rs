@@ -649,7 +649,7 @@ fn miner_create_block_test(
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
-            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            let sig = priv_key.sign(message.cid().to_bytes());
             SignedMessage {
                 message,
                 signature: Signature::new_bls(sig.as_bytes().to_vec()),
@@ -785,6 +785,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
             u16::MAX as _, // Invalid deal id
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateGetAllocationForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
     ];
 
     for &pending_deal_id in
@@ -792,9 +796,16 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .keys()
             .take(COLLECTION_SAMPLE_SIZE)
     {
-        tests.extend([RpcTest::identity(
-            StateGetAllocationIdForPendingDeal::request((pending_deal_id, tipset.key().into()))?,
-        )]);
+        tests.extend([
+            RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+            RpcTest::identity(StateGetAllocationForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+        ]);
     }
 
     // Get deals
@@ -1250,6 +1261,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
     ]
 }
 
@@ -1265,10 +1277,12 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
-            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
-            tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,)).unwrap(),
-            ));
+            match new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id) {
+                Ok(tx) => tests.push(RpcTest::identity(
+                    EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+                )),
+                Err(e) => tracing::warn!(?e, "new_eth_tx_from_signed_message failed"),
+            }
         }
     }
     tests.push(RpcTest::identity(
@@ -1342,12 +1356,12 @@ fn sample_message_cids<'a>(
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
 ) -> impl Iterator<Item = Cid> + 'a {
     bls_messages
-        .filter_map(|m| m.cid().ok())
+        .map(|m| m.cid())
         .unique()
         .take(COLLECTION_SAMPLE_SIZE)
         .chain(
             secp_messages
-                .filter_map(|m| m.cid().ok())
+                .map(|m| m.cid())
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )

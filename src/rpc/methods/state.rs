@@ -2062,7 +2062,7 @@ impl RpcMethod<3> for StateListMessages {
 
             for msg in msgs {
                 if from_to.matches(msg.message()) {
-                    out.push(msg.cid()?);
+                    out.push(msg.cid());
                 }
             }
 
@@ -2338,6 +2338,31 @@ impl StateGetAllocationIdForPendingDeal {
         let actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
         let state = market::State::load(store, actor.code, actor.state)?;
         state.get_allocations_for_pending_deals(store)
+    }
+}
+
+pub enum StateGetAllocationForPendingDeal {}
+
+impl RpcMethod<2> for StateGetAllocationForPendingDeal {
+    const NAME: &'static str = "Filecoin.StateGetAllocationForPendingDeal";
+    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (DealID, ApiTipsetKey);
+    type Ok = Option<Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (deal_id, tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let allocation_id =
+            StateGetAllocationIdForPendingDeal::handle(ctx.clone(), (deal_id, tsk.clone())).await?;
+        if allocation_id == fil_actor_market_state::v14::NO_ALLOCATION_ID {
+            return Ok(None);
+        }
+        let deal = StateMarketStorageDeal::handle(ctx.clone(), (deal_id, tsk.clone())).await?;
+        StateGetAllocation::handle(ctx.clone(), (deal.proposal.client, allocation_id, tsk)).await
     }
 }
 

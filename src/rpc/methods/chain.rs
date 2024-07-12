@@ -716,7 +716,7 @@ fn load_api_messages_from_tipset(
     let mut seen = CidHashSet::default();
     for block in blocks {
         for msg in block.bls_msgs() {
-            let cid = msg.cid()?;
+            let cid = msg.cid();
             if seen.insert(cid) {
                 messages.push(ApiMessage {
                     cid,
@@ -726,7 +726,7 @@ fn load_api_messages_from_tipset(
         }
 
         for msg in block.secp_msgs() {
-            let cid = msg.cid()?;
+            let cid = msg.cid();
             if seen.insert(cid) {
                 messages.push(ApiMessage {
                     cid,
