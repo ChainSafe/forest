@@ -6,7 +6,17 @@ use super::*;
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthBytes(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_vec_bytes")]

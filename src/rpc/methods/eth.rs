@@ -70,7 +70,10 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 /// - 0 for legacy transactions
 /// - 1 for transactions introduced in EIP-2930
 /// - 2 for transactions introduced in EIP-1559
+const EIP_LEGACY_TX_TYPE: u64 = 0;
 const EIP_1559_TX_TYPE: u64 = 2;
+
+const ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID: u64 = 0;
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
@@ -90,7 +93,17 @@ pub enum EVMMethod {
 
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
 //                  use ethereum_types::U256 or use lotus_json::big_int
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthBigInt(
     #[serde(with = "crate::lotus_json::hexify")]
     #[schemars(with = "String")]
@@ -292,7 +305,7 @@ impl BlockNumberOrHash {
 #[serde(untagged)] // try a Vec<String>, then a Vec<Tx>
 pub enum Transactions {
     Hash(Vec<String>),
-    Full(Vec<Tx>),
+    Full(Vec<EthTx>),
 }
 
 impl Default for Transactions {
@@ -348,7 +361,7 @@ lotus_json_with_self!(Block);
 
 #[derive(PartialEq, Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct Tx {
+pub struct EthTx {
     pub chain_id: Uint64,
     pub nonce: Uint64,
     pub hash: Hash,
@@ -369,9 +382,7 @@ pub struct Tx {
     pub gas: Uint64,
     pub max_fee_per_gas: EthBigInt,
     pub max_priority_fee_per_gas: EthBigInt,
-    // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
-    // RPC methods will need to be updated to support different Ethereum transaction types.
-    // pub gas_price: EthBigInt,
+    pub gas_price: EthBigInt,
     #[schemars(with = "Option<Vec<Hash>>")]
     #[serde(with = "crate::lotus_json")]
     pub access_list: Vec<Hash>,
@@ -380,14 +391,14 @@ pub struct Tx {
     pub s: EthBigInt,
 }
 
-impl Tx {
+impl EthTx {
     pub fn eth_hash(&self) -> Result<Hash> {
         let eth_tx_args: TxArgs = self.clone().into();
         eth_tx_args.hash()
     }
 }
 
-lotus_json_with_self!(Tx);
+lotus_json_with_self!(EthTx);
 
 #[derive(PartialEq, Debug, Clone, Default)]
 struct TxArgs {
@@ -404,8 +415,8 @@ struct TxArgs {
     pub s: EthBigInt,
 }
 
-impl From<Tx> for TxArgs {
-    fn from(tx: Tx) -> Self {
+impl From<EthTx> for TxArgs {
+    fn from(tx: EthTx) -> Self {
         Self {
             chain_id: tx.chain_id.0,
             nonce: tx.nonce.0,
@@ -851,14 +862,40 @@ fn eth_tx_args_from_unsigned_eth_message(msg: &Message) -> Result<TxArgs> {
     })
 }
 
+const ETH_EIP1559_TX_SIGNATURE_LEN: usize = 65;
+const ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_LEN: usize = 66;
+const ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_PREFIX: u8 = 0x01;
+const ETH_LEGACY_155_TX_SIGNATURE_PREFIX: u8 = 0x02;
+
+fn calc_eip_155_tx_signature_len(chain_id: u64, v: usize) -> usize {
+    use num_bigint::BigInt;
+
+    let chain_id = BigInt::from(chain_id);
+    let v_val = chain_id * 2_u8 + v;
+    let (_, v_bytes) = v_val.to_bytes_le();
+    let v_len = v_bytes.len();
+
+    // EthLegacyHomesteadTxSignatureLen includes the 1 byte legacy tx marker prefix and also 1 byte for the V value.
+    // So we subtract 1 to not double count the length of the v value
+    ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_LEN + v_len - 1
+}
+
+fn eth_legacy_homestead_tx_signature_len0(chain_id: u64) -> usize {
+    calc_eip_155_tx_signature_len(chain_id, 35)
+}
+
+fn eth_legacy_homestead_tx_signature_len1(chain_id: u64) -> usize {
+    calc_eip_155_tx_signature_len(chain_id, 36)
+}
+
 fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
     if sig.signature_type() != SignatureType::Delegated {
         bail!("recover_sig only supports Delegated signature");
     }
 
     let len = sig.bytes().len();
-    if len != 65 {
-        bail!("signature should be 65 bytes long, but got {len} bytes");
+    if len != ETH_EIP1559_TX_SIGNATURE_LEN {
+        bail!("signature should be {ETH_EIP1559_TX_SIGNATURE_LEN} bytes long, but got {len} bytes");
     }
 
     let r = num_bigint::BigInt::from_bytes_be(
@@ -876,7 +913,99 @@ fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
         sig.bytes().get(64..65).expect("failed to get slice"),
     );
 
-    Ok((EthBigInt(r), EthBigInt(s), EthBigInt(v)))
+    Ok((r.into(), s.into(), v.into()))
+}
+
+fn recover_legacy_homestead_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
+    if sig.signature_type() != SignatureType::Delegated {
+        bail!("recover_legacy_homestead_sig only supports Delegated signature");
+    }
+
+    let len = sig.bytes().len();
+    if len != ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_LEN {
+        bail!("signature should be {ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_LEN} bytes long, but got {len} bytes");
+    }
+    let prefix = sig.bytes().first().expect("infallible");
+    if prefix != &ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_PREFIX {
+        bail!("expected signature prefix {ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_PREFIX:#x}, but got {prefix:#x}");
+    }
+
+    let r = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(1..33).expect("failed to get slice"),
+    );
+
+    let s = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(33..65).expect("failed to get slice"),
+    );
+
+    let v = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(65..66).expect("failed to get slice"),
+    );
+
+    if v != 27.into() && v != 28.into() {
+        bail!("legacy homestead transactions only support 27 or 28 for v");
+    }
+
+    Ok((r.into(), s.into(), v.into()))
+}
+
+fn recover_legacy_155_sig(
+    sig: &Signature,
+    chain_id: u64,
+) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
+    if sig.signature_type() != SignatureType::Delegated {
+        bail!("recover_legacy_155_sig only supports Delegated signature");
+    }
+
+    let legacy_155_len0 = eth_legacy_homestead_tx_signature_len0(chain_id);
+    let legacy_155_len1 = eth_legacy_homestead_tx_signature_len1(chain_id);
+    let len = sig.bytes().len();
+    if len != legacy_155_len0 && len != legacy_155_len1 {
+        bail!("signature should be {legacy_155_len0} or {legacy_155_len1} bytes long, but got {len} bytes");
+    }
+    let prefix = sig.bytes().first().expect("infallible");
+    if prefix != &ETH_LEGACY_155_TX_SIGNATURE_PREFIX {
+        bail!("expected signature prefix {ETH_LEGACY_155_TX_SIGNATURE_PREFIX:#x}, but got {prefix:#x}");
+    }
+
+    let r = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(1..33).expect("failed to get slice"),
+    );
+
+    let s = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(33..65).expect("failed to get slice"),
+    );
+
+    let v = num_bigint::BigInt::from_bytes_be(
+        Sign::Plus,
+        sig.bytes().get(65..).expect("failed to get slice"),
+    );
+
+    validate_eip_155_chain_id(v.clone(), chain_id)?;
+
+    Ok((r.into(), s.into(), v.into()))
+}
+
+fn validate_eip_155_chain_id(v: num_bigint::BigInt, chain_id: u64) -> anyhow::Result<()> {
+    let derived_chain_id = derive_eip_155_chain_id(v);
+    if derived_chain_id != chain_id.into() {
+        anyhow::bail!("invalid chain id, expected {chain_id}, got {derived_chain_id}");
+    }
+    Ok(())
+}
+
+/// derives the chain id from the given `v` parameter
+fn derive_eip_155_chain_id(v: num_bigint::BigInt) -> num_bigint::BigInt {
+    if v == 27.into() || v == 28.into() {
+        0.into()
+    } else {
+        (v - 35) / 2
+    }
 }
 
 /// `eth_tx_from_signed_eth_message` does NOT populate:
@@ -887,7 +1016,7 @@ fn recover_sig(sig: &Signature) -> Result<(EthBigInt, EthBigInt, EthBigInt)> {
 pub fn eth_tx_from_signed_eth_message(
     smsg: &SignedMessage,
     chain_id: EthChainIdType,
-) -> Result<Tx> {
+) -> Result<EthTx> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -900,34 +1029,74 @@ pub fn eth_tx_from_signed_eth_message(
         bail!("signature is not delegated type, is type: {sig_type}");
     }
 
-    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message())?;
-
-    let (r, s, v) = recover_sig(smsg.signature())?;
-
     // This should be impossible to fail as we've already asserted that we have an
     // Ethereum Address sender...
     let from = EthAddress::from_filecoin_address(&from)?;
-
-    Ok(Tx {
-        nonce: Uint64(tx_args.nonce),
-        chain_id: Uint64(chain_id),
-        to: tx_args.to,
+    let tx_args = eth_tx_args_from_unsigned_eth_message(smsg.message())?;
+    let tx_from_args = EthTx {
+        nonce: tx_args.nonce.into(),
         from,
+        to: tx_args.to,
         value: tx_args.value,
-        r#type: Uint64(EIP_1559_TX_TYPE),
-        gas: Uint64(tx_args.gas_limit),
+        gas: tx_args.gas_limit.into(),
         max_fee_per_gas: tx_args.max_fee_per_gas,
         max_priority_fee_per_gas: tx_args.max_priority_fee_per_gas,
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
-        // RPC methods will need to be updated to support different Ethereum transaction types.
-        // gas_price: EthBigInt::default(),
         access_list: vec![],
-        v,
-        r,
-        s,
-        input: EthBytes(tx_args.input),
-        ..Tx::default()
-    })
+        input: tx_args.input.into(),
+        ..EthTx::default()
+    };
+    let signature = smsg.signature();
+    let lecagy_signature_len0 = eth_legacy_homestead_tx_signature_len0(chain_id);
+    let lecagy_signature_len1 = eth_legacy_homestead_tx_signature_len1(chain_id);
+    match signature.bytes().len() {
+        ETH_EIP1559_TX_SIGNATURE_LEN => {
+            let (r, s, v) = recover_sig(signature)?;
+            Ok(EthTx {
+                chain_id: chain_id.into(),
+                r#type: EIP_1559_TX_TYPE.into(),
+                v,
+                r,
+                s,
+                ..tx_from_args
+            })
+        }
+        len if len == ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_LEN
+            || len == lecagy_signature_len0
+            || len == lecagy_signature_len1 =>
+        {
+            match signature.bytes().first() {
+                Some(&ETH_LEGACY_HOMESTEAD_TX_SIGNATURE_PREFIX) => {
+                    let (r, s, v) = recover_legacy_homestead_sig(signature)?;
+                    Ok(EthTx {
+                        chain_id: ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID.into(),
+                        r#type: EIP_LEGACY_TX_TYPE.into(),
+                        gas_price: EthBigInt(smsg.message().gas_fee_cap().into()),
+                        v,
+                        r,
+                        s,
+                        ..tx_from_args
+                    })
+                }
+                Some(&ETH_LEGACY_155_TX_SIGNATURE_PREFIX) => {
+                    let (r, s, v) = recover_legacy_155_sig(signature, chain_id)?;
+                    Ok(EthTx {
+                        chain_id: chain_id.into(),
+                        r#type: EIP_LEGACY_TX_TYPE.into(),
+                        gas_price: EthBigInt(smsg.message().gas_fee_cap().into()),
+                        v,
+                        r,
+                        s,
+                        ..tx_from_args
+                    })
+                }
+                Some(prefix) => anyhow::bail!(
+                    "unsupported legacy transaction; first byte of signature is {prefix}"
+                ),
+                None => anyhow::bail!("unsupported legacy transaction; signature is empty"),
+            }
+        }
+        len => anyhow::bail!("unsupported signature length {len}"),
+    }
 }
 
 fn lookup_eth_address<DB: Blockstore>(
@@ -1058,7 +1227,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
     msg: &Message,
     state: &StateTree<DB>,
     chain_id: EthChainIdType,
-) -> Result<Tx> {
+) -> Result<EthTx> {
     // Lookup the from address. This must succeed.
     let from = match lookup_eth_address(&msg.from(), state) {
         Ok(Some(from)) => from,
@@ -1104,7 +1273,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         encode_filecoin_params_as_abi(msg.method_num(), codec, msg.params())?
     };
 
-    Ok(Tx {
+    Ok(EthTx {
         to,
         from,
         input,
@@ -1119,7 +1288,7 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         // RPC methods will need to be updated to support different Ethereum transaction types.
         // gas_price: EthBigInt::default(),
         access_list: vec![],
-        ..Tx::default()
+        ..EthTx::default()
     })
 }
 
@@ -1127,7 +1296,7 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     smsg: &SignedMessage,
     state: &StateTree<DB>,
     chain_id: EthChainIdType,
-) -> Result<Tx> {
+) -> Result<EthTx> {
     let (tx, hash) = if smsg.is_delegated() {
         // This is an eth tx
         let tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
@@ -1142,7 +1311,7 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
         let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
         (tx, smsg.message().cid()?.into())
     };
-    Ok(Tx { hash, ..tx })
+    Ok(EthTx { hash, ..tx })
 }
 
 pub async fn block_from_filecoin_tipset<DB: Blockstore + Send + Sync + 'static>(
@@ -1954,5 +2123,21 @@ mod test {
                 .unwrap(),
             EthAddress(H160::from_str("0xa251031ed6b4779e2a0b913683e71043d88002a3").unwrap())
         );
+    }
+
+    #[test]
+    fn test_eth_legacy_homestead_tx_signature_len_mainnet() {
+        use crate::networks::mainnet::ETH_CHAIN_ID;
+
+        assert_eq!(eth_legacy_homestead_tx_signature_len0(ETH_CHAIN_ID), 67);
+        assert_eq!(eth_legacy_homestead_tx_signature_len1(ETH_CHAIN_ID), 67);
+    }
+
+    #[test]
+    fn test_eth_legacy_homestead_tx_signature_len_calibnet() {
+        use crate::networks::calibnet::ETH_CHAIN_ID;
+
+        assert_eq!(eth_legacy_homestead_tx_signature_len0(ETH_CHAIN_ID), 68);
+        assert_eq!(eth_legacy_homestead_tx_signature_len1(ETH_CHAIN_ID), 68);
     }
 }
