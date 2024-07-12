@@ -47,6 +47,7 @@ where
                 Subcommand::Snapshot(cmd) => cmd.run(client).await,
                 Subcommand::Attach { .. } => bail!("the `attach` subcommand has been removed. Please raise an issue if this breaks a workflow for you"),
                 Subcommand::Shutdown(cmd) => cmd.run(client).await,
+                Subcommand::Healthcheck(cmd) => cmd.run(client).await,
             }
         })
 }

@@ -9,6 +9,7 @@
 mod auth_cmd;
 mod chain_cmd;
 mod config_cmd;
+mod healthcheck_cmd;
 mod info_cmd;
 mod mpool_cmd;
 mod net_cmd;
@@ -29,9 +30,9 @@ use tracing::error;
 
 pub(super) use self::{
     auth_cmd::AuthCommands, chain_cmd::ChainCommands, config_cmd::ConfigCommands,
-    mpool_cmd::MpoolCommands, net_cmd::NetCommands, send_cmd::SendCommand,
-    shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands, state_cmd::StateCommands,
-    sync_cmd::SyncCommands,
+    healthcheck_cmd::HealthcheckCommand, mpool_cmd::MpoolCommands, net_cmd::NetCommands,
+    send_cmd::SendCommand, shutdown_cmd::ShutdownCommand, snapshot_cmd::SnapshotCommands,
+    state_cmd::StateCommands, sync_cmd::SyncCommands,
 };
 use crate::cli::subcommands::info_cmd::InfoCommand;
 
@@ -94,6 +95,10 @@ pub enum Subcommand {
 
     /// Shutdown Forest
     Shutdown(ShutdownCommand),
+
+    /// Print healthcheck info
+    #[command(subcommand)]
+    Healthcheck(HealthcheckCommand),
 }
 
 /// Format a vector to a prettified string
