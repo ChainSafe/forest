@@ -62,12 +62,14 @@ services:
       retries: 3
       start_period: 10m
   forest-rpc-ready:
-    build:
-      context: ../../../.
-      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
     depends_on:
       forest:
         condition: service_healthy
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
     networks:
       - api-tests
     entrypoint: [ "/bin/bash", "-c" ]
@@ -76,8 +78,9 @@ services:
       - |
         set -euo pipefail
         
+        export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
         echo "Waiting till Forest is ready"
-        forest-cli healthcheck ready --wait
+        forest-cli healthcheck ready --healthcheck-port ${FOREST_HEALTHZ_RPC_PORT} --wait
   forest-wallet-import:
     depends_on:
       forest:
