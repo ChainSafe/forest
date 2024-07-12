@@ -257,13 +257,14 @@ impl RpcMethod<2> for WalletSignMessage {
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
-            message.cid().unwrap().to_bytes().as_slice(),
+            message.cid().to_bytes().as_slice(),
         )?;
 
         // Could use `SignedMessage::new_unchecked` here but let's make sure
         // we're actually signing the message as expected.
-        let smsg = SignedMessage::new_from_parts(message, sig)
-            .expect("Internal error: Generated incorrect message signature");
+        let smsg = SignedMessage::new_from_parts(message, sig).expect(
+            "This is infallible. We just generated the signature, so it cannot be invalid.",
+        );
 
         Ok(smsg)
     }
