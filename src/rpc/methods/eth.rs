@@ -1723,9 +1723,9 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
                     let chain_id = ctx.state_manager.chain_config().eth_chain_id;
                     eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
                 } else if smsg.is_secp256k1() {
-                    smsg.cid()?.into()
+                    smsg.cid().into()
                 } else {
-                    smsg.message().cid()?.into()
+                    smsg.message().cid().into()
                 };
                 return Ok(Some(hash));
             }
@@ -1733,7 +1733,7 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
 
         let msg_result = crate::chain::get_chain_message(ctx.chain_store.blockstore(), &cid);
         if let Ok(msg) = msg_result {
-            return Ok(Some(msg.cid()?.into()));
+            return Ok(Some(msg.cid().into()));
         }
 
         Ok(None)
