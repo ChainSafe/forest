@@ -108,7 +108,7 @@ impl MsgSet {
         }
 
         if let Some(exms) = self.msgs.get(&m.sequence()) {
-            if m.cid()? != exms.cid()? {
+            if m.cid() != exms.cid() {
                 let premium = &exms.message().gas_premium;
                 let min_price = premium.clone()
                     + ((premium * RBF_NUM).div_floor(RBF_DENOM))
@@ -210,7 +210,7 @@ where
     /// checks on the validity of a message.
     pub async fn push(&self, msg: SignedMessage) -> Result<Cid, Error> {
         self.check_message(&msg)?;
-        let cid = msg.cid().map_err(|err| Error::Other(err.to_string()))?;
+        let cid = msg.cid();
         let cur_ts = self.cur_tipset.lock().clone();
         let publish = self.add_tipset(msg.clone(), &cur_ts, true)?;
         let msg_ser = to_vec(&msg)?;
@@ -256,7 +256,7 @@ where
     /// verified and put into cache. If it has not, then manually verify it
     /// then put it into cache for future use.
     fn verify_msg_sig(&self, msg: &SignedMessage) -> Result<(), Error> {
-        let cid = msg.cid()?;
+        let cid = msg.cid();
 
         if let Some(()) = self.sig_val_cache.lock().get(&cid) {
             return Ok(());
@@ -592,9 +592,7 @@ where
     T: Provider,
 {
     if msg.signature().signature_type() == SignatureType::Bls {
-        bls_sig_cache
-            .lock()
-            .put(msg.cid()?, msg.signature().clone());
+        bls_sig_cache.lock().put(msg.cid(), msg.signature().clone());
     }
 
     if msg.message().gas_limit > 100_000_000 {

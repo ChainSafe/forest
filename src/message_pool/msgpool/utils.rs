@@ -50,7 +50,7 @@ pub(in crate::message_pool) fn recover_sig(
     msg: Message,
 ) -> Result<SignedMessage, Error> {
     let val = bls_sig_cache
-        .get(&msg.cid()?)
+        .get(&msg.cid())
         .ok_or_else(|| Error::Other("Could not recover sig".to_owned()))?;
     let smsg = SignedMessage::new_from_parts(msg, val.clone())?;
     Ok(smsg)
