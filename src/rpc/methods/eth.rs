@@ -1348,9 +1348,6 @@ fn eth_tx_from_native_message<DB: Blockstore>(
         gas: Uint64(msg.gas_limit),
         max_fee_per_gas: Some(msg.gas_fee_cap.clone().into()),
         max_priority_fee_per_gas: Some(msg.gas_premium.clone().into()),
-        // TODO(forest): https://github.com/ChainSafe/forest/issues/4477
-        // RPC methods will need to be updated to support different Ethereum transaction types.
-        // gas_price: EthBigInt::default(),
         access_list: vec![],
         ..EthTx::default()
     })
