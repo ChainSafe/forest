@@ -1276,10 +1276,12 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
-            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
-            tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,)).unwrap(),
-            ));
+            match new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id) {
+                Ok(tx) => tests.push(RpcTest::identity(
+                    EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+                )),
+                Err(e) => tracing::warn!(?e, "new_eth_tx_from_signed_message failed"),
+            }
         }
     }
     tests.push(RpcTest::identity(
