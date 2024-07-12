@@ -174,6 +174,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateGetClaims);
         $callback!(crate::rpc::state::StateGetAllocation);
         $callback!(crate::rpc::state::StateGetAllocations);
+        $callback!(crate::rpc::state::StateGetAllocationIdForPendingDeal);
         $callback!(crate::rpc::state::StateSectorExpiration);
         $callback!(crate::rpc::state::StateSectorPartition);
 
@@ -333,6 +334,10 @@ pub struct RPCState<DB> {
 impl<DB: Blockstore> RPCState<DB> {
     pub fn store(&self) -> &DB {
         self.chain_store.blockstore()
+    }
+
+    pub fn store_owned(&self) -> Arc<DB> {
+        self.state_manager.blockstore_owned()
     }
 }
 

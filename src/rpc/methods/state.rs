@@ -17,7 +17,7 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
-    market::BalanceTableExt as _,
+    market::{BalanceTableExt as _, MarketStateExt as _},
     miner::{MinerStateExt as _, PartitionExt as _},
 };
 use crate::shim::message::Message;
@@ -580,7 +580,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let store = ctx.state_manager.blockstore();
+        let store = ctx.store();
         let state = miner::State::load(store, actor.code, actor.state)?;
         let mut res = Vec::new();
         state.for_each_deadline(policy, store, |_idx, deadline| {
@@ -1300,7 +1300,7 @@ impl RpcMethod<2> for StateReadState {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let blk = ctx.state_manager.blockstore().get_required(&actor.state)?;
+        let blk = ctx.store().get_required(&actor.state)?;
         let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
         Ok(ApiActorState {
             balance: actor.balance.clone().into(),
@@ -1331,11 +1331,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let height = ts.epoch();
         let root = ts.parent_state();
         let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
-        let supply = genesis_info.get_state_circulating_supply(
-            height,
-            &ctx.state_manager.blockstore_owned(),
-            root,
-        )?;
+        let supply = genesis_info.get_state_circulating_supply(height, &ctx.store_owned(), root)?;
         Ok(supply)
     }
 }
@@ -1380,7 +1376,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         Ok(genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
-            &ctx.state_manager.blockstore_owned(),
+            &ctx.store_owned(),
             ts.parent_state(),
         )?)
     }
@@ -2121,11 +2117,7 @@ impl RpcMethod<2> for StateGetClaims {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        Ok(Self::get_claims(
-            &ctx.state_manager.blockstore_owned(),
-            &address,
-            &ts,
-        )?)
+        Ok(Self::get_claims(&ctx.store_owned(), &address, &ts)?)
     }
 }
 
@@ -2182,11 +2174,7 @@ impl RpcMethod<2> for StateGetAllocations {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        Ok(Self::get_allocations(
-            &ctx.state_manager.blockstore_owned(),
-            &address,
-            &ts,
-        )?)
+        Ok(Self::get_allocations(&ctx.store_owned(), &address, &ts)?)
     }
 }
 
@@ -2315,6 +2303,41 @@ impl StateGetAllocations {
         let actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
         let state = verifreg::State::load(store, actor.code, actor.state)?;
         state.get_allocations(store, address)
+    }
+}
+
+pub enum StateGetAllocationIdForPendingDeal {}
+
+impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
+    const NAME: &'static str = "Filecoin.StateGetAllocationIdForPendingDeal";
+    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (DealID, ApiTipsetKey);
+    type Ok = AllocationID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (deal_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        let market_actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
+        let market_state = market::State::load(ctx.store(), market_actor.code, market_actor.state)?;
+        Ok(market_state.get_allocation_id_for_pending_deal(ctx.store(), &deal_id)?)
+    }
+}
+
+impl StateGetAllocationIdForPendingDeal {
+    pub fn get_allocations_for_pending_deals(
+        store: &Arc<impl Blockstore>,
+        tipset: &Tipset,
+    ) -> anyhow::Result<HashMap<DealID, AllocationID>> {
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
+        let state = market::State::load(store, actor.code, actor.state)?;
+        state.get_allocations_for_pending_deals(store)
     }
 }
 

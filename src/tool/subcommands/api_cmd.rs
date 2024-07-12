@@ -781,7 +781,21 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
+        RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
     ];
+
+    for &pending_deal_id in
+        StateGetAllocationIdForPendingDeal::get_allocations_for_pending_deals(store, tipset)?
+            .keys()
+            .take(COLLECTION_SAMPLE_SIZE)
+    {
+        tests.extend([RpcTest::identity(
+            StateGetAllocationIdForPendingDeal::request((pending_deal_id, tipset.key().into()))?,
+        )]);
+    }
 
     // Get deals
     let (deals, deals_map) = {
