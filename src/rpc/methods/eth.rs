@@ -479,24 +479,6 @@ struct TxArgs {
     pub s: EthBigInt,
 }
 
-impl From<EthTx> for TxArgs {
-    fn from(tx: EthTx) -> Self {
-        Self {
-            chain_id: tx.chain_id.0,
-            nonce: tx.nonce.0,
-            to: tx.to,
-            value: tx.value,
-            max_fee_per_gas: tx.max_fee_per_gas.unwrap_or_default(),
-            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.unwrap_or_default(),
-            gas_limit: tx.gas.0,
-            input: tx.input.0,
-            v: tx.v,
-            r: tx.r,
-            s: tx.s,
-        }
-    }
-}
-
 fn format_u64(value: u64) -> BytesMut {
     if value != 0 {
         let i = (value.leading_zeros() / 8) as usize;
