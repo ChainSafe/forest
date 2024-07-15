@@ -32,7 +32,6 @@
   - [State migration spike NV17-NV18](./developer_documentation/state_migration_spike.md)
   - [Test plan](./developer_documentation/test_plan.md)
   - [Devnet Notes](./developer_documentation/devnet_notes.md)
-  - [Filecoin Archive](./developer_documentation/filecoin_archive.md)
   - [Archie and Fuzzy](./developer_documentation/archie_and_fuzzy.md)
   - [RPC API Compatibility](./developer_documentation/rpc_api_compatibility.md)
   - [Notes and sketches](./developer_documentation/notes_and_sketches.md)
