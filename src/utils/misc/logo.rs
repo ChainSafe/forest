@@ -3,9 +3,18 @@
 
 use tracing::info;
 
+use crate::shim::version::NetworkVersion;
+
+pub fn reveal_upgrade_logo(network_version: NetworkVersion) {
+    match network_version {
+        NetworkVersion::V23 => reveal_waffle_upgrade(),
+        _ => reveal_three_trees(),
+    }
+}
+
 /// Reveals three trees arranged in an order that resemble the forest logo.
 /// To be used at anyone's convenience.
-pub fn reveal_three_trees() {
+fn reveal_three_trees() {
     info!(
         r###"
                            ███████
@@ -40,7 +49,9 @@ pub fn reveal_three_trees() {
     );
 }
 
-pub fn reveal_waffle_upgrade() {
+/// Reveals a beautiful Belgian waffle. A keen eye may notice that the waffle is built out of
+/// smaller waffles.
+fn reveal_waffle_upgrade() {
     info!(
         r###"
                                                                                 

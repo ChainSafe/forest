@@ -13,7 +13,6 @@ use crate::shim::{
     state_tree::{StateTree, StateTreeVersion},
 };
 use crate::utils::db::CborStoreExt as _;
-use crate::utils::misc::reveal_waffle_upgrade;
 use anyhow::Context;
 use cid::Cid;
 
@@ -91,8 +90,6 @@ where
     let actors_in = StateTree::new_from_root(blockstore.clone(), state)?;
     let actors_out = StateTree::new(blockstore.clone(), StateTreeVersion::V5)?;
     let new_state = migration.migrate_state_tree(blockstore, epoch, actors_in, actors_out)?;
-
-    reveal_waffle_upgrade();
 
     Ok(new_state)
 }
