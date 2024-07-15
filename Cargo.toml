@@ -153,7 +153,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 rlimit = "0.10"
 rlp = "0.5"
 rs-car-ipfs = "0.3"
-rustls = { version = "=0.23.10", default-features = false } # https://github.com/libp2p/rust-libp2p/issues/5487
+rustls = { version = "=0.23.11", default-features = false } # https://github.com/libp2p/rust-libp2p/issues/5487
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 scopeguard = "1"
 semver = "1"
@@ -223,7 +223,7 @@ proc-macro2 = { version = "1", default-features = false, features = ["span-locat
 quickcheck = "1"
 quickcheck_async = "0.1"
 quickcheck_macros = "1"
-ra_ap_syntax = "0.0.224"
+ra_ap_syntax = "0.0.225"
 regex-automata = "0.4"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "visit", "printing", "extra-traits"] }
 tokio-test = "0.4"
