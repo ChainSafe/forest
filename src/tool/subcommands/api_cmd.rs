@@ -649,7 +649,7 @@ fn miner_create_block_test(
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
-            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            let sig = priv_key.sign(message.cid().to_bytes());
             SignedMessage {
                 message,
                 signature: Signature::new_bls(sig.as_bytes().to_vec()),
@@ -1357,12 +1357,12 @@ fn sample_message_cids<'a>(
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
 ) -> impl Iterator<Item = Cid> + 'a {
     bls_messages
-        .filter_map(|m| m.cid().ok())
+        .map(|m| m.cid())
         .unique()
         .take(COLLECTION_SAMPLE_SIZE)
         .chain(
             secp_messages
-                .filter_map(|m| m.cid().ok())
+                .map(|m| m.cid())
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )
