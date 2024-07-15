@@ -1143,6 +1143,7 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
+        RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
     ]
 }
 
