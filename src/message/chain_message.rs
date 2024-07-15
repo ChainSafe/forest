@@ -3,7 +3,7 @@
 
 use crate::shim::message::MethodNum;
 use crate::shim::{address::Address, econ::TokenAmount, message::Message};
-use fvm_ipld_encoding::{Error, RawBytes};
+use fvm_ipld_encoding::RawBytes;
 use serde::{Deserialize, Serialize};
 
 use super::Message as MessageTrait;
@@ -26,7 +26,7 @@ impl ChainMessage {
         }
     }
 
-    pub fn cid(&self) -> Result<cid::Cid, Error> {
+    pub fn cid(&self) -> cid::Cid {
         match self {
             ChainMessage::Unsigned(msg) => msg.cid(),
             ChainMessage::Signed(msg) => msg.cid(),

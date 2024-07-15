@@ -29,6 +29,15 @@
 
 ### Added
 
+- [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
+  `Filecoin.StateMinerAllocated` RPC method.
+
+- [#4512](https://github.com/ChainSafe/forest/pull/4512) Add support for the
+  `Filecoin.StateGetAllocationIdForPendingDeal` RPC method.
+
+- [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
+  `Filecoin.StateGetAllocationForPendingDeal` RPC method.
+
 ### Changed
 
 ### Removed
