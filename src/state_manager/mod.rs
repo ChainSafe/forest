@@ -478,7 +478,7 @@ where
         Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            msg_cid: msg.cid(),
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
             gas_cost: MessageGasCost::default(),
@@ -587,7 +587,7 @@ where
                     if api_invoc_result.is_none() && ctx.cid == mcid =>
                 {
                     api_invoc_result = Some(ApiInvocResult {
-                        msg_cid: ctx.message.cid()?,
+                        msg_cid: ctx.message.cid(),
                         msg: ctx.message.message().clone(),
                         msg_rct: Some(ctx.apply_ret.msg_receipt()),
                         error: ctx.apply_ret.failure_info().unwrap_or_default(),
@@ -760,8 +760,8 @@ where
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
                         "found message with equal nonce and call params but different CID. wanted {}, found: {}, nonce: {}, from: {}",
-                        message.cid().unwrap_or_default(),
-                        m.cid().unwrap_or_default(),
+                        message.cid(),
+                        m.cid(),
                         message.sequence(),
                         message.from(),
                     )))

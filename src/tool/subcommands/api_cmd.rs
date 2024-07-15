@@ -296,27 +296,6 @@ struct TestResult {
     test_dump: Option<TestDump>,
 }
 
-/// This struct is the hash-able representation of [`RpcTest`]
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct RpcTestHashable {
-    request: String,
-    ignore: bool,
-}
-
-impl From<&RpcTest> for RpcTestHashable {
-    fn from(t: &RpcTest) -> Self {
-        Self {
-            request: serde_json::to_string(&(
-                t.request.method_name,
-                &t.request.api_version,
-                &t.request.params,
-            ))
-            .unwrap_or_default(),
-            ignore: t.ignore.is_some(),
-        }
-    }
-}
-
 enum PolicyOnRejected {
     Fail,
     Pass,
@@ -670,7 +649,7 @@ fn miner_create_block_test(
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
-            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            let sig = priv_key.sign(message.cid().to_bytes());
             SignedMessage {
                 message,
                 signature: Signature::new_bls(sig.as_bytes().to_vec()),
@@ -802,7 +781,32 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tipset.key().into(),
         ))?)
         .policy_on_rejected(PolicyOnRejected::Pass),
+        RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateGetAllocationForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
     ];
+
+    for &pending_deal_id in
+        StateGetAllocationIdForPendingDeal::get_allocations_for_pending_deals(store, tipset)?
+            .keys()
+            .take(COLLECTION_SAMPLE_SIZE)
+    {
+        tests.extend([
+            RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+            RpcTest::identity(StateGetAllocationForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+        ]);
+    }
 
     // Get deals
     let (deals, deals_map) = {
@@ -830,6 +834,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
+            RpcTest::identity(StateMinerAllocated::request((
+                block.miner_address,
+                tipset.key().into(),
+            ))?),
             RpcTest::identity(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
@@ -1098,6 +1106,16 @@ fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             WalletSign::request((worker_address, Vec::new())).unwrap(),
         ));
+        let msg: Message = Message {
+            from: worker_address,
+            to: worker_address,
+            value: TokenAmount::from_whole(1),
+            method_num: METHOD_SEND,
+            ..Default::default()
+        };
+        tests.push(RpcTest::identity(
+            WalletSignMessage::request((worker_address, msg)).unwrap(),
+        ));
     }
     tests
 }
@@ -1125,6 +1143,7 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
+        RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
     ]
 }
 
@@ -1253,6 +1272,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
     ]
 }
 
@@ -1268,10 +1288,12 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
-            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
-            tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,)).unwrap(),
-            ));
+            match new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id) {
+                Ok(tx) => tests.push(RpcTest::identity(
+                    EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+                )),
+                Err(e) => tracing::warn!(?e, "new_eth_tx_from_signed_message failed"),
+            }
         }
     }
     tests.push(RpcTest::identity(
@@ -1345,12 +1367,12 @@ fn sample_message_cids<'a>(
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
 ) -> impl Iterator<Item = Cid> + 'a {
     bls_messages
-        .filter_map(|m| m.cid().ok())
+        .map(|m| m.cid())
         .unique()
         .take(COLLECTION_SAMPLE_SIZE)
         .chain(
             secp_messages
-                .filter_map(|m| m.cid().ok())
+                .map(|m| m.cid())
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )
@@ -1606,7 +1628,19 @@ async fn run_tests(
     };
 
     // deduplicate tests by their hash-able representations
-    for test in tests.into_iter().unique_by(|t| RpcTestHashable::from(t)) {
+    for test in tests.into_iter().unique_by(
+        |RpcTest {
+             request:
+                 rpc::Request {
+                     method_name,
+                     params,
+                     api_paths,
+                     ..
+                 },
+             ignore,
+             ..
+         }| (*method_name, params.clone(), *api_paths, ignore.is_some()),
+    ) {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;

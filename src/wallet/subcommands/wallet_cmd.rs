@@ -523,7 +523,7 @@ impl WalletCommands {
                     let sig = crate::key_management::sign(
                         *key.key_info.key_type(),
                         key.key_info.private_key(),
-                        message.cid().unwrap().to_bytes().as_slice(),
+                        message.cid().to_bytes().as_slice(),
                     )?;
 
                     let smsg = SignedMessage::new_from_parts(message, sig)?;
@@ -534,7 +534,7 @@ impl WalletCommands {
                     MpoolPushMessage::call(&backend.remote, (message, None)).await?
                 };
 
-                println!("{}", signed_msg.cid().unwrap());
+                println!("{}", signed_msg.cid());
 
                 Ok(())
             }

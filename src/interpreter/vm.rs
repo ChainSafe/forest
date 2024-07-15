@@ -334,7 +334,7 @@ where
 
         if let Some(mut callback) = callback {
             callback(MessageCallbackCtx {
-                cid: cron_msg.cid()?,
+                cid: cron_msg.cid(),
                 message: &ChainMessage::Unsigned(cron_msg),
                 apply_ret: &ret,
                 at: CalledAt::Cron,
@@ -360,7 +360,7 @@ where
             let mut gas_reward = TokenAmount::zero();
 
             let mut process_msg = |message: &ChainMessage| -> Result<(), anyhow::Error> {
-                let cid = message.cid()?;
+                let cid = message.cid();
                 // Ensure no duplicate processing of a message
                 if processed.contains(&cid) {
                     return Ok(());
@@ -414,7 +414,7 @@ where
 
                 if let Some(callback) = &mut callback {
                     callback(MessageCallbackCtx {
-                        cid: rew_msg.cid()?,
+                        cid: rew_msg.cid(),
                         message: &ChainMessage::Unsigned(rew_msg),
                         apply_ret: &ret,
                         at: CalledAt::Reward,

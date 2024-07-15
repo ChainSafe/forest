@@ -63,13 +63,13 @@ fn signing_test() {
     } in cases
     {
         let priv_key = PrivateKey::from_bytes(&private_key).unwrap();
-        let msg_sign_bz = unsigned.cid().unwrap().to_bytes();
+        let msg_sign_bz = unsigned.cid().to_bytes();
         let bls_sig = priv_key.sign(&msg_sign_bz);
         let sig = Signature::new_bls(bls_sig.as_bytes());
         assert_eq!(sig, signature);
 
         let smsg = SignedMessage::new_from_parts(unsigned, sig).unwrap();
-        let actual_cid = smsg.cid().unwrap();
+        let actual_cid = smsg.cid();
 
         assert_eq!(actual_cid, expected_cid);
     }

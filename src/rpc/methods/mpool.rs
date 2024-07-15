@@ -6,7 +6,7 @@ use crate::lotus_json::NotNullVec;
 use crate::message::SignedMessage;
 use crate::rpc::error::ServerError;
 use crate::rpc::types::{ApiTipsetKey, MessageSendSpec};
-use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
+use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     message::Message,
@@ -20,7 +20,7 @@ pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address,);
@@ -39,7 +39,7 @@ pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -58,7 +58,7 @@ impl RpcMethod<1> for MpoolPending {
 
         let mut have_cids = HashSet::new();
         for item in pending.iter() {
-            have_cids.insert(item.cid()?);
+            have_cids.insert(item.cid());
         }
 
         if mpts.epoch() > ts.epoch() {
@@ -78,7 +78,7 @@ impl RpcMethod<1> for MpoolPending {
                     .messages_for_blocks(ts.block_headers().iter())?;
 
                 for sm in have {
-                    have_cids.insert(sm.cid()?);
+                    have_cids.insert(sm.cid());
                 }
             }
 
@@ -88,11 +88,11 @@ impl RpcMethod<1> for MpoolPending {
                 .messages_for_blocks(ts.block_headers().iter())?;
 
             for m in msgs {
-                if have_cids.contains(&m.cid()?) {
+                if have_cids.contains(&m.cid()) {
                     continue;
                 }
 
-                have_cids.insert(m.cid()?);
+                have_cids.insert(m.cid());
                 pending.push(m);
             }
 
@@ -115,7 +115,7 @@ pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
     const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "ticket_quality"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey, f64);
@@ -138,7 +138,7 @@ pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     /// Lotus limits this method to [`Permission::Write`].
     /// However, since messages can always be pushed over the p2p protocol,
     /// limiting the RPC doesn't improve security.
@@ -161,7 +161,7 @@ pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
     const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Message, Option<MessageSendSpec>);
@@ -206,7 +206,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
-            umsg.cid().unwrap().to_bytes().as_slice(),
+            umsg.cid().to_bytes().as_slice(),
         )?;
 
         let smsg = SignedMessage::new_from_parts(umsg, sig)?;

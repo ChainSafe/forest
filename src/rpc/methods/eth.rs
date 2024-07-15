@@ -13,7 +13,7 @@ use crate::eth::EthChainId as EthChainIdType;
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
-use crate::rpc::{ApiVersion, Ctx, Permission, RpcMethod};
+use crate::rpc::{ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::address::{Address as FilecoinAddress, Protocol};
 use crate::shim::crypto::{Signature, SignatureType};
 use crate::shim::econ::{TokenAmount, BLOCK_GAS_LIMIT};
@@ -577,7 +577,7 @@ pub enum Web3ClientVersion {}
 impl RpcMethod<0> for Web3ClientVersion {
     const NAME: &'static str = "Filecoin.Web3ClientVersion";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -595,7 +595,7 @@ pub enum EthAccounts {}
 impl RpcMethod<0> for EthAccounts {
     const NAME: &'static str = "Filecoin.EthAccounts";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -614,7 +614,7 @@ pub enum EthBlockNumber {}
 impl RpcMethod<0> for EthBlockNumber {
     const NAME: &'static str = "Filecoin.EthBlockNumber";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -648,7 +648,7 @@ pub enum EthChainId {}
 impl RpcMethod<0> for EthChainId {
     const NAME: &'static str = "Filecoin.EthChainId";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -669,7 +669,7 @@ pub enum EthGasPrice {}
 impl RpcMethod<0> for EthGasPrice {
     const NAME: &'static str = "Filecoin.EthGasPrice";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -695,7 +695,7 @@ pub enum EthGetBalance {}
 impl RpcMethod<2> for EthGetBalance {
     const NAME: &'static str = "Filecoin.EthGetBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "block_param"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1136,11 +1136,11 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
         let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
-        (tx, smsg.cid()?.into())
+        (tx, smsg.cid().into())
     } else {
         // BLS Filecoin message
         let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
-        (tx, smsg.message().cid()?.into())
+        (tx, smsg.message().cid().into())
     };
     Ok(Tx { hash, ..tx })
 }
@@ -1217,7 +1217,7 @@ pub enum EthGetBlockByHash {}
 impl RpcMethod<2> for EthGetBlockByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockByHash";
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrHash, bool);
@@ -1237,7 +1237,7 @@ pub enum EthGetBlockByNumber {}
 impl RpcMethod<2> for EthGetBlockByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockByNumber";
     const PARAM_NAMES: [&'static str; 2] = ["block_param", "full_tx_info"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (BlockNumberOrHash, bool);
@@ -1257,7 +1257,7 @@ pub enum EthGetBlockTransactionCountByHash {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByHash {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByHash";
     const PARAM_NAMES: [&'static str; 1] = ["block_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Hash,);
@@ -1282,7 +1282,7 @@ pub enum EthGetBlockTransactionCountByNumber {}
 impl RpcMethod<1> for EthGetBlockTransactionCountByNumber {
     const NAME: &'static str = "Filecoin.EthGetBlockTransactionCountByNumber";
     const PARAM_NAMES: [&'static str; 1] = ["block_number"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Int64,);
@@ -1311,7 +1311,7 @@ pub enum EthGetMessageCidByTransactionHash {}
 impl RpcMethod<1> for EthGetMessageCidByTransactionHash {
     const NAME: &'static str = "Filecoin.EthGetMessageCidByTransactionHash";
     const PARAM_NAMES: [&'static str; 1] = ["tx_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Hash,);
@@ -1357,10 +1357,10 @@ fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Res
     for block in ts.block_headers() {
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for m in bls_messages {
-            message_cids.insert(m.cid()?);
+            message_cids.insert(m.cid());
         }
         for m in secp_messages {
-            message_cids.insert(m.cid()?);
+            message_cids.insert(m.cid());
         }
     }
     Ok(message_cids.len())
@@ -1370,7 +1370,7 @@ pub enum EthSyncing {}
 impl RpcMethod<0> for EthSyncing {
     const NAME: &'static str = "Filecoin.EthSyncing";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -1411,7 +1411,7 @@ impl RpcMethod<3> for EthFeeHistory {
     const N_REQUIRED_PARAMS: usize = 2;
     const PARAM_NAMES: [&'static str; 3] =
         ["block_count", "newest_block_number", "reward_percentiles"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Uint64, BlockNumberOrPredefined, Option<Vec<f64>>);
@@ -1538,7 +1538,7 @@ pub enum EthGetCode {}
 impl RpcMethod<2> for EthGetCode {
     const NAME: &'static str = "Filecoin.EthGetCode";
     const PARAM_NAMES: [&'static str; 2] = ["eth_address", "block_number_or_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1599,7 +1599,7 @@ pub enum EthGetStorageAt {}
 impl RpcMethod<3> for EthGetStorageAt {
     const NAME: &'static str = "Filecoin.EthGetStorageAt";
     const PARAM_NAMES: [&'static str; 3] = ["eth_address", "position", "block_number_or_hash"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, EthBytes, BlockNumberOrHash);
@@ -1672,7 +1672,7 @@ pub enum EthGetTransactionCount {}
 impl RpcMethod<2> for EthGetTransactionCount {
     const NAME: &'static str = "Filecoin.EthGetTransactionCount";
     const PARAM_NAMES: [&'static str; 2] = ["sender", "block_param"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (EthAddress, BlockNumberOrHash);
@@ -1698,6 +1698,65 @@ impl RpcMethod<2> for EthGetTransactionCount {
         } else {
             Ok(Uint64(ctx.mpool.get_sequence(&addr)?))
         }
+    }
+}
+
+pub enum EthProtocolVersion {}
+impl RpcMethod<0> for EthProtocolVersion {
+    const NAME: &'static str = "Filecoin.EthProtocolVersion";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let epoch = ctx.chain_store.heaviest_tipset().epoch();
+        let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
+        Ok(Uint64(version.into()))
+    }
+}
+
+pub enum EthGetTransactionHashByCid {}
+impl RpcMethod<1> for EthGetTransactionHashByCid {
+    const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid,);
+    type Ok = Option<Hash>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (cid,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if let Ok(smsgs) = smsgs_result {
+            if let Some(smsg) = smsgs.first() {
+                let hash = if smsg.is_delegated() {
+                    let chain_id = ctx.state_manager.chain_config().eth_chain_id;
+                    eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
+                } else if smsg.is_secp256k1() {
+                    smsg.cid().into()
+                } else {
+                    smsg.message().cid().into()
+                };
+                return Ok(Some(hash));
+            }
+        }
+
+        let msg_result = crate::chain::get_chain_message(ctx.chain_store.blockstore(), &cid);
+        if let Ok(msg) = msg_result {
+            return Ok(Some(msg.cid().into()));
+        }
+
+        Ok(None)
     }
 }
 

@@ -69,7 +69,7 @@ impl ChainCommands {
                 match fvm_ipld_encoding::from_slice::<ChainMessage>(&bytes)? {
                     ChainMessage::Unsigned(m) => print_pretty_lotus_json(m),
                     ChainMessage::Signed(m) => {
-                        let cid = m.cid()?;
+                        let cid = m.cid();
                         println!(
                             "{}",
                             serde_json::to_string_pretty(&m.into_lotus_json().with_cid(cid))?

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub use types::*;
 
 use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
@@ -17,7 +18,7 @@ use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
-    market::BalanceTableExt as _,
+    market::{BalanceTableExt as _, MarketStateExt as _},
     miner::{MinerStateExt as _, PartitionExt as _},
 };
 use crate::shim::message::Message;
@@ -37,7 +38,7 @@ use crate::utils::db::{
 };
 use crate::{
     beacon::BeaconEntry,
-    rpc::{types::*, ApiVersion, Ctx, Permission, RpcMethod, ServerError},
+    rpc::{types::*, ApiPaths, Ctx, Permission, RpcMethod, ServerError},
 };
 use ahash::{HashMap, HashMapExt, HashSet};
 use anyhow::Context as _;
@@ -75,7 +76,7 @@ pub enum StateCall {}
 impl RpcMethod<2> for StateCall {
     const NAME: &'static str = "Filecoin.StateCall";
     const PARAM_NAMES: [&'static str; 2] = ["message", "tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, ApiTipsetKey);
@@ -100,7 +101,7 @@ pub enum StateReplay {}
 impl RpcMethod<2> for StateReplay {
     const NAME: &'static str = "Filecoin.StateReplay";
     const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "message_cid"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey, Cid);
@@ -125,7 +126,7 @@ pub enum StateNetworkName {}
 impl RpcMethod<0> for StateNetworkName {
     const NAME: &'static str = "Filecoin.StateNetworkName";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -143,7 +144,7 @@ pub enum StateNetworkVersion {}
 impl RpcMethod<1> for StateNetworkVersion {
     const NAME: &'static str = "Filecoin.StateNetworkVersion";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -165,7 +166,7 @@ pub enum StateAccountKey {}
 impl RpcMethod<2> for StateAccountKey {
     const NAME: &'static str = "Filecoin.StateAccountKey";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -190,7 +191,7 @@ pub enum StateLookupID {}
 impl RpcMethod<2> for StateLookupID {
     const NAME: &'static str = "Filecoin.StateLookupID";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -214,7 +215,7 @@ pub enum StateVerifierStatus {}
 impl RpcMethod<2> for StateVerifierStatus {
     const NAME: &'static str = "Filecoin.StateVerifierStatus";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -242,7 +243,7 @@ pub enum StateGetActor {}
 impl RpcMethod<2> for StateGetActor {
     const NAME: &'static str = "Filecoin.StateGetActor";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -265,7 +266,7 @@ pub enum StateMarketBalance {}
 impl RpcMethod<2> for StateMarketBalance {
     const NAME: &'static str = "Filecoin.StateMarketBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -287,7 +288,7 @@ pub enum StateMarketDeals {}
 impl RpcMethod<1> for StateMarketDeals {
     const NAME: &'static str = "Filecoin.StateMarketDeals";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -334,7 +335,7 @@ pub enum StateMinerInfo {}
 impl RpcMethod<2> for StateMinerInfo {
     const NAME: &'static str = "Filecoin.StateMinerInfo";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -354,7 +355,7 @@ pub enum StateMinerActiveSectors {}
 impl RpcMethod<2> for StateMinerActiveSectors {
     const NAME: &'static str = "Filecoin.StateMinerActiveSectors";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -384,13 +385,38 @@ impl RpcMethod<2> for StateMinerActiveSectors {
     }
 }
 
+/// Returns a bitfield containing all sector numbers marked as allocated in miner state
+pub enum StateMinerAllocated {}
+
+impl RpcMethod<2> for StateMinerAllocated {
+    const NAME: &'static str = "Filecoin.StateMinerAllocated";
+    const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Address, ApiTipsetKey);
+    type Ok = BitField;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (address, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let actor = ctx
+            .state_manager
+            .get_required_actor(&address, *ts.parent_state())?;
+        let miner_state = miner::State::load(ctx.store(), actor.code, actor.state)?;
+        Ok(miner_state.load_allocated_sector_numbers(ctx.store())?)
+    }
+}
+
 /// Return all partitions in the specified deadline
 pub enum StateMinerPartitions {}
 
 impl RpcMethod<3> for StateMinerPartitions {
     const NAME: &'static str = "Filecoin.StateMinerPartitions";
     const PARAM_NAMES: [&'static str; 3] = ["address", "deadline_index", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
@@ -427,7 +453,7 @@ pub enum StateMinerSectors {}
 impl RpcMethod<3> for StateMinerSectors {
     const NAME: &'static str = "Filecoin.StateMinerSectors";
     const PARAM_NAMES: [&'static str; 3] = ["address", "sectors", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, Option<BitField>, ApiTipsetKey);
@@ -453,7 +479,7 @@ pub enum StateMinerSectorCount {}
 impl RpcMethod<2> for StateMinerSectorCount {
     const NAME: &'static str = "Filecoin.StateMinerSectorCount";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -491,7 +517,7 @@ pub enum StateMinerSectorAllocated {}
 impl RpcMethod<3> for StateMinerSectorAllocated {
     const NAME: &'static str = "Filecoin.StateMinerSectorAllocated";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, SectorNumber, ApiTipsetKey);
@@ -518,7 +544,7 @@ pub enum StateMinerPower {}
 impl RpcMethod<2> for StateMinerPower {
     const NAME: &'static str = "Filecoin.StateMinerPower";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -540,7 +566,7 @@ pub enum StateMinerDeadlines {}
 impl RpcMethod<2> for StateMinerDeadlines {
     const NAME: &'static str = "Filecoin.StateMinerDeadlines";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -555,7 +581,7 @@ impl RpcMethod<2> for StateMinerDeadlines {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let store = ctx.state_manager.blockstore();
+        let store = ctx.store();
         let state = miner::State::load(store, actor.code, actor.state)?;
         let mut res = Vec::new();
         state.for_each_deadline(policy, store, |_idx, deadline| {
@@ -574,7 +600,7 @@ pub enum StateMinerProvingDeadline {}
 impl RpcMethod<2> for StateMinerProvingDeadline {
     const NAME: &'static str = "Filecoin.StateMinerProvingDeadline";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -600,7 +626,7 @@ pub enum StateMinerFaults {}
 impl RpcMethod<2> for StateMinerFaults {
     const NAME: &'static str = "Filecoin.StateMinerFaults";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -622,7 +648,7 @@ pub enum StateMinerRecoveries {}
 impl RpcMethod<2> for StateMinerRecoveries {
     const NAME: &'static str = "Filecoin.StateMinerRecoveries";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -644,7 +670,7 @@ pub enum StateMinerAvailableBalance {}
 impl RpcMethod<2> for StateMinerAvailableBalance {
     const NAME: &'static str = "Filecoin.StateMinerAvailableBalance";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -700,7 +726,7 @@ pub enum StateMinerInitialPledgeCollateral {}
 impl RpcMethod<3> for StateMinerInitialPledgeCollateral {
     const NAME: &'static str = "Filecoin.StateMinerInitialPledgeCollateral";
     const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
@@ -769,7 +795,7 @@ pub enum StateMinerPreCommitDepositForPower {}
 impl RpcMethod<3> for StateMinerPreCommitDepositForPower {
     const NAME: &'static str = "Filecoin.StateMinerPreCommitDepositForPower";
     const PARAM_NAMES: [&'static str; 3] = ["address", "sector_pre_commit_info", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, SectorPreCommitInfo, ApiTipsetKey);
@@ -831,7 +857,7 @@ pub enum StateGetReceipt {}
 impl RpcMethod<2> for StateGetReceipt {
     const NAME: &'static str = "Filecoin.StateGetReceipt";
     const PARAM_NAMES: [&'static str; 2] = ["cid", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, ApiTipsetKey);
@@ -860,7 +886,7 @@ impl RpcMethod<2> for StateWaitMsgV0 {
     // point v0 implementation back to this one
     const NAME: &'static str = "Filecoin.StateWaitMsgV0";
     const PARAM_NAMES: [&'static str; 2] = ["message_cid", "confidence"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, i64);
@@ -899,7 +925,7 @@ impl RpcMethod<4> for StateWaitMsg {
         "look_back_limit",
         "allow_replaced",
     ];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, i64, ChainEpoch, bool);
@@ -938,7 +964,7 @@ pub enum StateSearchMsg {}
 impl RpcMethod<1> for StateSearchMsg {
     const NAME: &'static str = "Filecoin.StateSearchMsg";
     const PARAM_NAMES: [&'static str; 1] = ["message_cid"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid,);
@@ -971,7 +997,7 @@ pub enum StateSearchMsgLimited {}
 impl RpcMethod<2> for StateSearchMsgLimited {
     const NAME: &'static str = "Filecoin.StateSearchMsgLimited";
     const PARAM_NAMES: [&'static str; 2] = ["message_cid", "look_back_limit"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, i64);
@@ -1018,7 +1044,7 @@ pub enum StateFetchRoot {}
 impl RpcMethod<2> for StateFetchRoot {
     const NAME: &'static str = "Forest.StateFetchRoot";
     const PARAM_NAMES: [&'static str; 2] = ["root_cid", "save_to_file"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Cid, Option<PathBuf>);
@@ -1177,6 +1203,39 @@ impl RpcMethod<2> for StateFetchRoot {
     }
 }
 
+pub enum StateCompute {}
+
+impl RpcMethod<1> for StateCompute {
+    const NAME: &'static str = "Forest.StateCompute";
+    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch,);
+    type Ok = Cid;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (epoch,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store.chain_index.tipset_by_height(
+            epoch,
+            ctx.chain_store.heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let (state_root, _) = ctx
+            .state_manager
+            .compute_tipset_state(
+                tipset,
+                crate::state_manager::NO_CALLBACK,
+                crate::interpreter::VMTrace::NotTraced,
+            )
+            .await?;
+
+        Ok(state_root)
+    }
+}
+
 // Convenience function for locking and popping a value out of a vector. If this function is
 // inlined, the mutex guard isn't dropped early enough.
 fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
@@ -1190,7 +1249,7 @@ impl RpcMethod<4> for StateGetRandomnessFromTickets {
     const NAME: &'static str = "Filecoin.StateGetRandomnessFromTickets";
     const PARAM_NAMES: [&'static str; 4] =
         ["personalization", "rand_epoch", "entropy", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
@@ -1226,7 +1285,7 @@ impl RpcMethod<4> for StateGetRandomnessFromBeacon {
     const NAME: &'static str = "Filecoin.StateGetRandomnessFromBeacon";
     const PARAM_NAMES: [&'static str; 4] =
         ["personalization", "rand_epoch", "entropy", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (i64, ChainEpoch, Vec<u8>, ApiTipsetKey);
@@ -1261,7 +1320,7 @@ pub enum StateReadState {}
 impl RpcMethod<2> for StateReadState {
     const NAME: &'static str = "Filecoin.StateReadState";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -1275,7 +1334,7 @@ impl RpcMethod<2> for StateReadState {
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
-        let blk = ctx.state_manager.blockstore().get_required(&actor.state)?;
+        let blk = ctx.store().get_required(&actor.state)?;
         let state = *fvm_ipld_encoding::from_slice::<NonEmpty<Cid>>(&blk)?.first();
         Ok(ApiActorState {
             balance: actor.balance.clone().into(),
@@ -1292,7 +1351,7 @@ pub enum StateCirculatingSupply {}
 impl RpcMethod<1> for StateCirculatingSupply {
     const NAME: &'static str = "Filecoin.StateCirculatingSupply";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -1306,11 +1365,7 @@ impl RpcMethod<1> for StateCirculatingSupply {
         let height = ts.epoch();
         let root = ts.parent_state();
         let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
-        let supply = genesis_info.get_state_circulating_supply(
-            height,
-            &ctx.state_manager.blockstore_owned(),
-            root,
-        )?;
+        let supply = genesis_info.get_state_circulating_supply(height, &ctx.store_owned(), root)?;
         Ok(supply)
     }
 }
@@ -1320,7 +1375,7 @@ pub enum StateVerifiedClientStatus {}
 impl RpcMethod<2> for StateVerifiedClientStatus {
     const NAME: &'static str = "Filecoin.StateVerifiedClientStatus";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -1341,7 +1396,7 @@ pub enum StateVMCirculatingSupplyInternal {}
 impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
     const NAME: &'static str = "Filecoin.StateVMCirculatingSupplyInternal";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -1355,7 +1410,7 @@ impl RpcMethod<1> for StateVMCirculatingSupplyInternal {
         let genesis_info = GenesisInfo::from_chain_config(ctx.state_manager.chain_config().clone());
         Ok(genesis_info.get_vm_circulating_supply_detailed(
             ts.epoch(),
-            &ctx.state_manager.blockstore_owned(),
+            &ctx.store_owned(),
             ts.parent_state(),
         )?)
     }
@@ -1366,7 +1421,7 @@ pub enum StateListMiners {}
 impl RpcMethod<1> for StateListMiners {
     const NAME: &'static str = "Filecoin.StateListMiners";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -1395,7 +1450,7 @@ pub enum StateListActors {}
 impl RpcMethod<1> for StateListActors {
     const NAME: &'static str = "Filecoin.StateListActors";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -1421,7 +1476,7 @@ pub enum StateMarketStorageDeal {}
 impl RpcMethod<2> for StateMarketStorageDeal {
     const NAME: &'static str = "Filecoin.StateMarketStorageDeal";
     const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (DealID, ApiTipsetKey);
@@ -1452,7 +1507,7 @@ pub enum StateMarketParticipants {}
 impl RpcMethod<1> for StateMarketParticipants {
     const NAME: &'static str = "Filecoin.StateMarketParticipants";
     const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -1487,7 +1542,7 @@ pub enum StateDealProviderCollateralBounds {}
 impl RpcMethod<3> for StateDealProviderCollateralBounds {
     const NAME: &'static str = "Filecoin.StateDealProviderCollateralBounds";
     const PARAM_NAMES: [&'static str; 3] = ["size", "verified", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (u64, bool, ApiTipsetKey);
@@ -1558,7 +1613,7 @@ pub enum StateGetBeaconEntry {}
 impl RpcMethod<1> for StateGetBeaconEntry {
     const NAME: &'static str = "Filecoin.StateGetBeaconEntry";
     const PARAM_NAMES: [&'static str; 1] = ["epoch"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ChainEpoch,);
@@ -1597,7 +1652,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
     // point v0 implementation back to this one
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfoV0";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
@@ -1626,7 +1681,7 @@ pub enum StateSectorPreCommitInfo {}
 impl RpcMethod<3> for StateSectorPreCommitInfo {
     const NAME: &'static str = "Filecoin.StateSectorPreCommitInfo";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V1;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
@@ -1857,7 +1912,7 @@ pub enum StateSectorGetInfo {}
 impl RpcMethod<3> for StateSectorGetInfo {
     const NAME: &'static str = "Filecoin.StateSectorGetInfo";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
@@ -1901,7 +1956,7 @@ pub enum StateSectorExpiration {}
 impl RpcMethod<3> for StateSectorExpiration {
     const NAME: &'static str = "Filecoin.StateSectorExpiration";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
@@ -1963,7 +2018,7 @@ pub enum StateSectorPartition {}
 impl RpcMethod<3> for StateSectorPartition {
     const NAME: &'static str = "Filecoin.StateSectorPartition";
     const PARAM_NAMES: [&'static str; 3] = ["miner_address", "sector_number", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, u64, ApiTipsetKey);
@@ -2000,7 +2055,7 @@ pub enum StateListMessages {}
 impl RpcMethod<3> for StateListMessages {
     const NAME: &'static str = "Filecoin.StateListMessages";
     const PARAM_NAMES: [&'static str; 3] = ["message_filter", "tipset_key", "max_height"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (MessageFilter, ApiTipsetKey, i64);
@@ -2041,7 +2096,7 @@ impl RpcMethod<3> for StateListMessages {
 
             for msg in msgs {
                 if from_to.matches(msg.message()) {
-                    out.push(msg.cid()?);
+                    out.push(msg.cid());
                 }
             }
 
@@ -2065,7 +2120,7 @@ pub enum StateGetClaim {}
 impl RpcMethod<3> for StateGetClaim {
     const NAME: &'static str = "Filecoin.StateGetClaim";
     const PARAM_NAMES: [&'static str; 3] = ["address", "claim_id", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ClaimID, ApiTipsetKey);
@@ -2085,7 +2140,7 @@ pub enum StateGetClaims {}
 impl RpcMethod<2> for StateGetClaims {
     const NAME: &'static str = "Filecoin.StateGetClaims";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -2096,11 +2151,7 @@ impl RpcMethod<2> for StateGetClaims {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        Ok(Self::get_claims(
-            &ctx.state_manager.blockstore_owned(),
-            &address,
-            &ts,
-        )?)
+        Ok(Self::get_claims(&ctx.store_owned(), &address, &ts)?)
     }
 }
 
@@ -2124,7 +2175,7 @@ pub enum StateGetAllocation {}
 impl RpcMethod<3> for StateGetAllocation {
     const NAME: &'static str = "Filecoin.StateGetAllocation";
     const PARAM_NAMES: [&'static str; 3] = ["address", "allocation_id", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, AllocationID, ApiTipsetKey);
@@ -2146,7 +2197,7 @@ pub enum StateGetAllocations {}
 impl RpcMethod<2> for StateGetAllocations {
     const NAME: &'static str = "Filecoin.StateGetAllocations";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
@@ -2157,11 +2208,7 @@ impl RpcMethod<2> for StateGetAllocations {
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        Ok(Self::get_allocations(
-            &ctx.state_manager.blockstore_owned(),
-            &address,
-            &ts,
-        )?)
+        Ok(Self::get_allocations(&ctx.store_owned(), &address, &ts)?)
     }
 }
 
@@ -2293,12 +2340,72 @@ impl StateGetAllocations {
     }
 }
 
+pub enum StateGetAllocationIdForPendingDeal {}
+
+impl RpcMethod<2> for StateGetAllocationIdForPendingDeal {
+    const NAME: &'static str = "Filecoin.StateGetAllocationIdForPendingDeal";
+    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (DealID, ApiTipsetKey);
+    type Ok = AllocationID;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (deal_id, ApiTipsetKey(tsk)): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let state_tree = StateTree::new_from_root(ctx.store_owned(), ts.parent_state())?;
+        let market_actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
+        let market_state = market::State::load(ctx.store(), market_actor.code, market_actor.state)?;
+        Ok(market_state.get_allocation_id_for_pending_deal(ctx.store(), &deal_id)?)
+    }
+}
+
+impl StateGetAllocationIdForPendingDeal {
+    pub fn get_allocations_for_pending_deals(
+        store: &Arc<impl Blockstore>,
+        tipset: &Tipset,
+    ) -> anyhow::Result<HashMap<DealID, AllocationID>> {
+        let state_tree = StateTree::new_from_root(store.clone(), tipset.parent_state())?;
+        let actor = state_tree.get_required_actor(&Address::MARKET_ACTOR)?;
+        let state = market::State::load(store, actor.code, actor.state)?;
+        state.get_allocations_for_pending_deals(store)
+    }
+}
+
+pub enum StateGetAllocationForPendingDeal {}
+
+impl RpcMethod<2> for StateGetAllocationForPendingDeal {
+    const NAME: &'static str = "Filecoin.StateGetAllocationForPendingDeal";
+    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (DealID, ApiTipsetKey);
+    type Ok = Option<Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (deal_id, tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let allocation_id =
+            StateGetAllocationIdForPendingDeal::handle(ctx.clone(), (deal_id, tsk.clone())).await?;
+        if allocation_id == fil_actor_market_state::v14::NO_ALLOCATION_ID {
+            return Ok(None);
+        }
+        let deal = StateMarketStorageDeal::handle(ctx.clone(), (deal_id, tsk.clone())).await?;
+        StateGetAllocation::handle(ctx.clone(), (deal.proposal.client, allocation_id, tsk)).await
+    }
+}
+
 pub enum StateGetNetworkParams {}
 
 impl RpcMethod<0> for StateGetNetworkParams {
     const NAME: &'static str = "Filecoin.StateGetNetworkParams";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
