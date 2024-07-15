@@ -127,7 +127,7 @@ mod test {
 
         let timestamp = unix_timestamp.timestamp() as u64;
         blockstore
-            .write_obj(&key0, &(secp0.cid().unwrap(), timestamp))
+            .write_obj(&key0, &(secp0.cid(), timestamp))
             .unwrap();
 
         assert!(blockstore.exists(&key0).unwrap());
@@ -140,7 +140,7 @@ mod test {
             .write_obj(
                 &key1,
                 &(
-                    secp1.cid().unwrap(),
+                    secp1.cid(),
                     unix_timestamp.timestamp() as u64 + 2 * TTL_DURATION.as_secs(),
                 ),
             )

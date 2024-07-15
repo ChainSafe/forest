@@ -393,7 +393,7 @@ where
                 {
                     if let Ok(hash) = tx.eth_hash() {
                         // newest messages are the ones with lowest index
-                        Some((hash, smsg.cid().unwrap(), *timestamp, i))
+                        Some((hash, smsg.cid(), *timestamp, i))
                     } else {
                         None
                     }

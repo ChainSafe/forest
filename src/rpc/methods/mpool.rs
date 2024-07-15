@@ -58,7 +58,7 @@ impl RpcMethod<1> for MpoolPending {
 
         let mut have_cids = HashSet::new();
         for item in pending.iter() {
-            have_cids.insert(item.cid()?);
+            have_cids.insert(item.cid());
         }
 
         if mpts.epoch() > ts.epoch() {
@@ -78,7 +78,7 @@ impl RpcMethod<1> for MpoolPending {
                     .messages_for_blocks(ts.block_headers().iter())?;
 
                 for sm in have {
-                    have_cids.insert(sm.cid()?);
+                    have_cids.insert(sm.cid());
                 }
             }
 
@@ -88,11 +88,11 @@ impl RpcMethod<1> for MpoolPending {
                 .messages_for_blocks(ts.block_headers().iter())?;
 
             for m in msgs {
-                if have_cids.contains(&m.cid()?) {
+                if have_cids.contains(&m.cid()) {
                     continue;
                 }
 
-                have_cids.insert(m.cid()?);
+                have_cids.insert(m.cid());
                 pending.push(m);
             }
 
@@ -206,7 +206,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let sig = crate::key_management::sign(
             *key.key_info.key_type(),
             key.key_info.private_key(),
-            umsg.cid().unwrap().to_bytes().as_slice(),
+            umsg.cid().to_bytes().as_slice(),
         )?;
 
         let smsg = SignedMessage::new_from_parts(umsg, sig)?;

@@ -2083,7 +2083,7 @@ impl RpcMethod<3> for StateListMessages {
 
             for msg in msgs {
                 if from_to.matches(msg.message()) {
-                    out.push(msg.cid()?);
+                    out.push(msg.cid());
                 }
             }
 

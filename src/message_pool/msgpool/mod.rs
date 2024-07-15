@@ -100,7 +100,7 @@ where
 
     let mut republished_t = HashSet::new();
     for m in msgs.iter() {
-        republished_t.insert(m.cid()?);
+        republished_t.insert(m.cid());
     }
     *republished.write() = republished_t;
 
@@ -250,13 +250,13 @@ where
                     msg.sequence(),
                     rmsgs.borrow_mut(),
                 )?;
-                if !repub && republished.write().insert(msg.cid()?) {
+                if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
             for msg in msgs {
                 remove_from_selected_msgs(&msg.from, pending, msg.sequence, rmsgs.borrow_mut())?;
-                if !repub && republished.write().insert(msg.cid()?) {
+                if !repub && republished.write().insert(msg.cid()) {
                     repub = true;
                 }
             }
@@ -394,7 +394,7 @@ pub mod tests {
             ..Message_v3::default()
         }
         .into();
-        let msg_signing_bytes = umsg.cid().unwrap().to_bytes();
+        let msg_signing_bytes = umsg.cid().to_bytes();
         let sig = wallet.sign(from, msg_signing_bytes.as_slice()).unwrap();
         SignedMessage::new_unchecked(umsg, sig)
     }
@@ -422,7 +422,7 @@ pub mod tests {
         .into();
         let sig = Signature::new_secp256k1(vec![]);
         let signed = SignedMessage::new_unchecked(umsg, sig);
-        let cid = signed.cid().unwrap();
+        let cid = signed.cid();
         pool.sig_val_cache.lock().put(cid, ());
         signed
     }

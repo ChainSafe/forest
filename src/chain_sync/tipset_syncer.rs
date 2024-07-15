@@ -1457,15 +1457,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         for m in block.bls_msgs() {
             let pk = StateManager::get_bls_public_key(&db, &m.from, *base_tipset.parent_state())?;
             pub_keys.push(pk);
-            cids.push(
-                m.cid()
-                    .map_err(|e| {
-                        TipsetRangeSyncerError::Validation(format!(
-                            "Failed to get bls message cid: {e}"
-                        ))
-                    })?
-                    .to_bytes(),
-            );
+            cids.push(m.cid().to_bytes());
         }
 
         if !verify_bls_aggregate(
@@ -1573,7 +1565,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
             .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr)
+            .verify(&msg.message().cid().to_bytes(), &key_addr)
             .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
     }
 
