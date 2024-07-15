@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use crate::rpc::state::StateCompute;
 use crate::rpc::{self, prelude::*};
 use crate::shim::clock::ChainEpoch;
 use crate::shim::econ::TokenAmount;
@@ -30,6 +31,11 @@ pub enum StateCommands {
         #[arg(short, long)]
         save_to_file: Option<PathBuf>,
     },
+    Compute {
+        /// Which epoch to compute the state transition for
+        #[arg(long)]
+        epoch: ChainEpoch,
+    },
 }
 
 impl StateCommands {
@@ -40,6 +46,12 @@ impl StateCommands {
                     .call(
                         StateFetchRoot::request((root, save_to_file))?.with_timeout(Duration::MAX),
                     )
+                    .await?;
+                println!("{ret}");
+            }
+            StateCommands::Compute { epoch } => {
+                let ret = client
+                    .call(StateCompute::request((epoch,))?.with_timeout(Duration::MAX))
                     .await?;
                 println!("{ret}");
             }
