@@ -5,6 +5,7 @@ use std::sync::Arc;
 use ahash::HashMap;
 use axum::extract::{self, Query};
 
+use crate::db::SettingsExt;
 use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
 
 use super::{AppError, ForestState};

@@ -62,6 +62,7 @@ impl IntoResponse for AppError {
 mod test {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
+    use crate::db::SettingsExt;
     use crate::{
         blocks::{CachingBlockHeader, Tipset},
         chain_sync::SyncStage,

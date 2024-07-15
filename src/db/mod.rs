@@ -48,16 +48,6 @@ pub trait SettingsStore {
 
     /// Returns all setting keys.
     fn setting_keys(&self) -> anyhow::Result<Vec<String>>;
-
-    /// Sets the Ethereum mapping status to "up-to-date".
-    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
-        self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
-    }
-
-    /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
-    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
-        self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
-    }
 }
 
 impl<T: SettingsStore> SettingsStore for Arc<T> {
@@ -105,6 +95,26 @@ impl<T: ?Sized + SettingsStore> SettingsStoreExt for T {
         self.read_bin(key)?
             .with_context(|| format!("Key {key} not found"))
             .and_then(|bytes| serde_json::from_slice(&bytes).map_err(Into::into))
+    }
+}
+
+/// Extension trait for the [`SettingsStoreExt`] trait. It is implemented for all types that implement
+/// [`SettingsStoreExt`].
+/// It provides methods to store and retrieve settings from the database.
+pub trait SettingsExt {
+    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()>;
+    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>>;
+}
+
+impl<T: ?Sized + SettingsStoreExt> SettingsExt for T {
+    /// Sets the Ethereum mapping status to "up-to-date".
+    fn set_eth_mapping_up_to_date(&self) -> anyhow::Result<()> {
+        self.write_obj(ETH_MAPPING_UP_TO_DATE_KEY, &true)
+    }
+
+    /// Returns `Ok(Some(true))` if the mapping is "up-to-date".
+    fn eth_mapping_up_to_date(&self) -> anyhow::Result<Option<bool>> {
+        self.read_obj(ETH_MAPPING_UP_TO_DATE_KEY)
     }
 }
 
