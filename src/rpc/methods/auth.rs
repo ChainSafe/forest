@@ -16,7 +16,7 @@ pub enum AuthNew {}
 impl RpcMethod<1> for AuthNew {
     const NAME: &'static str = "Filecoin.AuthNew";
     const PARAM_NAMES: [&'static str; 1] = ["params"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
     type Params = (AuthNewParams,);
     type Ok = Vec<u8>;
@@ -35,7 +35,7 @@ pub enum AuthVerify {}
 impl RpcMethod<1> for AuthVerify {
     const NAME: &'static str = "Filecoin.AuthVerify";
     const PARAM_NAMES: [&'static str; 1] = ["header_raw"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
     type Params = (String,);
     type Ok = Vec<String>;

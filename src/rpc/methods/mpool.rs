@@ -20,7 +20,7 @@ pub enum MpoolGetNonce {}
 impl RpcMethod<1> for MpoolGetNonce {
     const NAME: &'static str = "Filecoin.MpoolGetNonce";
     const PARAM_NAMES: [&'static str; 1] = ["address"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address,);
@@ -39,7 +39,7 @@ pub enum MpoolPending {}
 impl RpcMethod<1> for MpoolPending {
     const NAME: &'static str = "Filecoin.MpoolPending";
     const PARAM_NAMES: [&'static str; 1] = ["tsk"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey,);
@@ -115,7 +115,7 @@ pub enum MpoolSelect {}
 impl RpcMethod<2> for MpoolSelect {
     const NAME: &'static str = "Filecoin.MpoolSelect";
     const PARAM_NAMES: [&'static str; 2] = ["tipset_key", "ticket_quality"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (ApiTipsetKey, f64);
@@ -138,7 +138,7 @@ pub enum MpoolPush {}
 impl RpcMethod<1> for MpoolPush {
     const NAME: &'static str = "Filecoin.MpoolPush";
     const PARAM_NAMES: [&'static str; 1] = ["msg"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     /// Lotus limits this method to [`Permission::Write`].
     /// However, since messages can always be pushed over the p2p protocol,
     /// limiting the RPC doesn't improve security.
@@ -161,7 +161,7 @@ pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
     const NAME: &'static str = "Filecoin.MpoolPushMessage";
     const PARAM_NAMES: [&'static str; 2] = ["usmg", "spec"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Sign;
 
     type Params = (Message, Option<MessageSendSpec>);

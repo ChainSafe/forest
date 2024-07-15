@@ -20,7 +20,7 @@ pub enum NetAddrsListen {}
 impl RpcMethod<0> for NetAddrsListen {
     const NAME: &'static str = "Filecoin.NetAddrsListen";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -46,7 +46,7 @@ pub enum NetPeers {}
 impl RpcMethod<0> for NetPeers {
     const NAME: &'static str = "Filecoin.NetPeers";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -113,7 +113,7 @@ pub enum NetConnect {}
 impl RpcMethod<1> for NetConnect {
     const NAME: &'static str = "Filecoin.NetConnect";
     const PARAM_NAMES: [&'static str; 1] = ["info"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (AddrInfo,);
@@ -146,7 +146,7 @@ pub enum NetDisconnect {}
 impl RpcMethod<1> for NetDisconnect {
     const NAME: &'static str = "Filecoin.NetDisconnect";
     const PARAM_NAMES: [&'static str; 1] = ["id"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Write;
 
     type Params = (String,);
@@ -174,7 +174,7 @@ pub enum NetAgentVersion {}
 impl RpcMethod<1> for NetAgentVersion {
     const NAME: &'static str = "Filecoin.NetAgentVersion";
     const PARAM_NAMES: [&'static str; 1] = ["id"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (String,);
@@ -204,7 +204,7 @@ pub enum NetAutoNatStatus {}
 impl RpcMethod<0> for NetAutoNatStatus {
     const NAME: &'static str = "Filecoin.NetAutoNatStatus";
     const PARAM_NAMES: [&'static str; 0] = [];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = ();
@@ -240,7 +240,7 @@ pub enum NetProtectAdd {}
 impl RpcMethod<1> for NetProtectAdd {
     const NAME: &'static str = "Filecoin.NetProtectAdd";
     const PARAM_NAMES: [&'static str; 1] = ["acl"];
-    const API_PATHS: ApiPaths = ApiPaths::Both;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Admin;
 
     type Params = (String,);
