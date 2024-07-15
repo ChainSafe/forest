@@ -168,6 +168,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateCompute);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
@@ -195,6 +196,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::wallet::WalletNew);
         $callback!(crate::rpc::wallet::WalletSetDefault);
         $callback!(crate::rpc::wallet::WalletSign);
+        $callback!(crate::rpc::wallet::WalletSignMessage);
         $callback!(crate::rpc::wallet::WalletValidateAddress);
         $callback!(crate::rpc::wallet::WalletVerify);
         $callback!(crate::rpc::wallet::WalletDelete);
