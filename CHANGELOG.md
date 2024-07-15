@@ -35,6 +35,9 @@
 - [#4512](https://github.com/ChainSafe/forest/pull/4512) Add support for the
   `Filecoin.StateGetAllocationIdForPendingDeal` RPC method.
 
+- [#4514](https://github.com/ChainSafe/forest/pull/4514) Add support for the
+  `Filecoin.WalletSignMessage` RPC method.
+
 - [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
   `Filecoin.StateGetAllocationForPendingDeal` RPC method.
 
