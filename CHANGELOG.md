@@ -41,6 +41,9 @@
 - [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
   `Filecoin.StateGetAllocationForPendingDeal` RPC method.
 
+- [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
+  `forest-cli healthcheck`.
+
 ### Changed
 
 ### Removed
