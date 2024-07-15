@@ -356,7 +356,7 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                         }
                         Ok(())
                     })
-                    .context("Failed to found id match")?;
+                    .context("Failed to iterate over address map")?;
                     Ok(robust_addr)
                 }
             }
