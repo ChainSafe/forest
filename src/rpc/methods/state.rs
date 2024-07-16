@@ -261,7 +261,7 @@ impl RpcMethod<2> for StateGetActor {
 
 pub enum StateLookupRobustAddress {}
 
-macro_rules! handle_state_version {
+macro_rules! get_robust_address {
     ($store:expr, $id_addr_decoded:expr, $state:expr, $make_map_with_root:path, $robust_addr:expr) => {{
         let map = $make_map_with_root(&$state.address_map, &$store)?;
         map.for_each(|_k, v| {
@@ -299,52 +299,52 @@ impl RpcMethod<2> for StateLookupRobustAddress {
             let mut robust_addr = Address::default();
             match init_state {
                 init::State::V0(_) => unimplemented!(),
-                init::State::V8(s) => handle_state_version!(
+                init::State::V8(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
-                    s,
+                    state,
                     fil_actors_shared::v8::make_map_with_root::<_, ActorID>,
                     robust_addr
                 ),
-                init::State::V9(s) => handle_state_version!(
+                init::State::V9(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
-                    s,
+                    state,
                     fil_actors_shared::v9::make_map_with_root::<_, ActorID>,
                     robust_addr
                 ),
-                init::State::V10(s) => handle_state_version!(
+                init::State::V10(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
-                    s,
+                    state,
                     fil_actors_shared::v10::make_map_with_root::<_, ActorID>,
                     robust_addr
                 ),
-                init::State::V11(s) => handle_state_version!(
+                init::State::V11(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
-                    s,
+                    state,
                     fil_actors_shared::v11::make_map_with_root::<_, ActorID>,
                     robust_addr
                 ),
-                init::State::V12(s) => handle_state_version!(
+                init::State::V12(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
-                    s,
+                    state,
                     fil_actors_shared::v12::make_map_with_root::<_, ActorID>,
                     robust_addr
                 ),
-                init::State::V13(s) => handle_state_version!(
+                init::State::V13(state) => get_robust_address!(
                     store,
                     id_addr_decoded,
-                    s,
+                    state,
                     fil_actors_shared::v13::make_map_with_root::<_, ActorID>,
                     robust_addr
                 ),
-                init::State::V14(s) => {
+                init::State::V14(state) => {
                     let map = fil_actor_init_state::v14::AddressMap::load(
                         &store,
-                        &s.address_map,
+                        &state.address_map,
                         fil_actors_shared::v14::DEFAULT_HAMT_CONFIG,
                         "address_map",
                     )
