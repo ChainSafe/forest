@@ -148,7 +148,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
     }
 
     // Remove marked keys from the database.
-    fn sweep(&mut self) -> anyhow::Result<()> {
+    fn sweep(&mut self) -> anyhow::Result<u32> {
         let marked = mem::take(&mut self.marked);
         self.db.remove_keys(marked)
     }
@@ -219,7 +219,8 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Se
         self.filter(tipset, depth).await?;
 
         info!("GC sweep");
-        self.sweep()?;
+        let deleted = self.sweep()?;
+        info!("GC finished sweep: {} deleted records", deleted);
 
         self.update_last_gc_run(current_epoch)?;
 
