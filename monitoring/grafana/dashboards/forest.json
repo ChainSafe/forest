@@ -111,7 +111,7 @@
         "type": "prometheus",
         "uid": "bdhehxm2shpmod"
       },
-      "description": "Number of Tipset Validated Per min in the last 24 hours",
+      "description": "Number of Tipset Validated Per min",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -256,7 +256,7 @@
         {
           "editorMode": "code",
           "expr": "expected_network_height{} - head_epoch{}",
-          "legendFormat": "__auto",
+          "legendFormat": "Node Network Height Diff",
           "range": true,
           "refId": "A"
         }
@@ -428,7 +428,7 @@
           "exemplar": true,
           "expr": "full_peers{}",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Full Peers",
           "range": true,
           "refId": "A"
         }
@@ -530,7 +530,7 @@
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Process Resident Memory",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -639,10 +639,12 @@
             "type": "prometheus",
             "uid": "bdhehxm2shpmod"
           },
+          "editorMode": "code",
           "exemplar": true,
           "expr": "bad_peers{}",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Bad Peers",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -1188,7 +1190,7 @@
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Process Virtual Memory",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1355,7 +1357,6 @@
   "timezone": "",
   "title": "forest",
   "uid": "eOh40FR7z",
-  "version": 50,
+  "version": 56,
   "weekStart": ""
 }
-
