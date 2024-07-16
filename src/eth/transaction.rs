@@ -527,6 +527,43 @@ pub(crate) mod tests {
         assert_eq!(expected_hash, tx.eth_hash().unwrap());
     }
 
+    #[test]
+    fn test_eth_hash_legacy_homestead() {
+        // https://calibration.filfox.info/en/message/bafy2bzacebazsfc63saveaopjjgsz3yoic3izod4k5wo3pg4fswmpdqny5zlc?t=1
+        let mut tx_args = EthLegacyHomesteadTxArgsBuilder::default()
+            .nonce(0x4_u64)
+            .to(Some(
+                ethereum_types::H160::from_str("0xd0fb381fc644cdd5d694d35e1afb445527b9244b")
+                    .unwrap()
+                    .into(),
+            ))
+            .value(BigInt::from(0))
+            .gas_limit(0x19ca81cc_u64)
+            .gas_price(BigInt::from(0x40696))
+            .input(hex::decode("d5b3d76d00000000000000000000000000000000000000000000000045466fa6fdcb80000000000000000000000000000000000000000000000000000000002e90edd0000000000000000000000000000000000000000000000000000000000000015180").unwrap())
+            .build()
+            .unwrap();
+        // Note that the `v` value in this test case is invalid for homestead
+        // when it's normally assigned in `with_signature`
+        tx_args.v = BigInt::from_str_radix("99681", 16).unwrap();
+        tx_args.r = BigInt::from_str_radix(
+            "580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796",
+            16,
+        )
+        .unwrap();
+        tx_args.s = BigInt::from_str_radix(
+            "55e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",
+            16,
+        )
+        .unwrap();
+        let tx = EthTx::Homestead(Box::new(tx_args));
+        let expected_hash = ethereum_types::H256::from_str(
+            "0x3ebc897150feeff6caa1b2e5992e347e8409e9e35fa30f7f5f8fcda3f7c965c7",
+        )
+        .unwrap();
+        assert_eq!(expected_hash, tx.eth_hash().unwrap());
+    }
+
     #[quickcheck]
     fn u64_roundtrip(i: u64) {
         let bm = format_u64(i);
