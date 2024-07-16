@@ -265,9 +265,9 @@ pub enum StateLookupRobustAddress {}
 macro_rules! get_robust_address {
     ($store:expr, $id_addr_decoded:expr, $state:expr, $make_map_with_root:path, $robust_addr:expr) => {{
         let map = $make_map_with_root(&$state.address_map, &$store)?;
-        map.for_each(|_k, v| {
+        map.for_each(|addr, v| {
             if *v == $id_addr_decoded {
-                $robust_addr = Address::new_id(*v);
+                $robust_addr = Address::from_bytes(addr)?;
                 return Ok(());
             }
             Ok(())
