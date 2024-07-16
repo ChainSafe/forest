@@ -697,10 +697,6 @@ fn state_tests_with_tipset<DB: Blockstore>(
             Address::SYSTEM_ACTOR,
             tipset.key().into(),
         ))?),
-        RpcTest::identity(StateLookupRobustAddress::request((
-            Address::MARKET_ACTOR,
-            tipset.key().into(),
-        ))?),
         RpcTest::identity(StateGetRandomnessFromTickets::request((
             DomainSeparationTag::ElectionProofProduction as i64,
             tipset.epoch(),
@@ -847,6 +843,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 tipset.key().into(),
             ))?),
             RpcTest::identity(StateLookupID::request((
+                block.miner_address,
+                tipset.key().into(),
+            ))?),
+            RpcTest::identity(StateLookupRobustAddress::request((
                 block.miner_address,
                 tipset.key().into(),
             ))?),
