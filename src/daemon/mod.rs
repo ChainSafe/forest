@@ -264,7 +264,10 @@ pub(super) async fn start(
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
     }
 
-    let secs = config.fevm.eth_tx_hash_mapping_lifetime_seconds;
+    let secs = config
+        .fevm
+        .eth_tx_hash_mapping_lifetime_seconds
+        .unwrap_or_default();
     if config.fevm.enable_eth_rpc && !secs.is_zero() {
         let chain_store = chain_store.clone();
         let chain_config = chain_config.clone();
