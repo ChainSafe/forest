@@ -82,6 +82,8 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!(crate::rpc::eth::EthGetTransactionCount);
         $callback!(crate::rpc::eth::EthMaxPriorityFeePerGas);
+        $callback!(crate::rpc::eth::EthProtocolVersion);
+        $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
 
         // gas vertical
         $callback!(crate::rpc::gas::GasEstimateGasLimit);
@@ -168,12 +170,15 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateCompute);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
         $callback!(crate::rpc::state::StateGetClaims);
         $callback!(crate::rpc::state::StateGetAllocation);
         $callback!(crate::rpc::state::StateGetAllocations);
+        $callback!(crate::rpc::state::StateGetAllocationIdForPendingDeal);
+        $callback!(crate::rpc::state::StateGetAllocationForPendingDeal);
         $callback!(crate::rpc::state::StateSectorExpiration);
         $callback!(crate::rpc::state::StateSectorPartition);
 
@@ -193,6 +198,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::wallet::WalletNew);
         $callback!(crate::rpc::wallet::WalletSetDefault);
         $callback!(crate::rpc::wallet::WalletSign);
+        $callback!(crate::rpc::wallet::WalletSignMessage);
         $callback!(crate::rpc::wallet::WalletValidateAddress);
         $callback!(crate::rpc::wallet::WalletVerify);
         $callback!(crate::rpc::wallet::WalletDelete);
@@ -333,6 +339,10 @@ pub struct RPCState<DB> {
 impl<DB: Blockstore> RPCState<DB> {
     pub fn store(&self) -> &DB {
         self.chain_store.blockstore()
+    }
+
+    pub fn store_owned(&self) -> Arc<DB> {
+        self.state_manager.blockstore_owned()
     }
 }
 

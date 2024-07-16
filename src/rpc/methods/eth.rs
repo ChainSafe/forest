@@ -1136,11 +1136,11 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
         let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
-        (tx, smsg.cid()?.into())
+        (tx, smsg.cid().into())
     } else {
         // BLS Filecoin message
         let tx = eth_tx_from_native_message(smsg.message(), state, chain_id)?;
-        (tx, smsg.message().cid()?.into())
+        (tx, smsg.message().cid().into())
     };
     Ok(Tx { hash, ..tx })
 }
@@ -1357,10 +1357,10 @@ fn count_messages_in_tipset(store: &impl Blockstore, ts: &Tipset) -> anyhow::Res
     for block in ts.block_headers() {
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for m in bls_messages {
-            message_cids.insert(m.cid()?);
+            message_cids.insert(m.cid());
         }
         for m in secp_messages {
-            message_cids.insert(m.cid()?);
+            message_cids.insert(m.cid());
         }
     }
     Ok(message_cids.len())
@@ -1719,6 +1719,65 @@ impl RpcMethod<0> for EthMaxPriorityFeePerGas {
             Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
             Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
         }
+    }
+}
+
+pub enum EthProtocolVersion {}
+impl RpcMethod<0> for EthProtocolVersion {
+    const NAME: &'static str = "Filecoin.EthProtocolVersion";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let epoch = ctx.chain_store.heaviest_tipset().epoch();
+        let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
+        Ok(Uint64(version.into()))
+    }
+}
+
+pub enum EthGetTransactionHashByCid {}
+impl RpcMethod<1> for EthGetTransactionHashByCid {
+    const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
+    const PARAM_NAMES: [&'static str; 1] = ["cid"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (Cid,);
+    type Ok = Option<Hash>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (cid,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let smsgs_result: Result<Vec<SignedMessage>, crate::chain::Error> =
+            crate::chain::messages_from_cids(ctx.chain_store.blockstore(), &[cid]);
+        if let Ok(smsgs) = smsgs_result {
+            if let Some(smsg) = smsgs.first() {
+                let hash = if smsg.is_delegated() {
+                    let chain_id = ctx.state_manager.chain_config().eth_chain_id;
+                    eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
+                } else if smsg.is_secp256k1() {
+                    smsg.cid().into()
+                } else {
+                    smsg.message().cid().into()
+                };
+                return Ok(Some(hash));
+            }
+        }
+
+        let msg_result = crate::chain::get_chain_message(ctx.chain_store.blockstore(), &cid);
+        if let Ok(msg) = msg_result {
+            return Ok(Some(msg.cid().into()));
+        }
+
+        Ok(None)
     }
 }
 

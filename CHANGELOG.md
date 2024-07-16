@@ -29,6 +29,22 @@
 
 ### Added
 
+- [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
+  `Filecoin.StateMinerAllocated` RPC method.
+
+- [#4512](https://github.com/ChainSafe/forest/pull/4512) Add support for the
+  `Filecoin.StateGetAllocationIdForPendingDeal` RPC method.
+
+- [#4514](https://github.com/ChainSafe/forest/pull/4514) Add support for the
+  `Filecoin.WalletSignMessage` RPC method.
+
+- [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
+  `Filecoin.StateGetAllocationForPendingDeal` RPC method.
+
+- [#4526](https://github.com/ChainSafe/forest/pull/4526) Added
+  `forest-cli state compute` method, and a corresponding RPC method
+  `Forest.StateCompute`.
+
 ### Changed
 
 ### Removed
@@ -49,9 +65,6 @@ most notably, garbage collection fix.
 
 - [#4352](https://github.com/ChainSafe/forest/pull/4352) Add support for the
   `Filecoin.StateGetClaim` RPC method.
-
-- [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
-  `Filecoin.StateMinerAllocated` RPC method.
 
 - [#4356](https://github.com/ChainSafe/forest/pull/4356) Add support for the
   `Filecoin.NetProtectAdd` RPC method.
