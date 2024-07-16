@@ -279,7 +279,7 @@ macro_rules! get_robust_address {
 impl RpcMethod<2> for StateLookupRobustAddress {
     const NAME: &'static str = "Filecoin.StateLookupRobustAddress";
     const PARAM_NAMES: [&'static str; 2] = ["address", "tipset_key"];
-    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V1;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Address, ApiTipsetKey);
