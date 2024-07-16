@@ -11,8 +11,10 @@ use crate::blocks::Tipset;
 use crate::chain::{index::ResolveNullTipset, ChainStore};
 use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
-use crate::eth::{EthChainId as EthChainIdType, EthTx};
-use crate::eth::{EthEip1559TxArgs, EthLegacyEip155TxArgs, EthLegacyHomesteadTxArgs};
+use crate::eth::{
+    EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
+    EthLegacyHomesteadTxArgs, EthTx,
+};
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};
 use crate::rpc::error::ServerError;
@@ -69,19 +71,6 @@ const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00162
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
-
-#[repr(u64)]
-enum EAMMethod {
-    CreateExternal = 4,
-}
-
-#[repr(u64)]
-pub enum EVMMethod {
-    // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
-    // number.
-    // InvokeContract = frc42_dispatch::method_hash!("InvokeEVM"),
-    InvokeContract = 3844450837,
-}
 
 // TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4436
 //                  use ethereum_types::U256 or use lotus_json::big_int
