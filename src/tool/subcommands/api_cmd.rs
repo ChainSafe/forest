@@ -3,7 +3,7 @@
 
 use crate::blocks::{ElectionProof, Ticket, Tipset};
 use crate::chain::ChainStore;
-use crate::chain_sync::{SyncConfig, SyncStage};
+use crate::chain_sync::SyncStage;
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
@@ -31,6 +31,7 @@ use crate::shim::{
 };
 use crate::state_manager::StateManager;
 use crate::utils::UrlFromMultiAddr;
+use crate::Config;
 use ahash::HashMap;
 use anyhow::Context as _;
 use bls_signatures::Serialize;
@@ -1505,7 +1506,6 @@ async fn start_offline_server(
     if chain_config.is_testnet() {
         CurrentNetwork::set_global(Network::Testnet);
     }
-    let sync_config = Arc::new(SyncConfig::default());
     let genesis_header =
         read_genesis_header(None, chain_config.genesis_bytes(&db).await?.as_deref(), &db).await?;
     let chain_store = Arc::new(ChainStore::new(
@@ -1518,7 +1518,7 @@ async fn start_offline_server(
     let state_manager = Arc::new(StateManager::new(
         chain_store.clone(),
         chain_config,
-        sync_config,
+        &Config::default(),
     )?);
     let head_ts = Arc::new(db.heaviest_tipset()?);
 

@@ -44,6 +44,7 @@ use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
 use fvm_ipld_blockstore::Blockstore;
+use num::Zero;
 use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
@@ -263,7 +264,8 @@ pub(super) async fn start(
         services.spawn(async move { db_garbage_collector.gc_loop(GC_INTERVAL).await });
     }
 
-    if let Some(ttl) = config.client.eth_mapping_ttl {
+    let secs = config.fevm.eth_tx_hash_mapping_lifetime_seconds;
+    if config.fevm.enable_eth_rpc && !secs.is_zero() {
         let chain_store = chain_store.clone();
         let chain_config = chain_config.clone();
         services.spawn(async move {
@@ -272,7 +274,7 @@ pub(super) async fn start(
             let mut collector = EthMappingCollector::new(
                 chain_store.db.clone(),
                 chain_config.eth_chain_id,
-                Duration::from_secs(ttl.into()),
+                Duration::from_secs(secs),
             );
             collector.run().await
         });
@@ -281,11 +283,7 @@ pub(super) async fn start(
     let publisher = chain_store.publisher();
 
     // Initialize StateManager
-    let sm = StateManager::new(
-        Arc::clone(&chain_store),
-        Arc::clone(&chain_config),
-        Arc::new(config.sync.clone()),
-    )?;
+    let sm = StateManager::new(Arc::clone(&chain_store), Arc::clone(&chain_config), &config)?;
 
     let state_manager = Arc::new(sm);
 
@@ -774,6 +772,10 @@ fn init_ethereum_mapping<DB: Blockstore>(
     state_manager: Arc<StateManager<DB>>,
     config: &Config,
 ) -> anyhow::Result<()> {
+    if !config.fevm.enable_eth_rpc {
+        return Ok(());
+    }
+
     match state_manager
         .chain_store()
         .settings()

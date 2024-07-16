@@ -36,6 +36,18 @@ impl Default for DaemonConfig {
     }
 }
 
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
+pub struct FEvmConfig {
+    /// `enable_eth_rpc` enables Ethereum RPC API, and enables storing a mapping of:
+    /// - Ethereum transaction hashes to Filecoin message CIDs
+    /// - Ethereum block hashes to Filecoin tipset keys
+    pub enable_eth_rpc: bool,
+    /// Deletes mappings that have been stored for more than `eth_tx_hash_mapping_lifetime_seconds` seconds.
+    /// Set to 0 to keep all mappings.
+    pub eth_tx_hash_mapping_lifetime_seconds: u64,
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Default, Debug, Clone)]
 #[cfg_attr(test, derive(derive_quickcheck_arbitrary::Arbitrary))]
 #[serde(default)]
@@ -46,6 +58,16 @@ pub struct Config {
     pub network: Libp2pConfig,
     pub sync: SyncConfig,
     pub daemon: DaemonConfig,
+    pub fevm: FEvmConfig,
+}
+
+impl Default for FEvmConfig {
+    fn default() -> Self {
+        Self {
+            enable_eth_rpc: false,
+            eth_tx_hash_mapping_lifetime_seconds: 0,
+        }
+    }
 }
 
 impl Config {
