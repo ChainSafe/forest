@@ -473,10 +473,11 @@ fn create_module<DB>(state: Arc<RPCState<DB>>) -> RpcModule<RPCState<DB>>
 where
     DB: Blockstore + Send + Sync + 'static,
 {
+    let eth_enabled = state.state_manager.fevm_config().enable_eth_rpc;
     let mut module = RpcModule::from_arc(state);
     macro_rules! register {
         ($ty:ty) => {
-            <$ty>::register(&mut module, ParamStructure::ByPosition).unwrap();
+            <$ty>::register(&mut module, ParamStructure::ByPosition, eth_enabled).unwrap();
         };
     }
     for_each_method!(register);

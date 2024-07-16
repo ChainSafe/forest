@@ -25,6 +25,7 @@ use crate::lotus_json::HasLotusJson;
 
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
+use crate::rpc::ServerError;
 use fvm_ipld_blockstore::Blockstore;
 use itertools::{Either, Itertools as _};
 use jsonrpsee::RpcModule;
@@ -182,6 +183,7 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn register(
         module: &mut RpcModule<crate::rpc::RPCState<impl Blockstore + Send + Sync + 'static>>,
         calling_convention: ParamStructure,
+        eth_enabled: bool,
     ) -> Result<&mut jsonrpsee::MethodCallback, jsonrpsee::core::RegisterMethodError>
     where
         <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
@@ -192,22 +194,30 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
             Self::N_REQUIRED_PARAMS,
             Self::NAME
         );
-
-        module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
-            let raw = params
-                .as_str()
-                .map(serde_json::from_str)
-                .transpose()
-                .map_err(|e| Error::invalid_params(e, None))?;
-            let params = Self::Params::parse(
-                raw,
-                Self::PARAM_NAMES,
-                calling_convention,
-                Self::N_REQUIRED_PARAMS,
-            )?;
-            let ok = Self::handle(ctx, params).await?;
-            Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
-        })
+        if Self::NAME.starts_with("Filecoin.Eth") && !eth_enabled {
+            module.register_async_method(Self::NAME, move |_params, _ctx, _extensions| async move {
+                Result::<(), jsonrpsee::types::ErrorObjectOwned>::Err(ServerError::internal_error(
+                    "Ethereum JSON-RPC is disabled, enable with `enable_eth_rpc = true` in the [fevm] section",
+                    None,
+                ).into())
+            })
+        } else {
+            module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
+                let raw = params
+                    .as_str()
+                    .map(serde_json::from_str)
+                    .transpose()
+                    .map_err(|e| Error::invalid_params(e, None))?;
+                let params = Self::Params::parse(
+                    raw,
+                    Self::PARAM_NAMES,
+                    calling_convention,
+                    Self::N_REQUIRED_PARAMS,
+                )?;
+                let ok = Self::handle(ctx, params).await?;
+                Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
+            })
+        }
     }
     /// Returns [`Err`] if any of the parameters fail to serialize.
     fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
