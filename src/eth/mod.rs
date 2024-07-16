@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-/// Ethereum Improvement Proposals 1559 transaction type. This EIP changed Ethereum’s fee market mechanism.
+/// Ethereum Improvement Proposals 1559 transaction type. This EIP changed Ethereum fee market mechanism.
 /// Transaction type can have 3 distinct values:
 /// - 0 for legacy transactions
 /// - 1 for transactions introduced in EIP-2930
