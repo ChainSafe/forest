@@ -13,7 +13,7 @@ use crate::chain_sync::SyncStage;
 use crate::cid_collections::CidHashSet;
 use crate::eth::{
     EAMMethod, EVMMethod, EthChainId as EthChainIdType, EthEip1559TxArgs, EthLegacyEip155TxArgs,
-    EthLegacyHomesteadTxArgs, EthTx,
+    EthLegacyHomesteadTxArgs,
 };
 use crate::lotus_json::{lotus_json_with_self, HasLotusJson};
 use crate::message::{ChainMessage, Message as _, SignedMessage};

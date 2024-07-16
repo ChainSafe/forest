@@ -63,25 +63,26 @@ impl EthEip1559TxArgs {
     }
 
     pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
-        let mut stream = rlp::RlpStream::new_list(12);
-        stream.append(&format_u64(self.chain_id));
-        stream.append(&format_u64(self.nonce));
-        stream.append(&format_bigint(&self.max_priority_fee_per_gas)?);
-        stream.append(&format_bigint(&self.max_fee_per_gas)?);
-        stream.append(&format_u64(self.gas_limit));
-        stream.append(&format_address(&self.to));
-        stream.append(&format_bigint(&self.value)?);
-        stream.append(&self.input);
+        // https://github.com/filecoin-project/lotus/blob/v1.27.1/chain/types/ethtypes/eth_1559_transactions.go#L72
+        let prefix = [EIP_1559_TX_TYPE as u8].as_slice();
         let access_list: &[u8] = &[];
-        stream.append_list(access_list);
-
-        stream.append(&format_bigint(&self.v)?);
-        stream.append(&format_bigint(&self.r)?);
-        stream.append(&format_bigint(&self.s)?);
-
-        let mut rlp = stream.out().to_vec();
-        rlp.insert(0, 2);
-        Ok(rlp)
+        let mut stream = rlp::RlpStream::new_with_buffer(prefix.into());
+        stream
+            .begin_unbounded_list()
+            .append(&format_u64(self.chain_id))
+            .append(&format_u64(self.nonce))
+            .append(&format_bigint(&self.max_priority_fee_per_gas)?)
+            .append(&format_bigint(&self.max_fee_per_gas)?)
+            .append(&format_u64(self.gas_limit))
+            .append(&format_address(&self.to))
+            .append(&format_bigint(&self.value)?)
+            .append(&self.input)
+            .append_list(access_list)
+            .append(&format_bigint(&self.v)?)
+            .append(&format_bigint(&self.r)?)
+            .append(&format_bigint(&self.s)?)
+            .finalize_unbounded_list();
+        Ok(stream.out().to_vec())
     }
 }
 
