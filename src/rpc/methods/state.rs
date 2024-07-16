@@ -350,9 +350,9 @@ impl RpcMethod<2> for StateLookupRobustAddress {
                         "address_map",
                     )
                     .context("Failed to load address map")?;
-                    map.for_each(|_k, v| {
+                    map.for_each(|addr, v| {
                         if *v == id_addr_decoded {
-                            robust_addr = Address::new_id(*v);
+                            robust_addr = addr.into();
                             return Ok(());
                         }
                         Ok(())
