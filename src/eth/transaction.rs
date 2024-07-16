@@ -24,12 +24,12 @@ use super::{
 };
 // As per `ref-fvm`, which hardcodes it as well.
 #[repr(u64)]
-enum EAMMethod {
+pub enum EAMMethod {
     CreateExternal = 4,
 }
 
 #[repr(u64)]
-enum EVMMethod {
+pub enum EVMMethod {
     // As per `ref-fvm`:
     // it is very unfortunate but the hasher creates a circular dependency, so we use the raw
     // number.
@@ -39,7 +39,6 @@ enum EVMMethod {
 
 /// Ethereum transaction which can be of different types.
 /// The currently supported types are defined in [FIP-0091](https://github.com/filecoin-project/FIPs/blob/020bcb412ee20a2879b4a710337959c51b938d3b/FIPS/fip-0091.md).
-#[allow(dead_code)]
 pub enum EthTx {
     Homestead(Box<EthLegacyHomesteadTxArgs>),
     Eip1559(Box<EthEip1559TxArgs>),
@@ -54,7 +53,6 @@ impl EthTx {
         msg: &SignedMessage,
     ) -> anyhow::Result<Self> {
         Self::ensure_signed_message_valid(msg)?;
-        let (params, to) = get_eth_params_and_recipient(msg.message())?;
 
         // now we need to determine the transaction type based on the signature length
         let sig_len = msg.signature().bytes().len();
@@ -67,13 +65,7 @@ impl EthTx {
         let tx: Self = if sig_len == EIP_1559_SIG_LEN {
             let args = EthEip1559TxArgsBuilder::default()
                 .chain_id(eth_chain_id)
-                .nonce(msg.message().sequence())
-                .to(to)
-                .value(msg.value())
-                .max_fee_per_gas(msg.message().gas_fee_cap())
-                .max_priority_fee_per_gas(msg.message().gas_premium())
-                .gas_limit(msg.message().gas_limit())
-                .input(params)
+                .unsigned_message(msg.message())?
                 .build()?
                 .with_signature(msg.signature())?;
             EthTx::Eip1559(Box::new(args))
@@ -85,26 +77,17 @@ impl EthTx {
             match *msg.signature().bytes().first().expect("infallible") {
                 HOMESTEAD_SIG_PREFIX => {
                     let args = EthLegacyHomesteadTxArgsBuilder::default()
-                        .nonce(msg.message().sequence())
-                        .to(to)
-                        .value(msg.value())
-                        .input(params)
-                        .gas_price(msg.message().gas_fee_cap())
-                        .gas_limit(msg.message().gas_limit())
+                        .unsigned_message(msg.message())?
                         .build()?
                         .with_signature(msg.signature())?;
                     EthTx::Homestead(Box::new(args))
                 }
                 EIP_155_SIG_PREFIX => {
                     let args = EthLegacyEip155TxArgsBuilder::default()
-                        .nonce(msg.message().sequence())
-                        .to(to)
-                        .value(msg.value())
-                        .input(params)
-                        .gas_price(msg.message().gas_fee_cap())
-                        .gas_limit(msg.message().gas_limit())
+                        .chain_id(eth_chain_id)
+                        .unsigned_message(msg.message())?
                         .build()?
-                        .with_signature(msg.signature(), eth_chain_id)?;
+                        .with_signature(msg.signature())?;
                     EthTx::Eip155(Box::new(args))
                 }
                 _ => bail!("unsupported signature prefix"),
@@ -158,7 +141,9 @@ pub fn is_valid_eth_tx_for_sending(
 }
 
 /// Extracts the Ethereum transaction parameters and recipient from a Filecoin message.
-fn get_eth_params_and_recipient(msg: &Message) -> anyhow::Result<(Vec<u8>, Option<EthAddress>)> {
+pub fn get_eth_params_and_recipient(
+    msg: &Message,
+) -> anyhow::Result<(Vec<u8>, Option<EthAddress>)> {
     let mut to = None;
     let mut params = vec![];
 

@@ -9,10 +9,9 @@ use derive_builder::Builder;
 use num::BigInt;
 use num_bigint::Sign;
 
-use crate::{rpc::eth::types::EthAddress, shim::crypto::Signature};
+use super::*;
 
-use super::EthChainId;
-pub(super) const EIP_1559_SIG_LEN: usize = 65;
+pub const EIP_1559_SIG_LEN: usize = 65;
 
 #[derive(PartialEq, Debug, Clone, Default, Builder)]
 #[builder(setter(into))]
@@ -32,6 +31,7 @@ pub struct EthEip1559TxArgs {
     #[builder(setter(skip))]
     pub s: BigInt,
 }
+
 impl EthEip1559TxArgs {
     pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
@@ -60,6 +60,20 @@ impl EthEip1559TxArgs {
         );
 
         Ok(self)
+    }
+}
+
+impl EthEip1559TxArgsBuilder {
+    pub fn unsigned_message(&mut self, message: &Message) -> anyhow::Result<&mut Self> {
+        let (params, to) = get_eth_params_and_recipient(message)?;
+        Ok(self
+            .nonce(message.sequence)
+            .value(message.value.clone())
+            .max_fee_per_gas(message.gas_fee_cap.clone())
+            .max_priority_fee_per_gas(message.gas_premium.clone())
+            .gas_limit(message.gas_limit)
+            .to(to)
+            .input(params))
     }
 }
 
