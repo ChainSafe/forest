@@ -81,6 +81,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::eth::EthGetBlockTransactionCountByNumber);
         $callback!(crate::rpc::eth::EthGetMessageCidByTransactionHash);
         $callback!(crate::rpc::eth::EthGetTransactionCount);
+        $callback!(crate::rpc::eth::EthProtocolVersion);
         $callback!(crate::rpc::eth::EthGetTransactionHashByCid);
 
         // gas vertical
@@ -168,6 +169,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateSearchMsg);
         $callback!(crate::rpc::state::StateSearchMsgLimited);
         $callback!(crate::rpc::state::StateFetchRoot);
+        $callback!(crate::rpc::state::StateCompute);
         $callback!(crate::rpc::state::StateMinerPreCommitDepositForPower);
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
