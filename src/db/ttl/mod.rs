@@ -41,8 +41,8 @@ impl<DB: Blockstore + EthMappingsStore + Sync + Send + 'static> EthMappingCollec
                 let message = crate::chain::get_chain_message(self.db.as_ref(), cid);
                 if let Ok(ChainMessage::Signed(smsg)) = message {
                     let result = eth_tx_from_signed_eth_message(&smsg, self.eth_chain_id);
-                    if let Ok(tx) = result {
-                        tx.eth_hash().ok()
+                    if let Ok((_, tx)) = result {
+                        tx.eth_hash().ok().map(eth::Hash)
                     } else {
                         None
                     }
@@ -122,8 +122,8 @@ mod test {
         let unix_timestamp: DateTime<Utc> = Utc.timestamp_opt(0, 0).unwrap();
 
         // Add key0 with unix epoch
-        let tx0 = eth_tx_from_signed_eth_message(&secp0, ETH_CHAIN_ID).unwrap();
-        let key0 = tx0.eth_hash().unwrap();
+        let (_, tx0) = eth_tx_from_signed_eth_message(&secp0, ETH_CHAIN_ID).unwrap();
+        let key0 = tx0.eth_hash().unwrap().into();
 
         let timestamp = unix_timestamp.timestamp() as u64;
         blockstore
@@ -133,8 +133,8 @@ mod test {
         assert!(blockstore.exists(&key0).unwrap());
 
         // Add key1 with unix epoch + 2 * ttl
-        let tx1 = eth_tx_from_signed_eth_message(&secp1, ETH_CHAIN_ID).unwrap();
-        let key1 = tx1.eth_hash().unwrap();
+        let (_, tx1) = eth_tx_from_signed_eth_message(&secp1, ETH_CHAIN_ID).unwrap();
+        let key1 = tx1.eth_hash().unwrap().into();
 
         blockstore
             .write_obj(

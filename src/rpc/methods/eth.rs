@@ -28,16 +28,13 @@ use crate::shim::fvm_shared_latest::MethodNum;
 use crate::shim::message::Message;
 use crate::shim::{clock::ChainEpoch, state_tree::StateTree};
 use crate::utils::db::BlockstoreExt as _;
-use anyhow::{bail, Context as _, Result};
-use bytes::{Buf, BytesMut};
+use anyhow::{bail, Result};
+use bytes::Buf;
 use cid::Cid;
 use fvm_ipld_blockstore::Blockstore;
 use fvm_ipld_encoding::{RawBytes, CBOR, DAG_CBOR, IPLD_RAW};
 use itertools::Itertools;
-use keccak_hash::keccak;
-use num_bigint;
-use num_traits::{Signed as _, Zero as _};
-use rlp::RlpStream;
+use num::{BigInt, Zero as _};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -88,7 +85,7 @@ const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
 pub struct EthBigInt(
     #[serde(with = "crate::lotus_json::hexify")]
     #[schemars(with = "String")]
-    pub num_bigint::BigInt,
+    pub BigInt,
 );
 lotus_json_with_self!(EthBigInt);
 
@@ -173,6 +170,8 @@ lotus_json_with_self!(Int64);
     Clone,
     JsonSchema,
     displaydoc::Display,
+    derive_more::From,
+    derive_more::Into,
 )]
 #[displaydoc("{0:#x}")]
 pub struct Hash(#[schemars(with = "String")] pub ethereum_types::H256);
@@ -371,40 +370,6 @@ pub struct ApiEthTx {
 }
 lotus_json_with_self!(ApiEthTx);
 
-fn format_u64(value: u64) -> BytesMut {
-    if value != 0 {
-        let i = (value.leading_zeros() / 8) as usize;
-        let bytes = value.to_be_bytes();
-        // `leading_zeros` for a positive `u64` returns a number in the range [1-63]
-        // `i` is in the range [1-7], and `bytes` is an array of size 8
-        // therefore, getting the slice from `i` to end should never fail
-        bytes.get(i..).expect("failed to get slice").into()
-    } else {
-        // If all bytes are zero, return an empty slice
-        BytesMut::new()
-    }
-}
-
-fn format_bigint(value: &EthBigInt) -> Result<BytesMut> {
-    Ok(if value.0.is_positive() {
-        BytesMut::from_iter(value.0.to_bytes_be().1.iter())
-    } else {
-        if value.0.is_negative() {
-            bail!("can't format a negative number");
-        }
-        // If all bytes are zero, return an empty slice
-        BytesMut::new()
-    })
-}
-
-fn format_address(value: &Option<EthAddress>) -> BytesMut {
-    if let Some(addr) = value {
-        addr.0.as_bytes().into()
-    } else {
-        BytesMut::new()
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct EthSyncingResult {
     pub done_sync: bool,
@@ -595,7 +560,7 @@ impl RpcMethod<0> for EthGasPrice {
             let gas_price = base_fee.add(premium);
             Ok(EthBigInt(gas_price.atto().clone()))
         } else {
-            Ok(EthBigInt(num_bigint::BigInt::zero()))
+            Ok(EthBigInt(BigInt::zero()))
         }
     }
 }
@@ -725,7 +690,7 @@ fn is_eth_address(addr: &VmAddress) -> bool {
 pub fn eth_tx_from_signed_eth_message(
     smsg: &SignedMessage,
     chain_id: EthChainIdType,
-) -> Result<ApiEthTx> {
+) -> Result<(EthAddress, EthTx)> {
     // The from address is always an f410f address, never an ID or other address.
     let from = smsg.message().from;
     if !is_eth_address(&from) {
@@ -735,7 +700,7 @@ pub fn eth_tx_from_signed_eth_message(
     // Ethereum Address sender...
     let from = EthAddress::from_filecoin_address(&from)?;
     let tx = EthTx::from_signed_message(chain_id, smsg)?;
-    Ok(ApiEthTx { from, ..tx.into() })
+    Ok((from, tx))
 }
 
 fn lookup_eth_address<DB: Blockstore>(
@@ -935,8 +900,9 @@ pub fn new_eth_tx_from_signed_message<DB: Blockstore>(
 ) -> Result<ApiEthTx> {
     let (tx, hash) = if smsg.is_delegated() {
         // This is an eth tx
-        let tx = eth_tx_from_signed_eth_message(smsg, chain_id)?;
-        let hash = tx.eth_hash()?;
+        let (from, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+        let hash = tx.eth_hash()?.into();
+        let tx = ApiEthTx { from, ..tx.into() };
         (tx, hash)
     } else if smsg.is_secp256k1() {
         // Secp Filecoin Message
@@ -1546,7 +1512,8 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
             if let Some(smsg) = smsgs.first() {
                 let hash = if smsg.is_delegated() {
                     let chain_id = ctx.state_manager.chain_config().eth_chain_id;
-                    eth_tx_from_signed_eth_message(smsg, chain_id)?.eth_hash()?
+                    let (_, tx) = eth_tx_from_signed_eth_message(smsg, chain_id)?;
+                    tx.eth_hash()?.into()
                 } else if smsg.is_secp256k1() {
                     smsg.cid().into()
                 } else {
@@ -1568,11 +1535,8 @@ impl RpcMethod<1> for EthGetTransactionHashByCid {
 #[cfg(test)]
 mod test {
     use super::*;
-    use num::Num as _;
-    use num_traits::{FromBytes, Signed};
     use quickcheck::Arbitrary;
     use quickcheck_macros::quickcheck;
-    use std::num::ParseIntError;
 
     impl Arbitrary for Hash {
         fn arbitrary(g: &mut quickcheck::Gen) -> Self {
@@ -1590,19 +1554,12 @@ mod test {
         assert_eq!(r.0, decoded.0);
     }
 
-    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-            .collect()
-    }
-
     #[test]
     fn test_abi_encoding() {
         const EXPECTED: &str = "000000000000000000000000000000000000000000000000000000000000001600000000000000000000000000000000000000000000000000000000000000510000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000001b1111111111111111111020200301000000044444444444444444010000000000";
         const DATA: &str = "111111111111111111102020030100000004444444444444444401";
-        let expected_bytes = decode_hex(EXPECTED).unwrap();
-        let data_bytes = decode_hex(DATA).unwrap();
+        let expected_bytes = hex::decode(EXPECTED).unwrap();
+        let data_bytes = hex::decode(DATA).unwrap();
 
         assert_eq!(expected_bytes, encode_as_abi_helper(22, 81, &data_bytes));
     }
@@ -1611,7 +1568,7 @@ mod test {
     fn test_abi_encoding_empty_bytes() {
         // Generated using https://abi.hashex.org/
         const EXPECTED: &str = "0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000005100000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000";
-        let expected_bytes = decode_hex(EXPECTED).unwrap();
+        let expected_bytes = hex::decode(EXPECTED).unwrap();
         let data_bytes = vec![];
 
         assert_eq!(expected_bytes, encode_as_abi_helper(22, 81, &data_bytes));
@@ -1623,133 +1580,10 @@ mod test {
         // Uint64, Uint64, Bytes[]
         // 22, 81, [253]
         const EXPECTED: &str = "0000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000005100000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000001fd00000000000000000000000000000000000000000000000000000000000000";
-        let expected_bytes = decode_hex(EXPECTED).unwrap();
+        let expected_bytes = hex::decode(EXPECTED).unwrap();
         let data_bytes = vec![253];
 
         assert_eq!(expected_bytes, encode_as_abi_helper(22, 81, &data_bytes));
-    }
-
-    #[test]
-    fn test_rlp_encoding_eip_1559() {
-        let tx = ApiEthTx {
-            r#type: EIP_1559_TX_TYPE.into(),
-            chain_id: 314159.into(),
-            nonce: 486.into(),
-            to: Some(EthAddress(
-                ethereum_types::H160::from_str("0xeb4a9cdb9f42d3a503d580a39b6e3736eb21fffd")
-                    .unwrap(),
-            )),
-            value: EthBigInt(num_bigint::BigInt::from(0)),
-            max_fee_per_gas: Some(EthBigInt(num_bigint::BigInt::from(1500000120))),
-            max_priority_fee_per_gas: Some(EthBigInt(num_bigint::BigInt::from(1500000000))),
-            gas: 37442471.into(),
-            input: decode_hex("383487be000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000660d4d120000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003b6261666b726569656f6f75326d36356276376561786e7767656d7562723675787269696867366474646e6c7a663469616f37686c6e6a6d647372750000000000").unwrap().into(),
-            v: EthBigInt(num_bigint::BigInt::from_str("1").unwrap()),
-            r: EthBigInt(
-                num_bigint::BigInt::from_str(
-                    "84103132941276310528712440865285269631208564772362393569572880532520338257200",
-                )
-                .unwrap(),
-            ),
-            s: EthBigInt(
-                num_bigint::BigInt::from_str(
-                    "7820796778417228639067439047870612492553874254089570360061550763595363987236",
-                )
-                .unwrap(),
-            ),
-            ..Default::default()
-        };
-
-        let expected_hash = Hash(
-            ethereum_types::H256::from_str(
-                "0x9f2e70d5737c6b798eccea14895893fb48091ab3c59d0fe95508dc7efdae2e5f",
-            )
-            .unwrap(),
-        );
-        assert_eq!(expected_hash, tx.eth_hash().unwrap());
-    }
-
-    #[test]
-    fn test_rlp_encoding_legacy() {
-        // https://calibration.filfox.info/en/message/bafy2bzacebazsfc63saveaopjjgsz3yoic3izod4k5wo3pg4fswmpdqny5zlc?t=1
-        let tx = ApiEthTx {
-            r#type: EIP_LEGACY_TX_TYPE.into(),
-            chain_id: 314159.into(),
-            nonce: 0x4.into(),
-            to: Some(EthAddress(
-                ethereum_types::H160::from_str("0xd0fb381fc644cdd5d694d35e1afb445527b9244b")
-                    .unwrap(),
-            )),
-            value: EthBigInt(num_bigint::BigInt::from(0)),
-            gas: 0x19ca81cc.into(),
-            gas_price:Some(EthBigInt(0x40696.into())),
-            input: decode_hex("d5b3d76d00000000000000000000000000000000000000000000000045466fa6fdcb80000000000000000000000000000000000000000000000000000000002e90edd0000000000000000000000000000000000000000000000000000000000000015180").unwrap().into(),
-            v: EthBigInt(num_bigint::BigInt::from_str_radix("99681",16).unwrap()),
-            r: EthBigInt(
-                num_bigint::BigInt::from_str_radix(
-                    "580b1d36c5a8c8c1c550fb45b0a6ff21aaa517be036385541621961b5d873796",16
-                )
-                .unwrap(),
-            ),
-            s: EthBigInt(
-                num_bigint::BigInt::from_str_radix(
-                    "55e8447d58d64ebc3038d9882886bbc3b0228c7ac77c71f4e811b97ed3f14b5a",16
-                )
-                .unwrap(),
-            ),
-            ..Default::default()
-        };
-
-        let expected_hash = Hash(
-            ethereum_types::H256::from_str(
-                "0x3ebc897150feeff6caa1b2e5992e347e8409e9e35fa30f7f5f8fcda3f7c965c7",
-            )
-            .unwrap(),
-        );
-        assert_eq!(expected_hash, tx.eth_hash().unwrap());
-    }
-
-    #[quickcheck]
-    fn u64_roundtrip(i: u64) {
-        let bm = format_u64(i);
-        if i == 0 {
-            assert!(bm.is_empty());
-        } else {
-            // check that buffer doesn't start with zero
-            let freezed = bm.freeze();
-            assert!(!freezed.starts_with(&[0]));
-
-            // roundtrip
-            let mut padded = [0u8; 8];
-            let bytes: &[u8] = &freezed.slice(..);
-            padded[8 - bytes.len()..].copy_from_slice(bytes);
-            assert_eq!(i, u64::from_be_bytes(padded));
-        }
-    }
-
-    #[quickcheck]
-    fn bigint_roundtrip(bi: num_bigint::BigInt) {
-        let eth_bi = EthBigInt(bi.clone());
-
-        match format_bigint(&eth_bi) {
-            Ok(bm) => {
-                if eth_bi.0.is_zero() {
-                    assert!(bm.is_empty());
-                } else {
-                    // check that buffer doesn't start with zero
-                    let freezed = bm.freeze();
-                    assert!(!freezed.starts_with(&[0]));
-
-                    // roundtrip
-                    let unsigned = num_bigint::BigUint::from_be_bytes(&freezed.slice(..));
-                    assert_eq!(bi, unsigned.into());
-                }
-            }
-            Err(_) => {
-                // fails in case of negative number
-                assert!(eth_bi.0.is_negative());
-            }
-        }
     }
 
     #[test]

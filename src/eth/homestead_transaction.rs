@@ -29,7 +29,7 @@ pub struct EthLegacyHomesteadTxArgs {
 }
 
 impl EthLegacyHomesteadTxArgs {
-    pub(crate) fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
+    pub fn with_signature(mut self, signature: &Signature) -> anyhow::Result<Self> {
         ensure!(
             signature.signature_type() == SignatureType::Delegated,
             "Signature is not delegated type"
@@ -67,6 +67,21 @@ impl EthLegacyHomesteadTxArgs {
         self.v = v;
 
         Ok(self)
+    }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = rlp::RlpStream::new_list(9);
+        stream.append(&format_u64(self.nonce));
+        stream.append(&format_bigint(&self.gas_price)?);
+        stream.append(&format_u64(self.gas_limit));
+        stream.append(&format_address(&self.to));
+        stream.append(&format_bigint(&self.value)?);
+        stream.append(&self.input);
+        stream.append(&format_bigint(&self.v)?);
+        stream.append(&format_bigint(&self.r)?);
+        stream.append(&format_bigint(&self.s)?);
+
+        Ok(stream.out().to_vec())
     }
 }
 

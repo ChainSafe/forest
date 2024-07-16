@@ -61,6 +61,28 @@ impl EthEip1559TxArgs {
 
         Ok(self)
     }
+
+    pub fn rlp_signed_message(&self) -> anyhow::Result<Vec<u8>> {
+        let mut stream = rlp::RlpStream::new_list(12);
+        stream.append(&format_u64(self.chain_id));
+        stream.append(&format_u64(self.nonce));
+        stream.append(&format_bigint(&self.max_priority_fee_per_gas)?);
+        stream.append(&format_bigint(&self.max_fee_per_gas)?);
+        stream.append(&format_u64(self.gas_limit));
+        stream.append(&format_address(&self.to));
+        stream.append(&format_bigint(&self.value)?);
+        stream.append(&self.input);
+        let access_list: &[u8] = &[];
+        stream.append_list(access_list);
+
+        stream.append(&format_bigint(&self.v)?);
+        stream.append(&format_bigint(&self.r)?);
+        stream.append(&format_bigint(&self.s)?);
+
+        let mut rlp = stream.out().to_vec();
+        rlp.insert(0, 2);
+        Ok(rlp)
+    }
 }
 
 impl EthEip1559TxArgsBuilder {

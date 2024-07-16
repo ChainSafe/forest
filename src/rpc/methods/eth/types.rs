@@ -53,7 +53,17 @@ impl GetStorageAtParams {
     }
 }
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthAddress(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_bytes")]
