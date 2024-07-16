@@ -1,9 +1,18 @@
 // Copyright 2019-2024 ChainSafe Systems
 // SPDX-License-Identifier: Apache-2.0, MIT
 
+use super::*;
 use crate::eth::EthTx;
 
-use super::*;
+/// Ethereum Improvement Proposals 1559 transaction type. This EIP changed Ethereum’s fee market mechanism.
+/// Transaction type can have 3 distinct values:
+/// - 0 for legacy transactions
+/// - 1 for transactions introduced in EIP-2930
+/// - 2 for transactions introduced in EIP-1559
+pub const EIP_LEGACY_TX_TYPE: u64 = 0;
+pub const EIP_1559_TX_TYPE: u64 = 2;
+
+pub const ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID: u64 = 0;
 
 impl ApiEthTx {
     pub fn eth_hash(&self) -> Result<Hash> {

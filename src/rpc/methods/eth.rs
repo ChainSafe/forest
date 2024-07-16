@@ -4,6 +4,7 @@
 mod eth_tx;
 pub mod types;
 
+use self::eth_tx::*;
 use self::types::*;
 use super::gas;
 use crate::blocks::Tipset;
@@ -65,16 +66,6 @@ const EMPTY_UNCLES: &str = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0
 
 /// Keccak-256 of the RLP of null.
 const EMPTY_ROOT: &str = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421";
-
-/// Ethereum Improvement Proposals 1559 transaction type. This EIP changed Ethereum’s fee market mechanism.
-/// Transaction type can have 3 distinct values:
-/// - 0 for legacy transactions
-/// - 1 for transactions introduced in EIP-2930
-/// - 2 for transactions introduced in EIP-1559
-const EIP_LEGACY_TX_TYPE: u64 = 0;
-const EIP_1559_TX_TYPE: u64 = 2;
-
-const ETH_LEGACY_HOMESTEAD_TX_CHAIN_ID: u64 = 0;
 
 /// The address used in messages to actors that have since been deleted.
 const REVERTED_ETH_ADDRESS: &str = "0xff0000000000000000000000ffffffffffffffff";
@@ -390,21 +381,6 @@ pub struct ApiEthTx {
     pub s: EthBigInt,
 }
 lotus_json_with_self!(ApiEthTx);
-
-#[derive(PartialEq, Debug, Clone, Default)]
-struct TxArgs {
-    pub chain_id: u64,
-    pub nonce: u64,
-    pub to: Option<EthAddress>,
-    pub value: EthBigInt,
-    pub max_fee_per_gas: EthBigInt,
-    pub max_priority_fee_per_gas: EthBigInt,
-    pub gas_limit: u64,
-    pub input: Vec<u8>,
-    pub v: EthBigInt,
-    pub r: EthBigInt,
-    pub s: EthBigInt,
-}
 
 fn format_u64(value: u64) -> BytesMut {
     if value != 0 {
