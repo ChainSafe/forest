@@ -367,6 +367,7 @@ pub(super) async fn start(
         let forest_state = crate::health::ForestState {
             config: config.clone(),
             chain_config: chain_config.clone(),
+            fevm_config: state_manager.fevm_config().clone(),
             genesis_timestamp: genesis_header.timestamp,
             sync_state: sync_state.clone(),
             peer_manager,

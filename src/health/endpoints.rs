@@ -55,7 +55,9 @@ pub(crate) async fn readyz(
     ready &= check_sync_state_complete(&state, &mut acc);
     ready &= check_epoch_up_to_date(&state, &mut acc);
     ready &= check_rpc_server_running(&state, &mut acc).await;
-    ready &= check_eth_mapping_up_to_date(&state, &mut acc);
+    if state.fevm_config.enable_eth_rpc {
+        ready &= check_eth_mapping_up_to_date(&state, &mut acc);
+    }
 
     if ready {
         Ok(acc.result_ok())
