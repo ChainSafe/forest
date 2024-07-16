@@ -1517,6 +1517,26 @@ impl RpcMethod<2> for EthGetTransactionCount {
     }
 }
 
+pub enum EthProtocolVersion {}
+impl RpcMethod<0> for EthProtocolVersion {
+    const NAME: &'static str = "Filecoin.EthProtocolVersion";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = Uint64;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let epoch = ctx.chain_store.heaviest_tipset().epoch();
+        let version = u32::from(ctx.state_manager.get_network_version(epoch).0);
+        Ok(Uint64(version.into()))
+    }
+}
+
 pub enum EthGetTransactionHashByCid {}
 impl RpcMethod<1> for EthGetTransactionHashByCid {
     const NAME: &'static str = "Filecoin.EthGetTransactionHashByCid";
