@@ -1701,6 +1701,27 @@ impl RpcMethod<2> for EthGetTransactionCount {
     }
 }
 
+pub enum EthMaxPriorityFeePerGas {}
+impl RpcMethod<0> for EthMaxPriorityFeePerGas {
+    const NAME: &'static str = "Filecoin.EthMaxPriorityFeePerGas";
+    const PARAM_NAMES: [&'static str; 0] = [];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = ();
+    type Ok = EthBigInt;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        match crate::rpc::gas::estimate_gas_premium(&ctx, 0).await {
+            Ok(gas_premium) => Ok(EthBigInt(gas_premium.atto().clone())),
+            Err(_) => Ok(EthBigInt(num_bigint::BigInt::zero())),
+        }
+    }
+}
+
 pub enum EthProtocolVersion {}
 impl RpcMethod<0> for EthProtocolVersion {
     const NAME: &'static str = "Filecoin.EthProtocolVersion";
