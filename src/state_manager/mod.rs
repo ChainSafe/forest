@@ -28,6 +28,7 @@ use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
 use crate::shim::actors::miner::MinerStateExt as _;
+use crate::shim::actors::verifreg::VerifiedRegistryStateExt;
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -763,8 +764,8 @@ where
                     && s.equal_call(message)
             })
             .map(|(index, m)| {
-                // A replacing message is a message with a different CID, 
-                // any of Gas values, and different signature, but with all 
+                // A replacing message is a message with a different CID,
+                // any of Gas values, and different signature, but with all
                 // other parameters matching (source/destination, nonce, params, etc.)
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
@@ -1351,6 +1352,11 @@ where
         state.get_claim(self.blockstore(), id_address.into(), claim_id)
     }
 
+    pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_claims(self.blockstore())
+    }
+
     pub fn get_allocation(
         &self,
         addr: &Address,
@@ -1360,6 +1366,14 @@ where
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
         state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
+    }
+
+    pub fn get_all_allocations(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_allocations(self.blockstore())
     }
 
     pub fn verified_client_status(

@@ -2120,6 +2120,26 @@ impl StateGetClaims {
     }
 }
 
+pub enum StateGetAllClaims {}
+
+impl RpcMethod<1> for StateGetAllClaims {
+    const NAME: &'static str = "Filecoin.StateGetAllClaims";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<ClaimID, Claim>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_all_claims(&ts)?)
+    }
+}
+
 pub enum StateGetAllocation {}
 
 impl RpcMethod<3> for StateGetAllocation {
@@ -2287,6 +2307,26 @@ impl StateGetAllocations {
         let actor = state_tree.get_required_actor(&Address::VERIFIED_REGISTRY_ACTOR)?;
         let state = verifreg::State::load(store, actor.code, actor.state)?;
         state.get_allocations(store, address)
+    }
+}
+
+pub enum StateGetAllAllocations {}
+
+impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
+    const NAME: &'static str = "Filecoin.StateGetAllAllocations";
+    const PARAM_NAMES: [&'static str; 1] = ["tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ApiTipsetKey,);
+    type Ok = HashMap<AllocationID, Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (ApiTipsetKey(tsk),): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        Ok(ctx.state_manager.get_all_allocations(&ts)?)
     }
 }
 
