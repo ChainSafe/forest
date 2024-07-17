@@ -10,17 +10,6 @@ forest_init
 
 FOREST_URL='http://127.0.0.1:2345/rpc/v1'
 
-FOREST_READY_URL='http://127.0.0.1:2346/readyz'
-
-check_ready() {
-  response=$(curl -s $FOREST_READY_URL)
-  if [[ "$response" == "OK" ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
 NUM_TIPSETS=600
 
 echo "Get Ethereum block hashes and transactions hashes from the last $NUM_TIPSETS tipsets"
