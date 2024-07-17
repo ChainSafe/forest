@@ -335,7 +335,7 @@ pub struct RPCState<DB> {
 }
 
 impl<DB: Blockstore> RPCState<DB> {
-    pub fn beacon(&self) -> Arc<crate::beacon::BeaconSchedule> {
+    pub fn beacon(&self) -> &Arc<crate::beacon::BeaconSchedule> {
         self.state_manager.beacon_schedule()
     }
 

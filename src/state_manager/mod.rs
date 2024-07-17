@@ -245,8 +245,8 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
-        Arc::clone(&self.beacon)
+    pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
+        &self.beacon
     }
 
     /// Returns network version for the given epoch.
@@ -721,7 +721,7 @@ where
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipset,
             callback,
@@ -1176,7 +1176,7 @@ where
 
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
-        beacon_schedule: Arc<BeaconSchedule>,
+        beacon_schedule: &Arc<BeaconSchedule>,
         tipset: Arc<Tipset>,
         addr: Address,
         epoch: ChainEpoch,
@@ -1324,7 +1324,7 @@ where
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
             self.chain_config().clone(),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
         )
