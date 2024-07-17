@@ -156,6 +156,32 @@ impl RpcMethod<1> for MpoolPush {
     }
 }
 
+/// Add `SignedMessage` from untrusted source to `mpool`, return message CID
+pub enum MpoolPushUntrusted {}
+impl RpcMethod<1> for MpoolPushUntrusted {
+    const NAME: &'static str = "Filecoin.MpoolPushUntrusted";
+    const PARAM_NAMES: [&'static str; 1] = ["msg"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    /// Lotus limits this method to [`Permission::Write`].
+    /// However, since messages can always be pushed over the p2p protocol,
+    /// limiting the RPC doesn't improve security.
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (SignedMessage,);
+    type Ok = Cid;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (msg,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        // Lotus implements a few extra sanity checks that we skip. We skip them
+        // because those checks aren't used for messages received from peers and
+        // therefore aren't safety critical.
+        let cid = ctx.mpool.as_ref().push(msg).await?;
+        Ok(cid)
+    }
+}
+
 /// Sign given `UnsignedMessage` and add it to `mpool`, return `SignedMessage`
 pub enum MpoolPushMessage {}
 impl RpcMethod<2> for MpoolPushMessage {
