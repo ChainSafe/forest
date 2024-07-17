@@ -48,6 +48,9 @@
 - [#4511](https://github.com/ChainSafe/forest/pull/4511) Add support for the
   `Filecoin.EthMaxPriorityFeePerGas` RPC method.
 
+- [#4547](https://github.com/ChainSafe/forest/pull/4547) Add support for the
+  `Filecoin.MpoolPushUntrusted` RPC method.
+
 ### Changed
 
 ### Removed
