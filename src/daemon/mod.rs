@@ -9,7 +9,7 @@ use crate::auth::{create_token, generate_priv_key, ADMIN, JWT_IDENTIFIER};
 use crate::blocks::Tipset;
 use crate::chain::ChainStore;
 use crate::chain_sync::ChainMuxer;
-use crate::cli_shared::snapshot;
+use crate::cli_shared::{car_db_path, snapshot};
 use crate::cli_shared::{
     chain_path,
     cli::{CliOpts, Config},
@@ -20,7 +20,7 @@ use crate::daemon::db_util::{
 };
 use crate::db::car::ManyCar;
 use crate::db::db_engine::{db_root, open_db};
-use crate::db::{ttl::EthMappingCollector, MarkAndSweep};
+use crate::db::{ttl::EthMappingCollector, MarkAndSweep, MemoryDB, SettingsExt, CAR_DB_DIR_NAME};
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{
     KeyStore, KeyStoreConfig, ENCRYPTED_KEYSTORE_NAME, FOREST_KEYSTORE_PHRASE_ENV,
@@ -43,6 +43,7 @@ use bundle::load_actor_bundles;
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
 use futures::{select, Future, FutureExt};
+use fvm_ipld_blockstore::Blockstore;
 use once_cell::sync::Lazy;
 use raw_sync_2::events::{Event, EventInit as _, EventState};
 use shared_memory::ShmemConf;
@@ -181,7 +182,7 @@ pub(super) async fn start(
     let db_root_dir = db_root(&chain_data_path)?;
     let db_writer = Arc::new(open_db(db_root_dir.clone(), config.db_config().clone())?);
     let db = Arc::new(ManyCar::new(db_writer.clone()));
-    let forest_car_db_dir = db_root_dir.join("car_db");
+    let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
     load_all_forest_cars(&db, &forest_car_db_dir)?;
 
     if config.client.load_actors && !opts.stateless {
@@ -368,6 +369,7 @@ pub(super) async fn start(
             genesis_timestamp: genesis_header.timestamp,
             sync_state: sync_state.clone(),
             peer_manager,
+            settings_store: chain_store.settings(),
         };
 
         let listener =
@@ -445,8 +447,6 @@ pub(super) async fn start(
             state_manager
                 .chain_store()
                 .set_heaviest_tipset(Arc::new(ts.clone()))?;
-
-            populate_eth_mappings(&state_manager, &ts)?;
         }
     }
 
@@ -473,6 +473,17 @@ pub(super) async fn start(
         // Cancel all async services
         services.shutdown().await;
         return Ok(());
+    }
+
+    // Populate task
+    if !opts.stateless && !chain_config.is_devnet() {
+        let state_manager = Arc::clone(&state_manager);
+        services.spawn(async move {
+            if let Err(err) = init_ethereum_mapping(state_manager, &config) {
+                tracing::warn!("Init Ethereum mapping failed: {}", err)
+            }
+            Ok(())
+        });
     }
 
     if !opts.stateless {
@@ -748,5 +759,34 @@ fn display_chain_logo(chain: &NetworkChain) {
     };
     if let Some(logo) = logo {
         info!("\n{logo}");
+    }
+}
+
+fn init_ethereum_mapping<DB: Blockstore>(
+    state_manager: Arc<StateManager<DB>>,
+    config: &Config,
+) -> anyhow::Result<()> {
+    match state_manager
+        .chain_store()
+        .settings()
+        .eth_mapping_up_to_date()?
+    {
+        Some(false) | None => {
+            let car_db_path = car_db_path(config)?;
+            let db: Arc<ManyCar<MemoryDB>> = Arc::default();
+            load_all_forest_cars(&db, &car_db_path)?;
+            let ts = db.heaviest_tipset()?;
+
+            populate_eth_mappings(&state_manager, &ts)?;
+
+            state_manager
+                .chain_store()
+                .settings()
+                .set_eth_mapping_up_to_date()
+        }
+        Some(true) => {
+            tracing::info!("Ethereum mapping up to date");
+            Ok(())
+        }
     }
 }
