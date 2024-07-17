@@ -23,8 +23,8 @@ base64 = "0.22"
 bigdecimal = "=0.4.2" # TODO(aatifsyed): https://github.com/ChainSafe/forest/issues/4035
 blake2b_simd = "1.0"
 bls-signatures = { version = "0.15", default-features = false, features = [
-    "multicore",
-    "blst-portable",
+  "multicore",
+  "blst-portable",
 ] } # prevent SIGINT on CI runners by using portable assembly
 blstrs = { version = "0.7", features = ["portable"] }
 byteorder = "1"
@@ -92,27 +92,27 @@ libipld = { version = "0.16", default-features = false, features = ["dag-cbor", 
 libipld-core = { version = "0.16", features = ['arb', 'serde-codec'] }
 libipld-macro = "0.16"
 libp2p = { version = "0.53", default-features = false, features = [
-    'autonat',
-    'gossipsub',
-    'kad',
-    'identify',
-    'ping',
-    'mdns',
-    'noise',
-    'yamux',
-    'tcp',
-    'quic',
-    'dns',
-    'request-response',
-    'metrics',
-    'tokio',
-    'macros',
-    'serde',
-    'upnp',
-    'rsa',
-    'ecdsa',
-    'ed25519',
-    'secp256k1',
+  'autonat',
+  'gossipsub',
+  'kad',
+  'identify',
+  'ping',
+  'mdns',
+  'noise',
+  'yamux',
+  'tcp',
+  'quic',
+  'dns',
+  'request-response',
+  'metrics',
+  'tokio',
+  'macros',
+  'serde',
+  'upnp',
+  'rsa',
+  'ecdsa',
+  'ed25519',
+  'secp256k1',
 ] }
 libsecp256k1 = "0.7"
 lru = "0.12"
@@ -146,9 +146,9 @@ raw_sync_2 = "0.1"
 rayon = "1"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = [
-    "stream",
-    "rustls-tls",
-    "json",
+  "stream",
+  "rustls-tls",
+  "json",
 ] } # use rustls instead of native (openSSL) tls to drop the number of build dependencies
 rlimit = "0.10"
 rlp = "0.5"
