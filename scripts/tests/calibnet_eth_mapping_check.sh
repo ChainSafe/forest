@@ -57,10 +57,8 @@ done
 
 echo "Done"
 
-while ! check_ready; do
-  echo -n "."
-  sleep 1
-done
+echo "Waiting eth mapping to be up to date"
+$FOREST_CLI_PATH healthcheck ready --wait
 
 ERROR=0
 echo "Testing Ethereum mapping"

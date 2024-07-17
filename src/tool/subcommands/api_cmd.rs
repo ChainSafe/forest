@@ -1144,6 +1144,7 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
+        RpcTest::basic(EthMaxPriorityFeePerGas::request(()).unwrap()),
         RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
     ]
 }
@@ -1289,20 +1290,16 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
 
         let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
-            match new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id) {
-                Ok(tx) => tests.push(RpcTest::identity(
-                    EthGetMessageCidByTransactionHash::request((tx.hash,))?,
-                )),
-                Err(e) => tracing::warn!(?e, "new_eth_tx_from_signed_message failed"),
-            }
+            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
+            tests.push(RpcTest::identity(
+                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+            ));
         }
     }
     tests.push(RpcTest::identity(
         EthGetMessageCidByTransactionHash::request((Hash::from_str(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
-        )
-        .unwrap(),))
-        .unwrap(),
+        )?,))?,
     ));
 
     Ok(tests)
