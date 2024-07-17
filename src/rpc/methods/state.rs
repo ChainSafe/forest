@@ -1611,8 +1611,7 @@ impl RpcMethod<1> for StateGetBeaconEntry {
             };
         }
 
-        let beacon_schedule = ctx.beacon();
-        let (_, beacon) = beacon_schedule.beacon_for_epoch(epoch)?;
+        let (_, beacon) = ctx.beacon().beacon_for_epoch(epoch)?;
         let network_version = ctx.state_manager.get_network_version(epoch);
         let round = beacon.max_beacon_round_for_epoch(network_version, epoch);
         let entry = beacon.entry(round).await?;
