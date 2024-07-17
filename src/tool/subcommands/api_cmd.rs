@@ -1529,11 +1529,6 @@ async fn start_offline_server(
 
     populate_eth_mappings(&state_manager, &head_ts)?;
 
-    let beacon = Arc::new(
-        state_manager
-            .chain_config()
-            .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
-    );
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
@@ -1568,8 +1563,6 @@ async fn start_offline_server(
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
-        chain_store,
-        beacon,
         shutdown,
         tipset_send,
     };

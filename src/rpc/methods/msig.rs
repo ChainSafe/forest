@@ -26,7 +26,7 @@ impl RpcMethod<2> for MsigGetAvailableBalance {
         ctx: Ctx<impl Blockstore>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let height = ts.epoch();
         let actor = ctx
             .state_manager
@@ -54,7 +54,7 @@ impl RpcMethod<2> for MsigGetPending {
         ctx: Ctx<impl Blockstore>,
         (address, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&address, *ts.parent_state())?;
@@ -90,9 +90,11 @@ impl RpcMethod<3> for MsigGetVested {
         (addr, ApiTipsetKey(start_tsk), ApiTipsetKey(end_tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let start_ts = ctx
-            .chain_store
+            .chain_store()
             .load_required_tipset_or_heaviest(&start_tsk)?;
-        let end_ts = ctx.chain_store.load_required_tipset_or_heaviest(&end_tsk)?;
+        let end_ts = ctx
+            .chain_store()
+            .load_required_tipset_or_heaviest(&end_tsk)?;
 
         match start_ts.epoch().cmp(&end_ts.epoch()) {
             std::cmp::Ordering::Greater => Err(ServerError::internal_error(
@@ -127,7 +129,7 @@ impl RpcMethod<2> for MsigGetVestingSchedule {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (addr, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let msig_actor = ctx
             .state_manager

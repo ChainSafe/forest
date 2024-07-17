@@ -49,10 +49,7 @@ impl RpcMethod<1> for MpoolPending {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let mut ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let (mut pending, mpts) = ctx.mpool.pending()?;
 
@@ -100,11 +97,7 @@ impl RpcMethod<1> for MpoolPending {
                 break;
             }
 
-            ts = ctx
-                .state_manager
-                .chain_store()
-                .chain_index
-                .load_required_tipset(ts.parents())?;
+            ts = ctx.chain_index().load_required_tipset(ts.parents())?;
         }
         Ok(NotNullVec(pending.into_iter().collect()))
     }
@@ -125,10 +118,7 @@ impl RpcMethod<2> for MpoolSelect {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk), ticket_quality): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.mpool.select_messages(&ts, ticket_quality)?)
     }
 }
@@ -174,7 +164,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let from = umsg.from;
 
         let mut keystore = ctx.keystore.as_ref().write().await;
-        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
             .resolve_to_key_addr(&from, &heaviest_tipset)
