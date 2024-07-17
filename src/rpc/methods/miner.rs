@@ -132,8 +132,7 @@ impl RpcMethod<1> for MinerCreateBlock {
         let parent_base_fee = compute_base_fee(
             store,
             &parent_tipset,
-            ctx.state_manager
-                .chain_config()
+            ctx.chain_config()
                 .height_infos
                 .get(&Height::Smoke)
                 .context("Missing Smoke height")?
@@ -282,10 +281,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (address, epoch, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         Ok(ctx
             .state_manager

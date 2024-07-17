@@ -100,11 +100,7 @@ pub async fn estimate_gas_premium<DB: Blockstore>(
         if ts.epoch() == 0 {
             break;
         }
-        let pts = data
-            .state_manager
-            .chain_store()
-            .chain_index
-            .load_required_tipset(ts.parents())?;
+        let pts = data.chain_index().load_required_tipset(ts.parents())?;
         blocks += pts.block_headers().len();
         let msgs = crate::chain::messages_for_tipset(data.store_owned(), &pts)?;
 
@@ -210,10 +206,7 @@ where
     msg.set_gas_fee_cap(TokenAmount::from_atto(0));
     msg.set_gas_premium(TokenAmount::from_atto(0));
 
-    let curr_ts = data
-        .state_manager
-        .chain_store()
-        .load_required_tipset_or_heaviest(tsk)?;
+    let curr_ts = data.chain_store().load_required_tipset_or_heaviest(tsk)?;
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)

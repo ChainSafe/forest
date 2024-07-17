@@ -1535,9 +1535,7 @@ impl RpcMethod<3> for StateDealProviderCollateralBounds {
         let _: bool = verified;
 
         let state_manager = &ctx.state_manager;
-        let ts = state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
 
         let power_actor =
             state_manager.get_required_actor(&Address::POWER_ACTOR, *ts.parent_state())?;
@@ -1639,10 +1637,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfoV0 {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -1668,10 +1663,7 @@ impl RpcMethod<3> for StateSectorPreCommitInfo {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -1899,10 +1891,7 @@ impl RpcMethod<3> for StateSectorGetInfo {
         ctx: Ctx<impl Blockstore>,
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx
             .state_manager
             .get_all_sectors(&miner_address, &ts)?
@@ -1945,10 +1934,7 @@ impl RpcMethod<3> for StateSectorExpiration {
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
         let policy = &ctx.chain_config().policy;
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
@@ -2006,19 +1992,13 @@ impl RpcMethod<3> for StateSectorPartition {
         (miner_address, sector_number, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let store = ctx.store();
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let actor = ctx
             .state_manager
             .get_required_actor(&miner_address, *ts.parent_state())?;
         let state = miner::State::load(store, actor.code, actor.state)?;
-        let (deadline, partition) = state.find_sector(
-            store,
-            sector_number,
-            &ctx.state_manager.chain_config().policy,
-        )?;
+        let (deadline, partition) =
+            state.find_sector(store, sector_number, &ctx.chain_config().policy)?;
         Ok(SectorLocation {
             deadline,
             partition,
@@ -2042,10 +2022,7 @@ impl RpcMethod<3> for StateListMessages {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (from_to, ApiTipsetKey(tsk), max_height): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         if from_to.is_empty() {
             return Err(ErrorObject::owned(
                 1,
