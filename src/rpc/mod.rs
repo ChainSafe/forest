@@ -100,6 +100,7 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::mpool::MpoolPending);
         $callback!(crate::rpc::mpool::MpoolSelect);
         $callback!(crate::rpc::mpool::MpoolPush);
+        $callback!(crate::rpc::mpool::MpoolPushUntrusted);
         $callback!(crate::rpc::mpool::MpoolPushMessage);
 
         // msig vertical
