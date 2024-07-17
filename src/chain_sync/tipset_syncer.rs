@@ -1253,7 +1253,7 @@ async fn validate_block<DB: Blockstore + Sync + Send + 'static>(
     state_manager: Arc<StateManager<DB>>,
     block: Arc<Block>,
 ) -> Result<Arc<Block>, (Cid, TipsetRangeSyncerError)> {
-    let consensus = FilecoinConsensus::new(state_manager.beacon_schedule());
+    let consensus = FilecoinConsensus::new(state_manager.beacon_schedule().clone());
     trace!(
         "Validating block: epoch = {}, weight = {}, key = {}",
         block.header().epoch,

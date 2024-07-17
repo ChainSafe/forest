@@ -168,7 +168,12 @@ where
 {
     let mut delegated_messages = vec![];
 
-    info!("Populating column EthMappings");
+    let hygge = state_manager.chain_config().epoch(Height::Hygge);
+    tracing::info!(
+        "Populating column EthMappings from range: [{}, {}]",
+        hygge,
+        head_ts.epoch()
+    );
 
     for ts in head_ts
         .clone()
@@ -176,7 +181,7 @@ where
     {
         // Hygge is the start of Ethereum support in the FVM (through the FEVM actor).
         // Before this height, no notion of an Ethereum-like API existed.
-        if ts.epoch() < state_manager.chain_config().epoch(Height::Hygge) {
+        if ts.epoch() < hygge {
             break;
         }
         delegated_messages.append(

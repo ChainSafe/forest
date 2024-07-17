@@ -59,8 +59,7 @@ impl RpcMethod<1> for ChainGetMessage {
         (msg_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let chain_message: ChainMessage = ctx
-            .state_manager
-            .blockstore()
+            .store()
             .get_cbor(&msg_cid)?
             .with_context(|| format!("can't find message with cid {msg_cid}"))?;
         Ok(match chain_message {
@@ -84,7 +83,7 @@ impl RpcMethod<1> for ChainGetParentMessages {
         ctx: Ctx<impl Blockstore>,
         (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.state_manager.blockstore();
+        let store = ctx.store();
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
@@ -111,7 +110,7 @@ impl RpcMethod<1> for ChainGetParentReceipts {
         ctx: Ctx<impl Blockstore>,
         (block_cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.state_manager.blockstore();
+        let store = ctx.store();
         let block_header: CachingBlockHeader = store
             .get_cbor(&block_cid)?
             .with_context(|| format!("can't find block header with cid {block_cid}"))?;
@@ -156,7 +155,7 @@ impl RpcMethod<1> for ChainGetMessagesInTipset {
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tipset = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let tipset = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         load_api_messages_from_tipset(ctx.store(), &tipset)
     }
 }
@@ -191,7 +190,7 @@ impl RpcMethod<1> for ChainExport {
             return Err(anyhow::anyhow!("Another chain export job is still in progress").into());
         }
 
-        let chain_finality = ctx.state_manager.chain_config().policy.chain_finality;
+        let chain_finality = ctx.chain_config().policy.chain_finality;
         if recent_roots < chain_finality {
             return Err(anyhow::anyhow!(format!(
                 "recent-stateroots must be greater than {chain_finality}"
@@ -199,16 +198,14 @@ impl RpcMethod<1> for ChainExport {
             .into());
         }
 
-        let head = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let start_ts = ctx.chain_store.chain_index.tipset_by_height(
-            epoch,
-            head,
-            ResolveNullTipset::TakeOlder,
-        )?;
+        let head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let start_ts =
+            ctx.chain_index()
+                .tipset_by_height(epoch, head, ResolveNullTipset::TakeOlder)?;
 
         match if dry_run {
             crate::chain::export::<Sha256>(
-                Arc::clone(&ctx.chain_store.db),
+                ctx.store_owned(),
                 &start_ts,
                 recent_roots,
                 VoidAsyncWriter,
@@ -219,7 +216,7 @@ impl RpcMethod<1> for ChainExport {
         } else {
             let file = tokio::fs::File::create(&output_path).await?;
             crate::chain::export::<Sha256>(
-                Arc::clone(&ctx.chain_store.db),
+                ctx.store_owned(),
                 &start_ts,
                 recent_roots,
                 file,
@@ -249,8 +246,7 @@ impl RpcMethod<1> for ChainReadObj {
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
         let bytes = ctx
-            .state_manager
-            .blockstore()
+            .store()
             .get(&cid)?
             .with_context(|| format!("can't find object with cid={cid}"))?;
         Ok(bytes)
@@ -271,7 +267,7 @@ impl RpcMethod<1> for ChainHasObj {
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.state_manager.blockstore().get(&cid)?.is_some())
+        Ok(ctx.store().get(&cid)?.is_some())
     }
 }
 
@@ -343,15 +339,11 @@ impl RpcMethod<1> for ChainGetBlockMessages {
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx.state_manager.blockstore().get_cbor_required(&cid)?;
+        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&cid)?;
         let blk_msgs = &blk.messages;
-        let (unsigned_cids, signed_cids) =
-            crate::chain::read_msg_cids(ctx.state_manager.blockstore(), blk_msgs)?;
-        let (bls_msg, secp_msg) = crate::chain::block_messages_from_cids(
-            ctx.state_manager.blockstore(),
-            &unsigned_cids,
-            &signed_cids,
-        )?;
+        let (unsigned_cids, signed_cids) = crate::chain::read_msg_cids(ctx.store(), blk_msgs)?;
+        let (bls_msg, secp_msg) =
+            crate::chain::block_messages_from_cids(ctx.store(), &unsigned_cids, &signed_cids)?;
         let cids = unsigned_cids.into_iter().chain(signed_cids).collect();
 
         let ret = BlockMessages {
@@ -377,7 +369,7 @@ impl RpcMethod<2> for ChainGetPath {
         ctx: Ctx<impl Blockstore>,
         (from, to): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        impl_chain_get_path(&ctx.chain_store, &from, &to).map_err(Into::into)
+        impl_chain_get_path(ctx.chain_store(), &from, &to).map_err(Into::into)
     }
 }
 
@@ -454,14 +446,9 @@ impl RpcMethod<2> for ChainGetTipSetByHeight {
         ctx: Ctx<impl Blockstore>,
         (height, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let tss = ctx
-            .state_manager
-            .chain_store()
-            .chain_index
+            .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeOlder)?;
         Ok((*tss).clone())
     }
@@ -481,14 +468,9 @@ impl RpcMethod<2> for ChainGetTipSetAfterHeight {
         ctx: Ctx<impl Blockstore>,
         (height, ApiTipsetKey(tsk)): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         let tss = ctx
-            .state_manager
-            .chain_store()
-            .chain_index
+            .chain_index()
             .tipset_by_height(height, ts, ResolveNullTipset::TakeNewer)?;
         Ok((*tss).clone())
     }
@@ -505,7 +487,7 @@ impl RpcMethod<0> for ChainGetGenesis {
     type Ok = Option<Tipset>;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let genesis = ctx.state_manager.chain_store().genesis_block_header();
+        let genesis = ctx.chain_store().genesis_block_header();
         Ok(Some(Tipset::from(genesis)))
     }
 }
@@ -521,7 +503,7 @@ impl RpcMethod<0> for ChainHead {
     type Ok = Tipset;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        let heaviest = ctx.state_manager.chain_store().heaviest_tipset();
+        let heaviest = ctx.chain_store().heaviest_tipset();
         Ok((*heaviest).clone())
     }
 }
@@ -540,7 +522,7 @@ impl RpcMethod<1> for ChainGetBlock {
         ctx: Ctx<impl Blockstore>,
         (cid,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let blk: CachingBlockHeader = ctx.state_manager.blockstore().get_cbor_required(&cid)?;
+        let blk: CachingBlockHeader = ctx.store().get_cbor_required(&cid)?;
         Ok(blk)
     }
 }
@@ -559,10 +541,7 @@ impl RpcMethod<1> for ChainGetTipSet {
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok((*ts).clone())
     }
 }
@@ -584,26 +563,16 @@ impl RpcMethod<1> for ChainSetHead {
         // This is basically a port of the reference implementation at
         // https://github.com/filecoin-project/lotus/blob/v1.23.0/node/impl/full/chain.go#L321
 
-        let new_head = ctx
-            .state_manager
-            .chain_store()
-            .load_required_tipset_or_heaviest(&tsk)?;
-        let mut current = ctx.state_manager.chain_store().heaviest_tipset();
+        let new_head = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let mut current = ctx.chain_store().heaviest_tipset();
         while current.epoch() >= new_head.epoch() {
             for cid in current.key().to_cids() {
-                ctx.state_manager
-                    .chain_store()
-                    .unmark_block_as_validated(&cid);
+                ctx.chain_store().unmark_block_as_validated(&cid);
             }
             let parents = &current.block_headers().first().parents;
-            current = ctx
-                .state_manager
-                .chain_store()
-                .chain_index
-                .load_required_tipset(parents)?;
+            current = ctx.chain_index().load_required_tipset(parents)?;
         }
-        ctx.state_manager
-            .chain_store()
+        ctx.chain_store()
             .set_heaviest_tipset(new_head)
             .map_err(Into::into)
     }
@@ -623,16 +592,12 @@ impl RpcMethod<1> for ChainGetMinBaseFee {
         ctx: Ctx<impl Blockstore>,
         (lookback,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let mut current = ctx.state_manager.chain_store().heaviest_tipset();
+        let mut current = ctx.chain_store().heaviest_tipset();
         let mut min_base_fee = current.block_headers().first().parent_base_fee.clone();
 
         for _ in 0..lookback {
             let parents = &current.block_headers().first().parents;
-            current = ctx
-                .state_manager
-                .chain_store()
-                .chain_index
-                .load_required_tipset(parents)?;
+            current = ctx.chain_index().load_required_tipset(parents)?;
 
             min_base_fee =
                 min_base_fee.min(current.block_headers().first().parent_base_fee.to_owned());
@@ -656,8 +621,8 @@ impl RpcMethod<1> for ChainTipSetWeight {
         ctx: Ctx<impl Blockstore>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let tsk = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
-        let weight = crate::fil_cns::weight(ctx.chain_store.blockstore(), &tsk)?;
+        let tsk = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
+        let weight = crate::fil_cns::weight(ctx.store(), &tsk)?;
         Ok(weight)
     }
 }
@@ -670,7 +635,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
     let (sender, receiver) = broadcast::channel(100);
 
     // As soon as the channel is created, send the current tipset
-    let current = data.chain_store.heaviest_tipset();
+    let current = data.chain_store().heaviest_tipset();
     let (change, tipset) = ("current".into(), current);
     sender
         .send(vec![ApiHeadChange {
@@ -679,7 +644,7 @@ pub(crate) fn chain_notify<DB: Blockstore>(
         }])
         .expect("receiver is not dropped");
 
-    let mut subscriber = data.chain_store.publisher().subscribe();
+    let mut subscriber = data.chain_store().publisher().subscribe();
 
     tokio::spawn(async move {
         // Skip first message

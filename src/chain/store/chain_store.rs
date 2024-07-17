@@ -380,6 +380,10 @@ where
         Ok((lbts, *next_ts.parent_state()))
     }
 
+    pub fn settings(&self) -> Arc<dyn SettingsStore + Sync + Send> {
+        self.settings.clone()
+    }
+
     /// Filter [`SignedMessage`]'s to keep only the most recent ones, then write corresponding entries to the Ethereum mapping.
     pub fn process_signed_messages(&self, messages: &[(SignedMessage, u64)]) -> anyhow::Result<()>
     where

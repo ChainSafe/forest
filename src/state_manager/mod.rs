@@ -27,8 +27,10 @@ use crate::metrics::HistogramTimerExt;
 use crate::networks::ChainConfig;
 use crate::rpc::state::{ApiInvocResult, InvocResult, MessageGasCost};
 use crate::rpc::types::{MiningBaseInfo, SectorOnChainInfo};
-use crate::shim::actors::miner::MinerStateExt as _;
-use crate::shim::executor::ApplyRet;
+use crate::shim::{
+    actors::{miner::MinerStateExt as _, verifreg::VerifiedRegistryStateExt as _},
+    executor::ApplyRet,
+};
 use crate::shim::{
     address::{Address, Payload, Protocol},
     clock::ChainEpoch,
@@ -246,8 +248,8 @@ where
         })
     }
 
-    pub fn beacon_schedule(&self) -> Arc<BeaconSchedule> {
-        Arc::clone(&self.beacon)
+    pub fn beacon_schedule(&self) -> &Arc<BeaconSchedule> {
+        &self.beacon
     }
 
     /// Returns network version for the given epoch.
@@ -294,6 +296,15 @@ where
     /// Returns reference to the state manager's [`ChainStore`].
     pub fn chain_store(&self) -> &Arc<ChainStore<DB>> {
         &self.cs
+    }
+
+    pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            tipset,
+            self.cs.chain_index.clone(),
+            self.beacon.clone(),
+        )
     }
 
     /// Returns the internal, protocol-level network name.
@@ -710,7 +721,7 @@ where
             self.chain_store().genesis_block_header().timestamp,
             Arc::clone(&self.chain_store().chain_index),
             Arc::clone(&self.chain_config),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipset,
             callback,
@@ -752,8 +763,8 @@ where
                     && s.equal_call(message)
             })
             .map(|(index, m)| {
-                // A replacing message is a message with a different CID, 
-                // any of Gas values, and different signature, but with all 
+                // A replacing message is a message with a different CID,
+                // any of Gas values, and different signature, but with all
                 // other parameters matching (source/destination, nonce, params, etc.)
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
@@ -1165,7 +1176,7 @@ where
 
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
-        beacon_schedule: Arc<BeaconSchedule>,
+        beacon_schedule: &BeaconSchedule,
         tipset: Arc<Tipset>,
         addr: Address,
         epoch: ChainEpoch,
@@ -1313,7 +1324,7 @@ where
             genesis_timestamp,
             self.chain_store().chain_index.clone(),
             self.chain_config().clone(),
-            self.beacon_schedule(),
+            self.beacon_schedule().clone(),
             &self.engine,
             tipsets,
         )
@@ -1340,6 +1351,11 @@ where
         state.get_claim(self.blockstore(), id_address.into(), claim_id)
     }
 
+    pub fn get_all_claims(&self, ts: &Tipset) -> anyhow::Result<HashMap<ClaimID, Claim>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_claims(self.blockstore())
+    }
+
     pub fn get_allocation(
         &self,
         addr: &Address,
@@ -1349,6 +1365,14 @@ where
         let id_address = self.lookup_required_id(addr, ts)?;
         let state = self.get_verified_registry_actor_state(ts)?;
         state.get_allocation(self.blockstore(), id_address.id()?, allocation_id)
+    }
+
+    pub fn get_all_allocations(
+        &self,
+        ts: &Tipset,
+    ) -> anyhow::Result<HashMap<AllocationID, Allocation>> {
+        let state = self.get_verified_registry_actor_state(ts)?;
+        state.get_all_allocations(self.blockstore())
     }
 
     pub fn verified_client_status(
@@ -1404,15 +1428,6 @@ where
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
         }
-    }
-
-    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
-        ChainRand::new(
-            self.chain_config.clone(),
-            tipset,
-            self.cs.chain_index.clone(),
-            self.beacon.clone(),
-        )
     }
 }
 

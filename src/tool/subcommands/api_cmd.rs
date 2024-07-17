@@ -18,6 +18,7 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
+use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{
     self,
@@ -904,6 +905,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateGetAllClaims::request((tipset.key().into(),))?),
+            RpcTest::identity(StateGetAllAllocations::request((tipset.key().into(),))?),
             RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address,
                 u16::MAX as _, // invalid sector number
@@ -1554,11 +1557,6 @@ async fn start_offline_server(
 
     populate_eth_mappings(&state_manager, &head_ts)?;
 
-    let beacon = Arc::new(
-        state_manager
-            .chain_config()
-            .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
-    );
     let (network_send, _) = flume::bounded(5);
     let (tipset_send, _) = flume::bounded(5);
     let network_name = get_network_name_from_genesis(&genesis_header, &state_manager)?;
@@ -1593,8 +1591,6 @@ async fn start_offline_server(
         network_send,
         network_name,
         start_time: chrono::Utc::now(),
-        chain_store,
-        beacon,
         shutdown,
         tipset_send,
     };

@@ -52,6 +52,7 @@ services:
 
         forest --chain ${CHAIN} --encrypt-keystore false --no-gc \
           --rpc-address 0.0.0.0:${FOREST_RPC_PORT} \
+          --healthcheck-address 0.0.0.0:${FOREST_HEALTHZ_RPC_PORT} \
           --height=-50 \
           --import-snapshot $(ls /data/*.car.zst | tail -n 1)
     healthcheck:
@@ -60,6 +61,26 @@ services:
       timeout: 10m
       retries: 3
       start_period: 10m
+  forest-rpc-ready:
+    depends_on:
+      forest:
+        condition: service_healthy
+    build:
+      context: ../../../.
+      dockerfile: ${FOREST_DOCKERFILE_OVERRIDE:-Dockerfile}
+    volumes:
+      - node-data:/data
+    networks:
+      - api-tests
+    entrypoint: [ "/bin/bash", "-c" ]
+    user: 0:0
+    command:
+      - |
+        set -euo pipefail
+        
+        export FULLNODE_API_INFO="$(cat /data/forest-token):/dns/forest/tcp/${FOREST_RPC_PORT}/http"
+        echo "Waiting till Forest is ready"
+        forest-cli healthcheck ready --healthcheck-port ${FOREST_HEALTHZ_RPC_PORT} --wait
   forest-wallet-import:
     depends_on:
       forest:
@@ -164,6 +185,8 @@ services:
       forest:
         condition: service_healthy
       forest-wallet-import:
+        condition: service_completed_successfully
+      forest-rpc-ready:
         condition: service_completed_successfully
     build:
       context: ../../../.

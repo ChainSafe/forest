@@ -44,7 +44,7 @@ impl RpcMethod<0> for Version {
         Ok(PublicVersion {
             version: crate::utils::version::FOREST_VERSION_STRING.clone(),
             api_version: ShiftingVersion::new(v.major, v.minor, v.patch),
-            block_delay: ctx.state_manager.chain_config().block_delay_secs,
+            block_delay: ctx.chain_config().block_delay_secs,
         })
     }
 }
