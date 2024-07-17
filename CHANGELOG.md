@@ -29,6 +29,12 @@
 
 ### Added
 
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllClaims` RPC method.
+
+- [#4545](https://github.com/ChainSafe/forest/pull/4545) Add support for the
+  `Filecoin.StateGetAllAllocations` RPC method.
+
 - [#4503](https://github.com/ChainSafe/forest/pull/4503) Add support for the
   `Filecoin.StateMinerAllocated` RPC method.
 

@@ -175,8 +175,10 @@ macro_rules! for_each_method {
         $callback!(crate::rpc::state::StateVerifierStatus);
         $callback!(crate::rpc::state::StateGetClaim);
         $callback!(crate::rpc::state::StateGetClaims);
+        $callback!(crate::rpc::state::StateGetAllClaims);
         $callback!(crate::rpc::state::StateGetAllocation);
         $callback!(crate::rpc::state::StateGetAllocations);
+        $callback!(crate::rpc::state::StateGetAllAllocations);
         $callback!(crate::rpc::state::StateGetAllocationIdForPendingDeal);
         $callback!(crate::rpc::state::StateGetAllocationForPendingDeal);
         $callback!(crate::rpc::state::StateSectorExpiration);
