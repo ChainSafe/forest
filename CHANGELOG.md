@@ -35,8 +35,18 @@
 - [#4512](https://github.com/ChainSafe/forest/pull/4512) Add support for the
   `Filecoin.StateGetAllocationIdForPendingDeal` RPC method.
 
+- [#4514](https://github.com/ChainSafe/forest/pull/4514) Add support for the
+  `Filecoin.WalletSignMessage` RPC method.
+
 - [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
   `Filecoin.StateGetAllocationForPendingDeal` RPC method.
+
+- [#4526](https://github.com/ChainSafe/forest/pull/4526) Added
+  `forest-cli state compute` method, and a corresponding RPC method
+  `Forest.StateCompute`.
+
+- [#4511](https://github.com/ChainSafe/forest/pull/4511) Add support for the
+  `Filecoin.EthMaxPriorityFeePerGas` RPC method.
 
 ### Changed
 
