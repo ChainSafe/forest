@@ -53,8 +53,9 @@ accept traffic. In our case, we require:
 - The node is in sync with the network
 - The current epoch of the node is not too far behind the network
 - The RPC server is running
+- The Ethereum mapping is up to date
 
-If any of these conditions are not met, the nod is **not** ready to serve
+If any of these conditions are not met, the node is **not** ready to serve
 requests.
 
 Sample _ready_ response:
@@ -63,7 +64,8 @@ Sample _ready_ response:
 ❯ curl "http://127.0.0.1:2346/readyz?verbose"
 [+] sync complete
 [+] epoch up to date
-[+] rpc server running⏎
+[+] rpc server running
+[+] eth mapping up to date⏎
 ```
 
 Sample _not ready_ response:
@@ -72,7 +74,8 @@ Sample _not ready_ response:
 ❯ curl "http://127.0.0.1:2346/readyz?verbose"
 [!] sync incomplete
 [!] epoch outdated
-[+] rpc server running⏎
+[+] rpc server running
+[!] no eth mapping⏎
 ```
 
 ### `/healthz`
