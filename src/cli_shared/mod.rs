@@ -5,6 +5,8 @@ pub mod cli;
 pub mod logger;
 
 use crate::cli_shared::cli::{find_config_path, Config, ConfigPath};
+use crate::db::db_engine::db_root;
+use crate::db::CAR_DB_DIR_NAME;
 use crate::networks::NetworkChain;
 use crate::utils::io::read_toml;
 use std::path::PathBuf;
@@ -17,6 +19,14 @@ pub use tikv_jemallocator;
 /// Gets chain data directory
 pub fn chain_path(config: &Config) -> PathBuf {
     PathBuf::from(&config.client.data_dir).join(config.chain.to_string())
+}
+
+/// Gets car db path
+pub fn car_db_path(config: &Config) -> anyhow::Result<PathBuf> {
+    let chain_data_path = chain_path(config);
+    let db_root_dir = db_root(&chain_data_path)?;
+    let forest_car_db_dir = db_root_dir.join(CAR_DB_DIR_NAME);
+    Ok(forest_car_db_dir)
 }
 
 pub fn read_config(

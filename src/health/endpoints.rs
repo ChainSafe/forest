@@ -5,6 +5,7 @@ use std::sync::Arc;
 use ahash::HashMap;
 use axum::extract::{self, Query};
 
+use crate::db::SettingsExt;
 use crate::{chain_sync::SyncStage, networks::calculate_expected_epoch};
 
 use super::{AppError, ForestState};
@@ -41,6 +42,7 @@ pub(crate) async fn livez(
 /// - The node is in sync with the network
 /// - The current epoch of the node is not too far behind the network
 /// - The RPC server is running
+/// - The Ethereum mapping is up to date
 ///
 /// If any of these conditions are not met, the nod is **not** ready to serve requests.
 pub(crate) async fn readyz(
@@ -49,12 +51,13 @@ pub(crate) async fn readyz(
 ) -> Result<String, AppError> {
     let mut acc = MessageAccumulator::new_with_enabled(params.contains_key(VERBOSE_PARAM));
 
-    let mut healthy = true;
-    healthy &= check_sync_state_complete(&state, &mut acc);
-    healthy &= check_epoch_up_to_date(&state, &mut acc);
-    healthy &= check_rpc_server_running(&state, &mut acc).await;
+    let mut ready = true;
+    ready &= check_sync_state_complete(&state, &mut acc);
+    ready &= check_epoch_up_to_date(&state, &mut acc);
+    ready &= check_rpc_server_running(&state, &mut acc).await;
+    ready &= check_eth_mapping_up_to_date(&state, &mut acc);
 
-    if healthy {
+    if ready {
         Ok(acc.result_ok())
     } else {
         Err(AppError(anyhow::anyhow!(acc.result_err())))
@@ -150,6 +153,19 @@ fn check_peers_connected(state: &ForestState, acc: &mut MessageAccumulator) -> b
     } else {
         acc.push_err("no peers connected");
         false
+    }
+}
+
+fn check_eth_mapping_up_to_date(state: &ForestState, acc: &mut MessageAccumulator) -> bool {
+    match state.settings_store.eth_mapping_up_to_date() {
+        Ok(Some(true)) => {
+            acc.push_ok("eth mapping up to date");
+            true
+        }
+        Ok(None) | Ok(Some(false)) | Err(_) => {
+            acc.push_err("no eth mapping");
+            false
+        }
     }
 }
 

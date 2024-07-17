@@ -41,6 +41,16 @@
 - [#4517](https://github.com/ChainSafe/forest/pull/4517) Add support for the
   `Filecoin.StateGetAllocationForPendingDeal` RPC method.
 
+- [#4526](https://github.com/ChainSafe/forest/pull/4526) Added
+  `forest-cli state compute` method, and a corresponding RPC method
+  `Forest.StateCompute`.
+
+- [#4511](https://github.com/ChainSafe/forest/pull/4511) Add support for the
+  `Filecoin.EthMaxPriorityFeePerGas` RPC method.
+
+- [#4474](https://github.com/ChainSafe/forest/pull/4474) Add new subcommand
+  `forest-cli healthcheck ready`.
+
 ### Changed
 
 ### Removed

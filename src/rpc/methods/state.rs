@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub use types::*;
 
 use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
@@ -1199,6 +1200,39 @@ impl RpcMethod<2> for StateFetchRoot {
         Ok(format!(
             "IPLD graph traversed! CIDs: {counter}, fetched: {fetched}, failures: {failures}."
         ))
+    }
+}
+
+pub enum StateCompute {}
+
+impl RpcMethod<1> for StateCompute {
+    const NAME: &'static str = "Forest.StateCompute";
+    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch,);
+    type Ok = Cid;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (epoch,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store.chain_index.tipset_by_height(
+            epoch,
+            ctx.chain_store.heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let (state_root, _) = ctx
+            .state_manager
+            .compute_tipset_state(
+                tipset,
+                crate::state_manager::NO_CALLBACK,
+                crate::interpreter::VMTrace::NotTraced,
+            )
+            .await?;
+
+        Ok(state_root)
     }
 }
 
@@ -2472,8 +2506,7 @@ pub struct ForkUpgradeParams {
     upgrade_watermelon_height: ChainEpoch,
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
-    // To be added in the next Lotus release
-    // upgrade_waffle_height: ChainEpoch,
+    upgrade_waffle_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2517,7 +2550,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_watermelon_height: get_height(Watermelon)?,
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
-            // upgrade_waffle_height: get_height(Waffle)?,
+            upgrade_waffle_height: get_height(Waffle)?,
         })
     }
 }
