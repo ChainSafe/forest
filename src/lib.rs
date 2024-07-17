@@ -49,6 +49,7 @@ mod cli_shared;
 mod daemon;
 mod db;
 mod documentation;
+mod eth;
 mod fil_cns;
 mod genesis;
 mod health;
@@ -72,6 +73,9 @@ mod test_utils;
 mod tool;
 mod utils;
 mod wallet;
+
+// To make lint CI happy, remove once https://github.com/libp2p/rust-libp2p/issues/5487 is resolved
+pub use rustls;
 
 /// These items are semver-exempt, and exist for forest author use only
 // We want to have doctests, but don't want our internals to be public because:

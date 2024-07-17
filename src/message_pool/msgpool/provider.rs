@@ -101,11 +101,7 @@ where
     fn get_actor_after(&self, addr: &Address, ts: &Tipset) -> Result<ActorState, Error> {
         let state = StateTree::new_from_root(self.sm.blockstore_owned(), ts.parent_state())
             .map_err(|e| Error::Other(e.to_string()))?;
-
-        let actor = state
-            .get_actor(addr)
-            .map_err(|e| Error::Other(e.to_string()))?;
-        actor.ok_or_else(|| Error::Other("No actor state".to_owned()))
+        Ok(state.get_required_actor(addr)?)
     }
 
     fn messages_for_block(

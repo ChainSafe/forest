@@ -5,13 +5,12 @@ use std::{
     cmp::{min, Ordering},
     convert::TryFrom,
     future::Future,
+    num::NonZeroU64,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
 
-use crate::libp2p::chain_exchange::TipsetBundle;
-use crate::message::{valid_for_block_inclusion, Message as MessageTrait};
 use crate::networks::Height;
 use crate::shim::clock::ALLOWABLE_CLOCK_DRIFT;
 use crate::shim::{
@@ -28,6 +27,11 @@ use crate::{
     chain::{persist_objects, ChainStore, Error as ChainStoreError},
     metrics::HistogramTimerExt,
 };
+use crate::{
+    eth::is_valid_eth_tx_for_sending,
+    message::{valid_for_block_inclusion, Message as MessageTrait},
+};
+use crate::{libp2p::chain_exchange::TipsetBundle, shim::crypto::SignatureType};
 use ahash::{HashMap, HashMapExt, HashSet};
 use cid::Cid;
 use futures::stream::TryStreamExt as _;
@@ -761,7 +765,12 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         return Err(why.into());
     };
 
-    //  Sync and validate messages from the tipsets
+    // Persist tipset keys
+    for ts in parent_tipsets.iter() {
+        chain_store.put_tipset_key(ts.key())?;
+    }
+
+    // Sync and validate messages from the tipsets
     tracker.write().set_stage(SyncStage::Messages);
     if let Err(why) = sync_messages_check_state(
         tracker.clone(),
@@ -769,7 +778,7 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         network,
         chain_store.clone(),
         &bad_block_cache,
-        parent_tipsets,
+        parent_tipsets.clone(),
         &genesis,
         InvalidBlockStrategy::Forgiving,
     )
@@ -779,6 +788,9 @@ async fn sync_tipset_range<DB: Blockstore + Sync + Send + 'static>(
         tracker.write().error(why.to_string());
         return Err(why);
     };
+
+    // Call only once messages persisted
+    chain_store.put_delegated_message_hashes(headers.into_iter())?;
 
     // At this point the head is synced and it can be set in the store as the
     // heaviest
@@ -842,21 +854,39 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
             continue;
         }
 
-        let epoch_diff = oldest_pending_tipset.epoch() - current_head.epoch();
-        let window = min(epoch_diff, MAX_TIPSETS_TO_REQUEST as i64);
+        let window = min(
+            oldest_pending_tipset.epoch() - until_epoch, // (oldest_pending_tipset.epoch() - 1) - until_epoch + 1
+            MAX_TIPSETS_TO_REQUEST as i64,
+        );
         let network_tipsets = network
-            .chain_exchange_headers(None, oldest_pending_tipset.parents(), window as u64)
+            .chain_exchange_headers(
+                None,
+                oldest_pending_tipset.parents(),
+                NonZeroU64::new(window as _).expect("Infallible"),
+            )
             .await
             .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
+        if network_tipsets.is_empty() {
+            return Err(TipsetRangeSyncerError::NetworkTipsetQueryFailed(
+                "0 network tipsets have been fetched".into(),
+            ));
+        }
 
-        for tipset in network_tipsets
-            .into_iter()
-            .take_while(|ts| ts.epoch() >= until_epoch)
-        {
+        let callback = |tipset: Arc<Tipset>| {
             validate_tipset_against_cache(bad_block_cache, tipset.key(), &accepted_blocks)?;
             accepted_blocks.extend(tipset.cids());
             tracker.write().set_epoch(tipset.epoch());
             pending_tipsets.push(tipset);
+            Ok(())
+        };
+        // Breaks the loop when `until_epoch` is overreached, which happens
+        // when there are null tipsets in the queried range.
+        // Note that when the `until_epoch` is null, the outer while condition
+        // is always true, and it relies on the returned boolean value(until epoch is overreached)
+        // to break the loop.
+        if for_each_tipset_until_epoch_overreached(network_tipsets, until_epoch, callback)? {
+            // Breaks when the `until_epoch` is overreached.
+            break;
         }
     }
     drop(wp);
@@ -872,7 +902,11 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     info!("Fork detected, searching for a common ancestor between the local chain and the network chain");
     const FORK_LENGTH_THRESHOLD: u64 = 500;
     let fork_tipsets = network
-        .chain_exchange_headers(None, oldest_pending_tipset.parents(), FORK_LENGTH_THRESHOLD)
+        .chain_exchange_headers(
+            None,
+            oldest_pending_tipset.parents(),
+            NonZeroU64::new(FORK_LENGTH_THRESHOLD).expect("Infallible"),
+        )
         .await
         .map_err(TipsetRangeSyncerError::NetworkTipsetQueryFailed)?;
     let mut potential_common_ancestor = chain_store
@@ -921,6 +955,22 @@ async fn sync_headers_in_reverse<DB: Blockstore + Sync + Send + 'static>(
     Ok(pending_tipsets)
 }
 
+// tipsets is sorted by epoch in descending order
+// returns true when `until_epoch_inclusive` is overreached
+fn for_each_tipset_until_epoch_overreached(
+    tipsets: impl IntoIterator<Item = Arc<Tipset>>,
+    until_epoch_inclusive: ChainEpoch,
+    mut callback: impl FnMut(Arc<Tipset>) -> Result<(), TipsetRangeSyncerError>,
+) -> Result<bool, TipsetRangeSyncerError> {
+    for tipset in tipsets {
+        if tipset.epoch() < until_epoch_inclusive {
+            return Ok(true);
+        }
+        callback(tipset)?;
+    }
+    Ok(false)
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
     proposed_head: Arc<Tipset>,
@@ -935,6 +985,9 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         chain_store.blockstore(),
         proposed_head.block_headers().iter(),
     )?;
+
+    // Persist tipset key
+    chain_store.put_tipset_key(proposed_head.key())?;
 
     // Sync and validate messages from the tipsets
     if let Err(e) = sync_messages_check_state(
@@ -953,6 +1006,9 @@ async fn sync_tipset<DB: Blockstore + Sync + Send + 'static>(
         warn!("Sync messages check state failed for single tipset");
         return Err(e);
     }
+
+    // Call only once messages persisted
+    chain_store.put_delegated_message_hashes(proposed_head.block_headers().iter())?;
 
     // Add the tipset to the store. The tipset will be expanded with other blocks
     // with the same [epoch, parents] before updating the heaviest Tipset in
@@ -1390,6 +1446,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
     let network_version = state_manager
         .chain_config()
         .network_version(block.header.epoch);
+    let eth_chain_id = state_manager.chain_config().eth_chain_id;
 
     if let Some(sig) = &block.header().bls_aggregate {
         // Do the initial loop here
@@ -1400,15 +1457,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
         for m in block.bls_msgs() {
             let pk = StateManager::get_bls_public_key(&db, &m.from, *base_tipset.parent_state())?;
             pub_keys.push(pk);
-            cids.push(
-                m.cid()
-                    .map_err(|e| {
-                        TipsetRangeSyncerError::Validation(format!(
-                            "Failed to get bls message cid: {e}"
-                        ))
-                    })?
-                    .to_bytes(),
-            );
+            cids.push(m.cid().to_bytes());
         }
 
         if !verify_bls_aggregate(
@@ -1497,6 +1546,13 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
 
     // Check validity for SECP messages
     for (i, msg) in block.secp_msgs().iter().enumerate() {
+        if msg.signature().signature_type() == SignatureType::Delegated
+            && !is_valid_eth_tx_for_sending(eth_chain_id, network_version, msg)
+        {
+            return Err(TipsetRangeSyncerError::Validation(
+                "Network version must be at least NV23 for legacy Ethereum transactions".to_owned(),
+            ));
+        }
         check_msg(msg.message(), &mut account_sequences, &tree).map_err(|e| {
             TipsetRangeSyncerError::Validation(format!(
                 "block had an invalid secp message at index {i}: {e}"
@@ -1509,7 +1565,7 @@ async fn check_block_messages<DB: Blockstore + Send + Sync + 'static>(
             .map_err(|e| TipsetRangeSyncerError::ResolvingAddressFromMessage(e.to_string()))?;
         // SecP256K1 Signature validation
         msg.signature
-            .verify(&msg.message().cid().unwrap().to_bytes(), &key_addr)
+            .verify(&msg.message().cid().to_bytes(), &key_addr)
             .map_err(TipsetRangeSyncerError::MessageSignatureInvalid)?;
     }
 

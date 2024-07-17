@@ -6,7 +6,17 @@ use super::*;
 pub const METHOD_GET_BYTE_CODE: u64 = 3;
 pub const METHOD_GET_STORAGE_AT: u64 = 5;
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthBytes(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_vec_bytes")]
@@ -43,7 +53,17 @@ impl GetStorageAtParams {
     }
 }
 
-#[derive(PartialEq, Debug, Deserialize, Serialize, Default, Clone, JsonSchema)]
+#[derive(
+    PartialEq,
+    Debug,
+    Deserialize,
+    Serialize,
+    Default,
+    Clone,
+    JsonSchema,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct EthAddress(
     #[schemars(with = "String")]
     #[serde(with = "crate::lotus_json::hexify_bytes")]
@@ -169,6 +189,41 @@ impl TryFrom<EthAddress> for FilecoinAddress {
     fn try_from(value: EthAddress) -> Result<Self, Self::Error> {
         value.to_filecoin_address()
     }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum BlockNumberOrPredefined {
+    #[schemars(with = "String")]
+    PredefinedBlock(Predefined),
+    BlockNumber(Int64),
+}
+lotus_json_with_self!(BlockNumberOrPredefined);
+
+impl From<BlockNumberOrPredefined> for BlockNumberOrHash {
+    fn from(value: BlockNumberOrPredefined) -> Self {
+        match value {
+            BlockNumberOrPredefined::PredefinedBlock(v) => BlockNumberOrHash::PredefinedBlock(v),
+            BlockNumberOrPredefined::BlockNumber(v) => BlockNumberOrHash::BlockNumber(v),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EthFeeHistoryResult {
+    pub oldest_block: Uint64,
+    pub base_fee_per_gas: Vec<EthBigInt>,
+    pub gas_used_ratio: Vec<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reward: Option<Vec<Vec<EthBigInt>>>,
+}
+lotus_json_with_self!(EthFeeHistoryResult);
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct GasReward {
+    pub gas_used: u64,
+    pub premium: TokenAmount,
 }
 
 #[cfg(test)]

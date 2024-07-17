@@ -26,31 +26,16 @@ use crate::lotus_json::HasLotusJson;
 use self::{jsonrpc_types::RequestParameters, util::Optional as _};
 use super::error::ServerError as Error;
 use fvm_ipld_blockstore::Blockstore;
+use itertools::{Either, Itertools as _};
 use jsonrpsee::RpcModule;
 use openrpc_types::{ContentDescriptor, Method, ParamStructure, ReferenceOr};
 use parser::Parser;
 use schemars::{gen::SchemaGenerator, schema::Schema, JsonSchema};
-use serde::Serialize;
 use serde::{
     de::{Error as _, Unexpected},
     Deserialize,
 };
-use std::iter;
-use std::{future::Future, sync::Arc};
-
-/// Narrow list of categories emitted by our OpenRPC machinery.
-/// Destined to become a [`openrpc_types::Tag`]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::EnumIter)]
-pub enum Tag {
-    ClientInteroperability,
-}
-impl AsTag for Tag {
-    fn slug(&self) -> String {
-        match self {
-            Tag::ClientInteroperability => "client_interoperability".into(),
-        }
-    }
-}
+use std::{future::Future, iter, sync::Arc};
 
 /// Type to be used by [`RpcMethod::handle`].
 pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
@@ -67,16 +52,16 @@ pub type Ctx<T> = Arc<crate::rpc::RPCState<T>>;
 /// - All `Ctx`s must be `Send + Sync + 'static` due to bounds on [`RpcModule`].
 /// - Handlers don't specialize on top of the given bounds, but they MAY relax them.
 pub trait RpcMethod<const ARITY: usize> {
+    /// Number of required parameters, defaults to `ARITY`.
+    const N_REQUIRED_PARAMS: usize = ARITY;
     /// Method name.
     const NAME: &'static str;
     /// Name of each argument, MUST be unique.
     const PARAM_NAMES: [&'static str; ARITY];
-    /// See [`ApiVersion`].
-    const API_VERSION: ApiVersion;
+    /// See [`ApiPaths`].
+    const API_PATHS: ApiPaths;
     /// See [`Permission`]
     const PERMISSION: Permission;
-    /// See [`Tag`].
-    const TAGS: &'static [Tag] = &[];
     /// Becomes [`openrpc_types::Method::summary`].
     const SUMMARY: Option<&'static str> = None;
     /// Becomes [`openrpc_types::Method::description`].
@@ -101,37 +86,40 @@ pub enum Permission {
     Read,
 }
 
-/// Lotus groups methods into API versions.
-///
-/// These are significant because they are expressed in the URL path against which
-/// RPC calls are made, e.g `rpc/v0` or `rpc/v1`.
+/// Which paths should this method be exposed on?
 ///
 /// This information is important when using [`crate::rpc::client`].
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Hash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Serialize,
-    Deserialize,
-    strum::EnumIter,
-)]
-pub enum ApiVersion {
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub enum ApiPaths {
+    /// Only expose this method on `/rpc/v0`
     V0,
+    /// Only expose this method on `/rpc/v1`
     V1,
+    /// Expose this method on both `/rpc/v0` and `/rpc/v1`
+    #[allow(dead_code)]
+    Both,
 }
 
-impl AsTag for ApiVersion {
-    fn slug(&self) -> String {
+impl ApiPaths {
+    fn iter(&self) -> impl Iterator<Item = ApiPath> {
         match self {
-            ApiVersion::V0 => "v0".into(),
-            ApiVersion::V1 => "v1".into(),
+            ApiPaths::V0 => Either::Left(iter::once(ApiPath::V0)),
+            ApiPaths::V1 => Either::Left(iter::once(ApiPath::V1)),
+            ApiPaths::Both => Either::Right([ApiPath::V0, ApiPath::V1].into_iter()),
         }
     }
+    pub fn max(&self) -> ApiPath {
+        self.iter().max().expect("cannot create an empty ApiPaths")
+    }
+    pub fn contains(&self, path: ApiPath) -> bool {
+        self.iter().contains(&path)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, clap::ValueEnum)]
+pub enum ApiPath {
+    V0,
+    V1,
 }
 
 /// Utility methods, defined as an extension trait to avoid having to specify
@@ -162,11 +150,18 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
         Method {
             name: String::from(Self::NAME),
             params: itertools::zip_eq(Self::PARAM_NAMES, Self::Params::schemas(gen))
-                .map(|(name, (schema, optional))| {
+                .enumerate()
+                .map(|(pos, (name, (schema, nullable)))| {
+                    let required = pos <= Self::N_REQUIRED_PARAMS;
+                    if !required && !nullable {
+                        panic!(
+                            "Optional parameter at position {pos} should be of an optional type. method={}, param_name={name}", Self::NAME
+                        );
+                    }
                     ReferenceOr::Item(ContentDescriptor {
                         name: String::from(name),
                         schema,
-                        required: Some(!optional),
+                        required: Some(required),
                         ..Default::default()
                     })
                 })
@@ -178,12 +173,6 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
                 required: Some(!<Self::Ok as HasLotusJson>::LotusJson::optional()),
                 ..Default::default()
             })),
-            tags: Some(
-                iter::once(&Self::API_VERSION as &dyn AsTag)
-                    .chain(Self::TAGS.iter().map(|it| it as &dyn AsTag))
-                    .map(AsTagExt::reference)
-                    .collect(),
-            ),
             summary: Self::SUMMARY.map(Into::into),
             description: Self::DESCRIPTION.map(Into::into),
             ..Default::default()
@@ -197,13 +186,25 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     where
         <Self::Ok as HasLotusJson>::LotusJson: Clone + 'static,
     {
+        assert!(
+            Self::N_REQUIRED_PARAMS <= ARITY,
+            "N_REQUIRED_PARAMS({}) can not be greater than ARITY({ARITY}) in {}",
+            Self::N_REQUIRED_PARAMS,
+            Self::NAME
+        );
+
         module.register_async_method(Self::NAME, move |params, ctx, _extensions| async move {
             let raw = params
                 .as_str()
                 .map(serde_json::from_str)
                 .transpose()
                 .map_err(|e| Error::invalid_params(e, None))?;
-            let params = Self::Params::parse(raw, Self::PARAM_NAMES, calling_convention)?;
+            let params = Self::Params::parse(
+                raw,
+                Self::PARAM_NAMES,
+                calling_convention,
+                Self::N_REQUIRED_PARAMS,
+            )?;
             let ok = Self::handle(ctx, params).await?;
             Result::<_, jsonrpsee::types::ErrorObjectOwned>::Ok(ok.into_lotus_json())
         })
@@ -212,14 +213,25 @@ pub trait RpcMethodExt<const ARITY: usize>: RpcMethod<ARITY> {
     fn request(params: Self::Params) -> Result<crate::rpc::Request<Self::Ok>, serde_json::Error> {
         // hardcode calling convention because lotus is by-position only
         let params = match Self::build_params(params, ConcreteCallingConvention::ByPosition)? {
-            RequestParameters::ByPosition(it) => serde_json::Value::Array(it),
+            RequestParameters::ByPosition(mut it) => {
+                // Omit optional parameters when they are null
+                // This can be refactored into using `while pop_if`
+                // when the API is stablized.
+                while Self::N_REQUIRED_PARAMS < it.len() {
+                    match it.last() {
+                        Some(last) if last.is_null() => it.pop(),
+                        _ => break,
+                    };
+                }
+                serde_json::Value::Array(it)
+            }
             RequestParameters::ByName(it) => serde_json::Value::Object(it),
         };
         Ok(crate::rpc::Request {
             method_name: Self::NAME,
             params,
             result_type: std::marker::PhantomData,
-            api_version: Self::API_VERSION,
+            api_paths: Self::API_PATHS,
             timeout: *crate::rpc::DEFAULT_REQUEST_TIMEOUT,
         })
     }
@@ -254,7 +266,7 @@ impl<const ARITY: usize, T> RpcMethodExt<ARITY> for T where T: RpcMethod<ARITY> 
 /// This should NOT be manually implemented.
 pub trait Params<const ARITY: usize>: HasLotusJson {
     /// A [`Schema`] and [`Optional::optional`](`util::Optional::optional`)
-    /// pair for argument, in-order.
+    /// schema-nullable pair for argument, in-order.
     fn schemas(gen: &mut SchemaGenerator) -> [(Schema, bool); ARITY];
     /// Convert from raw request parameters, to the argument tuple required by
     /// [`RpcMethod::handle`]
@@ -262,6 +274,7 @@ pub trait Params<const ARITY: usize>: HasLotusJson {
         raw: Option<RequestParameters>,
         names: [&str; ARITY],
         calling_convention: ParamStructure,
+        n_required: usize,
     ) -> Result<Self, Error>
     where
         Self: Sized;
@@ -310,14 +323,15 @@ macro_rules! do_impls {
 
         impl<$($arg),*> Params<$arity> for ($($arg,)*)
         where
-            $($arg: HasLotusJson, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
+            $($arg: HasLotusJson + Clone, <$arg as HasLotusJson>::LotusJson: JsonSchema, )*
         {
             fn parse(
                 raw: Option<RequestParameters>,
                 arg_names: [&str; $arity],
                 calling_convention: ParamStructure,
+                n_required: usize,
             ) -> Result<Self, Error> {
-                let mut _parser = Parser::new(raw, &arg_names, calling_convention)?;
+                let mut _parser = Parser::new(raw, &arg_names, calling_convention, n_required)?;
                 Ok(($(_parser.parse::<crate::lotus_json::LotusJson<$arg>>()?.into_inner(),)*))
             }
             fn schemas(_gen: &mut SchemaGenerator) -> [(Schema, bool); $arity] {
@@ -346,30 +360,3 @@ pub enum ConcreteCallingConvention {
     #[allow(unused)] // included for completeness
     ByName,
 }
-
-/// A type that can be represented as an [`openrpc_types::Tag`].
-pub trait AsTag {
-    fn slug(&self) -> String;
-    fn summary(&self) -> Option<String> {
-        None
-    }
-    fn description(&self) -> Option<String> {
-        None
-    }
-}
-
-pub trait AsTagExt: AsTag {
-    fn as_tag(&self) -> openrpc_types::Tag {
-        openrpc_types::Tag {
-            name: self.slug(),
-            summary: self.summary(),
-            description: self.description(),
-            external_docs: None,
-            extensions: Default::default(),
-        }
-    }
-    fn reference(&self) -> ReferenceOr<openrpc_types::Tag> {
-        ReferenceOr::Reference(format!("#/components/tags/{}", self.slug()))
-    }
-}
-impl<T: ?Sized> AsTagExt for T where T: AsTag {}

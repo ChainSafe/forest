@@ -3,7 +3,7 @@
 
 use crate::chain::{BASE_FEE_MAX_CHANGE_DENOM, BLOCK_GAS_TARGET};
 use crate::message::{ChainMessage, Message as MessageTrait, SignedMessage};
-use crate::rpc::{error::ServerError, types::*, ApiVersion, Ctx, Permission, RpcMethod};
+use crate::rpc::{error::ServerError, types::*, ApiPaths, Ctx, Permission, RpcMethod};
 use crate::shim::{
     address::{Address, Protocol},
     crypto::{Signature, SignatureType, SECP_SIG_LEN},
@@ -23,7 +23,7 @@ pub enum GasEstimateFeeCap {}
 impl RpcMethod<3> for GasEstimateFeeCap {
     const NAME: &'static str = "Filecoin.GasEstimateFeeCap";
     const PARAM_NAMES: [&'static str; 3] = ["message", "max_queue_blocks", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, i64, ApiTipsetKey);
@@ -62,7 +62,7 @@ pub enum GasEstimateGasPremium {}
 impl RpcMethod<4> for GasEstimateGasPremium {
     const NAME: &'static str = "Filecoin.GasEstimateGasPremium";
     const PARAM_NAMES: [&'static str; 4] = ["nblocksincl", "sender", "gas_limit", "tipset_key"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (u64, Address, i64, ApiTipsetKey);
@@ -164,7 +164,7 @@ pub enum GasEstimateGasLimit {}
 impl RpcMethod<2> for GasEstimateGasLimit {
     const NAME: &'static str = "Filecoin.GasEstimateGasLimit";
     const PARAM_NAMES: [&'static str; 2] = ["msg", "tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, ApiTipsetKey);
@@ -174,7 +174,7 @@ impl RpcMethod<2> for GasEstimateGasLimit {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (msg, tsk): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        estimate_gas_limit(&ctx, msg, tsk).await
+        estimate_gas_limit(&ctx, msg, &tsk).await
     }
 }
 
@@ -183,7 +183,7 @@ pub enum GasEstimateMessageGas {}
 impl RpcMethod<3> for GasEstimateMessageGas {
     const NAME: &'static str = "Filecoin.GasEstimateMessageGas";
     const PARAM_NAMES: [&'static str; 3] = ["msg", "spec", "tsk"];
-    const API_VERSION: ApiVersion = ApiVersion::V0;
+    const API_PATHS: ApiPaths = ApiPaths::V0;
     const PERMISSION: Permission = Permission::Read;
 
     type Params = (Message, Option<MessageSendSpec>, ApiTipsetKey);
@@ -200,7 +200,7 @@ impl RpcMethod<3> for GasEstimateMessageGas {
 async fn estimate_gas_limit<DB>(
     data: &Ctx<DB>,
     msg: Message,
-    ApiTipsetKey(tsk): ApiTipsetKey,
+    ApiTipsetKey(tsk): &ApiTipsetKey,
 ) -> Result<i64, ServerError>
 where
     DB: Blockstore + Send + Sync + 'static,
@@ -213,7 +213,7 @@ where
     let curr_ts = data
         .state_manager
         .chain_store()
-        .load_required_tipset_or_heaviest(&tsk)?;
+        .load_required_tipset_or_heaviest(tsk)?;
     let from_a = data
         .state_manager
         .resolve_to_key_addr(&msg.from, &curr_ts)
@@ -268,7 +268,7 @@ where
 {
     let mut msg = msg;
     if msg.gas_limit == 0 {
-        let gl = estimate_gas_limit::<DB>(data, msg.clone(), tsk.clone()).await?;
+        let gl = estimate_gas_limit::<DB>(data, msg.clone(), &tsk).await?;
         let gl = gl as f64 * data.mpool.config.gas_limit_overestimation;
         msg.set_gas_limit((gl as u64).min(BLOCK_GAS_LIMIT));
     }

@@ -5,7 +5,7 @@ use ahash::HashMap;
 use cid::Cid;
 use once_cell::sync::Lazy;
 
-use crate::{make_height, shim::version::NetworkVersion};
+use crate::{eth::EthChainId, make_height, shim::version::NetworkVersion};
 
 use super::{
     actors_bundle::ACTOR_BUNDLES_METADATA,
@@ -14,7 +14,7 @@ use super::{
 };
 
 // https://github.com/ethereum-lists/chains/blob/6b1e3ccad1cfcaae5aa1ab917960258f0ef1a6b6/_data/chains/eip155-31415926.json
-pub const ETH_CHAIN_ID: u64 = 31415926;
+pub const ETH_CHAIN_ID: EthChainId = 31415926;
 
 pub const BREEZE_GAS_TAMPING_DURATION: i64 = 0;
 
@@ -145,8 +145,9 @@ pub static HEIGHT_INFOS: Lazy<HashMap<Height, HeightInfo>> = Lazy::new(|| {
             get_upgrade_height_from_env("FOREST_DRAND_QUICKNET_HEIGHT").unwrap_or(i64::MAX)
         ),
         make_height!(
-            Aussie,
-            get_upgrade_height_from_env("FOREST_AUSSIE_HEIGHT").unwrap_or(9999999999)
+            Waffle,
+            get_upgrade_height_from_env("FOREST_WAFFLE_HEIGHT").unwrap_or(9999999999),
+            get_bundle_cid("v14.0.0-rc.1")
         ),
     ])
 });

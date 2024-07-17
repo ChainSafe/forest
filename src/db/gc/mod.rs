@@ -72,10 +72,10 @@
 use crate::blocks::Tipset;
 use crate::chain::ChainEpochDelta;
 
-use crate::db::{truncated_hash, GarbageCollectable, SettingsStore};
+use crate::cid_collections::CidHashSet;
+use crate::db::{GarbageCollectable, SettingsStore};
 use crate::ipld::stream_graph;
 use crate::shim::clock::ChainEpoch;
-use ahash::{HashSet, HashSetExt};
 use futures::StreamExt;
 use fvm_ipld_blockstore::Blockstore;
 use std::mem;
@@ -87,7 +87,7 @@ use tracing::info;
 const SETTINGS_KEY: &str = "LAST_GC_RUN";
 
 /// [`MarkAndSweep`] is a simple garbage collector implementation that traverses all the database
-/// keys writing them to a [`HashSet`], then filters out those that need to be kept and schedules
+/// keys writing them to a [`CidHashSet`], then filters out those that need to be kept and schedules
 /// the rest for removal.
 ///
 /// Note: The GC does not know anything about the hybrid CAR-backed and ParityDB approach, only
@@ -95,13 +95,15 @@ const SETTINGS_KEY: &str = "LAST_GC_RUN";
 pub struct MarkAndSweep<DB> {
     db: Arc<DB>,
     get_heaviest_tipset: Box<dyn Fn() -> Arc<Tipset> + Send>,
-    marked: HashSet<u32>,
+    marked: CidHashSet,
     epoch_marked: ChainEpoch,
     depth: ChainEpochDelta,
     block_time: Duration,
 }
 
-impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static> MarkAndSweep<DB> {
+impl<DB: Blockstore + SettingsStore + GarbageCollectable<CidHashSet> + Sync + Send + 'static>
+    MarkAndSweep<DB>
+{
     /// Creates a new mark-and-sweep garbage collector.
     ///
     /// # Arguments
@@ -120,7 +122,7 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static
             db,
             get_heaviest_tipset,
             depth,
-            marked: HashSet::new(),
+            marked: CidHashSet::new(),
             epoch_marked: 0,
             block_time,
         }
@@ -135,22 +137,18 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static
     // NOTE: One concern here is that this is going to consume a lot of CPU.
     async fn filter(&mut self, tipset: Arc<Tipset>, depth: ChainEpochDelta) -> anyhow::Result<()> {
         // NOTE: We want to keep all the block headers from genesis to heaviest tipset epoch.
-        let mut stream = stream_graph(
-            self.db.clone(),
-            (*tipset).clone().chain(self.db.clone()),
-            depth,
-        );
+        let mut stream = stream_graph(self.db.clone(), (*tipset).clone().chain(&self.db), depth);
 
         while let Some(block) = stream.next().await {
             let block = block?;
-            self.marked.remove(&truncated_hash(block.cid.hash()));
+            self.marked.remove(&block.cid);
         }
 
         anyhow::Ok(())
     }
 
     // Remove marked keys from the database.
-    fn sweep(&mut self) -> anyhow::Result<()> {
+    fn sweep(&mut self) -> anyhow::Result<u32> {
         let marked = mem::take(&mut self.marked);
         self.db.remove_keys(marked)
     }
@@ -221,7 +219,8 @@ impl<DB: Blockstore + SettingsStore + GarbageCollectable + Sync + Send + 'static
         self.filter(tipset, depth).await?;
 
         info!("GC sweep");
-        self.sweep()?;
+        let deleted = self.sweep()?;
+        info!("GC finished sweep: {} deleted records", deleted);
 
         self.update_last_gc_run(current_epoch)?;
 
@@ -247,14 +246,14 @@ mod test {
 
     const ZERO_DURATION: Duration = Duration::from_secs(0);
 
-    fn insert_unreachable(db: impl Blockstore, quantity: u64) {
+    fn insert_unreachable(db: &impl Blockstore, quantity: u64) {
         for idx in 0..quantity {
             let block: CachingBlockHeader = mock_block(1 + idx, 1 + quantity);
             db.put_cbor_default(&block).unwrap();
         }
     }
 
-    fn run_to_epoch(db: impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
+    fn run_to_epoch(db: &impl Blockstore, cs: &ChainStore<MemoryDB>, epoch: ChainEpoch) {
         let mut heaviest_tipset = cs.heaviest_tipset();
 
         for _ in heaviest_tipset.epoch()..epoch {

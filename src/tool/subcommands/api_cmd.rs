@@ -7,6 +7,7 @@ use crate::chain_sync::{SyncConfig, SyncStage};
 use crate::cli_shared::snapshot::TrustedVendor;
 use crate::daemon::db_util::{download_to, populate_eth_mappings};
 use crate::db::{car::ManyCar, MemoryDB};
+use crate::eth::EthChainId as EthChainIdType;
 use crate::genesis::{get_network_name_from_genesis, read_genesis_header};
 use crate::key_management::{KeyStore, KeyStoreConfig};
 use crate::lotus_json::HasLotusJson;
@@ -17,7 +18,7 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
-use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup, SectorOnChainInfo};
+use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
 use crate::shim::address::{CurrentNetwork, Network};
@@ -61,8 +62,11 @@ use tokio::{
     task::JoinSet,
 };
 use tracing::{debug, info, warn};
+use types::BlockNumberOrPredefined;
 
 const COLLECTION_SAMPLE_SIZE: usize = 5;
+
+const CALIBNET_CHAIN_ID: EthChainIdType = crate::networks::calibnet::ETH_CHAIN_ID;
 
 #[derive(Debug, Subcommand)]
 #[allow(clippy::large_enum_variant)]
@@ -123,6 +127,9 @@ pub enum ApiCommands {
         /// Worker address to use where key is applicable. Worker key must be in the key-store.
         #[arg(long)]
         worker_address: Option<Address>,
+        /// Ethereum chain ID. Default to the calibnet chain ID.
+        #[arg(long, default_value_t = CALIBNET_CHAIN_ID)]
+        eth_chain_id: EthChainIdType,
     },
 }
 
@@ -137,6 +144,7 @@ struct ApiTestFlags {
     max_concurrent_requests: usize,
     miner_address: Option<Address>,
     worker_address: Option<Address>,
+    eth_chain_id: EthChainIdType,
 }
 
 impl ApiCommands {
@@ -164,6 +172,7 @@ impl ApiCommands {
                 max_concurrent_requests,
                 miner_address,
                 worker_address,
+                eth_chain_id,
             } => {
                 let config = ApiTestFlags {
                     filter,
@@ -174,6 +183,7 @@ impl ApiCommands {
                     max_concurrent_requests,
                     miner_address,
                     worker_address,
+                    eth_chain_id,
                 };
 
                 compare_apis(
@@ -286,25 +296,10 @@ struct TestResult {
     test_dump: Option<TestDump>,
 }
 
-/// This struct is the hash-able representation of [`RpcTest`]
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct RpcTestHashable {
-    request: String,
-    ignore: bool,
-}
-
-impl From<&RpcTest> for RpcTestHashable {
-    fn from(t: &RpcTest) -> Self {
-        Self {
-            request: serde_json::to_string(&(
-                t.request.method_name,
-                &t.request.api_version,
-                &t.request.params,
-            ))
-            .unwrap_or_default(),
-            ignore: t.ignore.is_some(),
-        }
-    }
+enum PolicyOnRejected {
+    Fail,
+    Pass,
+    PassWithIdenticalError,
 }
 
 struct RpcTest {
@@ -312,7 +307,7 @@ struct RpcTest {
     check_syntax: Arc<dyn Fn(serde_json::Value) -> bool + Send + Sync>,
     check_semantics: Arc<dyn Fn(serde_json::Value, serde_json::Value) -> bool + Send + Sync>,
     ignore: Option<&'static str>,
-    pass_on_rejected: bool,
+    policy_on_rejected: PolicyOnRejected,
 }
 
 /// Duplication between `<method>` and `<method>_raw` is a temporary measure, and
@@ -340,7 +335,7 @@ impl RpcTest {
             }),
             check_semantics: Arc::new(|_, _| true),
             ignore: None,
-            pass_on_rejected: false,
+            policy_on_rejected: PolicyOnRejected::Fail,
         }
     }
     /// Check that an endpoint exists, has the same JSON schema, and do custom
@@ -385,7 +380,7 @@ impl RpcTest {
                 }
             }),
             ignore: None,
-            pass_on_rejected: false,
+            policy_on_rejected: PolicyOnRejected::Fail,
         }
     }
     /// Check that an endpoint exists and that Forest returns exactly the same
@@ -399,8 +394,8 @@ impl RpcTest {
         self
     }
 
-    fn pass_on_rejected(mut self, flag: bool) -> Self {
-        self.pass_on_rejected = flag;
+    fn policy_on_rejected(mut self, policy: PolicyOnRejected) -> Self {
+        self.policy_on_rejected = policy;
         self
     }
 
@@ -554,10 +549,26 @@ fn chain_tests_with_tipset<DB: Blockstore>(
     Ok(tests)
 }
 
+const TICKET_QUALITY_GREEDY: f64 = 0.9;
+const TICKET_QUALITY_OPTIMAL: f64 = 0.8;
+
 fn mpool_tests() -> Vec<RpcTest> {
     vec![
         RpcTest::basic(MpoolPending::request((ApiTipsetKey(None),)).unwrap()),
-        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), 0.9_f64)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_GREEDY)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((ApiTipsetKey(None), TICKET_QUALITY_OPTIMAL)).unwrap())
+            .ignore("https://github.com/ChainSafe/forest/issues/4490"),
+    ]
+}
+
+fn mpool_tests_with_tipset(tipset: &Tipset) -> Vec<RpcTest> {
+    vec![
+        RpcTest::basic(MpoolPending::request((tipset.key().into(),)).unwrap()),
+        RpcTest::basic(MpoolSelect::request((tipset.key().into(), TICKET_QUALITY_GREEDY)).unwrap()),
+        RpcTest::basic(
+            MpoolSelect::request((tipset.key().into(), TICKET_QUALITY_OPTIMAL)).unwrap(),
+        )
+        .ignore("https://github.com/ChainSafe/forest/issues/4490"),
     ]
 }
 
@@ -638,7 +649,7 @@ fn miner_create_block_test(
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
-            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            let sig = priv_key.sign(message.cid().to_bytes());
             SignedMessage {
                 message,
                 signature: Signature::new_bls(sig.as_bytes().to_vec()),
@@ -758,7 +769,44 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .into(),))?),
         RpcTest::identity(StateMarketParticipants::request((tipset.key().into(),))?),
         RpcTest::identity(StateMarketDeals::request((tipset.key().into(),))?),
+        RpcTest::identity(StateSectorPreCommitInfo::request((
+            Default::default(), // invalid address
+            u16::MAX as _,
+            tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::Pass),
+        RpcTest::identity(StateSectorGetInfo::request((
+            Default::default(), // invalid address
+            u16::MAX as _,
+            tipset.key().into(),
+        ))?)
+        .policy_on_rejected(PolicyOnRejected::Pass),
+        RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
+        RpcTest::identity(StateGetAllocationForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
     ];
+
+    for &pending_deal_id in
+        StateGetAllocationIdForPendingDeal::get_allocations_for_pending_deals(store, tipset)?
+            .keys()
+            .take(COLLECTION_SAMPLE_SIZE)
+    {
+        tests.extend([
+            RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+            RpcTest::identity(StateGetAllocationForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+        ]);
+    }
 
     // Get deals
     let (deals, deals_map) = {
@@ -786,7 +834,11 @@ fn state_tests_with_tipset<DB: Blockstore>(
 
     for block in tipset.block_headers() {
         tests.extend([
-            validate_sector_on_chain_info_vec(StateMinerActiveSectors::request((
+            RpcTest::identity(StateMinerAllocated::request((
+                block.miner_address,
+                tipset.key().into(),
+            ))?),
+            RpcTest::identity(StateMinerActiveSectors::request((
                 block.miner_address,
                 tipset.key().into(),
             ))?),
@@ -794,7 +846,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
-            validate_sector_on_chain_info_vec(StateMinerSectors::request((
+            RpcTest::identity(StateMinerSectors::request((
                 block.miner_address,
                 None,
                 tipset.key().into(),
@@ -849,6 +901,18 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateSectorPreCommitInfo::request((
+                block.miner_address,
+                u16::MAX as _, // invalid sector number
+                tipset.key().into(),
+            ))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
+            RpcTest::identity(StateSectorGetInfo::request((
+                block.miner_address,
+                u16::MAX as _, // invalid sector number
+                tipset.key().into(),
+            ))?)
+            .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
         ]);
         for claim_id in StateGetClaims::get_claims(store, &block.miner_address, tipset)?
             .keys()
@@ -883,12 +947,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .take(COLLECTION_SAMPLE_SIZE)
         {
             tests.extend([
-                validate_sector_on_chain_info(StateSectorGetInfo::request((
+                RpcTest::identity(StateSectorGetInfo::request((
                     block.miner_address,
                     sector,
                     tipset.key().into(),
                 ))?),
-                validate_sector_on_chain_info_vec(StateMinerSectors::request((
+                RpcTest::identity(StateMinerSectors::request((
                     block.miner_address,
                     {
                         let mut bf = BitField::new();
@@ -902,7 +966,7 @@ fn state_tests_with_tipset<DB: Blockstore>(
                     sector,
                     tipset.key().into(),
                 ))?)
-                .pass_on_rejected(true),
+                .policy_on_rejected(PolicyOnRejected::PassWithIdenticalError),
                 RpcTest::identity(StateSectorPartition::request((
                     block.miner_address,
                     sector,
@@ -962,7 +1026,12 @@ fn state_tests_with_tipset<DB: Blockstore>(
             tests.extend([
                 RpcTest::identity(StateReplay::request((tipset.key().into(), msg_cid))?),
                 validate_message_lookup(
-                    StateWaitMsg::request((msg_cid, 0))?.with_timeout(Duration::from_secs(30)),
+                    StateWaitMsg::request((msg_cid, 0, 10101, true))?
+                        .with_timeout(Duration::from_secs(15)),
+                ),
+                validate_message_lookup(
+                    StateWaitMsg::request((msg_cid, 0, 10101, false))?
+                        .with_timeout(Duration::from_secs(15)),
                 ),
                 validate_message_lookup(StateSearchMsg::request((msg_cid,))?),
                 validate_message_lookup(StateSearchMsgLimited::request((msg_cid, 800))?),
@@ -1037,6 +1106,16 @@ fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             WalletSign::request((worker_address, Vec::new())).unwrap(),
         ));
+        let msg: Message = Message {
+            from: worker_address,
+            to: worker_address,
+            value: TokenAmount::from_whole(1),
+            method_num: METHOD_SEND,
+            ..Default::default()
+        };
+        tests.push(RpcTest::identity(
+            WalletSignMessage::request((worker_address, msg)).unwrap(),
+        ));
     }
     tests
 }
@@ -1064,6 +1143,8 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
+        RpcTest::basic(EthMaxPriorityFeePerGas::request(()).unwrap()),
+        RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
     ]
 }
 
@@ -1128,11 +1209,34 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             EthGetBlockTransactionCountByNumber::request((Int64(shared_tipset.epoch()),)).unwrap(),
         ),
         RpcTest::identity(
+            EthGetTransactionCount::request((
+                EthAddress::from_str("0xff000000000000000000000000000000000003ec").unwrap(),
+                BlockNumberOrHash::from_block_hash_object(block_hash.clone(), true),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
             EthGetStorageAt::request((
                 // https://filfox.info/en/address/f410fpoidg73f7krlfohnla52dotowde5p2sejxnd4mq
                 EthAddress::from_str("0x7B90337f65fAA2B2B8ed583ba1Ba6EB0C9D7eA44").unwrap(),
                 EthBytes(vec![0xa]),
                 BlockNumberOrHash::BlockNumber(Int64(shared_tipset.epoch())),
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistory::request((
+                10.into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                None,
+            ))
+            .unwrap(),
+        ),
+        RpcTest::identity(
+            EthFeeHistory::request((
+                10.into(),
+                BlockNumberOrPredefined::BlockNumber(shared_tipset.epoch().into()),
+                Some(vec![10., 50., 90.]),
             ))
             .unwrap(),
         ),
@@ -1169,7 +1273,35 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
     ]
+}
+
+fn eth_state_tests_with_tipset<DB: Blockstore>(
+    store: &Arc<DB>,
+    shared_tipset: &Tipset,
+    eth_chain_id: EthChainIdType,
+) -> anyhow::Result<Vec<RpcTest>> {
+    let mut tests = vec![];
+
+    for block in shared_tipset.block_headers() {
+        let state = StateTree::new_from_root(store.clone(), shared_tipset.parent_state())?;
+
+        let (bls_messages, secp_messages) = crate::chain::store::block_messages(store, block)?;
+        for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
+            let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
+            tests.push(RpcTest::identity(
+                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
+            ));
+        }
+    }
+    tests.push(RpcTest::identity(
+        EthGetMessageCidByTransactionHash::request((Hash::from_str(
+            "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
+        )?,))?,
+    ));
+
+    Ok(tests)
 }
 
 fn gas_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
@@ -1217,6 +1349,12 @@ fn snapshot_tests(store: Arc<ManyCar>, config: &ApiTestFlags) -> anyhow::Result<
         tests.extend(state_tests_with_tipset(&store, &tipset)?);
         tests.extend(eth_tests_with_tipset(&tipset));
         tests.extend(gas_tests_with_tipset(&tipset));
+        tests.extend(mpool_tests_with_tipset(&tipset));
+        tests.extend(eth_state_tests_with_tipset(
+            &store,
+            &tipset,
+            config.eth_chain_id,
+        )?);
     }
     Ok(tests)
 }
@@ -1226,12 +1364,12 @@ fn sample_message_cids<'a>(
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
 ) -> impl Iterator<Item = Cid> + 'a {
     bls_messages
-        .filter_map(|m| m.cid().ok())
+        .map(|m| m.cid())
         .unique()
         .take(COLLECTION_SAMPLE_SIZE)
         .chain(
             secp_messages
-                .filter_map(|m| m.cid().ok())
+                .map(|m| m.cid())
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )
@@ -1251,6 +1389,21 @@ fn sample_messages<'a>(
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )
+        .unique()
+}
+
+fn sample_signed_messages<'a>(
+    bls_messages: impl Iterator<Item = &'a Message> + 'a,
+    secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
+) -> impl Iterator<Item = SignedMessage> + 'a {
+    bls_messages
+        .unique()
+        .take(COLLECTION_SAMPLE_SIZE)
+        .map(|msg| {
+            let sig = Signature::new_bls(vec![]);
+            SignedMessage::new_unchecked(msg.clone(), sig)
+        })
+        .chain(secp_messages.cloned().unique().take(COLLECTION_SAMPLE_SIZE))
         .unique()
 }
 
@@ -1472,7 +1625,19 @@ async fn run_tests(
     };
 
     // deduplicate tests by their hash-able representations
-    for test in tests.into_iter().unique_by(|t| RpcTestHashable::from(t)) {
+    for test in tests.into_iter().unique_by(
+        |RpcTest {
+             request:
+                 rpc::Request {
+                     method_name,
+                     params,
+                     api_paths,
+                     ..
+                 },
+             ignore,
+             ..
+         }| (*method_name, params.clone(), *api_paths, ignore.is_some()),
+    ) {
         // By default, do not run ignored tests.
         if matches!(config.run_ignored, RunIgnored::Default) && test.ignore.is_some() {
             continue;
@@ -1509,10 +1674,14 @@ async fn run_tests(
         let success = match (&forest_status, &lotus_status) {
             (TestSummary::Valid, TestSummary::Valid)
             | (TestSummary::Timeout, TestSummary::Timeout) => true,
-            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus))
-                if test.pass_on_rejected && reason_forest == reason_lotus =>
-            {
-                true
+            (TestSummary::Rejected(ref reason_forest), TestSummary::Rejected(ref reason_lotus)) => {
+                match test.policy_on_rejected {
+                    PolicyOnRejected::Pass => true,
+                    PolicyOnRejected::PassWithIdenticalError if reason_forest == reason_lotus => {
+                        true
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         };
@@ -1595,28 +1764,6 @@ fn validate_message_lookup(req: rpc::Request<MessageLookup>) -> RpcTest {
         // TODO(hanabi1224): https://github.com/ChainSafe/forest/issues/3784
         forest.return_dec = Ipld::Null;
         lotus.return_dec = Ipld::Null;
-        forest == lotus
-    })
-}
-
-fn validate_sector_on_chain_info(req: rpc::Request<SectorOnChainInfo>) -> RpcTest {
-    RpcTest::validate(req, |mut forest, mut lotus| {
-        // https://github.com/filecoin-project/lotus/issues/11962
-        forest.flags = 0;
-        lotus.flags = 0;
-        forest == lotus
-    })
-}
-
-fn validate_sector_on_chain_info_vec(req: rpc::Request<Vec<SectorOnChainInfo>>) -> RpcTest {
-    RpcTest::validate(req, |mut forest, mut lotus| {
-        // https://github.com/filecoin-project/lotus/issues/11962
-        for f in &mut forest {
-            f.flags = 0;
-        }
-        for l in &mut lotus {
-            l.flags = 0;
-        }
         forest == lotus
     })
 }

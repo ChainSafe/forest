@@ -37,7 +37,7 @@ use futures::{
     try_join, StreamExt,
 };
 use fvm_ipld_blockstore::Blockstore;
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -380,6 +380,14 @@ where
                     .get_or_create(&metrics::values::HELLO_RESPONSE_OUTBOUND)
                     .inc();
                 let tipset_keys = TipsetKey::from(request.heaviest_tip_set.clone());
+                network.peer_manager().update_peer_head(
+                    source,
+                    if let Ok(Some(ts)) = Tipset::load(chain_store.blockstore(), &tipset_keys) {
+                        Either::Right(Arc::new(ts))
+                    } else {
+                        Either::Left(tipset_keys.clone())
+                    },
+                );
                 let tipset = match Self::get_full_tipset(
                     network.clone(),
                     chain_store.clone(),
@@ -481,6 +489,12 @@ where
             }
         };
 
+        // Update the peer head
+        network.peer_manager().update_peer_head(
+            source,
+            Either::Right(Arc::new(tipset.clone().into_tipset())),
+        );
+
         if tipset.epoch() + (SECONDS_IN_DAY / block_delay as i64)
             < chain_store.heaviest_tipset().epoch()
         {
@@ -511,10 +525,8 @@ where
             block.persist(&chain_store.db)?;
         }
 
-        // Update the peer head
-        network
-            .peer_manager()
-            .update_peer_head(source, Arc::new(tipset.clone().into_tipset()));
+        // This is needed for the Ethereum mapping
+        chain_store.put_tipset_key(tipset.key())?;
 
         Ok(Some((tipset, source)))
     }

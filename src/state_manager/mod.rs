@@ -478,7 +478,7 @@ where
         Ok(ApiInvocResult {
             msg: msg.clone(),
             msg_rct: Some(apply_ret.msg_receipt()),
-            msg_cid: msg.cid().map_err(|err| Error::Other(err.to_string()))?,
+            msg_cid: msg.cid(),
             error: apply_ret.failure_info().unwrap_or_default(),
             duration: duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
             gas_cost: MessageGasCost::default(),
@@ -563,51 +563,53 @@ where
     /// indicated message, assuming it was executed in the indicated tipset.
     pub async fn replay(
         self: &Arc<Self>,
-        ts: &Arc<Tipset>,
+        ts: Arc<Tipset>,
         mcid: Cid,
     ) -> Result<ApiInvocResult, Error> {
-        const ERROR_MSG: &str = "replay_halt";
+        let this = Arc::clone(self);
+        tokio::task::spawn_blocking(move || this.replay_blocking(ts, mcid))
+            .await
+            .map_err(|e| Error::Other(format!("{e}")))?
+    }
 
-        // This isn't ideal to have, since the execution is synchronous, but this needs
-        // to be the case because the state transition has to be in blocking
-        // thread to avoid starving executor
-        let (tx, rx) = flume::bounded(1);
-        let callback = move |ctx: MessageCallbackCtx<'_>| {
+    /// Blocking version of `replay`
+    pub fn replay_blocking(
+        self: &Arc<Self>,
+        ts: Arc<Tipset>,
+        mcid: Cid,
+    ) -> Result<ApiInvocResult, Error> {
+        const REPLAY_HALT: &str = "replay_halt";
+
+        let mut api_invoc_result = None;
+        let callback = |ctx: MessageCallbackCtx<'_>| {
             match ctx.at {
-                CalledAt::Applied | CalledAt::Reward => {
-                    if ctx.cid == mcid {
-                        tx.send(ApiInvocResult {
-                            msg_cid: ctx.message.cid()?,
-                            msg: ctx.message.message().clone(),
-                            msg_rct: Some(ctx.apply_ret.msg_receipt()),
-                            error: ctx.apply_ret.failure_info().unwrap_or_default(),
-                            duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
-                            gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
-                            execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
-                                .unwrap_or_default(),
-                        })?;
-                        anyhow::bail!(ERROR_MSG);
-                    }
-                    Ok(())
+                CalledAt::Applied | CalledAt::Reward
+                    if api_invoc_result.is_none() && ctx.cid == mcid =>
+                {
+                    api_invoc_result = Some(ApiInvocResult {
+                        msg_cid: ctx.message.cid(),
+                        msg: ctx.message.message().clone(),
+                        msg_rct: Some(ctx.apply_ret.msg_receipt()),
+                        error: ctx.apply_ret.failure_info().unwrap_or_default(),
+                        duration: ctx.duration.as_nanos().clamp(0, u64::MAX as u128) as u64,
+                        gas_cost: MessageGasCost::new(ctx.message.message(), ctx.apply_ret)?,
+                        execution_trace: structured::parse_events(ctx.apply_ret.exec_trace())
+                            .unwrap_or_default(),
+                    });
+                    anyhow::bail!(REPLAY_HALT);
                 }
-                CalledAt::Cron => Ok(()), // ignored
+                _ => Ok(()), // ignored
             }
         };
-        let result = self
-            .compute_tipset_state(Arc::clone(ts), Some(callback), VMTrace::Traced)
-            .await;
-
+        let result = self.compute_tipset_state_blocking(ts, Some(callback), VMTrace::Traced);
         if let Err(error_message) = result {
-            if error_message.to_string() != ERROR_MSG {
+            if error_message.to_string() != REPLAY_HALT {
                 return Err(Error::Other(format!(
                     "unexpected error during execution : {error_message:}"
                 )));
             }
         }
-
-        // Use try_recv here assuming callback execution is synchronous
-        rx.try_recv()
-            .map_err(|err| Error::Other(format!("failed to replay: {err}")))
+        api_invoc_result.ok_or_else(|| Error::Other("failed to replay".into()))
     }
 
     /// Checks the eligibility of the miner. This is used in the validation that
@@ -703,7 +705,7 @@ where
     pub fn compute_tipset_state_blocking(
         &self,
         tipset: Arc<Tipset>,
-        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()> + Send + 'static>,
+        callback: Option<impl FnMut(MessageCallbackCtx<'_>) -> anyhow::Result<()>>,
         enable_tracing: VMTrace,
     ) -> Result<CidPair, Error> {
         Ok(apply_block_messages(
@@ -758,8 +760,8 @@ where
                 if !allow_replaced && message.cid() != m.cid(){
                     Err(Error::Other(format!(
                         "found message with equal nonce and call params but different CID. wanted {}, found: {}, nonce: {}, from: {}",
-                        message.cid().unwrap_or_default(),
-                        m.cid().unwrap_or_default(),
+                        message.cid(),
+                        m.cid(),
                         message.sequence(),
                         message.from(),
                     )))
@@ -782,7 +784,9 @@ where
         mut current: Arc<Tipset>,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
+        let allow_replaced = allow_replaced.unwrap_or(true);
         let message_from_address = message.from();
         let message_sequence = message.sequence();
         let mut current_actor_state = self
@@ -809,7 +813,7 @@ where
                     && parent_actor_state.as_ref().unwrap().sequence <= message_sequence)
             {
                 let receipt = self
-                    .tipset_executed_message(current.as_ref(), message, true)?
+                    .tipset_executed_message(current.as_ref(), message, allow_replaced)?
                     .context("Failed to get receipt with tipset_executed_message")?;
                 return Ok(Some((current, receipt)));
             }
@@ -830,8 +834,9 @@ where
         current: Arc<Tipset>,
         message: &ChainMessage,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
-        self.check_search(current, message, look_back_limit)
+        self.check_search(current, message, look_back_limit, allow_replaced)
     }
 
     /// Returns a message receipt from a given tipset and message CID.
@@ -843,7 +848,7 @@ where
             return Ok(receipt);
         }
 
-        let maybe_tuple = self.search_back_for_message(tipset, &m, None)?;
+        let maybe_tuple = self.search_back_for_message(tipset, &m, None, None)?;
         let message_receipt = maybe_tuple
             .ok_or_else(|| {
                 Error::Other("Could not get receipt from search back message".to_string())
@@ -860,6 +865,8 @@ where
         self: &Arc<Self>,
         msg_cid: Cid,
         confidence: i64,
+        look_back_limit: Option<ChainEpoch>,
+        allow_replaced: Option<bool>,
     ) -> Result<(Option<Arc<Tipset>>, Option<Receipt>), Error> {
         let mut subscriber = self.cs.publisher().subscribe();
         let (sender, mut receiver) = oneshot::channel::<()>();
@@ -880,8 +887,12 @@ where
         let message_for_task = message.clone();
         let height_of_head = current_tipset.epoch();
         let task = tokio::task::spawn(async move {
-            let back_tuple =
-                sm_cloned.search_back_for_message(current_tipset, &message_for_task, None)?;
+            let back_tuple = sm_cloned.search_back_for_message(
+                current_tipset,
+                &message_for_task,
+                look_back_limit,
+                allow_replaced,
+            )?;
             sender
                 .send(())
                 .map_err(|e| Error::Other(format!("Could not send to channel {e:?}")))?;
@@ -978,16 +989,18 @@ where
         from: Option<Arc<Tipset>>,
         msg_cid: Cid,
         look_back_limit: Option<i64>,
+        allow_replaced: Option<bool>,
     ) -> Result<Option<(Arc<Tipset>, Receipt)>, Error> {
         let from = from.unwrap_or_else(|| self.chain_store().heaviest_tipset());
         let message = crate::chain::get_chain_message(self.blockstore(), &msg_cid)
             .map_err(|err| Error::Other(format!("failed to load message {err}")))?;
         let current_tipset = self.cs.heaviest_tipset();
-        let maybe_message_reciept = self.tipset_executed_message(&from, &message, true)?;
+        let maybe_message_reciept =
+            self.tipset_executed_message(&from, &message, allow_replaced.unwrap_or(true))?;
         if let Some(r) = maybe_message_reciept {
             Ok(Some((from, r)))
         } else {
-            self.search_back_for_message(current_tipset, &message, look_back_limit)
+            self.search_back_for_message(current_tipset, &message, look_back_limit, allow_replaced)
         }
     }
 
