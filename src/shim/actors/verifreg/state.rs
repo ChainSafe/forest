@@ -338,14 +338,14 @@ impl VerifiedRegistryStateExt for State {
                 let mut claims = s.load_claims(store)?;
                 let mut actors = vec![];
                 claims.for_each(|k, _| {
-                    let actor_id = fil_actors_shared::v13::parse_uint_key(k)?;
+                    let actor_id = fil_actors_shared::v14::parse_uint_key(k)?;
                     actors.push(actor_id);
                     Ok(())
                 })?;
 
                 for actor_id in actors {
                     claims.for_each_in(actor_id, |k, v| {
-                        let claim_id = fil_actors_shared::v13::parse_uint_key(k)?;
+                        let claim_id = fil_actors_shared::v14::parse_uint_key(k)?;
                         result.insert(claim_id, v.into());
                         Ok(())
                     })?;
