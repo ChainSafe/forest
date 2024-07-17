@@ -1176,7 +1176,7 @@ where
 
     pub async fn miner_get_base_info(
         self: &Arc<Self>,
-        beacon_schedule: &Arc<BeaconSchedule>,
+        beacon_schedule: &BeaconSchedule,
         tipset: Arc<Tipset>,
         addr: Address,
         epoch: ChainEpoch,
