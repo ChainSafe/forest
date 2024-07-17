@@ -2506,8 +2506,7 @@ pub struct ForkUpgradeParams {
     upgrade_watermelon_height: ChainEpoch,
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
-    // To be added in the next Lotus release
-    // upgrade_waffle_height: ChainEpoch,
+    upgrade_waffle_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2551,7 +2550,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_watermelon_height: get_height(Watermelon)?,
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
-            // upgrade_waffle_height: get_height(Waffle)?,
+            upgrade_waffle_height: get_height(Waffle)?,
         })
     }
 }
