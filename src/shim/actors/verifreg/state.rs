@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use super::*;
-use crate::{list_all_inner, list_all_inner_old};
+use crate::{list_all_inner, list_all_inner_pre_v12};
 use anyhow::Context as _;
 impl VerifiedRegistryStateExt for State {
     fn get_allocations<BS: Blockstore>(
@@ -73,9 +73,9 @@ impl VerifiedRegistryStateExt for State {
         let mut result = HashMap::default();
         match self {
             State::V8(_) => return Err(anyhow::anyhow!("unsupported in actors v8")),
-            State::V9(state) => list_all_inner_old!(state, store, v9, load_allocs, result),
-            State::V10(state) => list_all_inner_old!(state, store, v10, load_allocs, result),
-            State::V11(state) => list_all_inner_old!(state, store, v11, load_allocs, result),
+            State::V9(state) => list_all_inner_pre_v12!(state, store, v9, load_allocs, result),
+            State::V10(state) => list_all_inner_pre_v12!(state, store, v10, load_allocs, result),
+            State::V11(state) => list_all_inner_pre_v12!(state, store, v11, load_allocs, result),
             State::V12(state) => list_all_inner!(state, store, v12, load_allocs, result),
             State::V13(state) => list_all_inner!(state, store, v13, load_allocs, result),
             State::V14(state) => list_all_inner!(state, store, v14, load_allocs, result),
@@ -153,9 +153,9 @@ impl VerifiedRegistryStateExt for State {
         let mut result = HashMap::default();
         match self {
             Self::V8(_) => return Err(anyhow::anyhow!("unsupported in actors v8")),
-            State::V9(state) => list_all_inner_old!(state, store, v9, load_claims, result),
-            State::V10(state) => list_all_inner_old!(state, store, v10, load_claims, result),
-            State::V11(state) => list_all_inner_old!(state, store, v11, load_claims, result),
+            State::V9(state) => list_all_inner_pre_v12!(state, store, v9, load_claims, result),
+            State::V10(state) => list_all_inner_pre_v12!(state, store, v10, load_claims, result),
+            State::V11(state) => list_all_inner_pre_v12!(state, store, v11, load_claims, result),
             State::V12(state) => list_all_inner!(state, store, v12, load_claims, result),
             State::V13(state) => list_all_inner!(state, store, v13, load_claims, result),
             State::V14(state) => list_all_inner!(state, store, v14, load_claims, result),
@@ -165,7 +165,7 @@ impl VerifiedRegistryStateExt for State {
 }
 
 #[macro_export]
-macro_rules! list_all_inner_old {
+macro_rules! list_all_inner_pre_v12 {
     ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
         let mut entities = $state.$method($store)?;
         let mut actors = vec![];
