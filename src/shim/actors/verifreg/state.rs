@@ -166,7 +166,7 @@ impl VerifiedRegistryStateExt for State {
 
 #[macro_export]
 macro_rules! list_all_inner_old {
-    ($state:ident, $store:ident, $version:ident, $method:ident, $map: ident) => {{
+    ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
         let mut entities = $state.$method($store)?;
         let mut actors = vec![];
         entities.for_each_outer(|k, _| {
@@ -187,7 +187,7 @@ macro_rules! list_all_inner_old {
 
 #[macro_export]
 macro_rules! list_all_inner {
-    ($state:ident, $store:ident, $version:ident, $method:ident, $map: ident) => {{
+    ($state:ident, $store:ident, $version:ident, $method:ident, $map:ident) => {{
         let mut entities = $state.$method($store)?;
         let mut actors = vec![];
         entities.for_each(|k, _| {
