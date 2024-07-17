@@ -171,8 +171,8 @@ where
     let hygge = state_manager.chain_config().epoch(Height::Hygge);
     tracing::info!(
         "Populating column EthMappings from range: [{}, {}]",
-        head_ts.epoch(),
-        hygge
+        hygge,
+        head_ts.epoch()
     );
 
     for ts in head_ts
