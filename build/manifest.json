@@ -3,6 +3,73 @@
     "network": {
       "type": "calibnet"
     },
+    "version": "8.0.0-rc.1",
+    "bundle_cid": "bafy2bzacedrdn6z3z7xz7lx4wll3tlgktirhllzqxb766dxpaqp3ukxsjfsba",
+    "manifest": {
+      "actors": [
+        [
+          "system",
+          1,
+          "bafk2bzaceaqrkllksxv2jsfgjvmuewx5vbzrammw5mdscod6gkdr3ijih2q64"
+        ],
+        [
+          "init",
+          2,
+          "bafk2bzaceadyfilb22bcvzvnpzbg2lyg6npmperyq6es2brvzjdh5rmywc4ry"
+        ],
+        [
+          "cron",
+          3,
+          "bafk2bzaceaxlezmclw5ugldhhtfgvn7yztux45scqik3ez4yhwiqhg5ssib44"
+        ],
+        [
+          "account",
+          4,
+          "bafk2bzacecruossn66xqbeutqx5r4k2kjzgd43frmwd4qkw6haez44ubvvpxo"
+        ],
+        [
+          "storagepower",
+          5,
+          "bafk2bzacecpwr4mynn55bg5hrlns3osvg7sty3rca6zlai3vl52vbbjk7ulfa"
+        ],
+        [
+          "storageminer",
+          6,
+          "bafk2bzacea6rabflc7kpwr6y4lzcqsnuahr4zblyq3rhzrrsfceeiw2lufrb4"
+        ],
+        [
+          "storagemarket",
+          7,
+          "bafk2bzacebotg5coqnglzsdrqxtkqk2eq4krxt6zvds3i3vb2yejgxhexl2n6"
+        ],
+        [
+          "paymentchannel",
+          8,
+          "bafk2bzaceblot4pemhfgwb3lceellwrpgxaqkpselzbpqu32maffpopdunlha"
+        ],
+        [
+          "multisig",
+          9,
+          "bafk2bzacec66wmb4kohuzvuxsulhcgiwju7sqkldwfpmmgw7dbbwgm5l2574q"
+        ],
+        [
+          "reward",
+          10,
+          "bafk2bzaceayah37uvj7brl5no4gmvmqbmtndh5raywuts7h6tqbgbq2ge7dhu"
+        ],
+        [
+          "verifiedregistry",
+          11,
+          "bafk2bzaceaihibfu625lbtzdp3tcftscshrmbgghgrc7kzqhxn4455pycpdkm"
+        ]
+      ],
+      "actor_list_cid": "bafy2bzacec7ewi4djlixcaqzaqpivf3pdzgdhlh5bvbj2qvgdpuuih22tt3aq"
+    }
+  },
+  {
+    "network": {
+      "type": "calibnet"
+    },
     "version": "v9.0.3",
     "bundle_cid": "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy",
     "manifest": {

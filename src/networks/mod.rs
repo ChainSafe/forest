@@ -24,6 +24,7 @@ use crate::{make_butterfly_policy, make_calibnet_policy, make_devnet_policy, mak
 mod actors_bundle;
 pub use actors_bundle::{
     generate_actor_bundle, get_actor_bundles_metadata, ActorBundleInfo, ACTOR_BUNDLES,
+    ACTOR_BUNDLES_METADATA,
 };
 
 mod drand;

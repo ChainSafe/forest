@@ -71,6 +71,7 @@ macro_rules! actor_bundle_info {
 
 pub static ACTOR_BUNDLES: Lazy<Box<[ActorBundleInfo]>> = Lazy::new(|| {
     Box::new(actor_bundle_info![
+        "bafy2bzacedrdn6z3z7xz7lx4wll3tlgktirhllzqxb766dxpaqp3ukxsjfsba" @ "8.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedbedgynklc4dgpyxippkxmba2mgtw7ecntoneclsvvl4klqwuyyy" @ "v9.0.3" for "calibrationnet",
         "bafy2bzaced25ta3j6ygs34roprilbtb3f6mxifyfnm7z7ndquaruxzdq3y7lo" @ "v10.0.0-rc.1" for "calibrationnet",
         "bafy2bzacedhuowetjy2h4cxnijz2l64h4mzpk5m256oywp4evarpono3cjhco" @ "v11.0.0-rc2" for "calibrationnet",
@@ -104,6 +105,17 @@ pub struct ActorBundleMetadata {
     #[serde_as(as = "DisplayFromStr")]
     pub bundle_cid: Cid,
     pub manifest: BuiltinActorManifest,
+}
+
+impl ActorBundleMetadata {
+    pub fn actor_major_version(&self) -> anyhow::Result<u64> {
+        self.version
+            .trim_start_matches('v')
+            .split('.')
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("invalid version"))
+            .and_then(|s| s.parse().map_err(|_| anyhow::anyhow!("invalid version")))
+    }
 }
 
 type ActorBundleMetadataMap = HashMap<(NetworkChain, String), ActorBundleMetadata>;
@@ -296,5 +308,45 @@ mod tests {
             .timeout(Duration::from_secs(120))
             .send()
             .await?)
+    }
+
+    #[test]
+    fn test_actor_major_version_correct() {
+        let cases = [
+            ("8.0.0-rc.1", 8),
+            ("v9.0.3", 9),
+            ("v10.0.0-rc.1", 10),
+            ("v12.0.0", 12),
+            ("v13.0.0-rc.3", 13),
+            ("v13.0.0", 13),
+            ("v14.0.0-rc.1", 14),
+        ];
+
+        for (version, expected) in cases.iter() {
+            let metadata = ActorBundleMetadata {
+                network: NetworkChain::Mainnet,
+                version: version.to_string(),
+                bundle_cid: Default::default(),
+                manifest: Default::default(),
+            };
+
+            assert_eq!(metadata.actor_major_version().unwrap(), *expected);
+        }
+    }
+
+    #[test]
+    fn test_actor_major_version_invalid() {
+        let cases = ["cthulhu", "vscode", ".02", "-42"];
+
+        for version in cases.iter() {
+            let metadata = ActorBundleMetadata {
+                network: NetworkChain::Mainnet,
+                version: version.to_string(),
+                bundle_cid: Default::default(),
+                manifest: Default::default(),
+            };
+
+            assert!(metadata.actor_major_version().is_err());
+        }
     }
 }

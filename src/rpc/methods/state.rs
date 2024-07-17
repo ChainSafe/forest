@@ -16,9 +16,11 @@ use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
 use crate::lotus_json::lotus_json_with_self;
 use crate::networks::{ChainConfig, NetworkChain};
+use crate::shim::actors::market::MarketStateExt as _;
+use crate::shim::actors::state_load::*;
 use crate::shim::actors::verifreg::VerifiedRegistryStateExt as _;
 use crate::shim::actors::{
-    market::{BalanceTableExt as _, MarketStateExt as _},
+    market::BalanceTableExt as _,
     miner::{MinerStateExt as _, PartitionExt as _},
 };
 use crate::shim::address::Payload;

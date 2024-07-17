@@ -12,6 +12,7 @@ use std::{
 use crate::{
     lotus_json::HasLotusJson as _,
     shim::{
+        actors::state_load::*,
         address::Address,
         state_tree::{ActorState, StateTree},
     },

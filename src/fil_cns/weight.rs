@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0, MIT
 
 use crate::blocks::Tipset;
+use crate::shim::actors::PowerActorStateLoad as _;
 use crate::shim::{address::Address, state_tree::StateTree};
 use fil_actor_interface::power;
 use fvm_ipld_blockstore::Blockstore;
