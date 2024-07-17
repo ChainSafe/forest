@@ -2135,7 +2135,7 @@ impl RpcMethod<1> for StateGetAllClaims {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.get_all_claims(&ts)?)
     }
 }
@@ -2325,7 +2325,7 @@ impl RpcMethod<1> for crate::rpc::prelude::StateGetAllAllocations {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (ApiTipsetKey(tsk),): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let ts = ctx.chain_store.load_required_tipset_or_heaviest(&tsk)?;
+        let ts = ctx.chain_store().load_required_tipset_or_heaviest(&tsk)?;
         Ok(ctx.state_manager.get_all_allocations(&ts)?)
     }
 }
