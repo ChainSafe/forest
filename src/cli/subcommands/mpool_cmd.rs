@@ -229,7 +229,7 @@ impl MpoolCommands {
 
                 for msg in filtered_messages {
                     if cids {
-                        println!("{}", msg.cid().unwrap());
+                        println!("{}", msg.cid());
                     } else {
                         println!("{}", msg.into_lotus_json_string_pretty()?);
                     }

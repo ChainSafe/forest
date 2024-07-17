@@ -649,7 +649,7 @@ fn miner_create_block_test(
     let signed_bls_msgs = bls_messages
         .into_iter()
         .map(|message| {
-            let sig = priv_key.sign(message.cid().expect("unexpected").to_bytes());
+            let sig = priv_key.sign(message.cid().to_bytes());
             SignedMessage {
                 message,
                 signature: Signature::new_bls(sig.as_bytes().to_vec()),
@@ -785,6 +785,10 @@ fn state_tests_with_tipset<DB: Blockstore>(
             u16::MAX as _, // Invalid deal id
             tipset.key().into(),
         ))?),
+        RpcTest::identity(StateGetAllocationForPendingDeal::request((
+            u16::MAX as _, // Invalid deal id
+            tipset.key().into(),
+        ))?),
     ];
 
     for &pending_deal_id in
@@ -792,9 +796,16 @@ fn state_tests_with_tipset<DB: Blockstore>(
             .keys()
             .take(COLLECTION_SAMPLE_SIZE)
     {
-        tests.extend([RpcTest::identity(
-            StateGetAllocationIdForPendingDeal::request((pending_deal_id, tipset.key().into()))?,
-        )]);
+        tests.extend([
+            RpcTest::identity(StateGetAllocationIdForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+            RpcTest::identity(StateGetAllocationForPendingDeal::request((
+                pending_deal_id,
+                tipset.key().into(),
+            ))?),
+        ]);
     }
 
     // Get deals
@@ -1095,6 +1106,16 @@ fn wallet_tests(config: &ApiTestFlags) -> Vec<RpcTest> {
         tests.push(RpcTest::identity(
             WalletSign::request((worker_address, Vec::new())).unwrap(),
         ));
+        let msg: Message = Message {
+            from: worker_address,
+            to: worker_address,
+            value: TokenAmount::from_whole(1),
+            method_num: METHOD_SEND,
+            ..Default::default()
+        };
+        tests.push(RpcTest::identity(
+            WalletSignMessage::request((worker_address, msg)).unwrap(),
+        ));
     }
     tests
 }
@@ -1122,6 +1143,8 @@ fn eth_tests() -> Vec<RpcTest> {
             .unwrap(),
         ),
         RpcTest::basic(Web3ClientVersion::request(()).unwrap()),
+        RpcTest::basic(EthMaxPriorityFeePerGas::request(()).unwrap()),
+        RpcTest::identity(EthProtocolVersion::request(()).unwrap()),
     ]
 }
 
@@ -1250,6 +1273,7 @@ fn eth_tests_with_tipset(shared_tipset: &Tipset) -> Vec<RpcTest> {
             ))
             .unwrap(),
         ),
+        RpcTest::identity(EthGetTransactionHashByCid::request((block_cid,)).unwrap()),
     ]
 }
 
@@ -1267,16 +1291,14 @@ fn eth_state_tests_with_tipset<DB: Blockstore>(
         for smsg in sample_signed_messages(bls_messages.iter(), secp_messages.iter()) {
             let tx = new_eth_tx_from_signed_message(&smsg, &state, eth_chain_id)?;
             tests.push(RpcTest::identity(
-                EthGetMessageCidByTransactionHash::request((tx.hash,)).unwrap(),
+                EthGetMessageCidByTransactionHash::request((tx.hash,))?,
             ));
         }
     }
     tests.push(RpcTest::identity(
         EthGetMessageCidByTransactionHash::request((Hash::from_str(
             "0x37690cfec6c1bf4c3b9288c7a5d783e98731e90b0a4c177c2a374c7a9427355f",
-        )
-        .unwrap(),))
-        .unwrap(),
+        )?,))?,
     ));
 
     Ok(tests)
@@ -1342,12 +1364,12 @@ fn sample_message_cids<'a>(
     secp_messages: impl Iterator<Item = &'a SignedMessage> + 'a,
 ) -> impl Iterator<Item = Cid> + 'a {
     bls_messages
-        .filter_map(|m| m.cid().ok())
+        .map(|m| m.cid())
         .unique()
         .take(COLLECTION_SAMPLE_SIZE)
         .chain(
             secp_messages
-                .filter_map(|m| m.cid().ok())
+                .map(|m| m.cid())
                 .unique()
                 .take(COLLECTION_SAMPLE_SIZE),
         )

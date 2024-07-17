@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 pub use types::*;
 
 use crate::blocks::Tipset;
+use crate::chain::index::ResolveNullTipset;
 use crate::cid_collections::CidHashSet;
 use crate::eth::EthChainId;
 use crate::libp2p::NetworkMessage;
@@ -1202,6 +1203,39 @@ impl RpcMethod<2> for StateFetchRoot {
     }
 }
 
+pub enum StateCompute {}
+
+impl RpcMethod<1> for StateCompute {
+    const NAME: &'static str = "Forest.StateCompute";
+    const PARAM_NAMES: [&'static str; 1] = ["epoch"];
+    const API_PATHS: ApiPaths = ApiPaths::V0;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (ChainEpoch,);
+    type Ok = Cid;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (epoch,): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let tipset = ctx.chain_store.chain_index.tipset_by_height(
+            epoch,
+            ctx.chain_store.heaviest_tipset(),
+            ResolveNullTipset::TakeOlder,
+        )?;
+        let (state_root, _) = ctx
+            .state_manager
+            .compute_tipset_state(
+                tipset,
+                crate::state_manager::NO_CALLBACK,
+                crate::interpreter::VMTrace::NotTraced,
+            )
+            .await?;
+
+        Ok(state_root)
+    }
+}
+
 // Convenience function for locking and popping a value out of a vector. If this function is
 // inlined, the mutex guard isn't dropped early enough.
 fn lock_pop<T>(mutex: &Mutex<Vec<T>>) -> Option<T> {
@@ -2062,7 +2096,7 @@ impl RpcMethod<3> for StateListMessages {
 
             for msg in msgs {
                 if from_to.matches(msg.message()) {
-                    out.push(msg.cid()?);
+                    out.push(msg.cid());
                 }
             }
 
@@ -2341,6 +2375,31 @@ impl StateGetAllocationIdForPendingDeal {
     }
 }
 
+pub enum StateGetAllocationForPendingDeal {}
+
+impl RpcMethod<2> for StateGetAllocationForPendingDeal {
+    const NAME: &'static str = "Filecoin.StateGetAllocationForPendingDeal";
+    const PARAM_NAMES: [&'static str; 2] = ["deal_id", "tipset_key"];
+    const API_PATHS: ApiPaths = ApiPaths::V1;
+    const PERMISSION: Permission = Permission::Read;
+
+    type Params = (DealID, ApiTipsetKey);
+    type Ok = Option<Allocation>;
+
+    async fn handle(
+        ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
+        (deal_id, tsk): Self::Params,
+    ) -> Result<Self::Ok, ServerError> {
+        let allocation_id =
+            StateGetAllocationIdForPendingDeal::handle(ctx.clone(), (deal_id, tsk.clone())).await?;
+        if allocation_id == fil_actor_market_state::v14::NO_ALLOCATION_ID {
+            return Ok(None);
+        }
+        let deal = StateMarketStorageDeal::handle(ctx.clone(), (deal_id, tsk.clone())).await?;
+        StateGetAllocation::handle(ctx.clone(), (deal.proposal.client, allocation_id, tsk)).await
+    }
+}
+
 pub enum StateGetNetworkParams {}
 
 impl RpcMethod<0> for StateGetNetworkParams {
@@ -2447,8 +2506,7 @@ pub struct ForkUpgradeParams {
     upgrade_watermelon_height: ChainEpoch,
     upgrade_dragon_height: ChainEpoch,
     upgrade_phoenix_height: ChainEpoch,
-    // To be added in the next Lotus release
-    // upgrade_waffle_height: ChainEpoch,
+    upgrade_waffle_height: ChainEpoch,
 }
 
 impl TryFrom<&ChainConfig> for ForkUpgradeParams {
@@ -2492,7 +2550,7 @@ impl TryFrom<&ChainConfig> for ForkUpgradeParams {
             upgrade_watermelon_height: get_height(Watermelon)?,
             upgrade_dragon_height: get_height(Dragon)?,
             upgrade_phoenix_height: get_height(Phoenix)?,
-            // upgrade_waffle_height: get_height(Waffle)?,
+            upgrade_waffle_height: get_height(Waffle)?,
         })
     }
 }

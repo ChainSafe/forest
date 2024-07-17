@@ -389,11 +389,12 @@ where
             .iter()
             .enumerate()
             .filter_map(|(i, (smsg, timestamp))| {
-                if let Ok(tx) = eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
+                if let Ok((_, tx)) =
+                    eth_tx_from_signed_eth_message(smsg, self.chain_config.eth_chain_id)
                 {
                     if let Ok(hash) = tx.eth_hash() {
                         // newest messages are the ones with lowest index
-                        Some((hash, smsg.cid().unwrap(), *timestamp, i))
+                        Some((hash.into(), smsg.cid(), *timestamp, i))
                     } else {
                         None
                     }

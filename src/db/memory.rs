@@ -30,16 +30,23 @@ impl GarbageCollectable<CidHashSet> for MemoryDB {
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<u32> {
         let mut db = self.blockchain_db.write();
+        let mut deleted = 0;
         db.retain(|key, _| {
             let cid = Cid::try_from(key.as_slice());
             match cid {
-                Ok(cid) => !keys.contains(&cid),
+                Ok(cid) => {
+                    let retain = !keys.contains(&cid);
+                    if !retain {
+                        deleted += 1;
+                    }
+                    retain
+                }
                 _ => true,
             }
         });
-        Ok(())
+        Ok(deleted)
     }
 }
 

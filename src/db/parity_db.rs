@@ -358,7 +358,7 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
         Ok(set)
     }
 
-    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<()> {
+    fn remove_keys(&self, keys: CidHashSet) -> anyhow::Result<u32> {
         let mut iter = self.db.iter(DbColumn::GraphFull as u8)?;
         // It's easier to store cid's scheduled for removal directly as an `Op` to avoid costly
         // conversion with allocation.
@@ -382,7 +382,11 @@ impl GarbageCollectable<CidHashSet> for ParityDb {
                 true
             })?;
 
-        self.db.commit_changes(deref_vec).context("error remove")
+        let deleted: u32 = deref_vec.len().try_into()?;
+
+        self.db.commit_changes(deref_vec).context("error remove")?;
+
+        Ok(deleted)
     }
 }
 
