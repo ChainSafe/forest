@@ -208,7 +208,7 @@ pub trait GarbageCollectable<T> {
     /// # Arguments
     ///
     /// * `keys` - A set of keys to be removed from the database.
-    fn remove_keys(&self, keys: T) -> anyhow::Result<()>;
+    fn remove_keys(&self, keys: T) -> anyhow::Result<u32>;
 }
 
 pub mod db_engine {
