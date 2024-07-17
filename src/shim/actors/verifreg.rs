@@ -16,9 +16,17 @@ pub trait VerifiedRegistryStateExt {
         address: &Address,
     ) -> anyhow::Result<HashMap<AllocationID, Allocation>>;
 
+    fn get_all_allocations<BS: Blockstore>(
+        &self,
+        store: &BS,
+    ) -> anyhow::Result<HashMap<AllocationID, Allocation>>;
+
     fn get_claims<BS: Blockstore>(
         &self,
         store: &BS,
         provider_id_address: &Address,
     ) -> anyhow::Result<HashMap<ClaimID, Claim>>;
+
+    fn get_all_claims<BS: Blockstore>(&self, store: &BS)
+        -> anyhow::Result<HashMap<ClaimID, Claim>>;
 }

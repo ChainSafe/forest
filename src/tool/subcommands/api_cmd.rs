@@ -18,6 +18,7 @@ use crate::rpc::beacon::BeaconGetEntry;
 use crate::rpc::eth::types::{EthAddress, EthBytes};
 use crate::rpc::gas::GasEstimateGasLimit;
 use crate::rpc::miner::BlockTemplate;
+use crate::rpc::state::StateGetAllClaims;
 use crate::rpc::types::{ApiTipsetKey, MessageFilter, MessageLookup};
 use crate::rpc::{self, eth::*};
 use crate::rpc::{prelude::*, start_rpc, RPCState};
@@ -901,6 +902,8 @@ fn state_tests_with_tipset<DB: Blockstore>(
                 block.miner_address,
                 tipset.key().into(),
             ))?),
+            RpcTest::identity(StateGetAllClaims::request((tipset.key().into(),))?),
+            RpcTest::identity(StateGetAllAllocations::request((tipset.key().into(),))?),
             RpcTest::identity(StateSectorPreCommitInfo::request((
                 block.miner_address,
                 u16::MAX as _, // invalid sector number
