@@ -287,7 +287,6 @@ jobs:
       - build-ubuntu
     name: Calibnet eth mapping check
     runs-on: ubuntu-latest
-    if: false # Disabled due to spurious failures.
     steps:
       - run: lscpu
       - uses: actions/cache@v4
