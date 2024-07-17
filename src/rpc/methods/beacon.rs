@@ -23,7 +23,8 @@ impl RpcMethod<1> for BeaconGetEntry {
         ctx: Ctx<impl Blockstore>,
         (first,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let (_, beacon) = ctx.beacon.beacon_for_epoch(first)?;
+        let beacon_schedule = ctx.beacon();
+        let (_, beacon) = beacon_schedule.beacon_for_epoch(first)?;
         let rr =
             beacon.max_beacon_round_for_epoch(ctx.state_manager.get_network_version(first), first);
         let e = beacon.entry(rr).await?;

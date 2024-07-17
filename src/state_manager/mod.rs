@@ -295,6 +295,15 @@ where
         &self.cs
     }
 
+    pub fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
+        ChainRand::new(
+            self.chain_config.clone(),
+            tipset,
+            self.cs.chain_index.clone(),
+            self.beacon.clone(),
+        )
+    }
+
     /// Returns the internal, protocol-level network name.
     pub fn get_network_name(&self, st: &Cid) -> Result<String, Error> {
         let init_act = self
@@ -1406,15 +1415,6 @@ where
                 state.resolve_to_deterministic_addr(self.chain_store().blockstore(), address)
             }
         }
-    }
-
-    fn chain_rand(&self, tipset: Arc<Tipset>) -> ChainRand<DB> {
-        ChainRand::new(
-            self.chain_config.clone(),
-            tipset,
-            self.cs.chain_index.clone(),
-            self.beacon.clone(),
-        )
     }
 }
 

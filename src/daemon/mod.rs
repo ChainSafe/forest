@@ -384,15 +384,9 @@ pub(super) async fn start(
     if config.client.enable_rpc {
         let keystore_rpc = Arc::clone(&keystore);
         let rpc_state_manager = Arc::clone(&state_manager);
-        let rpc_chain_store = Arc::clone(&chain_store);
         let rpc_address = config.client.rpc_address;
 
         info!("JSON-RPC endpoint will listen at {rpc_address}");
-        let beacon = Arc::new(
-            rpc_state_manager
-                .chain_config()
-                .get_beacon_schedule(chain_store.genesis_block_header().timestamp),
-        );
 
         services.spawn(async move {
             start_rpc(
@@ -405,8 +399,6 @@ pub(super) async fn start(
                     network_send,
                     network_name,
                     start_time,
-                    beacon,
-                    chain_store: rpc_chain_store,
                     shutdown: shutdown_send,
                     tipset_send: tipset_sender,
                 },

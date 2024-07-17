@@ -232,7 +232,7 @@ impl RpcMethod<0> for NetVersion {
     type Ok = String;
 
     async fn handle(ctx: Ctx<impl Blockstore>, (): Self::Params) -> Result<Self::Ok, ServerError> {
-        Ok(ctx.state_manager.chain_config().eth_chain_id.to_string())
+        Ok(ctx.chain_config().eth_chain_id.to_string())
     }
 }
 

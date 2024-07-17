@@ -110,15 +110,14 @@ impl RpcMethod<1> for MinerCreateBlock {
         ctx: Ctx<impl Blockstore + Send + Sync + 'static>,
         (block_template,): Self::Params,
     ) -> Result<Self::Ok, ServerError> {
-        let store = ctx.state_manager.blockstore();
+        let store = ctx.store();
         let parent_tipset = ctx
-            .chain_store
-            .chain_index
+            .chain_index()
             .load_required_tipset(&block_template.parents)?;
 
         let lookback_state = ChainStore::get_lookback_tipset_for_round(
-            ctx.state_manager.chain_store().chain_index.clone(),
-            ctx.state_manager.chain_config().clone(),
+            ctx.chain_index().clone(),
+            ctx.chain_config().clone(),
             parent_tipset.clone(),
             block_template.epoch,
         )
@@ -153,17 +152,14 @@ impl RpcMethod<1> for MinerCreateBlock {
         for msg in block_template.messages {
             match msg.signature().signature_type() {
                 SignatureType::Bls => {
-                    let cid = ctx
-                        .chain_store
-                        .blockstore()
-                        .put_cbor_default(&msg.message)?;
+                    let cid = ctx.store().put_cbor_default(&msg.message)?;
                     bls_msg_cids.push(cid);
                     bls_sigs.push(msg.signature);
                     bls_messages.push(msg.message);
                 }
                 SignatureType::Secp256k1 | SignatureType::Delegated => {
                     if msg.signature.is_valid_secpk_sig_type(network_version) {
-                        let cid = ctx.chain_store.blockstore().put_cbor_default(&msg)?;
+                        let cid = ctx.store().put_cbor_default(&msg)?;
                         secpk_msg_cids.push(cid);
                         secpk_messages.push(msg);
                     } else {
@@ -176,7 +172,7 @@ impl RpcMethod<1> for MinerCreateBlock {
             }
         }
 
-        let store = ctx.chain_store.blockstore();
+        let store = ctx.store();
         let mut message_array = Amt::<Cid, _>::new(store);
         for (i, cid) in bls_msg_cids.iter().enumerate() {
             message_array.set(i as u64, *cid)?;
@@ -293,7 +289,7 @@ impl RpcMethod<3> for MinerGetBaseInfo {
 
         Ok(ctx
             .state_manager
-            .miner_get_base_info(ctx.state_manager.beacon_schedule(), ts, address, epoch)
+            .miner_get_base_info(ctx.beacon(), ts, address, epoch)
             .await?)
     }
 }

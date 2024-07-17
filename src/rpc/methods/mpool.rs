@@ -174,7 +174,7 @@ impl RpcMethod<2> for MpoolPushMessage {
         let from = umsg.from;
 
         let mut keystore = ctx.keystore.as_ref().write().await;
-        let heaviest_tipset = ctx.state_manager.chain_store().heaviest_tipset();
+        let heaviest_tipset = ctx.chain_store().heaviest_tipset();
         let key_addr = ctx
             .state_manager
             .resolve_to_key_addr(&from, &heaviest_tipset)
